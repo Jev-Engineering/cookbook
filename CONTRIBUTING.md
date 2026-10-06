@@ -14,7 +14,9 @@ Jev supplies a focused semantic judgment. Python does everything exact. A recipe
 recipes/NN-slug/
 ├── notebook.ipynb     the recipe, executed, outputs committed
 ├── README.md          one page: what it teaches, how to run it, what was and was not measured
-└── fixtures/          inputs, labels, and model responses used by the offline run
+├── fixtures/          inputs, labels, and model responses used by the offline run
+├── helpers.py         optional: logic too long to read comfortably in a cell (level 3 and up)
+└── tests/             optional: tests for helpers.py, required wherever helpers.py enforces a rule
 ```
 
 `NN-slug` is the `slug` of the recipe in [`catalog/recipes.json`](catalog/recipes.json). Do not rename it. Shared code belongs in `src/jev_cookbook/` and changes there go through their own issue and pull request, never inside a recipe pull request.
