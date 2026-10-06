@@ -81,8 +81,117 @@ RECORDED_TEXT = (
 LIVE_TEXT = (
     "Recipe 07: Triage tickets\n"
     "Mode: live\n"
-    "Calls are being made now to model system-one-test-model."
+    "Calls are being made now to model system-one-test-model. "
+    "Any numbers below describe only the examples in this run."
 )
+RECORDED_N_TEXT = RECORDED_TEXT.replace(
+    "only that recorded sample.", "only that recorded sample of 12 examples."
+)
+LIVE_N_TEXT = LIVE_TEXT.replace("only the examples", "only the 12 examples")
+
+
+def test_sample_size_is_appended_to_recorded_and_live_only():
+    recorded = style.run_header_text(
+        7,
+        "Triage tickets",
+        "recorded",
+        model="system-one-test-model",
+        recorded_on="2026-01-02",
+        n_examples=12,
+    )
+    live = style.run_header_text(
+        7, "Triage tickets", "live", model="system-one-test-model", n_examples=12
+    )
+    assert recorded == RECORDED_N_TEXT
+    assert live == LIVE_N_TEXT
+    via_info = style.RunInfo("live", "system-one-test-model", n_examples=12)
+    assert style.run_header_text(7, "Triage tickets", via_info) == LIVE_N_TEXT
+
+
+def test_synthetic_and_scripted_text_is_unchanged_and_refuses_a_sample_size():
+    for mode in ("synthetic", "scripted"):
+        with pytest.raises(ValueError):
+            style.run_header_text(1, "T", mode, n_examples=5)
+
+
+@pytest.mark.parametrize("bad", [0, -3, 2.5, True, "7"])
+def test_sample_size_must_be_a_positive_integer(bad):
+    with pytest.raises(ValueError):
+        style.RunInfo("live", "m", n_examples=bad)
+
+
+def test_live_header_carries_the_numbers_caveat():
+    text = style.run_header_text(1, "T", "live", model="m")
+    assert "Any numbers below describe only the examples in this run." in text
+
+
+# --- Score level order (levels sort by integer value, as in the evaluation toolkit) ----------
+
+OUT_OF_ORDER = FakeScore(
+    1.43,
+    {"2": 0.43, "0": 0.0, "1": 0.57},
+    0.35,
+    {"2": "c", "0": "a", "1": "b"},
+)
+
+
+def test_score_text_lists_levels_in_level_order_whatever_the_key_order():
+    lines = style.format_answer(OUT_OF_ORDER).splitlines()
+    assert [ln.split()[0] for ln in lines[1:4]] == ["0", "1", "2"]
+
+
+def test_score_chart_orders_bars_and_places_the_score_line_by_level():
+    fig = style.plot_answer_probabilities(OUT_OF_ORDER)
+    ax = fig.axes[0]
+    assert [t.get_text() for t in ax.get_yticklabels()] == ["0 a", "1 b", "2 c"]
+    line = [ln for ln in ax.lines if ln.get_label() == "score"][0]
+    assert line.get_ydata()[0] == pytest.approx(1.43)
+
+
+def test_score_levels_sort_numerically_past_ten_and_accept_int_keys():
+    probs = {str(i): 0.0 for i in range(12)}
+    probs["11"] = 1.0
+    shuffled = dict(sorted(probs.items()))  # "0", "1", "10", "11", "2", ...
+    ans = FakeScore(11.0, shuffled, 0.9, {k: f"L{k}" for k in shuffled})
+    fig = style.plot_answer_probabilities(ans)
+    ax = fig.axes[0]
+    assert [t.get_text() for t in ax.get_yticklabels()] == [f"{i} L{i}" for i in range(12)]
+    assert [ln for ln in ax.lines if ln.get_label() == "score"][0].get_ydata()[0] == 11.0
+    as_ints = FakeScore(1.0, {2: 0.1, 0: 0.2, 1: 0.7}, 0.7, {})
+    assert [ln.split()[0] for ln in style.format_answer(as_ints).splitlines()[1:4]] == [
+        "0",
+        "1",
+        "2",
+    ]
+
+
+# --- confusion-matrix text contrast ----------------------------------------------------------
+
+
+def _contrast_ratio(bg_hex_or_rgb, fg_hex):
+    lb = style._luminance(matplotlib.colors.to_rgb(bg_hex_or_rgb))
+    lf = style._luminance(matplotlib.colors.to_rgb(fg_hex))
+    hi, lo = max(lb, lf), min(lb, lf)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def test_cell_text_has_at_least_4_to_1_contrast_across_the_whole_ramp():
+    for v in np.linspace(0, 1, 201):
+        bg = style.SEQUENTIAL_CMAP(v)[:3]
+        colour = style._text_colour(bg)
+        assert _contrast_ratio(bg, colour) >= 4.0, f"low contrast at ramp value {v:.3f}"
+
+
+def test_confusion_matrix_cells_use_the_higher_contrast_text_colour():
+    fig = style.plot_confusion_matrix([[100, 37], [0, 63]], ["a", "b"])
+    ax = fig.axes[0]
+    for text in ax.texts:
+        i, j = int(text.get_position()[1]), int(text.get_position()[0])
+        value = [[100, 37], [0, 63]][i][j]
+        bg = style.SEQUENTIAL_CMAP(value / 100)[:3]
+        got = matplotlib.colors.to_hex(text.get_color()).upper()
+        other = style.PAPER if got == style.INK else style.INK
+        assert _contrast_ratio(bg, got) >= _contrast_ratio(bg, other)
 
 
 def test_header_synthetic_text_is_pinned():

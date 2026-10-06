@@ -20,9 +20,14 @@ themselves, so they look right even if `apply_style()` was not called.
 
 `run_header(recipe, title, mode, *, model=None, recorded_on=None)` prints three lines and
 returns the same text. `mode` is `"synthetic"`, `"scripted"`, `"recorded"`, `"live"`, or a
-`RunInfo(mode, model, recorded_on)`. Recorded needs `model` and `recorded_on`, live needs
+`RunInfo(mode, model, recorded_on, n_examples)`. Recorded needs `model` and `recorded_on`, live needs
 `model`; a synthetic or scripted run refuses a model, because nothing a model produced is
 in it. Wrong combinations raise `ValueError` rather than printing a vague header.
+
+`n_examples` is an optional sample size for recorded and live runs: recorded then ends
+`...describe only that recorded sample of 12 examples.` and live ends `...describe only the
+12 examples in this run.` A synthetic or scripted header refuses it, and its text does not
+change.
 
 Synthetic (offline replay of `synthetic` fixtures):
 
@@ -47,7 +52,7 @@ Live:
 ```text
 Recipe 07: Triage tickets
 Mode: live
-Calls are being made now to model MODEL.
+Calls are being made now to model MODEL. Any numbers below describe only the examples in this run.
 ```
 
 The header never states or implies quality, latency, or cost, in any mode. Tests pin the
@@ -58,7 +63,8 @@ scripted runs and in no other.
 
 `show_answer(answer)` prints, and `format_answer(answer)` returns, a readable view. Answers
 are read by duck typing: a Choice has `choice`, `probabilities`, `confidence`; a Score has
-`score`, `probabilities`, `confidence`, `legend`; a Noul has `noul` only (the probability
+`score`, `probabilities`, `confidence`, `legend` (levels are sorted by integer value, so
+`"2"` comes before `"10"`, and the score line is placed by level value); a Noul has `noul` only (the probability
 of yes, with no separate confidence); every answer has a `provenance`.
 
 ```text
@@ -97,7 +103,8 @@ chart to PNG and checks that no pixel is transparent and the corner pixel is pap
   one hue for protanopia. Magenta `#E551BA` is kept for highlights (the score line, the
   chosen threshold) and is not in the cycle. Lines also differ by marker shape.
 - Sequential ramp (confusion matrix): `#FBE3EA`, pink, `#B0287A`, ink, with lightness
-  falling at every stop.
+  falling at every stop. Cell numbers use ink or paper, whichever has the higher contrast against that cell;
+  a test sweeps the whole ramp and requires at least 4:1.
 - Check actually run (`tests/test_style.py`): the four categorical colours were converted to
   deuteranopia and protanopia with the Machado, Oliveira and Fernandes (2009) matrices
   (severity 1.0, in linear RGB), and every pair was compared by CIELAB distance (dE76). The

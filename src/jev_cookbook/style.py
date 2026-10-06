@@ -33,7 +33,7 @@ import matplotlib as mpl
 import numpy as np
 from cycler import cycler
 from matplotlib.axes import Axes
-from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.colors import LinearSegmentedColormap, to_rgb
 from matplotlib.figure import Figure
 
 __all__ = [
@@ -175,16 +175,26 @@ class RunInfo:
     ``mode`` is one of ``synthetic`` (offline replay of synthetic fixtures), ``scripted``
     (offline scripted backend), ``recorded`` (offline replay of recorded fixtures; needs
     ``model`` and ``recorded_on``) or ``live`` (calls made now; needs ``model``).
+    ``n_examples`` is an optional sample size, stated in the recorded and live headers.
     """
 
     mode: str
     model: str | None = None
     recorded_on: str | None = None
+    n_examples: int | None = None
 
     def __post_init__(self) -> None:
         if self.mode not in _MODES:
             raise ValueError(f"unknown run mode {self.mode!r}; expected one of {list(_MODES)}")
+        if self.n_examples is not None and (
+            isinstance(self.n_examples, bool)
+            or not isinstance(self.n_examples, int)
+            or self.n_examples < 1
+        ):
+            raise ValueError("n_examples must be a positive integer")
         if self.mode in ("synthetic", "scripted"):
+            if self.n_examples is not None:
+                raise ValueError(f"a {self.mode} header does not state a sample size")
             if self.model or self.recorded_on:
                 raise ValueError(
                     f"a {self.mode} run was not produced by a model: "
@@ -207,16 +217,19 @@ def run_header_text(
     *,
     model: str | None = None,
     recorded_on: str | None = None,
+    n_examples: int | None = None,
 ) -> str:
     """The header text :func:`run_header` prints (three lines, plain text)."""
     if isinstance(mode, RunInfo):
-        if model or recorded_on:
-            raise ValueError("pass model and recorded_on inside the RunInfo, not beside it")
+        if model or recorded_on or n_examples is not None:
+            raise ValueError("pass model, recorded_on and n_examples inside the RunInfo")
         info = mode
     else:
-        info = RunInfo(mode, model, recorded_on)
+        info = RunInfo(mode, model, recorded_on, n_examples)
     number = f"{recipe:02d}" if isinstance(recipe, int) else str(recipe)
     first = f"Recipe {number}: {title}"
+    sample = f" of {info.n_examples} examples" if info.n_examples is not None else ""
+    counted = f"{info.n_examples} " if info.n_examples is not None else ""
     if info.mode == "synthetic":
         second = "Mode: offline replay of synthetic fixtures"
         third = SYNTHETIC_NOTICE
@@ -227,11 +240,15 @@ def run_header_text(
         second = "Mode: offline replay of recorded fixtures"
         third = (
             f"The answers were captured from a real Jev call to model {info.model} "
-            f"on {info.recorded_on}. Any numbers below describe only that recorded sample."
+            f"on {info.recorded_on}. Any numbers below describe only that recorded sample"
+            f"{sample}."
         )
     else:
         second = "Mode: live"
-        third = f"Calls are being made now to model {info.model}."
+        third = (
+            f"Calls are being made now to model {info.model}. "
+            f"Any numbers below describe only the {counted}examples in this run."
+        )
     return "\n".join((first, second, third))
 
 
@@ -242,14 +259,17 @@ def run_header(
     *,
     model: str | None = None,
     recorded_on: str | None = None,
+    n_examples: int | None = None,
 ) -> str:
     """Print the recipe number, title, run mode and what that mode means. Returns the text.
 
     ``mode`` is ``"synthetic"``, ``"scripted"``, ``"recorded"`` or ``"live"``, or a
     :class:`RunInfo`. Recorded runs need ``model`` and ``recorded_on``; live runs need
-    ``model``. The text never states or implies quality, latency or cost.
+    ``model``. ``n_examples`` adds the sample size to those two. The text never states or implies quality, latency or cost.
     """
-    text = run_header_text(recipe, title, mode, model=model, recorded_on=recorded_on)
+    text = run_header_text(
+        recipe, title, mode, model=model, recorded_on=recorded_on, n_examples=n_examples
+    )
     print(text)
     return text
 
@@ -282,6 +302,22 @@ def _kind(answer: Any) -> str:
     )
 
 
+def _level_value(key: Any) -> int | None:
+    try:
+        return int(key)
+    except (TypeError, ValueError):
+        return None
+
+
+def _ordered_levels(probabilities: Mapping[Any, Any]) -> list[Any]:
+    """Level keys sorted by integer value (``2`` before ``10``); as given if any is not one."""
+    keys = list(probabilities)
+    values = [_level_value(k) for k in keys]
+    if any(v is None for v in values):
+        return keys
+    return [k for _, k in sorted(zip(values, keys, strict=True), key=lambda vk: vk[0])]
+
+
 def _level_label(answer: Any, level: Any) -> str:
     legend = dict(getattr(answer, "legend", None) or {})
     name = legend.get(level, legend.get(str(level), ""))
@@ -301,7 +337,9 @@ def format_answer(answer: Any) -> str:
     elif kind == "score":
         score, conf = float(answer.score), float(answer.confidence)
         lines.append(f"Score: {score:.2f} (confidence {conf:.2f})")
-        for level, p in dict(answer.probabilities).items():
+        probs = dict(answer.probabilities)
+        for level in _ordered_levels(probs):
+            p = probs[level]
             lines.append(f"  {_level_label(answer, level)}  {float(p):.2f}  {_bar(p)}")
     else:
         lines.append(f"Noul: {float(answer.noul):.2f} probability of yes (0 is no, 1 is yes)")
@@ -336,6 +374,19 @@ def _luminance(rgb: Sequence[float]) -> float:
 
     r, g, b = (lin(float(c)) for c in rgb)
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def _contrast(lum_a: float, lum_b: float) -> float:
+    hi, lo = max(lum_a, lum_b), min(lum_a, lum_b)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def _text_colour(background: Sequence[float]) -> str:
+    """Ink or paper, whichever has the higher WCAG contrast against ``background``."""
+    lum = _luminance(background)
+    ink = _contrast(lum, _luminance(to_rgb(INK)))
+    paper = _contrast(lum, _luminance(to_rgb(PAPER)))
+    return INK if ink >= paper else PAPER
 
 
 def plot_confusion_matrix(
@@ -374,9 +425,9 @@ def plot_confusion_matrix(
         for i in range(n):
             for j in range(n):
                 value = shown[i, j]
-                light = _luminance(SEQUENTIAL_CMAP(value / vmax)[:3]) > 0.35
+                colour = _text_colour(SEQUENTIAL_CMAP(value / vmax)[:3])
                 text = f"{value:.2f}" if normalize else f"{round(value)}"
-                ax.text(j, i, text, ha="center", va="center", color=INK if light else PAPER)
+                ax.text(j, i, text, ha="center", va="center", color=colour)
         for spine in ax.spines.values():
             spine.set_visible(True)
         if title:
@@ -398,6 +449,7 @@ def plot_answer_probabilities(
     bar), or a plain mapping from option to probability (pass ``highlight`` to mark one).
     """
     score: float | None = None
+    score_pos: float | None = None
     chosen = highlight
     default_title: str | None = None
     if isinstance(answer, Mapping):
@@ -409,11 +461,14 @@ def plot_answer_probabilities(
             chosen = str(answer.choice) if highlight is None else highlight
             default_title = f"{answer.choice} (confidence {float(answer.confidence):.2f})"
         elif kind == "score":
-            probs = {
-                _shorten(_level_label(answer, level)): float(p)
-                for level, p in answer.probabilities.items()
-            }
+            raw = dict(answer.probabilities)
+            order = _ordered_levels(raw)
+            probs = {_shorten(_level_label(answer, level)): float(raw[level]) for level in order}
+            values = [_level_value(level) for level in order]
             score = float(answer.score)
+            if all(v is not None for v in values):
+                # Map the score from level units to bar positions (levels need not be 0..k-1).
+                score_pos = float(np.interp(score, values, range(len(values))))
             default_title = f"Score {score:.2f} (confidence {float(answer.confidence):.2f})"
         else:
             p_yes = float(answer.noul)
@@ -435,9 +490,9 @@ def plot_answer_probabilities(
         ax.grid(axis="y", visible=False)
         for y, v in zip(ypos, values, strict=True):
             ax.text(min(v, 1.0) + 0.015, y, f"{v:.2f}", va="center", color=INK)
-        if score is not None:
-            # Score 0 is the first level, drawn at y=0; the y axis is inverted.
-            ax.axhline(score, color=MAGENTA, linestyle="--", linewidth=2.0, label="score")
+        if score_pos is not None:
+            # Bars sit at 0..k-1 in level order and the y axis is inverted.
+            ax.axhline(score_pos, color=MAGENTA, linestyle="--", linewidth=2.0, label="score")
             ax.legend(loc="lower right")
         heading = title if title is not None else default_title
         if heading:
