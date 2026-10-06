@@ -54,13 +54,14 @@ The `state` passed to `decide` and `replay_key` is a string, a JSON object (`dic
 Every answer also has `provenance: Provenance` (`source`, `model`, `date`). Score level keys are
 `int` in memory (as in `typesafe_sdk`) and JSON strings (`"0"`, `"1"`, ...) in `to_dict()`; level
 keys must be canonical decimal integers (`"00"` is rejected, and so is a duplicate level after
-conversion). Answers are immutable: mappings are read-only views. A legend value that is a JSON
+conversion). Answers are immutable: mappings are read-only views. A legend value follows the same rule as a `Score` question level: non-empty text, a non-empty JSON
+object or a non-empty JSON array (a tuple is held as a list). A legend value that is a JSON
 object or array stays an ordinary `dict`/`list` inside the result, so replay builds a fresh result
 from a private copy on every call: whatever you change in a returned result never reaches a later
 replay. `to_dict()` also returns a fresh copy you may edit.
 
 Construction is validated: probabilities sum to 1 (the error message says what they summed
-to); `choice` is the highest-probability option (a gap under 1e-3 counts as a tie); `confidence`
+to); `choice` is the highest-probability option (a gap under 1e-3 counts as a tie, see Tolerances); `confidence`
 equals the published formulas (Choice
 `(p_max - 1/n) / (1 - 1/n)`, one option gives 1; Score `1 - spread / even_spread`, where `spread`
 is the probability-weighted distance from the most likely level and `even_spread` is the same
@@ -74,22 +75,49 @@ ScoreAnswer.from_probabilities([0.0, 0.2, 0.8], ["can wait", "this week", "today
 
 ### Tolerances
 
-| Check | Tolerance |
-| - | - |
-| probabilities sum to 1 | `SUM_TOL = 2e-2` |
-| Score `score` equals the probability-weighted level | `LEVEL_TOL = 5e-2` |
-| `confidence` equals the published formula (Choice and Score) | `CONFIDENCE_TOL = 1e-2` |
+Every consistency check allows the gap that rounding can cause. The premise: each reported
+number (each probability, `score`, `confidence`) is within 0.005 of its true value, which is what
+rounding to two decimals does. Each bound below is the largest gap the formula can show under that
+premise, plus a float margin of 1e-9 so no case is decided by float noise. `n` is the number of
+options or levels.
 
-These values are provisional. They exist to accept responses rounded to two decimal places, as
-the examples in the TypeSafe docs are (`primitives/choice`, `primitives/score`, `confidence`; the
-`sdk/python/usage` page shows no Choice or Score response). Measured against the formulas on this
-page, the documented examples have probabilities that sum to 1 exactly, a Score `score` within
-3e-16 of the weighted level, and a `confidence` off by up to 0.0067 (the Score `formality`
-example prints 0.89 where the formula gives 0.883). Every documented example still loads, and the
-hand-typed inconsistencies the tests use (off by 0.1 or more) are still rejected. The tests pin
-both sides of each value. Issue #64 verifies these values against the first real recording and
-tightens or widens them in its own reviewed pull request. A tolerance changes no replay key and no
-stored format.
+| Check | Bound | Derivation |
+| - | - | - |
+| probabilities sum to 1 | `0.005 * n` | each of n probabilities is off by up to 0.005 |
+| Score `score` equals `sum(i * p_i)` | `0.005 * n(n-1)/2 + 0.005` | each `p_i` moves the sum by up to `0.005 * i`; `score` itself is off by 0.005 |
+| Choice `confidence` equals `(p_max - 1/n) / (1 - 1/n)` | `0.005 / (1 - 1/n) + 0.005` | the largest probability is off by up to 0.005 (rounding keeps order), the formula scales that by `1 / (1 - 1/n)`, and `confidence` is off by 0.005; one option gives 1 whatever `p` is, so the bound is 0.005 |
+| Score `confidence` equals `1 - spread / even` | `0.005 * sum(abs(i - peak)) / even + 0.005` | see below |
+
+Score confidence. On `https://docs.typesafe.ai/confidence.md` the formula is
+`1 - spread / even` with `spread = sum(p_i * abs(i - peak))` and `even = mean(abs(i - (n-1)/2))`,
+the same quantity for a uniform distribution, clamped to 0 to 1. For a fixed peak, each `p_i`
+off by 0.005 moves the spread by up to `0.005 * sum(abs(i - peak))`, so the quotient moves by up to
+that divided by `even`; `confidence` itself is off by 0.005; the clamp never widens a gap. The
+peak is not continuous in the probabilities, so a stored answer is accepted when its confidence is
+within the bound of the formula at any level whose reported probability is within `2 * 0.005` of
+the largest (the true peak cannot be further below it). For two levels the bound is 0.015 and for
+ten levels it is at most 0.095. When levels tie exactly, `score_confidence` and
+`from_probabilities` take the first maximum as the peak (`[0.4, 0.4, 0.2]` gives 0.0, the last
+maximum would give 0.1).
+
+The sum bound grows with `n` (1.275 for 255 options), so for a very long Choice it only rejects
+sums far from 1; that is what the premise allows.
+
+The argmax rule is separate: `choice` must be the highest-probability option, with a slack of
+`TOL = 1e-3`. Rounding is monotone, so it cannot put the stated option below another one; it can
+only tie them (a true 0.5049 against 0.4951 both print 0.50). A stated choice within 1e-3 of the
+top loads, one clearly below it (0.0011 or more) is rejected.
+
+Examples printed to two decimals still load: every documented example on the Choice, Score and
+confidence pages loads (their `confidence` is off by up to 0.0067; the Score `formality` example
+prints 0.89 where the formula gives 0.883), and so does a true p = 0.5849 reported as
+`{a: .58, b: .42}` with confidence `.17`. A seeded simulation test builds exact answers for
+Choice with 2, 3, 5, 20 and 255 options and Score with 2, 5 and 10 levels, rounds every number to
+two decimals, and requires every one to load. Hand-typed inconsistencies of 0.1 (wrong top option,
+sum, score, or confidence beyond its bound) are rejected, and the tests pin each bound on both
+sides. Issue #64 confirms on the first real recording whether the API rounds at all and, if it
+does not, tightens these bounds in its own reviewed pull request. A bound changes no replay key
+and no stored format.
 
 `DecisionResult(answers, model, usage)` has `answers` (a read-only mapping of answer objects),
 `model`, `usage`, `source` (`"synthetic"` or `"recorded"`), `result[name]`, and the groupings
