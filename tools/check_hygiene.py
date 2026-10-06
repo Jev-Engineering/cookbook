@@ -22,12 +22,19 @@ What it covers (see docs/development.md for the prose version):
 What it does not cover: the TypeSafe documentation shows no fixed key prefix, so a TypeSafe
 key is caught only by the generic rules (header, bearer, assignment, entropy), not by a
 prefix. Short or low-entropy secrets, secrets split across lines or encoded, image and PDF
-output payloads (base64 data is deliberately not scanned), binary files, and git history are
-out of scope. Findings never print the matched value in full.
+output payloads (base64 data is deliberately not scanned), and git history are out of scope.
+No hex token of any length is caught by the entropy rule (hex cannot reach the threshold); a
+hex-format key is caught only by the header, bearer and assignment rules. ANSI colour codes
+are stripped before scanning. UTF-8 and UTF-16/32 text is decoded; a notebook of any size is
+parsed, nbformat 3 and 4 are understood, and anything else that cannot be scanned (unknown
+notebook layout, undecodable or oversized non-image file) is reported as a finding rather than
+skipped. Known image, font and archive suffixes are skipped quietly. Findings never print the
+matched value in full.
 """
 
 from __future__ import annotations
 
+import codecs
 import json
 import math
 import re
@@ -37,7 +44,16 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
-MAX_FILE_BYTES = 2_000_000
+# Non-notebook text files above this size are reported, not skipped. Notebooks have no limit:
+# their binary payloads are skipped by key, so what is left is small.
+MAX_FILE_BYTES = 20_000_000
+
+# Binary formats that are expected in a repository and are skipped quietly. Any other file
+# that cannot be decoded as text is reported as unscanned-file.
+_BINARY_SUFFIXES = {
+    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".pdf", ".woff", ".woff2", ".ttf",
+    ".otf", ".zip", ".gz", ".npz", ".npy", ".pyc",
+}  # fmt: skip
 
 # Output mime types whose payload is binary or base64; never scanned.
 _BINARY_MIME_PREFIXES = ("image/", "audio/", "video/")
@@ -120,9 +136,15 @@ _ASSIGNMENT = re.compile(
         ["']?\]?\s*[:=]\s*["']?(?P<v>[A-Za-z0-9_\-./+=]{16,})""",
     re.IGNORECASE | re.VERBOSE,
 )
-_TOKEN = re.compile(r"[A-Za-z0-9_+/=-]{32,}")
-_HEX_ONLY = re.compile(r"[0-9a-fA-F]+")
+# "/" is deliberately not a token character: URLs and file paths are scored per segment, so a
+# commit permalink or fixtures/replay/<hash>.json is not one long "random" token.
+# Hexadecimal strings (git SHAs, content hashes) never reach the entropy threshold, since
+# 16 symbols give at most 4.0 bits per character; that is why they are not flagged. It also
+# means a hex-format key is NOT caught by this rule, only by the header, bearer and
+# assignment rules.
+_TOKEN = re.compile(r"[A-Za-z0-9_+=-]{32,}")
 _DATA_URI = re.compile(r"data:[\w./+-]+;base64,[A-Za-z0-9+/=]+")
+_ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 _ENTROPY_THRESHOLD = 4.2
 
 
@@ -145,11 +167,7 @@ def _scan_secrets_line(line: str) -> Iterator[tuple[str, str]]:
             yield "secret-assignment", _mask(v)
     for m in _TOKEN.finditer(line):
         t = m.group(0)
-        if (
-            _letters_and_digits(t)
-            and not _HEX_ONLY.fullmatch(t)  # git SHAs and content hashes
-            and _entropy(t) >= _ENTROPY_THRESHOLD
-        ):
+        if _letters_and_digits(t) and _entropy(t) >= _ENTROPY_THRESHOLD:
             yield "high-entropy-token", _mask(t)
 
 
@@ -161,8 +179,10 @@ _PATH_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         re.compile(r"\b[A-Za-z]:[\\/]+(?:Users|Documents and Settings)[\\/]+[^\\/\s]+", re.I),
     ),
     ("windows-absolute-path", re.compile(r"\b[A-Za-z]:\\+[A-Za-z0-9_$.]")),
-    ("linux-home-path", re.compile(r"(?<![\w.])/home/[^/\s<>]+/")),
-    ("macos-home-path", re.compile(r"(?<![\w.])/Users/[^/\s<>]+/")),
+    # A home directory with or without a trailing slash: PosixPath('/home/tim') too.
+    ("linux-home-path", re.compile(r"(?<![\w.])/home/[^/\s<>'\"`)\\]+")),
+    ("macos-home-path", re.compile(r"(?<![\w.])/Users/[^/\s<>'\"`)\\]+")),
+    ("wsl-unc-path", re.compile(r"[\\/]{2}wsl(?:\.localhost|\$)[\\/]", re.I)),
     ("wsl-windows-path", re.compile(r"(?<![\w.])/mnt/[a-z]/")),
     ("root-home-path", re.compile(r"(?<![\w.])/root/")),
 )
@@ -216,6 +236,7 @@ def _scan_environment_text(text: str) -> Iterator[tuple[str, str]]:
 def scan_text(text: str, *, environment: bool = False) -> list[tuple[int, str, str]]:
     """Return (line number, rule, masked snippet) for secrets, plus leaks if asked."""
     hits: list[tuple[int, str, str]] = []
+    text = _ANSI.sub("", text)  # IPython colours traceback paths; escapes defeat \b and lookbehinds
     for number, line in enumerate(text.splitlines(), start=1):
         hits.extend((number, rule, snip) for rule, snip in _scan_secrets_line(line))
     if environment:
@@ -245,7 +266,7 @@ def _walk_strings(node: object, label: str) -> Iterator[tuple[str, str]]:
                 key.startswith(_BINARY_MIME_PREFIXES) or key in _BINARY_MIMES
             ):
                 continue
-            if key == "attachments":
+            if key in ("attachments", "png", "jpeg", "pdf"):  # attachments; nbformat 3 images
                 continue
             yield from _walk_strings(v, f"{label}.{key}")
 
@@ -264,18 +285,55 @@ def scan_notebook_data(nb: dict) -> list[tuple[str, str, str]]:
             continue
         for label, text in _walk_strings(value, key):
             add(label, text, environment=True)
-    for index, cell in enumerate(nb.get("cells", [])):
+    # nbformat 4 keeps cells at the top level; nbformat 3 keeps them in worksheets and
+    # calls the source "input".
+    cells: list = []
+    if isinstance(nb.get("cells"), list):
+        cells = nb["cells"]
+    elif isinstance(nb.get("worksheets"), list):
+        for sheet in nb["worksheets"]:
+            if isinstance(sheet, dict) and isinstance(sheet.get("cells"), list):
+                cells.extend(sheet["cells"])
+    else:
+        results.append(("notebook", "unrecognized-notebook-layout", "no cells or worksheets"))
+    for index, cell in enumerate(cells):
         if not isinstance(cell, dict):
             continue
         base = f"cell {index} ({cell.get('cell_type', '?')})"
-        add(f"{base} source", _as_text(cell.get("source", "")), environment=False)
+        source = cell.get("source", cell.get("input", ""))
+        add(f"{base} source", _as_text(source), environment=False)
         for key, value in cell.items():
-            if key in ("source", "cell_type", "id", "execution_count"):
+            if key in ("source", "input", "cell_type", "id", "execution_count", "prompt_number"):
                 continue
             where = "outputs" if key == "outputs" else key
             for label, text in _walk_strings(value, f"{base} {where}"):
                 add(label, text, environment=True)
     return results
+
+
+def _decode(raw: bytes) -> str | None:
+    """Decode UTF-8 or UTF-16/32 (BOM, or the NUL pattern of ASCII text); None if binary."""
+    for bom, codec in (
+        (codecs.BOM_UTF32_LE, "utf-32"),
+        (codecs.BOM_UTF32_BE, "utf-32"),
+        (codecs.BOM_UTF16_LE, "utf-16"),
+        (codecs.BOM_UTF16_BE, "utf-16"),
+    ):
+        if raw.startswith(bom):
+            try:
+                return raw.decode(codec)
+            except UnicodeDecodeError:
+                return None
+    if b"\0" not in raw:
+        return raw.decode("utf-8-sig", errors="replace")
+    sample = raw[:4096]
+    for codec, nul_slice in (("utf-16-le", sample[1::2]), ("utf-16-be", sample[0::2])):
+        if nul_slice and nul_slice.count(0) > 0.9 * len(nul_slice):
+            try:
+                return raw.decode(codec)
+            except UnicodeDecodeError:
+                return None
+    return None
 
 
 def scan_file(path: Path, display: str | None = None) -> list[Finding]:
@@ -285,14 +343,16 @@ def scan_file(path: Path, display: str | None = None) -> list[Finding]:
     if base == ".env" or (base.startswith(".env.") and base != ".env.example"):
         findings.append(Finding(name, "file", "env-file", "tracked .env file"))
     try:
-        if path.stat().st_size > MAX_FILE_BYTES:
-            return findings
+        if path.stat().st_size > MAX_FILE_BYTES and path.suffix != ".ipynb":
+            return [*findings, Finding(name, "file", "unscanned-file", "larger than the limit")]
         raw = path.read_bytes()
     except OSError as exc:
         return [*findings, Finding(name, "file", "unreadable", str(exc))]
-    if b"\0" in raw:
-        return findings
-    text = raw.decode("utf-8", errors="replace")
+    text = _decode(raw)
+    if text is None:
+        if path.suffix.lower() in _BINARY_SUFFIXES:
+            return findings
+        return [*findings, Finding(name, "file", "unscanned-file", "binary or undecodable")]
     if path.suffix == ".ipynb":
         try:
             nb = json.loads(text)

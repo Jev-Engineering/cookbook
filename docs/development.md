@@ -74,8 +74,13 @@ cell and output location, the rule, and a masked snippet, never the whole value.
 
 It does not cover: a TypeSafe key by prefix (the documentation shows no fixed prefix, so
 only the generic rules apply), short or low-entropy secrets, encoded or line-split secrets,
-image and PDF output payloads, binary files, or git history. Hexadecimal strings (git SHAs,
-content hashes) and `data:` URIs are not treated as entropy findings. If a real credential
+image and PDF output payloads, or git history. No hex token of any length is caught by
+the entropy rule (hex cannot reach its threshold), so a hex-format key is caught only by the
+header, bearer and assignment rules. Notebooks of any size are parsed, ANSI colour codes in
+tracebacks are stripped, UTF-16 files are decoded, and a file that cannot be scanned (an
+unknown notebook layout, an undecodable or oversized non-image file) is reported as an
+`unscanned-file` or `unrecognized-notebook-layout` finding, never skipped silently. Git SHAs, content hashes, URL and
+file-path segments, and `data:` URIs are not treated as entropy findings. If a real credential
 is ever committed, revoke it; removing it from the branch is not enough.
 
 The fixture validator (#65) checks fixtures separately; this scan also reads fixture files
@@ -84,19 +89,21 @@ as plain text, so a key-like string in a fixture fails here too.
 ### Optional pre-commit
 
 `.pre-commit-config.yaml` mirrors the CI checks (`ruff check`, `ruff format --check`, the
-hygiene script, the catalog check). It is optional:
+hygiene script, the catalog check). `pytest` runs only at push time, so commits stay fast.
+It is optional:
 
 ```bash
 pip install pre-commit      # in the same virtual environment as pip install -e ".[dev]"
-pre-commit install          # run the checks on every commit
-pre-commit run --all-files  # or run them once, now
+pre-commit install --hook-type pre-commit --hook-type pre-push
+pre-commit run --all-files  # run the commit checks once, now
+pre-commit run --all-files --hook-stage pre-push   # include pytest
 ```
 
 The hooks are local (`language: system`) and use the tools from your virtual environment,
 so the pinned ruff version is the one CI uses.
 
-Dependabot (`.github/dependabot.yml`) opens at most three pull requests per week for each
-of Python dependencies and GitHub Actions.
+Dependabot (`.github/dependabot.yml`) checks Python dependencies and GitHub Actions weekly,
+with at most three of its update pull requests open at once for each.
 
 ## Dependency policy
 

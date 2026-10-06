@@ -1,5 +1,6 @@
 # Optional. Mirrors the CI checks (.github/workflows/ci.yml and hygiene.yml). Install with
-#   pip install pre-commit && pre-commit install
+#   pip install pre-commit && pre-commit install --hook-type pre-commit --hook-type pre-push
+# Commit-time hooks run the lint, format, hygiene and catalog checks; pytest runs at push.
 # All hooks run the tools from your virtual environment (pip install -e ".[dev]"), so the
 # pinned ruff version is the one CI uses and no third-party hook repository is trusted.
 repos:
@@ -27,3 +28,10 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: pytest
+        name: pytest (push time)
+        entry: pytest
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]

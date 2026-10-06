@@ -250,12 +250,6 @@ def test_invalid_notebook_json_is_reported(tmp_path):
     assert rules(hygiene.scan_file(path)) == {"invalid-notebook-json"}
 
 
-def test_binary_files_are_skipped(tmp_path):
-    path = tmp_path / "blob.bin"
-    path.write_bytes(b"\0" + KEY.encode())
-    assert hygiene.scan_file(path) == []
-
-
 def _run(*args: str):
     return subprocess.run(
         [sys.executable, "-I", str(SCRIPT), *args], capture_output=True, text=True, check=False
@@ -282,3 +276,182 @@ def test_cli_exits_zero_for_a_clean_notebook(tmp_path):
 def test_the_repository_itself_is_clean():
     proc = _run()
     assert proc.returncode == 0, proc.stdout + proc.stderr
+
+
+# --- fix round 1: files that cannot be skipped silently --------------------------------
+
+
+def test_unreadable_binary_is_reported_but_known_image_suffixes_are_skipped(tmp_path):
+    odd = tmp_path / "blob.bin"
+    odd.write_bytes(b"\0\1" + KEY.encode())
+    assert rules(hygiene.scan_file(odd)) == {"unscanned-file"}
+    png = tmp_path / "pic.png"
+    png.write_bytes(b"\x89PNG\0\0" + KEY.encode())
+    assert hygiene.scan_file(png) == []
+
+
+def test_large_notebook_is_still_scanned(tmp_path):
+    big = "A" * 3_000_000  # an image payload far over the old 2 MB limit
+    nb = notebook(
+        outputs=[
+            result({"image/png": big, "text/plain": "<Figure>"}),
+            stream(f"Authorization: Bearer {KEY}"),
+        ]
+    )
+    path = tmp_path / "big.ipynb"
+    path.write_text(json.dumps(nb))
+    assert path.stat().st_size > 2_000_000
+    assert "bearer-token" in rules(hygiene.scan_file(path))
+
+
+@pytest.mark.parametrize("codec", ["utf-16", "utf-16-le", "utf-16-be"])
+def test_utf16_file_is_decoded_and_scanned(codec, tmp_path):
+    # utf-16 writes a BOM; the -le and -be forms have none and rely on the NUL pattern.
+    path = tmp_path / "out.txt"
+    path.write_bytes(f"TYPESAFE_API_KEY={KEY}\r\n".encode(codec))
+    assert "secret-assignment" in rules(hygiene.scan_file(path))
+
+
+def test_utf8_bom_file_is_scanned(tmp_path):
+    path = tmp_path / "out.txt"
+    path.write_bytes(b"\xef\xbb\xbf" + f"api_key={KEY}".encode())
+    assert "secret-assignment" in rules(hygiene.scan_file(path))
+
+
+def test_nbformat3_notebook_is_scanned(tmp_path):
+    stream_output = {
+        "output_type": "stream",
+        "stream": "stdout",
+        "text": [f"Authorization: Bearer {KEY}\n"],
+    }
+    image_output = {"output_type": "pyout", "png": _random_token(300), "text": ["x"]}
+    cell = {
+        "cell_type": "code",
+        "language": "python",
+        "input": ["print(1)"],
+        "metadata": {},
+        "prompt_number": 1,
+        "outputs": [stream_output, image_output],
+    }
+    nb = {"nbformat": 3, "nbformat_minor": 0, "metadata": {}, "worksheets": [{"cells": [cell]}]}
+    assert "bearer-token" in rules(scan(tmp_path, nb))
+
+
+def test_unrecognized_notebook_layout_is_reported(tmp_path):
+    found = rules(scan(tmp_path, {"nbformat": 9, "metadata": {}}))
+    assert found == {"unrecognized-notebook-layout"}
+
+
+def test_oversized_non_notebook_file_is_reported(tmp_path, monkeypatch):
+    monkeypatch.setattr(hygiene, "MAX_FILE_BYTES", 100)
+    path = tmp_path / "huge.txt"
+    path.write_text("x" * 200)
+    assert rules(hygiene.scan_file(path)) == {"unscanned-file"}
+
+
+# --- fix round 1: ANSI colour codes ----------------------------------------------------
+
+ESC = "\x1b"
+
+
+@pytest.mark.parametrize(
+    ("path_text", "rule"),
+    [
+        (WIN_USER, "windows-user-path"),
+        ("/home/" + "alice/.venv/lib/x.py", "linux-home-path"),
+        ("/Users/" + "alice/proj/x.py", "macos-home-path"),
+        ("/mnt/" + "c/Users/alice/x.py", "wsl-windows-path"),
+    ],
+)
+def test_ansi_coloured_traceback_paths_are_caught(path_text, rule, tmp_path):
+    # The shape of a real IPython traceback: every frame path is wrapped in colour codes.
+    frame = f"File {ESC}[0;32m{path_text}{ESC}[0m:{ESC}[0;34m12{ESC}[0m, in {ESC}[0;36mf{ESC}[0m"
+    error = {
+        "output_type": "error",
+        "ename": "ValueError",
+        "evalue": "x",
+        "traceback": [f"{ESC}[0;31m{'-' * 40}{ESC}[0m", frame],
+    }
+    assert rule in rules(scan(tmp_path, notebook(outputs=[error])))
+    assert rule in rules(scan(tmp_path, notebook(outputs=[stream(f"{ESC}[1;32m{path_text}")])))
+
+
+def test_ansi_before_a_vendor_prefix_is_caught(tmp_path):
+    nb = notebook(outputs=[stream(f"{ESC}[0m{GH_TOKEN}")])
+    assert "github-token" in rules(scan(tmp_path, nb))
+
+
+def test_ansi_only_traceback_is_clean(tmp_path):
+    error = {
+        "output_type": "error",
+        "ename": "ValueError",
+        "evalue": "bad",
+        "traceback": [f"{ESC}[0;31mValueError{ESC}[0m: bad"],
+    }
+    assert scan(tmp_path, notebook(outputs=[error])) == []
+
+
+# --- fix round 1: URL and hash-path false positives ------------------------------------
+
+SHA40 = "8cf0c2f9d1a2b3c4d5e6f708192a3b4c5d6e7f80"
+SHA64 = "0123456789abcdef" * 4
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        f"https://github.com/Jev-Engineering/cookbook/blob/{SHA40}/README.md",
+        f"https://github.com/Jev-Engineering/cookbook/commit/{SHA40}",
+        f"fixtures/replay/{SHA64}.json",
+        f"FixtureMiss: no response recorded at recipes/03-triage/fixtures/replay/{SHA64}.json",
+        f'{{"{SHA64}": {{"answer": "yes"}}}}',
+        f"sha256:{SHA64}",
+    ],
+)
+def test_urls_and_hash_paths_are_not_flagged(text, tmp_path):
+    assert hygiene.scan_text(text) == []
+    assert scan(tmp_path, notebook(outputs=[stream(text)])) == []
+
+
+def test_hex_tokens_are_never_entropy_findings_and_that_is_documented():
+    # Hex cannot reach the entropy threshold, so a bare hex key is only caught by the
+    # header, bearer and assignment rules. Pin that behaviour so nobody assumes otherwise.
+    assert hygiene.scan_text(f"value {SHA64}") == []
+    assert "secret-assignment" in {r for _, r, _ in hygiene.scan_text(f"api_key={SHA64}")}
+    assert "bearer-token" in {r for _, r, _ in hygiene.scan_text(f"Bearer {SHA64}")}
+
+
+def test_key_is_still_caught_inside_a_url():
+    text = f"https://example.org/hook/{KEY}{KEY[:10]}/send"
+    assert "high-entropy-token" in {r for _, r, _ in hygiene.scan_text(text)}
+
+
+# --- fix round 1: home paths without a trailing slash, WSL UNC -------------------------
+
+BS = "\\"
+WSL_LOCALHOST = (
+    BS * 2 + "wsl.localhost" + BS + "Ubuntu" + BS + "home" + BS + "tim" + BS + "cookbook"
+)
+WSL_DOLLAR = BS * 2 + "wsl$" + BS + "Ubuntu" + BS + "home" + BS + "tim"
+
+
+@pytest.mark.parametrize(
+    ("text", "rule"),
+    [
+        ("PosixPath('/home/" + "tim')", "linux-home-path"),
+        ("cwd: /home/" + "tim", "linux-home-path"),
+        ("/home/" + "tim", "linux-home-path"),
+        ("'/Users/" + "tim'", "macos-home-path"),
+        ("PosixPath('/Users/" + "tim')", "macos-home-path"),
+        (WSL_LOCALHOST, "wsl-unc-path"),
+        (WSL_DOLLAR, "wsl-unc-path"),
+    ],
+)
+def test_home_path_forms_without_trailing_slash_are_caught(text, rule, tmp_path):
+    assert rule in rules(scan(tmp_path, notebook(outputs=[stream(text)])))
+    assert rule in rules(scan(tmp_path, notebook(outputs=[result({"text/plain": text})])))
+
+
+def test_home_placeholders_and_prose_are_still_allowed(tmp_path):
+    text = "PosixPath('/home/<user>') and the /home directory and /Users/ folder"
+    assert scan(tmp_path, notebook(outputs=[stream(text)])) == []
