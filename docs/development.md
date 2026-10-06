@@ -36,14 +36,18 @@ The README tables are generated: after a catalog change run
 Never edit the generated regions by hand. A recipe pull request that adds
 `recipes/NN-slug/notebook.ipynb` changes what the renderer produces, so the README must be
 regenerated in that same pull request. The recipe builder does not do this: a designated
-integration worker does, serially, after updating the branch against current `main` and
-before the final review and CI run (see "The generated-README exception" in
+integration worker does, serially, after the branch is handed over to it (one worker at a time, each
+handover recorded on the pull request), updating the branch against current `main`, running the
+renderer, committing only the generated README regions and confirming `--check`, before the final
+review and CI run (see "The generated-README exception" in
 [CONTRIBUTING.md](../CONTRIBUTING.md)). `--check` stays strict and fails on any stale
 content, so on a recipe pull request that adds a notebook the `Catalog` check is expected to be
 red until the integration stage has run; the builder does not fix it. The scope check planned
-for #69 does not exist yet. Until it does, reviewers apply the same allowlist by hand with
+for #69 does not exist yet. It applies to a recipe pull request, meaning branch `recipe/<slug>` with
+`Closes #N` for N in 1 to 60, and fails closed if only one of the two holds or the slug cannot be
+resolved. Until it does, reviewers apply the same allowlist by hand with
 `git diff --name-status -M origin/main...HEAD`: only paths under `recipes/NN-slug/` plus
-`README.md`, where `README.md` must equal `render(<base README>, <head catalog>)` (rendered from
+`README.md`, where `README.md` must stay a regular file of mode `100644` and must equal `render(<base README>, <head catalog>)` (rendered from
 the base README, not the head's, with the head's `recipes/` tree deciding publication). The
 full rule is in [CONTRIBUTING.md](../CONTRIBUTING.md).
 
