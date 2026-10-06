@@ -718,3 +718,44 @@ def test_fixture_recipe_in_the_docs_runs(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     exec(compile(block, "docs/backends.md", "exec"), {})
     assert (tmp_path / "fixtures.json").exists()
+
+
+def test_score_levels_may_be_text_objects_or_arrays():
+    levels = ["plain", {"label": "rich", "when": ["a", "b"]}, ["x", "y"]]
+    q = {"s": Score(criteria=levels, instructions="r")}
+    assert question_from_dict(json.loads(json.dumps(q["s"].to_dict()))) == q["s"]
+    assert replay_key("t", q) == SCORE_OBJECT_KEY
+    ans = ScoreAnswer.from_probabilities([0.2, 0.3, 0.5], levels, PROV)
+    stored = json.loads(json.dumps(ans.to_dict()))
+    assert stored["legend"]["1"] == {"label": "rich", "when": ["a", "b"]}
+    assert answer_from_dict(stored) == ans
+    for bad in (None, 3, True, 1.5, "", []):
+        with pytest.raises((ValueError, TypeError)):
+            Score(criteria=["ok", bad])
+    with pytest.raises(ValueError):
+        ScoreAnswer.from_probabilities([0.5, 0.5], ["a", None], PROV)
+
+
+def test_question_values_are_text_object_array_or_none():
+    Choice(criteria={"a": None, "b": {"k": 1}, "c": ["x"]}, instructions={"k": "v"})
+    Noul(instructions=["a"], criteria={"true": {"k": "v"}, "false": None})
+    for bad in (7, 1.5, True):
+        for build in (
+            lambda b: Noul(instructions=b),
+            lambda b: Choice(criteria={"a": b}),
+            lambda b: Choice(criteria={"a": None}, instructions=b),
+            lambda b: Score(criteria=["a", "b"], instructions=b),
+            lambda b: Noul(instructions="x", criteria={"true": b}),
+        ):
+            with pytest.raises(TypeError):
+                build(bad)
+
+
+def test_one_result_cannot_carry_two_dates():
+    a = NoulAnswer(0.5, Provenance.recorded("m", "2026-01-01"))
+    b = NoulAnswer(0.5, Provenance.recorded("m", "2026-01-02"))
+    with pytest.raises(ValueError, match="one date"):
+        DecisionResult({"a": a, "b": b}, "m")
+
+
+SCORE_OBJECT_KEY = "01ce836f962ac8e4493652eed2909d95cb84570e0f03ad068be47cf8ec037a69"

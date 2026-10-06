@@ -35,7 +35,7 @@ result["tone"].provenance.source  # "synthetic" or "recorded"
 They mirror `typesafe_sdk`, and every constructor takes keyword arguments only. `instructions` is
 text, a JSON object or array, or `None`. `Choice(criteria={name: description-or-None})` takes a
 non-empty mapping of at most 255 options. `Score(criteria=[...])` takes an ordered list of 2 to 10
-non-empty strings, one per level from 0. `Noul(criteria={"true": ..., "false": ...})` optionally
+levels (text, a JSON object or a JSON array each; the legend holds the level value as given). `Noul(criteria={"true": ..., "false": ...})` optionally
 describes the outcomes. All values must be plain JSON (`str`, `int`, `float`, `bool`, `None`,
 `list`, `dict` with `str` keys); numpy values and NaN are rejected. `to_dict()` /
 `question_from_dict()` convert them.

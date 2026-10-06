@@ -16,6 +16,8 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any, ClassVar
 
+from ._canonical import plain_json
+
 __all__ = [
     "Answer",
     "ChoiceAnswer",
@@ -239,9 +241,13 @@ class ScoreAnswer:
         if sorted(legend) != sorted(probs):
             raise ValueError("score legend and probabilities must cover the same levels")
         for v in legend.values():
-            if type(v) is not str:
-                raise ValueError("score legend values must be strings")
-        object.__setattr__(self, "legend", MappingProxyType(legend))
+            if v is None or type(v) not in (str, dict, list):
+                raise ValueError("score legend values must be text, a JSON object or an array")
+        object.__setattr__(
+            self,
+            "legend",
+            MappingProxyType({k: plain_json(v, "legend") for k, v in legend.items()}),
+        )
         clean = {k: _unit(v, "probabilities") for k, v in probs.items()}
         ordered = [clean[i] for i in range(len(clean))]
         if abs(math.fsum(ordered) - 1) > TOL:
@@ -379,6 +385,9 @@ class DecisionResult:
             for name, answer in self.answers.items():
                 if answer.provenance.model != self.model:
                     raise ValueError(f"answer {name!r} was recorded by a different model")
+        dates = {a.provenance.date for a in self.answers.values() if a.provenance.date}
+        if len(dates) > 1:
+            raise ValueError("recorded answers of one result must share one date")
         if not isinstance(self.usage, Usage):
             raise TypeError("usage must be a Usage")
         object.__setattr__(self, "answers", MappingProxyType(dict(self.answers)))

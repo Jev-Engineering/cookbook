@@ -23,8 +23,15 @@ MIN_SCORE_LEVELS = 2
 MAX_SCORE_LEVELS = 10
 
 
+def _text_or_json(value: Any, what: str) -> Any:
+    """Text, a JSON object, a JSON array or None; bare numbers and bools are rejected."""
+    if value is not None and type(value) not in (str, dict, list, tuple):
+        raise TypeError(f"{what} must be text, a JSON object, a JSON array or None, got {value!r}")
+    return plain_json(value, what)
+
+
 def _instructions(value: Any) -> Any:
-    return plain_json(value, "instructions")
+    return _text_or_json(value, "instructions")
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -40,6 +47,8 @@ class Noul:
         crit = self.criteria
         if crit is not None:
             crit = plain_json(dict(crit), "criteria")
+            for k, v in crit.items():
+                _text_or_json(v, f"criteria[{k!r}]")
             extra = set(crit) - {"true", "false"}
             if extra:
                 raise ValueError(f"Noul criteria keys must be 'true'/'false', got {sorted(extra)}")
@@ -67,6 +76,8 @@ class Choice:
         if len(self.criteria) > MAX_CHOICE_OPTIONS:
             raise ValueError(f"Choice allows at most {MAX_CHOICE_OPTIONS} options")
         crit = plain_json(dict(self.criteria), "criteria")
+        for k, v in crit.items():
+            _text_or_json(v, f"criteria[{k!r}]")
         if any(k == "" for k in crit):
             raise ValueError("Choice option names must be non-empty")
         object.__setattr__(self, "criteria", crit)
@@ -93,8 +104,14 @@ class Score:
                 f"got {len(self.criteria)}"
             )
         for i, level in enumerate(self.criteria):
-            if type(level) is not str or not level:
-                raise ValueError(f"Score level {i} must be a non-empty string, got {level!r}")
+            if (
+                level is None
+                or type(level) not in (str, dict, list, tuple)
+                or level in ("", [], ())
+            ):
+                raise ValueError(
+                    f"Score level {i} must be non-empty text, a JSON object or a JSON array"
+                )
         object.__setattr__(self, "criteria", plain_json(list(self.criteria), "criteria"))
         object.__setattr__(self, "instructions", _instructions(self.instructions))
 
