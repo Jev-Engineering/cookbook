@@ -33,6 +33,15 @@ How a recipe's tests import its `helpers.py` is defined in #68 (every recipe has
 The README tables are generated: after a catalog change run
 `python tools/render_catalog.py`, and `python tools/render_catalog.py --check` to verify.
 
+Never edit the generated regions by hand. A recipe pull request that adds
+`recipes/NN-slug/notebook.ipynb` changes what the renderer produces, so the README must be
+regenerated in that same pull request. The recipe builder does not do this: a designated
+integration worker does, serially, after updating the branch against current `main` and
+before the final review and CI run (see "The generated-README exception" in
+[CONTRIBUTING.md](../CONTRIBUTING.md)). `--check` stays strict and fails on any stale
+content. The planned scope check in #69 does not exist yet; when it does it must accept only
+exact renderer output in the generated regions, never an arbitrary root edit.
+
 ## Continuous integration
 
 `.github/workflows/ci.yml` (workflow `CI`) runs on every pull request and every push to

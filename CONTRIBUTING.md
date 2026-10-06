@@ -21,7 +21,15 @@ recipes/NN-slug/
 
 `NN-slug` is the `slug` of the recipe in [`catalog/recipes.json`](catalog/recipes.json). Do not rename it. Shared code belongs in `src/jev_cookbook/` and changes there go through their own issue and pull request, never inside a recipe pull request.
 
-A recipe pull request touches only `recipes/NN-slug/`. It does not edit `README.md`, the catalog, or shared code. The README tables are regenerated from the catalog by `tools/render_catalog.py`, which lists a recipe as published as soon as its `notebook.ipynb` exists.
+A recipe pull request touches only `recipes/NN-slug/`, with one bounded exception. It does not edit the catalog, shared code, workflows, or any hand-written part of `README.md`. The README tables are regenerated from the catalog by `tools/render_catalog.py`, which lists a recipe as published as soon as its `notebook.ipynb` exists, so adding a notebook makes the generated regions of the root `README.md` stale and the `Catalog (README is current)` check fails until they are regenerated.
+
+### The generated-README exception
+
+- **Builders never run the renderer.** The recipe builder stays inside `recipes/NN-slug/`.
+- **A designated integration worker regenerates the README in the same recipe pull request.** One integration worker at a time (the stage is serialized, because every recipe pull request changes the same generated lines) first updates the branch against current `main`, then runs `python tools/render_catalog.py`, then commits the result. This happens before the final review and before the final CI run, so the reviewed head is the head that is checked and merged. If `main` moves afterwards, the branch is updated and the README regenerated again, and the new head is reviewed again.
+- **The only permitted change outside `recipes/NN-slug/` is the exact output of the renderer** for the five generated regions of the root `README.md` (the content between the `<!-- catalog:NAME:start -->` and `<!-- catalog:NAME:end -->` markers). Nothing else in `README.md`, no other root file, no catalog data, and no shared code or workflow may change in a recipe pull request.
+- **Strict catalog CI is unchanged.** `python tools/render_catalog.py --check` still fails on a stale README. A recipe is never merged with a red check and a promise to fix the README later, and the README is never edited by hand.
+- **Validator (#69, not yet built).** Today nothing automated enforces the recipe path scope; reviewers do. When the notebook CI of #69 adds a scope check, it must accept the README change only when the head's `README.md` is byte-identical to the renderer output for the head's own `catalog/recipes.json`, and that file is unchanged from the base. It must derive this by running the renderer (or an equivalent that reuses `render` in `tools/render_catalog.py`) and comparing, and must not allow it by file name alone: a root `README.md` edit that is not exactly generated-region renderer output, including any edit to hand-written prose or to the marker lines, any other root file, and any edit under `src/`, `tools/`, `catalog/` or `.github/`, must be rejected. #69 must test that rejection.
 
 ## The contract
 
@@ -79,7 +87,8 @@ A recipe pull request touches only `recipes/NN-slug/`. It does not edit `README.
 
 - Branch names: `recipe/NN-slug` for recipes, `foundation/short-name` for shared work.
 - One issue per pull request. The description says `Closes #N` and fills in the checklist from the pull request template.
-- Squash merge once checks are green and a review has passed. A red or pending check is not mergeable.
+- Squash merge once every current check has succeeded on the exact head and an Opus review of that head has approved it. A red, missing, cancelled or pending check is not mergeable, and any new commit voids earlier approval.
+- A recipe pull request that adds a notebook includes the regenerated README regions (see the exception above) and says so in its description.
 
 ## Sources
 
