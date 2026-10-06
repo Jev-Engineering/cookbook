@@ -127,7 +127,8 @@ def render(readme: str, catalog: dict) -> str:
         )
         if not pattern.search(readme):
             raise SystemExit(f"README.md is missing the catalog:{name} markers")
-        readme = pattern.sub(lambda m, fn=fn: m.group(1) + fn(catalog) + "\n" + m.group(2), readme)
+        body = fn(catalog)
+        readme = pattern.sub(lambda m, body=body: m.group(1) + body + "\n" + m.group(2), readme)
     return readme
 
 

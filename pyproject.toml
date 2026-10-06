@@ -20,14 +20,14 @@ dependencies = [
 # Live inference only. Never imported at module import time by jev_cookbook.
 live = ["typesafe-sdk"]
 ml = ["scikit-learn"]
-dev = ["ruff", "pytest"]
+dev = ["ruff==0.16.10", "pytest"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib"
-testpaths = ["tests"]
+testpaths = ["tests", "recipes"]
 
 [tool.ruff]
 line-length = 100
