@@ -30,14 +30,67 @@ __all__ = [
     "answer_from_dict",
 ]
 
-# Provisional consistency tolerances for answers built or loaded from stored responses. They
-# are wide enough to accept responses rounded to two decimals, as the examples in the TypeSafe
-# docs are (see docs/backends.md, "Tolerances"); issue #64 verifies them against the first real
-# recording and tightens or widens them in its own reviewed pull request.
-SUM_TOL = 2e-2  # probabilities sum to 1
-LEVEL_TOL = 5e-2  # Score ``score`` equals the probability-weighted level
-CONFIDENCE_TOL = 1e-2  # ``confidence`` equals the published formula
+# Consistency bounds for answers built or loaded from stored responses.
+#
+# Premise (docs/backends.md, "Tolerances"): every reported number (each probability, ``score``,
+# ``confidence``) is within ROUND_ERR = 0.005 of its true value, which is what rounding to two
+# decimals does. Each bound below is the largest gap the published formula can show between the
+# reported numbers under that premise, plus FLOAT_MARGIN so no case is decided by float noise.
+# Issue #64 checks on the first real recording whether the API rounds at all and, if it does
+# not, tightens these bounds in its own reviewed pull request.
+ROUND_ERR = 0.005
+FLOAT_MARGIN = 1e-9
 TOL = 1e-3  # slack when deciding that the stated Choice option is the most probable one
+# Rounding is monotone, so it cannot put the stated option below another one; it can only tie
+# them (0.5049 and 0.4951 both print 0.50), and a tie is within TOL.
+
+
+def sum_bound(n: int) -> float:
+    """Probabilities sum to 1: n probabilities, each off by at most ROUND_ERR."""
+    return ROUND_ERR * n + FLOAT_MARGIN
+
+
+def level_bound(n: int) -> float:
+    """``score`` equals sum(i * p_i): each p_i off by ROUND_ERR moves the sum by at most
+    ROUND_ERR * sum(i) = ROUND_ERR * n(n-1)/2, and ``score`` itself is off by ROUND_ERR."""
+    return ROUND_ERR * (n * (n - 1) / 2) + ROUND_ERR + FLOAT_MARGIN
+
+
+def choice_confidence_bound(n: int) -> float:
+    """Choice confidence is (p_max - 1/n) / (1 - 1/n). The reported p_max is within ROUND_ERR
+    of the true one (rounding is monotone, so the maximum moves by at most that), the formula
+    scales the error by 1 / (1 - 1/n), and ``confidence`` itself is off by ROUND_ERR. The
+    clamp to [0, 1] never increases a gap. A single option has confidence 1 whatever p is."""
+    scale = 1 / (1 - 1 / n) if n > 1 else 0.0
+    return ROUND_ERR * scale + ROUND_ERR + FLOAT_MARGIN
+
+
+def _distance_sum(n: int, peak: int) -> int:
+    return sum(abs(i - peak) for i in range(n))
+
+
+def _even_spread(n: int) -> float:
+    return math.fsum(abs(i - (n - 1) / 2) for i in range(n)) / n
+
+
+def score_confidence_bound(n: int, peak: int) -> float:
+    """Score confidence is 1 - spread / even with spread = sum(p_i * |i - peak|) and
+    even = mean(|i - (n-1)/2|) (https://docs.typesafe.ai/confidence.md). For a fixed peak,
+    each p_i off by ROUND_ERR moves the spread by at most ROUND_ERR * sum(|i - peak|), so the
+    formula moves by at most ROUND_ERR * sum(|i - peak|) / even; ``confidence`` itself is off
+    by ROUND_ERR. The clamp never increases a gap."""
+    scale = _distance_sum(n, peak) / _even_spread(n) if n > 1 else 0.0
+    return ROUND_ERR * scale + ROUND_ERR + FLOAT_MARGIN
+
+
+def _peak_candidates(probs: Sequence[float]) -> list[int]:
+    """Levels that may be the true peak. Rounding keeps order but can create ties and move a
+    probability by ROUND_ERR, so a level whose reported probability is within 2 * ROUND_ERR of
+    the largest one (the true peak is at most that far below it) could be the peak."""
+    top = max(probs)
+    return [i for i, p in enumerate(probs) if p >= top - 2 * ROUND_ERR - FLOAT_MARGIN]
+
+
 Level = str | dict[str, Any] | list[Any]
 SYNTHETIC_MODEL = "synthetic"
 SYNTHETIC_SOURCE = "synthetic"
@@ -78,10 +131,21 @@ def score_confidence(probs: Sequence[float]) -> float:
     n = len(probs)
     if n == 1:
         return 1.0
-    peak = probs.index(max(probs))
+    peak = probs.index(max(probs))  # the first maximum when levels tie
     spread = math.fsum(p * abs(i - peak) for i, p in enumerate(probs))
     even = math.fsum(abs(i - (n - 1) / 2) for i in range(n)) / n
     return min(1.0, max(0.0, 1 - spread / even))
+
+
+def _score_confidence_matches(conf: float, probs: Sequence[float]) -> bool:
+    """True when ``conf`` is within the derived bound of the formula at some candidate peak."""
+    n = len(probs)
+    for peak in _peak_candidates(probs):
+        spread = math.fsum(p * abs(i - peak) for i, p in enumerate(probs))
+        value = 1.0 if n == 1 else min(1.0, max(0.0, 1 - spread / _even_spread(n)))
+        if abs(conf - value) <= score_confidence_bound(n, peak):
+            return True
+    return False
 
 
 def _prob_map_any(value: Any, what: str) -> Mapping[Any, Any]:
@@ -184,12 +248,14 @@ class ChoiceAnswer:
         if self.choice not in probs:
             raise ValueError(f"choice {self.choice!r} is not one of {sorted(probs)}")
         total = math.fsum(probs.values())
-        if abs(total - 1) > SUM_TOL:
+        if abs(total - 1) > sum_bound(len(probs)):
             raise ValueError(f"probabilities must sum to 1, they sum to {total!r}")
         if probs[self.choice] < max(probs.values()) - TOL:
             raise ValueError(f"choice {self.choice!r} is not the highest-probability option")
         conf = _unit(self.confidence, "confidence")
-        if abs(conf - choice_confidence(list(probs.values()))) > CONFIDENCE_TOL:
+        if abs(conf - choice_confidence(list(probs.values()))) > choice_confidence_bound(
+            len(probs)
+        ):
             raise ValueError("confidence does not match the published Choice formula")
         object.__setattr__(self, "probabilities", MappingProxyType(probs))
         object.__setattr__(self, "confidence", conf)
@@ -236,7 +302,9 @@ class ScoreAnswer:
 
     ``probabilities`` and ``legend`` are keyed by level index as ``int`` (``0``, ``1``,
     ...), as in ``typesafe_sdk``. ``to_dict()`` writes the keys as JSON strings. Legend
-    values are the question's level values: text, a JSON object or a JSON array.
+    values follow the rule for ``Score`` question levels: non-empty text, a non-empty JSON
+    object or a non-empty JSON array (a tuple is accepted and held as a list). When two
+    levels tie for the largest probability, the first is the peak for ``confidence``.
     """
 
     score: float
@@ -251,9 +319,12 @@ class ScoreAnswer:
         legend = _level_keys(dict(self.legend), "legend")
         if sorted(legend) != sorted(probs):
             raise ValueError("score legend and probabilities must cover the same levels")
-        for v in legend.values():
-            if v is None or type(v) not in (str, dict, list):
-                raise ValueError("score legend values must be text, a JSON object or an array")
+        for k, v in legend.items():
+            if v is None or type(v) not in (str, dict, list, tuple) or v in ("", [], (), {}):
+                raise ValueError(
+                    f"score legend level {k} must be non-empty text, a non-empty JSON object "
+                    "or a non-empty JSON array"
+                )
         object.__setattr__(
             self,
             "legend",
@@ -262,15 +333,15 @@ class ScoreAnswer:
         clean = {k: _unit(v, "probabilities") for k, v in probs.items()}
         ordered = [clean[i] for i in range(len(clean))]
         total = math.fsum(ordered)
-        if abs(total - 1) > SUM_TOL:
+        if abs(total - 1) > sum_bound(len(ordered)):
             raise ValueError(f"probabilities must sum to 1, they sum to {total!r}")
         score = self.score
         if type(score) not in (int, float) or not math.isfinite(score):
             raise ValueError(f"score must be a number, got {score!r}")
-        if abs(score - _expected_level(ordered)) > LEVEL_TOL:
+        if abs(score - _expected_level(ordered)) > level_bound(len(ordered)):
             raise ValueError("score does not equal the probability-weighted level")
         conf = _unit(self.confidence, "confidence")
-        if abs(conf - score_confidence(ordered)) > CONFIDENCE_TOL:
+        if not _score_confidence_matches(conf, ordered):
             raise ValueError("confidence does not match the published Score formula")
         object.__setattr__(self, "score", float(score))
         object.__setattr__(self, "probabilities", MappingProxyType(clean))

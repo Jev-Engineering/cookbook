@@ -30,7 +30,15 @@ from jev_cookbook import (
     replay_key,
 )
 from jev_cookbook._canonical import canonical_json
-from jev_cookbook.answers import SYNTHETIC_MODEL, choice_confidence, score_confidence
+from jev_cookbook.answers import (
+    SYNTHETIC_MODEL,
+    choice_confidence,
+    choice_confidence_bound,
+    level_bound,
+    score_confidence,
+    score_confidence_bound,
+    sum_bound,
+)
 
 STATE = {"document": "I was charged twice.\nPlease fix this."}
 K1 = "0" * 64
@@ -838,8 +846,24 @@ def _rejects(build, match):
         build()
 
 
+def test_bounds_are_derived_from_the_formulas():
+    """Pin the derived bound formulas (two options or levels, and the extremes)."""
+    assert sum_bound(2) == pytest.approx(0.01, abs=1e-8)
+    assert sum_bound(255) == pytest.approx(1.275, abs=1e-8)
+    assert level_bound(2) == pytest.approx(0.01, abs=1e-8)  # 0.005 * 1 + 0.005
+    assert level_bound(10) == pytest.approx(0.005 * 45 + 0.005, abs=1e-8)
+    assert choice_confidence_bound(2) == pytest.approx(0.015, abs=1e-8)  # 0.005 * 2 + 0.005
+    assert choice_confidence_bound(3) == pytest.approx(0.005 * 1.5 + 0.005, abs=1e-8)
+    assert choice_confidence_bound(1) == pytest.approx(0.005, abs=1e-8)
+    # two levels, peak 1: sum|i-1| = 1, even = 0.5, so 0.005 * 2 + 0.005
+    assert score_confidence_bound(2, 1) == pytest.approx(0.015, abs=1e-8)
+    # ten levels, peak 0: sum|i-0| = 45, even = 2.5, so 0.005 * 18 + 0.005
+    assert score_confidence_bound(10, 0) == pytest.approx(0.095, abs=1e-8)
+
+
 def test_tolerances_are_pinned():
-    """Each tolerance accepts an error just inside it and rejects one just outside."""
+    """Each bound accepts an error just inside it and rejects one just outside (two options
+    or levels, where every bound is small)."""
     levels = {0: "a", 1: "b"}
 
     def choice(eps):
@@ -853,23 +877,23 @@ def test_tolerances_are_pinned():
             0.5 + eps, probs, score_confidence([0.5, 0.5 + eps]), levels, PROV
         )
 
-    # probabilities sum to 1 within 2e-2
+    # probabilities sum to 1 within 0.005 * n = 0.01
     for make in (choice, score):
-        _accepts(make(1.9e-2))
-        _rejects(make(2.1e-2), "sum to 1")
+        _accepts(make(9.9e-3))
+        _rejects(make(1.01e-2), "sum to 1")
 
-    # score equals the probability-weighted level within 5e-2
+    # score equals the probability-weighted level within 0.005 * 1 + 0.005 = 0.01
     probs = {0: 0.4, 1: 0.6}
     conf = score_confidence([0.4, 0.6])
-    _accepts(lambda: ScoreAnswer(0.6 + 4.9e-2, probs, conf, levels, PROV))
-    _rejects(lambda: ScoreAnswer(0.6 + 5.1e-2, probs, conf, levels, PROV), "probability-weighted")
+    _accepts(lambda: ScoreAnswer(0.6 + 9.9e-3, probs, conf, levels, PROV))
+    _rejects(lambda: ScoreAnswer(0.6 + 1.01e-2, probs, conf, levels, PROV), "probability-weighted")
 
-    # confidence equals the published formula within 1e-2
+    # confidence equals the published formula within 0.015 (two options or levels)
     cconf = choice_confidence([0.3, 0.7])
-    for delta in (9.9e-3, -9.9e-3):
+    for delta in (1.49e-2, -1.49e-2):
         _accepts(lambda delta=delta: ChoiceAnswer("b", {"a": 0.3, "b": 0.7}, cconf + delta, PROV))
         _accepts(lambda delta=delta: ScoreAnswer(0.6, probs, conf + delta, levels, PROV))
-    for delta in (1.01e-2, -1.01e-2):
+    for delta in (1.51e-2, -1.51e-2):
         _rejects(
             lambda delta=delta: ChoiceAnswer("b", {"a": 0.3, "b": 0.7}, cconf + delta, PROV),
             "confidence",
@@ -877,6 +901,157 @@ def test_tolerances_are_pinned():
         _rejects(
             lambda delta=delta: ScoreAnswer(0.6, probs, conf + delta, levels, PROV), "confidence"
         )
+
+
+def test_argmax_tie_slack_is_pinned():
+    """The stated choice may sit 1e-3 below the top (a rounding tie), not further."""
+
+    def build(gap):
+        probs = {"a": 0.5 - gap / 2, "b": 0.5 + gap / 2}
+        return lambda: ChoiceAnswer("a", probs, choice_confidence(list(probs.values())), PROV)
+
+    _accepts(build(0.0))
+    _accepts(build(0.0009))
+    _rejects(build(0.0011), "highest-probability")
+    _rejects(build(0.1), "highest-probability")
+
+
+def test_rounded_tie_with_the_stated_choice_loads():
+    """True 0.5049 vs 0.4951 print as 0.50 / 0.50; the stated choice is still ``a``."""
+    answer = ChoiceAnswer("a", {"a": 0.50, "b": 0.50}, 0.0, PROV)
+    assert answer.choice == "a"
+    _rejects(lambda: ChoiceAnswer("b", {"a": 0.6, "b": 0.4}, 0.2, PROV), "highest-probability")
+
+
+def test_two_decimal_example_from_review_loads():
+    """True p = 0.5849 reported as .58/.42 with confidence .17 (the old tolerance rejected it)."""
+    assert ChoiceAnswer("a", {"a": 0.58, "b": 0.42}, 0.17, PROV).confidence == 0.17
+
+
+def _random_probs(rng, n):
+    alpha = rng.choice([0.2, 0.5, 1.0, 3.0, 30.0])
+    raw = [rng.gammavariate(alpha, 1.0) + 1e-12 for _ in range(n)]
+    total = sum(raw)
+    return [x / total for x in raw]
+
+
+def test_every_two_decimal_rounded_answer_loads():
+    """Simulation: exact answers from random true distributions, every reported number
+    rounded to two decimals, must load. Fixed seed; 300 answers per shape."""
+    rng = random.Random(20261006)
+    for n in (2, 3, 5, 20, 255):
+        names = [f"o{i}" for i in range(n)]
+        for _ in range(300):
+            exact = ChoiceAnswer.from_probabilities(
+                dict(zip(names, _random_probs(rng, n), strict=True)), PROV
+            )
+            rounded = {k: round(v, 2) for k, v in exact.probabilities.items()}
+            ChoiceAnswer(exact.choice, rounded, round(exact.confidence, 2), PROV)
+    for n in (2, 5, 10):
+        legend = dict(enumerate(f"level {i}" for i in range(n)))
+        for _ in range(300):
+            exact = ScoreAnswer.from_probabilities(_random_probs(rng, n), legend, PROV)
+            rounded = {k: round(v, 2) for k, v in exact.probabilities.items()}
+            ScoreAnswer(round(exact.score, 2), rounded, round(exact.confidence, 2), legend, PROV)
+
+
+def _gross_choice(n):
+    names = [f"o{i}" for i in range(n)]
+    probs = {k: (0.6 if i == 0 else 0.4 / (n - 1)) for i, k in enumerate(names)}
+    good = choice_confidence(list(probs.values()))
+    _accepts(lambda: ChoiceAnswer("o0", probs, good, PROV))
+    # wrong top option by 0.1 (the sum stays 1)
+    if n == 2:
+        wrong = {"o0": 0.45, "o1": 0.55}
+    else:
+        wrong = {k: 0.1 / (n - 2) for k in names} | {"o0": 0.4, "o1": 0.5}
+    wrong_conf = choice_confidence(list(wrong.values()))
+    _rejects(lambda: ChoiceAnswer("o0", wrong, wrong_conf, PROV), "highest-probability")
+    if n <= 5:  # sum off by 0.1 (0.005 * n stays below 0.1)
+        low = dict(probs, o0=0.5)
+        low_conf = choice_confidence(list(low.values()))
+        _rejects(lambda: ChoiceAnswer("o0", low, low_conf, PROV), "sum to 1")
+    off = good - choice_confidence_bound(n) - 0.01  # confidence off by more than the bound
+    assert off >= 0
+    _rejects(lambda: ChoiceAnswer("o0", probs, off, PROV), "confidence")
+
+
+def _gross_score(n):
+    legend = dict(enumerate("abcde"[:n]))
+    probs = [0.6] + [0.4 / (n - 1)] * (n - 1)
+    good = score_confidence(probs)
+    mean = sum(i * p for i, p in enumerate(probs))
+    pmap = dict(enumerate(probs))
+    _accepts(lambda: ScoreAnswer(mean, pmap, good, legend, PROV))
+    _rejects(lambda: ScoreAnswer(mean + 0.1, pmap, good, legend, PROV), "weighted")
+    off = good - score_confidence_bound(n, 0) - 0.01
+    assert off >= 0
+    _rejects(lambda: ScoreAnswer(mean, pmap, off, legend, PROV), "confidence")
+    low = pmap | {0: 0.5}
+    low_mean = sum(i * p for i, p in low.items())
+    low_conf = score_confidence(list(low.values()))
+    _rejects(lambda: ScoreAnswer(low_mean, low, low_conf, legend, PROV), "sum to 1")
+
+
+def test_gross_inconsistencies_are_rejected_on_every_shape():
+    for n in (2, 3, 5, 20):
+        _gross_choice(n)
+    for n in (2, 3, 5):
+        _gross_score(n)
+
+
+def test_score_peak_is_the_first_maximum_when_levels_tie():
+    assert score_confidence([0.4, 0.4, 0.2]) == 0.0  # peak 0 (the last maximum would give 0.1)
+    assert score_confidence([0.2, 0.4, 0.4]) == pytest.approx(0.1)  # peak 1
+    exact = ScoreAnswer.from_probabilities([0.4, 0.4, 0.2], list("abc"), PROV)
+    assert exact.confidence == 0.0
+
+
+def test_score_confidence_may_use_any_near_tied_peak_when_loading():
+    """A rounded answer cannot tell which of two near-tied levels the true peak was, so the
+    confidence of either is accepted; one that fits neither is not."""
+    probs = {0: 0.4, 1: 0.4, 2: 0.2}
+    legend = {0: "a", 1: "b", 2: "c"}
+    ScoreAnswer(0.8, probs, 0.0, legend, PROV)
+    ScoreAnswer(0.8, probs, 0.1, legend, PROV)
+    _rejects(lambda: ScoreAnswer(0.8, probs, 0.5, legend, PROV), "confidence")
+
+
+def test_score_peak_candidates_reach_two_rounding_steps_down():
+    """If each number may be off by 0.005, a level 0.01 below the largest could be the true
+    peak, so its confidence is accepted; one 0.02 below could not."""
+    legend = {0: "a", 1: "b", 2: "c"}
+    near = {0: 0.39, 1: 0.40, 2: 0.21}  # peak 1 gives 0.1, peak 0 gives 0.0
+    ScoreAnswer(0.82, near, 0.1, legend, PROV)
+    ScoreAnswer(0.82, near, 0.0, legend, PROV)
+    far = {0: 0.38, 1: 0.40, 2: 0.22}  # level 0 is too far below to be the peak
+    _accepts(lambda: ScoreAnswer(0.84, far, 0.1, legend, PROV))
+    _rejects(lambda: ScoreAnswer(0.84, far, 0.0, legend, PROV), "confidence")
+
+
+def test_stored_response_with_an_extra_answer_name_is_rejected():
+    qs = {"t": Choice(criteria={"calm": None, "angry": None})}
+    answer = ChoiceAnswer.from_probabilities({"angry": 0.8, "calm": 0.2}, REC)
+    stored = DecisionResult({"t": answer, "extra": answer}, REC.model).to_dict()
+    with pytest.raises(FixtureError, match="extra"):
+        ReplayBackend({replay_key("s", qs): stored}).decide("s", qs)
+
+
+def test_score_answer_probabilities_are_read_only():
+    answer = ScoreAnswer.from_probabilities([0.4, 0.6], ["a", "b"], PROV)
+    with pytest.raises(TypeError):
+        answer.probabilities[0] = 1.0
+
+
+def test_score_legend_values_follow_the_question_level_rule():
+    """Non-empty text, a non-empty object or array; a tuple is held as a list."""
+    for empty in ("", [], {}, (), None, 3):
+        with pytest.raises(ValueError, match="legend level 1"):
+            ScoreAnswer.from_probabilities([0.4, 0.6], ["ok", empty], PROV)
+    answer = ScoreAnswer.from_probabilities([0.4, 0.6], [("x", "y"), {"k": "v"}], PROV)
+    assert answer.legend[0] == ["x", "y"]
+    assert answer.to_dict()["legend"]["0"] == ["x", "y"]
+    Score(criteria=[("x", "y"), {"k": "v"}])  # the question accepts the same values
 
 
 def test_example_responses_from_the_typesafe_docs_are_accepted():
