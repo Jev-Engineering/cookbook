@@ -28,18 +28,22 @@ hex-format key is caught only by the header, bearer and assignment rules. ANSI c
 are stripped before scanning. UTF-8 and UTF-16/32 text is decoded; a notebook of any size is
 parsed, nbformat 3 and 4 are understood, and anything else that cannot be scanned (unknown
 notebook layout, undecodable or oversized non-image file) is reported as a finding rather than
-skipped. Known image, font and archive suffixes are skipped quietly. Findings never print the
+skipped. Zip, npz, gz and npy files are opened and their contents scanned (nesting up to 3 deep). Known image, font and PDF suffixes are skipped quietly. Findings never print the
 matched value in full.
 """
 
 from __future__ import annotations
 
 import codecs
+import gzip
+import io
 import json
 import math
 import re
 import subprocess
 import sys
+import zipfile
+import zlib
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -52,7 +56,7 @@ MAX_FILE_BYTES = 20_000_000
 # that cannot be decoded as text is reported as unscanned-file.
 _BINARY_SUFFIXES = {
     ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".pdf", ".woff", ".woff2", ".ttf",
-    ".otf", ".zip", ".gz", ".npz", ".npy", ".pyc",
+    ".otf", ".pyc",
 }  # fmt: skip
 
 # Output mime types whose payload is binary or base64; never scanned.
@@ -136,13 +140,18 @@ _ASSIGNMENT = re.compile(
         ["']?\]?\s*[:=]\s*["']?(?P<v>[A-Za-z0-9_\-./+=]{16,})""",
     re.IGNORECASE | re.VERBOSE,
 )
-# "/" is deliberately not a token character: URLs and file paths are scored per segment, so a
-# commit permalink or fixtures/replay/<hash>.json is not one long "random" token.
-# Hexadecimal strings (git SHAs, content hashes) never reach the entropy threshold, since
-# 16 symbols give at most 4.0 bits per character; that is why they are not flagged. It also
-# means a hex-format key is NOT caught by this rule, only by the header, bearer and
-# assignment rules.
+# A "word" is a whitespace/quote-delimited run. A word shaped like a path or URL is scored
+# per "/"-separated segment, so a commit permalink or fixtures/replay/<hash>.json is not one
+# long "random" token. Any other word is scored whole, "/" included, because base64 keys
+# contain "/". Path-shaped: contains "://", starts with a real-looking absolute directory
+# (/home, /usr, ...), "./", "../" or a drive letter, or ends in a file-like suffix.
+# Hexadecimal strings never reach the entropy threshold (16 symbols give at most 4.0 bits per
+# character), which is why they are not flagged; it also means a hex-format key is NOT caught
+# by this rule, only by the header, bearer and assignment rules.
+_WORD = re.compile(r"""[^\s"'<>()\[\]{},;`]+""")
 _TOKEN = re.compile(r"[A-Za-z0-9_+=-]{32,}")
+_TOKEN_SLASH = re.compile(r"[A-Za-z0-9_+=/-]{32,}")
+_PATH_SHAPED = re.compile(r"://|^/[a-z_.-]+/|^\.{1,2}/|^[A-Za-z]:[\/]|\.[A-Za-z0-9]{1,5}$")
 _DATA_URI = re.compile(r"data:[\w./+-]+;base64,[A-Za-z0-9+/=]+")
 _ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 _ENTROPY_THRESHOLD = 4.2
@@ -165,10 +174,13 @@ def _scan_secrets_line(line: str) -> Iterator[tuple[str, str]]:
         v = m.group("v")
         if _letters_and_digits(v) and not _is_placeholder(v):
             yield "secret-assignment", _mask(v)
-    for m in _TOKEN.finditer(line):
-        t = m.group(0)
-        if _letters_and_digits(t) and _entropy(t) >= _ENTROPY_THRESHOLD:
-            yield "high-entropy-token", _mask(t)
+    for word in _WORD.findall(line):
+        pattern = _TOKEN if _PATH_SHAPED.search(word) else _TOKEN_SLASH
+        for t in pattern.findall(word):
+            # Random base64 sometimes has no digit; "+", "/" or "=" then marks it as non-prose.
+            mixed = any(c.isalpha() for c in t) and any(c.isdigit() or c in "+/=" for c in t)
+            if mixed and _entropy(t) >= _ENTROPY_THRESHOLD:
+                yield "high-entropy-token", _mask(t)
 
 
 # --- local-environment rules (outputs and metadata only) -------------------------------
@@ -336,6 +348,72 @@ def _decode(raw: bytes) -> str | None:
     return None
 
 
+_ARCHIVE_SUFFIXES = {".zip", ".npz", ".gz"}
+_MAX_ARCHIVE_DEPTH = 3
+
+
+def _archive_members(raw: bytes, suffix: str, name: str) -> Iterator[tuple[str, bytes] | str]:
+    """Yield (member name, bytes) for each member, or an error string if unreadable."""
+    try:
+        if suffix == ".gz":
+            with gzip.GzipFile(fileobj=io.BytesIO(raw)) as fh:
+                data = fh.read(MAX_FILE_BYTES + 1)
+            yield (name[:-3] if name.endswith(".gz") else name + "!gunzip", data)
+            return
+        with zipfile.ZipFile(io.BytesIO(raw)) as zf:
+            for info in zf.infolist():
+                if info.is_dir():
+                    continue
+                if info.file_size > MAX_FILE_BYTES:
+                    yield f"member {info.filename} larger than the limit"
+                    continue
+                yield (f"{name}!{info.filename}", zf.read(info))
+    except (
+        OSError,
+        EOFError,
+        zipfile.BadZipFile,
+        zlib.error,
+        RuntimeError,
+        NotImplementedError,
+    ) as exc:
+        yield f"unreadable archive: {exc}"
+
+
+def scan_bytes(raw: bytes, name: str, depth: int = 0) -> list[Finding]:
+    """Scan one file's bytes; archives (zip, npz, gz) are opened and their members scanned."""
+    suffix = Path(name.split("!")[-1]).suffix.lower()
+    if suffix in _ARCHIVE_SUFFIXES:
+        if depth >= _MAX_ARCHIVE_DEPTH:
+            return [Finding(name, "file", "unscanned-file", "archives nested too deeply")]
+        findings: list[Finding] = []
+        for member in _archive_members(raw, suffix, name):
+            if isinstance(member, str):
+                findings.append(Finding(name, "file", "unscanned-file", member))
+            elif len(member[1]) > MAX_FILE_BYTES:
+                findings.append(Finding(member[0], "file", "unscanned-file", "larger than limit"))
+            else:
+                findings.extend(scan_bytes(member[1], member[0], depth + 1))
+        return findings
+    if suffix == ".npy":
+        # NumPy arrays are raw bytes with a small header; scan them as latin-1 text.
+        text: str | None = raw.decode("latin-1")
+    else:
+        text = _decode(raw)
+    if text is None:
+        if suffix in _BINARY_SUFFIXES:
+            return []
+        return [Finding(name, "file", "unscanned-file", "binary or undecodable")]
+    if suffix == ".ipynb":
+        try:
+            nb = json.loads(text)
+        except json.JSONDecodeError as exc:
+            return [Finding(name, "file", "invalid-notebook-json", str(exc))]
+        if not isinstance(nb, dict):
+            return [Finding(name, "file", "invalid-notebook-json", "not an object")]
+        return [Finding(name, loc, rule, snip) for loc, rule, snip in scan_notebook_data(nb)]
+    return [Finding(name, f"line {n}", rule, snip) for n, rule, snip in scan_text(text)]
+
+
 def scan_file(path: Path, display: str | None = None) -> list[Finding]:
     name = display or path.as_posix()
     base = path.name
@@ -343,29 +421,12 @@ def scan_file(path: Path, display: str | None = None) -> list[Finding]:
     if base == ".env" or (base.startswith(".env.") and base != ".env.example"):
         findings.append(Finding(name, "file", "env-file", "tracked .env file"))
     try:
-        if path.stat().st_size > MAX_FILE_BYTES and path.suffix != ".ipynb":
+        if path.stat().st_size > MAX_FILE_BYTES and path.suffix not in (".ipynb", ".zip", ".npz"):
             return [*findings, Finding(name, "file", "unscanned-file", "larger than the limit")]
         raw = path.read_bytes()
     except OSError as exc:
         return [*findings, Finding(name, "file", "unreadable", str(exc))]
-    text = _decode(raw)
-    if text is None:
-        if path.suffix.lower() in _BINARY_SUFFIXES:
-            return findings
-        return [*findings, Finding(name, "file", "unscanned-file", "binary or undecodable")]
-    if path.suffix == ".ipynb":
-        try:
-            nb = json.loads(text)
-        except json.JSONDecodeError as exc:
-            return [*findings, Finding(name, "file", "invalid-notebook-json", str(exc))]
-        if not isinstance(nb, dict):
-            return [*findings, Finding(name, "file", "invalid-notebook-json", "not an object")]
-        findings.extend(
-            Finding(name, loc, rule, snip) for loc, rule, snip in scan_notebook_data(nb)
-        )
-    else:
-        findings.extend(Finding(name, f"line {n}", rule, snip) for n, rule, snip in scan_text(text))
-    return findings
+    return [*findings, *scan_bytes(raw, name)]
 
 
 def tracked_files(root: Path) -> list[Path]:

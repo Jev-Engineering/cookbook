@@ -6,12 +6,16 @@ would flag.
 
 from __future__ import annotations
 
+import base64
+import gzip
 import importlib.util
+import io
 import json
 import random
 import string
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -455,3 +459,88 @@ def test_home_path_forms_without_trailing_slash_are_caught(text, rule, tmp_path)
 def test_home_placeholders_and_prose_are_still_allowed(tmp_path):
     text = "PosixPath('/home/<user>') and the /home directory and /Users/ folder"
     assert scan(tmp_path, notebook(outputs=[stream(text)])) == []
+
+
+# --- fix round 2: archives, slash-containing keys, large-notebook limit ----------------
+
+
+def _zip_bytes(members: dict, compression=zipfile.ZIP_DEFLATED) -> bytes:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression) as zf:
+        for member, data in members.items():
+            zf.writestr(member, data)
+    return buf.getvalue()
+
+
+def test_gz_archive_contents_are_scanned(tmp_path):
+    path = tmp_path / "log.txt.gz"
+    path.write_bytes(gzip.compress(f"TYPESAFE_API_KEY={KEY}\n".encode()))
+    assert "secret-assignment" in rules(hygiene.scan_file(path))
+
+
+@pytest.mark.parametrize("compression", [zipfile.ZIP_DEFLATED, zipfile.ZIP_STORED])
+def test_zip_containing_a_notebook_is_scanned(compression, tmp_path):
+    nb = notebook(outputs=[stream(f"Authorization: Bearer {KEY}")])
+    path = tmp_path / "bundle.zip"
+    path.write_bytes(_zip_bytes({"a/notebook.ipynb": json.dumps(nb)}, compression))
+    found = hygiene.scan_file(path)
+    assert "bearer-token" in rules(found)
+    assert "bundle.zip!a/notebook.ipynb" in found[0].path
+
+
+def test_npz_and_npy_are_scanned(tmp_path):
+    npz = tmp_path / "arrays.npz"
+    npz.write_bytes(_zip_bytes({"x.npy": b"\x93NUMPY\0\0" + f"api_key={KEY}".encode()}))
+    npy = tmp_path / "x.npy"
+    npy.write_bytes(b"\x93NUMPY\0\0" + f"api_key={KEY}".encode())
+    assert "secret-assignment" in rules(hygiene.scan_file(npz))
+    assert "secret-assignment" in rules(hygiene.scan_file(npy))
+
+
+def test_nested_zip_and_broken_archives(tmp_path):
+    inner = _zip_bytes({"k.txt": f"api_key={KEY}"})
+    path = tmp_path / "outer.zip"
+    path.write_bytes(_zip_bytes({"inner.zip": inner}))
+    assert "secret-assignment" in rules(hygiene.scan_file(path))
+    bad = tmp_path / "bad.zip"
+    bad.write_bytes(b"not a zip")
+    assert rules(hygiene.scan_file(bad)) == {"unscanned-file"}
+
+
+def test_clean_archives_pass(tmp_path):
+    path = tmp_path / "ok.zip"
+    path.write_bytes(_zip_bytes({"a.txt": "hello"}))
+    assert hygiene.scan_file(path) == []
+
+
+def _base64_keys(count: int, seed: int = 11) -> list[str]:
+    rng = random.Random(seed)
+    return [base64.b64encode(rng.randbytes(30)).decode() for _ in range(count)]
+
+
+def test_base64_keys_with_and_without_slash_are_all_caught(tmp_path):
+    keys = _base64_keys(300)
+    assert sum("/" in k for k in keys) > 100  # the set really exercises "/"
+    for key in keys:
+        assert "high-entropy-token" in {r for _, r, _ in hygiene.scan_text(f"value {key}")}, key
+    nb = notebook(outputs=[stream(f"value {k}") for k in keys])
+    found = scan(tmp_path, nb)
+    assert len(found) >= len(keys)
+
+
+def test_url_and_path_exemptions_survive_whole_run_scoring():
+    for text in (
+        f"https://github.com/Jev-Engineering/cookbook/commit/{SHA40}",
+        f"fixtures/replay/{SHA64}.json",
+        f"/home/runner/work/{SHA64}",
+    ):
+        assert not [h for h in hygiene.scan_text(text) if h[1] == "high-entropy-token"], text
+
+
+def test_large_notebook_exemption_is_what_lets_it_through(tmp_path, monkeypatch):
+    monkeypatch.setattr(hygiene, "MAX_FILE_BYTES", 1000)
+    nb = notebook(outputs=[result({"image/png": "A" * 5000}), stream(f"Bearer {KEY}")])
+    path = tmp_path / "big.ipynb"
+    path.write_text(json.dumps(nb))
+    assert path.stat().st_size > 1000
+    assert "bearer-token" in rules(hygiene.scan_file(path))
