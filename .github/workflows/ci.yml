@@ -1,8 +1,9 @@
 name: CI
 
-# Checks every pull request and every push to main. Offline and keyless: no secrets are
-# used or needed. Job names are part of the contract (they become required checks), so
-# rename them only deliberately. Notebook execution (#69) will be added as further jobs.
+# Checks every pull request and every push to main. Keyless: no secrets are used or
+# needed and nothing calls the live API. Job names are part of the contract (they become
+# required checks), so rename them only deliberately. Notebook execution (#69) will be
+# added as further jobs.
 
 on:
   pull_request:
@@ -23,6 +24,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.10"
@@ -41,6 +44,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.10"
@@ -59,6 +64,8 @@ jobs:
         python-version: ["3.10", "3.14"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}

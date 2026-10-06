@@ -87,7 +87,7 @@ def run_main(tool_module, monkeypatch, *args: str) -> int:
 # Region replacement
 
 
-def test_render_fills_every_region_and_keeps_prose(tool_module):
+def test_render_fills_every_region_and_keeps_prose(project, tool_module):
     out = tool_module.render(make_readme(), CATALOG)
     assert out.startswith("# Title\n\nHand-written intro.\n")
     assert out.endswith("Hand-written outro.\n")
@@ -95,9 +95,16 @@ def test_render_fills_every_region_and_keeps_prose(tool_module):
     assert "| **Cat A** | 1 | 1 | `01` |" in out
     assert "| S01 | [Docs](https://example.test/docs) | Facts |" in out
     assert "`Choice` + `Score`" in out
+    assert (
+        "| **1** | [Beginner](#level-1--beginner) | One bounded judgment. | 1<br><sub>01 to 01</sub> |"
+        in out
+    )
+    assert "| **2** | [Intermediate](#level-2--intermediate) | Several judgments. |" in out
+    assert "Categories-2-" in out
+    assert "Levels-2-" in out
 
 
-def test_render_replaces_stale_region_content(tool_module):
+def test_render_replaces_stale_region_content(project, tool_module):
     out = tool_module.render(make_readme("STALE CONTENT\n"), CATALOG)
     assert "STALE CONTENT" not in out
     for name in REGION_NAMES:
@@ -105,12 +112,12 @@ def test_render_replaces_stale_region_content(tool_module):
         assert out.count(f"<!-- catalog:{name}:end -->") == 1
 
 
-def test_render_is_idempotent(tool_module):
+def test_render_is_idempotent(project, tool_module):
     once = tool_module.render(make_readme(), CATALOG)
     assert tool_module.render(once, CATALOG) == once
 
 
-def test_render_leaves_text_outside_regions_untouched(tool_module):
+def test_render_leaves_text_outside_regions_untouched(project, tool_module):
     readme = make_readme().replace("Hand-written outro.", "Edited outro, still mine.")
     out = tool_module.render(readme, CATALOG)
     assert out.startswith("# Title\n\nHand-written intro.\n")
@@ -121,7 +128,7 @@ def test_render_leaves_text_outside_regions_untouched(tool_module):
         assert f"\n<!-- catalog:{name}:end -->\n" in out
 
 
-def test_render_missing_markers_exits_naming_the_region(tool_module):
+def test_render_missing_markers_exits_naming_the_region(project, tool_module):
     readme = make_readme().replace("<!-- catalog:sources:start -->\n", "")
     with pytest.raises(SystemExit) as excinfo:
         tool_module.render(readme, CATALOG)
@@ -206,9 +213,9 @@ def test_check_goes_stale_when_a_notebook_appears(project, tool_module, monkeypa
 def test_write_mode_rewrites_readme_and_reports(project, tool_module, monkeypatch, capsys):
     assert run_main(tool_module, monkeypatch) == 0
     assert "README.md updated" in capsys.readouterr().out
-    text = (project / "README.md").read_text(encoding="utf-8")
-    assert "**Beta**" in text
-    assert "\r" not in text
+    assert "**Beta**" in (project / "README.md").read_text(encoding="utf-8")
+    # Raw bytes: text mode would fold CRLF into LF and hide a wrong newline setting.
+    assert b"\r" not in (project / "README.md").read_bytes()
     # A second run has nothing to do and says nothing.
     assert run_main(tool_module, monkeypatch) == 0
     assert capsys.readouterr().out == ""

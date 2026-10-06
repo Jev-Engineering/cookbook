@@ -36,7 +36,7 @@ The README tables are generated: after a catalog change run
 ## Continuous integration
 
 `.github/workflows/ci.yml` (workflow `CI`) runs on every pull request and every push to
-`main`. It is offline and keyless: it uses no secrets. These job names are stable so they
+`main`. It uses no secrets and makes no live API calls. These job names are stable so they
 can be made required checks; change one only deliberately, and add new jobs (for example
 notebook execution) under new names.
 
@@ -47,8 +47,8 @@ notebook execution) under new names.
 | `Tests (py3.10)` | `pytest` on the package floor |
 | `Tests (py3.14)` | `pytest` on the newest interpreter contributors use |
 
-Run the same four commands locally (the three above plus the catalog check) before opening a
-pull request. Third-party actions are pinned to full commit SHAs with the version in a
+Run the lint, test and catalog commands from this document locally before opening a pull
+request. Third-party actions are pinned to full commit SHAs with the version in a
 comment; bump them deliberately, and keep the permissions at `contents: read`.
 
 ## Dependency policy
