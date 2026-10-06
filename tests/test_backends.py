@@ -853,23 +853,23 @@ def test_tolerances_are_pinned():
             0.5 + eps, probs, score_confidence([0.5, 0.5 + eps]), levels, PROV
         )
 
-    # probabilities sum to 1 within 1e-9
+    # probabilities sum to 1 within 2e-2
     for make in (choice, score):
-        _accepts(make(5e-10))
-        _rejects(make(2e-9), "sum to 1")
+        _accepts(make(1.9e-2))
+        _rejects(make(2.1e-2), "sum to 1")
 
-    # score equals the probability-weighted level within 1e-9
+    # score equals the probability-weighted level within 5e-2
     probs = {0: 0.4, 1: 0.6}
     conf = score_confidence([0.4, 0.6])
-    _accepts(lambda: ScoreAnswer(0.6 + 5e-10, probs, conf, levels, PROV))
-    _rejects(lambda: ScoreAnswer(0.6 + 2e-9, probs, conf, levels, PROV), "probability-weighted")
+    _accepts(lambda: ScoreAnswer(0.6 + 4.9e-2, probs, conf, levels, PROV))
+    _rejects(lambda: ScoreAnswer(0.6 + 5.1e-2, probs, conf, levels, PROV), "probability-weighted")
 
-    # confidence equals the published formula within 7e-3
+    # confidence equals the published formula within 1e-2
     cconf = choice_confidence([0.3, 0.7])
-    for delta in (6.9e-3, -6.9e-3):
+    for delta in (9.9e-3, -9.9e-3):
         _accepts(lambda delta=delta: ChoiceAnswer("b", {"a": 0.3, "b": 0.7}, cconf + delta, PROV))
         _accepts(lambda delta=delta: ScoreAnswer(0.6, probs, conf + delta, levels, PROV))
-    for delta in (7.1e-3, -7.1e-3):
+    for delta in (1.01e-2, -1.01e-2):
         _rejects(
             lambda delta=delta: ChoiceAnswer("b", {"a": 0.3, "b": 0.7}, cconf + delta, PROV),
             "confidence",

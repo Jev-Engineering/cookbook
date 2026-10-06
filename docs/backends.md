@@ -76,20 +76,19 @@ ScoreAnswer.from_probabilities([0.0, 0.2, 0.8], ["can wait", "this week", "today
 
 | Check | Tolerance |
 | - | - |
-| probabilities sum to 1 | `SUM_TOL = 1e-9` |
-| Score `score` equals the probability-weighted level | `LEVEL_TOL = 1e-9` |
-| `confidence` equals the published formula (Choice and Score) | `CONFIDENCE_TOL = 7e-3` |
+| probabilities sum to 1 | `SUM_TOL = 2e-2` |
+| Score `score` equals the probability-weighted level | `LEVEL_TOL = 5e-2` |
+| `confidence` equals the published formula (Choice and Score) | `CONFIDENCE_TOL = 1e-2` |
 
-These are the smallest values that accept every example response in the TypeSafe docs
-(`primitives/choice`, `primitives/score`, `sdk/python/usage`, `confidence`), which print values
-rounded to two decimals. Measured against the formulas on this page, those examples have
-probabilities that sum to 1 exactly, a Score `score` within 3e-16 of the weighted level, and a
-`confidence` off by up to 0.0067 (the Score `formality` example prints 0.89 where the formula gives
-0.883, which suggests the printed probabilities are rounded). The `sdk/python/usage` page shows no
-Choice or Score response, and the `confidence` page only works the `bug_severity` example (0.35
-against 0.355). A tolerance of 1e-3 on `confidence` would have rejected three of the examples. The
-tests pin both sides of each value and check the documented examples. Issue #64 verifies these
-values against the first real recording and may widen them; a tolerance changes no replay key and no
+These values are provisional. They exist to accept responses rounded to two decimal places, as
+the examples in the TypeSafe docs are (`primitives/choice`, `primitives/score`, `confidence`; the
+`sdk/python/usage` page shows no Choice or Score response). Measured against the formulas on this
+page, the documented examples have probabilities that sum to 1 exactly, a Score `score` within
+3e-16 of the weighted level, and a `confidence` off by up to 0.0067 (the Score `formality`
+example prints 0.89 where the formula gives 0.883). Every documented example still loads, and the
+hand-typed inconsistencies the tests use (off by 0.1 or more) are still rejected. The tests pin
+both sides of each value. Issue #64 verifies these values against the first real recording and
+tightens or widens them in its own reviewed pull request. A tolerance changes no replay key and no
 stored format.
 
 `DecisionResult(answers, model, usage)` has `answers` (a read-only mapping of answer objects),

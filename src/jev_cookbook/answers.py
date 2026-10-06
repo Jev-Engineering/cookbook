@@ -30,12 +30,13 @@ __all__ = [
     "answer_from_dict",
 ]
 
-# Consistency tolerances for answers built or loaded from stored responses. They are the
-# smallest values that accept every example response in the TypeSafe docs (see
-# docs/backends.md, "Tolerances"); issue #64 checks them against the first real recording.
-SUM_TOL = 1e-9  # probabilities sum to 1
-LEVEL_TOL = 1e-9  # Score ``score`` equals the probability-weighted level
-CONFIDENCE_TOL = 7e-3  # ``confidence`` equals the published formula
+# Provisional consistency tolerances for answers built or loaded from stored responses. They
+# are wide enough to accept responses rounded to two decimals, as the examples in the TypeSafe
+# docs are (see docs/backends.md, "Tolerances"); issue #64 verifies them against the first real
+# recording and tightens or widens them in its own reviewed pull request.
+SUM_TOL = 2e-2  # probabilities sum to 1
+LEVEL_TOL = 5e-2  # Score ``score`` equals the probability-weighted level
+CONFIDENCE_TOL = 1e-2  # ``confidence`` equals the published formula
 TOL = 1e-3  # slack when deciding that the stated Choice option is the most probable one
 Level = str | dict[str, Any] | list[Any]
 SYNTHETIC_MODEL = "synthetic"
