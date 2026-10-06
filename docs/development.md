@@ -39,8 +39,13 @@ regenerated in that same pull request. The recipe builder does not do this: a de
 integration worker does, serially, after updating the branch against current `main` and
 before the final review and CI run (see "The generated-README exception" in
 [CONTRIBUTING.md](../CONTRIBUTING.md)). `--check` stays strict and fails on any stale
-content. The planned scope check in #69 does not exist yet; when it does it must accept only
-exact renderer output in the generated regions, never an arbitrary root edit.
+content, so on a recipe pull request that adds a notebook the `Catalog` check is expected to be
+red until the integration stage has run; the builder does not fix it. The scope check planned
+for #69 does not exist yet. Until it does, reviewers apply the same allowlist by hand with
+`git diff --name-status -M origin/main...HEAD`: only paths under `recipes/NN-slug/` plus
+`README.md`, where `README.md` must equal `render(<base README>, <head catalog>)` (rendered from
+the base README, not the head's, with the head's `recipes/` tree deciding publication). The
+full rule is in [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## Continuous integration
 
@@ -57,7 +62,7 @@ notebook execution) under new names.
 | `Tests (py3.14)` | `pytest` on the newest interpreter contributors use |
 | `Hygiene (secrets and notebook outputs)` | `python tools/check_hygiene.py` (workflow `Hygiene`, `.github/workflows/hygiene.yml`) |
 
-Run the lint, test and catalog commands from this document locally before opening a pull
+Run the lint, test and hygiene commands from this document locally before opening a pull
 request. Third-party actions are pinned to full commit SHAs with the version in a
 comment; bump them deliberately, and keep the permissions at `contents: read`.
 
