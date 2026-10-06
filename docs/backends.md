@@ -32,12 +32,16 @@ result["tone"].provenance.source  # "synthetic" or "recorded"
 
 ## Questions
 
-They mirror `typesafe_sdk`. `instructions` is text, a JSON object or array, or `None`.
-`Choice(criteria={name: description-or-None})` takes a non-empty mapping.
-`Score(criteria=[...])` takes a non-empty ordered list, one description per level from 0.
-`Noul(criteria={"true": ..., "false": ...})` optionally describes the outcomes.
-All values must be plain JSON (`str`, `int`, `float`, `bool`, `None`, `list`, `dict` with `str`
-keys); numpy values and NaN are rejected. `to_dict()` / `question_from_dict()` convert them.
+They mirror `typesafe_sdk`, and every constructor takes keyword arguments only. `instructions` is
+text, a JSON object or array, or `None`. `Choice(criteria={name: description-or-None})` takes a
+non-empty mapping of at most 255 options. `Score(criteria=[...])` takes an ordered list of 2 to 10
+non-empty strings, one per level from 0. `Noul(criteria={"true": ..., "false": ...})` optionally
+describes the outcomes. All values must be plain JSON (`str`, `int`, `float`, `bool`, `None`,
+`list`, `dict` with `str` keys); numpy values and NaN are rejected. `to_dict()` /
+`question_from_dict()` convert them.
+
+The `state` passed to `decide` and `replay_key` is a string, a JSON object (`dict`), or an array
+(`list`/`tuple`) of strings. Bare numbers, booleans and `None` are rejected with `TypeError`.
 
 ## Answers
 
@@ -45,25 +49,46 @@ keys); numpy values and NaN are rejected. `to_dict()` / `question_from_dict()` c
 | - | - |
 | `NoulAnswer` | `noul: float` (probability of yes, 0 to 1) |
 | `ChoiceAnswer` | `choice: str`, `probabilities: {option: float}`, `confidence: float` |
-| `ScoreAnswer` | `score: float`, `probabilities: {int: float}`, `confidence: float`, `legend: {int: criteria}` |
+| `ScoreAnswer` | `score: float`, `probabilities: {int: float}`, `confidence: float`, `legend: {int: str}` |
 
 Every answer also has `provenance: Provenance` (`source`, `model`, `date`). Score level keys are
-`int` in memory (as in `typesafe_sdk`) and JSON strings (`"0"`, `"1"`, ...) in `to_dict()`.
-`DecisionResult` has `answers`, `model`, `usage`, `result[name]`, and the groupings `nouls`,
-`choices`, `scores`. Each class has `to_dict()` / `from_dict()` (`answer_from_dict` for answers).
+`int` in memory (as in `typesafe_sdk`) and JSON strings (`"0"`, `"1"`, ...) in `to_dict()`; level
+keys must be canonical decimal integers (`"00"` is rejected, and so is a duplicate level after
+conversion). Answers are immutable: mappings are read-only views, so a result returned by replay
+cannot be changed by the caller (`to_dict()` returns a fresh copy you may edit).
+
+Construction is validated with a tolerance of 1e-3: probabilities sum to 1; `choice` is the
+highest-probability option; `confidence` equals the published formulas (Choice
+`(p_max - 1/n) / (1 - 1/n)`, one option gives 1; Score `1 - spread / even_spread`, where `spread`
+is the probability-weighted distance from the most likely level and `even_spread` is the same
+quantity for a uniform distribution, see the TypeSafe confidence page); Score `score` equals the
+probability-weighted level. To avoid computing these by hand use
+
+```python
+ChoiceAnswer.from_probabilities({"calm": 0.05, "angry": 0.95}, provenance)
+ScoreAnswer.from_probabilities([0.0, 0.2, 0.8], ["can wait", "this week", "today"], provenance)
+```
+
+`DecisionResult(answers, model, usage)` has `answers` (a read-only mapping of answer objects),
+`model`, `usage`, `source` (`"synthetic"` or `"recorded"`), `result[name]`, and the groupings
+`nouls`, `choices`, `scores`. A result never mixes synthetic and recorded answers; a synthetic
+result's model is always `"synthetic"`; for a recorded result every answer's provenance model
+equals the result's model. Each class has `to_dict()` / `from_dict()` (`answer_from_dict` for
+answers).
 
 Provenance: `Provenance.synthetic()` (no model, no date) or `Provenance.recorded(model, "YYYY-MM-DD")`
-(the model string the API returned, and the date). Nothing may be labelled `recorded` unless it came
-from a real API call.
+(the model string the API returned, and the date; both required; the model cannot be
+`"synthetic"`). Nothing may be labelled `recorded` unless it came from a real API call.
 
 ## Stored response (what replay reads)
 
 A stored response is exactly `DecisionResult.to_dict()`; a fixture file is a JSON object
-`{replay_key: stored_response}` (the on-disk format is finalized by the fixture validator).
+`{replay_key: stored_response}` (the on-disk format is finalized by the fixture validator). Keys are 64 lowercase hex
+characters, and a duplicate key in the file is an error.
 
 ```json
 {
-  "model": "synthetic-fixture",
+  "model": "synthetic",
   "usage": {"input_tokens": null, "output_tokens": null},
   "answers": {
     "billing": {"type": "noul", "noul": 0.97,
@@ -72,7 +97,7 @@ A stored response is exactly `DecisionResult.to_dict()`; a fixture file is a JSO
              "probabilities": {"calm": 0.05, "frustrated": 0.15, "angry": 0.8}, "confidence": 0.7,
              "provenance": {"source": "synthetic", "model": null, "date": null}},
     "urgency": {"type": "score", "score": 1.8,
-                "probabilities": {"0": 0.0, "1": 0.2, "2": 0.8}, "confidence": 0.6,
+                "probabilities": {"0": 0.0, "1": 0.2, "2": 0.8}, "confidence": 0.7,
                 "legend": {"0": "can wait", "1": "this week", "2": "today"},
                 "provenance": {"source": "synthetic", "model": null, "date": null}}
   }
@@ -83,21 +108,69 @@ Unknown keys are errors, and provenance is required on every answer. On replay t
 match the questions asked (same names, same types, same options or number of levels), or
 `FixtureError` is raised.
 
+### Building a fixture by hand
+
+```python
+# recipe: fixture
+import json
+
+from jev_cookbook import (
+    Choice,
+    ChoiceAnswer,
+    DecisionResult,
+    Noul,
+    NoulAnswer,
+    Provenance,
+    Score,
+    ScoreAnswer,
+    get_backend,
+    replay_key,
+)
+
+state = {"document": "I was charged twice. Please fix this ASAP."}
+questions = {
+    "billing": Noul(instructions="Is this ticket about billing?"),
+    "tone": Choice(criteria={"calm": None, "angry": None}, instructions="Tone?"),
+    "urgency": Score(criteria=["can wait", "today"], instructions="How urgent?"),
+}
+syn = Provenance.synthetic()
+result = DecisionResult(
+    {
+        "billing": NoulAnswer(0.97, syn),
+        "tone": ChoiceAnswer.from_probabilities({"calm": 0.1, "angry": 0.9}, syn),
+        "urgency": ScoreAnswer.from_probabilities([0.2, 0.8], ["can wait", "today"], syn),
+    },
+    "synthetic",
+)
+fixtures = {replay_key(state, questions): result.to_dict()}
+with open("fixtures.json", "w", encoding="utf-8", newline="\n") as fh:
+    json.dump(fixtures, fh, indent=2)
+    fh.write("\n")
+
+backend = get_backend(fixtures="fixtures.json")
+assert backend.decide(state, questions) == result
+```
+
+Change the state or any question and the key changes, so replay misses (`ReplayMiss`) instead of
+guessing. A recorded fixture uses `Provenance.recorded(model, date)` on every answer and the same
+model string as `DecisionResult(..., model)`.
+
 ## Replay key
 
 `replay_key(state, questions)` is the lowercase hex SHA-256 of the ASCII bytes of the canonical
 JSON of `{"v": 1, "state": <state>, "questions": {<name>: <question.to_dict()>, ...}}`.
 
-Canonical JSON: object keys sorted, separators `,` and `:` with no spaces, `ensure_ascii=True`
-(non-ASCII becomes `\uXXXX`), `allow_nan=False`, floats and ints as Python writes them (shortest
-round-trip `repr`, identical on all platforms and Python 3.10 to 3.14), `-0.0` written as `0.0`,
-and every `\r\n` or lone `\r` in any string (keys included) replaced by `\n`. Nothing else is
-normalized: `1` and `1.0` differ, and Unicode is not re-normalized. It never uses `hash()`.
+Canonical JSON: separators `,` and `:` with no spaces, `ensure_ascii=True` (non-ASCII becomes
+`\uXXXX`), `allow_nan=False`, floats and ints as Python writes them (shortest round-trip `repr`,
+identical on all platforms and Python 3.10 to 3.14). Question names are sorted. Every other object
+key (state keys, Choice options) and every array is hashed in the order written, which is the order
+the SDK sends. Nothing else is normalized: `1` and `1.0` differ, `-0.0` stays `-0.0`, newline
+styles (`\r\n`, `\r`, `\n`) differ, and Unicode is not re-normalized. It never uses `hash()`.
 
-What changes the key: the state, question names, each question's type, `instructions`, and
-`criteria` (Score level order matters; Choice options are an unordered set; Noul criteria with
-all-`None` values equal no criteria). What does not: dict insertion order, Choice option order,
-question order, platform newlines. The key version `v` is bumped if this rule ever changes.
+What changes the key: the state (including key order), question names, each question's type,
+`instructions`, and `criteria` (Score level order and Choice option order matter; Noul criteria
+with all-`None` values equal no criteria). What does not: question order. The key version `v` is
+bumped if this rule ever changes.
 
 A miss raises `ReplayMiss` (a `LookupError`) whose message and `.key` give the missing key; the
 fix is to rebuild or add the fixture for that key. Replay never fabricates an answer.
@@ -109,7 +182,8 @@ fix is to rebuild or add the fixture for that key. Replay never fabricates an an
 per-level weights for `Score`. Weights are normalized; `confidence` is computed with the formulas
 on the TypeSafe confidence page. `rng` is a `random.Random` seeded from `(seed, replay_key)`, so
 the same request gives the same answers on every platform, whatever the call order; use only
-`rng.random()`. Answers are always `synthetic`, model `"synthetic-scripted"`, empty usage. These
+`rng.random()`. Sums use `math.fsum`, so results are identical across Python versions. Answers are always
+`synthetic`, model `"synthetic"`, empty usage. These
 numbers say nothing about how Jev performs.
 
 ## `get_backend`
@@ -119,3 +193,13 @@ numbers say nothing about how Jev performs.
 selects the live backend and currently raises `LiveBackendUnavailable`; it never falls back to
 replay. Values other than unset, empty, `0`, `1` are an error. The environment is read when
 `get_backend` is called, not at import.
+
+## Backend attributes
+
+Every backend has `mode` (`"synthetic"`, `"recorded"`, `"scripted"` or `"live"`) and `model`
+(the model string its results carry; `"synthetic"` offline). `ReplayBackend` derives `mode`,
+`model` and `recorded_dates` (a sorted tuple of unique dates, empty when synthetic) from the
+fixture provenance when it loads, and rejects an empty fixture set, a set mixing synthetic and
+recorded answers, or one with more than one model. `ScriptedBackend` is `mode="scripted"`,
+`model="synthetic"`. The live backend, when it exists, must expose the same attributes
+with `mode="live"`.

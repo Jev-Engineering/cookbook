@@ -9,14 +9,18 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import random
+import re
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
 from ._canonical import canonical_json, plain_json
 from .answers import (
+    RECORDED_SOURCE,
+    SYNTHETIC_MODEL,
     SYNTHETIC_SOURCE,
     Answer,
     ChoiceAnswer,
@@ -41,7 +45,7 @@ __all__ = [
 
 KEY_VERSION = 1
 LIVE_ENV = "JEV_COOKBOOK_LIVE"
-SCRIPTED_MODEL = "synthetic-scripted"
+KEY_PATTERN = re.compile(r"[0-9a-f]{64}")
 
 
 class ReplayMiss(LookupError):
@@ -69,8 +73,12 @@ class LiveBackendUnavailable(RuntimeError):
 def _check_request(
     state: Any, questions: Mapping[str, Question]
 ) -> tuple[Any, dict[str, Question]]:
-    if state is None:
-        raise ValueError("state cannot be None (use a string, object or array)")
+    if not (
+        type(state) is str
+        or type(state) is dict
+        or (type(state) in (list, tuple) and all(type(x) is str for x in state))
+    ):
+        raise TypeError("state must be a string, a JSON object, or an array of strings")
     if not isinstance(questions, Mapping) or not questions:
         raise ValueError("questions must be a non-empty mapping of name -> question")
     checked: dict[str, Question] = {}
@@ -87,22 +95,29 @@ def replay_key(state: Any, questions: Mapping[str, Question]) -> str:
     """Stable 64-hex-character key for a request (see docs/backends.md for the exact rule).
 
     SHA-256 of the canonical JSON of ``{"v": 1, "state": ..., "questions": {name:
-    question.to_dict()}}``: sorted object keys, no whitespace, ASCII escapes, newlines
-    normalized to LF, shortest-repr floats. Score criteria keep their order; Choice
-    options and question names are unordered.
+    question.to_dict()}}``: question names sorted; every other object key (state keys,
+    Choice options) and every array in the order written; no whitespace, ASCII escapes,
+    shortest-repr floats. Nothing else is normalized.
     """
     plain_state, checked = _check_request(state, questions)
     payload = {
         "v": KEY_VERSION,
         "state": plain_state,
-        "questions": {name: q.to_dict() for name, q in checked.items()},
+        "questions": {name: checked[name].to_dict() for name in sorted(checked)},
     }
     return hashlib.sha256(canonical_json(payload).encode("ascii")).hexdigest()
 
 
 @runtime_checkable
 class Backend(Protocol):
-    """The one interface notebooks call."""
+    """The one interface notebooks call.
+
+    ``mode`` is ``"synthetic"``, ``"recorded"``, ``"scripted"`` or ``"live"``; ``model`` is
+    the model string results carry (``"synthetic"`` for the offline synthetic modes).
+    """
+
+    mode: str
+    model: str
 
     def decide(self, state: Any, questions: Mapping[str, Question]) -> DecisionResult:
         """Answer every named question about ``state``."""
@@ -136,22 +151,56 @@ class ReplayBackend:
     ``responses`` maps a replay key to a stored response: exactly ``DecisionResult.to_dict()``
     (``synthetic`` and ``recorded`` answers both replay; provenance is kept per answer).
     Every response is parsed when the backend is built, so a bad fixture fails early and
-    names its key.
+    names its key. ``mode`` (``synthetic`` or ``recorded``), ``model`` and ``recorded_dates``
+    (sorted unique dates) come from the fixture provenance; a fixture set that mixes
+    synthetic and recorded answers, or more than one model, is rejected. Results are
+    immutable, so replay returns the stored object itself.
     """
 
     def __init__(self, responses: Mapping[str, Mapping[str, Any]]) -> None:
         self._results: dict[str, DecisionResult] = {}
         for key, stored in responses.items():
+            if type(key) is not str or not KEY_PATTERN.fullmatch(key):
+                raise FixtureError(f"replay key must be 64 lowercase hex characters, got {key!r}")
             try:
                 self._results[key] = DecisionResult.from_dict(stored)
             except (ValueError, TypeError) as exc:
                 raise FixtureError(f"stored response {key}: {exc}") from exc
+        if not self._results:
+            raise FixtureError("a replay backend needs at least one stored response")
+        sources = {r.source for r in self._results.values()}
+        models = {r.model for r in self._results.values()}
+        if len(sources) > 1:
+            raise FixtureError("fixtures mix synthetic and recorded answers")
+        if len(models) > 1:
+            raise FixtureError(f"fixtures come from more than one model: {sorted(models)}")
+        self.mode: str = sources.pop()
+        self.model: str = models.pop()
+        self.recorded_dates: tuple[str, ...] = tuple(
+            sorted(
+                {
+                    a.provenance.date
+                    for r in self._results.values()
+                    for a in r.answers.values()
+                    if a.provenance.source == RECORDED_SOURCE and a.provenance.date
+                }
+            )
+        )
 
     @classmethod
     def from_json(cls, path: str | os.PathLike[str]) -> ReplayBackend:
         """Load a JSON file holding one object: ``{replay_key: stored_response, ...}``."""
+
+        def no_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+            out: dict[str, Any] = {}
+            for k, v in pairs:
+                if k in out:
+                    raise FixtureError(f"{path}: duplicate key {k!r}")
+                out[k] = v
+            return out
+
         with open(path, encoding="utf-8", newline="") as fh:
-            data = json.load(fh)
+            data = json.load(fh, object_pairs_hook=no_duplicates)
         if not isinstance(data, dict):
             raise FixtureError(f"{path}: expected a JSON object of replay_key -> response")
         return cls(data)
@@ -184,27 +233,10 @@ def _normalize(weights: Sequence[float], what: str) -> list[float]:
     for w in weights:
         if type(w) not in (int, float) or not w >= 0 or w == float("inf"):
             raise ValueError(f"{what}: weights must be finite numbers >= 0, got {w!r}")
-    total = sum(weights)
+    total = math.fsum(weights)
     if total <= 0:
         raise ValueError(f"{what}: weights must not all be zero")
     return [w / total for w in weights]
-
-
-def _choice_confidence(probs: Sequence[float]) -> float:
-    n = len(probs)
-    if n == 1:
-        return 1.0
-    return min(1.0, max(0.0, (n * max(probs) - 1) / (n - 1)))
-
-
-def _score_confidence(probs: Sequence[float]) -> float:
-    n = len(probs)
-    if n == 1:
-        return 1.0
-    peak = probs.index(max(probs))
-    spread = sum(p * abs(i - peak) for i, p in enumerate(probs))
-    even = sum(abs(i - (n - 1) / 2) for i in range(n)) / n
-    return min(1.0, max(0.0, 1 - spread / even))
 
 
 def _build(name: str, q: Question, spec: Spec) -> Answer:
@@ -222,21 +254,11 @@ def _build(name: str, q: Question, spec: Spec) -> Answer:
         if not isinstance(spec, Mapping) or not set(spec) <= set(options):
             raise ValueError(f"{name!r}: choice spec must name options from {options}")
         probs = _normalize([spec.get(o, 0.0) for o in options], name)
-        top = probs.index(max(probs))
-        return ChoiceAnswer(
-            options[top], dict(zip(options, probs, strict=True)), _choice_confidence(probs), prov
-        )
+        return ChoiceAnswer.from_probabilities(dict(zip(options, probs, strict=True)), prov)
     if isinstance(spec, (str, Mapping)) or len(spec) != len(q.criteria):
         raise ValueError(f"{name!r}: score spec needs {len(q.criteria)} weights, one per level")
     probs = _normalize(list(spec), name)
-    keys = list(range(len(probs)))
-    return ScoreAnswer(
-        sum(i * p for i, p in enumerate(probs)),
-        dict(zip(keys, probs, strict=True)),
-        _score_confidence(probs),
-        dict(zip(keys, q.criteria, strict=True)),
-        prov,
-    )
+    return ScoreAnswer.from_probabilities(probs, q.criteria, prov)
 
 
 class ScriptedBackend:
@@ -246,7 +268,7 @@ class ScriptedBackend:
     ``random.Random`` seeded from ``(seed, replay_key)``, so the same request gives the
     same answers with the same seed on every platform, regardless of call order. Use only
     ``rng.random()`` in scripts: its stream is stable across Python versions. Answers are
-    always ``synthetic``, the result model is ``"synthetic-scripted"``, and usage is empty.
+    always ``synthetic``, the result model is ``"synthetic"``, and usage is empty.
     """
 
     def __init__(self, script: ScriptFn, seed: int = 0) -> None:
@@ -254,6 +276,8 @@ class ScriptedBackend:
             raise TypeError("seed must be an int")
         self._script = script
         self.seed = seed
+        self.mode: str = "scripted"
+        self.model: str = SYNTHETIC_MODEL
 
     def rng_for(self, state: Any, questions: Mapping[str, Question]) -> random.Random:
         digest = hashlib.sha256(f"{self.seed}:{replay_key(state, questions)}".encode()).hexdigest()
@@ -270,7 +294,7 @@ class ScriptedBackend:
                 _check_fits(name, checked[name], answer)
             except FixtureError as exc:
                 raise ValueError(f"script answer for {exc}") from exc
-        return DecisionResult(answers, SCRIPTED_MODEL, Usage())
+        return DecisionResult(answers, SYNTHETIC_MODEL, Usage())
 
 
 def _make_live_backend(**kwargs: Any) -> Backend:

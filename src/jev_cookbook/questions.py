@@ -2,7 +2,8 @@
 
 Shapes follow ``typesafe_sdk``: ``instructions`` is text, a JSON object or an array (or
 ``None``); ``Choice.criteria`` is a mapping of option name to an optional description;
-``Score.criteria`` is a non-empty ordered list, one description per level starting at 0;
+``Score.criteria`` is an ordered list of 2 to 10 non-empty strings, one per level from 0;
+``Choice`` allows at most 255 options; constructors take keyword arguments only;
 ``Noul.criteria`` optionally describes the ``true`` and ``false`` outcomes.
 """
 
@@ -17,11 +18,16 @@ from ._canonical import plain_json
 __all__ = ["Choice", "Noul", "Question", "Score", "question_from_dict"]
 
 
+MAX_CHOICE_OPTIONS = 255
+MIN_SCORE_LEVELS = 2
+MAX_SCORE_LEVELS = 10
+
+
 def _instructions(value: Any) -> Any:
     return plain_json(value, "instructions")
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Noul:
     """A yes/no question; the answer is the probability of yes."""
 
@@ -44,11 +50,11 @@ class Noul:
         return {"type": "noul", "instructions": self.instructions, "criteria": self.criteria}
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Choice:
     """Pick one named option. ``criteria`` maps option name to a description or ``None``.
 
-    The options are an unordered set for replay-key purposes.
+    Options are hashed into the replay key in the order written.
     """
 
     criteria: Mapping[str, Any]
@@ -58,6 +64,8 @@ class Choice:
     def __post_init__(self) -> None:
         if not isinstance(self.criteria, Mapping) or not self.criteria:
             raise ValueError("Choice criteria must be a non-empty mapping of option -> description")
+        if len(self.criteria) > MAX_CHOICE_OPTIONS:
+            raise ValueError(f"Choice allows at most {MAX_CHOICE_OPTIONS} options")
         crit = plain_json(dict(self.criteria), "criteria")
         if any(k == "" for k in crit):
             raise ValueError("Choice option names must be non-empty")
@@ -68,7 +76,7 @@ class Choice:
         return {"type": "choice", "instructions": self.instructions, "criteria": self.criteria}
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Score:
     """Rate against ordered levels. ``criteria[i]`` describes level ``i`` (from zero)."""
 
@@ -79,8 +87,14 @@ class Score:
     def __post_init__(self) -> None:
         if isinstance(self.criteria, (str, Mapping)) or not isinstance(self.criteria, Sequence):
             raise ValueError("Score criteria must be a non-empty ordered list of descriptions")
-        if not self.criteria:
-            raise ValueError("Score criteria must be a non-empty ordered list of descriptions")
+        if not MIN_SCORE_LEVELS <= len(self.criteria) <= MAX_SCORE_LEVELS:
+            raise ValueError(
+                f"Score needs {MIN_SCORE_LEVELS} to {MAX_SCORE_LEVELS} levels, "
+                f"got {len(self.criteria)}"
+            )
+        for i, level in enumerate(self.criteria):
+            if type(level) is not str or not level:
+                raise ValueError(f"Score level {i} must be a non-empty string, got {level!r}")
         object.__setattr__(self, "criteria", plain_json(list(self.criteria), "criteria"))
         object.__setattr__(self, "instructions", _instructions(self.instructions))
 
@@ -99,9 +113,9 @@ def question_from_dict(data: Mapping[str, Any]) -> Question:
     if set(data) - allowed:
         raise ValueError(f"unknown question keys: {sorted(set(data) - allowed)}")
     if kind == "noul":
-        return Noul(data.get("instructions"), data.get("criteria"))
+        return Noul(instructions=data.get("instructions"), criteria=data.get("criteria"))
     if kind == "choice":
-        return Choice(data.get("criteria"), data.get("instructions"))
+        return Choice(criteria=data.get("criteria"), instructions=data.get("instructions"))
     if kind == "score":
-        return Score(data.get("criteria"), data.get("instructions"))
+        return Score(criteria=data.get("criteria"), instructions=data.get("instructions"))
     raise ValueError(f"unknown question type: {kind!r}")

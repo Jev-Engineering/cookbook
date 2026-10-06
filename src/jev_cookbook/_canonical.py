@@ -37,36 +37,13 @@ def plain_json(value: Any, where: str = "value") -> Any:
     )
 
 
-def _normalize(value: Any) -> Any:
-    """Canonical form: newlines to LF in every string, negative zero to zero."""
-    if type(value) is str:
-        return value.replace("\r\n", "\n").replace("\r", "\n")
-    if type(value) is float:
-        return 0.0 if value == 0.0 else value
-    if type(value) is list:
-        return [_normalize(v) for v in value]
-    if type(value) is dict:
-        out: dict[str, Any] = {}
-        for k, v in value.items():
-            nk = _normalize(k)
-            if nk in out:
-                raise ValueError(f"keys collide after newline normalization: {nk!r}")
-            out[nk] = _normalize(v)
-        return out
-    return value
-
-
 def canonical_json(value: Any) -> str:
     """Serialize plain JSON deterministically (the string that replay keys hash).
 
-    Object keys sorted, no whitespace, ``ensure_ascii=True`` (so the text is pure ASCII
-    and independent of any encoding), ``allow_nan=False``, floats via Python's shortest
-    round-trip ``repr`` (identical on every platform and Python 3.10 to 3.14).
+    Object keys keep the order they were written in (that is the order the SDK sends);
+    callers sort where order is provably irrelevant. No whitespace, ``ensure_ascii=True``
+    (pure ASCII text), ``allow_nan=False``, floats via Python's shortest round-trip
+    ``repr`` (identical on every platform and Python 3.10 to 3.14). Strings are hashed
+    exactly as written: no newline or Unicode normalization.
     """
-    return json.dumps(
-        _normalize(plain_json(value)),
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=True,
-        allow_nan=False,
-    )
+    return json.dumps(plain_json(value), separators=(",", ":"), ensure_ascii=True, allow_nan=False)

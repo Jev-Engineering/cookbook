@@ -11,11 +11,10 @@ from __future__ import annotations
 
 import datetime
 import math
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import Any, ClassVar
-
-from ._canonical import plain_json
 
 __all__ = [
     "Answer",
@@ -28,6 +27,8 @@ __all__ = [
     "answer_from_dict",
 ]
 
+TOL = 1e-3
+SYNTHETIC_MODEL = "synthetic"
 SYNTHETIC_SOURCE = "synthetic"
 RECORDED_SOURCE = "recorded"
 
@@ -47,6 +48,29 @@ def _prob_map(value: Any, what: str) -> dict[str, float]:
             raise ValueError(f"{what} keys must be str, got {k!r}")
         out[k] = _unit(v, f"{what}[{k!r}]")
     return out
+
+
+def _expected_level(probs: Sequence[float]) -> float:
+    return math.fsum(i * p for i, p in enumerate(probs))
+
+
+def choice_confidence(probs: Sequence[float]) -> float:
+    """Published Choice confidence: (p_max - 1/n) / (1 - 1/n); 1.0 for a single option."""
+    n = len(probs)
+    if n == 1:
+        return 1.0
+    return min(1.0, max(0.0, (max(probs) - 1 / n) / (1 - 1 / n)))
+
+
+def score_confidence(probs: Sequence[float]) -> float:
+    """Published Score confidence: 1 - spread / even_spread (distance from the peak level)."""
+    n = len(probs)
+    if n == 1:
+        return 1.0
+    peak = probs.index(max(probs))
+    spread = math.fsum(p * abs(i - peak) for i, p in enumerate(probs))
+    even = math.fsum(abs(i - (n - 1) / 2) for i in range(n)) / n
+    return min(1.0, max(0.0, 1 - spread / even))
 
 
 def _prob_map_any(value: Any, what: str) -> Mapping[Any, Any]:
@@ -81,6 +105,8 @@ class Provenance:
         elif self.source == RECORDED_SOURCE:
             if type(self.model) is not str or not self.model:
                 raise ValueError("recorded provenance requires the model string")
+            if self.model == SYNTHETIC_MODEL:
+                raise ValueError(f"a recorded model cannot be named {SYNTHETIC_MODEL!r}")
             if type(self.date) is not str:
                 raise ValueError("recorded provenance requires a date as YYYY-MM-DD")
             try:
@@ -146,9 +172,25 @@ class ChoiceAnswer:
         probs = _prob_map(self.probabilities, "probabilities")
         if self.choice not in probs:
             raise ValueError(f"choice {self.choice!r} is not one of {sorted(probs)}")
-        object.__setattr__(self, "probabilities", probs)
-        object.__setattr__(self, "confidence", _unit(self.confidence, "confidence"))
+        if abs(math.fsum(probs.values()) - 1) > TOL:
+            raise ValueError("probabilities must sum to 1")
+        if probs[self.choice] < max(probs.values()) - TOL:
+            raise ValueError(f"choice {self.choice!r} is not the highest-probability option")
+        conf = _unit(self.confidence, "confidence")
+        if abs(conf - choice_confidence(list(probs.values()))) > TOL:
+            raise ValueError("confidence does not match the published Choice formula")
+        object.__setattr__(self, "probabilities", MappingProxyType(probs))
+        object.__setattr__(self, "confidence", conf)
         _check_provenance(self.provenance)
+
+    @classmethod
+    def from_probabilities(
+        cls, probabilities: Mapping[str, float], provenance: Provenance
+    ) -> ChoiceAnswer:
+        """Build an answer: ``choice`` and ``confidence`` come from the published formulas."""
+        probs = _prob_map(probabilities, "probabilities")
+        top = max(probs, key=lambda k: probs[k])
+        return cls(top, probs, choice_confidence(list(probs.values())), provenance)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -164,10 +206,12 @@ def _level_keys(value: Mapping[Any, Any], what: str) -> dict[int, Any]:
     """Accept int keys or their JSON string form ("0", "1", ...); return int keys 0..n-1."""
     out: dict[int, Any] = {}
     for k, v in value.items():
-        if type(k) is str and k.isascii() and k.isdigit():
+        if type(k) is str and k.isascii() and k.isdigit() and str(int(k)) == k:
             k = int(k)
         if type(k) is not int:
             raise ValueError(f"{what} keys must be level indexes 0, 1, 2, ..., got {k!r}")
+        if k in out:
+            raise ValueError(f"{what}: duplicate level {k}")
         out[k] = v
     if sorted(out) != list(range(len(out))) or not out:
         raise ValueError(f"{what} keys must be exactly 0..n-1, got {sorted(out)}")
@@ -185,7 +229,7 @@ class ScoreAnswer:
     score: float
     probabilities: Mapping[int, float]
     confidence: float
-    legend: Mapping[int, Any]
+    legend: Mapping[int, str]
     provenance: Provenance
     type: ClassVar[str] = "score"
 
@@ -194,16 +238,52 @@ class ScoreAnswer:
         legend = _level_keys(dict(self.legend), "legend")
         if sorted(legend) != sorted(probs):
             raise ValueError("score legend and probabilities must cover the same levels")
-        object.__setattr__(self, "legend", {k: plain_json(v, "legend") for k, v in legend.items()})
+        for v in legend.values():
+            if type(v) is not str:
+                raise ValueError("score legend values must be strings")
+        object.__setattr__(self, "legend", MappingProxyType(legend))
+        clean = {k: _unit(v, "probabilities") for k, v in probs.items()}
+        ordered = [clean[i] for i in range(len(clean))]
+        if abs(math.fsum(ordered) - 1) > TOL:
+            raise ValueError("probabilities must sum to 1")
         score = self.score
-        if type(score) not in (int, float) or not 0 <= score <= len(probs) - 1:
-            raise ValueError(f"score must be a number from 0 to {len(probs) - 1}, got {score!r}")
+        if type(score) not in (int, float) or not math.isfinite(score):
+            raise ValueError(f"score must be a number, got {score!r}")
+        if abs(score - _expected_level(ordered)) > TOL:
+            raise ValueError("score does not equal the probability-weighted level")
+        conf = _unit(self.confidence, "confidence")
+        if abs(conf - score_confidence(ordered)) > TOL:
+            raise ValueError("confidence does not match the published Score formula")
         object.__setattr__(self, "score", float(score))
-        object.__setattr__(
-            self, "probabilities", {k: _unit(v, "probabilities") for k, v in probs.items()}
-        )
-        object.__setattr__(self, "confidence", _unit(self.confidence, "confidence"))
+        object.__setattr__(self, "probabilities", MappingProxyType(clean))
+        object.__setattr__(self, "confidence", conf)
         _check_provenance(self.provenance)
+
+    @classmethod
+    def from_probabilities(
+        cls,
+        probabilities: Sequence[float] | Mapping[int, float],
+        legend: Sequence[str] | Mapping[int, str],
+        provenance: Provenance,
+    ) -> ScoreAnswer:
+        """Build an answer: ``score`` and ``confidence`` come from the published formulas.
+
+        ``probabilities`` and ``legend`` are sequences indexed by level (or mappings keyed
+        by level index); the probabilities must sum to 1.
+        """
+        if not isinstance(probabilities, Mapping):
+            probabilities = dict(enumerate(probabilities))
+        if not isinstance(legend, Mapping):
+            legend = dict(enumerate(legend))
+        probs = _level_keys(_prob_map_any(probabilities, "probabilities"), "probabilities")
+        ordered = [_unit(probs[i], "probabilities") for i in range(len(probs))]
+        return cls(
+            _expected_level(ordered),
+            probs,
+            score_confidence(ordered),
+            legend,
+            provenance,
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -282,7 +362,31 @@ class DecisionResult:
     def __post_init__(self) -> None:
         if type(self.model) is not str or not self.model:
             raise ValueError("model must be a non-empty string")
-        object.__setattr__(self, "answers", dict(self.answers))
+        if not isinstance(self.answers, Mapping) or not self.answers:
+            raise ValueError("answers must be a non-empty mapping of name -> answer")
+        for name, answer in self.answers.items():
+            if type(name) is not str or not name:
+                raise ValueError(f"answer names must be non-empty str, got {name!r}")
+            if not isinstance(answer, (NoulAnswer, ChoiceAnswer, ScoreAnswer)):
+                raise TypeError(f"answer {name!r} must be an answer object, got {type(answer)}")
+        sources = {a.provenance.source for a in self.answers.values()}
+        if len(sources) > 1:
+            raise ValueError("a result cannot mix synthetic and recorded answers")
+        if sources == {SYNTHETIC_SOURCE}:
+            if self.model != SYNTHETIC_MODEL:
+                raise ValueError(f"a synthetic result's model must be {SYNTHETIC_MODEL!r}")
+        else:
+            for name, answer in self.answers.items():
+                if answer.provenance.model != self.model:
+                    raise ValueError(f"answer {name!r} was recorded by a different model")
+        if not isinstance(self.usage, Usage):
+            raise TypeError("usage must be a Usage")
+        object.__setattr__(self, "answers", MappingProxyType(dict(self.answers)))
+
+    @property
+    def source(self) -> str:
+        """``"synthetic"`` or ``"recorded"`` (a result never mixes them)."""
+        return next(iter(self.answers.values())).provenance.source
 
     def __getitem__(self, name: str) -> Answer:
         return self.answers[name]
