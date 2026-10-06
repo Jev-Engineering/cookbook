@@ -1,0 +1,37 @@
+# Optional. Mirrors the CI checks (.github/workflows/ci.yml and hygiene.yml). Install with
+#   pip install pre-commit && pre-commit install --hook-type pre-commit --hook-type pre-push
+# Commit-time hooks run the lint, format, hygiene and catalog checks; pytest runs at push.
+# All hooks run the tools from your virtual environment (pip install -e ".[dev]"), so the
+# pinned ruff version is the one CI uses and no third-party hook repository is trusted.
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: ruff check
+        language: system
+        types_or: [python, pyi, jupyter]
+      - id: ruff-format
+        name: ruff format --check
+        entry: ruff format --check
+        language: system
+        types_or: [python, pyi, jupyter]
+      - id: hygiene
+        name: hygiene (secrets, local paths, notebook outputs)
+        entry: python tools/check_hygiene.py
+        language: system
+        # Files with no recognised type (e.g. a .env) are passed too.
+        types: [file]
+      - id: catalog
+        name: catalog (README is current)
+        entry: python tools/render_catalog.py --check
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: pytest
+        name: pytest (push time)
+        entry: pytest
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
