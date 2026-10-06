@@ -1,0 +1,1126 @@
+{
+  "title": "Jev Cookbook",
+  "levels": [
+    {
+      "level": 1,
+      "name": "Beginner",
+      "scope": "One bounded judgment over a short prepared input with direct inspection of typed results."
+    },
+    {
+      "level": 2,
+      "name": "Easy",
+      "scope": "Context-sensitive matching, scoring, or verification with candidate sets and explicit uncertain or no-match outcomes."
+    },
+    {
+      "level": 3,
+      "name": "Intermediate",
+      "scope": "Multiple judgments or stages, structured evidence, deterministic composition, and task-level evaluation."
+    },
+    {
+      "level": 4,
+      "name": "Advanced",
+      "scope": "Stateful workflows, provenance, adversarial cases, model calibration, or several integrated decision stages."
+    },
+    {
+      "level": 5,
+      "name": "Expert",
+      "scope": "Controlled optimization studies or closed-loop simulations requiring budgets, baselines, and held-out or trajectory evaluation."
+    }
+  ],
+  "sources": [
+    {
+      "id": "S01",
+      "reference": "TypeSafe AI: Introduction",
+      "supports": "Typed questions over supplied state and atomic judgments composed in code.",
+      "url": "https://docs.typesafe.ai/introduction",
+      "reviewed": "2026-10-06"
+    },
+    {
+      "id": "S02",
+      "reference": "TypeSafe AI: Primitives (Questions)",
+      "supports": "Choice, Noul, Score, independent questions, and dependent follow-up calls.",
+      "url": "https://docs.typesafe.ai/primitives",
+      "reviewed": "2026-10-06"
+    },
+    {
+      "id": "S03",
+      "reference": "TypeSafe AI: Confidence",
+      "supports": "Distribution-derived confidence and task-specific thresholds informed by observed outcomes.",
+      "url": "https://docs.typesafe.ai/confidence",
+      "reviewed": "2026-10-06"
+    },
+    {
+      "id": "S04",
+      "reference": "TypeSafe AI: How to build with TypeSafe",
+      "supports": "Narrow semantic judgments integrated with workflows, deterministic logic, and side effects controlled by code.",
+      "url": "https://docs.typesafe.ai/concepts/how-to-build-with-system-one",
+      "reviewed": "2026-10-06"
+    },
+    {
+      "id": "S05",
+      "reference": "TypeSafe AI: Example use cases",
+      "supports": "Application families covering classification, routing, scoring, retrieval, and verification.",
+      "url": "https://docs.typesafe.ai/concepts/use-case-map",
+      "reviewed": "2026-10-06"
+    },
+    {
+      "id": "S06",
+      "reference": "TypeSafe AI: Cookbooks",
+      "supports": "Worked patterns for extraction, citation checking, skill selection, hierarchical classification, and feature discovery.",
+      "url": "https://docs.typesafe.ai/cookbooks",
+      "reviewed": "2026-10-06"
+    },
+    {
+      "id": "S07",
+      "reference": "TypeSafe AI: Jev 1.13 jaggedness",
+      "supports": "Version-specific limitations affecting arithmetic, context selection, adversarial content, and generation.",
+      "url": "https://docs.typesafe.ai/model-jaggedness/jev-1.13",
+      "reviewed": "2026-10-06"
+    },
+    {
+      "id": "S08",
+      "reference": "TypeSafe AI: System One Adapter",
+      "supports": "A typed interface for comparing Jev with decision adapters backed by generative models.",
+      "url": "https://github.com/typesafe-ai/system-one-adapter-python",
+      "reviewed": "2026-10-06"
+    }
+  ],
+  "recipes": [
+    {
+      "rank": 1,
+      "slug": "01-sentiment-classification",
+      "title": "Sentiment classification",
+      "level": 1,
+      "difficulty": "Beginner",
+      "category": "Language & content",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Classify a short customer review as positive, neutral, negative, or mixed using a fixed set of labels.",
+      "sources": [
+        "S02",
+        "S07"
+      ],
+      "issue": 1
+    },
+    {
+      "rank": 2,
+      "slug": "02-refund-intent-detection",
+      "title": "Refund intent detection",
+      "level": 1,
+      "difficulty": "Beginner",
+      "category": "Workflow & service operations",
+      "decision_types": [
+        "Noul"
+      ],
+      "use_case": "Judge whether a customer message explicitly requests a refund so Python can flag it for the appropriate workflow.",
+      "sources": [
+        "S02",
+        "S04"
+      ],
+      "issue": 2
+    },
+    {
+      "rank": 3,
+      "slug": "03-response-clarity-scoring",
+      "title": "Response clarity scoring",
+      "level": 1,
+      "difficulty": "Beginner",
+      "category": "Language & content",
+      "decision_types": [
+        "Score"
+      ],
+      "use_case": "Score a support response against a clearly defined clarity rubric to identify examples that need editing.",
+      "sources": [
+        "S02",
+        "S07"
+      ],
+      "issue": 3
+    },
+    {
+      "rank": 4,
+      "slug": "04-support-ticket-routing",
+      "title": "Support ticket routing",
+      "level": 1,
+      "difficulty": "Beginner",
+      "category": "Workflow & service operations",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Assign a support ticket to a fixed service category or an unclear-request outcome using its subject and description.",
+      "sources": [
+        "S02",
+        "S04"
+      ],
+      "issue": 4
+    },
+    {
+      "rank": 5,
+      "slug": "05-document-classification",
+      "title": "Document classification",
+      "level": 1,
+      "difficulty": "Beginner",
+      "category": "Language & content",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Classify a short document as an invoice, meeting note, policy, technical guide, or other document type from its text.",
+      "sources": [
+        "S02",
+        "S07"
+      ],
+      "issue": 5
+    },
+    {
+      "rank": 6,
+      "slug": "06-multiple-topic-labels",
+      "title": "Multiple topic labels",
+      "level": 1,
+      "difficulty": "Beginner",
+      "category": "Language & content",
+      "decision_types": [
+        "Noul"
+      ],
+      "use_case": "Tag customer feedback with every applicable topic by asking an independent yes-or-no question for each predefined label.",
+      "sources": [
+        "S02",
+        "S07"
+      ],
+      "issue": 6
+    },
+    {
+      "rank": 7,
+      "slug": "07-word-sense-selection",
+      "title": "Word sense selection",
+      "level": 1,
+      "difficulty": "Beginner",
+      "category": "Language & content",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Select the intended meaning of an ambiguous word from a fixed sense inventory using its surrounding sentence.",
+      "sources": [
+        "S02",
+        "S07"
+      ],
+      "issue": 7
+    },
+    {
+      "rank": 8,
+      "slug": "08-faq-selection",
+      "title": "FAQ selection",
+      "level": 1,
+      "difficulty": "Beginner",
+      "category": "Search & retrieval",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Select the best matching FAQ from a short candidate list, including a no-match outcome when none addresses the question.",
+      "sources": [
+        "S04",
+        "S06"
+      ],
+      "issue": 8
+    },
+    {
+      "rank": 9,
+      "slug": "09-file-organization",
+      "title": "File organization",
+      "level": 1,
+      "difficulty": "Beginner",
+      "category": "Workflow & service operations",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Recommend a destination folder from a fixed catalog using a file's name and text excerpt so Python can preview the proposed organization.",
+      "sources": [
+        "S02",
+        "S04"
+      ],
+      "issue": 9
+    },
+    {
+      "rank": 10,
+      "slug": "10-answer-relevance-check",
+      "title": "Answer relevance check",
+      "level": 1,
+      "difficulty": "Beginner",
+      "category": "Search & retrieval",
+      "decision_types": [
+        "Noul"
+      ],
+      "use_case": "Judge whether a candidate response addresses the user's question so a notebook can separate relevant answers from off-topic replies.",
+      "sources": [
+        "S04",
+        "S06"
+      ],
+      "issue": 10
+    },
+    {
+      "rank": 11,
+      "slug": "11-clarification-selection",
+      "title": "Clarification selection",
+      "level": 2,
+      "difficulty": "Easy",
+      "category": "Agent orchestration",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Select a useful follow-up question from a predefined catalog when a task description omits information needed for the next step.",
+      "sources": [
+        "S04",
+        "S06"
+      ],
+      "issue": 11
+    },
+    {
+      "rank": 12,
+      "slug": "12-thesaurus-word-selection",
+      "title": "Thesaurus word selection",
+      "level": 2,
+      "difficulty": "Easy",
+      "category": "Language & content",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Choose a context-appropriate synonym from a supplied thesaurus list while retaining the original word when no alternative preserves its meaning.",
+      "sources": [
+        "S02",
+        "S07"
+      ],
+      "issue": 12
+    },
+    {
+      "rank": 13,
+      "slug": "13-candidate-rewrite-selection",
+      "title": "Candidate rewrite selection",
+      "level": 2,
+      "difficulty": "Easy",
+      "category": "Language & content",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Choose a supplied sentence rewrite that preserves the original meaning and requested tone, with a no-suitable-rewrite outcome when necessary.",
+      "sources": [
+        "S02",
+        "S07"
+      ],
+      "issue": 13
+    },
+    {
+      "rank": 14,
+      "slug": "14-source-span-selection",
+      "title": "Source span selection",
+      "level": 2,
+      "difficulty": "Easy",
+      "category": "Data quality & knowledge graphs",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Select the supplier name from text spans already extracted by Python, with a not-stated outcome when the document lacks that field.",
+      "sources": [
+        "S02",
+        "S06"
+      ],
+      "issue": 14
+    },
+    {
+      "rank": 15,
+      "slug": "15-sensitive-text-triage",
+      "title": "Sensitive text triage",
+      "level": 2,
+      "difficulty": "Easy",
+      "category": "Trust & security",
+      "decision_types": [
+        "Noul"
+      ],
+      "use_case": "Flag synthetic documents that may contain personal information so a simulated review queue can prioritize redaction checks.",
+      "sources": [
+        "S04",
+        "S07"
+      ],
+      "issue": 15
+    },
+    {
+      "rank": 16,
+      "slug": "16-discord-moderation-triage",
+      "title": "Discord moderation triage",
+      "level": 2,
+      "difficulty": "Easy",
+      "category": "Trust & security",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Classify sample Discord messages as allowed, review-needed, or potentially violating a supplied community rule to populate a simulated moderator queue.",
+      "sources": [
+        "S04",
+        "S07"
+      ],
+      "issue": 16
+    },
+    {
+      "rank": 17,
+      "slug": "17-passage-reranking",
+      "title": "Passage reranking",
+      "level": 2,
+      "difficulty": "Easy",
+      "category": "Search & retrieval",
+      "decision_types": [
+        "Score"
+      ],
+      "use_case": "Score retrieved passages against a question so Python can rank candidate evidence and retain each passage's source reference.",
+      "sources": [
+        "S04",
+        "S06"
+      ],
+      "issue": 17
+    },
+    {
+      "rank": 18,
+      "slug": "18-duplicate-incident-matching",
+      "title": "Duplicate incident matching",
+      "level": 2,
+      "difficulty": "Easy",
+      "category": "Workflow & service operations",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Select a matching incident from a retrieved ticket shortlist, or no match, using descriptions of the symptoms and affected service.",
+      "sources": [
+        "S02",
+        "S04"
+      ],
+      "issue": 18
+    },
+    {
+      "rank": 19,
+      "slug": "19-ci-failure-classification",
+      "title": "CI failure classification",
+      "level": 2,
+      "difficulty": "Easy",
+      "category": "Software engineering",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Classify recorded continuous-integration failures as test regressions, dependency problems, infrastructure failures, or unknown to select the next diagnostic workflow.",
+      "sources": [
+        "S04",
+        "S05"
+      ],
+      "issue": 19
+    },
+    {
+      "rank": 20,
+      "slug": "20-claim-support-classification",
+      "title": "Claim support classification",
+      "level": 2,
+      "difficulty": "Easy",
+      "category": "Search & retrieval",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Classify whether a provided passage supports, contradicts, or leaves unresolved a specific claim while preserving the passage identifier.",
+      "sources": [
+        "S04",
+        "S06"
+      ],
+      "issue": 20
+    },
+    {
+      "rank": 21,
+      "slug": "21-quiz-answer-adjudication",
+      "title": "Quiz answer adjudication",
+      "level": 2,
+      "difficulty": "Easy",
+      "category": "Games & simulation",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Judge whether a typed quiz response matches an accepted answer by meaning, with partial-match and review outcomes for ambiguous responses.",
+      "sources": [
+        "S04",
+        "S07"
+      ],
+      "issue": 21
+    },
+    {
+      "rank": 22,
+      "slug": "22-cmdb-asset-matching",
+      "title": "CMDB asset matching",
+      "level": 2,
+      "difficulty": "Easy",
+      "category": "Data quality & knowledge graphs",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Link differently worded software asset descriptions to a canonical configuration-management record from a bounded candidate list or a no-match outcome.",
+      "sources": [
+        "S02",
+        "S06"
+      ],
+      "issue": 22
+    },
+    {
+      "rank": 23,
+      "slug": "23-pairwise-answer-evaluation",
+      "title": "Pairwise answer evaluation",
+      "level": 2,
+      "difficulty": "Easy",
+      "category": "Evaluation & optimization",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Compare two candidate answers against one explicit rubric criterion while retaining tie and insufficient-evidence outcomes for evaluation against human labels.",
+      "sources": [
+        "S02",
+        "S03"
+      ],
+      "issue": 23
+    },
+    {
+      "rank": 24,
+      "slug": "24-incident-priority-composition",
+      "title": "Incident priority composition",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Workflow & service operations",
+      "decision_types": [
+        "Score"
+      ],
+      "use_case": "Score reported business impact and urgency against separate rubrics so Python can map the scores to defined categories and apply a fixed service-priority matrix.",
+      "sources": [
+        "S02",
+        "S04"
+      ],
+      "issue": 24
+    },
+    {
+      "rank": 25,
+      "slug": "25-change-evidence-review",
+      "title": "Change evidence review",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Workflow & service operations",
+      "decision_types": [
+        "Noul"
+      ],
+      "use_case": "Check whether a proposed change includes sufficient implementation, validation, and rollback evidence so a deterministic checklist can identify review gaps.",
+      "sources": [
+        "S02",
+        "S04"
+      ],
+      "issue": 25
+    },
+    {
+      "rank": 26,
+      "slug": "26-prompt-injection-screening",
+      "title": "Prompt-injection screening",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Trust & security",
+      "decision_types": [
+        "Noul"
+      ],
+      "use_case": "Flag instruction-redirection attempts in retrieved text using adversarial and benign quotation fixtures to measure false positives and missed attacks.",
+      "sources": [
+        "S04",
+        "S07"
+      ],
+      "issue": 26
+    },
+    {
+      "rank": 27,
+      "slug": "27-function-selection",
+      "title": "Function selection",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Agent orchestration",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Select a function from a preapproved catalog for a request while Python validates supplied arguments before simulated execution.",
+      "sources": [
+        "S04",
+        "S06"
+      ],
+      "issue": 27
+    },
+    {
+      "rank": 28,
+      "slug": "28-skill-selection",
+      "title": "Skill selection",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Agent orchestration",
+      "decision_types": [
+        "Score"
+      ],
+      "use_case": "Score retrieved skill descriptions for relevance to a task so Python can select a suitable skill or request clarification.",
+      "sources": [
+        "S04",
+        "S06"
+      ],
+      "issue": 28
+    },
+    {
+      "rank": 29,
+      "slug": "29-tool-outcome-verification",
+      "title": "Tool outcome verification",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Agent orchestration",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Classify recorded tool outcomes as complete, partial, failed, or unverifiable using the original request and observed evidence.",
+      "sources": [
+        "S04",
+        "S06"
+      ],
+      "issue": 29
+    },
+    {
+      "rank": 30,
+      "slug": "30-citation-verification",
+      "title": "Citation verification",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Search & retrieval",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Check each answer claim against its cited passage and flag unsupported or contradicted claims while Python verifies citation identifiers.",
+      "sources": [
+        "S04",
+        "S06"
+      ],
+      "issue": 30
+    },
+    {
+      "rank": 31,
+      "slug": "31-patch-risk-triage",
+      "title": "Patch risk triage",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Software engineering",
+      "decision_types": [
+        "Noul"
+      ],
+      "use_case": "Assess a small patch for separate authentication, input-validation, and data-loss concerns to prioritize human review using explicit rules.",
+      "sources": [
+        "S04",
+        "S05"
+      ],
+      "issue": 31
+    },
+    {
+      "rank": 32,
+      "slug": "32-regression-test-selection",
+      "title": "Regression test selection",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Software engineering",
+      "decision_types": [
+        "Score"
+      ],
+      "use_case": "Score candidate tests against the behavior changed by a patch so Python can propose a focused regression suite.",
+      "sources": [
+        "S04",
+        "S05"
+      ],
+      "issue": 32
+    },
+    {
+      "rank": 33,
+      "slug": "33-schema-field-mapping",
+      "title": "Schema field mapping",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Data quality & knowledge graphs",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Map source field descriptions to a bounded target schema with ambiguous and unmapped outcomes before Python validates the proposed mappings.",
+      "sources": [
+        "S02",
+        "S06"
+      ],
+      "issue": 33
+    },
+    {
+      "rank": 34,
+      "slug": "34-evidence-relationship-labels",
+      "title": "Evidence relationship labels",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Data quality & knowledge graphs",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Label candidate entity pairs with an allowed relationship type or no-supported-relation using provided evidence passages.",
+      "sources": [
+        "S02",
+        "S06"
+      ],
+      "issue": 34
+    },
+    {
+      "rank": 35,
+      "slug": "35-semantic-feature-extraction",
+      "title": "Semantic feature extraction",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Evaluation & optimization",
+      "decision_types": [
+        "Noul"
+      ],
+      "use_case": "Convert text into predefined semantic features with independent judgments and compare a classifier trained on those features with a fixed baseline.",
+      "sources": [
+        "S02",
+        "S03"
+      ],
+      "issue": 35
+    },
+    {
+      "rank": 36,
+      "slug": "36-card-game-action-selection",
+      "title": "Card-game action selection",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Games & simulation",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Select a legal action in a turn-based card-game simulator using structured state and fixed action descriptions while Python enforces game rules.",
+      "sources": [
+        "S04",
+        "S07"
+      ],
+      "issue": 36
+    },
+    {
+      "rank": 37,
+      "slug": "37-research-domain-tagging",
+      "title": "Research domain tagging",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Data quality & knowledge graphs",
+      "decision_types": [
+        "Noul"
+      ],
+      "use_case": "Assign independently judged research-domain labels to evidence passages while Python preserves provenance and enforces access controls.",
+      "sources": [
+        "S02",
+        "S06"
+      ],
+      "issue": 37
+    },
+    {
+      "rank": 38,
+      "slug": "38-abstention-and-review-queues",
+      "title": "Abstention and review queues",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Evaluation & optimization",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Route uncertain ticket classifications to review using thresholds selected from validation examples and measure accuracy versus coverage on a held-out set.",
+      "sources": [
+        "S02",
+        "S03"
+      ],
+      "issue": 38
+    },
+    {
+      "rank": 39,
+      "slug": "39-document-extraction-cascade",
+      "title": "Document extraction cascade",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Data quality & knowledge graphs",
+      "decision_types": [
+        "Choice",
+        "Noul"
+      ],
+      "use_case": "Select candidate values for document fields, verify each selection against its source span, and route uncertain or inconsistent records to review.",
+      "sources": [
+        "S02",
+        "S06"
+      ],
+      "issue": 39
+    },
+    {
+      "rank": 40,
+      "slug": "40-hierarchical-classification",
+      "title": "Hierarchical classification",
+      "level": 4,
+      "difficulty": "Advanced",
+      "category": "Data quality & knowledge graphs",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Route documents through a taxonomy in stages while Python carries competing branches forward when early judgments are uncertain.",
+      "sources": [
+        "S02",
+        "S06"
+      ],
+      "issue": 40
+    },
+    {
+      "rank": 41,
+      "slug": "41-approval-scope-review",
+      "title": "Approval scope review",
+      "level": 4,
+      "difficulty": "Advanced",
+      "category": "Trust & security",
+      "decision_types": [
+        "Noul"
+      ],
+      "use_case": "Flag semantic mismatches between an approved task and a proposed tool action while Python enforces exact permissions and approval bindings.",
+      "sources": [
+        "S04",
+        "S07"
+      ],
+      "issue": 41
+    },
+    {
+      "rank": 42,
+      "slug": "42-outbound-disclosure-screening",
+      "title": "Outbound disclosure screening",
+      "level": 4,
+      "difficulty": "Advanced",
+      "category": "Trust & security",
+      "decision_types": [
+        "Noul"
+      ],
+      "use_case": "Screen proposed outbound messages for disclosure concerns against supplied sharing rules while deterministic controls hold flagged or uncertain samples for review.",
+      "sources": [
+        "S04",
+        "S07"
+      ],
+      "issue": 42
+    },
+    {
+      "rank": 43,
+      "slug": "43-failure-recovery-selection",
+      "title": "Failure recovery selection",
+      "level": 4,
+      "difficulty": "Advanced",
+      "category": "Agent orchestration",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Select retry, alternative method, or escalation from a bounded recovery catalog using execution history while Python enforces retry budgets and stop conditions.",
+      "sources": [
+        "S04",
+        "S06"
+      ],
+      "issue": 43
+    },
+    {
+      "rank": 44,
+      "slug": "44-plan-constraint-assessment",
+      "title": "Plan constraint assessment",
+      "level": 4,
+      "difficulty": "Advanced",
+      "category": "Agent orchestration",
+      "decision_types": [
+        "Noul"
+      ],
+      "use_case": "Evaluate each candidate plan against individual user constraints so deterministic policy can reject ineligible plans and route unresolved judgments to review.",
+      "sources": [
+        "S04",
+        "S06"
+      ],
+      "issue": 44
+    },
+    {
+      "rank": 45,
+      "slug": "45-memory-reconciliation",
+      "title": "Memory reconciliation",
+      "level": 4,
+      "difficulty": "Advanced",
+      "category": "Memory & context",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Classify a new memory statement as corroborating, superseding, contradicting, or unrelated to existing evidence so a versioned store can preserve provenance and unresolved conflicts.",
+      "sources": [
+        "S01",
+        "S04"
+      ],
+      "issue": 45
+    },
+    {
+      "rank": 46,
+      "slug": "46-semantic-context-paging",
+      "title": "Semantic context paging",
+      "level": 4,
+      "difficulty": "Advanced",
+      "category": "Memory & context",
+      "decision_types": [
+        "Score"
+      ],
+      "use_case": "Judge stored context chunks for relevance to the current task so Python can retain, page out, or rehydrate them while preserving original content and source links.",
+      "sources": [
+        "S01",
+        "S04"
+      ],
+      "issue": 46
+    },
+    {
+      "rank": 47,
+      "slug": "47-evidence-conflict-diagnosis",
+      "title": "Evidence conflict diagnosis",
+      "level": 4,
+      "difficulty": "Advanced",
+      "category": "Data quality & knowledge graphs",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Classify apparent claim conflicts by factual disagreement, time, entity, or scope using source excerpts and temporal relationships already computed by Python.",
+      "sources": [
+        "S02",
+        "S06"
+      ],
+      "issue": 47
+    },
+    {
+      "rank": 48,
+      "slug": "48-document-revision-consistency",
+      "title": "Document revision consistency",
+      "level": 4,
+      "difficulty": "Advanced",
+      "category": "Language & content",
+      "decision_types": [
+        "Choice",
+        "Noul"
+      ],
+      "use_case": "Select among externally supplied sentence revisions and check their consistency with paragraph context as Python assembles a versioned document.",
+      "sources": [
+        "S02",
+        "S07"
+      ],
+      "issue": 48
+    },
+    {
+      "rank": 49,
+      "slug": "49-multi-agent-task-assignment",
+      "title": "Multi-agent task assignment",
+      "level": 4,
+      "difficulty": "Advanced",
+      "category": "Agent orchestration",
+      "decision_types": [
+        "Score"
+      ],
+      "use_case": "Score each agent's suitability for a subtask so a deterministic scheduler can assign work under capability, dependency, and budget constraints.",
+      "sources": [
+        "S04",
+        "S06"
+      ],
+      "issue": 49
+    },
+    {
+      "rank": 50,
+      "slug": "50-model-comparison-and-calibration",
+      "title": "Model comparison and calibration",
+      "level": 4,
+      "difficulty": "Advanced",
+      "category": "Evaluation & optimization",
+      "decision_types": [
+        "Choice",
+        "Noul",
+        "Score"
+      ],
+      "use_case": "Compare Jev and alternative decision backends on identical labeled tasks, calibrating each model separately and measuring held-out quality, latency, and cost.",
+      "sources": [
+        "S02",
+        "S03",
+        "S08"
+      ],
+      "issue": 50
+    },
+    {
+      "rank": 51,
+      "slug": "51-stalled-loop-detection",
+      "title": "Stalled-loop detection",
+      "level": 4,
+      "difficulty": "Advanced",
+      "category": "Agent orchestration",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Classify progress across recorded agent turns as advancing, repeating, regressing, or complete so Python can apply a continue, change-strategy, or stop policy.",
+      "sources": [
+        "S04",
+        "S06"
+      ],
+      "issue": 51
+    },
+    {
+      "rank": 52,
+      "slug": "52-retrieval-pipeline-evaluation",
+      "title": "Retrieval pipeline evaluation",
+      "level": 4,
+      "difficulty": "Advanced",
+      "category": "Search & retrieval",
+      "decision_types": [
+        "Choice",
+        "Score"
+      ],
+      "use_case": "Combine passage filtering, reranking, and claim verification in a retrieval pipeline and measure each stage's effect on answer support using a fixed labeled corpus.",
+      "sources": [
+        "S04",
+        "S06"
+      ],
+      "issue": 52
+    },
+    {
+      "rank": 53,
+      "slug": "53-semantic-feature-discovery",
+      "title": "Semantic feature discovery",
+      "level": 5,
+      "difficulty": "Expert",
+      "category": "Evaluation & optimization",
+      "decision_types": [
+        "Noul",
+        "Score"
+      ],
+      "use_case": "Judge text against externally proposed semantic features, select a feature set through a budgeted validation search, and evaluate the frozen downstream classifier on an untouched test set.",
+      "sources": [
+        "S02",
+        "S03",
+        "S06"
+      ],
+      "issue": 53
+    },
+    {
+      "rank": 54,
+      "slug": "54-question-and-policy-optimization",
+      "title": "Question and policy optimization",
+      "level": 5,
+      "difficulty": "Expert",
+      "category": "Evaluation & optimization",
+      "decision_types": [
+        "Choice",
+        "Noul",
+        "Score"
+      ],
+      "use_case": "Optimize Jev question wording, criteria, and decision thresholds with an external search loop, then compare frozen variants on an untouched test set.",
+      "sources": [
+        "S02",
+        "S03",
+        "S06"
+      ],
+      "issue": 54
+    },
+    {
+      "rank": 55,
+      "slug": "55-adaptive-model-routing",
+      "title": "Adaptive model routing",
+      "level": 5,
+      "difficulty": "Expert",
+      "category": "Evaluation & optimization",
+      "decision_types": [
+        "Choice",
+        "Score"
+      ],
+      "use_case": "Use Jev judgments to drive a model-routing policy and compare quality, latency, and cost across traffic mixes while Python enforces budgets and fallback rules.",
+      "sources": [
+        "S02",
+        "S03"
+      ],
+      "issue": 55
+    },
+    {
+      "rank": 56,
+      "slug": "56-adversarial-harness-evaluation",
+      "title": "Adversarial harness evaluation",
+      "level": 5,
+      "difficulty": "Expert",
+      "category": "Trust & security",
+      "decision_types": [
+        "Noul"
+      ],
+      "use_case": "Evaluate Jev screening at input, retrieved-context, proposed-action, and output boundaries using adversarial replay while measuring attack success, false positives, and task completion.",
+      "sources": [
+        "S04",
+        "S07"
+      ],
+      "issue": 56
+    },
+    {
+      "rank": 57,
+      "slug": "57-evidence-graph-updates",
+      "title": "Evidence graph updates",
+      "level": 5,
+      "difficulty": "Expert",
+      "category": "Data quality & knowledge graphs",
+      "decision_types": [
+        "Choice",
+        "Noul"
+      ],
+      "use_case": "Combine entity, relationship, and evidence judgments into a proposed graph update that Python validates and applies transactionally in a simulated store with replayable provenance.",
+      "sources": [
+        "S02",
+        "S06"
+      ],
+      "issue": 57
+    },
+    {
+      "rank": 58,
+      "slug": "58-simulated-process-supervision",
+      "title": "Simulated process supervision",
+      "level": 5,
+      "difficulty": "Expert",
+      "category": "Games & simulation",
+      "decision_types": [
+        "Choice",
+        "Noul"
+      ],
+      "use_case": "Select supervisory responses to simulated PLC fault descriptions and telemetry while Python enforces interlocks and a separate controller handles timing and actuation.",
+      "sources": [
+        "S04",
+        "S07"
+      ],
+      "issue": 58
+    },
+    {
+      "rank": 59,
+      "slug": "59-observation-and-action-selection",
+      "title": "Observation and action selection",
+      "level": 5,
+      "difficulty": "Expert",
+      "category": "Games & simulation",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Choose the next permitted observation and subsequent legal action in a partially observed game, then compare complete trajectories with a rule-based baseline.",
+      "sources": [
+        "S04",
+        "S07"
+      ],
+      "issue": 59
+    },
+    {
+      "rank": 60,
+      "slug": "60-factory-production-control",
+      "title": "Factory production control",
+      "level": 5,
+      "difficulty": "Expert",
+      "category": "Games & simulation",
+      "decision_types": [
+        "Choice",
+        "Noul",
+        "Score"
+      ],
+      "use_case": "Select bounded production goals and recovery actions from structured factory state while a Factorio-style simulator executes predefined action templates and measures throughput, stalls, and resource use.",
+      "sources": [
+        "S04",
+        "S07"
+      ],
+      "issue": 60
+    }
+  ]
+}

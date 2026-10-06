@@ -1,0 +1,110 @@
+<!doctype html>
+<!-- Source for assets/banner.png. Render at 1280x420, device scale factor 2. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Jev Cookbook banner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&family=VT323&display=block" rel="stylesheet">
+<style>
+  :root { --pink: #f386a1; --ink: #1e1e1e; --paper: #fefefe; --panel: #dedede; --magenta: #e551ba; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1280px; height: 420px; overflow: hidden; background: var(--pink); }
+  body { position: relative; font-family: "VT323", "JetBrains Mono", Consolas, monospace; color: var(--ink); }
+
+  .frame { position: absolute; inset: 30px 34px; border: 1px solid var(--ink); overflow: hidden; }
+  .dots { position: absolute; inset: 0; background-image: radial-gradient(var(--ink) 0.7px, transparent 1px); background-size: 6px 6px; opacity: .42; }
+  .blob { position: absolute; border-radius: 50%; background-image: radial-gradient(var(--ink) 1.25px, transparent 1.5px); background-size: 4px 4px;
+          -webkit-mask-image: radial-gradient(circle, #000 0%, #000 22%, rgba(0,0,0,.55) 45%, transparent 68%); mask-image: radial-gradient(circle, #000 0%, #000 22%, rgba(0,0,0,.55) 45%, transparent 68%); }
+  .tag { position: absolute; left: 0; top: 0; background: var(--ink); color: var(--pink); font-size: 20px; line-height: 22px; padding: 0 6px; letter-spacing: .5px; }
+
+  .mark { position: absolute; width: 9px; height: 9px; border: 0 solid var(--ink); }
+  .mark.tl { left: 12px; top: 10px; border-left-width: 1px; border-top-width: 1px; }
+  .mark.tr { right: 12px; top: 10px; border-right-width: 1px; border-top-width: 1px; }
+  .mark.bl { left: 12px; bottom: 10px; border-left-width: 1px; border-bottom-width: 1px; }
+  .mark.br { right: 12px; bottom: 10px; border-right-width: 1px; border-bottom-width: 1px; }
+
+  h1 { position: absolute; left: 82px; top: 92px; font-family: "Inter", "Helvetica Neue", Arial, sans-serif; font-weight: 700; font-size: 92px; line-height: 1; letter-spacing: -4.5px; color: var(--ink); }
+  .sub { position: absolute; left: 86px; top: 204px; font-size: 30px; line-height: 32px; }
+  .sub span { background: var(--ink); color: var(--paper); padding: 0 8px; }
+  .chips { position: absolute; left: 86px; top: 250px; display: flex; gap: 8px; font-size: 24px; line-height: 26px; }
+  .chips b { font-weight: 400; background: var(--panel); padding: 0 8px; border: 1px solid var(--ink); }
+
+  .win { position: absolute; background: var(--panel); border: 1px solid var(--ink); box-shadow: inset 0 0 0 2px var(--paper), 3px 3px 0 rgba(30,30,30,.9); }
+  .bar { background: var(--ink); color: var(--paper); font-size: 19px; line-height: 21px; padding: 0 7px; display: flex; justify-content: space-between; }
+  .body { padding: 8px 10px 10px; font-size: 22px; line-height: 24px; }
+  .big { display: inline-block; background: var(--ink); color: var(--paper); font-size: 42px; line-height: 38px; padding: 0 5px; margin-bottom: 4px; }
+  .row { display: flex; align-items: center; gap: 8px; }
+  .row.on { background: var(--ink); color: var(--paper); margin: 0 -4px; padding: 0 4px; }
+  .row i { font-style: normal; margin-left: auto; }
+  .meter { height: 16px; border: 1px solid var(--ink); background: var(--paper); margin-top: 6px; position: relative; }
+  .meter u { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ink); }
+  .levels { display: flex; align-items: flex-end; gap: 6px; height: 54px; margin-top: 6px; border-bottom: 1px solid var(--ink); }
+  .levels s { flex: 1; background: var(--paper); border: 1px solid var(--ink); border-bottom: 0; }
+  .levels s.on { background: var(--ink); }
+  .stripes { background-image: repeating-linear-gradient(90deg, var(--ink) 0 2px, transparent 2px 4px); }
+</style>
+</head>
+<body>
+  <div class="mark tl"></div><div class="mark tr"></div><div class="mark bl"></div><div class="mark br"></div>
+
+  <div class="frame">
+    <div class="dots"></div>
+    <div class="blob" style="width:520px;height:520px;left:-170px;top:190px;"></div>
+    <div class="blob" style="width:560px;height:560px;right:-150px;top:-40px;"></div>
+    <div class="blob" style="width:300px;height:300px;left:470px;top:-190px;opacity:.8;"></div>
+    <div class="tag">JEV.COOKBOOK</div>
+  </div>
+
+  <h1>Jev Cookbook</h1>
+  <div class="sub"><span>60 notebook recipes for typed decisions</span></div>
+  <div class="chips"><b>+choice</b><b>+noul</b><b>+score</b><b>+python in control</b></div>
+
+  <!-- loading dialog -->
+  <div class="win" style="left:86px;top:304px;width:330px;">
+    <div class="bar"><span>Cookbook 0.1</span><span>_ x</span></div>
+    <div class="body" style="padding-top:4px;padding-bottom:8px;line-height:21px;">
+      Loading ... recipes, coming soon
+      <div class="meter" style="margin-top:4px;"><u class="stripes" style="width:14%;"></u></div>
+    </div>
+  </div>
+
+  <!-- CHOICE -->
+  <div class="win" style="left:716px;top:62px;width:236px;">
+    <div class="bar"><span>CHOICE</span><span>_ x</span></div>
+    <div class="body">
+      <span class="big">CHOICE</span>
+      <div>select one option</div>
+      <div class="row">[ ] billing<i>0.15</i></div>
+      <div class="row on">[x] technical<i>0.85</i></div>
+      <div class="row">[ ] sales<i>0.00</i></div>
+    </div>
+  </div>
+
+  <!-- NOUL -->
+  <div class="win" style="left:986px;top:96px;width:214px;">
+    <div class="bar"><span>NOUL</span><span>_ x</span></div>
+    <div class="body">
+      <span class="big">NOUL</span>
+      <div>is this true?</div>
+      <div class="row">p(yes)<i>0.87</i></div>
+      <div class="meter"><u style="width:87%;"></u></div>
+    </div>
+  </div>
+
+  <!-- SCORE -->
+  <div class="win" style="left:876px;top:232px;width:262px;">
+    <div class="bar"><span>SCORE</span><span>_ x</span></div>
+    <div class="body" style="display:flex;gap:12px;align-items:flex-start;">
+      <div>
+        <span class="big">SCORE</span>
+        <div>rate on a rubric</div>
+        <div>level 3 of 4</div>
+      </div>
+      <div class="levels" style="flex:1;height:84px;margin-top:0;">
+        <s style="height:18%"></s><s style="height:36%"></s><s style="height:58%"></s><s class="on" style="height:80%"></s><s style="height:100%"></s>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

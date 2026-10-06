@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: TypeSafe documentation
+    url: https://docs.typesafe.ai
+    about: Questions about Jev, the API, or the SDK are answered in the official documentation.
+  - name: Security reports
+    url: https://github.com/Jev-Engineering/.github/blob/main/SECURITY.md
+    about: Please report vulnerabilities privately, not in a public issue.

@@ -1,0 +1,37 @@
+name: Recipe
+description: Propose or track a cookbook recipe.
+title: "Recipe NN: "
+labels: ["type: recipe"]
+body:
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: One sentence. What bounded decision does the notebook make, and what does Python do with it?
+    validations:
+      required: true
+  - type: dropdown
+    id: level
+    attributes:
+      label: Difficulty level
+      options: ["1 Beginner", "2 Easy", "3 Intermediate", "4 Advanced", "5 Expert"]
+    validations:
+      required: true
+  - type: checkboxes
+    id: decision-types
+    attributes:
+      label: Decision types
+      options:
+        - label: Choice
+        - label: Noul
+        - label: Score
+  - type: textarea
+    id: fixtures
+    attributes:
+      label: Fixtures and evaluation
+      description: What synthetic data is needed, which hard cases it must include, and how the result is evaluated.
+  - type: textarea
+    id: sources
+    attributes:
+      label: Sources
+      description: Documentation that supports the pattern.
