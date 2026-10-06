@@ -35,7 +35,7 @@ result["tone"].provenance.source  # "synthetic" or "recorded"
 They mirror `typesafe_sdk`, and every constructor takes keyword arguments only. `instructions` is
 text, a JSON object or array, or `None`. `Choice(criteria={name: description-or-None})` takes a
 non-empty mapping of at most 255 options. `Score(criteria=[...])` takes an ordered list of 2 to 10
-levels (text, a JSON object or a JSON array each; the legend holds the level value as given). `Noul(criteria={"true": ..., "false": ...})` optionally
+levels (each non-empty text, a non-empty JSON object or a non-empty JSON array; the legend holds the level value as given, so a legend value may be text, an object or an array). `Noul(criteria={"true": ..., "false": ...})` optionally
 describes the outcomes. All values must be plain JSON (`str`, `int`, `float`, `bool`, `None`,
 `list`, `dict` with `str` keys); numpy values and NaN are rejected. `to_dict()` /
 `question_from_dict()` convert them.
@@ -49,7 +49,7 @@ The `state` passed to `decide` and `replay_key` is a string, a JSON object (`dic
 | - | - |
 | `NoulAnswer` | `noul: float` (probability of yes, 0 to 1) |
 | `ChoiceAnswer` | `choice: str`, `probabilities: {option: float}`, `confidence: float` |
-| `ScoreAnswer` | `score: float`, `probabilities: {int: float}`, `confidence: float`, `legend: {int: str}` |
+| `ScoreAnswer` | `score: float`, `probabilities: {int: float}`, `confidence: float`, `legend: {int: str \| object \| array}` |
 
 Every answer also has `provenance: Provenance` (`source`, `model`, `date`). Score level keys are
 `int` in memory (as in `typesafe_sdk`) and JSON strings (`"0"`, `"1"`, ...) in `to_dict()`; level
@@ -59,17 +59,38 @@ object or array stays an ordinary `dict`/`list` inside the result, so replay bui
 from a private copy on every call: whatever you change in a returned result never reaches a later
 replay. `to_dict()` also returns a fresh copy you may edit.
 
-Construction is validated with a tolerance of 1e-3: probabilities sum to 1; `choice` is the
-highest-probability option; `confidence` equals the published formulas (Choice
+Construction is validated: probabilities sum to 1 (the error message says what they summed
+to); `choice` is the highest-probability option (a gap under 1e-3 counts as a tie); `confidence`
+equals the published formulas (Choice
 `(p_max - 1/n) / (1 - 1/n)`, one option gives 1; Score `1 - spread / even_spread`, where `spread`
 is the probability-weighted distance from the most likely level and `even_spread` is the same
 quantity for a uniform distribution, see the TypeSafe confidence page); Score `score` equals the
-probability-weighted level. To avoid computing these by hand use
+probability-weighted level. Tolerances are in the next subsection. To avoid computing these by hand use
 
 ```python
 ChoiceAnswer.from_probabilities({"calm": 0.05, "angry": 0.95}, provenance)
 ScoreAnswer.from_probabilities([0.0, 0.2, 0.8], ["can wait", "this week", "today"], provenance)
 ```
+
+### Tolerances
+
+| Check | Tolerance |
+| - | - |
+| probabilities sum to 1 | `SUM_TOL = 1e-9` |
+| Score `score` equals the probability-weighted level | `LEVEL_TOL = 1e-9` |
+| `confidence` equals the published formula (Choice and Score) | `CONFIDENCE_TOL = 7e-3` |
+
+These are the smallest values that accept every example response in the TypeSafe docs
+(`primitives/choice`, `primitives/score`, `sdk/python/usage`, `confidence`), which print values
+rounded to two decimals. Measured against the formulas on this page, those examples have
+probabilities that sum to 1 exactly, a Score `score` within 3e-16 of the weighted level, and a
+`confidence` off by up to 0.0067 (the Score `formality` example prints 0.89 where the formula gives
+0.883, which suggests the printed probabilities are rounded). The `sdk/python/usage` page shows no
+Choice or Score response, and the `confidence` page only works the `bug_severity` example (0.35
+against 0.355). A tolerance of 1e-3 on `confidence` would have rejected three of the examples. The
+tests pin both sides of each value and check the documented examples. Issue #64 verifies these
+values against the first real recording and may widen them; a tolerance changes no replay key and no
+stored format.
 
 `DecisionResult(answers, model, usage)` has `answers` (a read-only mapping of answer objects),
 `model`, `usage`, `source` (`"synthetic"` or `"recorded"`), `result[name]`, and the groupings
@@ -108,7 +129,9 @@ characters, and a duplicate key in the file is an error.
 
 Unknown keys are errors, and provenance is required on every answer. On replay the answers must
 match the questions asked (same names, same types, same options or number of levels), or
-`FixtureError` is raised.
+`FixtureError` is raised. Choice option order is part of the replay key, so reordering the options
+of a question is a `ReplayMiss`, not a fit error (a stored answer only has to name the same options,
+in any order).
 
 ### Building a fixture by hand
 

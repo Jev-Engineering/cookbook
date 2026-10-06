@@ -2,7 +2,8 @@
 
 Shapes follow ``typesafe_sdk``: ``instructions`` is text, a JSON object or an array (or
 ``None``); ``Choice.criteria`` is a mapping of option name to an optional description;
-``Score.criteria`` is an ordered list of 2 to 10 non-empty strings, one per level from 0;
+``Score.criteria`` is an ordered list of 2 to 10 levels from 0, each non-empty text, a
+non-empty JSON object or a non-empty JSON array;
 ``Choice`` allows at most 255 options; constructors take keyword arguments only;
 ``Noul.criteria`` optionally describes the ``true`` and ``false`` outcomes.
 """
@@ -107,10 +108,10 @@ class Score:
             if (
                 level is None
                 or type(level) not in (str, dict, list, tuple)
-                or level in ("", [], ())
+                or level in ("", [], (), {})
             ):
                 raise ValueError(
-                    f"Score level {i} must be non-empty text, a JSON object or a JSON array"
+                    f"Score level {i} must be non-empty text, a non-empty JSON object or a non-empty JSON array"
                 )
         object.__setattr__(self, "criteria", plain_json(list(self.criteria), "criteria"))
         object.__setattr__(self, "instructions", _instructions(self.instructions))

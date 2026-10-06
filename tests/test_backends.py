@@ -30,7 +30,7 @@ from jev_cookbook import (
     replay_key,
 )
 from jev_cookbook._canonical import canonical_json
-from jev_cookbook.answers import SYNTHETIC_MODEL
+from jev_cookbook.answers import SYNTHETIC_MODEL, choice_confidence, score_confidence
 
 STATE = {"document": "I was charged twice.\nPlease fix this."}
 K1 = "0" * 64
@@ -798,3 +798,106 @@ def test_float_sums_use_fsum_so_python_3_10_matches_3_12_and_later():
     assert got.confidence == 0.0
     spread = ScoreAnswer.from_probabilities([0.23, 0.28, 0.31, 0.18], list("abcd"), PROV)
     assert spread.confidence == 0.07999999999999996  # spread (sum gives 0.08000000000000007)
+
+
+def test_score_probabilities_must_sum_to_one():
+    """Score and confidence below agree with the unnormalized probabilities, so only the
+    sum rule can reject them."""
+    probs = [0.1, 0.1]
+    with pytest.raises(ValueError, match=r"sum to 1, they sum to 0\.2"):
+        ScoreAnswer(0.1, {0: 0.1, 1: 0.1}, score_confidence(probs), {0: "a", 1: "b"}, PROV)
+    with pytest.raises(ValueError, match=r"sum to 1, they sum to 0\.98"):
+        ChoiceAnswer("a", {"a": 0.9, "b": 0.08}, choice_confidence([0.9, 0.08]), PROV)
+
+
+def test_replay_rejects_a_stored_choice_with_other_options():
+    qs = {"t": Choice(criteria={"calm": None, "angry": None})}
+    other = ChoiceAnswer.from_probabilities({"happy": 0.2, "angry": 0.8}, REC)
+    stored = DecisionResult({"t": other}, REC.model).to_dict()
+    backend = ReplayBackend({replay_key("s", qs): stored})
+    with pytest.raises(FixtureError, match="options"):
+        backend.decide("s", qs)
+    same = ChoiceAnswer.from_probabilities({"angry": 0.8, "calm": 0.2}, REC)  # order is free
+    stored = DecisionResult({"t": same}, REC.model).to_dict()
+    assert ReplayBackend({replay_key("s", qs): stored}).decide("s", qs)["t"] == same
+
+
+def test_score_levels_reject_empty_objects_text_and_arrays():
+    for empty in ("", [], {}):
+        with pytest.raises(ValueError, match="Score level 1"):
+            Score(criteria=["ok", empty])
+    Score(criteria=[{"k": "v"}, ["x"]])
+
+
+def _accepts(build):
+    build()
+
+
+def _rejects(build, match):
+    with pytest.raises(ValueError, match=match):
+        build()
+
+
+def test_tolerances_are_pinned():
+    """Each tolerance accepts an error just inside it and rejects one just outside."""
+    levels = {0: "a", 1: "b"}
+
+    def choice(eps):
+        return lambda: ChoiceAnswer(
+            "a", {"a": 0.5 + eps, "b": 0.5}, choice_confidence([0.5 + eps, 0.5]), PROV
+        )
+
+    def score(eps):
+        probs = {0: 0.5, 1: 0.5 + eps}
+        return lambda: ScoreAnswer(
+            0.5 + eps, probs, score_confidence([0.5, 0.5 + eps]), levels, PROV
+        )
+
+    # probabilities sum to 1 within 1e-9
+    for make in (choice, score):
+        _accepts(make(5e-10))
+        _rejects(make(2e-9), "sum to 1")
+
+    # score equals the probability-weighted level within 1e-9
+    probs = {0: 0.4, 1: 0.6}
+    conf = score_confidence([0.4, 0.6])
+    _accepts(lambda: ScoreAnswer(0.6 + 5e-10, probs, conf, levels, PROV))
+    _rejects(lambda: ScoreAnswer(0.6 + 2e-9, probs, conf, levels, PROV), "probability-weighted")
+
+    # confidence equals the published formula within 7e-3
+    cconf = choice_confidence([0.3, 0.7])
+    for delta in (6.9e-3, -6.9e-3):
+        _accepts(lambda delta=delta: ChoiceAnswer("b", {"a": 0.3, "b": 0.7}, cconf + delta, PROV))
+        _accepts(lambda delta=delta: ScoreAnswer(0.6, probs, conf + delta, levels, PROV))
+    for delta in (7.1e-3, -7.1e-3):
+        _rejects(
+            lambda delta=delta: ChoiceAnswer("b", {"a": 0.3, "b": 0.7}, cconf + delta, PROV),
+            "confidence",
+        )
+        _rejects(
+            lambda delta=delta: ScoreAnswer(0.6, probs, conf + delta, levels, PROV), "confidence"
+        )
+
+
+def test_example_responses_from_the_typesafe_docs_are_accepted():
+    """Values as printed (rounded to two decimals) on the Choice and Score pages."""
+    rec = Provenance.recorded("jev-1.13.0", "2026-01-01")
+    docs_choices = [  # (choice, probabilities, confidence)
+        ("returns", {"shipping": 0.04, "billing": 0.35, "returns": 0.61}, 0.42),
+        ("delayed", {"wrong_address": 0.0, "other": 0.26, "not_delivered": 0.0,
+                     "damaged_in_transit": 0.0, "delayed": 0.74}, 0.67),
+        ("returns", {"shipping": 0.0, "returns": 1.0, "billing": 0.0}, 1.0),
+    ]  # fmt: skip
+    for choice, probs, conf in docs_choices:
+        assert ChoiceAnswer(choice, probs, conf, rec).choice == choice
+    docs_scores = [  # (score, probabilities, confidence)
+        (1.43, [0.0, 0.57, 0.43], 0.35),
+        (1.86, [0.0, 0.14, 0.86, 0.0, 0.0], 0.89),
+        (2.52, [0.0, 0.0, 0.48, 0.52], 0.52),
+        (1.26, [0.0, 0.74, 0.26], 0.61),
+        (3.0, [0.0, 0.0, 0.0, 1.0], 1.0),
+    ]
+    for score, probs, conf in docs_scores:
+        legend = [f"level {i}" for i in range(len(probs))]
+        answer = ScoreAnswer(score, dict(enumerate(probs)), conf, dict(enumerate(legend)), rec)
+        assert answer.score == score

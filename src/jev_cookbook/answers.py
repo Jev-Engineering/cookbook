@@ -2,9 +2,10 @@
 
 Value types follow the TypeSafe response schema: ``noul`` is the probability of yes
 (float, 0 to 1); ``probabilities`` maps option name (Choice, ``str``) or level index
-(Score, ``int`` 0, 1, ...; JSON string keys in ``to_dict``) to a float; ``confidence`` is a float from 0 to 1; Score's
-``score`` is the probability-weighted average level (a float, may fall between levels)
-and ``legend`` maps the same level strings to the criteria descriptions.
+(Score, ``int`` 0, 1, ...; JSON string keys in ``to_dict``) to a float; ``confidence`` is a
+float from 0 to 1; Score's ``score`` is the probability-weighted average level (a float, may
+fall between levels) and ``legend`` maps the same level indexes to the level values of the
+question: text, a JSON object or a JSON array, each held as given.
 """
 
 from __future__ import annotations
@@ -29,7 +30,14 @@ __all__ = [
     "answer_from_dict",
 ]
 
-TOL = 1e-3
+# Consistency tolerances for answers built or loaded from stored responses. They are the
+# smallest values that accept every example response in the TypeSafe docs (see
+# docs/backends.md, "Tolerances"); issue #64 checks them against the first real recording.
+SUM_TOL = 1e-9  # probabilities sum to 1
+LEVEL_TOL = 1e-9  # Score ``score`` equals the probability-weighted level
+CONFIDENCE_TOL = 7e-3  # ``confidence`` equals the published formula
+TOL = 1e-3  # slack when deciding that the stated Choice option is the most probable one
+Level = str | dict[str, Any] | list[Any]
 SYNTHETIC_MODEL = "synthetic"
 SYNTHETIC_SOURCE = "synthetic"
 RECORDED_SOURCE = "recorded"
@@ -174,12 +182,13 @@ class ChoiceAnswer:
         probs = _prob_map(self.probabilities, "probabilities")
         if self.choice not in probs:
             raise ValueError(f"choice {self.choice!r} is not one of {sorted(probs)}")
-        if abs(math.fsum(probs.values()) - 1) > TOL:
-            raise ValueError("probabilities must sum to 1")
+        total = math.fsum(probs.values())
+        if abs(total - 1) > SUM_TOL:
+            raise ValueError(f"probabilities must sum to 1, they sum to {total!r}")
         if probs[self.choice] < max(probs.values()) - TOL:
             raise ValueError(f"choice {self.choice!r} is not the highest-probability option")
         conf = _unit(self.confidence, "confidence")
-        if abs(conf - choice_confidence(list(probs.values()))) > TOL:
+        if abs(conf - choice_confidence(list(probs.values()))) > CONFIDENCE_TOL:
             raise ValueError("confidence does not match the published Choice formula")
         object.__setattr__(self, "probabilities", MappingProxyType(probs))
         object.__setattr__(self, "confidence", conf)
@@ -225,13 +234,14 @@ class ScoreAnswer:
     """Expected score, probability per level, confidence, and the level legend.
 
     ``probabilities`` and ``legend`` are keyed by level index as ``int`` (``0``, ``1``,
-    ...), as in ``typesafe_sdk``. ``to_dict()`` writes the keys as JSON strings.
+    ...), as in ``typesafe_sdk``. ``to_dict()`` writes the keys as JSON strings. Legend
+    values are the question's level values: text, a JSON object or a JSON array.
     """
 
     score: float
     probabilities: Mapping[int, float]
     confidence: float
-    legend: Mapping[int, str]
+    legend: Mapping[int, Level]
     provenance: Provenance
     type: ClassVar[str] = "score"
 
@@ -250,15 +260,16 @@ class ScoreAnswer:
         )
         clean = {k: _unit(v, "probabilities") for k, v in probs.items()}
         ordered = [clean[i] for i in range(len(clean))]
-        if abs(math.fsum(ordered) - 1) > TOL:
-            raise ValueError("probabilities must sum to 1")
+        total = math.fsum(ordered)
+        if abs(total - 1) > SUM_TOL:
+            raise ValueError(f"probabilities must sum to 1, they sum to {total!r}")
         score = self.score
         if type(score) not in (int, float) or not math.isfinite(score):
             raise ValueError(f"score must be a number, got {score!r}")
-        if abs(score - _expected_level(ordered)) > TOL:
+        if abs(score - _expected_level(ordered)) > LEVEL_TOL:
             raise ValueError("score does not equal the probability-weighted level")
         conf = _unit(self.confidence, "confidence")
-        if abs(conf - score_confidence(ordered)) > TOL:
+        if abs(conf - score_confidence(ordered)) > CONFIDENCE_TOL:
             raise ValueError("confidence does not match the published Score formula")
         object.__setattr__(self, "score", float(score))
         object.__setattr__(self, "probabilities", MappingProxyType(clean))
@@ -269,7 +280,7 @@ class ScoreAnswer:
     def from_probabilities(
         cls,
         probabilities: Sequence[float] | Mapping[int, float],
-        legend: Sequence[str] | Mapping[int, str],
+        legend: Sequence[Level] | Mapping[int, Level],
         provenance: Provenance,
     ) -> ScoreAnswer:
         """Build an answer: ``score`` and ``confidence`` come from the published formulas.
