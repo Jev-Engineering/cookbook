@@ -6,6 +6,7 @@ then it is listed as coming soon. Standard library only.
     python tools/render_catalog.py           # rewrite README.md in place
     python tools/render_catalog.py --check   # exit 1 if README.md is stale
 """
+
 from __future__ import annotations
 
 import json
@@ -55,7 +56,10 @@ def render_progress(catalog: dict) -> str:
 
 
 def render_levels(catalog: dict) -> str:
-    lines = ["| Level | Name | What a notebook at this level involves | Recipes |", "| :---: | --- | --- | :---: |"]
+    lines = [
+        "| Level | Name | What a notebook at this level involves | Recipes |",
+        "| :---: | --- | --- | :---: |",
+    ]
     for level in catalog["levels"]:
         ranks = [r["rank"] for r in catalog["recipes"] if r["level"] == level["level"]]
         anchor = f"#level-{level['level']}--{level['name'].lower()}"
@@ -118,10 +122,12 @@ REGIONS = {
 
 def render(readme: str, catalog: dict) -> str:
     for name, fn in REGIONS.items():
-        pattern = re.compile(rf"(<!-- catalog:{name}:start -->\n)(?:.*?\n)?(<!-- catalog:{name}:end -->)", re.S)
+        pattern = re.compile(
+            rf"(<!-- catalog:{name}:start -->\n)(?:.*?\n)?(<!-- catalog:{name}:end -->)", re.S
+        )
         if not pattern.search(readme):
             raise SystemExit(f"README.md is missing the catalog:{name} markers")
-        readme = pattern.sub(lambda m, body=fn(catalog): m.group(1) + body + "\n" + m.group(2), readme)
+        readme = pattern.sub(lambda m, fn=fn: m.group(1) + fn(catalog) + "\n" + m.group(2), readme)
     return readme
 
 
