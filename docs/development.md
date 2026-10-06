@@ -33,6 +33,24 @@ How a recipe's tests import its `helpers.py` is defined in #68 (every recipe has
 The README tables are generated: after a catalog change run
 `python tools/render_catalog.py`, and `python tools/render_catalog.py --check` to verify.
 
+Never edit the generated regions by hand. A recipe pull request that adds
+`recipes/NN-slug/notebook.ipynb` changes what the renderer produces, so the README must be
+regenerated in that same pull request. The recipe builder does not do this: a designated
+integration worker does, serially, after the branch is handed over to it (one worker at a time, each
+handover recorded on the pull request), updating the branch against current `main`, running the
+renderer, committing only the generated README regions and confirming `--check`, before the final
+review and CI run (see "The generated-README exception" in
+[CONTRIBUTING.md](../CONTRIBUTING.md)). `--check` stays strict and fails on any stale
+content, so on a recipe pull request that adds a notebook the `Catalog` check is expected to be
+red until the integration stage has run; the builder does not fix it. The scope check planned
+for #69 does not exist yet. It applies to a recipe pull request, meaning branch `recipe/<slug>` with
+`Closes #N` for N in 1 to 60, and fails closed if only one of the two holds or the slug cannot be
+resolved. Until it does, reviewers apply the same allowlist by hand with
+`git diff --raw -M origin/main...HEAD`: only paths under `recipes/NN-slug/` plus
+`README.md`, where `README.md` must stay a regular file of mode `100644` and must equal `render(<base README>, <head catalog>)` (rendered from
+the base README, not the head's, with the head's `recipes/` tree deciding publication). Reviewers reject symlink (`120000`) and submodule (`160000`) modes, any mode change (for example `100644 100755`), and any type change; every new or resulting mode must be `100644`; `--name-status` cannot show these, which is why the command is `--raw`. The
+full rule is in [CONTRIBUTING.md](../CONTRIBUTING.md).
+
 ## Continuous integration
 
 `.github/workflows/ci.yml` (workflow `CI`) runs on every pull request and every push to
@@ -48,7 +66,7 @@ notebook execution) under new names.
 | `Tests (py3.14)` | `pytest` on the newest interpreter contributors use |
 | `Hygiene (secrets and notebook outputs)` | `python tools/check_hygiene.py` (workflow `Hygiene`, `.github/workflows/hygiene.yml`) |
 
-Run the lint, test and catalog commands from this document locally before opening a pull
+Run the lint, test and hygiene commands from this document locally before opening a pull
 request. Third-party actions are pinned to full commit SHAs with the version in a
 comment; bump them deliberately, and keep the permissions at `contents: read`.
 
