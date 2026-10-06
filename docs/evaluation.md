@@ -55,10 +55,15 @@ result = evaluate_threshold(test_gold, test_noul, t)  # test split, t frozen
 (From the TypeSafe documentation.) A Noul's `noul` is the probability, 0 to 1, that the
 statement is true, and a Noul has **no `confidence`**. A Choice's `probabilities` map each
 option to its probability and sum to 1. A Score's `score` is the expected level (it can fall
-between levels), `probabilities` are keyed by level (as strings in the API response docs), and
-`legend` maps levels to descriptions. `confidence` on Choice and Score is *not* the top
-probability: it is rescaled so a uniform spread is 0 and a single peak is 1. For calibration
-use `top_probabilities`, not `.confidence`.
+between levels) and `legend` maps levels to descriptions. The SDK types Score `probabilities`
+(and `legend`) with `int` keys; the JSON on the wire has string keys. The toolkit accepts both.
+
+`confidence` is derived from the whole `probabilities` distribution and is **not** the top
+probability. For Choice it is `(p_max - 1/n) / (1 - 1/n)`: 0 at a uniform spread, 1 at a single
+peak. For Score it is `max(0, 1 - sum_i p_i |i - m| / MAD_unif)`, a spread measure that depends
+on the distance between levels (`m` is the most probable level), so `{0: .5, 2: .5}` and
+`{0: .5, 1: .5}` have the same top probability and different confidence. For calibration use
+`top_probabilities`, not `.confidence`.
 
 ## Functions
 

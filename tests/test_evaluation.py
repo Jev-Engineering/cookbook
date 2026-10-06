@@ -212,10 +212,18 @@ def test_select_threshold_constrained():
 
 
 def test_select_threshold_ties_go_to_higher_threshold():
-    # gold 1 1 ; noul 0.9 0.8. t = 0.8: TP 2 -> F1 1 ; t = 0.9: TP 1 FN 1 -> 2/3. Unique best 0.8.
-    assert ev.select_threshold([1, 1], [0.9, 0.8]) == 0.8
-    # gold 1 0 ; noul 0.9 0.1: t = 0.1: TP 1 FP 1 -> 2/3 ; t = 0.9: TP 1 -> F1 1. Best 0.9.
-    # gold 1 ; noul 0.5 0.5 duplicate values: a single candidate 0.5
+    # gold 1 0 0 1 0 ; noul 0.9 0.7 0.5 0.3 0.1. F1 = 2 TP / (2 TP + FP + FN):
+    # 0.1: TP 2 FP 3 -> 4/7 ; 0.3: TP 2 FP 2 FN 0 -> 4/6 ; 0.5: TP 1 FP 2 FN 1 -> 2/5 ;
+    # 0.7: TP 1 FP 1 FN 1 -> 2/4 ; 0.9: TP 1 FP 0 FN 1 -> 2/3.
+    # 0.3 and 0.9 tie at 2/3, so the higher threshold, 0.9, is chosen.
+    gold, noul = [1, 0, 0, 1, 0], [0.9, 0.7, 0.5, 0.3, 0.1]
+    pts = {p.threshold: p.f1 for p in ev.threshold_sweep(gold, noul)}
+    assert pts[0.3] == pts[0.9]  # the tie really exists
+    assert ev.select_threshold(gold, noul) == 0.9
+
+
+def test_select_threshold_single_candidate():
+    # duplicate values leave a single candidate, 0.5
     assert ev.select_threshold([1, 1], [0.5, 0.5]) == 0.5
 
 
@@ -438,6 +446,17 @@ def test_select_confidence_threshold():
     assert ev.select_confidence_threshold(SC, SF, min_coverage=0.6) == 0.6
 
 
+def test_select_confidence_threshold_coverage_tie_goes_to_lower_threshold():
+    # correct 1 0 0 1 ; confidence 0.9 0.8 0.7 0.6 ; accuracy of the answered subset:
+    # 0.9: 1/1 ; 0.8: 1/2 ; 0.7: 1/3 ; 0.6: 2/4. With min_coverage 0.5 the candidates are
+    # 0.8 (coverage 2/4), 0.7, 0.6. Best accuracy 1/2 ties at 0.8 and 0.6 -> lower, 0.6.
+    c = ev.selective_curve([1, 0, 0, 1], [0.9, 0.8, 0.7, 0.6])
+    assert c.accuracy[1] == c.accuracy[3] == 0.5  # the tie really exists
+    assert (
+        ev.select_confidence_threshold([1, 0, 0, 1], [0.9, 0.8, 0.7, 0.6], min_coverage=0.5) == 0.6
+    )
+
+
 def test_select_confidence_threshold_errors():
     with pytest.raises(ValueError):
         ev.select_confidence_threshold(SC, SF)
@@ -455,6 +474,17 @@ def test_evaluate_selective():
     # nothing answered: accuracy and risk undefined
     r = ev.evaluate_selective(SC, SF, 0.95)
     assert r.n_answered == 0 and r.coverage == 0.0 and nan(r.accuracy) and nan(r.risk)
+
+
+def test_selective_rejects_noul_answers_with_a_pointer_to_noul_confidence():
+    with pytest.raises(ValueError, match="noul_confidence"):
+        ev.selective_curve([1, 0], [NoulStub(0.9), NoulStub(0.4)])
+    with pytest.raises(ValueError, match="noul_confidence"):
+        ev.evaluate_selective([1, 0], [NoulStub(0.9), NoulStub(0.4)], 0.5)
+    # the documented path works: confidence max(p, 1 - p) = 0.9, 0.6
+    assert ev.selective_curve(
+        [1, 0], ev.noul_confidence([NoulStub(0.9), NoulStub(0.4)])
+    ).coverage.tolist() == [0.5, 1.0]
 
 
 def test_selective_reads_confidence_from_answers():
@@ -482,6 +512,16 @@ def test_reliability_table():
 def test_ece():
     # 0.5 * |1/3 - 0.25| + 0.5 * |2/3 - 2.75/3| = 0.5 * 1/12 + 0.5 * 0.25 = 1/24 + 1/8 = 1/6
     assert ev.expected_calibration_error(CP, CO, n_bins=2) == pytest.approx(1 / 6)
+
+
+def test_ece_weights_bins_by_count():
+    # probability 0.1 0.2 0.9 ; outcome 0 1 1 ; 2 bins.
+    # bin (0, 0.5]: 0.1, 0.2 -> mean 0.15, rate 1/2, gap 0.35, weight 2/3
+    # bin (0.5, 1]: 0.9 -> mean 0.9, rate 1, gap 0.1, weight 1/3
+    # ECE = 2/3 * 0.35 + 1/3 * 0.1 = 0.8 / 3 ; an unweighted bin mean would be 0.225
+    assert ev.expected_calibration_error([0.1, 0.2, 0.9], [0, 1, 1], n_bins=2) == pytest.approx(
+        0.8 / 3
+    )
 
 
 def test_ece_perfectly_calibrated_is_zero():
@@ -521,6 +561,19 @@ def test_bootstrap_difference_and_interval_bounds():
     assert r.difference == pytest.approx(0.5)
     assert 0.0 <= r.lower <= 0.5 <= r.upper <= 1.0
     assert (r.n, r.n_resamples, r.seed, r.confidence_level) == (4, 500, 1, 0.95)
+
+
+def test_bootstrap_interval_follows_confidence_level():
+    # d = [1, 0, 0, 1]; a resampled mean is Binomial(4, 1/2) / 4, so with
+    # P(0) = 1/16 = 6.25% > 2.5% and P(1) = 6.25% > 2.5% the 95% interval is (0, 1).
+    # CDF: P(<= 0) = 1/16, P(<= 1/4) = 5/16 = 31.25%, P(<= 1/2) = 11/16, P(<= 3/4) = 15/16 = 93.75%.
+    # So the 25th percentile is 1/4 (5/16 >= 25% > 1/16) and the 75th is 3/4 (11/16 < 75% <= 15/16),
+    # giving the 50% interval (0.25, 0.75).
+    a, b = [1, 0, 1, 1], [0, 0, 1, 0]
+    r95 = ev.paired_bootstrap_difference(a, b, seed=0, n_resamples=20000)
+    assert (r95.lower, r95.upper) == (0.0, 1.0)
+    r50 = ev.paired_bootstrap_difference(a, b, seed=0, n_resamples=20000, confidence_level=0.5)
+    assert (r50.lower, r50.upper) == (0.25, 0.75)
 
 
 def test_bootstrap_is_deterministic_and_seed_dependent():

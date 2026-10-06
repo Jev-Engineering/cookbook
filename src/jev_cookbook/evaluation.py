@@ -704,7 +704,9 @@ def score_level(answer: Any) -> Any:
     """The most probable level of a Score answer; plain numbers are returned unchanged.
 
     For an answer with ``probabilities``, the level (key) with the highest probability;
-    ties go to the lowest level. Levels keyed by numeric strings are converted to ``int``.
+    ties go to the lowest level. The SDK types Score ``probabilities`` keys as ``int``;
+    the JSON on the wire uses string keys. Both are accepted, and numeric string keys are
+    converted to ``int``.
 
     Args:
         answer: A Score answer, or a plain number.
@@ -862,9 +864,12 @@ def mean_ndcg(
 def top_probabilities(answers: Iterable[Any]) -> list[float]:
     """Highest probability in each answer's ``probabilities``.
 
-    Note this differs from ``.confidence``, which rescales so a uniform spread is 0 and a
-    single peak is 1. The top probability is the usual input to calibration functions
-    (it is the model's stated chance that its own pick is right).
+    Note this differs from ``.confidence``, which is derived from the whole distribution:
+    for Choice, ``(p_max - 1/n) / (1 - 1/n)`` (0 at a uniform spread, 1 at a single peak);
+    for Score, ``max(0, 1 - sum_i p_i |i - m| / MAD_unif)``, a spread measure that depends
+    on the distance between levels (``m`` is the most probable level). Neither is the top
+    probability. The top probability is the usual input to calibration functions (it is
+    the model's stated chance that its own pick is right).
 
     Args:
         answers: Choice or Score answers (anything with ``probabilities``).
@@ -892,8 +897,9 @@ def top_k_accuracy(gold: Iterable[Any], probabilities: Iterable[Any], k: int) ->
     Args:
         gold: Gold options (or levels).
         probabilities: Per example, a mapping option to probability, or an answer with
-            ``.probabilities``. String keys that read as integers match integer gold
-            levels (Score answers key levels as strings).
+            ``.probabilities``. Keys match gold by equality, and also by string form, so
+            integer gold levels match both ``int`` keys (the SDK's Score type) and string
+            keys (the wire JSON).
         k: At least 1.
 
     Returns:
@@ -959,11 +965,13 @@ def _conf_inputs(
     correct: Iterable[Any], confidence: Iterable[Any]
 ) -> tuple[np.ndarray, np.ndarray]:
     ok = _binary(_as_list(correct, "correct"), "correct")
+    items = _as_list(confidence, "confidence")
+    if any(hasattr(x, "noul") and not hasattr(x, "confidence") for x in items):
+        raise ValueError(
+            "a Noul answer has no confidence; pass noul_confidence(noul) as the confidence"
+        )
     conf = _floats(
-        (
-            x.confidence if hasattr(x, "confidence") else x
-            for x in _as_list(confidence, "confidence")
-        ),
+        (x.confidence if hasattr(x, "confidence") else x for x in items),
         "confidence",
     )
     _same_length(ok, conf, "correct and confidence")
