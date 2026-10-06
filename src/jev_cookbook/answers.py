@@ -297,7 +297,7 @@ class ScoreAnswer:
             "score": self.score,
             "probabilities": {str(k): v for k, v in self.probabilities.items()},
             "confidence": self.confidence,
-            "legend": {str(k): v for k, v in self.legend.items()},
+            "legend": {str(k): plain_json(v, "legend") for k, v in self.legend.items()},
             "provenance": self.provenance.to_dict(),
         }
 

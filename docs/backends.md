@@ -54,8 +54,10 @@ The `state` passed to `decide` and `replay_key` is a string, a JSON object (`dic
 Every answer also has `provenance: Provenance` (`source`, `model`, `date`). Score level keys are
 `int` in memory (as in `typesafe_sdk`) and JSON strings (`"0"`, `"1"`, ...) in `to_dict()`; level
 keys must be canonical decimal integers (`"00"` is rejected, and so is a duplicate level after
-conversion). Answers are immutable: mappings are read-only views, so a result returned by replay
-cannot be changed by the caller (`to_dict()` returns a fresh copy you may edit).
+conversion). Answers are immutable: mappings are read-only views. A legend value that is a JSON
+object or array stays an ordinary `dict`/`list` inside the result, so replay builds a fresh result
+from a private copy on every call: whatever you change in a returned result never reaches a later
+replay. `to_dict()` also returns a fresh copy you may edit.
 
 Construction is validated with a tolerance of 1e-3: probabilities sum to 1; `choice` is the
 highest-probability option; `confidence` equals the published formulas (Choice

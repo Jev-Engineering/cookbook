@@ -759,3 +759,25 @@ def test_one_result_cannot_carry_two_dates():
 
 
 SCORE_OBJECT_KEY = "01ce836f962ac8e4493652eed2909d95cb84570e0f03ad068be47cf8ec037a69"
+
+
+# --------------------------------------------------- fix round 3 additions
+
+
+def test_replay_never_hands_out_mutable_legend_values():
+    levels = [{"covers": "low", "examples": ["a"]}, ["high", {"k": "v"}]]
+    qs = {"s": Score(criteria=levels)}
+    answer = ScoreAnswer.from_probabilities([0.4, 0.6], levels, REC)
+    stored = DecisionResult({"s": answer}, REC.model).to_dict()
+    backend = ReplayBackend({replay_key("t", qs): stored})
+    first = backend.decide("t", qs)
+    first["s"].legend[0]["covers"] = "TAMPERED"
+    first["s"].legend[0]["examples"].append("x")
+    first["s"].legend[1][1]["k"] = "TAMPERED"
+    first.to_dict()["answers"]["s"]["legend"]["1"][0] = "TAMPERED"
+    stored["answers"]["s"]["legend"]["0"]["covers"] = "TAMPERED"  # the caller's own dict
+    again = backend.decide("t", qs)
+    assert again["s"].legend[0] == {"covers": "low", "examples": ["a"]}
+    assert again["s"].legend[1] == ["high", {"k": "v"}]
+    assert again is not first
+    assert again == DecisionResult({"s": answer}, REC.model)

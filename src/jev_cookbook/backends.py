@@ -7,6 +7,7 @@ separate change and plugs into ``get_backend`` through ``_make_live_backend``.
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import math
@@ -153,17 +154,21 @@ class ReplayBackend:
     Every response is parsed when the backend is built, so a bad fixture fails early and
     names its key. ``mode`` (``synthetic`` or ``recorded``), ``model`` and ``recorded_dates``
     (sorted unique dates) come from the fixture provenance; a fixture set that mixes
-    synthetic and recorded answers, or more than one model, is rejected. Results are
-    immutable, so replay returns the stored object itself.
+    synthetic and recorded answers, or more than one model, is rejected. Every hit returns a
+    fresh ``DecisionResult`` built from a private copy of the stored response, so nothing a
+    caller changes (including a legend value that is a JSON object or array) reaches a
+    later replay.
     """
 
     def __init__(self, responses: Mapping[str, Mapping[str, Any]]) -> None:
         self._results: dict[str, DecisionResult] = {}
+        self._stored: dict[str, dict[str, Any]] = {}
         for key, stored in responses.items():
             if type(key) is not str or not KEY_PATTERN.fullmatch(key):
                 raise FixtureError(f"replay key must be 64 lowercase hex characters, got {key!r}")
             try:
                 self._results[key] = DecisionResult.from_dict(stored)
+                self._stored[key] = copy.deepcopy(self._results[key].to_dict())
             except (ValueError, TypeError) as exc:
                 raise FixtureError(f"stored response {key}: {exc}") from exc
         if not self._results:
@@ -217,7 +222,7 @@ class ReplayBackend:
             _check_result(questions, result)
         except FixtureError as exc:
             raise FixtureError(f"stored response {key}: {exc}") from exc
-        return result
+        return DecisionResult.from_dict(self._stored[key])
 
 
 # A scripted spec is the minimal description of an answer:
