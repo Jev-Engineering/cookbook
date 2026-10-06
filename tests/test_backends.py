@@ -781,3 +781,20 @@ def test_replay_never_hands_out_mutable_legend_values():
     assert again["s"].legend[1] == ["high", {"k": "v"}]
     assert again is not first
     assert again == DecisionResult({"s": answer}, REC.model)
+
+
+def test_float_sums_use_fsum_so_python_3_10_matches_3_12_and_later():
+    """Built-in ``sum`` is compensated only from Python 3.12, so each case below differs
+    between 3.10 and 3.14 if a weight total, expected level or spread stops using ``math.fsum``.
+    (The ``even`` term sums multiples of 0.5, which every summation order adds exactly, so no
+    input can tell its ``fsum`` from ``sum``.)"""
+    levels = [f"level {i}" for i in range(10)]
+    tenths = ScriptedBackend(lambda st, q, g: {"s": [0.1] * 10})
+    got = tenths.decide("x", {"s": Score(criteria=levels)})["s"]
+    assert (
+        list(got.probabilities.values()) == [0.1] * 10
+    )  # weight total (sum gives 0.9999999999999999)
+    assert got.score == 4.5  # expected level (sum gives 4.500000000000001)
+    assert got.confidence == 0.0
+    spread = ScoreAnswer.from_probabilities([0.23, 0.28, 0.31, 0.18], list("abcd"), PROV)
+    assert spread.confidence == 0.07999999999999996  # spread (sum gives 0.08000000000000007)
