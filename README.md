@@ -29,14 +29,14 @@ Jev is TypeSafe AI's System One model. It does not write text. You send it a **s
 Each notebook keeps the same division of labour. Jev supplies a narrow semantic judgment. Python does everything exact: arithmetic, retrieval, policy, permissions, and execution.
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontFamily': 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', 'lineColor': '#E551BA'}}}%%
+%%{init: {'theme': 'base', 'themeVariables': {'lineColor': '#E551BA'}}}%%
 flowchart LR
     F["Prepared fixtures<br/>text or JSON"]:::panel --> Q["Typed questions<br/>Choice · Noul · Score"]:::pink
     Q --> J["Jev<br/>one focused judgment each"]:::ink
     J --> A["Typed answers<br/>with probabilities"]:::pink
     A --> P["Your Python<br/>policy, arithmetic, execution"]:::panel
     P --> E["Evaluation<br/>labels, baselines, held-out sets"]:::ink
-    classDef ink fill:#1E1E1E,stroke:#1E1E1E,color:#FEFEFE
+    classDef ink fill:#1E1E1E,stroke:#F386A1,color:#FEFEFE
     classDef pink fill:#F386A1,stroke:#1E1E1E,color:#1E1E1E
     classDef panel fill:#DEDEDE,stroke:#1E1E1E,color:#1E1E1E
 ```
