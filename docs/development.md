@@ -48,7 +48,7 @@ for #69 does not exist yet. It applies to a recipe pull request, meaning branch 
 resolved. Until it does, reviewers apply the same allowlist by hand with
 `git diff --raw -M origin/main...HEAD`: only paths under `recipes/NN-slug/` plus
 `README.md`, where `README.md` must stay a regular file of mode `100644` and must equal `render(<base README>, <head catalog>)` (rendered from
-the base README, not the head's, with the head's `recipes/` tree deciding publication). Reviewers reject symlink (`120000`) and submodule (`160000`) modes, any mode change (for example `100644 100755`), and any type change; `--name-status` cannot show these, which is why the command is `--raw`. The
+the base README, not the head's, with the head's `recipes/` tree deciding publication). Reviewers reject symlink (`120000`) and submodule (`160000`) modes, any mode change (for example `100644 100755`), and any type change; every new or resulting mode must be `100644`; `--name-status` cannot show these, which is why the command is `--raw`. The
 full rule is in [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## Continuous integration
