@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jev_cookbook"
+version = "0.1.0"
+description = "Shared code for the Jev Cookbook: typed decisions with Jev."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "matplotlib",
+    "nbclient",
+    "nbformat",
+    "ipykernel",
+]
+
+[project.optional-dependencies]
+# Live inference only. Never imported at module import time by jev_cookbook.
+live = ["typesafe-sdk"]
+ml = ["scikit-learn"]
+dev = ["ruff==0.16.10", "pytest"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "--import-mode=importlib"
+testpaths = ["tests", "recipes"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-include = ["*.ipynb"]
+
+[tool.ruff.lint]
+# Default pycodestyle/pyflakes errors, warnings, import order, bugbear, pyupgrade.
+select = ["E4", "E7", "E9", "F", "W", "I", "B", "UP"]
