@@ -22,6 +22,10 @@ nothing else. Every other gate still applies and is checked by the people and ag
 - signed commits;
 - the original supervisor as the sole serial merge controller.
 
+A `NOT READY` receipt stays `NOT READY`. The only manual exception to it that this document
+describes is the foundation-only one in the [manual exception for an immaterial `main` advance](#manual-exception-for-an-immaterial-main-advance),
+and the helper never reports it as a pass.
+
 The helper never merges, reviews, approves, comments, edits settings, or bypasses a control. It
 only issues `gh api` GET requests, with no body and no method override.
 
@@ -98,6 +102,11 @@ python tools/check_merge_readiness.py --pr 123 --expected-head <sha> \
   --require-check "Notebooks (execute)" --require-check "Scope (recipe paths)"
 ```
 
+Checks on a pull request run on the merge result as of the last push, not on a `main` that moves
+afterwards, and a green run on an older `main` says nothing about a later one. That is why the
+helper reads the checks of current `main` and of the head separately, and why the exact
+post-merge run below stays necessary.
+
 Checks outside the required set are not judged. Using only the baseline when a workflow has
 added a job silently under-checks, which is why the list is explicit and the receipt echoes
 `required_checks`.
@@ -106,7 +115,18 @@ added a job silently under-checks, which is why the list is explicit and the rec
 
 1. **Before the merge**, with the merge lock held, after the Opus approval for the current head
    is verified: run the helper with `--expected-head` set to that approved head. Anything but
-   exit `0` stops the merge; fix the cause rather than rerunning until green.
+   exit `0` stops the merge. Two not-ready results are transient waits, not failures, and the
+   right response is to wait and run the helper again:
+
+   - GitHub has not computed mergeability yet (`mergeable` is null, state `unknown`), which
+     happens lazily, for example right after `main` advances.
+   - A required check is still pending (queued or in progress), for example on a freshly merged
+     `main`.
+
+   Wait until the state settles and rerun; never merge while either one holds. Every other
+   failure is substantive (a stale base, a failed, cancelled or missing check, a moved head, a
+   draft or closed pull request): fix the cause rather than rerunning until green. A check that
+   stays missing is not a wait and is never waived.
 2. **Merge pinned to the head**, by the original supervisor only, with exactly the authorized
    command `gh pr merge <PR> --squash --match-head-commit <sha>`. Do not add `--delete-branch`
    or `--admin`, and never bypass a rule. The helper does not run this and cannot authorize it.
@@ -120,12 +140,20 @@ added a job silently under-checks, which is why the list is explicit and the rec
    # CheckRuns on that commit: the count, then name, app, status, conclusion per run
    gh api "repos/$REPO/commits/$SHA/check-runs?filter=latest&per_page=100"      --jq '.total_count, (.check_runs[] | [.name, .app.slug, .status, .conclusion] | @tsv)'
 
+   # The same, with filter=all, to audit earlier attempts such as a cancelled one
+   gh api "repos/$REPO/commits/$SHA/check-runs?filter=all&per_page=100"      --jq '.total_count, (.check_runs[] | [.id, .name, .app.slug, .status, .conclusion] | @tsv)'
+
    # StatusContexts on that commit (empty today; read it for any added external check)
    gh api "repos/$REPO/commits/$SHA/status?per_page=100"      --jq '.sha, .total_count, (.statuses[] | [.context, .state] | @tsv)'
 
    # The commit is on main: expect "ahead 0" or "identical 0" (main at or after $SHA)
    gh api "repos/$REPO/compare/$SHA...main" --jq '[.status, .behind_by] | join(" ")'
    ```
+
+   `filter=latest` shows what currently counts: a rerun replaces an earlier cancelled run of the
+   same job. `filter=all` also lists the superseded attempts, so a cancelled one is visible and
+   can be recorded rather than lost. Judge the gate on the `filter=latest` rows and keep the
+   `filter=all` rows as the audit trail.
 
    Every required check (the five baseline names plus each `--require-check` used) must appear
    exactly once, `completed` with conclusion `success` (or state `success` for a status), and the
@@ -135,6 +163,77 @@ added a job silently under-checks, which is why the list is explicit and the rec
    workflow on that exact commit, and read the rows again. Do not treat a later commit's green
    run as proof for this one. If the merge commit is red, stop merging.
 
+   Do the next merge only after this verification is complete for the previous merge commit,
+   with every required check `completed` and `success`. A pending row is a wait, not a pass.
+   Merging again while it is pending is how the PR #83 run was cancelled.
+
 The helper narrows, but does not close, the window between the check and the merge:
 `--match-head-commit` pins the head, and `main` can still advance in that gap, which is why the
 post-merge verification of the exact commit remains necessary.
+
+## Manual exception for an immaterial `main` advance
+
+This section describes a manual ruling, not a helper feature. The helper's ancestry check is
+strict and stays strict: if current `main` is not an ancestor of the head, it reports `NOT READY`
+(exit `1`) with the signed-integration guidance, and that receipt is kept as it is. Nothing here
+changes an ancestry failure into success, and an exception is never presented as a passed
+automatic gate.
+
+The default is unchanged: when `main` moves after a head was reviewed, update the branch with a
+signed integration of current `main`, get green checks on the new head, and have it reviewed
+again, because an update changes the head and voids the earlier approval.
+
+For **foundation pull requests only**, the original supervisor, as sole serial merge controller,
+may instead rule that an advance of `main` is immaterial and merge the reviewed head without
+updating it. The ruling is a manual adjudication of the narrow case where the update would void
+an approval for no change in what is merged. It needs all of the following, each recorded on the
+pull request before the merge:
+
+1. **Explicit evidence of the current delta and its effect.** Name the commits that advanced
+   `main` since the branch last integrated it, show the delta (for example
+   `git diff <main at last integration>..<current main>`), and show that none of it touches the
+   pull request's files or the shared code they depend on. Then state the effect on each required
+   check at the merge result, for example from a trial merge that is not committed
+   (`git merge-tree --write-tree <head> <current main>`) and the relevant checks run on it.
+2. **Explicit genuine reviewer agreement at the same head.** A genuine Opus review of the exact
+   head being merged states that it accepts the adjudication for that head. A review that asked
+   for integration is not satisfied by the supervisor's ruling alone; the same-head reviewer must
+   agree, and where the contract requires two approvals, each reviewer must. Without that
+   agreement, integrate and review again.
+3. **Complete actual checks.** Every required check (the five baseline names plus any added by
+   later workflows) is present and `success` on the head, and on current `main`. A missing or
+   pending check is never waived, and a run on an older `main` is not counted as coverage of a
+   later one.
+4. **Exact post-merge CI before the next merge.** After the squash, read every required check on
+   the exact merge commit as in the post-merge step above, and wait for it to finish green before
+   merging anything else. If it is red, stop merging.
+
+The exception covers only the ancestry failure. Any other failure in the receipt (head pin,
+draft or closed pull request, a failed, cancelled, missing or pending check) still stands.
+
+It does not apply when the advance is material: if `main` touched the pull request's files or
+the shared code they depend on, or the evidence in item 1 cannot be shown, the signed update and
+the renewed head review are required.
+
+### Recipe pull requests are not covered
+
+The exception does not extend to recipe pull requests and does not weaken #69's recipe gate or
+the ownership of the generated README. `CONTRIBUTING.md` and `orchestration/PROMPT.md` stay as
+written: a recipe branch is updated against current `main` with a signed merge commit, the
+generated README regions are computed from the **base** README, strict scope and catalog CI
+must pass, and the new head is reviewed again after any update.
+
+### Recorded history
+
+PR #96 is the recorded case. The Opus review of head `f843a7c` (comment 6031008513) approved that
+content and stated that, after #91 advanced `main`, the helper returned `NOT READY` with
+`behind_by` 1 and that a signed integration and a fresh review were needed before merging. The
+supervisor's merge note (comment 6031022258) ruled the advance immaterial and merged without that
+refresh. The audit receipt (issue #80, comment 6031048875) records this as an adjudicated process
+exception, not proof that the review's precondition or the helper's ancestry gate passed. The
+requirements above are the explicit version of that adjudication; they do not approve #96
+retroactively.
+
+The PR #98 review (comment 6031023696) recorded a related ruling, and it corrected the claim that
+the pull request's checks already ran with current `main`: they ran on the merge result of the
+last push, which did not contain the advance. The post-merge CI on `main` is the backstop.
