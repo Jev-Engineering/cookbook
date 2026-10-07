@@ -124,8 +124,20 @@ def _as_list(values: Iterable[Any], name: str) -> list[Any]:
     return out
 
 
-def _choice_value(x: Any) -> Any:
-    return x.choice if hasattr(x, "choice") else x
+def _choice_value(x: Any, function: str) -> Any:
+    if hasattr(x, "choice"):
+        return x.choice
+    if hasattr(x, "noul"):
+        raise ValueError(
+            f"{function} compares Choice options; a Noul answer is a probability, "
+            "so use evaluate_threshold or threshold_sweep with the gold booleans"
+        )
+    if hasattr(x, "score"):
+        raise ValueError(
+            f"{function} compares Choice options; a Score answer is a level, "
+            "so use score_level with exact_agreement, or mean_absolute_error"
+        )
+    return x
 
 
 def _noul_value(x: Any) -> Any:
@@ -169,9 +181,11 @@ def _safe_div(num: float, den: float) -> float:
     return num / den if den > 0 else float("nan")
 
 
-def _choice_pair(gold: Iterable[Any], predicted: Iterable[Any]) -> tuple[list[Any], list[Any]]:
-    g = [_choice_value(x) for x in _as_list(gold, "gold")]
-    p = [_choice_value(x) for x in _as_list(predicted, "predicted")]
+def _choice_pair(
+    gold: Iterable[Any], predicted: Iterable[Any], function: str
+) -> tuple[list[Any], list[Any]]:
+    g = [_choice_value(x, function) for x in _as_list(gold, "gold")]
+    p = [_choice_value(x, function) for x in _as_list(predicted, "predicted")]
     _same_length(g, p, "gold and predicted")
     return g, p
 
@@ -191,7 +205,7 @@ def accuracy(gold: Iterable[Any], predicted: Iterable[Any]) -> float:
     Returns:
         A float in [0, 1]. Raises ``ValueError`` on empty input or unequal lengths.
     """
-    g, p = _choice_pair(gold, predicted)
+    g, p = _choice_pair(gold, predicted, "accuracy")
     return sum(a == b for a, b in zip(g, p, strict=True)) / len(g)
 
 
@@ -222,7 +236,7 @@ def confusion_matrix(
         A :class:`ConfusionMatrix` with an integer ``(len(labels), len(labels))`` matrix.
         Empty input or unequal lengths raise ``ValueError``.
     """
-    g, p = _choice_pair(gold, predicted)
+    g, p = _choice_pair(gold, predicted, "confusion_matrix")
     labs = list(labels) if labels is not None else _default_labels(g, p)
     index = {lab: i for i, lab in enumerate(labs)}
     if len(index) != len(labs):
@@ -295,7 +309,7 @@ def per_class_metrics(
         :class:`ClassificationCounts` for exactly when each ratio is NaN. Empty input or
         unequal lengths raise ``ValueError``.
     """
-    g, p = _choice_pair(gold, predicted)
+    g, p = _choice_pair(gold, predicted, "per_class_metrics")
     labs = list(labels) if labels is not None else _default_labels(g, p)
     out: dict[Any, ClassificationCounts] = {}
     for lab in labs:
@@ -384,7 +398,7 @@ def cohens_kappa(gold: Iterable[Any], predicted: Iterable[Any]) -> float:
         option throughout), because there is no disagreement to correct for. Empty input
         or unequal lengths raise ``ValueError``.
     """
-    g, p = _choice_pair(gold, predicted)
+    g, p = _choice_pair(gold, predicted, "cohens_kappa")
     n = len(g)
     po = sum(a == b for a, b in zip(g, p, strict=True)) / n
     pe = sum((g.count(lab) / n) * (p.count(lab) / n) for lab in set(g) | set(p))
@@ -1270,12 +1284,12 @@ def sum_usage(usages: Iterable[Mapping[str, Any] | None]) -> UsageTotals:
 
     Each usage block is a mapping with optional ``input_tokens`` and ``output_tokens``
     integers, each possibly absent or ``None`` when the API did not report it. A ``None``
-    block is a request with nothing reported. Objects with those attributes are accepted
-    too. ``requests`` is the number of blocks; ``total_tokens`` is input plus output of
+    block is a request with nothing reported. Objects with those attributes (such as
+    ``Usage`` and ``DecisionResult.usage``) are accepted too. ``requests`` is the number of blocks; ``total_tokens`` is input plus output of
     the reported values.
 
     Args:
-        usages: One usage mapping per request.
+        usages: One usage mapping or ``Usage`` object per request.
 
     Returns:
         A :class:`UsageTotals`. No requests, or a negative or non-integer count, raise

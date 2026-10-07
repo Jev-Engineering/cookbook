@@ -109,10 +109,20 @@ def test_selective_prediction_on_choice_top_probabilities():
 def test_calibration_on_real_answers():
     conf = ev.top_probabilities(CHOICES)
     correct = [g == a.choice for g, a in zip(CHOICE_GOLD, CHOICES, strict=True)]
+    # top probabilities [0.7, 0.6, 0.5, 0.6, 0.5, 0.8]; correct [1, 1, 0, 1, 0, 1].
+    # Five equal bins, (lo, hi]: (0.4, 0.6] holds 0.5, 0.5, 0.6, 0.6 (the 0.6 values sit on
+    # the upper edge) with mean 0.55 and observed rate 2/4; (0.6, 0.8] holds 0.7, 0.8 with
+    # mean 0.75 and observed rate 2/2. The other three bins are empty.
     table = ev.reliability_table(conf, correct, n_bins=5)
-    assert sum(b.count for b in table) == 6
+    assert [b.count for b in table] == [0, 0, 4, 2, 0]
+    assert table[2].mean_probability == pytest.approx(0.55)
+    assert table[2].observed_rate == pytest.approx(0.5)
+    assert table[3].mean_probability == pytest.approx(0.75)
+    assert table[3].observed_rate == pytest.approx(1.0)
+    # ECE = 4/6 * |0.5 - 0.55| + 2/6 * |1.0 - 0.75| = 0.2/6 + 0.5/6 = 0.7/6 = 0.116667
+    # (an unweighted mean of the two bins would be 0.15)
     ece = ev.expected_calibration_error(conf, correct, n_bins=5)
-    assert 0.0 <= ece <= 1.0
+    assert ece == pytest.approx(0.7 / 6)
     # Noul answers feed the same functions through their noul value
     nouls = [NoulAnswer(v, SYN) for v in (0.9, 0.8, 0.2, 0.1)]
     assert ev.expected_calibration_error(nouls, [1, 1, 0, 0], n_bins=10) == pytest.approx(
@@ -142,3 +152,35 @@ def test_nan_convention_with_real_answers():
     per = ev.per_class_metrics(["a", "b"], answers, labels=["a", "b", "c"])
     assert math.isnan(per["b"].precision)
     assert math.isnan(per["c"].recall)
+
+
+def test_score_level_is_the_most_likely_level_not_the_rounded_expected_score():
+    # expected score 0 * 0.5 + 1 * 0.1 + 2 * 0.4 = 0.9, which rounds to 1, but level 0
+    # is the most likely one
+    a = ScoreAnswer.from_probabilities([0.5, 0.1, 0.4], LEGEND, SYN)
+    assert a.score == pytest.approx(0.9)
+    assert ev.score_level(a) == 0
+    assert ev.exact_agreement([0], [a]) == 1.0
+    assert ev.exact_agreement([1], [a]) == 0.0
+    assert ev.mean_absolute_error([0], [a]) == pytest.approx(0.9)
+
+
+def test_choice_metrics_reject_noul_and_score_answers_naming_the_function():
+    nouls = [NoulAnswer(0.9, SYN), NoulAnswer(0.2, SYN)]
+    scores = [score(0.1, 0.2, 0.7), score(0.6, 0.3, 0.1)]
+    with pytest.raises(ValueError, match=r"accuracy.*Noul"):
+        ev.accuracy([1, 0], nouls)
+    with pytest.raises(ValueError, match=r"accuracy.*Score"):
+        ev.accuracy([2, 0], scores)
+    with pytest.raises(ValueError, match=r"per_class_metrics.*Noul"):
+        ev.per_class_metrics([1, 0], nouls)
+    with pytest.raises(ValueError, match=r"per_class_metrics.*Score"):
+        ev.per_class_metrics([2, 0], scores)
+    with pytest.raises(ValueError, match=r"cohens_kappa.*Score"):
+        ev.cohens_kappa([2, 0], scores)
+    with pytest.raises(ValueError, match=r"confusion_matrix.*Noul"):
+        ev.confusion_matrix([1, 0], nouls)
+    with pytest.raises(ValueError, match=r"per_class_metrics.*Noul"):
+        ev.macro_average([1, 0], nouls)
+    with pytest.raises(ValueError, match=r"per_class_metrics.*Score"):
+        ev.micro_average([2, 0], scores)

@@ -131,7 +131,7 @@ percentile interval as `BootstrapResult`. Examples must be aligned.
 
 ### Accounting
 
-`sum_usage(usages)` sums per-request `usage` mappings (`input_tokens`, `output_tokens`, each
+`sum_usage(usages)` sums per-request `usage` values, `Usage` objects or mappings (`input_tokens`, `output_tokens`, each
 possibly `None` or absent) into `UsageTotals`. Requests that did not report a count are tallied
 in `requests_missing_input` / `requests_missing_output`, so a partial total is visible.
 
@@ -143,10 +143,16 @@ Every result type is a frozen dataclass whose fields are plain attributes, so ot
 | Type | Fields |
 | --- | --- |
 | `ConfusionMatrix` | `labels` (list), `matrix` (numpy integer array, `matrix[i, j]` = gold `labels[i]`, predicted `labels[j]`) |
+| `ClassificationCounts` | `tp`, `fp`, `fn`, `precision`, `recall`, `f1`, plus `support` and `present` (what `per_class_metrics` returns for each class) |
 | `ThresholdPoint` | `threshold`, `tp`, `fp`, `fn`, `tn`, `precision`, `recall`, `f1`; `threshold_sweep` returns `list[ThresholdPoint]` |
 | `SelectiveCurve` | `thresholds`, `coverage`, `accuracy`, `risk` (equal-length numpy arrays, one entry per threshold) |
 | `SelectiveResult` | `threshold`, `n_total`, `n_answered`, `coverage`, `accuracy`, `risk` |
+| `ReliabilityBin` | `lower`, `upper`, `count`, `mean_probability`, `observed_rate` (the last two are NaN for an empty bin); `reliability_table` returns `list[ReliabilityBin]` |
+| `BootstrapResult` | `difference`, `lower`, `upper`, `confidence_level`, `n`, `n_resamples`, `seed` |
 | `UsageTotals` | `requests`, `input_tokens`, `output_tokens`, `total_tokens`, `requests_missing_input`, `requests_missing_output` |
+
+Every metric computed on synthetic fixtures is a check that the pipeline works, not a measure
+of Jev; `CONTRIBUTING.md` requires the notebook to say so next to the number.
 
 The toolkit is tested against the real `jev_cookbook.answers` classes (read-only
 `MappingProxyType` mappings, `int` Score keys, `Usage` and `DecisionResult.usage`) in
