@@ -74,6 +74,7 @@ A recipe pull request touches only `recipes/NN-slug/`, with one bounded exceptio
 - Trust and safety recipes stay mild: enough to exercise the decision, nothing graphic or abusive.
 - Include the hard cases the use case names (no match, ambiguous, mixed, adversarial, benign look-alikes) and gold labels for everything evaluated.
 - Keep a recipe's fixtures small enough to read. Aim for tens of examples at levels 1 and 2, and state the size wherever a number is reported.
+- The file layout, splits, and the validator (`python -m jev_cookbook.fixtures validate recipes/NN-slug`) are specified in [docs/fixtures.md](docs/fixtures.md).
 
 ### 6. It teaches
 
@@ -87,6 +88,7 @@ A recipe pull request touches only `recipes/NN-slug/`, with one bounded exceptio
 
 - The notebook executes cleanly offline in CI, start to finish, from a fresh environment.
 - Fixtures validate against the fixture schema.
+- Setup, the three commands, and CI are described in [docs/development.md](docs/development.md).
 - Lint and tests pass. Nothing is skipped, disabled, or loosened to get there.
 
 ## Branches, commits, pull requests

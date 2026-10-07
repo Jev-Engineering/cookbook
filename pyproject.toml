@@ -25,6 +25,9 @@ dev = ["ruff==0.16.10", "pytest"]
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+"jev_cookbook.fixtures" = ["schema.json"]
+
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib"
 testpaths = ["tests", "recipes"]
