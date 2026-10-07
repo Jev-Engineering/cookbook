@@ -7,6 +7,11 @@ python -m jev_cookbook.fixtures validate recipes/NN-slug   # exit 0 if valid, 1 
 python -m jev_cookbook.fixtures validate --all             # every recipes/*/fixtures that exists
 ```
 
+`--all` looks for `recipes/` in the current directory, so run it from the repository root; use
+`--recipes-dir <path>` to point it elsewhere. A `--recipes-dir` (or default `recipes/`) that is not
+a directory is a usage error (exit 2), so a typo cannot pass as "nothing to validate"; an existing
+one with no fixture folders exits 0.
+
 ```text
 recipes/NN-slug/fixtures/
 ├── inputs.jsonl            the examples: id, split, state (or fields), replay_keys
@@ -42,14 +47,18 @@ pattern must match the whole value, so an id with a trailing newline is refused.
 | `split` | `validation`, `test`, `train` or `demo` (below). |
 | `state` | Exactly one of `state` and `fields`. `state` is the value passed to `backend.decide`: text, a JSON object, or a list of strings. |
 | `fields` | The values the recipe's Python builds the state from (a JSON object), when the notebook assembles the state itself. |
-| `replay_keys` | `replay_key(state, questions)` of every request the notebook replays for this example: 64 lowercase hex characters. May be empty (see "Replay and scripted recipes"). More than one when a later request depends on an earlier answer, in the order the notebook makes the requests. |
+| `replay_keys` | `replay_key(state, questions)` of every request the notebook replays for this example: 64 lowercase hex characters. May be empty (see "Replay and scripted recipes"). More than one when a later request depends on an earlier answer, in the order the notebook makes the requests. A `demo` example may list keys (list them if the notebook replays it); if it does, the responses must exist like any other. |
 
 The validator cannot rebuild a request, because the questions live in the notebook. So the link
 from an example to its responses is written down: `replay_keys`. Compute the keys in the script
 that writes the fixtures, never by hand. Change a question and the keys change; the validator
-then reports the old responses as unreferenced and the new keys as missing. A replay key is a
-hash of the request, so two examples whose `state` (or `fields`) differ can never share one: a
-key listed by such examples is an error. That catches a key copied from another example.
+then reports the old responses as unreferenced and the new keys as missing. The key is the
+hash of what Jev sees, so examples that differ only in values Python owns (a field `build_state`
+leaves out, such as a role, an amount or a budget) legitimately share a key, and so do examples
+whose later request is the same. The validator therefore checks one thing: two `state` examples
+that each list exactly one key may not share it unless their `state` is the same. That catches a
+key copied from another example. For `fields` examples and for examples listing several keys the
+validator cannot see the request, so only a replay run shows a wrong key.
 
 ## Splits
 
@@ -89,7 +98,9 @@ make such recipes write responses just to pass.
 - The validator reports the recipe's **mode**: `replay` when some example lists a key, `scripted`
   when none does. The CLI prints it (`fixtures valid (mode scripted)`), and
   `validate_recipe(...)` returns a list of `Problem` with a `.mode` attribute (`None` when
-  `inputs.jsonl` could not be read). CI and the recipe template can act on it.
+  `inputs.jsonl` could not be read). CI and the recipe template can act on it. Slicing,
+  `.copy()` and `report + problems` keep the mode, `repr()` shows it, and other list operations
+  (`sorted`, `*`) return a plain list.
 - In scripted mode a responses file that exists is still checked, so every response in it is
   reported as one that no input lists. Delete it.
 
@@ -140,13 +151,38 @@ into the package because `tools/` is not installed, and a test compares the copy
 definitions and function source with `tools/check_hygiene.py`, so editing one copy fails the
 tests. The message gives the file, line and rule, never the whole value.
 
+A malformed stored response (or a line nested too deeply to parse) is reported as a problem
+naming the file and key; it never stops the run, and `--all` goes on to the next recipe.
+
 Hard cases often need a fake password or key (a prompt-injection line, a phishing message, a
-leaked-credential report). Write them with a placeholder marker the scanner exempts, for example
-`password: EXAMPLE-Summer2024Holiday` or `<redacted>`, not as a realistic value. A field whose
-name contains `token`, `secret`, `password`, `credential` or `api_key` with a value of 16 or more
-letters and digits is flagged unless the value has a marker (`example`, `your`, `redacted`,
-`placeholder`, `dummy`, `xxx`, `changeme`, or one of `<`, `>`, `{`, `}`, `$`, `...`). Never commit
-a real credential, and never a realistic fake.
+leaked-credential report). What the scanner flags and exempts:
+
+- **Key-name and header style values.** `authorization: <value>` (8 or more characters),
+  `Bearer <value>` (16 or more) and `<name> = <value>` or `<name>: <value>` (16 or more letters,
+  digits and `_ - . / + =`, with at least one letter and one digit), where `<name>` contains
+  `api_key`, `api-key`, `apikey`, `secret`, `token`, `password`, `passwd`, `access_key`,
+  `access-key` or `credential`. These three rules **exempt a value that contains a marker**:
+  `your`, `example`, `xxx`, `redacted`, `placeholder`, `changeme`, `dummy`, `<`, `>`, `{`, `}`,
+  `$`, `...`, `…` or `***` (in any case). `password: EXAMPLE-Summer2024Holiday` passes.
+- **Vendor-shaped strings are always flagged, marker or not:** `sk-` followed by 20 or more
+  characters, `ghp_`/`gho_`/`ghu_`/`ghs_`/`ghr_`, `github_pat_`, `AKIA`/`ASIA` ids, `AIza` keys,
+  `xox?-` tokens, JWTs and private-key blocks. `sk-EXAMPLE` followed by 20 more characters, a `ghp_` value with `EXAMPLE` in it, and
+  AWS's own documentation access key id are flagged.
+- **Long random-looking tokens are always flagged:** a run of 32 or more of `A-Z a-z 0-9 _ + = -`
+  (also `/` outside path- and URL-shaped words) that mixes letters with digits (or `+`, `/`,
+  `=`) and has an entropy of 4.2 bits per character or more. An `api_key=` value that starts with
+  `EXAMPLE_` but goes on as a long mixed run of this kind is flagged by this rule, marker or not.
+
+So write a fake credential that is short (under the lengths above), low-entropy (a repeated chunk
+or plain words), or clearly not vendor-prefixed; truncate prefixes (`sk-...` is under the length
+rule) or describe the credential in words. This example passes, and the test suite checks it:
+
+<!-- accepted-fake-credential -->
+```text
+Your mailbox is full. Reply with your password (for example: hunter2) and the key sk-... to keep it.
+```
+
+Never commit a real credential, and never a realistic fake.
 
 ## Where the notebook runs
 
@@ -179,6 +215,21 @@ notebook import, so they cannot disagree (a mismatch only shows up as a replay m
 time). Put the generator in the recipe folder, next to the notebook and outside `fixtures/`
 (for example `recipes/NN-slug/build_fixtures.py`), and commit it: the fixtures are then
 reproducible and a reviewer can see how each response was made.
+
+A synthetic result's model must be the string `"synthetic"` (`DecisionResult` refuses anything
+else), because a synthetic answer comes from no model; so two synthetic responses files always
+share that model string. Use `ChoiceAnswer.from_probabilities` and `ScoreAnswer.from_probabilities`
+for the other answer types, as `NoulAnswer` is used below; the answer fields are computed from the
+probabilities by the published formulas:
+
+```python
+from jev_cookbook import ChoiceAnswer, ScoreAnswer, Provenance
+
+tone = ChoiceAnswer.from_probabilities({"calm": 0.7, "angry": 0.3}, Provenance.synthetic())
+urgency = ScoreAnswer.from_probabilities(
+    [0.1, 0.6, 0.3], ["low", "medium", "high"], Provenance.synthetic()
+)  # probabilities by level, then the legend
+```
 
 ```python
 import json
