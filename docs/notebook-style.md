@@ -12,6 +12,10 @@ run_header(7, "Triage support tickets", "synthetic")
 show_answer(answer)  # the typed answer, before any aggregate
 ```
 
+Both calls print and return `None`, so a cell that ends with one shows no second, echoed
+output. `run_header_text(...)` and `format_answer(...)` return the same text as a string.
+No `%matplotlib inline` line is needed: see [Charts](#charts).
+
 Importing the module changes nothing global (no rcParams, no colormap registration, no
 pyplot import). `apply_style()` does that on purpose. The chart helpers apply the theme
 themselves, so they look right even if `apply_style()` was not called.
@@ -19,7 +23,7 @@ themselves, so they look right even if `apply_style()` was not called.
 ## Run header
 
 `run_header(recipe, title, mode, *, model=None, recorded_on=None, n_examples=None)` prints
-three lines and returns the same text. `mode` is `"synthetic"`, `"scripted"`, `"recorded"`, `"live"`, or a
+three lines and returns `None` (`run_header_text` with the same arguments returns the text). `mode` is `"synthetic"`, `"scripted"`, `"recorded"`, `"live"`, or a
 `RunInfo(mode, model, recorded_on, n_examples)`. Recorded needs `model` and `recorded_on`, live needs
 `model`; a synthetic or scripted run refuses a model, because nothing a model produced is
 in it. Wrong combinations raise `ValueError` rather than printing a vague header.
@@ -35,10 +39,14 @@ and LAST` (one date when they are equal), for example `...to model MODEL between
 `backend=` cannot be combined with `mode`, `model` or `recorded_on`. The explicit form above
 keeps working unchanged. A sample size of one reads `1 example`, not `1 examples`.
 
-`n_examples` is an optional sample size for recorded and live runs: recorded then ends
+`n_examples` is an optional sample size, accepted in every mode. Recorded then ends
 `...describe only that recorded sample of 12 examples.` and live ends `...describe only the
-12 examples in this run.` A synthetic or scripted header refuses it, and its text does not
-change.
+12 examples in this run.` In a synthetic or scripted run it is the size of the fixture
+sample the pipeline check ran on, added to the second line (`Mode: offline replay of
+synthetic fixtures, pipeline check on a fixture sample of 12 examples`, and `Mode: offline,
+scripted backend, pipeline check on a fixture sample of 12 examples`); the third line, the
+sentence that the numbers are pipeline checks and not Jev results, is unchanged. Without
+`n_examples` every header is exactly as shown below.
 
 Synthetic (offline replay of `synthetic` fixtures):
 
@@ -48,7 +56,16 @@ Mode: offline replay of synthetic fixtures
 Metrics in this run are checks that the pipeline works. They are not Jev results.
 ```
 
-Scripted backend (offline): same third line, second line `Mode: offline, scripted backend`.
+Synthetic with `n_examples=12`:
+
+```text
+Recipe 07: Triage tickets
+Mode: offline replay of synthetic fixtures, pipeline check on a fixture sample of 12 examples
+Metrics in this run are checks that the pipeline works. They are not Jev results.
+```
+
+Scripted backend (offline): same third line, second line `Mode: offline, scripted backend`
+(with `n_examples=12`: `Mode: offline, scripted backend, pipeline check on a fixture sample of 12 examples`).
 
 Recorded (offline replay of `recorded` fixtures; the model string and date are the ones you pass):
 
@@ -72,7 +89,7 @@ scripted runs and in no other.
 
 ## One typed answer
 
-`show_answer(answer)` prints, and `format_answer(answer)` returns, a readable view. Answers
+`show_answer(answer)` prints (and returns `None`), and `format_answer(answer)` returns, a readable view. Answers
 are read by duck typing: a Choice has `choice`, `probabilities`, `confidence`; a Score has
 `score`, `probabilities`, `confidence`, `legend` (levels are sorted by integer value, so
 `2` comes before `10`, and the score line is placed by level value); a Noul has `noul` only
@@ -99,6 +116,22 @@ All helpers take plain arrays or mappings, return a matplotlib `Figure` (the one
 `ax` when you pass `ax=`), never call `plt.show()`, and work on the `Agg` backend. The
 figures are not registered with pyplot, so a notebook does not show them twice: end the
 cell with the returned figure, or call `fig.savefig(...)`.
+
+### Showing a figure in a notebook
+
+A cell that ends with a returned `Figure` renders as an image in a plain `ipykernel`
+session, without `%matplotlib inline`. The mechanism is that `apply_style()`, when it runs
+under IPython (`get_ipython()` is not `None`), registers a PNG formatter for
+`matplotlib.figure.Figure` on the shell's display formatter. The formatter draws with the
+Agg canvas, so it needs no pyplot and no GUI backend. It was chosen over importing
+`matplotlib.pyplot` or switching the backend because importing the module (and the helpers)
+must keep changing no global state and leaking no pyplot figures; the registration happens
+only when a notebook calls `apply_style()`, which is already documented as global. Outside
+IPython `apply_style()` registers nothing. `%matplotlib inline` still works and is not
+needed. If a cell does not call `apply_style()` first, a returned figure prints as
+`<Figure ...>` text, so call it once near the top. A test executes a two-cell notebook in
+a real kernel and asserts an `image/png` output, and its negative control (no
+`apply_style()`) shows none.
 
 | Helper | Draws |
 | --- | --- |
