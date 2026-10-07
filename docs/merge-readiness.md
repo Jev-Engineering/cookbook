@@ -187,12 +187,18 @@ the head, is always binding. The helper may not be skipped.
 
 ### The standing ruling
 
-The orchestrator (session `37d430e7`), sole serial merge owner, recorded a standing rule for
-**foundation pull requests** (issue #80, ledger update 6, comment 6031026593; restated in the
-adoption comment on PR #105, 6031278433, and in adjudication 6031723897): an advance of `main`
-that touches none of a pull request's files does not require a branch update before merge. The
-gate is Opus approval of the exact head, plus green checks on its merge ref as of the last push,
-with `main`'s own CI verified after each merge before the next.
+The orchestrator (session `37d430e7`), sole serial merge owner, recorded a standing rule in
+issue #80, ledger update 6 (comment 6031026593), "for the adopted helper and future merges": an
+advance of `main` that touches none of a pull request's files does not require a branch update
+before merge. The gate is Opus approval of the exact head, plus green checks on its merge ref as
+of the last push, with `main`'s own CI verified after each merge before the next. The adoption
+comment on PR #105 (6031278433) restates it, and adjudication 6031723897 applies it to "merges
+performed by this run". None of these three states a foundation-only limit.
+
+This document limits the use of the ruling to **foundation pull requests**. That limit comes
+from #104 criterion 3 and from the recipe rules in `CONTRIBUTING.md` and `orchestration/PROMPT.md`
+(see below), which stay unchanged; it is not a limit the ruling states for itself, and this
+document does not widen it.
 
 Under that rule the helper's ancestry result is advisory when the advance is immaterial, and
 binding otherwise. A material advance still requires a signed integration of current `main`, green
@@ -201,7 +207,8 @@ the earlier approval. An advance is material if it touches any of:
 
 - the files the pull request changes;
 - shared code the pull request uses;
-- workflows under `.github/workflows/`, or anything that changes the set of required checks.
+- workflows under `.github/workflows/` (the ruling's own wording is "workflow changes"), or,
+  as this document's addition, anything that changes the set of required checks.
 
 If the evidence below cannot be shown, treat the advance as material.
 
@@ -261,25 +268,37 @@ that relies on the ruling should say so on the pull request.
 
 ### Recorded history
 
-Both cases below were merged by the orchestrator after an Opus review that it launched itself, of
-the exact head. Neither history is rewritten here.
+Both cases below were merged by the orchestrator after an Opus review of the exact head that the
+orchestrator launched. For each, the review comment and the merge note were posted from the same
+orchestrator session, and the review is a record of what that Opus subagent wrote, not an
+independent acceptance of the ruling that the merge note then made. No history is rewritten here,
+and what a source claims is recorded as a claim.
 
 **PR #96** did not meet requirements 1 and 2. The review of head `f843a7c` (comment 6031008513,
-the orchestrator's own Opus review, session `37d430e7`) approved that exact head. It also stated
-that after #91 advanced `main` the helper returned `NOT READY` with `behind_by` 1, and that a
-signed integration and a fresh review were needed before merging. The orchestrator then ruled
-the advance immaterial in its merge note (comment 6031022258) and merged without that refresh.
-No explicit acceptance of the adjudication by the reviewing Opus and no per-check effect
+header: orchestrator session `37d430e7`, model `claude-opus-5-5`) approved that exact head. It
+also stated that after #91 advanced `main` the helper returned `NOT READY` with `behind_by` 1,
+and that a signed integration and a fresh review were needed before merging. The orchestrator
+then ruled the advance immaterial in its merge note (comment 6031022258) and merged without that
+refresh. No explicit acceptance of the adjudication by the reviewing Opus and no per-check effect
 evidence was recorded on #96, and none is supplied after the fact. The audit receipt (issue #80,
 comment 6031048875) records this as an adjudicated process exception, not proof that the
 review's precondition or the helper's ancestry gate passed. The merge note's wording that the
 checks were green "on the merge ref with current `main`" was inaccurate: the five checks on
 `f843a7c` completed between 03:52:39Z and 03:53:33Z, and #91 merged at 04:32:27Z.
 
-**PR #98** is the case that went further. Its review of head `b20c2cc` (comment 6031023696, also
-the orchestrator's Opus review) recorded the adjudication, gave per-check reasoning for the
-effect of #91 and #96, and approved that head under it. It also corrected the assertion that the
-pull request's checks ran with current `main`: they ran on the merge result of the last push,
-which did not contain the advance. The merge note (comment 6031035340) accepted that correction.
+**PR #98** went further for one delta only. Its review of head `b20c2cc` (comment 6031023696)
+recorded the adjudication of #91's advance, `7d14692..7e8ac92`, gave per-check reasoning for it
+and a trial merge against `7e8ac92`, and approved that head with `main` at `7e8ac92`. It also
+corrected the assertion that the pull request's checks ran with current `main`: they ran on the
+merge result of the last push, which did not contain the advance.
+
+That review does not mention #96. `main` then moved again to `96a1c7b` (#96, merged at
+04:36:46Z, five seconds before the review was posted at 04:36:51Z). The only record of the effect
+of that second delta is the orchestrator's merge note (comment 6031035340), which claims that the
+reviewer ran the #98 scanner on #96's files and verified a clean merge tree, and which accepts
+the merge-ref correction. No reviewer receipt records that claim or a renewed acceptance for
+that delta, so by the pinning and renewal rules above the reviewer's acceptance was not recorded
+as renewed for it. Requirement 4 was met: the five post-merge checks on `96a1c7b` were green by
+04:37:45Z, before #98 merged at 04:38:05Z.
 
 In both cases the post-merge CI on `main` is the backstop.
