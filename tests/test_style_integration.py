@@ -129,14 +129,20 @@ def test_header_from_a_backend_states_the_sample_size_with_correct_plural():
     assert live.endswith("describe only the 2 examples in this run.")
 
 
-def test_run_header_prints_and_returns_the_backend_text(capsys):
-    returned = style.run_header(7, "Triage tickets", backend=_recorded("2026-01-02"))
-    assert capsys.readouterr().out == returned + "\n"
+def test_run_header_prints_the_backend_text_and_returns_none(capsys):
+    backend = _recorded("2026-01-02")
+    assert style.run_header(7, "Triage tickets", backend=backend) is None
+    text = style.run_header_text(7, "Triage tickets", backend=backend)
+    assert capsys.readouterr().out == text + "\n"
 
 
-def test_header_from_a_backend_refuses_a_sample_size_for_offline_synthetic_runs():
-    with pytest.raises(ValueError):
-        style.run_header_text(7, "T", backend=_replay(Provenance.synthetic()), n_examples=3)
+def test_header_from_a_synthetic_backend_states_the_fixture_sample_size():
+    text = style.run_header_text(7, "T", backend=_replay(Provenance.synthetic()), n_examples=3)
+    assert text.splitlines()[1] == (
+        "Mode: offline replay of synthetic fixtures, pipeline check on a fixture sample "
+        "of 3 examples"
+    )
+    assert text.endswith(style.SYNTHETIC_NOTICE)
 
 
 def test_header_backend_and_explicit_arguments_cannot_be_mixed():
