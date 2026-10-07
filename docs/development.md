@@ -188,7 +188,10 @@ pre-commit run --all-files --hook-stage pre-push   # include pytest
 ```
 
 The hooks are local (`language: system`) and use the tools from your virtual environment,
-so the pinned ruff version is the one CI uses.
+so the pinned ruff version is the one CI uses. Run `pre-commit` with the project virtual
+environment activated so the pinned `ruff==0.16.10` is first on `PATH`: a stale global ruff (0.14.0 was
+seen) reports `Failed to parse <file>.md` on Markdown files and, when run on `.`, silently skips
+Markdown altogether, which gives a false pass. CI is unaffected because it installs the pinned ruff.
 
 Dependabot (`.github/dependabot.yml`) checks Python dependencies and GitHub Actions weekly,
 with at most three of its update pull requests open at once for each.
