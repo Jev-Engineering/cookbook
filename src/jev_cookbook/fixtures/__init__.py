@@ -37,6 +37,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .._canonical import MAX_DEPTH
 from ..answers import RECORDED_SOURCE, SYNTHETIC_SOURCE, DecisionResult
 from ._scan import scan_text
 from ._schema import check, load_schema
@@ -154,6 +155,9 @@ def responses_file_name(tag: str | None = None) -> str:
         return RESPONSES_FILE
     if not _ID.fullmatch(tag):
         raise ValueError(f"bad responses tag {tag!r}: use letters, digits, '_', '.' and '-'")
+    if ".drift-" in tag:
+        # the validator treats any name containing ".drift-" as a stray comparison file
+        raise ValueError(f"bad responses tag {tag!r}: '.drift-' marks a comparison file, not a tag")
     return f"responses-{tag}.json"
 
 
@@ -204,7 +208,8 @@ def _object_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return out
 
 
-MAX_DEPTH = 64  # no JSON value in a fixture file nests deeper than this; see docs/fixtures.md
+# MAX_DEPTH (64): no JSON value in a fixture file nests deeper; see docs/fixtures.md. It is
+# defined in _canonical so replay_key applies the same limit.
 # A string (skipped) or a bracket. A string that never closes runs to the end of the text: the
 # parser stops there, and it keeps the scan linear.
 _TOKENS = re.compile(r'"[^"\\]*(?:\\.[^"\\]*)*"?|[\[\]{}]', re.S)
