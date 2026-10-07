@@ -124,8 +124,9 @@ present, including each worksheet's other keys such as `metadata`.
 
 Dictionary keys are scanned like values (`<key name>` in the location), so a secret used as a
 JSON key is a finding. A key is printed in a finding location only when it is short and
-ordinary (such as `text/plain`); any other key is shown as `<key>`, so a finding never echoes
-a secret that sits in a key.
+ordinary (such as `text/plain`) and trips no rule that applies there (secret, local path,
+account name); any other key is shown as `<key>`, so a finding never echoes a secret, path or
+account name that sits in a key. A cell that has both `source` and `input` has both scanned.
 
 Arguments: name files, or give none to scan every tracked file. A directory, or a path that
 does not exist, is rejected with exit status 2 and a message. It is never counted as scanned

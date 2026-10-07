@@ -330,14 +330,15 @@ _LONG_RUN = re.compile(r"[A-Za-z0-9]{16}")
 def _shown(key: object) -> str:
     """A dict key as it may appear in a finding location.
 
-    Keys come from the file under test, so one can be (or contain) the secret. Only a short,
-    ordinary-looking key such as ``text/plain`` is printed; anything else is hidden.
+    Keys come from the file under test, so one can be (or contain) a secret, a local path or
+    the account name. Only a short, ordinary-looking key such as ``text/plain`` that trips no
+    rule in force at a notebook output or metadata location is printed; any other is hidden.
     """
     if (
         isinstance(key, str)
         and _SAFE_KEY.fullmatch(key)
         and not _LONG_RUN.search(key)
-        and not scan_text(key)
+        and not scan_text(key, environment=True)
     ):
         return key
     return "<key>"
@@ -429,10 +430,15 @@ def scan_notebook_data(nb: dict) -> list[tuple[str, str, str]]:
                 malformed(f"{name} cell_type", cell_type, "cell_type is not a known cell type")
             cell_type = "?"
         base = f"{name} ({cell_type})"
-        source = cell.get("source", cell.get("input", ""))
-        if not isinstance(source, str | list):
-            malformed(f"{base} source", source, "source is not a string or list")
-        add(f"{base} source", _as_text(source), environment=False)
+        # nbformat 4 calls the code "source", nbformat 3 "input". A cell that has both is
+        # odd, so both are read: neither can hide text from the scan.
+        for field in ("source", "input"):
+            if field not in cell and field == "input":
+                continue
+            source = cell.get(field, "")
+            if not isinstance(source, str | list):
+                malformed(f"{base} {field}", source, f"{field} is not a string or list")
+            add(f"{base} {field}", _as_text(source), environment=False)
         if "id" in cell:
             cell_id = cell["id"]
             if isinstance(cell_id, str) and _CELL_ID.fullmatch(cell_id):

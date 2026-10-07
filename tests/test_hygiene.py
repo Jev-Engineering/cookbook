@@ -1000,3 +1000,108 @@ def test_long_or_odd_keys_are_hidden_but_short_ones_are_not():
     assert hygiene._shown("has space") == "<key>"
     assert hygiene._shown("x" * 49) == "<key>"
     assert hygiene._shown(7) == "<key>"
+
+
+# --- review of #98 head 3cc35ef: R1, R2 and two test gaps --------------------------------
+
+
+@pytest.mark.parametrize(
+    "cell",
+    [
+        {"source": "", "input": BEARER_CELL},
+        {"input": BEARER_CELL, "source": ""},
+        {"source": "x = 1", "input": [BEARER_CELL]},
+        {"source": BEARER_CELL, "input": "y = 2"},
+    ],
+)
+def test_source_and_input_are_both_scanned_when_both_are_present(cell, tmp_path):
+    nb = _nb_with_cell(**cell)
+    path = tmp_path / "n.ipynb"
+    path.write_text(json.dumps(nb))
+    proc = _run(str(path))
+    assert proc.returncode == 1, (cell, proc.stdout)
+    assert KEY not in proc.stdout + proc.stderr
+    assert {"authorization-header-value", "bearer-token"} & rules(scan(tmp_path, nb))
+
+
+def test_a_non_text_input_beside_source_is_malformed(tmp_path):
+    found = scan(tmp_path, _nb_with_cell(source="x", input=7))
+    assert any(f.rule == "malformed-notebook-node" and f.location.endswith(" input") for f in found)
+
+
+def test_source_only_and_input_only_cells_still_pass(tmp_path):
+    assert scan(tmp_path, _nb_with_cell(source="x = 1")) == []
+    nb3 = {"nbformat": 3, "worksheets": [{"cells": [{"cell_type": "code", "input": "x = 1"}]}]}
+    assert scan(tmp_path, nb3) == []
+    # Paths in code are still allowed in either field (source-only contract).
+    assert scan(tmp_path, _nb_with_cell(source=DRIVE_FWD, input=DRIVE_FWD)) == []
+
+
+def _key_with_rule_shapes() -> dict[str, str]:
+    return {
+        "home path": "/home/" + "alice/data.csv",
+        "windows path": "C:" + chr(92) + "Users" + chr(92) + "alice" + chr(92) + "x.csv",
+        "drive path": DRIVE_FWD,
+        "macos path": "/Users/" + "alice/x",
+        "pytest temp": "/tmp/" + "pytest-of-alice/x",
+        "conda path": "/opt/" + "conda/x",
+    }
+
+
+@pytest.mark.parametrize("shape", sorted(_key_with_rule_shapes()))
+@pytest.mark.parametrize("where", ["cell metadata", "output data", "notebook metadata"])
+def test_a_path_used_as_a_dict_key_is_hidden_in_other_findings_locations(shape, where, tmp_path):
+    key = _key_with_rule_shapes()[shape]
+    value = "D:/" + "w/x"  # a second, different finding under the key
+    if where == "cell metadata":
+        nb = _nb_with_cell(metadata={key: value})
+    elif where == "output data":
+        nb = notebook(outputs=[result({key: value})])
+    else:
+        nb = notebook(metadata={key: value})
+    path = tmp_path / "n.ipynb"
+    path.write_text(json.dumps(nb))
+    proc = _run(str(path))
+    assert proc.returncode == 1
+    out = proc.stdout.replace(str(path), "").replace(path.as_posix(), "")
+    assert "<key name>" in out and "<key>" in out
+    assert key not in out and key.replace("\\", "/") not in out
+    assert all(part not in out for part in ("alice", "data.csv", "pytest-of"))
+    assert len(out) < 3000
+
+
+def test_the_account_name_as_a_dict_key_is_hidden(tmp_path):
+    name = "quillfeather"
+    nb = _nb_with_cell(metadata={name: DRIVE_FWD})
+    path = tmp_path / "n.ipynb"
+    path.write_text(json.dumps(nb))
+    proc = _run(str(path), account=name)
+    out = proc.stdout.replace(str(path), "").replace(path.as_posix(), "")
+    assert proc.returncode == 1
+    assert "<key name>" in out and "[local-username]" in out
+    assert name not in out.lower()
+
+
+def test_ordinary_keys_stay_visible_when_no_rule_applies(account, tmp_path):
+    account("quillfeather")
+    assert hygiene._shown("text/plain") == "text/plain"
+    assert hygiene._shown("application/vnd.jupyter.widget-view+json") != "<key>"
+    assert hygiene._shown("quillfeather") == "<key>"
+    found = scan(tmp_path, notebook(outputs=[result({"text/plain": DRIVE_FWD})]))
+    assert any("data.text/plain" in f.location for f in found)
+
+
+def test_a_valid_format_cell_id_holding_a_key_is_scanned(tmp_path):
+    assert hygiene._CELL_ID.fullmatch(KEY)  # a key can be a perfectly valid id
+    found = scan(tmp_path, _nb_with_cell(id=KEY))
+    assert found and all(KEY not in str(f) for f in found)
+    assert any(") id" in f.location for f in found)
+
+
+def test_shown_hides_a_key_that_trips_a_secret_rule_without_a_long_run():
+    rng = random.Random(3)
+    groups = ["".join(rng.choice("abcdefgh0123456789") for _ in range(5)) for _ in range(6)]
+    key = "sk" + "-" + "-".join(groups)  # no 16-character alphanumeric run, under 48 chars
+    assert len(key) <= 48 and not hygiene._LONG_RUN.search(key)
+    assert hygiene.scan_text(key)  # the secret rules do flag it
+    assert hygiene._shown(key) == "<key>"
