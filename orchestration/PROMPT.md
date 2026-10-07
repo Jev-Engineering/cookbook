@@ -1,54 +1,64 @@
 # Orchestration prompt: build the Jev Cookbook
 
-How to use this file: open Claude Code on Claude Fable 5.1 in a clone of `Jev-Engineering/cookbook` and say
+How to use this file: open Claude Code in a clone of `Jev-Engineering/cookbook` and say
 "Read `orchestration/PROMPT.md` and carry it out." Everything below the line is addressed to that session.
 
 | Role | Model | Agent tool setting | Does |
 | --- | --- | --- | --- |
-| Orchestrator | Claude Fable 5.1 | the session itself | Plans, briefs, adjudicates, merges, keeps the record |
-| Builder | Claude Sonnet 5.5 | `model: "sonnet"` | Takes one issue from open to a pull request |
-| Reviewer | Claude Opus 5.5 | `model: "opus"` | Reviews every pull request before it merges |
+| Orchestrator | whatever the session runs; this file does not name or assume it | the session itself | Plans, briefs, adjudicates, merges, keeps the record |
+| Builder, integration worker | Claude Sonnet 5.5 | `model: "sonnet"`, only if it resolves to Sonnet 5.5 | Takes one issue, or one bounded integration task, to a pull request |
+| Reviewer | Claude Opus (the runtime's Opus assignment) | `model: "opus"`, only if verified | Reviews every pull request before it merges |
+
+Model assignments are verified, not assumed. Before dispatching, check what the runtime actually resolves each
+alias to, record the resolved models, and never substitute a model silently or describe a review as Opus's
+without having verified the assignment.
 
 ---
 
-You are orchestrating the build of the Jev Cookbook: sixty Jupyter notebook recipes that teach typed decisions with Jev, TypeSafe AI's System One model, plus the shared code and CI they stand on. You are Claude Fable 5.1. You do not write the code and you do not review it. Claude Sonnet 5.5 subagents build each issue, Claude Opus 5.5 subagents review each pull request, and nothing merges until Opus has approved the exact commit being merged. Your job is to run that pipeline across every issue in the repository, in dependency order, until all of them are closed.
+You are orchestrating the build of the Jev Cookbook: sixty Jupyter notebook recipes that teach typed decisions with Jev, TypeSafe AI's System One model, plus the shared code and CI they stand on. You do not write the code and you do not review it. Claude Sonnet 5.5 subagents build each issue and carry out integration, Claude Opus subagents review each pull request, and nothing merges until Opus has approved the exact commit being merged. Your job is to run that pipeline across every issue in the repository, in dependency order, until all of them are closed or genuinely blocked.
 
-This prompt is my explicit request for multi-agent orchestration at this scale. It will take a few hundred subagent runs. Spawn them without asking.
+This is an execution request. Continue beyond planning, opening pull requests, or green CI, and carry each issue through its authorized completion gates. This prompt is my explicit request for multi-agent orchestration at this scale. It will take a few hundred subagent runs. Spawn them without asking.
+
+**Run ownership.** Before starting, inspect who already owns the run: existing supervisor sessions, open pull requests and their branches, worktrees, pending agents, receipts, budgets, and unrelated local changes. Resume or coordinate with an existing supervisor instead of creating a competing controller. Never write to a branch or worktree another agent owns, never resume or stop another session's agents, and preserve branches, review history, decisions, ledgers and local changes. One issue or explicitly bounded integration task per worker, one branch, clearly owned paths, and never two writers on one branch or worktree at the same time: a branch is handed over one worker at a time, and each handover (builder to integration worker, integration worker back to a builder for a fix round, and so on) is recorded on the pull request.
 
 ## Where things stand
 
-This is a greenfield repository. It holds a README that lists all sixty recipes as coming soon, the machine-readable catalog, the recipe contract, a README renderer, and nothing else. There is no Python package, no CI, and no notebook. All of that is the work, and all of it is described in GitHub issues:
+GitHub, not this file, is the source of truth for state. This file was first written for an empty repository and has been revised since; do not treat any count, branch or approval it mentions as current. Package scaffolding, a CI baseline (workflow `CI`) and a hygiene workflow (`Hygiene`) already exist on `main`, along with the recipe contract, the catalog, and a README renderer; recipes, most shared code, and notebook execution in CI do not exist until their issues land. Work is described in GitHub issues:
 
 | Issues | What they are | How they close |
 | --- | --- | --- |
 | #1 to #60 | One issue per recipe. **Recipe N is issue #N.** | A merged pull request each |
 | #61 to #72 | Foundation: package, backends, fixtures, evaluation, notebook style, template, CI, simulation, hygiene, docs | A merged pull request each |
-| #74 | Foundation tracking issue | You close it when #61 to #72 are closed |
-| #75 to #79 | Tracking issues for levels 1 to 5 | You close each after its wave's wrap-up |
+| #74 | Foundation tracking issue | You close it when its children meet their criteria |
+| #75 to #79 | Tracking issues for levels 1 to 5 | You close each after its wave's audit |
 | #73 | Release 1.0 audit | Prepared by you, closed by me when I approve the tag |
-| #80 | Roadmap | Closes with #73 |
+| #80 | Roadmap and owner decisions | Closes with #73 |
+| #87 and later foundation issues | Fixes discovered during the build (for example the catalog coordination rules) | A merged pull request each |
 
-Before anything else, read issue #80, then `CONTRIBUTING.md` (the recipe contract, which defines done for a recipe), then `catalog/recipes.json`, then issue #74. Then list every issue with its state and labels and every pull request, open and merged. If any work has already happened, you are resuming: trust what GitHub shows over what this file assumes, and pick up from there.
+Before anything else, read applicable `AGENTS.md` files, issue #80 with every owner decision comment, `CONTRIBUTING.md` (the recipe contract, which defines done for a recipe), `docs/development.md`, the current workflows and the pull request template, `catalog/recipes.json`, and issue #74. Then enumerate every issue (with state and labels) and every pull request with pagination, including conversation comments, formal reviews, review threads, checks, changed files, branches, and head and base SHAs. Labels alone do not tell you the state, and formal reviews do not hold all findings. If work has already happened, you are resuming: trust what GitHub shows and pick up from there. Audit completed work without recreating it. If historical review evidence is missing for any work, say so plainly, fix defects through new reviewed pull requests, and never invent a past approval.
+
+Keep a durable execution ledger (concise progress comments on #80 are the shared copy): issue or pull request, dependencies, owner and agent ID, resolved model, worktree, branch, head and base SHA, acceptance evidence, review findings and comment IDs, CI run URLs, live spending and reservations, next action, and blocker. Update it after meaningful transitions, not only after a wave. It never holds a secret.
 
 **Done** means all of the following, and you check each one explicitly at the end:
 
-- Issues #1 to #72 are each closed by a merged pull request that carries an Opus approval for its final commit.
+- Each of #1 to #72, and each issue opened during the build, is closed by a merged pull request that carries a genuine Opus approval for its final commit.
 - Issues #74 to #79 are closed.
 - The README shows 60 of 60 published and every row links to a notebook.
-- CI is green on `main`.
+- All current checks are green on `main`.
+- Every recipe has the live-recording coverage the owner decision on #80 requires, or the exact blocker is recorded.
 - #73 is complete up to the tag, with release notes drafted, and waiting for me.
 
 ## How the three roles work together
 
-**Builders (Sonnet 5.5).** One builder per issue. Spawn with `model: "sonnet"` and `isolation: "worktree"` so parallel builders never share a working tree. A builder reads its issue, does the work on its own branch, runs the checks locally, opens a pull request, and reports back. When a review asks for changes, the same builder fixes them if you can still reach it; otherwise a fresh builder picks up the branch from the handoff notes in the pull request.
+**Builders (Sonnet 5.5).** One builder per issue. Spawn with `model: "sonnet"` (after verifying it resolves to Sonnet 5.5) and `isolation: "worktree"` so parallel builders never share a working tree. A builder reads its issue, does the work on its own branch, runs the checks locally, opens a pull request, and reports back. When a review asks for changes, the same builder fixes them if you can still reach it; otherwise a fresh builder picks up the branch from the handoff notes in the pull request.
 
-**Reviewers (Opus 5.5).** One fresh reviewer per pull request. Spawn with `model: "opus"` and `isolation: "worktree"`. The first review of a pull request always comes from an agent that has seen nothing of the builder's reasoning: give it the pull request number and the issue number, and nothing about what to expect. A reviewer who is handed the builder's summary tends to confirm it. The reviewer checks out the branch, runs everything itself, reads the work as a learner would, and posts its verdict on the pull request.
+**Reviewers (Opus).** One fresh reviewer per pull request. Spawn with `model: "opus"` (after verifying the assignment) and `isolation: "worktree"`. The first review of a pull request always comes from an agent that has seen nothing of the builder's reasoning: give it the pull request number and the issue number, and nothing about what to expect. A reviewer who is handed the builder's summary tends to confirm it. The reviewer checks out the branch, runs everything itself, reads the work as a learner would, and posts its verdict on the pull request.
 
-**You (Fable 5.1).** You decide what runs when, write the briefs, read the reports, settle disagreements, merge, and keep labels and tracking issues true. Three things in particular are yours:
+**You (the orchestrator).** You decide what runs when, write the briefs, read the reports, settle disagreements, merge serially, and keep labels and tracking issues true. Workers and reviewers never merge. Three things in particular are yours:
 
 - *The briefs.* A subagent knows only what you put in its brief. Write each one for a capable colleague who has never seen this repository: the goal, the issue to read, the files that define the rules, the paths it may touch, what done looks like, and what to send back. The templates below are starting points to adapt, not forms to fill in.
 - *Adjudication.* When a builder disputes a review finding, read that specific point yourself, in the code, and decide. Opus is not automatically right and Sonnet is not automatically wrong. Record your decision as a pull request comment. What you may not do is merge over an open finding without having decided it.
-- *The record.* Your context will be summarized more than once during a build this long. GitHub is your memory. Keep state in labels, in pull request comments, and in a progress comment on #80 after each wave. Do not read notebooks or large diffs yourself when a reviewer can report on them; spend your context on judgment.
+- *The record.* Your context will be summarized more than once during a build this long. GitHub is your memory. Keep state in labels, in pull request comments, in the ledger above, and in progress comments on #80. Do not read notebooks or large diffs yourself when a reviewer can report on them; spend your context on judgment.
 
 Subagents have finite budgets. A level 4 or 5 recipe may not fit in one builder run, and a large pull request may not fit in one review. If a builder returns unfinished, continue it or start a fresh one on the same branch. If a review cannot be completed in one run, split it by scope (code and tests, then notebook and claims) and require both halves to approve.
 
@@ -56,95 +66,112 @@ Subagents have finite budgets. A level 4 or 5 recipe may not fit in one builder 
 
 This is the part of the process that must not bend.
 
-1. **Every pull request is reviewed by Opus 5.5 before it merges.** No exceptions: recipes, foundation work, catalog syncs, one-line fixes. For a mechanical pull request the review is short, but it happens.
-2. **Approval is tied to a commit.** The reviewer ends its pull request comment with one of these lines, using the full head commit SHA it reviewed:
+1. **Every pull request is reviewed by Opus before it merges.** No exceptions: recipes, foundation work, integration, catalog, documentation, release preparation, one-line fixes. For a mechanical pull request the review is short, but it happens.
+2. **Approval is tied to a commit and authenticated.** The reviewer posts one pull request comment containing its agent ID, resolved model, the exact head and base SHAs reviewed, an acceptance-criteria assessment, the checks it ran, blocking findings (with locations) separated from suggestions, and exactly one final verdict line using the full head SHA:
 
    ```text
-   OPUS-REVIEW: APPROVE <sha>
-   OPUS-REVIEW: CHANGES-NEEDED <sha>
+   OPUS-REVIEW: APPROVE <full-head-sha>
+   OPUS-REVIEW: CHANGES-NEEDED <full-head-sha>
    ```
 
-   A pull request is mergeable only when its newest `OPUS-REVIEW` line says `APPROVE` and names the current head SHA. Any push after an approval voids it. GitHub will not let the account that opened a pull request approve it formally, which is why the gate is a comment and why you check the SHA yourself.
-3. **Fixes are re-reviewed.** After a builder pushes fixes, the pull request goes back to Opus. The reviewer who raised the findings may do the re-review, checking each finding and the new diff. Allow two fix rounds. If the third review still says changes are needed, label the issue `status: needs human`, comment with exactly what is unresolved, and move on so one issue does not stall a wave.
-4. **Some pull requests get two independent reviews.** Issues #63, #65, #68, and #69 define the interface, the fixture format, the template, and the CI gate that sixty recipes will copy. Issue #1 is the reference recipe every later builder is pointed at. For these five, run two fresh Opus reviewers who do not see each other's findings, and require both to approve. A mistake here costs sixty fixes later.
-5. **You do not review in Opus's place.** If you are tempted to merge because a change "is obviously fine", spawn the reviewer anyway.
+   You record the genuine reviewer output and its comment ID in the ledger. Do not authorize a merge from a marker found by grepping comment text: quoted text, a builder-authored comment, a quotation inside another comment, or a verdict for an older head is not an approval. Fetch the comment itself (`gh api` on the comment ID), confirm it is the receipt of the reviewer you dispatched (the comment was posted after that agent's run, by the expected account, and the verdict line is the last line of the comment's own text rather than quoted material), and confirm the SHA equals the current head. GitHub will not let the account that opened a pull request approve it formally, which is why the gate is a comment and why you verify the receipt and the SHA yourself.
+3. **Any new commit voids approval.** That includes a conflict-resolving rebase, a merge of `main`, and a regenerated README. Return fixes to a Sonnet worker and send the new head to Opus, with the earlier findings, to confirm each is resolved and to review what changed. Opus is also given the full current diff.
+4. **No arbitrary abandonment.** There is no fixed number of fix rounds after which a problem is dropped. When a failure repeats, diagnose the cause, narrow the work, or assign a fresh Sonnet and Opus pair. Label an issue `status: needs human` and ask me only for genuinely missing authority or input, or a product decision that is mine; say exactly what is unresolved.
+5. **Some pull requests get two independent reviews.** Issues #63, #65, #68, and #69 define the interface, the fixture format, the template, and the CI gate that sixty recipes will copy. Issue #1 is the reference recipe every later builder is pointed at. For these five, run two fresh Opus reviewers who do not see each other's findings, and require both to approve **the same final head**. A mistake here costs sixty fixes later. Existing stronger review requirements on a particular issue or pull request are preserved.
+6. **You do not review in Opus's place.** If you are tempted to merge because a change "is obviously fine", spawn the reviewer anyway. Your adjudication of a disagreement does not replace an Opus approval with all blocking findings resolved.
 
 ## Rules that hold throughout
 
 Each rule has its reason beside it. Pass the relevant ones on in every brief.
 
-1. **Nothing merges on a red or pending check.** Wait for checks to finish, then read their conclusions explicitly. Do not pipe a watch command into `tail` or `head`, and do not treat a command's exit as the result: a truncated watch once let a failing pull request through on this account. Follow the merge procedure below.
+1. **Nothing merges on a red, missing, cancelled or pending check.** Wait for checks to finish, then read their conclusions explicitly. Do not pipe a watch command into `tail` or `head`, and do not treat a command's exit, `mergeable`, a clean merge state, or one green job as the result: a truncated watch once let a failing pull request through on this account. The complete gate is every check listed in the merge procedure below, including Hygiene. Follow that procedure.
 2. **Never weaken a check to pass it.** No skipped tests, loosened assertions, disabled CI jobs, or fixtures edited to match a wrong output. If a check is wrong, that is a foundation issue with its own pull request and its own review.
-3. **Offline runs are pipeline checks, and the notebooks say so.** Builders have no TypeSafe API key and must not look for one. Response fixtures written by an agent are `synthetic`. No notebook, README, or pull request may state or imply anything about Jev's real quality, latency, or cost. This is the failure most likely to slip through, because a notebook full of plausible numbers reads like a result. Reviewers check it on every pull request.
-4. **Never fabricate a recorded response.** Provenance `recorded` is only for answers captured from a real API call. None will be made during this build unless I say so and supply a key and a spending limit.
-5. **Recipe pull requests touch only `recipes/<slug>/`.** Sixty recipes built in parallel merge cleanly only if they never share a file. A builder that needs something from the shared package stops and describes the gap, and you open a foundation issue for it, which then goes through the same build and review.
-6. **The README is regenerated, never hand-edited, and only on your instruction.** Run `python tools/render_catalog.py` in one catalog sync pull request after each wave. Recipe builders do not run it.
+3. **Offline runs are pipeline checks, and the notebooks say so.** CI, builders, and default notebook execution are offline and keyless. Builders and reviewers have no TypeSafe API key and must not look for one. Response fixtures written by an agent are `synthetic`. No notebook, README, or pull request may state or imply anything about Jev's real quality, latency, or cost except as measured on N examples, with the model version the API returned and the capture date, per section 2 of `CONTRIBUTING.md`. A notebook full of plausible numbers reads like a result, so reviewers check this on every pull request.
+4. **Live recording is authorized by the owner, within limits, and not before #64.** The decision on #80 (<https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6025510672>) supersedes any earlier statement that no live call will be made. It authorizes live Jev calls to record real fixtures for each recipe, **$25 in total for the whole build**: one cumulative limit across all workers, retries, resumed sessions and recipes, never a per-agent allowance. It does not authorize spending on other providers.
+   - **Gate.** No live call occurs before #64 is merged **and** Opus-approved. Until then everything is offline and `synthetic`.
+   - **Accounting.** Only the orchestrator, or one serialized recorder it designates, makes live calls, unless an atomic shared reservation with durable accounting exists. Before recording, reconcile actual prior usage and outstanding reservations, verify TypeSafe's current published pricing, convert the limit to conservative request and token caps, and enforce them through the #64 budget guard. Record every reservation and spend in a central durable ledger (kept in progress comments on #80 and reconciled with the guard's own record). Account for retries and requests whose outcome is unknown before retrying. Stop new calls when the remaining budget cannot safely cover them and ask me before exceeding $25.
+   - **Credential.** The key stays in the untracked, git-ignored file outside every agent worktree that the owner supplied for this run. Use only that source; do not search other files for keys. It never appears in a commit, notebook output, log, command output, pull request, or issue, and reviewers check this on every pull request.
+   - **Evidence.** `recorded` is only for answers captured from a real API call, with the returned model string, capture date, and request identity where available. Never hand-write or hand-edit a response and call it recorded. Live mode uses the same question definitions as offline mode. Notebooks replay the recorded fixtures offline by default.
+   - **Coverage.** Track the recording requirement per recipe. If the credential or budget is unavailable, continue independent offline work and record the exact live-evidence blocker; never silently downgrade the owner's requirement or claim completion.
+5. **Recipe pull requests touch only `recipes/<slug>/`, plus the regenerated README regions.** Sixty recipes built in parallel merge cleanly only if they never share a file. A builder that needs something from the shared package stops and describes the gap, and you open a foundation issue for it, which then goes through the same build and review. The one permitted addition is described in the next rule.
+6. **The README is regenerated by the integration worker, inside the recipe pull request, never by hand and never by the builder.** Adding `notebook.ipynb` makes the generated catalog regions stale, and `Catalog (README is current)` is a strict required check, so the pull request must carry the regenerated regions. After the builder reports done, a designated Sonnet integration worker, one pull request at a time (this stage is serialized, because every recipe changes the same generated lines): (a) takes over the branch (the handover is recorded on the pull request; the builder is not a writer from then on) and updates it against current `main` with a signed merge commit (if `README.md` conflicts, take `origin/main`'s `README.md` and re-run the renderer, since every recipe merge changes the shared progress badge line), (b) runs `python tools/render_catalog.py` and commits only the resulting generated-region changes of the root `README.md`, (c) confirms `python tools/render_catalog.py --check` passes, and only then does the pull request go to final Opus review and the final CI run. If `main` moves afterwards, repeat the update and regeneration, and review the new head. The exception covers exact renderer output for the generated regions and nothing else: no hand-written README prose, no other root file, no catalog, shared-code, workflow or `docs/` change. Reviewers reject anything else outside `recipes/<slug>/`. Do not disable or loosen the catalog check, tolerate a red one, or merge now and repair the README later. Today reviewers enforce this scope with `git diff --raw -M origin/main...HEAD` (not `--name-status`, which cannot show modes; reviewers reject symlink `120000` and submodule `160000` modes, any mode change such as `100644 100755`, and any type change; every new or resulting mode must be `100644`), and the scope check #69 adds must implement the same rule, defined in full in `CONTRIBUTING.md`: an allowlist in which every changed path (added, modified, deleted, or either side of a rename) is under this pull request's `recipes/<slug>/` or is exactly `README.md`, with symlinks, mode changes, type changes (for `README.md` too, which must stay a regular file of mode `100644`) and new files outside those paths rejected, applied to recipe pull requests only (branch `recipe/<slug>` and `Closes #N` with N in 1 to 60; the check fails closed if only one of the two holds or the slug cannot be resolved), and with `README.md` required to equal `render(<base README>, <head catalog>)` computed with the head's `recipes/` tree, byte for byte. The template is the **base** README: rendering the head README against itself is what `--check` does and would accept prose edits. Until the integration stage has run, `Catalog (README is current)` is expected to be red on a recipe pull request that adds a notebook; the builder must not fix it. Stale hand-written README prose is fixed through a separate, reviewed documentation pull request, not inside a recipe pull request.
 7. **All changes reach `main` through a pull request.** No direct pushes, no force pushes to `main`.
 8. **Actions are simulated.** No recipe sends, moves, deletes, or calls anything real. Fixtures are synthetic, contain no real personal data, and trust and safety fixtures stay mild.
-9. **Stay inside this repository.** Do not change its visibility or settings, do not touch other repositories in the organization, and do not publish a release or push a tag.
+9. **Stay inside this repository.** Do not change its visibility, settings, or protection rules (inspect rules when you can, apply the procedural gates here whether or not GitHub enforces them, and never bypass a rule or use admin merge to force a merge), do not touch other repositories, and do not publish a release or push a tag. Never run the WSL shutdown or terminate commands (`wsl` with `--shutdown`, `--terminate` or `-t`); they take down every other session on the machine. Recover individual agents or processes without disturbing other sessions.
 10. **Jev facts come from the sources.** The TypeSafe documentation index is at `https://docs.typesafe.ai/llms.txt`, the Python SDK page at `https://docs.typesafe.ai/sdk/python`, and each issue lists the pages that apply. Builders read them before designing questions and do not guess at the API. Jev is not a text model: it answers `Choice`, `Noul`, and `Score` questions over a supplied state and nothing else.
 
 ## One issue, start to finish
 
-1. **Check it is ready.** Everything under Dependencies on the issue is closed. The manifest below lists what each issue waits for.
+1. **Check it is ready.** Everything under Dependencies on the issue is delivered and verified, not merely closed or present on a branch. The manifest below lists what each issue waits for; reconcile it against the live issues and GitHub relationships, and resolve any discrepancy before dispatching.
 2. **Claim.** Replace `status: ready` or `status: blocked` with `status: in progress`.
 3. **Build.** Spawn a Sonnet builder with the builder brief. It opens a pull request whose description says `Closes #N`.
-4. **Checks.** Wait for CI to finish and read the result as described under merging.
-5. **Review.** Spawn a fresh Opus reviewer with the reviewer brief (two for the five issues named above).
-6. **Fix and re-review** until the newest review approves the head commit, within two fix rounds.
-7. **Merge.** Follow the merge procedure. One pull request at a time.
-8. **Verify and unblock.** Confirm the issue closed and `main` is green. Remove `status: in progress`. For every issue that waited on this one, check whether all its blockers are now closed, and if so change `status: blocked` to `status: ready`.
+4. **Integrate (recipes).** The serialized integration worker updates the branch against current `main` and regenerates the README regions (rule 6), then CI runs on that head.
+5. **Checks.** Wait for CI to finish and read the result as described under merging.
+6. **Review.** Spawn a fresh Opus reviewer with the reviewer brief (two for the five issues named above) on the final head.
+7. **Fix and re-review** until the newest genuine review approves the current head. Any new head repeats steps 4 to 6.
+8. **Merge.** Follow the merge procedure. One pull request at a time.
+9. **Verify and unblock.** Confirm the issue closed, its acceptance criteria are actually met, and CI on that exact `main` commit is green. Remove `status: in progress`. For every issue that waited on this one, check whether all its blockers are now delivered, and if so change `status: blocked` to `status: ready`.
 
 ### Merging
 
-Run these as separate steps and read the output of each:
+Hold a single merge lock. Run these as separate steps and read the output of each:
 
 ```bash
+gh pr view <PR> --json headRefOid,baseRefName,mergeable,mergeStateStatus,statusCheckRollup,reviewDecision
 gh pr checks <PR> --watch --fail-fast          # wait; do not pipe this anywhere
-gh pr view <PR> --json headRefOid,statusCheckRollup,mergeable,mergeStateStatus
-gh pr view <PR> --json comments --jq '.comments[].body' | grep 'OPUS-REVIEW:'
+gh api repos/Jev-Engineering/cookbook/issues/<PR>/comments --paginate   # fetch the receipts themselves
 ```
 
-Merge only when all of these hold:
+Also read formal reviews and review threads, and refresh current `main`. Merge only when all of these hold:
 
-- Every entry in `statusCheckRollup` has finished with conclusion `SUCCESS`, or `SKIPPED` for a job that is meant to skip, and there is at least one check.
-- `mergeable` is `MERGEABLE`.
-- The last `OPUS-REVIEW:` line is `APPROVE` followed by the value of `headRefOid`. For the double-review issues, both reviewers' last lines meet this.
+- Every dependency is delivered and verified, and the acceptance criteria are met.
+- The branch is current against `main`, the integration stage (rule 6) was done on this head, and nothing outside the allowed scope changed.
+- The complete current check set exists and has finished with conclusion `SUCCESS` (or `SKIPPED` only where a workflow's documented condition really applies): `Lint (ruff)`, `Catalog (README is current)`, `Tests (py3.10)`, `Tests (py3.14)`, and `Hygiene (secrets and notebook outputs)`. Read the workflows (`.github/workflows/`) rather than trusting this list, and require any check added since (for example the notebook execution, fixture validation and scope checks from #65 and #69). Handle both CheckRun and StatusContext entries in `statusCheckRollup`. A missing, pending, failed, cancelled or timed-out check blocks the merge.
+- Every blocking finding is resolved, and applicable review threads are resolved.
+- A genuine Opus receipt (the authenticated comment described under the review gate) approves the current `headRefOid`. For the double-review issues, both distinct reviewers approve that same head.
 
-Then pin the merge to the commit that was reviewed, so a late push cannot ride in:
+Then pin the merge to the commit that was reviewed, so a late push cannot ride in, and verify the result:
 
 ```bash
 gh pr merge <PR> --squash --delete-branch --match-head-commit <headRefOid>
 gh issue view <N> --json state,closedAt
 ```
 
-Two exceptions to "at least one check": #61 lands before any CI exists, and #62 introduces it. For #61, require the builder's local lint and test output in the pull request description and have the reviewer rerun it. For #62, the new workflow must run and pass on its own pull request.
+Do not use admin bypass, and honor any merge queue. Record the merge commit and wait for CI on that exact `main` commit before treating the work as verified. If `main` fails, stop merging and prioritize a Sonnet fix with Opus review; do not hide the failure.
 
-If a merge leaves another open pull request conflicted, its builder rebases, and because the head commit changed, it is reviewed again.
+If a merge leaves another open pull request behind or conflicted, it is updated against `main`: for a recipe pull request the builder hands the branch to the integration worker, who updates it and regenerates the README (rule 6); for a foundation pull request its owner updates it. Each handover is recorded on the pull request, and because the head commit changed, it is reviewed again.
 
 ### Builder brief (Sonnet 5.5)
 
 > You are building one issue in the repository `Jev-Engineering/cookbook`, a cookbook of Jupyter notebooks that teach typed decisions with Jev (TypeSafe AI's System One model, which answers Choice, Noul, and Score questions over a supplied state and does not generate text).
 >
-> Your issue is #N. Read it in full with `gh issue view N`, then read `CONTRIBUTING.md`, which is the contract your work is reviewed against. For a recipe, also read `recipes/_template/` and the merged recipe at `recipes/01-sentiment-classification/` as the reference for structure and tone, and read the documentation pages listed under Sources on the issue before you design any question.
+> Your issue is #N. Read it in full with `gh issue view N`, then read `CONTRIBUTING.md`, which is the contract your work is reviewed against. For a recipe, also read the recipe template once #68 has merged and the merged reference recipe `recipes/01-sentiment-classification/` once #1 has merged, as the reference for structure and tone, and read the documentation pages listed under Sources on the issue before you design any question.
 >
-> Branch from the latest `origin/main` as `<branch>`. Work only inside `<allowed paths>`. If you find you need a change outside them, stop and tell me what and why instead of making it.
+> Branch from the latest `origin/main` as `<branch>`. Work only inside `<allowed paths>`. For a recipe that is `recipes/<slug>/`; you do not run `tools/render_catalog.py` or edit the root `README.md`, because the integration worker regenerates the README regions in your pull request after you finish (until then `Catalog (README is current)` is expected to be red on your pull request; do not fix it). If you find you need a change outside your paths, stop and tell me what and why instead of making it.
 >
-> You have no TypeSafe API key and must not look for one. The notebook runs offline from fixtures you write, and those fixtures are marked `synthetic`. Do not write anything, in the notebook, the README, or the pull request, that states or implies how well Jev actually performs. Metrics from a synthetic run are checks that the pipeline works, and the notebook says so beside each number.
+> You have no TypeSafe API key and must not look for one, and you make no live call. The notebook runs offline from fixtures you write, and those fixtures are marked `synthetic`; recorded fixtures come later, from the orchestrator's budgeted recorder, never from you. Do not write anything, in the notebook, the README, or the pull request, that states or implies how well Jev actually performs. Metrics from a synthetic run are checks that the pipeline works, and the notebook says so beside each number.
 >
-> Before opening a pull request, run lint, tests, the fixture validator, and execute the notebook offline from a clean kernel. Fix what fails; do not skip or loosen a check. Then open a pull request with `Closes #N` and the template filled in, including the commands you ran and their results.
+> Before opening a pull request, run the checks from `docs/development.md` and the current workflows (`ruff check .`, `ruff format --check .`, `pytest`, `python tools/check_hygiene.py`, and the fixture validator and notebook execution once they exist), executing the notebook offline from a clean kernel. Use a fresh virtual environment, and sign your commits with the configured signing (never disable it). Fix what fails; do not skip or loosen a check. Then open a pull request with `Closes #N` and the template filled in, including the commands you ran and their results.
 >
 > Your pull request will be reviewed by a separate reviewer who runs everything again and reads the notebook as a learner. Write for that reader.
 >
-> Report back: the pull request number, each acceptance criterion from the issue marked met or not met with one line of evidence, anything you were unsure about, and anything you think is wrong with the issue, the template, or the shared package. If you run short of budget, push what you have, write handoff notes in the pull request description, and say so plainly.
+> Report back: the pull request URL and number, the branch and the full head SHA, each acceptance criterion from the issue marked met or not met with one line of evidence, anything you were unsure about, and anything you think is wrong with the issue, the template, or the shared package. If you run short of budget, push what you have, write handoff notes in the pull request description, and say so plainly.
 
 For a fix round, send the builder the review comment and add: address every finding, or say which one you disagree with and why; do not change anything the review did not ask for; push, and report the new head SHA.
 
-### Reviewer brief (Opus 5.5)
+### Integration worker brief (Sonnet 5.5)
+
+> You are the integration worker for recipe pull request #P in `Jev-Engineering/cookbook`. You are never the recipe builder. Take the branch only after the orchestrator has recorded the handover from the builder on the pull request, work in your own worktree, and stay the only writer until you record the handover back.
+>
+> Your allowed paths are the generated regions of the root `README.md` and nothing else. Fetch, then merge current `origin/main` into the branch (a merge commit, not a rebase; no force-push; the merge commit is signed like any other commit). If merging `origin/main` conflicts in `README.md`, resolve it by taking `origin/main`'s `README.md` and then re-running the renderer, since every recipe merge changes the shared progress badge line. In a fresh virtual environment run `python tools/render_catalog.py`, then confirm `python tools/render_catalog.py --check` passes, and run `git diff --raw -M origin/main...HEAD` (it shows modes; reject symlink `120000` and submodule `160000` modes, any mode change such as `100644 100755`, and any type change; every new or resulting mode must be `100644`): every path must be under `recipes/<slug>/` or be exactly `README.md`, a regular file of mode `100644` (check with `git ls-files -s README.md`). Commit only the generated README regions, signed, with the Sonnet co-author line; never hand-edit the README or touch any other file. Push new commits only.
+>
+> Report back: the pull request number, the new full head SHA, the commands you ran with their actual results, and the `git diff --raw -M origin/main...HEAD` output. If `main` moves again, or a fix round changes the branch, you are called again and repeat this.
+
+### Reviewer brief (Opus)
 
 > Review pull request #P in `Jev-Engineering/cookbook` against issue #N and `CONTRIBUTING.md`. You are the gate: this change merges only if you approve it, and sixty recipes are being built to the same standard, so what you accept here becomes the pattern. Check it yourself and do not rely on the pull request description.
 >
-> Check out the branch with `gh pr checkout P` and note the head commit SHA. Run lint, tests, and the fixture validator, and execute the notebook offline from a clean kernel with no `TYPESAFE_API_KEY` set. Then read the notebook from top to bottom as a learner with basic Python would.
+> Check out the branch with `gh pr checkout P` and note the head and base commit SHAs. Do not take a verdict or summary from the builder. Run the checks from `docs/development.md` and the current workflows (lint, format, tests, catalog check, hygiene, and the fixture validator and notebook execution once they exist) in a fresh environment, and execute the notebook offline from a clean kernel with no `TYPESAFE_API_KEY` set. Then read the notebook from top to bottom as a learner with basic Python would.
 >
 > Go through every acceptance criterion on the issue and every section of the contract. Look hardest at these, because they are where this work goes wrong:
 >
@@ -154,15 +181,16 @@ For a fix round, send the builder the review comment and add: address every find
 > - Decisions the model appears to make that Python should own: arithmetic, option lists, permissions, budgets, side effects.
 > - Rules the issue says are enforced in code with no test that proves it.
 > - Question design that departs from the sources listed on the issue: compound questions, undefined rubric levels, missing fallback outcomes.
-> - Files changed outside the allowed paths, and anything that looks like a key, real personal data, or a real side effect.
+> - Files changed outside the allowed paths (for a recipe, run `git diff --raw -M origin/main...HEAD`, which shows modes: reject symlink `120000` and submodule `160000` modes, any mode change such as `100644 100755`, and any type change; every new or resulting mode must be `100644`; every path must be under `recipes/<slug>/` or be `README.md`; `README.md` must be a regular file of mode `100644` and equal `render(<base README>, <head catalog>)` as defined in `CONTRIBUTING.md`; anything else is a finding), and anything that looks like a key, real personal data, or a real side effect.
+> - Anything marked `recorded` without the returned model string, capture date and authentic provenance, and any key or credential in a notebook output, log, or description.
 > - For shared code: an interface or format that will be awkward for the sixty recipes that have to use it.
 >
-> Post your findings as one comment on the pull request, ordered by severity, each with the file, what is wrong, and what to change. Separate what must change from what is only a suggestion. Then list each acceptance criterion as met or not met. End the comment with exactly one of these lines, using the full head SHA you reviewed:
+> Post your findings as one comment on the pull request. Begin it with your agent ID and resolved model and the exact head and base SHAs you reviewed. Order findings by severity, each with the file and location, what is wrong, and what to change. Separate what must change from what is only a suggestion, and say which checks you ran. Then list each acceptance criterion as met or not met. End the comment with exactly one of these lines as its own final line, using the full head SHA you reviewed:
 >
 > `OPUS-REVIEW: APPROVE <sha>`
 > `OPUS-REVIEW: CHANGES-NEEDED <sha>`
 >
-> Approve only if you would be comfortable with a reader learning from this as it stands. Return the same verdict to me with a two or three sentence summary.
+> Do not quote either line elsewhere in the comment. Approve only if you would be comfortable with a reader learning from this as it stands. Return the same verdict to me with a two or three sentence summary.
 
 For a re-review, add: these were your findings; for each, say whether it is resolved; then review everything that changed since the SHA you last reviewed, and post a new verdict line for the new head SHA.
 
@@ -274,37 +302,40 @@ Branches are `foundation/<name>` as listed, and `recipe/<slug>` for recipes. A r
 | #59 | Observation and action selection | `59-observation-and-action-selection` | Choice | XL | A | #69, #70, #36 | simulator |
 | #60 | Factory production control | `60-factory-production-control` | Choice + Noul + Score | XL | B | #69, #70, #43, #59 | simulator |
 
-Reading the recipe tables: round 0 is the reference recipe, built and merged alone before anything else in its wave. Round A recipes can start as soon as the wave opens. Round B recipes build on a round A recipe from the same wave and start after it merges. "Simulator" recipes also wait for #70, and recipes that need a live run for real results also wait for #64; both are in the "Waits for" column. Sizes are estimates: S about half a day of work, M a day, L two to three days, XL several days, and for L and XL expect a builder to need more than one run.
+The manifest is the repository's planning record and is kept; reconcile it with live issues and relationships before each dispatch. Reading the recipe tables: round 0 is the reference recipe, built and merged alone before anything else in its wave. Round A recipes can start as soon as the wave opens. Round B recipes build on a round A recipe from the same wave and start after it merges. "Simulator" recipes also wait for #70, and recipes that need a live run for real results also wait for #64; both are in the "Waits for" column. Sizes are estimates: S about half a day of work, M a day, L two to three days, XL several days, and for L and XL expect a builder to need more than one run.
 
 ### Notes for particular waves
 
-**Wave 0.** Foundation pull requests share files such as `pyproject.toml`, so even when built in parallel they merge one at a time, each rebased on the last and re-reviewed if its head changed. Do not start any recipe until #69 is merged. When all twelve of #61 to #72 are closed, close #74.
+**Wave 0.** Foundation pull requests share files such as `pyproject.toml`, workflows, `CONTRIBUTING.md` and shared package interfaces, so even when built in parallel they integrate and merge one at a time, each updated against the last and re-reviewed if its head changed. Do not start any recipe until #69 and the catalog coordination fix (#87) have merged. Close #74 only when its children meet their criteria and are delivered and verified, not just closed.
 
-**Wave 1.** Build #1 alone. Give it two Opus reviews and take their findings seriously even where they concern the template or the shared package rather than the recipe: this is the first real use of both. If it exposes a foundation problem, open an issue, fix the foundation through the normal pipeline, and only then start #2 to #10. From then on, every recipe builder is pointed at the merged #1.
+**Wave 1.** Build #1 alone. Give it two Opus reviews on the same final head and take their findings seriously even where they concern the template or the shared package rather than the recipe: this is the first real use of both. If it exposes a foundation problem, open an issue, fix the foundation through the normal pipeline, and only then start #2 to #10. From then on, every recipe builder is pointed at the merged #1.
 
-**Waves 2 to 4.** Run round A in batches of up to six. Feed forward what reviews find: if the same finding appears on two recipes, the fault is in the template or your brief, so fix it at the source and tell the builders still running.
+**Waves 2 to 4.** Run round A in batches of up to six builders, and fewer when the review queue grows or runtime limits are lower; keep reviewer capacity in reserve. Feed forward what reviews find: if the same finding appears on two recipes, the fault is in the template or your brief, so fix it at the source and tell the builders still running.
 
-**Wave 5.** These are the largest recipes. Run at most three at a time, expect multi-run builds, and split reviews by scope where needed. #50 (wave 4), #54, and #55 cannot reach real conclusions without live inference; they merge as tested harnesses whose READMEs say results are not measured live, exactly as their issues describe.
+**Wave 5.** These are the largest recipes. Run at most three builders at a time, expect multi-run builds, and split reviews by scope where needed. #50 (wave 4), #54, and #55 cannot reach real conclusions without live inference; until recorded evidence exists they are tested harnesses whose READMEs say results are not measured live, as their issues describe. Once #64 is merged and approved, record them within the shared $25 budget (rule 4); claim only what the recorded sample, model version and date support.
 
 ### After each recipe wave
 
-1. **Catalog sync.** One pull request that runs `python tools/render_catalog.py`, built by Sonnet, reviewed by Opus, merged by you. Confirm the README now links the wave's notebooks.
-2. **Consistency review.** One Opus agent reads every notebook from the wave side by side and reports differences in section order, terminology, chart style, and the run-mode header, and anything that reads as a claim about Jev. Open an issue for each real finding and run it through the pipeline.
-3. **Close the level's tracking issue** (#75 to #79), ticking its checklist.
-4. **Progress comment on #80:** what merged, what is stuck and why, and what you learned that changes the next wave's briefs.
+Each recipe's README row is already updated by its own pull request (rule 6), so there is no post-wave README sync.
+
+1. **Catalog audit.** Verify the catalog counts, links and generated content against `main` (`python tools/render_catalog.py --check` and the wave's rows). This confirms the README; it is not the first README update, and it never replaces the per-recipe regeneration.
+2. **Consistency review.** One Opus agent reads every notebook from the wave side by side and reports differences in terminology, section order, chart style, the run-mode header, evidence quality and learner experience, and anything that reads as a claim about Jev. Open an issue for each real finding and run it through the pipeline.
+3. **Close the level's tracking issue** (#75 to #79) only after its actual criteria are met.
+4. **Progress comment on #80:** what merged, what is blocked and why, evidence, live spending against the $25 limit, and what you learned that changes the next wave's briefs.
 
 ### Wave 6: release (#73)
 
-Run the audit that #73 describes, using Opus for the cross-recipe audit and Sonnet for the fixes, each fix through the normal pipeline. Draft the release notes in a pull request, including a plain statement of what was and was not exercised live. Stop there. Do not tag, do not publish, and do not close #73 or #80. Those are mine.
+Run the audit that #73 describes, using Opus for the cross-recipe audit and Sonnet for the fixes, each fix through the normal pipeline. Draft the release notes in a pull request, including a plain statement of what was and was not exercised live. Stop there. Stop at the human gate: do not create or push `v1.0.0`, do not publish a release, and do not close #73 or #80. Tag approval is mine. The audit also covers fresh-clone offline execution on Linux and Windows, the full contract, link and provenance audit, and honest release notes on live coverage and limitations.
 
 ## The final audit
 
-Before you report, verify completion issue by issue rather than from memory. For each of #1 to #72, confirm from GitHub that the issue is closed, that the pull request that closed it is merged, and that the pull request carries an `OPUS-REVIEW: APPROVE` line for its final head commit. Confirm #74 to #79 are closed, that `python tools/render_catalog.py --check` passes on `main` with 60 of 60 published, and that the latest CI run on `main` is green. Post the resulting table as a comment on #80. Anything that fails this audit is not done, however it looked at the time.
+Before you report, re-enumerate every issue and pull request with pagination and verify completion issue by issue rather than from memory. For each issue in scope, confirm from GitHub that it is closed, that the pull request that closed it is merged, and which genuine Opus receipt (comment ID, reviewer, final head SHA) approved it. Confirm #74 to #79 are closed only if their criteria are met, that `python tools/render_catalog.py --check` passes on `main` with 60 of 60 published, and that CI on the reported `main` commit is green for every current check. Post the evidence table on #80: issue, pull request, reviewed head, Opus reviewer and comment, merge commit, checks, and closure or the precise blocker. Also report recipes delivered and live-recording coverage, cumulative live spending and unresolved reservations, the final `main` SHA, Linux and Windows validation, remaining human decisions (especially the release tag), and local worktree ownership. Remove only your own completed, clean, unused worktrees. Anything that fails this audit is not done, however it looked at the time; say "implementation complete, release approval pending" only when that is the true state.
 
 ## When something goes wrong
 
-- **A builder says the issue is wrong or impossible.** Take it seriously and read the issue yourself. If the builder is right, fix the issue text, note the change in a comment, and rerun. The issues were written before any code existed and some will not survive contact with it.
+- **A builder says the issue is wrong or impossible.** Take it seriously and read the issue yourself. If the builder is right, fix the issue text, note the change in a comment, and rerun. The issues were written before any code existed and some will not survive contact with it. Where this file and the live repository disagree, reconcile through a reviewed pull request.
 - **Builder and reviewer disagree.** Adjudicate as described above. If the disagreement is really about what the cookbook should promise readers, label `status: needs human` and ask me.
+- **An agent stops unexpectedly.** Inspect its branch, worktree, pull request and handoff, then resume the same task under the same run identity and accounting without duplicating ownership. An intentional stop, a completed run, or an expired authorized window is not permission to restart or extend. Use backoff for rate limits and bounded waits with progress updates, and keep working on whatever independent authorized work remains.
 - **CI fails on `main` after a merge.** Stop merging. Fixing `main` is the next task.
 - **GitHub rate limits.** Slow down and reduce parallelism. Do not retry in a tight loop.
 - **A design question the issues do not answer** and that would be costly to reverse across many recipes (an interface, a file format, a dependency). Decide it once in the foundation, write the decision into `CONTRIBUTING.md` or `docs/`, and apply it everywhere.
@@ -313,12 +344,12 @@ Before you report, verify completion issue by issue rather than from memory. For
 ## This machine
 
 - Windows with Git Bash; the repository enforces LF line endings through `.gitattributes`. Run Python tools with `python`.
-- Commits are signed through a shim that occasionally fails with "Cannot open A for signing". That error is transient: retry the commit once.
-- `gh` is authenticated for this organization. The repository is private, so Actions minutes are metered; keep CI runs purposeful.
+- Commits are signed through the configured signing, and signatures are verified. A shim has occasionally failed with "Cannot open A for signing"; retry once, then diagnose. Never disable signing to get a commit or push through.
+- `gh` is authenticated for this organization. The repository is private, so Actions minutes are metered; keep CI runs purposeful. Foundation work covers the supported Python versions (currently 3.10 and 3.14).
 - Builders end commit messages with `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`.
 
 ## What to tell me, and when
 
-Work through to the end without checking in. Ask me only for what is mine to decide: anything labelled `status: needs human` that blocks a wave, a request to make live API calls, a change to the repository's visibility, and the release tag.
+Work through to the end without checking in, and do not stop while independent authorized work remains. Ask me only for what is mine to decide: genuinely missing authority or input, anything labelled `status: needs human` that blocks a wave, spending beyond the $25 limit on #80, a change to the repository's visibility, and the release tag.
 
-When you finish or have to stop, give me a short report: what merged, what is open and why, every issue labelled `status: needs human` with the decision it needs, the final audit table, and a plain statement of what was and was not verified, including that no live Jev inference was run unless it was.
+When you finish or have to stop, give me a short report: what merged, what is open and why, every `status: needs human` item with the decision it needs, the final audit table, cumulative live spending, and a plain statement of what was and was not verified, including how much recorded live evidence exists.
