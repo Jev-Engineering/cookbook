@@ -98,6 +98,8 @@ strings before it parses and reports a line past the limit as a problem naming t
 real state, label or stored response comes near 64. Like any malformed line, an over-deep one is a
 problem and not a crash, and `--all` goes on to the next recipe.
 
+In `inputs.jsonl` the line itself counts as level 1, so the `state` object inside it starts at level 2 and a state can be at most 63 levels of its own, while `replay_key` accepts 64 ([backends.md](backends.md), "Replay key").
+
 ## Replay and scripted recipes
 
 Most recipes replay: the notebook answers each request from stored responses. Some do not. A
