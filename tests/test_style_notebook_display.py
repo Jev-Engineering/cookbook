@@ -7,6 +7,7 @@ import matplotlib
 import nbformat
 import pytest
 from nbclient import NotebookClient
+from nbclient.exceptions import DeadKernelError
 
 from jev_cookbook import style
 
@@ -34,16 +35,29 @@ def kernel_name(tmp_path, monkeypatch):
 
 
 def _run(first_cell, second_cell, kernel_name, tmp_path):
-    nb = nbformat.v4.new_notebook()
-    nb.cells = [nbformat.v4.new_code_cell(first_cell), nbformat.v4.new_code_cell(second_cell)]
-    client = NotebookClient(
-        nb,
-        kernel_name=kernel_name,
-        timeout=120,
-        resources={"metadata": {"path": str(tmp_path)}},
-    )
-    client.execute()
-    return nb.cells[1].outputs
+    # Starting the kernel is retried once (never a cell): under load a kernel can lose a TCP
+    # port race or exit before it answers, which nbclient reports as a start-up RuntimeError.
+    for attempt in (1, 2):
+        nb = nbformat.v4.new_notebook()
+        nb.cells = [
+            nbformat.v4.new_code_cell(first_cell),
+            nbformat.v4.new_code_cell(second_cell),
+        ]
+        client = NotebookClient(
+            nb,
+            kernel_name=kernel_name,
+            timeout=120,
+            startup_timeout=180,
+            resources={"metadata": {"path": str(tmp_path)}},
+        )
+        try:
+            client.execute()
+        except RuntimeError as error:
+            started = not any(m in str(error) for m in ("didn't respond", "died before replying"))
+            if started or isinstance(error, DeadKernelError) or attempt == 2:
+                raise
+        else:
+            return nb.cells[1].outputs
 
 
 def test_a_returned_figure_renders_a_png_after_apply_style(kernel_name, tmp_path):
