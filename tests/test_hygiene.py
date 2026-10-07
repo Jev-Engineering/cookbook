@@ -1105,3 +1105,95 @@ def test_shown_hides_a_key_that_trips_a_secret_rule_without_a_long_run():
     assert len(key) <= 48 and not hygiene._LONG_RUN.search(key)
     assert hygiene.scan_text(key)  # the secret rules do flag it
     assert hygiene._shown(key) == "<key>"
+
+
+# --- keyword arguments of the form name=CONSTANT are code, not secrets (issue #114) -----
+
+# Each value is built from pieces under 32 characters so this file's own source holds no
+# literal run that the exemption under test is needed to wave through (see the module
+# docstring); only the assembled line, at run time, is 32 characters or more.
+_KERNEL_TIMEOUT = "KERNEL_START" + "_TIMEOUT"
+_RETRY_POLICY_SETTINGS = "DEFAULT_RETRY_POLICY" + "_SETTINGS"
+_MAX_REQUESTS = "DEFAULT_MAX" + "_REQUESTS"
+_LIQUOR_JUGS = "pack_my_box_with_five_dozen" + "_liquor_jugs"
+_WAX_BUZZ_PIXEL = "quickly_judge_wax_buzz" + "_frog_pixel"
+_WAX_BULGE = "quick_zephyr_vow_jumpy" + "_wax_bulge"
+
+IDENTIFIER_ASSIGNMENTS = [
+    f"client = make(startup_timeout={_KERNEL_TIMEOUT})",
+    f"policy = run(retry_policy={_RETRY_POLICY_SETTINGS})",
+    f"limit = run(max_requests_per_run={_MAX_REQUESTS})",
+    f"flush = run(flush_queue_jobs={_LIQUOR_JUGS})",
+    f"size = run(max_batch_size={_WAX_BUZZ_PIXEL})",
+    f"box = run({_WAX_BULGE}=settings.fox_size)",
+    f"startup_timeout={_KERNEL_TIMEOUT},",
+]
+
+
+@pytest.mark.parametrize("line", IDENTIFIER_ASSIGNMENTS)
+def test_identifier_keyword_arguments_are_not_high_entropy_findings(line, tmp_path):
+    # Guard against a case that guards nothing: without the exemption this line would score.
+    scored = [
+        t
+        for word in hygiene._WORD.findall(line)
+        for t in hygiene._TOKEN_SLASH.findall(word)
+        if hygiene._entropy(t) >= hygiene._ENTROPY_THRESHOLD
+    ]
+    assert scored, line
+    assert hygiene.scan_text(line) == []
+    assert scan(tmp_path, notebook(source=line)) == []
+    path = tmp_path / "module.py"
+    path.write_text(line + chr(10), encoding="utf-8")
+    assert hygiene.run([path], tmp_path) == []
+
+
+LONG_VALUE = "Zx3cV6bN" + "9mQ2wE5r" + "T8yU1iO4" + "pA7sD0fG" + "2hJ"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        f"api_key={KEY}",
+        f'api_key="{KEY}"',
+        f"token={KEY}{KEY[:10]}",
+        f"password={KEY}",
+        f"retry_policy={LONG_VALUE}",
+        f"startup_timeout={LONG_VALUE.upper()}",
+        f'startup_timeout="KERNEL_START_TIMEOUT_{LONG_VALUE}"',
+        f"max_requests_per_run={LONG_VALUE}=",
+        f"max_requests_per_run=DEFAULT_{LONG_VALUE}",
+        f"max_requests_per_run=default_{LONG_VALUE}",
+    ],
+)
+def test_assignments_of_secret_looking_values_are_still_caught(text, tmp_path):
+    assert hygiene.scan_text(text), text
+    assert scan(tmp_path, notebook(source=text)), text
+
+
+LOWER_36 = "qzvxkjwpmbfhdgtycnrls" + "aeiouqzvxkjwpm"
+UPPER_36 = LOWER_36.upper()
+MIXED_34 = "AbCdEfGhIjKlMnOpQrStUvWxYzAbCdEfGh"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # left side is a long mixed-case key, right side a bare value
+        f"{MIXED_34}=1",
+        f"{MIXED_34}=true",
+        f"{MIXED_34}=TRUE",
+        # a secret-named left side is never exempt, whatever the case of the value
+        f"token={LOWER_36}",
+        f"password={LOWER_36}",
+        f"passwd={LOWER_36}",
+        f"secret={UPPER_36}",
+        f"aws_secret_access_key={UPPER_36}",
+        f"API_KEY={UPPER_36}",
+        f"db_password={'_'.join(['quartz', 'jovial', 'fox', 'whisked', 'dynamic', 'plum'])}",
+        f"client_credential={LOWER_36}",
+        f"access_key={UPPER_36}",
+    ],
+)
+def test_one_case_values_and_long_left_sides_cannot_hide_a_secret(text, tmp_path):
+    assert hygiene.scan_text(text), text
+    assert scan(tmp_path, notebook(source=text)), text
