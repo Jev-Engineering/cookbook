@@ -1,0 +1,203 @@
+name: Notebooks
+
+# Executes every recipe notebook offline, checks the committed outputs are fresh, validates
+# every recipe's fixtures and enforces the recipe pull request allowlist (#69). Keyless: no
+# secret is used or needed and nothing reaches the TypeSafe API. The job names below are part
+# of the contract (they become required checks), so rename them only deliberately. The required
+# ones are "Notebooks (execute)", "Fixtures (validate)" and "Scope (recipe pull requests)"; the
+# per-recipe "Notebook (<recipe>)" jobs are numerous and dynamic, and "Notebooks (execute)"
+# summarises them under one stable name. See docs/notebook-ci.md.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: notebooks-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  discover:
+    name: Notebooks (discover)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      count: ${{ steps.matrix.outputs.count }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+      # A push to main selects every notebook. A pull request selects the recipe folders it
+      # changes, unless it changes anything but recipe folders and README.md, which selects all.
+      - name: Select the notebooks to execute
+        id: matrix
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "$EVENT" = "pull_request" ]; then
+            python tools/notebook_ci.py matrix --base "$BASE_SHA" --head HEAD --github-output "$GITHUB_OUTPUT"
+          else
+            python tools/notebook_ci.py matrix --github-output "$GITHUB_OUTPUT"
+          fi
+
+  execute:
+    name: Notebook (${{ matrix.recipe }})
+    needs: discover
+    if: needs.discover.outputs.count != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
+    env:
+      RECIPE: ${{ matrix.recipe }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # One Python version only: the committed figures are compared by what they show, so the
+      # interpreter and matplotlib version do not have to match the author's.
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      # Core dependencies only: a recipe must run offline without any extra. Installation is the
+      # last thing that may use the network.
+      - name: Install
+        run: pip install -e .
+      - name: Copy the recipe to a scratch folder
+        run: |
+          mkdir -p "$RUNNER_TEMP/run"
+          cp -R "recipes/$RECIPE" "$RUNNER_TEMP/run/$RECIPE"
+      # The OS-level guard: a network namespace that has a loopback interface and nothing else
+      # (the kernel talks to the runner over loopback). The self-test fails the job if the
+      # namespace is not isolating, so a guard that silently does nothing cannot pass.
+      - name: Prove the sandbox has no route out
+        run: |
+          cat > "$RUNNER_TEMP/probe.py" <<'PY'
+          import socket, sys
+          for attempt in (
+              lambda: socket.create_connection(("1.1.1.1", 53), timeout=5),
+              lambda: socket.create_connection(("2606:4700:4700::1111", 53), timeout=5),
+              lambda: socket.getaddrinfo("api.typesafe.ai", 443),
+          ):
+              try:
+                  attempt()
+              except OSError as error:
+                  print("blocked:", type(error).__name__)
+              else:
+                  sys.exit("the sandbox reached the network")
+          server = socket.socket()
+          server.bind(("127.0.0.1", 0))
+          server.listen(1)
+          socket.create_connection(server.getsockname(), timeout=5).close()
+          print("loopback works")
+          PY
+          sudo -E env "PATH=$PATH" unshare --net -- sh -c \
+            'ip link set lo up && exec env -u PYTHONPATH python "$1"' sh "$RUNNER_TEMP/probe.py"
+      - name: Execute the notebook offline
+        env:
+          # The Python-level guard (tools/netguard/sitecustomize.py) also reaches the kernel:
+          # the executor strips only JEV_COOKBOOK_* and TYPESAFE_* from its environment.
+          PYTHONPATH: ${{ github.workspace }}/tools/netguard
+        run: |
+          started=$(date +%s)
+          sudo -E env "PATH=$PATH" unshare --net -- sh -c \
+            'ip link set lo up && exec setpriv --reuid="$1" --regid="$2" --clear-groups -- python tools/execute_notebook.py --timeout 300 "$3"' \
+            sh "$(id -u)" "$(id -g)" "$RUNNER_TEMP/run/$RECIPE"
+          echo "executed $RECIPE in $(( $(date +%s) - started )) s" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Committed outputs match the fresh run
+        run: python tools/check_notebook_fresh.py "recipes/$RECIPE/notebook.ipynb" "$RUNNER_TEMP/run/$RECIPE/notebook.ipynb"
+      - name: Hygiene of the freshly executed notebook
+        run: python tools/check_hygiene.py "$RUNNER_TEMP/run/$RECIPE/notebook.ipynb"
+
+  notebooks:
+    name: Notebooks (execute)
+    needs: [discover, execute]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # The one stable name for branch protection: green only when discovery succeeded and every
+      # selected notebook passed (or none was selected, which a README-only change does).
+      - name: Summarise
+        env:
+          DISCOVER: ${{ needs.discover.result }}
+          EXECUTE: ${{ needs.execute.result }}
+          COUNT: ${{ needs.discover.outputs.count }}
+        run: |
+          echo "discover=$DISCOVER execute=$EXECUTE notebooks=$COUNT"
+          [ "$DISCOVER" = "success" ] || { echo "discovery did not succeed"; exit 1; }
+          if [ "$COUNT" = "0" ]; then
+            [ "$EXECUTE" = "skipped" ] || { echo "no notebook selected but execute ran"; exit 1; }
+          else
+            [ "$EXECUTE" = "success" ] || { echo "a notebook job did not succeed"; exit 1; }
+          fi
+
+  fixtures:
+    name: Fixtures (validate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install
+        run: pip install -e .
+      # Every folder under recipes/ must have fixtures/ and must validate; the validator's own
+      # --all skips a recipe without fixtures/.
+      - name: Validate every recipe's fixtures
+        run: python tools/notebook_ci.py fixtures
+
+  scope:
+    name: Scope (recipe pull requests)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      # The check that judges a pull request runs from the base branch, so a pull request cannot
+      # change the rule that judges it. The base has no copy only on the pull request that
+      # introduces the tool; that one runs its own.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          path: trusted
+          ref: ${{ github.event.pull_request.base.sha }}
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.10"
+      - name: Check the allowlist
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          printf '%s' "$PR_BODY" > "$RUNNER_TEMP/pr-body.txt"
+          tool=trusted/tools/check_recipe_scope.py
+          if [ ! -f "$tool" ]; then
+            echo "the base branch has no scope check yet; using this pull request's copy"
+            tool=tools/check_recipe_scope.py
+          fi
+          python "$tool" --repo . --base "origin/$BASE_REF" --head "$HEAD_SHA" --branch "$BRANCH" --body-file "$RUNNER_TEMP/pr-body.txt"

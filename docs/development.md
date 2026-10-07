@@ -42,21 +42,18 @@ renderer, committing only the generated README regions and confirming `--check`,
 review and CI run (see "The generated-README exception" in
 [CONTRIBUTING.md](../CONTRIBUTING.md)). `--check` stays strict and fails on any stale
 content, so on a recipe pull request that adds a notebook the `Catalog` check is expected to be
-red until the integration stage has run; the builder does not fix it. The scope check planned
-for #69 does not exist yet. It applies to a recipe pull request, meaning branch `recipe/<slug>` with
-`Closes #N` for N in 1 to 60, and fails closed if only one of the two holds or the slug cannot be
-resolved. Until it does, reviewers apply the same allowlist by hand with
-`git diff --raw -M origin/main...HEAD`: only paths under `recipes/NN-slug/` plus
-`README.md`, where `README.md` must stay a regular file of mode `100644` and must equal `render(<base README>, <head catalog>)` (rendered from
-the base README, not the head's, with the head's `recipes/` tree deciding publication). Reviewers reject symlink (`120000`) and submodule (`160000`) modes, any mode change (for example `100644 100755`), and any type change; every new or resulting mode must be `100644`; `--name-status` cannot show these, which is why the command is `--raw`. The
-full rule is in [CONTRIBUTING.md](../CONTRIBUTING.md).
+red until the integration stage has run; the builder does not fix it. The scope check
+(`tools/check_recipe_scope.py`, CI check `Scope (recipe pull requests)`) enforces the allowlist
+mechanically on every pull request; reviewers can run the same command locally, and the rule is
+in [CONTRIBUTING.md](../CONTRIBUTING.md) and [notebook-ci.md](notebook-ci.md).
 
 ## Continuous integration
 
 `.github/workflows/ci.yml` (workflow `CI`) runs on every pull request and every push to
 `main`. It uses no secrets and makes no live API calls. These job names are stable so they
-can be made required checks; change one only deliberately, and add new jobs (for example
-notebook execution) under new names.
+can be made required checks; change one only deliberately, and add new jobs under new names.
+Notebook execution, fixture validation and the scope check are in a second workflow, `Notebooks`
+(`.github/workflows/notebooks.yml`), described below and in [notebook-ci.md](notebook-ci.md).
 
 | Check name | What it runs |
 | --- | --- |
@@ -73,6 +70,31 @@ the package and every offline test work with the SDK absent (that one module is 
 Run the lint, test and hygiene commands from this document locally before opening a pull
 request. Third-party actions are pinned to full commit SHAs with the version in a
 comment; bump them deliberately, and keep the permissions at `contents: read`.
+
+### Notebook checks (workflow `Notebooks`)
+
+| Check name | What it runs |
+| --- | --- |
+| `Notebooks (execute)` | The one stable name to require: green when every selected notebook passed. |
+| `Notebook (<recipe>)` | One job per recipe folder: executes `notebook.ipynb` offline in a scratch copy with no key, no network, `check_notebook_fresh.py` against the committed file, `check_hygiene.py` on the fresh copy. |
+| `Notebooks (discover)` | Chooses the recipes to run (a push to `main` runs all, a pull request runs the folders it changes, or all when it changes anything else). |
+| `Fixtures (validate)` | `python tools/notebook_ci.py fixtures`: every folder under `recipes/` has `fixtures/` and validates. |
+| `Scope (recipe pull requests)` | `tools/check_recipe_scope.py`, on pull requests only. |
+
+To run what CI runs on one recipe, from the repository root:
+
+```bash
+pip install -e .
+cp -R recipes/NN-slug /tmp/run-NN-slug
+python tools/execute_notebook.py /tmp/run-NN-slug
+python tools/check_notebook_fresh.py recipes/NN-slug/notebook.ipynb /tmp/run-NN-slug/notebook.ipynb
+python tools/check_hygiene.py /tmp/run-NN-slug/notebook.ipynb
+python tools/notebook_ci.py fixtures
+```
+
+To refresh a stale notebook, run `python tools/execute_notebook.py recipes/NN-slug` and commit
+the result. Everything about these checks, including how the figure comparison works and what
+it cannot see, is in [notebook-ci.md](notebook-ci.md).
 
 ## Repository hygiene
 
