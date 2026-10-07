@@ -7,6 +7,7 @@ folder for it. This page is the reference and the walkthrough; the template's ow
 
 ```bash
 python tools/new_recipe.py NN                 # create recipes/NN-slug/ from the catalog (NN is 1 to 60)
+python tools/new_recipe.py NN --mode scripted # the same for a scripted or simulator recipe
 python tools/execute_notebook.py recipes/X    # run X/notebook.ipynb offline, write the outputs back
 ```
 
@@ -117,6 +118,35 @@ and **never overwrites**: if `recipes/<slug>/` exists it changes nothing and exi
    `Catalog (README is current)` check is expected to be red until the integration worker has run
    (see "The generated-README exception" in [CONTRIBUTING.md](../CONTRIBUTING.md)).
 
+## Scripted and simulator recipes
+
+Replay is the default. A recipe built on `ScriptedBackend` or a simulator (for example #36, #43,
+#45, #46, #48, #57, #58, #59 and #60) has nothing to replay: `docs/fixtures.md` ("Replay and
+scripted recipes") allows empty `replay_keys` and no `responses.json`. Scaffold it with:
+
+```bash
+python tools/new_recipe.py NN --mode scripted
+```
+
+The command is the same otherwise (`--mode replay` is the default and changes nothing). What the
+scripted scaffold changes:
+
+| File | Replay (default) | Scripted |
+| - | - | - |
+| `helpers.py` | `build_state`, `build_questions` | also `SEED` and `script(state, questions, rng)`, a `TODO` that returns `{question name: spec}` (see `Spec` in [backends.md](backends.md)) |
+| `build_fixtures.py` | `ROWS` of 5 fields, `answers_for`, writes `responses.json` | `ROWS` of 4 fields (no spec), no `answers_for`; writes `inputs.jsonl` and `labels.jsonl` with `"replay_keys": []`, and removes a stale `responses.json` |
+| setup cell | `get_backend(fixtures=responses_path())` | `get_backend(script=helpers.script, seed=helpers.SEED)`; `run_header(..., backend=backend, n_examples=len(scored))` is the same |
+| `measured` cell | follows `backend.mode` | the same line: `Provenance: scripted. Not measured live: a pipeline check, not a Jev result.` |
+| replay-key test | keys equal `replay_key(state, questions)` | the generated test branches on `validate_recipe(RECIPE).mode`: scripted asserts every example's keys are empty and that a fresh `ScriptedBackend(helpers.script, helpers.SEED)` answers the same request identically twice |
+| validator | `fixtures valid (mode replay)` | `fixtures valid (mode scripted)` |
+
+Write `script` with `rng.random()` only for chance and no clock, global `random` or environment
+reads: a script that varies between calls fails the generated test. A closed loop (the state of the
+next request depends on the previous action) is built the way [simulation.md](simulation.md)
+describes, with the simulator owning the state and the script standing in for the model. The run is
+a pipeline check, not a Jev result; the README and notebook say so under their `TODO`s. A scripted
+recipe that later records real answers becomes a replay recipe: add the keys and `responses.json`.
+
 ## Executing a notebook
 
 `tools/execute_notebook.py <recipe-dir>` runs `notebook.ipynb` with `nbclient` in a fresh kernel and
@@ -125,7 +155,8 @@ the recipe folder as working directory, and writes the outputs back in place.
 - It builds a copy of the environment without any `JEV_COOKBOOK_*` or `TYPESAFE_*` variable and
   passes it to the kernel explicitly; this process's own environment is never changed, so notebooks
   can be executed in parallel. Starting several kernels at once on Windows can fail with a ZMQ
-  "Address in use" error, so run executions one after another, or retry once. A shell that is set up for live calls still runs offline.
+  "Address in use" error, so run executions one after another, or retry once. A shell that is
+  set up for live calls still runs offline.
 - The kernel is the interpreter running the tool (`sys.executable`). The name `python3` is
   resolved to that interpreter, not to whichever `python3` kernelspec Jupyter finds first, so a
   user-level kernelspec cannot change what the committed outputs were made with. The tool needs
@@ -146,7 +177,13 @@ the recipe folder as working directory, and writes the outputs back in place.
   - 0: the notebook ran to the end;
   - 1: a cell raised; a cell ran longer than the timeout (`--timeout SECONDS`, default 300); the
     kernel died (`os._exit`, a crash); the kernel never started; or a cell wrote to stderr;
-  - 2: usage error (for example no `notebook.ipynb` in the folder).
+  - 2: usage error (for example no `notebook.ipynb` in the folder, or `--timeout` below 1: nbclient
+    treats 0 as no limit, so the tool refuses it).
+
+  **Known limitation.** "The kernel never started" is recognised by one `jupyter_client` message
+  (`Kernel didn't respond`). A kernel that exits at start-up (a broken ipykernel) raises a different
+  `RuntimeError`, which prints as a traceback rather than one line. The exit status (1) and the
+  unchanged file are the same in both cases, so judge by those.
 
   Judge success by the exit status, not by an empty stderr: on Windows the tool and the kernel
   print harmless warnings of their own.

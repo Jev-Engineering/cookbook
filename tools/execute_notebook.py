@@ -23,8 +23,13 @@ A run in which any cell wrote to stderr also fails: stderr carries warnings and 
 which must not be committed.
 
 Exit status is 0 when the notebook ran to the end, 1 when a cell failed, a cell ran longer than
-the timeout (``--timeout``, default 300 seconds), the kernel died or never started, or a cell wrote
-to stderr (one line on stderr, the file left unchanged), and 2 for a usage error. #69 builds CI (network guard, staleness check) on this.
+the timeout (``--timeout``, default 300 seconds, at least 1), the kernel died or never started, or
+a cell wrote to stderr (one line on stderr, the file left unchanged), and 2 for a usage error.
+#69 builds CI (network guard, staleness check) on this.
+
+Known limitation: "the kernel never started" is recognised by one jupyter_client message
+("Kernel didn't respond"). A kernel that exits at start-up gives a different ``RuntimeError``,
+which is printed as a traceback; the exit status (1) and the unchanged file are the same.
 """
 
 from __future__ import annotations
@@ -126,12 +131,25 @@ def execute(recipe_dir: Path, timeout: int = TIMEOUT_SECONDS) -> None:
     path.write_text(text, encoding="utf-8", newline="\n")
 
 
+def positive_seconds(text: str) -> int:
+    """``--timeout`` value: nbclient treats 0 as no limit, so anything below 1 is refused."""
+    try:
+        value = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"must be a whole number of seconds, got {text!r}"
+        ) from None
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"must be at least 1 second, got {value}")
+    return value
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Execute a recipe notebook in place, offline.")
     parser.add_argument("recipe_dir", help="a recipe folder, such as recipes/01-slug")
     parser.add_argument(
         "--timeout",
-        type=int,
+        type=positive_seconds,
         default=TIMEOUT_SECONDS,
         help=f"seconds one cell may run (default {TIMEOUT_SECONDS})",
     )

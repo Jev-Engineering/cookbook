@@ -16,6 +16,7 @@ import nbformat
 import pytest
 
 from jev_cookbook import load_helpers
+from jev_cookbook.fixtures import validate_recipe
 
 REPO = Path(__file__).resolve().parent.parent
 TEMPLATE = REPO / "recipes" / "_template"
@@ -214,6 +215,165 @@ def test_a_scaffold_runs_once_the_helpers_and_fixtures_exist(catalog, recipes):
     )
     assert "Recipe 01:" in streams and "offline replay of synthetic fixtures" in streams
     assert "Not measured live" in streams
+
+
+SCRIPTED_HELPERS = """
+from jev_cookbook import Choice
+
+SEED = 7
+
+
+def build_state(fields):
+    return {"text": fields["text"]}
+
+
+def build_questions():
+    return {"pick": Choice(instructions="Which one?", criteria={"a": "first", "b": "second"})}
+
+
+def script(state, questions, rng):
+    return {"pick": {"a": 0.2 + rng.random(), "b": 1.0}}
+"""
+
+SCRIPTED_ROWS = (
+    'ROWS = [("v1", "validation", {"text": "x"}, "a"), ("t1", "test", {"text": "y"}, "b"), '
+    '("d1", "demo", {"text": "z"}, None)]'
+)
+
+
+def scaffold_scripted(catalog, recipes, number=36):
+    _, recipe = entry(catalog, number)
+    assert (
+        new_recipe.main(
+            [
+                str(number),
+                "--mode",
+                "scripted",
+                "--catalog",
+                str(catalog),
+                "--recipes-dir",
+                str(recipes),
+            ]
+        )
+        == 0
+    )
+    folder = recipes / recipe["slug"]
+    (folder / "helpers.py").write_text(SCRIPTED_HELPERS.lstrip(), encoding="utf-8", newline="\n")
+    build = (folder / "build_fixtures.py").read_text("utf-8")
+    start = build.index("ROWS = []")
+    end = build.index("\n", start)
+    build = build[:start] + SCRIPTED_ROWS + build[end:]
+    (folder / "build_fixtures.py").write_text(build, encoding="utf-8", newline="\n")
+    return folder
+
+
+def run_generated_tests(folder):
+    return subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "--rootdir", str(folder)]
+        + [str(folder / "tests")],
+        cwd=folder,
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+
+
+def test_a_scripted_scaffold_runs_from_the_scaffold_to_a_byte_identical_notebook(catalog, recipes):
+    folder = scaffold_scripted(catalog, recipes)
+    scaffold_only = {p.name for p in folder.iterdir()}
+    assert "fixtures" not in scaffold_only or not any((folder / "fixtures").iterdir())
+    subprocess.run([sys.executable, str(folder / "build_fixtures.py")], check=True, cwd=recipes)
+    fixtures = folder / "fixtures"
+    assert {p.name for p in fixtures.iterdir()} == {"inputs.jsonl", "labels.jsonl"}
+    for line in (fixtures / "inputs.jsonl").read_text("utf-8").splitlines():
+        assert json.loads(line)["replay_keys"] == []
+    report = validate_recipe(folder)
+    assert not report and report.mode == "scripted"
+
+    execute_notebook.execute(folder)
+    first = (folder / "notebook.ipynb").read_bytes()
+    nb = nbformat.read(folder / "notebook.ipynb", as_version=4)
+    streams = "".join(
+        o.get("text", "") for c in nb.cells if c.cell_type == "code" for o in c.outputs
+    )
+    assert "scripted backend" in streams
+    assert "Provenance: scripted. Not measured live: a pipeline check" in streams
+    execute_notebook.execute(folder)
+    assert (folder / "notebook.ipynb").read_bytes() == first
+
+    result = run_generated_tests(folder)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_the_scripted_scaffold_has_the_script_hook_and_no_replay_machinery(catalog, recipes):
+    _, recipe = entry(catalog, 36)
+    new_recipe.main(
+        ["36", "--mode", "scripted", "--catalog", str(catalog), "--recipes-dir", str(recipes)]
+    )
+    folder = recipes / recipe["slug"]
+    helpers_source = (folder / "helpers.py").read_text("utf-8")
+    assert "def script(state, questions, rng):" in helpers_source and "SEED = 0" in helpers_source
+    build = (folder / "build_fixtures.py").read_text("utf-8")
+    for name in ("answers_for", "replay_key(", "DecisionResult", "Provenance"):
+        assert name not in build
+    nb = nbformat.read(folder / "notebook.ipynb", as_version=4)
+    setup = next(c for c in nb.cells if c.get("id") == "setup").source
+    assert "get_backend(script=helpers.script, seed=helpers.SEED)" in setup
+    assert "responses_path" not in setup and "backend=backend" in setup
+    # The replay scaffold is unchanged by the option.
+    other = recipes / "other"
+    new_recipe.main(["36", "--catalog", str(catalog), "--recipes-dir", str(other)])
+    replay_setup = next(
+        c
+        for c in nbformat.read(other / recipe["slug"] / "notebook.ipynb", as_version=4).cells
+        if c.get("id") == "setup"
+    ).source
+    assert "get_backend(fixtures=responses_path())" in replay_setup
+    assert "def script" not in (other / recipe["slug"] / "helpers.py").read_text("utf-8")
+
+
+def test_the_generated_test_fails_when_the_script_is_not_deterministic(catalog, recipes):
+    folder = scaffold_scripted(catalog, recipes)
+    subprocess.run([sys.executable, str(folder / "build_fixtures.py")], check=True, cwd=recipes)
+    assert run_generated_tests(folder).returncode == 0
+    mutated = SCRIPTED_HELPERS.replace(
+        "from jev_cookbook import Choice", "import random\n\nfrom jev_cookbook import Choice"
+    ).replace("0.2 + rng.random()", "0.2 + random.random()")
+    assert mutated != SCRIPTED_HELPERS
+    (folder / "helpers.py").write_text(mutated.lstrip(), encoding="utf-8", newline="\n")
+    result = run_generated_tests(folder)
+    assert result.returncode != 0, result.stdout
+    assert "test_every_replay_key_in_the_fixtures_matches_the_current_question" in result.stdout
+
+
+def test_an_unknown_scaffold_mode_is_rejected(catalog, recipes):
+    with pytest.raises(SystemExit):
+        new_recipe.main(["1", "--mode", "live", "--catalog", str(catalog)])
+    with pytest.raises(new_recipe.ScaffoldError):
+        new_recipe.scaffold(1, catalog, recipes, mode="live")
+    assert not recipes.exists()
+
+
+@pytest.mark.parametrize("value", ["0", "-5", "x"])
+def test_a_timeout_below_one_is_a_usage_error(tmp_path, value, capsys):
+    folder = tmp_path / "t"
+    write_notebook(folder, "pass")
+    with pytest.raises(SystemExit) as exit_info:
+        execute_notebook.main([str(folder), "--timeout", value])
+    assert exit_info.value.code == 2
+    assert "--timeout" in capsys.readouterr().err
+
+
+def test_the_state_cell_says_what_to_do_when_there_is_no_demo_example(catalog, recipes):
+    _, recipe = entry(catalog, 1)
+    run(1, catalog, recipes)
+    nb = nbformat.read(recipes / recipe["slug"] / "notebook.ipynb", as_version=4)
+    state = next(c for c in nb.cells if c.get("id") == "state").source
+    assert "StopIteration" not in state and "next(" not in state
+    assert "add at least one demo example" in state
+    namespace = {"examples": [], "helpers": None}
+    with pytest.raises(ValueError, match="add at least one demo example"):
+        exec(state, namespace)  # noqa: S102 - runs the scaffold's own cell on an empty list
 
 
 def test_the_offline_environment_drops_the_live_switch_and_the_key():

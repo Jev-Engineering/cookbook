@@ -1,6 +1,7 @@
 """Create ``recipes/NN-slug/`` for recipe NN from ``catalog/recipes.json``.
 
-    python tools/new_recipe.py 7
+    python tools/new_recipe.py 7                  # a replay recipe (the default)
+    python tools/new_recipe.py 36 --mode scripted # a scripted or simulator recipe
 
 The folder gets a skeleton that follows ``recipes/_template/``: the notebook sections in
 order, a README, ``helpers.py``, ``build_fixtures.py`` and ``tests/test_helpers.py``. The title,
@@ -35,6 +36,7 @@ SECTIONS = [
 ]
 
 TODO_MARK = "TODO"
+MODES = ("replay", "scripted")  # --mode; replay is the default and the one most recipes use
 
 
 class ScaffoldError(Exception):
@@ -77,8 +79,11 @@ def _source_lines(catalog: dict, recipe: dict) -> str:
     return "\n".join(lines)
 
 
-def notebook_cells(catalog: dict, recipe: dict) -> list[dict]:
-    """The skeleton notebook's cells, with the catalog fields filled in."""
+def notebook_cells(catalog: dict, recipe: dict, mode: str = "replay") -> list[dict]:
+    """The skeleton notebook's cells, with the catalog fields filled in. ``mode`` is ``replay``
+    (the backend replays ``fixtures/responses.json``) or ``scripted`` (a seeded script in
+    ``helpers.py`` answers, and there are no stored responses)."""
+    scripted = mode == "scripted"
     number = recipe["rank"]
     title = recipe["title"]
     types = " + ".join(f"`{t}`" for t in recipe["decision_types"])
@@ -99,28 +104,50 @@ def notebook_cells(catalog: dict, recipe: dict) -> list[dict]:
     def code(cell_id: str, text: str) -> dict:
         return _cell("code", cell_id, text)
 
+    if scripted:
+        fixture_import = "from jev_cookbook.fixtures import load_inputs, load_labels"
+        backend_line = (
+            "backend = get_backend(script=helpers.script, seed=helpers.SEED)  "
+            "# the seeded script in helpers.py"
+        )
+    else:
+        fixture_import = (
+            "from jev_cookbook.fixtures import load_inputs, load_labels, responses_path"
+        )
+        backend_line = "backend = get_backend(fixtures=responses_path())"
+    answers_how = (
+        "computes its answers with a seeded script" if scripted else "replays synthetic answers"
+    )
+    setup_prose = (
+        f"{TODO_MARK}: add the imports your later sections use (evaluation and plotting "
+        "helpers), one sentence on the fixture set and its size."
+    )
+    if scripted:
+        setup_prose += (
+            f"\n\n{TODO_MARK}: say that a seeded script in `helpers.py` stands in for the model "
+            "(there are no stored responses), so the run is a pipeline check."
+        )
+
     return [
         md("intro", head),
         md(
             "setup-md",
             f"## {SECTIONS[1]}\n\n"
             "The notebook runs from its own folder with the standard library and `jev_cookbook` "
-            "only. The header states which mode ran.\n\n"
-            f"{TODO_MARK}: add the imports your later sections use (evaluation and plotting "
-            "helpers), one sentence on the fixture set and its size.",
+            "only. The header states which mode ran.\n\n" + setup_prose,
         ),
         code(
             "setup",
             f"""
 from jev_cookbook import get_backend, load_helpers
-from jev_cookbook.fixtures import load_inputs, load_labels, responses_path
+{fixture_import}
 from jev_cookbook.style import apply_style, run_header, show_answer
 
 apply_style()
 helpers = load_helpers()  # this recipe's helpers.py, loaded by path
 examples = load_inputs()
 labels = load_labels()
-backend = get_backend(fixtures=responses_path())
+{backend_line}
 # N for the header is the number of examples the metrics are about: the ones with a gold
 # label, which excludes the demo examples.
 scored = [e for e in examples if e.split != "demo"]
@@ -144,7 +171,10 @@ run_header(
         code(
             "state",
             """
-example = next(e for e in examples if e.split == "demo")
+demo = [e for e in examples if e.split == "demo"]
+if not demo:
+    raise ValueError("add at least one demo example to ROWS in build_fixtures.py")
+example = demo[0]
 state = helpers.build_state(example.fields)
 print(state)
 """,
@@ -198,7 +228,7 @@ for answer in result.answers.values():
             "measured-md",
             f"## {SECTIONS[7]}\n\n"
             f'{TODO_MARK}: while every answer is synthetic, keep this sentence: "Not measured '
-            "live: the offline run replays synthetic answers, so its numbers check the pipeline "
+            f"live: the offline run {answers_how}, so its numbers check the pipeline "
             'and say nothing about how Jev performs." For a recorded recipe, replace it with '
             "the model the API returned, the capture dates and N.\n\n"
             f"{TODO_MARK}: state the size of the fixture set and anything else this notebook "
@@ -225,9 +255,9 @@ else:
     ]
 
 
-def notebook_json(catalog: dict, recipe: dict) -> str:
+def notebook_json(catalog: dict, recipe: dict, mode: str = "replay") -> str:
     notebook = {
-        "cells": notebook_cells(catalog, recipe),
+        "cells": notebook_cells(catalog, recipe, mode),
         "metadata": {
             "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
             "language_info": {"name": "python"},
@@ -241,8 +271,29 @@ def notebook_json(catalog: dict, recipe: dict) -> str:
 # ----------------------------------------------------------------------------- other files
 
 
-def readme_text(catalog: dict, recipe: dict) -> str:
+def readme_text(catalog: dict, recipe: dict, mode: str = "replay") -> str:
     slug = recipe["slug"]
+    scripted = mode == "scripted"
+    run_note = (
+        "The notebook runs from this folder with no network and no API key. A seeded script in "
+        "`helpers.py` answers (there are no stored responses): see "
+        "[docs/simulation.md](../../docs/simulation.md)."
+        if scripted
+        else "The notebook runs from this folder with no network and no API key, replaying "
+        "`fixtures/`."
+    )
+    mode_line = (
+        "scripted (offline, answers computed by a seeded script). Not measured live."
+        if scripted
+        else "synthetic (offline replay of hand-written answers). Not measured live."
+    )
+    closing = (
+        "the offline run computes its answers with a seeded script written for this recipe, so "
+        "its numbers check that the pipeline works."
+        if scripted
+        else "the offline run replays synthetic answers written for this recipe, so its numbers "
+        "check that the pipeline works."
+    )
     types = " + ".join(f"`{t}`" for t in recipe["decision_types"])
     return f"""# {recipe["title"]}
 
@@ -264,7 +315,7 @@ python tools/execute_notebook.py recipes/{slug}
 pytest recipes/{slug}
 ```
 
-The notebook runs from this folder with no network and no API key, replaying `fixtures/`.
+{run_note}
 
 ## Switch to live
 
@@ -277,7 +328,7 @@ and always runs offline. Never put a key in a notebook or a fixture.
 
 ## What was and was not measured
 
-- **Mode:** synthetic (offline replay of hand-written answers). Not measured live.
+- **Mode:** {mode_line}
 - **Model, capture date:** not applicable while every answer is synthetic.
   {TODO_MARK}: if this recipe records real inference, replace the mode, model and date lines
   with the mode (`recorded` or `live`), the model the API returned, and the capture date or
@@ -287,8 +338,7 @@ and always runs offline. Never put a key in a notebook or a fixture.
 A recorded recipe states the model version the API returned, the capture date and N for every number
 it reports, here and in the notebook.
 
-{TODO_MARK}: while every answer is synthetic, keep this: the offline run replays synthetic answers
-written for this recipe, so its numbers check that the pipeline works. For a recorded recipe,
+{TODO_MARK}: while every answer is synthetic, keep this: {closing} For a recorded recipe,
 replace it with the model, the capture dates and N. Then state what the evaluation covers.
 
 ## Sources
@@ -297,7 +347,23 @@ replace it with the model, the capture dates and N. Then state what the evaluati
 """
 
 
-def helpers_text(recipe: dict) -> str:
+def helpers_text(recipe: dict, mode: str = "replay") -> str:
+    script_block = ""
+    if mode == "scripted":
+        script_block = f'''
+
+SEED = 0  # {TODO_MARK}: the backend seed, committed so the run is reproducible
+
+
+def script(state, questions, rng):
+    """Stand in for the model: return {{question name: spec}} for one request.
+
+    A spec is an option name or {{option: weight}} for a Choice, a probability of yes for a
+    Noul, and a list of weights for a Score. Use only ``rng.random()`` for chance, never the
+    global ``random`` or the clock: the same request must always give the same answer.
+    """
+    raise NotImplementedError("{TODO_MARK}: answer from the state, deliberately imperfect")
+'''
     return f'''"""Python's half of recipe {recipe["rank"]:02d}: the state, the questions and the rules.
 
 The fixture generator, the notebook and the tests all load this file with
@@ -318,7 +384,7 @@ def build_state(fields: dict[str, Any]):
 def build_questions():
     """The questions asked about every example. Python builds option lists and criteria."""
     raise NotImplementedError("{TODO_MARK}: return {{name: Choice | Noul | Score}}")
-
+{script_block}
 
 # {TODO_MARK}: the rule or rules Python enforces whatever the model answers, with tests.
 '''
@@ -329,10 +395,15 @@ def rows_hint(level: int) -> str:
     the size is stated wherever a number is reported."""
     if level <= 2:
         return f"tens of examples (about twenty) at level {level}"
-    return f"as many examples as level {level} needs to show its hard cases, small enough to read; state the size wherever a number is reported"
+    return (
+        f"as many examples as level {level} needs to show its hard cases, small enough to read; "
+        "state the size wherever a number is reported"
+    )
 
 
-def build_fixtures_text(recipe: dict) -> str:
+def build_fixtures_text(recipe: dict, mode: str = "replay") -> str:
+    if mode == "scripted":
+        return build_scripted_fixtures_text(recipe)
     return f'''"""Write fixtures/inputs.jsonl, labels.jsonl and responses.json for recipe {recipe["rank"]:02d}.
 
     python build_fixtures.py        # from anywhere; it writes next to this file
@@ -385,13 +456,57 @@ if __name__ == "__main__":
 '''
 
 
+def build_scripted_fixtures_text(recipe: dict) -> str:
+    """A scripted recipe has nothing to replay: ``replay_keys`` are empty and there is no
+    ``responses.json`` (docs/fixtures.md, "Replay and scripted recipes")."""
+    return f'''"""Write fixtures/inputs.jsonl and labels.jsonl for recipe {recipe["rank"]:02d} (scripted).
+
+    python build_fixtures.py        # from anywhere; it writes next to this file
+
+A scripted recipe has nothing to replay: every example has empty ``replay_keys`` and there is no
+responses.json, because ``helpers.script`` answers (see docs/simulation.md and
+docs/fixtures.md, "Replay and scripted recipes").
+"""
+
+import json
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+
+# (id, split, fields, gold label or None for a demo example)
+ROWS = []  # {TODO_MARK}: {rows_hint(recipe["level"])}, across validation and test
+
+
+def main() -> None:
+    if not ROWS:
+        raise SystemExit("{TODO_MARK}: add examples to ROWS in build_fixtures.py")
+    inputs, labels = [], []
+    for ident, split, fields, label in ROWS:
+        inputs.append({{"id": ident, "split": split, "fields": fields, "replay_keys": []}})
+        if label is not None:
+            labels.append({{"id": ident, "label": label}})
+    folder = HERE / "fixtures"
+    folder.mkdir(exist_ok=True)
+    for name, rows in (("inputs.jsonl", inputs), ("labels.jsonl", labels)):
+        text = "".join(json.dumps(row) + "\\n" for row in rows)
+        (folder / name).write_text(text, encoding="utf-8", newline="\\n")
+    (folder / "responses.json").unlink(missing_ok=True)  # a scripted recipe has none
+    print(f"wrote {{len(inputs)}} examples and {{len(labels)}} labels")
+
+
+if __name__ == "__main__":
+    main()
+'''
+
+
 def tests_text(recipe: dict) -> str:
+    # One text for both modes: the replay-key test checks which mode the fixtures are in.
     return f'''"""Tests for recipe {recipe["rank"]:02d}'s helpers. They load the helpers by file path."""
 
 from pathlib import Path
 
-from jev_cookbook import load_helpers, replay_key
-from jev_cookbook.fixtures import load_inputs
+from jev_cookbook import ScriptedBackend, load_helpers, replay_key
+from jev_cookbook.fixtures import load_inputs, validate_recipe
 
 RECIPE = Path(__file__).resolve().parent.parent
 helpers = load_helpers(RECIPE)
@@ -403,37 +518,51 @@ def test_questions_are_built_by_python():
 
 
 def test_every_replay_key_in_the_fixtures_matches_the_current_question():
-    # The fixture validator cannot see question drift; this test can. It assumes one request per
-    # example; adapt it when an example needs a dependent second request (CONTRIBUTING: a question that depends on an
-    # earlier answer goes in a later request).
+    # The fixture validator cannot see question drift; this test can.
     questions = helpers.build_questions()
-    for example in load_inputs(RECIPE):
+    examples = load_inputs(RECIPE)
+    if validate_recipe(RECIPE).mode == "scripted":
+        # A scripted recipe replays nothing: no example lists a key, and helpers.script gives the
+        # same answer to the same request every time (a fresh backend each time, same seed).
+        for example in examples:
+            assert example.replay_keys == ()
+            state = helpers.build_state(example.fields)
+            first = ScriptedBackend(helpers.script, helpers.SEED).decide(state, questions)
+            second = ScriptedBackend(helpers.script, helpers.SEED).decide(state, questions)
+            assert first.to_dict() == second.to_dict()
+        return
+    # A replay recipe: one request per example; adapt this when an example needs a dependent
+    # second request (CONTRIBUTING: a question that depends on an earlier answer goes in a later
+    # request), where the example lists a key for each request in order.
+    for example in examples:
         assert example.replay_keys == (replay_key(helpers.build_state(example.fields), questions),)
 '''
 
 
-def files_for(catalog: dict, recipe: dict) -> dict[str, str]:
+def files_for(catalog: dict, recipe: dict, mode: str = "replay") -> dict[str, str]:
     """``{relative path: text}`` of everything the scaffold creates."""
     return {
-        "notebook.ipynb": notebook_json(catalog, recipe),
-        "README.md": readme_text(catalog, recipe),
-        "helpers.py": helpers_text(recipe),
-        "build_fixtures.py": build_fixtures_text(recipe),
+        "notebook.ipynb": notebook_json(catalog, recipe, mode),
+        "README.md": readme_text(catalog, recipe, mode),
+        "helpers.py": helpers_text(recipe, mode),
+        "build_fixtures.py": build_fixtures_text(recipe, mode),
         "tests/test_helpers.py": tests_text(recipe),
     }
 
 
-def scaffold(number: int, catalog_path: Path, recipes_dir: Path) -> Path:
+def scaffold(number: int, catalog_path: Path, recipes_dir: Path, mode: str = "replay") -> Path:
     """Create ``recipes_dir/NN-slug/`` and return it. Raises ``ScaffoldError`` and writes
     nothing when the number is out of range, is not in the catalog, or the folder exists."""
     if not FIRST <= number <= LAST:
         raise ScaffoldError(f"recipe number must be {FIRST} to {LAST}, got {number}")
+    if mode not in MODES:
+        raise ScaffoldError(f"mode must be one of {', '.join(MODES)}, got {mode!r}")
     catalog = _load_catalog(catalog_path)
     recipe = find_recipe(catalog, number)
     target = recipes_dir / recipe["slug"]
     if target.exists():
         raise ScaffoldError(f"{target.as_posix()} already exists; refusing to overwrite it")
-    files = files_for(catalog, recipe)
+    files = files_for(catalog, recipe, mode)
     target.mkdir(parents=True)
     for name, text in files.items():
         path = target / name
@@ -453,6 +582,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--recipes-dir", type=Path, default=ROOT / "recipes", help="where recipe folders live"
     )
+    parser.add_argument(
+        "--mode",
+        choices=MODES,
+        default="replay",
+        help="replay (default): fixtures/responses.json is replayed; scripted: a seeded script "
+        "in helpers.py answers, for simulator and ScriptedBackend recipes",
+    )
     args = parser.parse_args(argv)
     if not args.number.isascii() or not args.number.isdigit():
         parser.error(f"recipe number must be a whole number, got {args.number!r}")
@@ -460,7 +596,7 @@ def main(argv: list[str] | None = None) -> int:
     if not FIRST <= number <= LAST:
         parser.error(f"recipe number must be {FIRST} to {LAST}, got {number}")
     try:
-        target = scaffold(number, args.catalog, args.recipes_dir)
+        target = scaffold(number, args.catalog, args.recipes_dir, args.mode)
     except ScaffoldError as error:
         print(f"error: {error}", file=sys.stderr)
         return 1

@@ -99,8 +99,9 @@ Needs only this page and the repository. Recipe `NN` is issue `NN` and its slug 
    Never `import helpers`: every recipe has a `helpers` module, pytest runs them all in one process, and
    the second would silently get the first. `load_helpers` loads the file by path under a name taken from
    the folder (`recipe_01_sentiment_classification_helpers`), so recipes cannot collide.
-4. **Write the fixtures.** Fill `ROWS` in `build_fixtures.py`: about twenty invented examples (this template has 22) across
-   `validation` and `test`, plus a couple of `demo` ones, gold labels, and stored answers that are
+4. **Write the fixtures.** Fill `ROWS` in `build_fixtures.py`: about
+   twenty invented examples (this template has 22; more at levels 3 to 5 when the hard cases need
+   it) across `validation` and `test`, plus a couple of `demo` ones, gold labels, and stored answers that are
    deliberately imperfect (some wrong, one hard case). Then write `answers_for`, which turns each row's
    spec into typed answers (for example `ChoiceAnswer.from_probabilities`); until you do it stops with a
    `TODO` error. Run `python recipes/NN-slug/build_fixtures.py`, then
@@ -126,6 +127,31 @@ Needs only this page and the repository. Recipe `NN` is issue `NN` and its slug 
    environment dumps: print nothing path-like.
 8. **Check everything.** From the repository root: `ruff check .`, `ruff format --check .`, `pytest`,
    `python tools/check_hygiene.py`, and `grep -rn TODO recipes/NN-slug` (it must print nothing).
+
+### Scripted or simulator recipes
+
+A recipe built on `ScriptedBackend` or a simulator (the closed-loop and scripted catalog entries)
+has nothing to replay, so its fixtures hold no responses. Scaffold it with `--mode scripted`:
+
+```bash
+python tools/new_recipe.py NN --mode scripted
+```
+
+What changes, and nothing else does:
+
+- `helpers.py` also has `SEED` and `script(state, questions, rng)`, which stands in for the model and
+  returns `{question name: spec}`. Use only `rng.random()` for chance; the same request must give the
+  same answer. Write it in step 3, next to `build_state` and `build_questions`.
+- `build_fixtures.py` writes `inputs.jsonl` and `labels.jsonl` only: every example has empty
+  `replay_keys`, there is no `responses.json` and no `answers_for`. `ROWS` has four fields per row
+  (id, split, fields, label).
+- The notebook's setup cell uses `get_backend(script=helpers.script, seed=helpers.SEED)`, and
+  `run_header(..., backend=backend, ...)` states `scripted`. The "measured" cell follows `backend.mode`.
+- The validator reports `fixtures valid (mode scripted)`.
+- The generated replay-key test checks the mode: for a scripted recipe it asserts the keys are empty
+  and that the script gives the same answer to the same request twice.
+
+How to drive a closed loop from the script is in [docs/simulation.md](../../docs/simulation.md).
 
 ### Pull request rules
 
