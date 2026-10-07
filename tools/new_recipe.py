@@ -112,8 +112,6 @@ def notebook_cells(catalog: dict, recipe: dict) -> list[dict]:
         code(
             "setup",
             f"""
-%matplotlib inline
-
 from jev_cookbook import get_backend, load_helpers
 from jev_cookbook.fixtures import load_inputs, load_labels, responses_path
 from jev_cookbook.style import apply_style, run_header, show_answer
@@ -129,12 +127,11 @@ scored = [e for e in examples if e.split != "demo"]
 
 offline = backend.mode in ("synthetic", "scripted")
 check = " (a pipeline check, not a Jev result)" if offline else ""
-# A synthetic header states no sample size; a recorded or live one must.
-header = run_header(
+run_header(
     {number},
     {json.dumps(title)},
     backend=backend,
-    n_examples=None if offline else len(scored),
+    n_examples=len(scored),
 )
 """,
         ),
@@ -178,7 +175,7 @@ for name, question in questions.items():
             """
 result = backend.decide(state, questions)
 for answer in result.answers.values():
-    text = show_answer(answer)
+    show_answer(answer)
 """,
         ),
         md(
@@ -200,8 +197,10 @@ for answer in result.answers.values():
         md(
             "measured-md",
             f"## {SECTIONS[7]}\n\n"
-            "Not measured live: the offline run replays synthetic answers, so its numbers check "
-            "the pipeline and say nothing about how Jev performs.\n\n"
+            f'{TODO_MARK}: while every answer is synthetic, keep this sentence: "Not measured '
+            "live: the offline run replays synthetic answers, so its numbers check the pipeline "
+            'and say nothing about how Jev performs." For a recorded recipe, replace it with '
+            "the model the API returned, the capture dates and N.\n\n"
             f"{TODO_MARK}: state the size of the fixture set and anything else this notebook "
             "does not show. Say nothing about Jev's quality, speed or cost.",
         ),
@@ -287,8 +286,9 @@ and always runs offline. Never put a key in a notebook or a fixture.
 A recorded recipe states the model version the API returned, the capture date and N for every number
 it reports, here and in the notebook.
 
-The offline run replays synthetic answers written for this recipe, so its numbers check that the
-pipeline works. {TODO_MARK}: state what the evaluation covers.
+{TODO_MARK}: while every answer is synthetic, keep this: the offline run replays synthetic answers
+written for this recipe, so its numbers check that the pipeline works. For a recorded recipe,
+replace it with the model, the capture dates and N. Then state what the evaluation covers.
 
 ## Sources
 
@@ -380,14 +380,23 @@ def tests_text(recipe: dict) -> str:
 
 from pathlib import Path
 
-from jev_cookbook import load_helpers
+from jev_cookbook import load_helpers, replay_key
+from jev_cookbook.fixtures import load_inputs
 
-helpers = load_helpers(Path(__file__).resolve().parent.parent)
+RECIPE = Path(__file__).resolve().parent.parent
+helpers = load_helpers(RECIPE)
 
 
 def test_questions_are_built_by_python():
     # {TODO_MARK}: assert the option lists and criteria, then test every rule in helpers.py
     assert helpers.build_questions()
+
+
+def test_every_replay_key_in_the_fixtures_matches_the_current_question():
+    # The fixture validator cannot see question drift; this test can.
+    questions = helpers.build_questions()
+    for example in load_inputs(RECIPE):
+        assert example.replay_keys == (replay_key(helpers.build_state(example.fields), questions),)
 '''
 
 

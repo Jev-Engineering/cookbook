@@ -221,7 +221,9 @@ def test_the_template_readme_discloses_mode_model_date_and_n():
 
 def test_the_header_counts_the_scored_examples_not_the_demo_ones():
     setup = source(next(c for c in NOTEBOOK["cells"] if c.get("id") == "setup"))
-    assert setup.splitlines()[0] == "%matplotlib inline"
+    assert "%matplotlib" not in setup
+    assert "n_examples=len(scored)" in setup and "None if offline" not in setup
+    assert "header = " not in setup and "sample size" not in setup
     assert 'scored = [e for e in examples if e.split != "demo"]' in setup
     assert "len(scored)" in setup and "len(examples)" not in setup
 
@@ -244,3 +246,10 @@ def test_the_generator_reproduces_the_committed_fixtures(tmp_path):
         assert (copy / "fixtures" / name).read_bytes() == (
             TEMPLATE / "fixtures" / name
         ).read_bytes()
+
+
+def test_the_first_next_step_names_the_tools_that_show_key_drift():
+    cell = next(c for c in NOTEBOOK["cells"] if c.get("id") == "next-md")
+    first = source(cell).split("\n- ")[1]
+    assert "pytest recipes/_template" in first and "git checkout" in first
+    assert "validator" not in first

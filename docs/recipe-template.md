@@ -39,13 +39,11 @@ measured**, **Next steps**. A recipe keeps these headings.
 
 - **Mode-neutral cells.** The notebook prints `check`, a suffix that says "a pipeline check, not a
   Jev result" in an offline run and is empty otherwise. `run_header(..., backend=backend)` states
-  the mode; it refuses `n_examples` for a synthetic backend, so the setup cell passes it only for a
-  recorded or live one.
+  the mode, and the setup cell passes `n_examples=len(scored)` in every mode.
 - **Validation chooses, test reports.** The one setting (a confidence threshold) is selected on
   `validation` with `select_confidence_threshold` and frozen before `test` is touched.
-- **Figures** are the last expression of a cell. The first line of the setup cell is
-  `%matplotlib inline`: the figures from `jev_cookbook.style` are not registered with pyplot, and
-  without the inline backend a returned figure prints as `<Figure ...>` instead of drawing.
+- **Figures** are the last expression of a cell. They draw after `apply_style()`; the notebook
+  needs no `%matplotlib inline` line.
 - **Nothing path-like is printed.** The hygiene scan fails notebook outputs that contain absolute
   paths, usernames or environment dumps.
 - **`Noul` propositions are statements** that can be true or false. The contract is stricter than

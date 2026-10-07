@@ -374,12 +374,14 @@ def test_no_timings_are_recorded(tmp_path):
     assert b"iopub" not in (folder / "notebook.ipynb").read_bytes()
 
 
-def test_the_scaffold_setup_cell_starts_inline_and_counts_the_scored_examples(catalog, recipes):
+def test_the_scaffold_setup_cell_counts_the_scored_examples_in_every_mode(catalog, recipes):
     _, recipe = entry(catalog, 1)
     run(1, catalog, recipes)
     nb = nbformat.read(recipes / recipe["slug"] / "notebook.ipynb", as_version=4)
     setup = next(c for c in nb.cells if c.get("id") == "setup").source
-    assert setup.splitlines()[0] == "%matplotlib inline"
+    assert "%matplotlib" not in setup
+    assert "n_examples=len(scored)" in setup and "None if offline" not in setup
+    assert "header = " not in setup and "sample size" not in setup
     assert 'scored = [e for e in examples if e.split != "demo"]' in setup
     assert "len(scored)" in setup
     assert "len(examples)" not in setup
@@ -400,3 +402,29 @@ def test_the_scaffold_readme_and_measured_cell_leave_room_for_a_recorded_run(cat
     nb = nbformat.read(folder / "notebook.ipynb", as_version=4)
     measured = next(c for c in nb.cells if c.get("id") == "measured").source
     assert "recorded_dates" in measured and "backend.model" in measured and "N:" in measured
+
+
+def test_no_synthetic_claim_in_the_scaffold_is_left_without_a_todo(catalog, recipes):
+    _, recipe = entry(catalog, 1)
+    run(1, catalog, recipes)
+    folder = recipes / recipe["slug"]
+    nb = nbformat.read(folder / "notebook.ipynb", as_version=4)
+    texts = [c.source for c in nb.cells if c.cell_type == "markdown"]
+    texts.append((folder / "README.md").read_text("utf-8"))
+    claims = [
+        paragraph
+        for text in texts
+        for paragraph in text.split("\n\n")
+        if "synthetic" in paragraph.lower()
+    ]
+    assert claims, "the scaffold should still carry the synthetic wording under a TODO"
+    for paragraph in claims:
+        assert "TODO" in paragraph, paragraph
+
+
+def test_the_scaffold_tests_include_the_replay_key_test(catalog, recipes):
+    _, recipe = entry(catalog, 1)
+    run(1, catalog, recipes)
+    tests = (recipes / recipe["slug"] / "tests" / "test_helpers.py").read_text("utf-8")
+    assert "def test_every_replay_key_in_the_fixtures_matches_the_current_question" in tests
+    assert "replay_keys" in tests and "replay_key(" in tests
