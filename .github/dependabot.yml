@@ -1,0 +1,14 @@
+# Weekly update pull requests, capped so the review queue is not flooded. Actions are pinned
+# to full commit SHAs with the version in a comment; Dependabot keeps both in step.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3

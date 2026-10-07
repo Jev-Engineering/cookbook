@@ -33,6 +33,96 @@ How a recipe's tests import its `helpers.py` is defined in #68 (every recipe has
 The README tables are generated: after a catalog change run
 `python tools/render_catalog.py`, and `python tools/render_catalog.py --check` to verify.
 
+Never edit the generated regions by hand. A recipe pull request that adds
+`recipes/NN-slug/notebook.ipynb` changes what the renderer produces, so the README must be
+regenerated in that same pull request. The recipe builder does not do this: a designated
+integration worker does, serially, after the branch is handed over to it (one worker at a time, each
+handover recorded on the pull request), updating the branch against current `main`, running the
+renderer, committing only the generated README regions and confirming `--check`, before the final
+review and CI run (see "The generated-README exception" in
+[CONTRIBUTING.md](../CONTRIBUTING.md)). `--check` stays strict and fails on any stale
+content, so on a recipe pull request that adds a notebook the `Catalog` check is expected to be
+red until the integration stage has run; the builder does not fix it. The scope check planned
+for #69 does not exist yet. It applies to a recipe pull request, meaning branch `recipe/<slug>` with
+`Closes #N` for N in 1 to 60, and fails closed if only one of the two holds or the slug cannot be
+resolved. Until it does, reviewers apply the same allowlist by hand with
+`git diff --raw -M origin/main...HEAD`: only paths under `recipes/NN-slug/` plus
+`README.md`, where `README.md` must stay a regular file of mode `100644` and must equal `render(<base README>, <head catalog>)` (rendered from
+the base README, not the head's, with the head's `recipes/` tree deciding publication). Reviewers reject symlink (`120000`) and submodule (`160000`) modes, any mode change (for example `100644 100755`), and any type change; every new or resulting mode must be `100644`; `--name-status` cannot show these, which is why the command is `--raw`. The
+full rule is in [CONTRIBUTING.md](../CONTRIBUTING.md).
+
+## Continuous integration
+
+`.github/workflows/ci.yml` (workflow `CI`) runs on every pull request and every push to
+`main`. It uses no secrets and makes no live API calls. These job names are stable so they
+can be made required checks; change one only deliberately, and add new jobs (for example
+notebook execution) under new names.
+
+| Check name | What it runs |
+| --- | --- |
+| `Lint (ruff)` | `ruff check .` and `ruff format --check .` |
+| `Catalog (README is current)` | `python tools/render_catalog.py --check` |
+| `Tests (py3.10)` | `pytest` on the package floor |
+| `Tests (py3.14)` | `pytest` on the newest interpreter contributors use |
+| `Hygiene (secrets and notebook outputs)` | `python tools/check_hygiene.py` (workflow `Hygiene`, `.github/workflows/hygiene.yml`) |
+
+Run the lint, test and hygiene commands from this document locally before opening a pull
+request. Third-party actions are pinned to full commit SHAs with the version in a
+comment; bump them deliberately, and keep the permissions at `contents: read`.
+
+## Repository hygiene
+
+`python tools/check_hygiene.py` scans every tracked file (or only the files you name) in a
+few seconds, with the standard library only. Run it before pushing a notebook.
+
+It covers, in every text file and in every notebook string (source, markdown, all text
+outputs such as stream, `text/plain`, `text/html`, error values and tracebacks, and
+metadata):
+
+- private-key blocks, well-known vendor key prefixes (`sk-`, GitHub, AWS, Slack, Google),
+  JWTs, `Authorization` header values, `Bearer` tokens, `name = value` assignments for
+  key, token, secret and password names (including `TYPESAFE_API_KEY=...`), tracked `.env`
+  files (`.env.example` is allowed), and long high-entropy tokens;
+- in notebook outputs and metadata only: Windows, Linux and macOS home-directory paths,
+  other absolute drive paths, WSL `/mnt/x/` paths, and `os.environ` dumps.
+
+Placeholders such as `<API_KEY>`, `{key}`, `$KEY` and `your-key-here` are accepted, as are
+the bare words `TYPESAFE_API_KEY` and `JEV_COOKBOOK_LIVE`. Findings print the file, the
+cell and output location, the rule, and a masked snippet, never the whole value.
+
+It does not cover: a TypeSafe key by prefix (the documentation shows no fixed prefix, so
+only the generic rules apply), short or low-entropy secrets, encoded or line-split secrets,
+image and PDF output payloads, or git history. No hex token of any length is caught by
+the entropy rule (hex cannot reach its threshold), so a hex-format key is caught only by the
+header, bearer and assignment rules. Notebooks of any size are parsed, ANSI colour codes in
+tracebacks are stripped, UTF-16 files are decoded, and a file that cannot be scanned (an
+unknown notebook layout, an undecodable or oversized non-image file) is reported as an
+`unscanned-file` or `unrecognized-notebook-layout` finding, never skipped silently. Git SHAs, content hashes, URL and
+file-path segments, and `data:` URIs are not treated as entropy findings. If a real credential
+is ever committed, revoke it; removing it from the branch is not enough.
+
+The fixture validator (#65) checks fixtures separately; this scan also reads fixture files
+as plain text, so a key-like string in a fixture fails here too.
+
+### Optional pre-commit
+
+`.pre-commit-config.yaml` mirrors the CI checks (`ruff check`, `ruff format --check`, the
+hygiene script, the catalog check). `pytest` runs only at push time, so commits stay fast.
+It is optional:
+
+```bash
+pip install pre-commit      # in the same virtual environment as pip install -e ".[dev]"
+pre-commit install --hook-type pre-commit --hook-type pre-push
+pre-commit run --all-files  # run the commit checks once, now
+pre-commit run --all-files --hook-stage pre-push   # include pytest
+```
+
+The hooks are local (`language: system`) and use the tools from your virtual environment,
+so the pinned ruff version is the one CI uses.
+
+Dependabot (`.github/dependabot.yml`) checks Python dependencies and GitHub Actions weekly,
+with at most three of its update pull requests open at once for each.
+
 ## Dependency policy
 
 - **Core** (`dependencies`): only what every offline notebook run needs. Currently
