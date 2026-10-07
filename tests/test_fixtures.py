@@ -507,7 +507,7 @@ def state_set(state: object) -> dict:
         "[" * 100 + "{" * 100,
         'say "' + "{" * 100,
         "ends with a backslash \\" + "[" * 100,
-        "\u005b" * 100,
+        r"\u005b" * 100,
         {"[" * 100: "{" * 100, "k": 'x"' + "[" * 100},
     ],
     ids=["plain", "after-escaped-quote", "after-backslash", "escaped-bracket", "in-a-key"],
@@ -1121,6 +1121,23 @@ def test_key_shaped_string_is_found_in_every_file(recipe, secret, rule, where):
     assert hits, messages(recipe)
     assert f"{where}.json" in hits[0]
     assert secret not in hits[0]  # the message never repeats the whole value
+
+
+@pytest.mark.parametrize("where", ["inputs", "labels", "responses"])
+def test_a_key_shaped_string_in_an_object_key_is_found(recipe, where):
+    """Only the decoded-string scan sees this: in the file the quotes are written ``\\"``."""
+    secret_key = "api_key" + ' = "' + "Zq8Lm4Vr9Tx2Wp7Ks" + '"'
+    if where == "inputs":
+        data = state_set({secret_key: "x"})
+    else:
+        data = good_set()
+        if where == "labels":
+            data["labels"][0]["label"] = {secret_key: "x"}
+        else:
+            data["responses"][data["inputs"][0]["replay_keys"][0]]["note"] = {secret_key: "x"}
+    write(recipe, data)
+    hits = [m for m in messages(recipe) if "[secret-assignment]" in m]
+    assert hits and f"{where}.json" in hits[0], messages(recipe)
 
 
 def test_scan_reports_the_line_number(recipe):
