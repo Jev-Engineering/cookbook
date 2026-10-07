@@ -26,6 +26,10 @@ What it does not cover: the TypeSafe documentation shows no fixed key prefix, so
 key is caught only by the generic rules (header, bearer, assignment, entropy), not by a
 prefix. Short or low-entropy secrets, secrets split across lines or encoded, image and PDF
 output payloads (base64 data is deliberately not scanned), and git history are out of scope.
+A bare ``name=VALUE`` assignment (letters of one case or digits joined by ``_``, the value
+also by ``.``, no quotes) is code and is not scored by the entropy rule, so a long all-lowercase
+or all-uppercase secret assigned, unquoted, to a name that contains none of api key, secret,
+token, password, access key or credential is not caught by it.
 No hex token of any length is caught by the entropy rule (hex cannot reach the threshold); a
 hex-format key is caught only by the header, bearer and assignment rules. ANSI colour codes
 are stripped before scanning. UTF-8 and UTF-16/32 text is decoded; a notebook of any size is
@@ -161,13 +165,19 @@ _PATH_SHAPED = re.compile(r"://|^/[a-z_.-]+/|^\.{1,2}/|^[A-Za-z]:[\/]|\.[A-Za-z0
 _DATA_URI = re.compile(r"data:[\w./+-]+;base64,[A-Za-z0-9+/=]+")
 _ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 _ENTROPY_THRESHOLD = 4.2
-# An identifier assigned another identifier, such as a ruff-style keyword argument
-# ``startup_timeout=KERNEL_START_TIMEOUT``, is code, not a secret. The right side must be one
-# or more runs of letters or digits joined by "_" or "." where no run mixes letters with
-# digits and no run mixes cases (SCREAMING_SNAKE or lower_snake, no quotes), so a value like
-# ``token=a1B2c3...`` or a quoted string is still scored.
-_IDENT_ASSIGNMENT = re.compile(
-    r"[A-Za-z_][A-Za-z0-9_]*=_*(?:[A-Z]+|[a-z]+|[0-9]+)(?:[_.]+(?:[A-Z]+|[a-z]+|[0-9]+))*_*"
+# A name assigned a bare name, such as a ruff-style keyword argument
+# ``startup_timeout=KERNEL_START_TIMEOUT``, is code, not a secret. Both sides are runs of
+# letters or of digits joined by "_" (the right side also by "."), where no run mixes letters
+# with digits and no run mixes cases (SCREAMING_SNAKE or lower_snake, no quotes); the left side
+# starts with a letter run. A left side that names a secret (api key, secret, token, password,
+# access key, credential) is never exempt, because a one-case value such as ``token=`` plus
+# 36 lowercase letters is a real secret shape. A mixed-case or letter-and-digit run on either
+# side is still scored, so ``token=a1B2c3...``, a key followed by ``=1`` and a quoted
+# string are all still scored.
+_RUN = r"(?:[A-Z]+|[a-z]+|[0-9]+)"
+_IDENT_ASSIGNMENT = re.compile(rf"_*(?:[A-Z]+|[a-z]+)(?:_+{_RUN})*_*=_*{_RUN}(?:[_.]+{_RUN})*_*")
+_SECRET_NAME = re.compile(
+    r"api[_-]?key|secret|token|passw(?:or)?d|access[_-]?key|credential", re.IGNORECASE
 )
 
 
@@ -189,7 +199,7 @@ def _scan_secrets_line(line: str) -> Iterator[tuple[str, str]]:
         if _letters_and_digits(v) and not _is_placeholder(v):
             yield "secret-assignment", _mask(v)
     for word in _WORD.findall(line):
-        if _IDENT_ASSIGNMENT.fullmatch(word):
+        if _IDENT_ASSIGNMENT.fullmatch(word) and not _SECRET_NAME.search(word.partition("=")[0]):
             continue
         pattern = _TOKEN if _PATH_SHAPED.search(word) else _TOKEN_SLASH
         for t in pattern.findall(word):

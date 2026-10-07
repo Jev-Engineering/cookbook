@@ -1113,29 +1113,28 @@ IDENTIFIER_ASSIGNMENTS = [
     "client = make(startup_timeout=KERNEL_START_TIMEOUT)",
     "policy = run(retry_policy=DEFAULT_RETRY_POLICY_SETTINGS)",
     "limit = run(max_requests_per_run=DEFAULT_MAX_REQUESTS)",
-    "limit = run(max_requests_per_run=default_max_requests_value)",
-    "cfg = build(request_timeout_seconds=settings.default_request_timeout)",
+    "flush = run(flush_queue_jobs=pack_my_box_with_five_dozen_liquor_jugs)",
+    "size = run(max_batch_size=quickly_judge_wax_buzz_frog_pixel)",
+    "box = run(quick_zephyr_vow_jumpy_wax_bulge=settings.fox_size)",
     "startup_timeout=KERNEL_START_TIMEOUT,",
 ]
 
 
 @pytest.mark.parametrize("line", IDENTIFIER_ASSIGNMENTS)
 def test_identifier_keyword_arguments_are_not_high_entropy_findings(line, tmp_path):
+    # Guard against a case that guards nothing: without the exemption this line would score.
+    scored = [
+        t
+        for word in hygiene._WORD.findall(line)
+        for t in hygiene._TOKEN_SLASH.findall(word)
+        if hygiene._entropy(t) >= hygiene._ENTROPY_THRESHOLD
+    ]
+    assert scored, line
     assert hygiene.scan_text(line) == []
     assert scan(tmp_path, notebook(source=line)) == []
     path = tmp_path / "module.py"
-    path.write_text(f"{line}\n", encoding="utf-8")
+    path.write_text(line + chr(10), encoding="utf-8")
     assert hygiene.run([path], tmp_path) == []
-
-
-def test_the_reported_line_was_a_high_entropy_finding_before_the_exemption():
-    # The exemption is what lets the line through: without it the word scores as a token.
-    line = "client = make(startup_timeout=KERNEL_START_TIMEOUT)"
-    assert len(line.split("(")[1].rstrip(")")) >= 32
-    assert hygiene._IDENT_ASSIGNMENT.fullmatch("startup_timeout=KERNEL_START_TIMEOUT")
-    word = "startup_timeout=KERNEL_START_TIMEOUT"
-    token = hygiene._TOKEN_SLASH.findall(word)[0]
-    assert hygiene._entropy(token) >= hygiene._ENTROPY_THRESHOLD
 
 
 LONG_VALUE = "Zx3cV6bN" + "9mQ2wE5r" + "T8yU1iO4" + "pA7sD0fG" + "2hJ"
@@ -1157,5 +1156,34 @@ LONG_VALUE = "Zx3cV6bN" + "9mQ2wE5r" + "T8yU1iO4" + "pA7sD0fG" + "2hJ"
     ],
 )
 def test_assignments_of_secret_looking_values_are_still_caught(text, tmp_path):
+    assert hygiene.scan_text(text), text
+    assert scan(tmp_path, notebook(source=text)), text
+
+
+LOWER_36 = "qzvxkjwpmbfhdgtycnrls" + "aeiouqzvxkjwpm"
+UPPER_36 = LOWER_36.upper()
+MIXED_34 = "AbCdEfGhIjKlMnOpQrStUvWxYzAbCdEfGh"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # left side is a long mixed-case key, right side a bare value
+        f"{MIXED_34}=1",
+        f"{MIXED_34}=true",
+        f"{MIXED_34}=TRUE",
+        # a secret-named left side is never exempt, whatever the case of the value
+        f"token={LOWER_36}",
+        f"password={LOWER_36}",
+        f"passwd={LOWER_36}",
+        f"secret={UPPER_36}",
+        f"aws_secret_access_key={UPPER_36}",
+        f"API_KEY={UPPER_36}",
+        f"db_password={'_'.join(['quartz', 'jovial', 'fox', 'whisked', 'dynamic', 'plum'])}",
+        f"client_credential={LOWER_36}",
+        f"access_key={UPPER_36}",
+    ],
+)
+def test_one_case_values_and_long_left_sides_cannot_hide_a_secret(text, tmp_path):
     assert hygiene.scan_text(text), text
     assert scan(tmp_path, notebook(source=text)), text
