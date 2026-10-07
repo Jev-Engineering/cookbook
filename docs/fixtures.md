@@ -203,7 +203,8 @@ folder = Path("fixtures")
 folder.mkdir(exist_ok=True)
 inputs, labels, responses = [], [], {}
 for ident, split, fields, label, p in rows:
-    key = replay_key(build_state(fields), QUESTIONS)  # a `fields` example gets its key from build_state
+    # a `fields` example gets its key from build_state
+    key = replay_key(build_state(fields), QUESTIONS)
     inputs.append({"id": ident, "split": split, "fields": fields, "replay_keys": [key]})
     labels.append({"id": ident, "label": label})
     answer = NoulAnswer(p, Provenance.synthetic())
