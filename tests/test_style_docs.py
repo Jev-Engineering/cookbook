@@ -26,6 +26,7 @@ def test_documented_header_texts_match_the_code():
             7, "Triage tickets", "recorded", model="MODEL", recorded_on="2026-01-02"
         ).replace("2026-01-02", "DATE"),
         style.run_header_text(7, "Triage tickets", "live", model="MODEL"),
+        style.run_header_text(7, "Triage tickets", "synthetic", n_examples=12),
     ]
     for header in expected:
         assert header in text

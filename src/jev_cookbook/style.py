@@ -22,6 +22,7 @@ Every answer also has a ``provenance``. This module imports no SDK and no other 
 
 from __future__ import annotations
 
+import io
 import json
 import math
 from collections.abc import Iterator, Mapping, Sequence
@@ -34,6 +35,7 @@ import matplotlib as mpl
 import numpy as np
 from cycler import cycler
 from matplotlib.axes import Axes
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.colors import LinearSegmentedColormap, to_rgb
 from matplotlib.figure import Figure
 
@@ -132,10 +134,41 @@ def _register_cmap() -> None:
         mpl.colormaps.register(SEQUENTIAL_CMAP, name="jev_sequential")
 
 
+def _figure_png(fig: Figure) -> bytes:
+    """The figure as PNG bytes, drawn with the Agg canvas (no pyplot, no GUI backend)."""
+    buffer = io.BytesIO()
+    FigureCanvasAgg(fig)  # a non-pyplot Figure has no canvas that can print PNG yet
+    fig.savefig(buffer, format="png", bbox_inches="tight")
+    return buffer.getvalue()
+
+
+def _register_notebook_display() -> None:
+    """Under IPython, show a returned ``Figure`` as a PNG without ``%matplotlib inline``.
+
+    The chart helpers return figures that are not registered with pyplot, so the inline
+    backend never sees them. This registers a PNG formatter for ``Figure`` on the running
+    shell's display formatter; outside IPython (a script, pytest) it does nothing, and so
+    does a missing IPython. Registering twice replaces the earlier formatter.
+    """
+    try:
+        from IPython import get_ipython
+    except ImportError:
+        return
+    shell = get_ipython()
+    if shell is None or not hasattr(shell, "display_formatter"):
+        return
+    shell.display_formatter.formatters["image/png"].for_type(Figure, _figure_png)
+
+
 def apply_style() -> None:
-    """Apply the cookbook style to matplotlib globally (call once, near the top)."""
+    """Apply the cookbook style to matplotlib globally (call once, near the top).
+
+    Under IPython (a notebook) it also makes a cell that ends with a returned ``Figure``
+    display as a PNG, whether or not ``%matplotlib inline`` was run.
+    """
     _register_cmap()
     mpl.rcParams.update(rc_params())
+    _register_notebook_display()
 
 
 @contextmanager
@@ -183,7 +216,9 @@ class RunInfo:
     ``mode`` is one of ``synthetic`` (offline replay of synthetic fixtures), ``scripted``
     (offline scripted backend), ``recorded`` (offline replay of recorded fixtures; needs
     ``model`` and ``recorded_on``) or ``live`` (calls made now; needs ``model``).
-    ``n_examples`` is an optional sample size, stated in the recorded and live headers.
+    ``n_examples`` is an optional sample size, stated in every header: as the size of the
+    fixture sample the pipeline check ran on (synthetic, scripted), or as the sample the
+    numbers describe (recorded, live).
     ``recorded_until`` (recorded only) is the last capture date when the fixtures were
     recorded on several days; the header then says "between ``recorded_on`` and
     ``recorded_until``".
@@ -207,8 +242,6 @@ class RunInfo:
         if self.recorded_until and self.mode != "recorded":
             raise ValueError("recorded_until only applies to a recorded run")
         if self.mode in ("synthetic", "scripted"):
-            if self.n_examples is not None:
-                raise ValueError(f"a {self.mode} header does not state a sample size")
             if self.model or self.recorded_on:
                 raise ValueError(
                     f"a {self.mode} run was not produced by a model: "
@@ -293,11 +326,16 @@ def run_header_text(
         if info.recorded_until and info.recorded_until != info.recorded_on
         else f"on {info.recorded_on}"
     )
+    pipeline = (
+        f", pipeline check on a fixture sample of {_plural(info.n_examples)}"
+        if info.n_examples is not None
+        else ""
+    )
     if info.mode == "synthetic":
-        second = "Mode: offline replay of synthetic fixtures"
+        second = f"Mode: offline replay of synthetic fixtures{pipeline}"
         third = SYNTHETIC_NOTICE
     elif info.mode == "scripted":
-        second = "Mode: offline, scripted backend"
+        second = f"Mode: offline, scripted backend{pipeline}"
         third = SYNTHETIC_NOTICE
     elif info.mode == "recorded":
         second = "Mode: offline replay of recorded fixtures"
@@ -324,12 +362,16 @@ def run_header(
     recorded_on: str | None = None,
     n_examples: int | None = None,
     backend: Any = None,
-) -> str:
-    """Print the recipe number, title, run mode and what that mode means. Returns the text.
+) -> None:
+    """Print the recipe number, title, run mode and what that mode means. Returns ``None``.
+
+    Use :func:`run_header_text` for the same text as a string. Returning ``None`` means a
+    cell that ends with this call shows no second, echoed output.
 
     ``mode`` is ``"synthetic"``, ``"scripted"``, ``"recorded"`` or ``"live"``, or a
     :class:`RunInfo`. Recorded runs need ``model`` and ``recorded_on``; live runs need
-    ``model``. ``n_examples`` adds the sample size to those two.
+    ``model``. ``n_examples`` adds the sample size to every mode (for synthetic and scripted
+    runs, the size of the fixture sample the pipeline check ran on).
 
     Instead of a mode, pass ``backend=`` (any object with ``mode``, ``model`` and, for
     recorded runs, ``recorded_dates``, such as the backends of ``jev_cookbook.backends``):
@@ -346,7 +388,6 @@ def run_header(
         backend=backend,
     )
     print(text)
-    return text
 
 
 # --- one typed answer ----------------------------------------------------------------------
@@ -435,11 +476,9 @@ def format_answer(answer: Any) -> str:
     return "\n".join(lines)
 
 
-def show_answer(answer: Any) -> str:
-    """Print one typed answer readably and return the text. Shown before any aggregate."""
-    text = format_answer(answer)
-    print(text)
-    return text
+def show_answer(answer: Any) -> None:
+    """Print one typed answer readably (returns ``None``; :func:`format_answer` gives the text)."""
+    print(format_answer(answer))
 
 
 # --- charts --------------------------------------------------------------------------------
