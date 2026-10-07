@@ -154,6 +154,12 @@ def _prob_map_any(value: Any, what: str) -> Mapping[Any, Any]:
     return value
 
 
+def _require_object(value: Any, what: str) -> Mapping[str, Any]:
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{what} must be an object, got {type(value).__name__}")
+    return value
+
+
 def _reject_unknown(data: Mapping[str, Any], allowed: set[str], what: str) -> None:
     extra = set(data) - allowed
     if extra:
@@ -208,6 +214,7 @@ class Provenance:
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> Provenance:
+        data = _require_object(data, "provenance")
         _reject_unknown(data, {"source", "model", "date"}, "provenance")
         return cls(data.get("source"), data.get("model"), data.get("date"))
 
@@ -433,6 +440,7 @@ class Usage:
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> Usage:
+        data = _require_object(data, "usage")
         _reject_unknown(data, {"input_tokens", "output_tokens"}, "usage")
         return cls(data.get("input_tokens"), data.get("output_tokens"))
 
@@ -508,8 +516,10 @@ class DecisionResult:
         answers = data.get("answers")
         if not isinstance(answers, Mapping):
             raise ValueError("result 'answers' must be a mapping")
+        # An absent "usage" means "not reported"; one that is present must be an object.
+        usage = Usage.from_dict(data["usage"]) if "usage" in data else Usage()
         return cls(
             {k: answer_from_dict(v) for k, v in answers.items()},
             data.get("model"),
-            Usage.from_dict(data.get("usage") or {}),
+            usage,
         )
