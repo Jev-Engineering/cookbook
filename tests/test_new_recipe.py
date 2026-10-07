@@ -562,6 +562,99 @@ def test_a_kernel_that_never_starts_exits_1_with_one_line(tmp_path, monkeypatch,
     assert (folder / "notebook.ipynb").read_bytes() == before
 
 
+START_MESSAGES = [
+    "Kernel didn't respond in 60 seconds",
+    "Kernel died before replying to kernel_info",
+]
+
+
+@pytest.mark.parametrize("message", START_MESSAGES)
+def test_a_kernel_start_failure_is_retried_once_and_then_the_notebook_runs(
+    tmp_path, monkeypatch, message
+):
+    folder = tmp_path / "flaky"
+    write_notebook(folder, "print('ran')")
+    real = execute_notebook.NotebookClient.execute
+    calls = []
+
+    def lose_the_first_start(self, *args, **kwargs):
+        calls.append(1)
+        if len(calls) == 1:
+            raise RuntimeError("Kernel died before replying to kernel_info")
+        return real(self, *args, **kwargs)
+
+    monkeypatch.setattr(execute_notebook.NotebookClient, "execute", lose_the_first_start)
+    assert execute_notebook.main([str(folder)]) == 0
+    assert len(calls) == 2
+    nb = nbformat.read(folder / "notebook.ipynb", as_version=4)
+    assert nb.cells[0].outputs[0].text == "ran\n"
+
+
+@pytest.mark.parametrize("message", START_MESSAGES)
+def test_a_kernel_that_fails_to_start_twice_is_tried_exactly_twice(
+    tmp_path, monkeypatch, capsys, message
+):
+    folder = tmp_path / "nostart2"
+    write_notebook(folder, "1 + 1")
+    calls = []
+
+    def refuse(self, *args, **kwargs):
+        calls.append(1)
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(execute_notebook.NotebookClient, "execute", refuse)
+    assert execute_notebook.main([str(folder)]) == 1
+    assert len(calls) == 2
+    assert "the kernel did not start" in capsys.readouterr().err
+
+
+PROBE = """
+import sys
+sys.path.insert(0, {tools!r})
+import execute_notebook as tool
+from jupyter_client.asynchronous.client import AsyncKernelClient
+real = AsyncKernelClient.wait_for_ready
+calls = []
+async def lose_the_first(self, *args, **kwargs):
+    calls.append(1)
+    if len(calls) == 1:
+        raise RuntimeError("Kernel died before replying to kernel_info")
+    return await real(self, *args, **kwargs)
+AsyncKernelClient.wait_for_ready = lose_the_first
+sys.exit(tool.main([{folder!r}]))
+"""
+
+
+def test_a_failed_start_leaves_no_exit_time_noise(tmp_path):
+    """After a failed first start and a successful retry, the process exits silently: nbclient's
+    exit-time cleanup hook for the failed client (an AssertionError at exit) is unregistered."""
+    folder = tmp_path / "quiet"
+    write_notebook(folder, "1 + 1")
+    script = tmp_path / "probe.py"
+    script.write_text(PROBE.format(tools=str(REPO / "tools"), folder=str(folder)), encoding="utf-8")
+    result = subprocess.run(
+        [sys.executable, str(script)], capture_output=True, text=True, timeout=180
+    )
+    assert result.returncode == 0, result.stderr
+    assert "AssertionError" not in result.stderr
+    assert "atexit" not in result.stderr
+
+
+def test_a_failing_cell_is_never_retried(tmp_path, monkeypatch):
+    folder = tmp_path / "failsonce"
+    write_notebook(folder, "raise ValueError('nope')")
+    real = execute_notebook.NotebookClient.execute
+    calls = []
+
+    def count(self, *args, **kwargs):
+        calls.append(1)
+        return real(self, *args, **kwargs)
+
+    monkeypatch.setattr(execute_notebook.NotebookClient, "execute", count)
+    assert execute_notebook.main([str(folder)]) == 1
+    assert len(calls) == 1
+
+
 def test_a_warning_in_a_cell_counts_as_stderr(tmp_path):
     folder = tmp_path / "warns"
     write_notebook(folder, "import warnings\nwarnings.warn('careful')")
