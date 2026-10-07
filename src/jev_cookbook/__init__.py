@@ -44,6 +44,7 @@ from .live import (
     record,
 )
 from .questions import Choice, Noul, Question, Score, question_from_dict
+from .recipe import load_helpers
 
 __version__ = "0.1.0"
 
@@ -74,6 +75,7 @@ __all__ = [
     "Usage",
     "answer_from_dict",
     "get_backend",
+    "load_helpers",
     "merge_responses",
     "question_from_dict",
     "record",
