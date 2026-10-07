@@ -278,6 +278,17 @@ def test_store_copies_values_and_validates() -> None:
     assert str(StoreError("no live key 'x'")) == "no live key 'x'"
 
 
+def _vandalize(store: Store) -> None:
+    """Edit every record the store hands out, as a careless caller might."""
+    for record in store.writes() + [r for k in store.keys() for r in store.history(k)]:
+        if isinstance(record.value, dict):
+            record.value["vandal"] = 1
+        elif isinstance(record.value, list):
+            record.value.append("vandal")
+        if record.answer is not None:
+            record.answer["choice"] = "vandal"
+
+
 def test_store_never_deletes_property() -> None:
     for seed in range(200):
         rng = random.Random(seed)
@@ -289,7 +300,8 @@ def test_store_never_deletes_property() -> None:
             op = rng.random()
             if op < 0.5:
                 key = rng.choice(keys)
-                store.put(key, rng.randrange(100), writer="gen", step=step)
+                value = {"n": [rng.randrange(100)]}
+                store.put(key, value, writer="gen", step=step, answer=_answer())
                 ever[key] = ever.get(key, 0) + 1
             elif op < 0.75 and store.keys():
                 key = rng.choice(store.keys())
@@ -298,9 +310,11 @@ def test_store_never_deletes_property() -> None:
             else:
                 store.rollback(rng.randrange(store.version + 1), step=step)
                 ever = {k: len(store.history(k)) for k in ever}
+            snapshot = json.loads(json.dumps(store.to_dicts()))  # an independent copy
+            assert snapshot[: len(previous)] == previous  # existing records never change
+            previous = snapshot
+            _vandalize(store)  # edits to returned records must not reach the store
             writes = store.writes()
-            assert writes[: len(previous)] == previous  # existing records never change
-            previous = writes
             assert [w.version for w in writes] == list(range(1, len(writes) + 1))
             for key, count in ever.items():
                 assert len(store.history(key)) >= count  # a key's history only grows
@@ -369,7 +383,7 @@ def test_transaction_commits_with_provenance_and_rolls_back() -> None:
             validate=_no_overdraft,
         )
     assert err.value.record.status == "rolled_back" and tx.store.version == version
-    assert tx.log[-1] is err.value.record and tx.log[-1].ops == ()
+    assert tx.log[-1] == err.value.record and tx.log[-1].ops == ()
 
 
 def test_transaction_failures_in_every_phase_roll_back() -> None:
@@ -539,19 +553,195 @@ def test_docs_example_runs_end_to_end(capsys: pytest.CaptureFixture[str]) -> Non
     namespace: dict = {}
     exec(compile(block, "docs/simulation.md", "exec"), namespace)
     printed = capsys.readouterr().out
-    sim, budget, queue, actions = (
+    sim, budget, queue, actions, tx = (
         namespace["sim"],
         namespace["budget"],
         namespace["queue"],
         namespace["actions"],
+        namespace["tx"],
     )
     assert sim.done and printed.startswith("{")
     assert budget.used("calls") <= 40 and budget.used("calls") == len(queue) + len(actions)
     assert len(actions) == sim.steps and all(not a["executed"] for a in actions.to_dicts())
+    # The review path is taken: unsure answers are queued, with their reason and typed answer.
+    assert len(queue) > 0 and len(queue.pending()) == len(queue)
+    assert all(i.reason == "unsure which move" for i in queue.pending())
     assert all(i.answer["confidence"] < 0.3 for i in queue.pending())
+    # The transaction validator really rejects: a revisited cell is refused and changes nothing.
+    rejected = [r for r in tx.log if r.status == "rolled_back"]
+    committed = [r for r in tx.log if r.committed]
+    assert rejected and committed
+    assert all("already visited" in r.error and r.ops == () for r in rejected)
+    assert len(tx.store.writes()) == len(committed) == len(tx.store.keys())
+    assert replay_transactions(tx.log).to_dicts() == tx.store.to_dicts()
     # Same seeds, same run; and the trajectory replays without the backend.
-    again = namespace["run"](3, 0)
+    again = namespace["run"](0, 0)
     assert again[0].trajectory() == sim.trajectory()
     assert again[2].to_dicts() == queue.to_dicts()
-    assert ToyGrid().replay(sim.trajectory(), seed=3) == sim.snapshot()
-    assert namespace["run"](3, 1)[0].snapshot()["target"] == sim.snapshot()["target"]
+    assert again[4].to_dicts() == tx.to_dicts()
+    assert ToyGrid().replay(sim.trajectory(), seed=0) == sim.snapshot()
+    assert namespace["run"](0, 1)[0].snapshot()["target"] == sim.snapshot()["target"]
+
+
+# --------------------------------------------------------------------------------------
+# Fix round 1: argument checks, returned records, strict replay
+# --------------------------------------------------------------------------------------
+
+
+def test_bad_arguments_write_nothing_and_log_nothing() -> None:
+    tx = Transactor()
+    tx.run("seed", lambda v, p: v.put("x", 0), writer="w")
+    store_before, log_before = tx.store.to_dicts(), tx.to_dicts()
+
+    def put(v, p):
+        v.put("x", 1)
+
+    bad_calls = [
+        {"name": ""},
+        {"name": 5},
+        {"writer": ""},
+        {"step": -1},
+        {"rule": ""},
+        {"params": object()},
+        {"answer": 5},
+    ]
+    for override in bad_calls:
+        kwargs = {"name": "t", "writer": "w", **override}
+        with pytest.raises((ValueError, TypeError)):
+            tx.run(kwargs.pop("name"), put, **kwargs)
+        assert tx.store.to_dicts() == store_before and tx.to_dicts() == log_before
+    assert replay_transactions(tx.log).to_dicts() == tx.store.to_dicts()
+
+
+def _deep_vandal(value: object) -> None:
+    """Edit a returned dict or list in place, at every level."""
+    if isinstance(value, dict):
+        for item in value.values():
+            _deep_vandal(item)
+        value["vandal"] = 1
+    elif isinstance(value, list):
+        for item in value:
+            _deep_vandal(item)
+        value.append("vandal")
+
+
+def test_returned_records_are_copies() -> None:
+    # Store: history() and writes().
+    store = Store()
+    store.put("k", {"n": [1]}, writer="w", step=1, answer=_answer())
+    for record in store.history("k") + store.writes():
+        _deep_vandal(record.value)
+        _deep_vandal(record.answer)
+    assert store.at(1) == {"k": {"n": [1]}} and store.get("k") == {"n": [1]}
+    assert store.history("k")[0].answer == _answer().to_dict()
+
+    # Simulator: log and the record step() returns.
+    sim = ToyGrid(seed=2, slip=0.0)
+    returned = sim.step("right")
+    _deep_vandal(returned.observation)
+    _deep_vandal(returned.outcome)
+    _deep_vandal(sim.log[0].observation)
+    sim.log.append("junk")  # type: ignore[arg-type]
+    fresh = ToyGrid(seed=2, slip=0.0)
+    fresh.step("right")
+    assert sim.trajectory() == fresh.trajectory() and sim.steps == 1
+    assert ToyGrid(slip=0.0).replay(sim.trajectory(), seed=2) == sim.snapshot()
+
+    # ReviewQueue: get(), pending(), and what resolve() returns.
+    queue = ReviewQueue()
+    queue.submit({"t": [1]}, "why", answer=_answer(), step=1)
+    before = queue.to_dicts()
+    for item in (queue.get(0), queue.pending()[0]):
+        _deep_vandal(item.item)
+        _deep_vandal(item.answer)
+    resolved = queue.resolve(0, {"r": [1]})
+    _deep_vandal(resolved.resolution)
+    _deep_vandal(queue.get(0).resolution)
+    assert queue.to_dicts()[0]["item"] == before[0]["item"]
+    assert queue.to_dicts()[0]["answer"] == before[0]["answer"]
+    assert queue.to_dicts()[0]["resolution"] == {"r": [1]}
+
+    # Transactor: log and the record run() returns.
+    tx = Transactor()
+    record = tx.run("t", lambda v, p: v.put("a", [1]), params={"p": [1]}, writer="w")
+    snapshot = json.loads(json.dumps(tx.to_dicts()))
+    _deep_vandal(record.params)
+    for op in record.ops:
+        _deep_vandal(op)
+    for entry in tx.log:
+        _deep_vandal(entry.params)
+        for op in entry.ops:
+            _deep_vandal(op)
+    assert tx.to_dicts() == snapshot
+    assert replay_transactions(tx.log).to_dicts() == tx.store.to_dicts()
+
+
+def _good_log() -> list[dict]:
+    """A transaction log with commits and one rollback, as plain dicts."""
+    tx = Transactor()
+    tx.run("a", lambda v, p: (v.put("x", 1), v.put("y", 2)), writer="w", step=0)
+    tx.run("b", lambda v, p: v.put("x", 3), writer="w", step=1)
+    tx.run("bad", lambda v, p: v.delete("nope"), writer="w", raise_on_failure=False)
+    tx.run("c", lambda v, p: v.delete("y"), writer="w", step=2, rule="r")
+    return json.loads(json.dumps(tx.to_dicts()))
+
+
+def test_replay_accepts_a_good_log_and_rejects_a_missing_middle_entry() -> None:
+    log = _good_log()
+    assert replay_transactions(log).snapshot() == {"x": 3}
+    # Dropping a committed entry that is not the last leaves a gap in the versions.
+    for dropped in (0, 1):
+        with pytest.raises(ReplayMismatch, match="version"):
+            replay_transactions(log[:dropped] + log[dropped + 1 :])
+    # A rolled-back entry consumes no version, so dropping it leaves the rest consistent.
+    assert replay_transactions(log[:2] + log[3:]).snapshot() == {"x": 3}
+    with pytest.raises(ReplayMismatch):
+        replay_transactions([log[1], log[0], *log[2:]])
+
+
+def _extra_op(entry: dict, op: dict) -> None:
+    """Append an operation and keep the recorded versions consistent with it."""
+    entry["ops"].append(op)
+    entry["version_after"] += 1
+
+
+def test_replay_rejects_unknown_op_status_and_shape() -> None:
+    last = len(_good_log()) - 1  # a typo on the last entry has no later entry to expose it
+    mutations = (
+        (last, lambda e: _extra_op(e, {"op": "purge", "key": "x"})),
+        (last, lambda e: _extra_op(e, {"op": "put", "key": "z"})),
+        (last, lambda e: _extra_op(e, {"op": "delete", "key": "x", "value": 1})),
+        (last, lambda e: e.update(status="Committed")),
+        (last, lambda e: e.update(status="done")),
+        (2, lambda e: e.update(status="rolled-back")),
+        (0, lambda e: e.pop("writer")),
+        (0, lambda e: e.update(extra=1)),
+        (0, lambda e: e.update(version_after=99)),
+        (0, lambda e: e.update(writer="")),
+    )
+    for index, mutate in mutations:
+        log = _good_log()
+        mutate(log[index])
+        with pytest.raises(ReplayMismatch):
+            replay_transactions(log)
+    log = _good_log()
+    log[2]["ops"] = [{"op": "put", "key": "q", "value": 1}]  # a rolled-back entry with ops
+    with pytest.raises(ReplayMismatch, match="rolled-back"):
+        replay_transactions(log)
+    with pytest.raises(ReplayMismatch):
+        replay_transactions([{"status": "committed"}])
+
+
+def test_replay_failing_entry_leaves_store_as_before_that_entry() -> None:
+    log = _good_log()
+    # Entry 1 becomes [put y, delete zzz]: the second operation cannot apply.
+    log[1]["ops"] = [{"op": "put", "key": "y", "value": 9}, {"op": "delete", "key": "zzz"}]
+    log[1]["version_after"] = log[1]["version_before"] + 2
+    store = Store()
+    with pytest.raises(ReplayMismatch):
+        replay_transactions(log, store)
+    assert store.version == 2 and store.snapshot() == {"x": 1, "y": 2}  # only entry 0 applied
+    assert store.to_dicts() == replay_transactions(_good_log()[:1]).to_dicts()
+    # A store passed in must start at the version the log started from.
+    with pytest.raises(ReplayMismatch, match="version"):
+        replay_transactions(_good_log(), store)

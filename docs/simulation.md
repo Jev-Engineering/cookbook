@@ -79,31 +79,55 @@ store.rollback(1)  # appends writes restoring version 1; history keeps everythin
   (marked `rollback_to=v`) rather than truncating, so a rollback can itself be rolled back.
 - `get(key, default)`, `key in store`, `keys()` and `snapshot()` see live keys only; `at(version)`
   gives any earlier live state; `writes()` and `to_dicts()` give the whole history.
-- Values are plain JSON and are copied in and out, so editing a returned value changes nothing.
+- Values are plain JSON and are copied in and out. Every record an accessor returns
+  (`history`, `writes`, `Simulator.log` and the record from `step`, `ReviewQueue.get` and
+  `pending`, `Transactor.log` and the record from `run`) is a deep copy, so editing what you
+  received never changes the history; to change history you must go through `put`, `delete` or
+  `rollback`.
 
 ## Transactor
 
 ```python
+def assign(view, p):
+    view.put(p["ticket"], p["owner"])
+
+
+def not_assigned(view, p):
+    return None if p["ticket"] not in view else [f"{p['ticket']} is already assigned"]
+
+
 tx = Transactor(Store())
 tx.run(
     "assign",
-    apply,
+    assign,
     params={"ticket": "t7", "owner": "ana"},
     writer="rule:assign",
     step=4,
-    validate=lambda view, p: p["ticket"] not in view or None,
-    invariant=lambda view: len(view.snapshot()) <= 100,
+    validate=not_assigned,
 )
+tx.run(
+    "assign",
+    assign,
+    params={"ticket": "t7", "owner": "bo"},
+    writer="rule:assign",
+    step=5,
+    validate=not_assigned,
+    raise_on_failure=False,
+)  # rolled back: t7 is already assigned
 ```
 
 `run` stages the changes on a view (`view.put`, `view.delete`, `view.get`, `key in view`,
 `view.snapshot()`), so `validate` (first), `apply` and `invariant` (after `apply`, on the staged
-state) can fail without the store changing. A validator passes by returning `None` or `True`
-and fails by returning anything else or raising. On success the changes commit as one batch with
+state) can fail without the store changing. A validator passes by returning `None` or `True` and fails by returning anything else (for
+example a list of problems) or raising, so `p["x"] not in view or None` would never reject. On success the changes commit as one batch with
 provenance. On failure the record has status `"rolled_back"` and the reason, and
 `TransactionFailed` is raised (`raise_on_failure=False` returns the record instead). Both outcomes
 are in `tx.log`. `replay_transactions(tx.log)` rebuilds a fresh store from the committed entries
 alone, with identical history and provenance, so the log can be shown, saved and replayed.
+Replay is strict and raises `ReplayMismatch` rather than build a different store: an unknown
+status or operation, a malformed entry, or versions that do not follow on (for example a missing
+middle entry) are all errors, and a bad entry leaves the store as it was before that entry.
+`Transactor.run` checks every argument (name, writer, params, ...) before it stages anything.
 
 ## Budget
 
@@ -132,15 +156,16 @@ The example below runs `ToyGrid` for up to 40 model calls. Each step asks one `C
 whose options Python built from `legal_actions()`. The script stands in for the model: it prefers
 the move toward the target but is unsure about a third of the time. Python enforces the rules:
 the call budget and the done condition stop the loop, an unsure answer goes to the review queue
-and the step is skipped rather than acted on, and the chosen action is only recorded and then
-passed to the simulator. Because a scripted answer depends only on the request, the request
+and the step is skipped rather than acted on, the chosen action is only recorded and then
+passed to the simulator, and a `Transactor` keeps a visited-cell register whose validator
+refuses to record a cell twice (a rejected transaction is logged and changes nothing). Because a scripted answer depends only on the request, the request
 carries an `attempt` counter, otherwise asking again about the same state would repeat the same
 unsure answer.
 
 ```python
 # recipe: example
 from jev_cookbook import Choice, get_backend
-from jev_cookbook.simulation import ActionLog, Budget, ReviewQueue, ToyGrid
+from jev_cookbook.simulation import ActionLog, Budget, ReviewQueue, Store, ToyGrid, Transactor
 
 
 def script(state, questions, rng):
@@ -152,11 +177,19 @@ def script(state, questions, rng):
     return {"move": {toward: 0.9, **{n: 0.1 / len(legal) for n in legal if n != toward}}}
 
 
+def visit(view, p):
+    view.put(f"cell:{p['cell']}", p["step"])
+
+
+def not_visited(view, p):
+    return None if f"cell:{p['cell']}" not in view else [f"cell {p['cell']} already visited"]
+
+
 def run(sim_seed, backend_seed):
     sim = ToyGrid(seed=sim_seed)
     backend = get_backend(script=script, seed=backend_seed)
     budget = Budget(calls=40)
-    queue, actions = ReviewQueue(), ActionLog()
+    queue, actions, tx = ReviewQueue(), ActionLog(), Transactor(Store())
     while not sim.done and budget.can_spend("calls"):
         legal = sim.legal_actions()
         question = Choice(
@@ -171,13 +204,24 @@ def run(sim_seed, backend_seed):
             continue
         actions.record(answer.choice, step=sim.steps, answer=answer, rule="chosen from legal")
         sim.step(answer.choice)
-    return sim, budget, queue, actions
+        cell = sim.observe()["position"]
+        params = {"cell": cell, "step": sim.steps}
+        tx.run(
+            "visit",
+            visit,
+            params=params,
+            writer="rule:visit",
+            step=sim.steps,
+            validate=not_visited,
+            raise_on_failure=False,
+        )
+    return sim, budget, queue, actions, tx
 
 
-sim, budget, queue, actions = run(sim_seed=3, backend_seed=0)
-print(sim.snapshot(), budget.to_dict()["calls"], len(queue), len(actions))
+sim, budget, queue, actions, tx = run(sim_seed=0, backend_seed=0)
+print(sim.snapshot(), budget.to_dict()["calls"], len(queue), len(actions), len(tx.log))
 ```
 
 The observation after each step goes into the next request, which is why replay fixtures cannot
-cover this loop. Replaying `sim.trajectory()` on a fresh `ToyGrid(seed=3)` with `replay`
+cover this loop. Replaying `sim.trajectory()` on a fresh `ToyGrid(seed=0)` with `replay`
 reproduces the final state without the backend at all.

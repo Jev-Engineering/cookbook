@@ -19,7 +19,7 @@ from __future__ import annotations
 import abc
 import random
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, fields, replace
 from typing import Any
 
 from ._canonical import plain_json
@@ -82,6 +82,21 @@ class TransactionFailed(SimulationError):
         """Keep the log record next to the message."""
         super().__init__(message)
         self.record = record
+
+
+def _detach(record: Any) -> Any:
+    """Return a copy of a frozen record whose nested dicts and lists are all new objects.
+
+    Every accessor that hands out a record returns such a copy, so a caller can edit what it
+    received without changing the history the owner keeps.
+    """
+    changes = {}
+    for f in fields(record):
+        value = getattr(record, f.name)
+        changes[f.name] = (
+            tuple(plain_json(v) for v in value) if isinstance(value, tuple) else plain_json(value)
+        )
+    return replace(record, **changes)
 
 
 def _answer_dict(answer: Any) -> dict[str, Any] | None:
@@ -173,7 +188,7 @@ class Simulator(abc.ABC):
     def __init__(self, seed: int = 0) -> None:
         """Create the simulator and ``reset`` it with ``seed``."""
         self.seed = 0
-        self.log: list[StepRecord] = []
+        self._log: list[StepRecord] = []
         self._rng = random.Random(0)
         self.reset(seed)
 
@@ -211,7 +226,7 @@ class Simulator(abc.ABC):
                 raise TypeError("seed must be an int")
             self.seed = seed
         self._rng = random.Random(self.seed)
-        self.log = []
+        self._log = []
         self._reset(self._rng)
         return self.observe()
 
@@ -231,9 +246,14 @@ class Simulator(abc.ABC):
         return bool(self._is_done())
 
     @property
+    def log(self) -> list[StepRecord]:
+        """The trajectory so far, as copies: editing the result never changes the simulator."""
+        return [_detach(r) for r in self._log]
+
+    @property
     def steps(self) -> int:
         """Number of steps taken since the last reset."""
-        return len(self.log)
+        return len(self._log)
 
     def snapshot(self) -> Any:
         """Return the complete state as a fresh plain-JSON copy."""
@@ -252,20 +272,22 @@ class Simulator(abc.ABC):
             raise IllegalActionError(f"illegal action {action!r}: {why}")
         observation = self.observe()
         outcome = plain_json(self._apply(action, self._rng), "outcome")
-        record = StepRecord(len(self.log), observation, action, outcome, self.done)
-        self.log.append(record)
-        return record
+        record = StepRecord(len(self._log), observation, action, outcome, self.done)
+        self._log.append(record)
+        return _detach(record)
 
     def trajectory(self) -> list[dict[str, Any]]:
         """Return the log as plain dicts, for display or storage."""
-        return [r.to_dict() for r in self.log]
+        return [r.to_dict() for r in self._log]
 
     def replay(self, log: Iterable[StepRecord | Mapping[str, Any]], seed: int | None = None) -> Any:
         """Reset to ``seed`` (default: the current seed), re-apply the logged actions, return the state.
 
         Every replayed observation and outcome must equal the recorded one, otherwise
         ``ReplayMismatch`` is raised. On success ``self.log`` equals the replayed log and the
-        returned snapshot equals the snapshot of the run that produced it.
+        returned snapshot equals the snapshot of the run that produced it. After a
+        ``ReplayMismatch`` (or an ``IllegalActionError`` from a tampered action) the simulator
+        is left part-way through the replay: ``reset`` it before reuse.
         """
         records = [r if isinstance(r, StepRecord) else StepRecord.from_dict(r) for r in log]
         self.reset(seed)
@@ -402,7 +424,7 @@ class ReviewQueue:
 
     def resolve(self, item_id: int, resolution: Any) -> ReviewItem:
         """Mark a pending item resolved with ``resolution`` (plain JSON) and return it."""
-        old = self.get(item_id)
+        old = self._items[self.get(item_id).id]
         if old.status != "pending":
             raise SimulationError(f"review item {item_id} is already {old.status}")
         new = ReviewItem(
@@ -415,17 +437,17 @@ class ReviewQueue:
             plain_json(resolution, "resolution"),
         )
         self._items[item_id] = new
-        return new
+        return _detach(new)
 
     def get(self, item_id: int) -> ReviewItem:
         """Return one item by id."""
         if type(item_id) is not int or not 0 <= item_id < len(self._items):
             raise StoreError(f"no review item {item_id!r}")
-        return self._items[item_id]
+        return _detach(self._items[item_id])
 
     def pending(self) -> list[ReviewItem]:
         """Return the items still waiting, oldest first."""
-        return [i for i in self._items if i.status == "pending"]
+        return [_detach(i) for i in self._items if i.status == "pending"]
 
     def __len__(self) -> int:
         """Return the number of items ever submitted."""
@@ -632,12 +654,15 @@ class Store:
         return self.at(self.version)
 
     def history(self, key: str) -> list[WriteRecord]:
-        """Return every write to ``key``, oldest first, tombstones and rollbacks included."""
-        return [r for r in self._writes if r.key == key]
+        """Return copies of every write to ``key``, oldest first (tombstones, rollbacks too).
+
+        Records are copies: editing one never changes the store.
+        """
+        return [_detach(r) for r in self._writes if r.key == key]
 
     def writes(self) -> list[WriteRecord]:
         """Return every write in the store, oldest first."""
-        return list(self._writes)
+        return [_detach(r) for r in self._writes]
 
     def rollback(self, version: int, *, writer: str = "rollback", step: int | None = None) -> int:
         """Restore the live state of ``version`` by appending writes; return the new version.
@@ -784,7 +809,12 @@ class Transactor:
     def __init__(self, store: Store | None = None) -> None:
         """Wrap ``store`` (a new empty one by default)."""
         self.store = Store() if store is None else store
-        self.log: list[TransactionRecord] = []
+        self._log: list[TransactionRecord] = []
+
+    @property
+    def log(self) -> list[TransactionRecord]:
+        """Every attempt so far, as copies: editing the result never changes the log."""
+        return [_detach(r) for r in self._log]
 
     def run(
         self,
@@ -812,6 +842,7 @@ class Transactor:
         ``"rolled_back"`` and the reason, and ``TransactionFailed`` is raised unless
         ``raise_on_failure`` is False. ``params`` must be plain JSON so the log can replay.
         """
+        name = _check_text(name, "name")
         params = plain_json(params, "params")
         meta = {
             "writer": _check_text(writer, "writer"),
@@ -833,8 +864,8 @@ class Transactor:
         if error is None:
             _apply_ops(self.store, {"ops": view.ops, **meta})
         record = TransactionRecord(
-            len(self.log),
-            _check_text(name, "name"),
+            len(self._log),
+            name,
             params,
             meta["writer"],
             meta["step"],
@@ -846,14 +877,14 @@ class Transactor:
             before,
             self.store.version,
         )
-        self.log.append(record)
+        self._log.append(record)
         if error is not None and raise_on_failure:
-            raise TransactionFailed(f"transaction {name!r} rolled back: {error}", record)
-        return record
+            raise TransactionFailed(f"transaction {name!r} rolled back: {error}", _detach(record))
+        return _detach(record)
 
     def to_dicts(self) -> list[dict[str, Any]]:
         """Return the transaction log as plain dicts."""
-        return [r.to_dict() for r in self.log]
+        return [r.to_dict() for r in self._log]
 
 
 def _require_ok(result: Any, what: str) -> None:
@@ -863,20 +894,87 @@ def _require_ok(result: Any, what: str) -> None:
     raise ValueError(f"{what} rejected: {result!r}")
 
 
+_RECORD_KEYS = frozenset(
+    {
+        "index",
+        "name",
+        "params",
+        "writer",
+        "step",
+        "answer",
+        "rule",
+        "status",
+        "ops",
+        "error",
+        "version_before",
+        "version_after",
+    }
+)
+
+
+def _stage_record(out: Store, rec: Mapping[str, Any]) -> _Staged:
+    """Check one log entry completely and stage its operations; write nothing to ``out``."""
+    if set(rec) != _RECORD_KEYS:
+        raise ValueError(f"unexpected keys {sorted(set(rec) ^ _RECORD_KEYS)}")
+    if rec["status"] not in ("committed", "rolled_back"):
+        raise ValueError(f"unknown status {rec['status']!r}")
+    if rec["version_before"] != out.version:
+        raise ValueError(f"expected the store at version {rec['version_before']}, at {out.version}")
+    _check_text(rec["writer"], "writer")
+    _check_step(rec["step"])
+    _answer_dict(rec["answer"])
+    if rec["rule"] is not None:
+        _check_text(rec["rule"], "rule")
+    view = _Staged(out)
+    if rec["status"] == "rolled_back":
+        if rec["ops"]:
+            raise ValueError("a rolled-back entry must have no operations")
+        if rec["version_after"] != rec["version_before"]:
+            raise ValueError("a rolled-back entry must not change the version")
+        return view
+    for op in rec["ops"]:
+        kind = op.get("op") if isinstance(op, Mapping) else None
+        if kind == "put" and set(op) == {"op", "key", "value"}:
+            view.put(op["key"], op["value"])
+        elif kind == "delete" and set(op) == {"op", "key"}:
+            view.delete(op["key"])
+        else:
+            raise ValueError(f"unknown or malformed operation {op!r}")
+    if rec["version_after"] != rec["version_before"] + len(view.ops):
+        raise ValueError(
+            f"version_after {rec['version_after']} does not match "
+            f"{rec['version_before']} + {len(view.ops)} operations"
+        )
+    return view
+
+
 def replay_transactions(
     log: Iterable[TransactionRecord | Mapping[str, Any]], store: Store | None = None
 ) -> Store:
     """Rebuild a store by re-applying the committed entries of a transaction log in order.
 
-    Rolled-back entries are skipped (they changed nothing). Entries may be records or their
-    ``to_dict()`` form. Returns the store; for a fresh store the result has the same live
-    state, versions and provenance as the original.
+    Replay is strict: it raises ``ReplayMismatch`` for an entry with missing or extra keys, a
+    status other than ``"committed"`` or ``"rolled_back"``, an operation other than ``put`` or
+    ``delete`` (or one that cannot apply), a rolled-back entry that has operations, and for any
+    entry whose ``version_before`` or ``version_after`` does not follow from the store as
+    rebuilt so far (so a missing or reordered entry is caught). Each entry is staged first and
+    written only if it is fully valid, so a failing entry leaves the store as it was before
+    that entry. Rolled-back entries change nothing. Entries may be records or their
+    ``to_dict()`` form. ``store`` must be at the version the first entry started from (a new
+    empty store for a log that began on an empty store). Returns the store.
     """
     out = Store() if store is None else store
     for item in log:
-        rec = item.to_dict() if isinstance(item, TransactionRecord) else plain_json(dict(item))
+        rec = item.to_dict() if isinstance(item, TransactionRecord) else item
+        try:
+            rec = plain_json(dict(rec), "entry")
+            view = _stage_record(out, rec)
+        except (TypeError, ValueError, KeyError) as exc:
+            index = rec.get("index") if isinstance(rec, Mapping) else None
+            raise ReplayMismatch(f"transaction log entry {index!r} cannot replay: {exc}") from exc
         if rec["status"] == "committed":
-            _apply_ops(out, rec)
+            meta = {k: rec[k] for k in ("writer", "step", "answer", "rule")}
+            _apply_ops(out, {"ops": view.ops, **meta})
     return out
 
 
