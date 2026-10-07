@@ -4,7 +4,9 @@
 ``schema.json`` uses: ``type``, ``enum``, ``pattern``, ``minLength``, ``minItems``,
 ``uniqueItems``, ``items``, ``required``, ``properties``, ``additionalProperties`` (false),
 ``oneOf`` and ``$ref`` into ``#/$defs``. A schema that uses any other validating keyword is
-rejected, so a later edit to ``schema.json`` cannot silently become unenforced.
+rejected, so a later edit to ``schema.json`` cannot silently become unenforced. A pattern must
+match the whole string (``re.fullmatch``), as in ECMA-262 validators: Python's ``$`` would also
+match before a trailing newline, so ``"v01<newline>"`` would pass an id pattern ending in ``$``.
 """
 
 from __future__ import annotations
@@ -63,7 +65,7 @@ def check(
     if "enum" in schema and value not in schema["enum"]:
         problems.append((path, f"must be one of {schema['enum']}, found {value!r}"))
     if isinstance(value, str):
-        if "pattern" in schema and not re.search(schema["pattern"], value):
+        if "pattern" in schema and not re.fullmatch(schema["pattern"], value):
             problems.append((path, f"{value!r} does not match the pattern {schema['pattern']}"))
         if len(value) < schema.get("minLength", 0):
             problems.append((path, "must not be empty"))

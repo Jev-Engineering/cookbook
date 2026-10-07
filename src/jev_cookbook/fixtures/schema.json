@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/Jev-Engineering/cookbook/schemas/fixtures.json",
   "title": "Jev Cookbook fixture files",
-  "description": "Row schemas for a recipe's fixtures/inputs.jsonl and fixtures/labels.jsonl. The responses file is not described here: it is the replay format defined by jev_cookbook.ReplayBackend (see docs/backends.md). See docs/fixtures.md.",
+  "description": "Row schemas for a recipe's fixtures/inputs.jsonl and fixtures/labels.jsonl. The responses files are not described here: they are the replay format defined by jev_cookbook.ReplayBackend (see docs/backends.md). See docs/fixtures.md.",
   "$defs": {
     "input": {
       "description": "One line of inputs.jsonl: one example.",
@@ -30,9 +30,8 @@
           "type": "object"
         },
         "replay_keys": {
-          "description": "replay_key(state, questions) of every request made for this example, as 64 lowercase hex characters. More than one when a later request depends on an earlier answer.",
+          "description": "replay_key(state, questions) of every request made for this example, as 64 lowercase hex characters. Empty when the notebook answers this example without replaying anything (a scripted or simulated recipe). More than one when a later request depends on an earlier answer.",
           "type": "array",
-          "minItems": 1,
           "uniqueItems": true,
           "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
         }

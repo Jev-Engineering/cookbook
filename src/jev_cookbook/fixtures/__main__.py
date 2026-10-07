@@ -31,12 +31,14 @@ def main(argv: list[str] | None = None) -> int:
         results = {args.recipe_dir: validate_recipe(args.recipe_dir)}
     failed = 0
     for recipe, problems in results.items():
+        if problems and problems.mode:
+            print(f"{recipe}: mode {problems.mode}")
         if problems:
             failed += 1
             for problem in problems:
                 print(problem, file=sys.stderr)
         else:
-            print(f"{recipe}: fixtures valid")
+            print(f"{recipe}: fixtures valid (mode {problems.mode})")
     if failed:
         total = sum(len(p) for p in results.values())
         print(f"{total} problem(s) in {failed} recipe(s)", file=sys.stderr)

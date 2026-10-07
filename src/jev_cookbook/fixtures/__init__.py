@@ -1,11 +1,15 @@
 """Fixture files of a recipe: load them, and validate them.
 
-A recipe's ``fixtures/`` folder holds three files (specification: ``docs/fixtures.md``):
+A recipe's ``fixtures/`` folder holds these files and no others (specification:
+``docs/fixtures.md``):
 
 * ``inputs.jsonl``: one example per line (``id``, ``split``, ``state`` or ``fields``,
   ``replay_keys``);
 * ``labels.jsonl``: one gold label per line (``id``, ``label``);
-* ``responses.json``: ``{replay_key: stored response}``, the format ``ReplayBackend`` reads.
+* ``responses.json``: ``{replay_key: stored response}``, the format ``ReplayBackend`` reads;
+  absent when no example lists a replay key (a scripted or simulated recipe);
+* ``responses-<tag>.json``: optional, the same format, for a comparison recipe that replays
+  a second model's answers to the same requests.
 
 Every helper takes the recipe directory explicitly and defaults to the current working
 directory, which is where a recipe's notebook runs::
@@ -23,8 +27,10 @@ Check a recipe from the command line with
 
 from __future__ import annotations
 
+import codecs
 import json
 import os
+import re
 from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -41,11 +47,13 @@ __all__ = [
     "LABELED_SPLITS",
     "LABELS_FILE",
     "REQUIRED_SPLITS",
+    "MODES",
     "RESPONSES_FILE",
     "SPLITS",
     "Example",
     "FixtureFileError",
     "Problem",
+    "Report",
     "fixtures_dir",
     "load_inputs",
     "load_labels",
@@ -61,6 +69,10 @@ FIXTURES_DIR = "fixtures"
 INPUTS_FILE = "inputs.jsonl"
 LABELS_FILE = "labels.jsonl"
 RESPONSES_FILE = "responses.json"
+
+MODES = ("replay", "scripted")
+_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}")  # the id rule of schema.json; tags use it too
+_TAGGED_RESPONSES = re.compile(r"responses-(.+)[.]json")
 
 SPLITS = ("train", "validation", "test", "demo")
 REQUIRED_SPLITS = ("validation", "test")
@@ -82,6 +94,19 @@ class Problem:
         where = self.file + (f":{self.line}" if self.line else "")
         who = f" (id {self.ident!r})" if self.ident else ""
         return f"{where}{who}: {self.message}"
+
+
+class Report(list):  # a list of Problem; empty means valid
+    """What ``validate_recipe`` returns: the ``Problem`` list, plus the recipe's ``mode``.
+
+    ``mode`` is ``"replay"`` when some example lists a replay key, ``"scripted"`` when none
+    does (the notebook then drives ``ScriptedBackend`` or a simulator and replays nothing), and
+    ``None`` when ``inputs.jsonl`` could not be read so the mode is unknown.
+    """
+
+    def __init__(self, problems=(), mode: str | None = None) -> None:
+        super().__init__(problems)
+        self.mode = mode
 
 
 class FixtureFileError(ValueError):
@@ -108,9 +133,18 @@ def fixtures_dir(recipe_dir: PathLike | None = None) -> Path:
     return Path(recipe_dir if recipe_dir is not None else ".") / FIXTURES_DIR
 
 
-def responses_path(recipe_dir: PathLike | None = None) -> Path:
-    """Path of the responses file, for ``get_backend(fixtures=...)``."""
-    return fixtures_dir(recipe_dir) / RESPONSES_FILE
+def responses_file_name(tag: str | None = None) -> str:
+    """``responses.json``, or ``responses-<tag>.json`` (the tag follows the id rule)."""
+    if tag is None:
+        return RESPONSES_FILE
+    if not _ID.fullmatch(tag):
+        raise ValueError(f"bad responses tag {tag!r}: use letters, digits, '_', '.' and '-'")
+    return f"responses-{tag}.json"
+
+
+def responses_path(recipe_dir: PathLike | None = None, tag: str | None = None) -> Path:
+    """Path of a responses file, for ``get_backend(fixtures=...)``: the default or a tagged one."""
+    return fixtures_dir(recipe_dir) / responses_file_name(tag)
 
 
 # --------------------------------------------------------------------------- reading
@@ -120,8 +154,12 @@ def _display(path: Path) -> str:
     return path.as_posix()
 
 
-def _read(path: Path) -> tuple[str | None, list[Problem]]:
-    """Read UTF-8 text (a leading byte order mark is dropped)."""
+def _read(path: Path, *, allow_bom: bool = True) -> tuple[str | None, list[Problem]]:
+    """Read UTF-8 text. A leading byte order mark is dropped, unless ``allow_bom`` is false.
+
+    Responses files refuse one: ``ReplayBackend.from_json`` opens them as plain UTF-8 and
+    cannot parse a file that starts with it.
+    """
     name = _display(path)
     try:
         raw = path.read_bytes()
@@ -129,6 +167,9 @@ def _read(path: Path) -> tuple[str | None, list[Problem]]:
         return None, [Problem(name, "file is missing")]
     except OSError as exc:
         return None, [Problem(name, f"cannot read the file: {exc.strerror or exc}")]
+    if not allow_bom and raw.startswith(codecs.BOM_UTF8):
+        msg = "starts with a UTF-8 byte order mark, which ReplayBackend cannot read; save the file without one"
+        return None, [Problem(name, msg)]
     try:
         return raw.decode("utf-8-sig"), []
     except UnicodeDecodeError as exc:
@@ -157,12 +198,16 @@ def _lines(text: str) -> list[str]:
     return [line.rstrip("\r") for line in text.split("\n")]
 
 
-def _read_jsonl(path: Path) -> tuple[list[tuple[int, Any]], list[Problem]]:
-    """Parse JSON Lines: ``(line number, value)`` rows. Blank lines are skipped."""
+def _read_jsonl(path: Path) -> tuple[list[tuple[int, Any]], list[Problem], bool]:
+    """Parse JSON Lines: ``(line number, value)`` rows, problems, and whether it was readable.
+
+    Blank lines are skipped. A bad line is a problem with a line number; the file still counts
+    as readable. Unreadable means missing, not UTF-8, or not a file.
+    """
     text, problems = _read(path)
     rows: list[tuple[int, Any]] = []
     if text is None:
-        return rows, problems
+        return rows, problems, False
     name = _display(path)
     for number, line in enumerate(_lines(text), start=1):
         if not line.strip():
@@ -171,7 +216,7 @@ def _read_jsonl(path: Path) -> tuple[list[tuple[int, Any]], list[Problem]]:
             rows.append((number, _loads(line)))
         except ValueError as exc:
             problems.append(Problem(name, f"invalid JSON: {exc}", number))
-    return rows, problems
+    return rows, problems, True
 
 
 def _schema_problems(
@@ -192,19 +237,33 @@ def _schema_problems(
     return good, problems
 
 
-def _read_inputs(path: Path) -> tuple[list[Example], list[Problem]]:
+def _repeated_id(
+    name: str, ident: str, number: int, seen: dict[str, tuple[str, int]]
+) -> Problem | None:
+    """A problem if ``ident`` repeats an earlier id exactly or differs from it only by case."""
+    first = seen.get(ident.lower())
+    if first is None:
+        seen[ident.lower()] = (ident, number)
+        return None
+    other, line = first
+    if other == ident:
+        return Problem(name, f"duplicate id (first used on line {line})", number, ident)
+    msg = f"id differs only by case from {other!r} (line {line}); ids become file names"
+    return Problem(name, msg, number, ident)
+
+
+def _read_inputs(path: Path) -> tuple[list[Example], list[Problem], bool]:
     name = _display(path)
-    rows, problems = _read_jsonl(path)
+    rows, problems, readable = _read_jsonl(path)
     good, more = _schema_problems(rows, "input", name)
     problems += more
     examples: list[Example] = []
-    seen: dict[str, int] = {}
+    seen: dict[str, tuple[str, int]] = {}
     for number, row in good:
-        if row["id"] in seen:
-            msg = f"duplicate id (first used on line {seen[row['id']]})"
-            problems.append(Problem(name, msg, number, row["id"]))
+        repeat = _repeated_id(name, row["id"], number, seen)
+        if repeat:
+            problems.append(repeat)
             continue
-        seen[row["id"]] = number
         examples.append(
             Example(
                 id=row["id"],
@@ -214,44 +273,52 @@ def _read_inputs(path: Path) -> tuple[list[Example], list[Problem]]:
                 fields=row.get("fields"),
             )
         )
-    return examples, problems
+    return examples, problems, readable
 
 
-def _read_labels(path: Path) -> tuple[dict[str, Any], dict[str, int], list[Problem]]:
+def _read_labels(path: Path) -> tuple[dict[str, Any], dict[str, int], list[Problem], bool]:
     name = _display(path)
-    rows, problems = _read_jsonl(path)
+    rows, problems, readable = _read_jsonl(path)
     good, more = _schema_problems(rows, "label", name)
     problems += more
     labels: dict[str, Any] = {}
     lines: dict[str, int] = {}
+    seen: dict[str, tuple[str, int]] = {}
     for number, row in good:
-        if row["id"] in labels:
-            msg = f"duplicate id (first used on line {lines[row['id']]})"
-            problems.append(Problem(name, msg, number, row["id"]))
+        repeat = _repeated_id(name, row["id"], number, seen)
+        if repeat:
+            problems.append(repeat)
             continue
         labels[row["id"]] = row["label"]
         lines[row["id"]] = number
-    return labels, lines, problems
+    return labels, lines, problems, readable
 
 
 def _read_responses(
     path: Path,
-) -> tuple[dict[str, dict[str, Any]], dict[str, DecisionResult], list[Problem]]:
+) -> tuple[dict[str, dict[str, Any]], dict[str, DecisionResult], list[Problem], bool]:
+    """The stored responses, their parsed form, problems, and whether the file was usable.
+
+    Unusable (``False``) means the file as a whole cannot be trusted: it is missing, has a
+    byte order mark, is not JSON, is not an object, or is empty. A bad single response or key
+    is a problem, but the other responses are still checked.
+    """
     name = _display(path)
-    text, problems = _read(path)
+    text, problems = _read(path, allow_bom=False)
     raw: dict[str, dict[str, Any]] = {}
     parsed: dict[str, DecisionResult] = {}
     if text is None:
-        return raw, parsed, problems
+        return raw, parsed, problems, False
     try:
         data = _loads(text)
     except ValueError as exc:
         line = getattr(exc, "lineno", None)
-        return raw, parsed, [Problem(name, f"invalid JSON: {exc}", line)]
+        return raw, parsed, [Problem(name, f"invalid JSON: {exc}", line)], False
     if not isinstance(data, dict):
-        return raw, parsed, [Problem(name, "must be a JSON object of replay_key -> response")]
+        msg = "must be a JSON object of replay_key -> response"
+        return raw, parsed, [Problem(name, msg)], False
     if not data:
-        return raw, parsed, [Problem(name, "has no responses")]
+        return raw, parsed, [Problem(name, "has no responses")], False
     for key, stored in data.items():
         if len(key) != 64 or any(c not in "0123456789abcdef" for c in key):
             msg = f"replay key must be 64 lowercase hex characters: {key!r}"
@@ -266,7 +333,7 @@ def _read_responses(
             problems.append(Problem(name, f"bad stored response: {exc}", ident=key))
             continue
         raw[key] = stored
-    return raw, parsed, problems
+    return raw, parsed, problems, True
 
 
 def _raise(problems: list[Problem]) -> None:
@@ -280,26 +347,29 @@ def load_inputs(recipe_dir: PathLike | None = None) -> list[Example]:
     Raises ``FixtureFileError`` (naming the file, the line and the id) if the file is
     missing, is not UTF-8 JSON Lines, breaks the schema, or repeats an id.
     """
-    examples, problems = _read_inputs(fixtures_dir(recipe_dir) / INPUTS_FILE)
+    examples, problems, _ = _read_inputs(fixtures_dir(recipe_dir) / INPUTS_FILE)
     _raise(problems)
     return examples
 
 
 def load_labels(recipe_dir: PathLike | None = None) -> dict[str, Any]:
     """Read ``fixtures/labels.jsonl`` as ``{id: label}`` in file order."""
-    labels, _, problems = _read_labels(fixtures_dir(recipe_dir) / LABELS_FILE)
+    labels, _, problems, _ = _read_labels(fixtures_dir(recipe_dir) / LABELS_FILE)
     _raise(problems)
     return labels
 
 
-def load_responses(recipe_dir: PathLike | None = None) -> dict[str, dict[str, Any]]:
-    """Read ``fixtures/responses.json`` as ``{replay_key: stored response}``.
+def load_responses(
+    recipe_dir: PathLike | None = None, tag: str | None = None
+) -> dict[str, dict[str, Any]]:
+    """Read ``responses.json`` (or ``responses-<tag>.json``) as ``{replay_key: response}``.
 
     Every stored response is parsed with ``DecisionResult.from_dict``, so a response that
-    ``ReplayBackend`` would reject fails here, naming its key. Use ``responses_path`` with
+    ``ReplayBackend`` would reject fails here, naming its key; so does a file that
+    ``ReplayBackend`` could not open (a byte order mark). Use ``responses_path`` with
     ``get_backend`` to replay them.
     """
-    raw, _, problems = _read_responses(fixtures_dir(recipe_dir) / RESPONSES_FILE)
+    raw, _, problems, _ = _read_responses(responses_path(recipe_dir, tag))
     _raise(problems)
     return raw
 
@@ -318,52 +388,82 @@ def _canonical(value: Any) -> str:
     return json.dumps(value, sort_keys=True, ensure_ascii=True)
 
 
-def _check_cross_references(
+def _content(e: Example) -> tuple[str, str]:
+    """What an example is made of: its state, or its fields, in a comparable form."""
+    if e.state is not None:
+        return "state", _canonical(e.state)
+    return "fields", _canonical(e.fields)
+
+
+def _check_examples(
     examples: list[Example],
-    labels: dict[str, Any],
+    labels: dict[str, Any] | None,
     label_lines: dict[str, int],
-    responses: Mapping[str, Any],
-    names: tuple[str, str, str],
+    names: tuple[str, str],
 ) -> list[Problem]:
-    inputs_name, labels_name, responses_name = names
+    """Checks that need only the inputs, and the labels when they could be read."""
+    inputs_name, labels_name = names
     problems: list[Problem] = []
     for split in REQUIRED_SPLITS:
         if not any(e.split == split for e in examples):
             problems.append(Problem(inputs_name, f"no example has the required split {split!r}"))
-    ids = {e.id for e in examples}
+    if labels is not None:
+        splits = {e.id: e.split for e in examples}
+        for e in examples:
+            if e.split in LABELED_SPLITS and e.id not in labels:
+                msg = f"no label for the {e.split} example"
+                problems.append(Problem(labels_name, msg, ident=e.id))
+        for ident in labels:
+            if ident not in splits:
+                msg = "label for an id that is not in the inputs"
+                problems.append(Problem(labels_name, msg, label_lines[ident], ident))
+            elif splits[ident] == "demo":
+                msg = "label for a demo example; demo examples are never scored, remove it"
+                problems.append(Problem(labels_name, msg, label_lines[ident], ident))
+    # The same content in two splits leaks the test set into the choices made on validation.
+    where: dict[tuple[str, str], list[Example]] = defaultdict(list)
     for e in examples:
-        if e.split in LABELED_SPLITS and e.id not in labels:
-            msg = f"no label for the {e.split} example"
-            problems.append(Problem(labels_name, msg, ident=e.id))
-    for ident in labels:
-        if ident not in ids:
-            msg = "label for an id that is not in the inputs"
-            problems.append(Problem(labels_name, msg, label_lines[ident], ident))
+        if e.split in LABELED_SPLITS:
+            where[_content(e)].append(e)
+    for (what, _), same in where.items():
+        first = same[0]
+        for other in same[1:]:
+            if other.split != first.split:
+                msg = (
+                    f"same {what} as {first.id!r} ({first.split}) in a different split "
+                    f"({other.split})"
+                )
+                problems.append(Problem(inputs_name, msg, ident=other.id))
+    # A replay key is a hash of the state, so examples whose content differs cannot share one.
+    owners: dict[str, Example] = {}
+    for e in examples:
+        for key in e.replay_keys:
+            first = owners.setdefault(key, e)
+            if first is not e and _content(first) != _content(e):
+                msg = (
+                    f"replay key {key} is also listed by {first.id!r}, whose "
+                    f"{_content(first)[0]} differs: a key belongs to one request"
+                )
+                problems.append(Problem(inputs_name, msg, ident=e.id))
+    return problems
+
+
+def _check_responses(
+    examples: list[Example], responses: Mapping[str, Any], name: str
+) -> list[Problem]:
+    """Every listed key has a response in this file, and every response is listed."""
+    problems: list[Problem] = []
     referenced: set[str] = set()
     for e in examples:
         for key in e.replay_keys:
             referenced.add(key)
             if key not in responses:
                 msg = f"no response for replay key {key} of this example"
-                problems.append(Problem(responses_name, msg, ident=e.id))
+                problems.append(Problem(name, msg, ident=e.id))
     for key in responses:
         if key not in referenced:
             msg = "response that no input lists in replay_keys"
-            problems.append(Problem(responses_name, msg, ident=key))
-    # The same state in two splits leaks the test set into the choices made on validation.
-    where: dict[str, list[Example]] = defaultdict(list)
-    for e in examples:
-        if e.state is not None and e.split != "demo":
-            where[_canonical(e.state)].append(e)
-    for same in where.values():
-        first = same[0]
-        for other in same[1:]:
-            if other.split != first.split:
-                msg = (
-                    f"same state as {first.id!r} ({first.split}) in a different split "
-                    f"({other.split})"
-                )
-                problems.append(Problem(inputs_name, msg, ident=other.id))
+            problems.append(Problem(name, msg, ident=key))
     return problems
 
 
@@ -439,39 +539,71 @@ def _scan_file(path: Path) -> list[Problem]:
     ]
 
 
-def validate_recipe(recipe_dir: PathLike | None = None) -> list[Problem]:
-    """Every problem in a recipe's ``fixtures/`` folder; an empty list means it is valid."""
+def _layout(folder: Path) -> tuple[dict[str | None, Path], list[Problem]]:
+    """The responses files present (by tag), and a problem for every entry that is not allowed."""
+    responses: dict[str | None, Path] = {}
+    problems: list[Problem] = []
+    for entry in sorted(folder.iterdir(), key=lambda p: p.name):
+        tagged = _TAGGED_RESPONSES.fullmatch(entry.name)
+        if entry.name in (INPUTS_FILE, LABELS_FILE):
+            continue
+        if entry.name == RESPONSES_FILE:
+            responses[None] = entry
+        elif tagged and _ID.fullmatch(tagged.group(1)):
+            responses[tagged.group(1)] = entry
+        else:
+            msg = (
+                f"unexpected entry in the fixtures folder; it holds only {INPUTS_FILE}, "
+                f"{LABELS_FILE}, {RESPONSES_FILE} and responses-<tag>.json"
+            )
+            problems.append(Problem(_display(entry), msg))
+    return responses, problems
+
+
+def validate_recipe(recipe_dir: PathLike | None = None) -> Report:
+    """Every problem in a recipe's ``fixtures/`` folder, and the recipe's mode.
+
+    The result is a list of ``Problem`` (empty means valid) with a ``mode`` attribute:
+    ``"replay"``, ``"scripted"``, or ``None`` when the inputs could not be read.
+    """
     folder = fixtures_dir(recipe_dir)
     if not folder.is_dir():
-        return [Problem(_display(folder), "fixtures folder is missing")]
-    paths = (folder / INPUTS_FILE, folder / LABELS_FILE, folder / RESPONSES_FILE)
-    names = tuple(_display(p) for p in paths)
-    examples, problems = _read_inputs(paths[0])
-    labels, label_lines, more = _read_labels(paths[1])
+        return Report([Problem(_display(folder), "fixtures folder is missing")])
+    responses_files, problems = _layout(folder)
+    inputs_path, labels_path = folder / INPUTS_FILE, folder / LABELS_FILE
+    examples, more, inputs_ok = _read_inputs(inputs_path)
     problems += more
-    raw, parsed, more = _read_responses(paths[2])
+    labels, label_lines, more, labels_ok = _read_labels(labels_path)
     problems += more
-    # Cross-checks need all three files to have been read, or they would only restate a
-    # missing file as many misleading problems.
-    unreadable = {p.file for p in problems if p.line is None and p.ident is None}
-    if not raw:
-        unreadable.add(names[2])
-    if not unreadable & set(names):
-        problems += _check_cross_references(examples, labels, label_lines, raw, names)
-    problems += _check_provenance_agreement(parsed, names[2])
-    for path in paths:
+    replays = any(e.replay_keys for e in examples)
+    mode = ("replay" if replays else "scripted") if inputs_ok else None
+    if inputs_ok:
+        names = (_display(inputs_path), _display(labels_path))
+        problems += _check_examples(examples, labels if labels_ok else None, label_lines, names)
+    if replays and None not in responses_files:
+        # Listed keys need the default file; with no key listed it is simply not needed.
+        problems.append(Problem(_display(folder / RESPONSES_FILE), "file is missing"))
+    scanned = [inputs_path, labels_path, *responses_files.values()]
+    for path in responses_files.values():
+        raw, parsed, more, usable = _read_responses(path)
+        problems += more
+        if usable:
+            problems += _check_provenance_agreement(parsed, _display(path))
+            if inputs_ok:
+                problems += _check_responses(examples, raw, _display(path))
+    for path in scanned:
         problems += _scan_file(path)
-    return problems
+    return Report(problems, mode)
 
 
-def validate_all(recipes_dir: PathLike = "recipes") -> dict[str, list[Problem]]:
+def validate_all(recipes_dir: PathLike = "recipes") -> dict[str, Report]:
     """Validate ``<recipes_dir>/*/fixtures`` for every recipe that has such a folder.
 
-    Returns ``{recipe directory: problems}``; a recipe without a ``fixtures`` folder is
+    Returns ``{recipe directory: report}``; a recipe without a ``fixtures`` folder is
     not checked (the recipe contract, not this validator, requires the folder).
     """
     root = Path(recipes_dir)
-    results: dict[str, list[Problem]] = {}
+    results: dict[str, Report] = {}
     if root.is_dir():
         for recipe in sorted(p for p in root.iterdir() if (p / FIXTURES_DIR).is_dir()):
             results[_display(recipe)] = validate_recipe(recipe)

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import copy
 import importlib.util
+import inspect
 import json
 import subprocess
 import sys
@@ -36,11 +37,13 @@ from jev_cookbook.fixtures import (
     validate_all,
     validate_recipe,
 )
+from jev_cookbook.fixtures import _scan as scan_module
 from jev_cookbook.fixtures.__main__ import main
 from jev_cookbook.fixtures._scan import scan_text
 from jev_cookbook.fixtures._schema import check
 
 ROOT = Path(__file__).resolve().parent.parent
+BOM = b"\xef\xbb\xbf"
 QUESTIONS = {"billing": Noul(instructions="Is this ticket about billing?")}
 
 
@@ -71,15 +74,26 @@ def good_set() -> dict:
 
 
 def write(recipe: Path, data: dict, *, bom: bool = False) -> Path:
+    """Write the fixture files; ``bom`` puts a byte order mark on inputs and labels only.
+
+    ``data["responses"]`` of ``None`` writes no responses file, and ``data["tagged"]``
+    (``{tag: responses}``) writes ``responses-<tag>.json`` files.
+    """
     folder = recipe / "fixtures"
     folder.mkdir(parents=True, exist_ok=True)
     enc = "utf-8-sig" if bom else "utf-8"
     for name, rows in (("inputs", data["inputs"]), ("labels", data["labels"])):
         text = "".join(json.dumps(r) + "\n" for r in rows)
         (folder / f"{name}.jsonl").write_text(text, encoding=enc, newline="\n")
-    (folder / "responses.json").write_text(
-        json.dumps(data["responses"], indent=2) + "\n", encoding=enc, newline="\n"
-    )
+    files = {"responses.json": data["responses"]}
+    files.update({f"responses-{tag}.json": r for tag, r in data.get("tagged", {}).items()})
+    for name, responses in files.items():
+        if responses is None:
+            (folder / name).unlink(missing_ok=True)
+        else:
+            (folder / name).write_text(
+                json.dumps(responses, indent=2) + "\n", encoding="utf-8", newline="\n"
+            )
     return recipe
 
 
@@ -349,6 +363,20 @@ def test_empty_responses_file(recipe):
     expect(recipe, "responses.json: has no responses")
 
 
+def test_a_malformed_key_does_not_switch_off_the_other_checks(recipe):
+    data = good_set()
+    data["responses"]["NOTAKEY"] = result()
+    data["labels"].pop(1)
+    data["inputs"][2]["replay_keys"] = [request_key("something else")]
+    write(recipe, data)
+    expect(
+        recipe,
+        "replay key must be 64 lowercase hex characters: 'NOTAKEY'",
+        "labels.jsonl (id 't1'): no label for the validation example",
+        "responses.json (id 't2'): no response for replay key",
+    )
+
+
 def test_responses_must_be_an_object(recipe):
     (recipe / "fixtures" / "responses.json").write_text("[]\n", encoding="utf-8")
     expect(recipe, "responses.json: must be a JSON object of replay_key -> response")
@@ -400,16 +428,322 @@ def test_recorded_dates_may_differ_between_responses(recipe):
     assert messages(recipe) == []
 
 
+# --------------------------------------------- ids, keys, splits, demo and the leak rule
+
+
+@pytest.mark.parametrize("bad", ["t0\n", "t0 ", "t0\r"])
+def test_an_id_must_match_the_whole_pattern(recipe, bad):
+    # Python's "$" also matches before a trailing newline; the pattern is matched whole.
+    data = good_set()
+    data["inputs"][0]["id"] = bad
+    data["labels"][0]["id"] = bad
+    write(recipe, data)
+    found = messages(recipe)
+    assert any("inputs.jsonl:1" in m and "field 'id'" in m for m in found), found
+    assert any("labels.jsonl:1" in m and "field 'id'" in m for m in found), found
+
+
+def test_a_replay_key_must_match_the_whole_pattern(recipe):
+    data = good_set()
+    key = data["inputs"][0]["replay_keys"][0]
+    data["inputs"][0]["replay_keys"] = [key + "\n"]
+    write(recipe, data)
+    expect(recipe, "field 'replay_keys[0]'", "does not match the pattern")
+
+
+def test_ids_that_differ_only_by_case_are_an_error(recipe):
+    mutate_inputs(recipe, lambda rows: rows[1].update(id="T0"))
+    expect(recipe, "inputs.jsonl:2 (id 'T0'): id differs only by case from 't0' (line 1)")
+    data = good_set()
+    data["labels"].append({"id": "T1", "label": "x"})
+    write(recipe, data)
+    expect(recipe, "labels.jsonl:5 (id 'T1'): id differs only by case from 't1' (line 2)")
+
+
+def test_a_label_for_a_demo_example_is_an_error(recipe):
+    data = good_set()
+    data["inputs"].append({**data["inputs"][0], "id": "d1", "split": "demo"})
+    data["labels"].append({"id": "d1", "label": "billing"})
+    write(recipe, data)
+    expect(recipe, "labels.jsonl:5 (id 'd1'): label for a demo example")
+
+
+def test_a_key_copied_from_another_example_is_reported(recipe):
+    """t3 lists t2's key and loses its own response: every key still has a response."""
+    data = good_set()
+    own = data["inputs"][3]["replay_keys"][0]
+    data["inputs"][3]["replay_keys"] = list(data["inputs"][2]["replay_keys"])
+    del data["responses"][own]
+    write(recipe, data)
+    found = messages(recipe)
+    assert not any("no response for replay key" in m or "no input lists" in m for m in found)
+    expect(
+        recipe, "inputs.jsonl (id 't3'): replay key", "is also listed by 't2', whose state differs"
+    )
+
+
+def test_a_key_copied_between_fields_examples_is_reported(recipe):
+    data = good_set()
+    for row in data["inputs"]:
+        row["fields"] = {"text": row.pop("state")["text"]}
+    data["inputs"][3]["replay_keys"] = list(data["inputs"][2]["replay_keys"])
+    del data["responses"][request_key("ticket 3: I was charged twice")]
+    write(recipe, data)
+    expect(recipe, "(id 't3'): replay key", "is also listed by 't2', whose fields differs")
+
+
+def test_examples_with_the_same_state_may_share_a_key(recipe):
+    data = good_set()
+    data["inputs"].append({**data["inputs"][0], "id": "d1", "split": "demo"})  # same keys
+    write(recipe, data)
+    assert messages(recipe) == []
+
+
+@pytest.mark.parametrize(
+    ("a", "b"), [("train", "validation"), ("validation", "test"), ("train", "test")]
+)
+def test_same_state_in_any_two_of_train_validation_test_is_a_leak(recipe, a, b):
+    def change(rows):
+        rows[0]["split"], rows[2]["split"] = a, b
+        rows[1]["split"], rows[3]["split"] = "validation", "test"
+        rows[2]["state"] = copy.deepcopy(rows[0]["state"])
+        rows[2]["replay_keys"] = list(rows[0]["replay_keys"])
+
+    data = good_set()
+    change(data["inputs"])
+    del data["responses"][request_key("ticket 2: I was charged twice")]
+    write(recipe, data)
+    expect(recipe, f"(id 't2'): same state as 't0' ({a}) in a different split ({b})")
+
+
+def test_same_fields_in_two_splits_is_a_leak(recipe):
+    data = good_set()
+    for row in data["inputs"]:
+        row["fields"] = {"text": row.pop("state")["text"]}
+    data["inputs"][2]["fields"] = copy.deepcopy(data["inputs"][0]["fields"])
+    data["inputs"][2]["replay_keys"] = list(data["inputs"][0]["replay_keys"])
+    del data["responses"][request_key("ticket 2: I was charged twice")]
+    write(recipe, data)
+    expect(recipe, "(id 't2'): same fields as 't0' (validation) in a different split (test)")
+
+
+def test_the_same_state_twice_in_one_split_is_not_a_leak(recipe):
+    data = good_set()
+    data["inputs"][1]["state"] = copy.deepcopy(data["inputs"][0]["state"])
+    data["inputs"][1]["replay_keys"] = list(data["inputs"][0]["replay_keys"])
+    del data["responses"][request_key("ticket 1: I was charged twice")]
+    write(recipe, data)
+    assert messages(recipe) == []
+
+
+# ------------------------------------------------- modes: replay and scripted recipes
+
+
+def scripted_set() -> dict:
+    """Examples that nothing replays: no keys, no responses file."""
+    data = good_set()
+    for row in data["inputs"]:
+        row["replay_keys"] = []
+    data["responses"] = None
+    return data
+
+
+def test_replay_mode_is_reported(recipe):
+    report = validate_recipe(recipe)
+    assert report == [] and report.mode == "replay"
+
+
+def test_a_scripted_recipe_needs_no_keys_and_no_responses_file(recipe):
+    write(recipe, scripted_set())
+    assert not (recipe / "fixtures" / "responses.json").exists()
+    report = validate_recipe(recipe)
+    assert report == [] and report.mode == "scripted"
+    assert len(load_inputs(recipe)) == 4 and load_inputs(recipe)[0].replay_keys == ()
+
+
+def test_a_scripted_recipe_may_omit_replay_keys_per_example(recipe):
+    data = good_set()
+    data["inputs"][0]["replay_keys"] = []  # one example the notebook does not replay
+    del data["responses"][request_key("ticket 0: I was charged twice")]
+    write(recipe, data)
+    report = validate_recipe(recipe)
+    assert report == [] and report.mode == "replay"
+
+
+def test_a_responses_file_nobody_lists_is_an_error_in_scripted_mode(recipe):
+    data = scripted_set()
+    data["responses"] = good_set()["responses"]
+    write(recipe, data)
+    expect(recipe, "response that no input lists in replay_keys")
+    assert validate_recipe(recipe).mode == "scripted"
+
+
+def test_listed_keys_without_a_responses_file(recipe):
+    data = good_set()
+    data["responses"] = None
+    write(recipe, data)
+    found = messages(recipe)
+    assert found == [f"{(recipe / 'fixtures' / 'responses.json').as_posix()}: file is missing"]
+
+
+def test_mode_is_unknown_when_the_inputs_cannot_be_read(recipe):
+    (recipe / "fixtures" / "inputs.jsonl").unlink()
+    assert validate_recipe(recipe).mode is None
+
+
+def test_cli_prints_the_mode(recipe, tmp_path, capsys):
+    assert main(["validate", str(recipe)]) == 0
+    assert "fixtures valid (mode replay)" in capsys.readouterr().out
+    other = write(tmp_path / "02-scripted", scripted_set())
+    assert main(["validate", str(other)]) == 0
+    assert "fixtures valid (mode scripted)" in capsys.readouterr().out
+    (other / "fixtures" / "labels.jsonl").unlink()
+    assert main(["validate", str(other)]) == 1
+    captured = capsys.readouterr()
+    assert "02-scripted: mode scripted" in captured.out
+
+
+# ---------------------------------------------- comparison recipes: responses-<tag>.json
+
+
+def tagged_set(tags=("b",), model="model-b") -> dict:
+    data = good_set()
+    data["responses"] = {k: result("recorded", "model-a") for k in data["responses"]}
+    data["tagged"] = {t: {k: result("recorded", model) for k in data["responses"]} for t in tags}
+    return data
+
+
+def test_tagged_responses_are_valid_and_may_use_another_model(recipe):
+    write(recipe, tagged_set(tags=("b", "gpt.4-x")))
+    assert messages(recipe) == []
+    assert set(load_responses(recipe, "b")) == set(load_responses(recipe))
+    assert load_responses(recipe, "b")[next(iter(load_responses(recipe)))]["model"] == "model-b"
+    assert responses_path(recipe, "b").name == "responses-b.json"
+    assert get_backend(fixtures=responses_path(recipe, "b")).mode == "recorded"
+
+
+def test_every_listed_key_must_be_in_every_tagged_file(recipe):
+    data = tagged_set()
+    del data["tagged"]["b"][data["inputs"][1]["replay_keys"][0]]
+    write(recipe, data)
+    expect(recipe, "responses-b.json (id 't1'): no response for replay key")
+
+
+def test_a_tagged_file_may_not_hold_a_response_nobody_lists(recipe):
+    data = tagged_set()
+    data["tagged"]["b"][request_key("nobody asked")] = result("recorded", "model-b")
+    write(recipe, data)
+    expect(recipe, "responses-b.json", "response that no input lists in replay_keys")
+
+
+def test_each_tagged_file_keeps_one_provenance_and_one_model(recipe):
+    data = tagged_set()
+    last = data["inputs"][3]["replay_keys"][0]
+    data["tagged"]["b"][last] = result("recorded", "model-c")
+    write(recipe, data)
+    expect(recipe, "responses-b.json: responses come from more than one model")
+    data = tagged_set()
+    data["tagged"]["b"][last] = result()  # synthetic among recorded
+    write(recipe, data)
+    expect(recipe, "responses-b.json: mixes recorded answers")
+
+
+def test_a_tagged_file_alone_does_not_stand_in_for_responses_json(recipe):
+    data = tagged_set()
+    data["responses"] = None
+    write(recipe, data)
+    assert messages(recipe) == [
+        f"{(recipe / 'fixtures' / 'responses.json').as_posix()}: file is missing"
+    ]
+
+
+def test_a_tagged_file_in_a_scripted_recipe_is_an_error(recipe):
+    data = scripted_set()
+    data["tagged"] = {"b": good_set()["responses"]}
+    write(recipe, data)
+    expect(recipe, "responses-b.json", "response that no input lists in replay_keys")
+
+
+@pytest.mark.parametrize("bad", ["bad tag", "../x", "", "x" * 65])
+def test_a_bad_tag_is_refused(recipe, bad):
+    with pytest.raises(ValueError, match="bad responses tag"):
+        responses_path(recipe, bad)
+    with pytest.raises(ValueError, match="bad responses tag"):
+        load_responses(recipe, bad)
+
+
+def test_loading_a_missing_tagged_file_names_it(recipe):
+    with pytest.raises(FixtureFileError, match=r"responses-nope\.json: file is missing"):
+        load_responses(recipe, "nope")
+
+
+# ------------------------------------------------------ other files in fixtures/
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["ledger.json", "notes.txt", "responses-.json", "responses-bad tag.json", "responses.json.bak"],
+)
+def test_any_other_file_in_the_fixtures_folder_is_an_error(recipe, name):
+    (recipe / "fixtures" / name).write_text("{}\n", encoding="utf-8")
+    found = messages(recipe)
+    assert len(found) == 1 and found[0].startswith((recipe / "fixtures" / name).as_posix()), found
+    assert "unexpected entry in the fixtures folder" in found[0]
+
+
+def test_a_folder_inside_fixtures_is_an_error(recipe):
+    (recipe / "fixtures" / "ledgers").mkdir()
+    expect(recipe, "ledgers: unexpected entry in the fixtures folder")
+
+
+def test_a_key_shaped_string_in_a_tagged_file_is_found(recipe):
+    data = tagged_set()
+    data["tagged"]["b"][data["inputs"][0]["replay_keys"][0]]["note"] = FAKE_SK
+    write(recipe, data)
+    hits = [m for m in messages(recipe) if "[sk-prefixed-key]" in m]
+    assert hits and "responses-b.json" in hits[0]
+
+
 # ------------------------------------------------------------ files: BOM, JSON, UTF-8
 
 
-def test_utf8_bom_is_accepted_everywhere(tmp_path):
+def test_utf8_bom_is_accepted_in_inputs_and_labels(tmp_path):
     recipe = write(tmp_path / "bom", good_set(), bom=True)
-    for name in ("inputs.jsonl", "labels.jsonl", "responses.json"):
-        assert (recipe / "fixtures" / name).read_bytes().startswith(b"\xef\xbb\xbf")
+    for name in ("inputs.jsonl", "labels.jsonl"):
+        assert (recipe / "fixtures" / name).read_bytes().startswith(BOM)
+    assert not (recipe / "fixtures" / "responses.json").read_bytes().startswith(BOM)
     assert messages(recipe) == []
     assert len(load_inputs(recipe)) == 4 and len(load_labels(recipe)) == 4
     assert len(load_responses(recipe)) == 4
+    assert get_backend(fixtures=responses_path(recipe)).mode == "synthetic"
+
+
+@pytest.mark.parametrize("tag", [None, "other"])
+def test_bom_on_a_responses_file_is_rejected_because_replay_cannot_read_it(recipe, tag):
+    data = good_set()
+    data["tagged"] = {"other": data["responses"]}
+    write(recipe, data)
+    path = responses_path(recipe, tag)
+    path.write_bytes(BOM + path.read_bytes())
+    name = path.name
+    expect(recipe, f"{name}: starts with a UTF-8 byte order mark, which ReplayBackend cannot")
+    # the reason: the backend really cannot read it, and the loader says so by file name
+    with pytest.raises(json.JSONDecodeError):
+        ReplayBackend.from_json(path)
+    with pytest.raises(FixtureFileError, match=rf"{name}: starts with a UTF-8 byte order mark"):
+        load_responses(recipe, tag)
+
+
+def test_whatever_validates_can_be_replayed(recipe):
+    """The validator may not accept a responses file that ``get_backend`` cannot load."""
+    data = good_set()
+    data["tagged"] = {"b": data["responses"]}
+    write(recipe, data)
+    assert messages(recipe) == []
+    for tag in (None, "b"):
+        backend = get_backend(fixtures=responses_path(recipe, tag))
+        state = {"text": "ticket 0: I was charged twice"}
+        assert backend.decide(state, QUESTIONS)["billing"].noul == 0.9
 
 
 def test_bad_json_line_names_file_and_line(recipe):
@@ -544,24 +878,87 @@ def test_a_field_called_token_is_not_needed_and_prose_is_not_flagged(recipe):
     assert messages(recipe) == []
 
 
-def test_scan_text_matches_the_repository_scanner():
-    """The packaged scan is a copy of tools/check_hygiene.py's secret rules: keep them equal."""
+def load_repository_scanner():
+    """``tools/check_hygiene.py`` as a module, imported by path (``tools/`` is not a package)."""
     spec = importlib.util.spec_from_file_location(
-        "check_hygiene", ROOT / "tools" / "check_hygiene.py"
+        "check_hygiene_for_parity", ROOT / "tools" / "check_hygiene.py"
     )
-    hygiene = importlib.util.module_from_spec(spec)
-    sys.modules["check_hygiene"] = hygiene
-    spec.loader.exec_module(hygiene)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.modules.pop(spec.name, None)
+    return module
+
+
+def pattern_state(pattern):
+    return (pattern.pattern, pattern.flags)
+
+
+SCANNER_FUNCTIONS = (
+    "_scan_secrets_line",
+    "_mask",
+    "_is_placeholder",
+    "_entropy",
+    "_letters_and_digits",
+)
+SCANNER_PATTERNS = (
+    "_AUTH_HEADER", "_BEARER", "_ASSIGNMENT", "_WORD", "_TOKEN", "_TOKEN_SLASH",
+    "_PATH_SHAPED", "_DATA_URI", "_ANSI",
+)  # fmt: skip
+
+
+def test_the_packaged_scanner_has_the_same_rules_as_the_repository_scanner():
+    """Every rule constant and every rule function is compared with ``tools/check_hygiene.py``.
+
+    Comparing outputs on samples cannot see a changed threshold or a dropped vendor prefix;
+    comparing the definitions does, so editing either copy alone fails here.
+    """
+    hygiene = load_repository_scanner()
+    ours = {name: pattern_state(p) for name, p in scan_module._VENDOR_PATTERNS}
+    theirs = {name: pattern_state(p) for name, p in hygiene._VENDOR_PATTERNS}
+    assert list(ours) == list(theirs)
+    assert ours == theirs
+    for name in SCANNER_PATTERNS:
+        assert pattern_state(getattr(scan_module, name)) == pattern_state(getattr(hygiene, name)), (
+            name
+        )
+    assert scan_module._PLACEHOLDER_MARKERS == hygiene._PLACEHOLDER_MARKERS
+    assert scan_module._ENTROPY_THRESHOLD == hygiene._ENTROPY_THRESHOLD
+    for name in SCANNER_FUNCTIONS:
+        ours_source = inspect.getsource(getattr(scan_module, name))
+        assert ours_source == inspect.getsource(getattr(hygiene, name)), name
+
+
+def test_the_packaged_scanner_flags_one_sample_per_rule_like_the_repository_scanner():
+    hygiene = load_repository_scanner()
+    # (sample, rule): each sample is the shortest thing that trips exactly that rule
     samples = [
-        FAKE_SK,
-        FAKE_GH,
-        FAKE_ASSIGN,
-        FAKE_BEARER,
-        FAKE_AWS,
-        "-----BEGIN RSA PRIVATE" + " KEY-----",
-        "Authorization: " + "Basic " + "dXNlcjpwYXNzd29yZDEyMzQ1",
-        "eyJhbGciOiJIUzI1NiJ9." + "eyJzdWIiOiIxMjM0NTY3ODkwIn0." + "dBjftJeZ4CVPmB92K27uhbUJU1p1r",
-        "xoxb-" + "1234567890-abcdefghij",
+        (FAKE_SK, "sk-prefixed-key"),
+        (FAKE_GH, "github-token"),
+        (FAKE_ASSIGN, "secret-assignment"),
+        (FAKE_BEARER, "bearer-token"),
+        (FAKE_AWS, "aws-access-key-id"),
+        ("-----BEGIN RSA PRIVATE" + " KEY-----", "private-key-block"),
+        ("github_pat_" + "a1B2" * 10, "github-fine-grained-token"),
+        ("xoxb-" + "1234567890-abcdefghij", "slack-token"),
+        ("AIza" + "Sy" + "a1B2" * 8 + "c", "google-api-key"),
+        (
+            "eyJhbGciOiJIUzI1NiJ9."
+            + "eyJzdWIiOiIxMjM0NTY3ODkwIn0."
+            + "dBjftJeZ4CVPmB92K27uhbUJU1p1r",
+            "jwt",
+        ),
+        ("Authorization: " + "Basic " + "dXNlcjpwYXNzd29yZDEyMzQ1", "authorization-header-value"),
+        (
+            "word " + "Zx3cV6bN" + "9mQ2wE5r" + "T8yU1iO4" + "pA7sD0fG" + "2hJ" + " end",
+            "high-entropy-token",
+        ),
+    ]
+    for sample, rule in samples:
+        assert rule in {r for _, r, _ in scan_text(sample)}, rule
+    quiet = [
         "TYPESAFE_API_KEY=<your key>",
         "api_key = $KEY",
         "just an ordinary sentence about a billing ticket",
@@ -569,9 +966,9 @@ def test_scan_text_matches_the_repository_scanner():
         "0123456789abcdef" * 4,
         "Zm9vYmFy" * 6,
     ]
-    for sample in samples:
+    for sample in [s for s, _ in samples] + quiet:
         assert scan_text(sample) == hygiene.scan_text(sample), sample
-    assert any(scan_text(s) for s in samples[:5])
+    assert not any(scan_text(s) for s in quiet)
 
 
 # --------------------------------------------------------------------------------- CLI
