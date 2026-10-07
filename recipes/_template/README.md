@@ -31,16 +31,29 @@ replays the stored answers in `fixtures/responses.json`, and imports only the st
 
 ## Switch to live
 
-Live calls change the backend and nothing else; the questions and the rule are the same. Set
-`JEV_COOKBOOK_LIVE=1` and `JEV_COOKBOOK_LIVE_MODEL` before running, and use the recorder to capture
-answers into `fixtures/`. The setup, the budget limit and the recorder are in
-[docs/live.md](../../docs/live.md). Never put a key in a notebook, fixture or committed file.
+Live calls change the backend and nothing else; the questions and the rule are the same. You need the
+SDK (`pip install -e ".[live]"`) and three environment variables: `TYPESAFE_API_KEY`,
+`JEV_COOKBOOK_LIVE=1` and `JEV_COOKBOOK_LIVE_MODEL`. To run the notebook live, set them in the shell,
+install Jupyter (`pip install jupyterlab`, which is not a dependency of this repository) and open
+`notebook.ipynb` from this folder. `tools/execute_notebook.py` always removes `JEV_COOKBOOK_*` and
+`TYPESAFE_*` from the kernel's environment, so it never runs live and never writes a live outcome into
+a committed notebook; the recorder captures answers into `fixtures/` instead. In live mode this
+notebook makes one call for each of the 22 examples it uses, and no other. The setup, the budget
+limit and the recorder are in [docs/live.md](../../docs/live.md). Never put a key in a notebook,
+fixture or committed file.
 
 ## What was and was not measured
 
-Not measured live. The committed run replays 22 invented messages with hand-written (synthetic) answers,
-some wrong on purpose. Its accuracy and confusion matrix check that the pipeline works; they say nothing
-about how Jev performs, how fast it is, or what it costs. This template has no recorded fixtures.
+- **Mode:** synthetic (offline replay of hand-written answers). Not measured live.
+- **Model, capture date:** not applicable; no answer came from a model. A recorded recipe names the
+  model the API returned and the date or dates the answers were captured.
+- **N:** 10 `validation` and 10 `test` examples are scored (22 in the fixtures; the 2 `demo` examples
+  are not scored). A recorded recipe states N beside every reported metric.
+
+The committed run replays 22 invented messages with hand-written (synthetic) answers, some wrong on
+purpose. Its accuracy, the routing counts and the confusion matrix check that the pipeline works; they
+say nothing about how Jev performs, how fast it is, or what it costs. This template has no recorded
+fixtures.
 
 ## What is in this folder
 
@@ -88,7 +101,9 @@ Needs only this page and the repository. Recipe `NN` is issue `NN` and its slug 
    the folder (`recipe_01_sentiment_classification_helpers`), so recipes cannot collide.
 4. **Write the fixtures.** Fill `ROWS` in `build_fixtures.py`: about twenty invented examples across
    `validation` and `test`, plus a couple of `demo` ones, gold labels, and stored answers that are
-   deliberately imperfect (some wrong, one hard case). Run `python recipes/NN-slug/build_fixtures.py`, then
+   deliberately imperfect (some wrong, one hard case). Then write `answers_for`, which turns each row's
+   spec into typed answers (for example `ChoiceAnswer.from_probabilities`); until you do it stops with a
+   `TODO` error. Run `python recipes/NN-slug/build_fixtures.py`, then
    `python -m jev_cookbook.fixtures validate recipes/NN-slug`. Rules: [docs/fixtures.md](../../docs/fixtures.md).
 5. **Write the notebook.** Replace each `TODO` in `notebook.ipynb`, section by section, keeping the
    headings. Prose goes in markdown cells, one sentence per design choice; charts use
@@ -105,7 +120,7 @@ Needs only this page and the repository. Recipe `NN` is issue `NN` and its slug 
    ```
 
    It runs the notebook in a fresh kernel with this folder as the working directory, with
-   `JEV_COOKBOOK_LIVE` and `TYPESAFE_API_KEY` removed from its environment, and writes the outputs back. A
+   every `JEV_COOKBOOK_*` and `TYPESAFE_*` variable removed from its environment, and writes the outputs back. A
    second run changes nothing; if yours does, something in an output is unstable (a time, an object id,
    an unordered set) and should not be printed. Outputs must not contain absolute paths, usernames or
    environment dumps: print nothing path-like.
@@ -126,8 +141,9 @@ The full contract is [CONTRIBUTING.md](../../CONTRIBUTING.md); in short:
 - **Branch and description.** Branch `recipe/NN-slug`, description `Closes #NN`, the checklist from the pull
   request template filled in, commits signed, and no key, token or `Authorization` header anywhere.
 - **No claims about Jev.** Nothing about its quality, speed or cost unless it comes from recorded live
-  inference on a held-out set, with the model version named. If you made no live run, the README says
-  "not measured live".
+  inference on a held-out set. A recorded recipe states the model version the API returned, the capture
+  date and the sample size N for every number it reports, in the README and in the notebook. If you made
+  no live run, the README says "not measured live".
 
 ### Notes on the contract this template follows
 
@@ -135,5 +151,6 @@ The full contract is [CONTRIBUTING.md](../../CONTRIBUTING.md); in short:
   question. The cookbook is deliberately stricter here than TypeSafe's documentation, which also shows
   questions. This template has no `Noul`, but a recipe that uses one follows the cookbook rule.
 - A `Noul` has no confidence field, so a threshold on it is chosen on `validation` from examples. A
-  `Choice` has one, derived from its whole distribution; it is not the top probability.
+  `Choice` has one: the top probability rescaled by the number of options, `(p_max - 1/n) / (1 - 1/n)`
+  (see [the confidence page](https://docs.typesafe.ai/confidence.md)); it is not the raw top probability.
 - A fixture miss is an error (`ReplayMiss`); nothing invents an answer to keep a notebook running.

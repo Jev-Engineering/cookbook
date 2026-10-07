@@ -1,5 +1,6 @@
 """Tests for jev_cookbook.recipe.load_helpers: recipes with the same helper names do not collide."""
 
+import os
 import sys
 
 import pytest
@@ -37,13 +38,37 @@ def test_same_folder_name_in_different_places_does_not_collide(tmp_path):
     assert load_helpers(one).VALUE == 1
 
 
-def test_the_module_is_cached_per_path_and_reload_runs_the_file_again(tmp_path):
+def test_an_unchanged_file_returns_the_same_module_and_reload_runs_it_again(tmp_path):
     folder = make_recipe(tmp_path, "03-cache", "VALUE = 1\n")
     first = load_helpers(folder)
     assert load_helpers(folder) is first
-    (folder / "helpers.py").write_text("VALUE = 2\n", encoding="utf-8")
+    assert load_helpers(str(folder)) is first
+    assert load_helpers(folder, reload=True) is not first
+
+
+def test_an_edited_file_is_loaded_again_without_reload(tmp_path):
+    folder = make_recipe(tmp_path, "03-edit", "VALUE = 1\n")
     assert load_helpers(folder).VALUE == 1
-    assert load_helpers(folder, reload=True).VALUE == 2
+    stat = (folder / "helpers.py").stat()
+    # Same size, and the old modification time put back: only the contents differ.
+    (folder / "helpers.py").write_text("VALUE = 2\n", encoding="utf-8")
+    os.utime(folder / "helpers.py", ns=(stat.st_atime_ns, stat.st_mtime_ns))
+    assert load_helpers(folder).VALUE == 2
+
+
+def test_a_file_saved_with_a_utf8_byte_order_mark_loads(tmp_path):
+    folder = tmp_path / "05-bom"
+    folder.mkdir()
+    (folder / "helpers.py").write_bytes(b"\xef\xbb\xbfVALUE = 'caf\xc3\xa9'\n")
+    assert load_helpers(folder).VALUE == "café"
+
+
+def test_loading_writes_no_pycache_into_the_recipe_folder(tmp_path):
+    folder = make_recipe(tmp_path, "06-pycache", "VALUE = 1\n")
+    load_helpers(folder)
+    load_helpers(folder, reload=True)
+    assert not list(folder.rglob("__pycache__"))
+    assert not list(folder.rglob("*.pyc"))
 
 
 def test_the_default_folder_is_the_working_directory(tmp_path, monkeypatch):

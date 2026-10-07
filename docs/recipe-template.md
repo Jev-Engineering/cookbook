@@ -57,13 +57,22 @@ Every recipe may have a `helpers.py`, and pytest runs all recipe tests in one pr
 `--import-mode=importlib`, so `import helpers` would give the second recipe the first one's module.
 `load_helpers(recipe_dir=None)` loads `recipe_dir/helpers.py` by file path (default: the current
 directory) under a name made from the folder name, such as
-`recipe_01_sentiment_classification_helpers`, and caches the module per resolved path.
+`recipe_01_sentiment_classification_helpers`, and caches the module per resolved path and file
+contents (a SHA-256 of the bytes): an unchanged file returns the same module object, and an
+edited `helpers.py` is executed again, so re-running a setup cell after an edit never serves
+stale code. The file is read as bytes, so a UTF-8 byte order mark (which Windows PowerShell
+writes) is accepted.
 
 - The module is in `sys.modules` only while its file executes (`dataclasses` needs that) and is
   removed afterwards; `sys.path` is never changed. A test run leaves no trace.
 - A missing file is a `FileNotFoundError` naming the folder; an error inside `helpers.py`
   propagates and nothing is cached. `reload=True` executes the file again.
 - Objects from helpers cannot be pickled by module name. Keep them out of anything pickled.
+- **Keep `helpers.py` a single, self-contained file.** A `helpers.py` that does `import sibling`
+  appears to work in the notebook, because the kernel can import from the recipe folder (and it
+  then writes `__pycache__/` there), but it raises `ModuleNotFoundError` under pytest and in
+  `build_fixtures.py`, where the folder is not on `sys.path`; `from . import x` fails everywhere.
+  Nothing in the cookbook supports helpers split across files.
 
 ## The scaffolder
 
@@ -106,12 +115,31 @@ and **never overwrites**: if `recipes/<slug>/` exists it changes nothing and exi
 ## Executing a notebook
 
 `tools/execute_notebook.py <recipe-dir>` runs `notebook.ipynb` with `nbclient` in a fresh kernel and
-the recipe folder as working directory, and writes the outputs back in place. It removes every
-`JEV_COOKBOOK_*` variable and `TYPESAFE_API_KEY` from the kernel's environment, so a shell that is set
-up for live calls still runs offline; it records no timings; and it resets the notebook metadata to
-the interpreter-independent minimum (kernel `python3`, language `python`), so the file does not
-change with the Python version that ran it. Exit status: 0 on success, 1 when a cell fails (the file
-is left unchanged), 2 for a usage error.
+the recipe folder as working directory, and writes the outputs back in place.
+
+- It builds a copy of the environment without any `JEV_COOKBOOK_*` or `TYPESAFE_*` variable and
+  passes it to the kernel explicitly; this process's own environment is never changed, so notebooks
+  can be executed in parallel. A shell that is set up for live calls still runs offline.
+- The kernel is the interpreter running the tool (`sys.executable`). The name `python3` is
+  resolved to that interpreter, not to whichever `python3` kernelspec Jupyter finds first, so a
+  user-level kernelspec cannot change what the committed outputs were made with. The tool needs
+  `ipykernel` installed in that interpreter, which `pip install -e ".[dev]"` provides.
+- It records no timings, writes LF line endings on every platform, and resets the notebook
+  metadata to the interpreter-independent minimum (kernel `python3`, language `python`), so the
+  file does not change with the Python version that ran it. `tests/test_new_recipe.py` and
+  `tests/test_template.py` pin each of these, including that two executions of the template give
+  byte-identical files.
+- A cell that writes to stderr (a warning, a traceback printed by hand) fails the run: stderr
+  carries absolute paths. Fix the cause; do not filter the output.
+- Exit status: 0 on success, 1 when a cell fails or writes to stderr (the file is left
+  unchanged), 2 for a usage error.
+
+**Running live.** The executor never runs live, on purpose, so a committed notebook cannot
+contain a live outcome by accident. To run a notebook live, set `TYPESAFE_API_KEY`,
+`JEV_COOKBOOK_LIVE=1` and `JEV_COOKBOOK_LIVE_MODEL` in the shell, install the SDK
+(`pip install -e ".[live]"`) and Jupyter (not a dependency), and open the notebook from its folder;
+or capture answers with the recorder in [live.md](live.md). A recorded recipe states the model
+version the API returned, the capture date and N for every number it reports.
 
 It adds no network guard and no staleness check. Those are #69's. Two things for that work: figure
 outputs are PNG images whose bytes may differ across platforms and matplotlib or FreeType

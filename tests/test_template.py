@@ -131,6 +131,106 @@ def test_re_executing_the_notebook_changes_nothing(tmp_path):
     assert re.search(r"(?m)^\s*\"image/png\"", (copy / "notebook.ipynb").read_text("utf-8"))
 
 
+def copy_template(tmp_path):
+    copy = tmp_path / "_template"
+    for p in TEMPLATE.rglob("*"):
+        if p.is_file() and "__pycache__" not in p.parts:
+            target = copy / p.relative_to(TEMPLATE)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(p.read_bytes())
+    return copy
+
+
+def test_two_executions_of_the_template_give_byte_identical_files(tmp_path):
+    copy = copy_template(tmp_path)
+    executor = load_tool("execute_notebook.py")
+    executor.execute(copy)
+    first = (copy / "notebook.ipynb").read_bytes()
+    executor.execute(copy)
+    second = (copy / "notebook.ipynb").read_bytes()
+    assert first == second
+    assert b"\r" not in first
+
+
+def stream_lines(cell_id):
+    cell = next(c for c in NOTEBOOK["cells"] if c.get("id") == cell_id)
+    return "".join(
+        "".join(o["text"]) for o in cell["outputs"] if o["output_type"] == "stream"
+    ).splitlines()
+
+
+def test_every_metric_line_of_the_evaluation_carries_the_pipeline_check_label():
+    for cell_id in ("evaluation-validation", "evaluation-test"):
+        lines = stream_lines(cell_id)
+        assert lines
+        for line in lines:
+            assert "(a pipeline check, not a Jev result)" in line, line
+
+
+def test_the_evaluation_reports_what_the_routing_rule_does():
+    from jev_cookbook import get_backend, load_helpers
+    from jev_cookbook.fixtures import load_inputs, load_labels, responses_path, select_split
+
+    helpers = load_helpers(TEMPLATE)
+    questions = helpers.build_questions()
+    backend = get_backend(fixtures=responses_path(TEMPLATE))
+    examples, labels = load_inputs(TEMPLATE), load_labels(TEMPLATE)
+
+    def answers_for(split):
+        chosen = select_split(examples, split)
+        return chosen, [
+            backend.decide(helpers.build_state(e.fields), questions)["route"] for e in chosen
+        ]
+
+    # The threshold, derived independently: the lowest confidence among validation answers
+    # that name a queue such that every named-queue answer at or above it is right. A
+    # confident `none` never sets it.
+    validation, answers = answers_for("validation")
+    named = [
+        (a.confidence, a.choice == labels[e.id])
+        for a, e in zip(answers, validation, strict=True)
+        if a.choice in helpers.QUEUES
+    ]
+    threshold = min(c for c, _ in named if all(ok for c2, ok in named if c2 >= c))
+    printed = " ".join(stream_lines("evaluation-test"))
+    assert f"threshold {threshold:.2f} frozen" in printed
+
+    test, test_answers = answers_for("test")
+    auto = right = review = 0
+    for example, answer in zip(test, test_answers, strict=True):
+        routing = helpers.route(example.fields["ticket"], answer, threshold)
+        if routing.outcome == helpers.REVIEW:
+            review += 1
+        else:
+            auto += 1
+            right += answer.choice == labels[example.id]
+    assert f"routed automatically: {auto} of 10" in printed
+    assert f"right among those routed automatically: {right} of {auto}" in printed
+    assert f"sent to review: {review} of 10" in printed
+
+
+def test_the_template_readme_discloses_mode_model_date_and_n():
+    readme = (TEMPLATE / "README.md").read_text("utf-8")
+    section = readme.split("## What was and was not measured")[1].split("## What is in")[0]
+    for field in ("**Mode:**", "**Model, capture date:**", "**N:**"):
+        assert field in section
+    assert "synthetic" in section and "10 `validation` and 10 `test`" in section
+    assert "model version the API returned" in readme and "sample size N" in readme
+    assert "answers_for" in readme and "TYPESAFE_API_KEY" in readme and '".[live]"' in readme
+
+
+def test_the_header_counts_the_scored_examples_not_the_demo_ones():
+    setup = source(next(c for c in NOTEBOOK["cells"] if c.get("id") == "setup"))
+    assert setup.splitlines()[0] == "%matplotlib inline"
+    assert 'scored = [e for e in examples if e.split != "demo"]' in setup
+    assert "len(scored)" in setup and "len(examples)" not in setup
+
+
+def test_the_confusion_matrix_title_follows_the_mode_and_states_n():
+    cell = next(c for c in NOTEBOOK["cells"] if c.get("id") == "evaluation-matrix")
+    assert 'title=f"Test split, {len(test_examples)} examples{check}"' in source(cell)
+
+
 def test_the_generator_reproduces_the_committed_fixtures(tmp_path):
     copy = tmp_path / "_template"
     copy.mkdir()

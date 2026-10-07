@@ -112,6 +112,8 @@ def notebook_cells(catalog: dict, recipe: dict) -> list[dict]:
         code(
             "setup",
             f"""
+%matplotlib inline
+
 from jev_cookbook import get_backend, load_helpers
 from jev_cookbook.fixtures import load_inputs, load_labels, responses_path
 from jev_cookbook.style import apply_style, run_header, show_answer
@@ -121,6 +123,9 @@ helpers = load_helpers()  # this recipe's helpers.py, loaded by path
 examples = load_inputs()
 labels = load_labels()
 backend = get_backend(fixtures=responses_path())
+# N for the header is the number of examples the metrics are about: the ones with a gold
+# label, which excludes the demo examples.
+scored = [e for e in examples if e.split != "demo"]
 
 offline = backend.mode in ("synthetic", "scripted")
 check = " (a pipeline check, not a Jev result)" if offline else ""
@@ -129,7 +134,7 @@ header = run_header(
     {number},
     {json.dumps(title)},
     backend=backend,
-    n_examples=None if offline else len(examples),
+    n_examples=None if offline else len(scored),
 )
 """,
         ),
@@ -206,7 +211,10 @@ for answer in result.answers.values():
 if offline:
     print("Provenance: synthetic. Not measured live.")
 else:
+    dates = ", ".join(getattr(backend, "recorded_dates", ()) or ()) or "this run"
     print(f"Provenance: {backend.mode}, model {backend.model}")
+    print(f"Captured: {dates}")
+    print(f"N: {len(scored)} scored examples")  # TODO: and N for each reported metric
 """,
         ),
         md(
@@ -260,15 +268,27 @@ The notebook runs from this folder with no network and no API key, replaying `fi
 
 ## Switch to live
 
-Live calls are opt-in and change nothing but the backend: set `JEV_COOKBOOK_LIVE=1` and
-`JEV_COOKBOOK_LIVE_MODEL`, and record answers with the recorder described in
-[docs/live.md](../../docs/live.md). Never put a key in a notebook or a fixture.
+Live calls are opt-in and change nothing but the backend. Install the SDK
+(`pip install -e ".[live]"`) and set `TYPESAFE_API_KEY`, `JEV_COOKBOOK_LIVE=1` and
+`JEV_COOKBOOK_LIVE_MODEL`; then open `notebook.ipynb` from this folder in Jupyter (not a dependency
+of this repository), or record answers with the recorder described in
+[docs/live.md](../../docs/live.md). `tools/execute_notebook.py` removes those variables on purpose
+and always runs offline. Never put a key in a notebook or a fixture.
 
 ## What was and was not measured
 
-Not measured live. The offline run replays synthetic answers written for this recipe, so its
-numbers check that the pipeline works. {TODO_MARK}: state the fixture size and what the evaluation
-covers.
+- **Mode:** synthetic (offline replay of hand-written answers). Not measured live.
+- **Model, capture date:** not applicable while every answer is synthetic.
+  {TODO_MARK}: if this recipe records real inference, replace the mode, model and date lines
+  with the mode (`recorded` or `live`), the model the API returned, and the capture date or
+  dates; state N for every reported metric. Leave them as they are for a synthetic recipe.
+- **N:** {TODO_MARK}: the number of scored examples per split (the `demo` examples are not scored).
+
+A recorded recipe states the model version the API returned, the capture date and N for every number
+it reports, here and in the notebook.
+
+The offline run replays synthetic answers written for this recipe, so its numbers check that the
+pipeline works. {TODO_MARK}: state what the evaluation covers.
 
 ## Sources
 

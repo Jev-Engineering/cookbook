@@ -251,3 +251,152 @@ def test_the_kernel_runs_in_the_recipe_folder_without_the_live_switch(tmp_path, 
 
 def test_a_folder_without_a_notebook_is_a_usage_error(tmp_path):
     assert execute_notebook.main([str(tmp_path)]) == 2
+
+
+def test_every_typesafe_variable_is_dropped_whatever_its_case():
+    env = {
+        "PATH": "x",
+        "TYPESAFE_API_KEY": "k",
+        "TYPESAFE_BASE_URL": "u",
+        "typesafe_other": "o",
+        "TYPESAFEISH": "kept",
+        "jev_cookbook_live": "1",
+    }
+    assert execute_notebook.offline_environment(env) == {"PATH": "x", "TYPESAFEISH": "kept"}
+
+
+def test_the_kernel_gets_an_explicit_environment_and_the_parents_is_never_touched(
+    tmp_path, monkeypatch
+):
+    folder = tmp_path / "isolated"
+    code = (
+        "import os\n"
+        "assert not [k for k in os.environ if k.upper().startswith('TYPESAFE_')]\n"
+        "assert 'JEV_COOKBOOK_LIVE' not in os.environ\n"
+        "assert os.environ['KEEP_ME'] == 'yes'\n"
+    )
+    write_notebook(folder, code)
+    monkeypatch.setenv("TYPESAFE_BASE_URL", "https://example.invalid")
+    monkeypatch.setenv("TYPESAFE_API_KEY", "placeholder")
+    monkeypatch.setenv("JEV_COOKBOOK_LIVE", "1")
+    monkeypatch.setenv("KEEP_ME", "yes")
+    seen = []
+
+    class Spy(dict):
+        """Stands in for os.environ: any write or clear during the run is recorded."""
+
+        def __setitem__(self, key, value):
+            seen.append(key)
+            super().__setitem__(key, value)
+
+        def clear(self):
+            seen.append("clear")
+            super().clear()
+
+    snapshot = dict(os.environ)
+    monkeypatch.setattr(os, "environ", Spy(snapshot))
+    assert execute_notebook.main([str(folder)]) == 0
+    assert seen == []
+    assert dict(os.environ) == snapshot
+
+
+def test_the_kernel_is_the_interpreter_running_the_tool(tmp_path):
+    folder = tmp_path / "interpreter"
+    write_notebook(folder, "import sys\nprint(sys.executable)")
+    assert execute_notebook.main([str(folder)]) == 0
+    nb = nbformat.read(folder / "notebook.ipynb", as_version=4)
+    printed = nb.cells[0].outputs[0]["text"].strip()
+    assert Path(printed).resolve() == Path(sys.executable).resolve()
+
+
+def test_a_user_level_python3_kernelspec_does_not_replace_the_interpreter(tmp_path, monkeypatch):
+    specs = tmp_path / "jupyter" / "kernels" / "python3"
+    specs.mkdir(parents=True)
+    broken = {"argv": [sys.executable, "-c", "raise SystemExit(3)"], "display_name": "Other"}
+    (specs / "kernel.json").write_text(json.dumps(broken), encoding="utf-8")
+    monkeypatch.setenv("JUPYTER_PATH", str(tmp_path / "jupyter"))
+    folder = tmp_path / "shadowed"
+    write_notebook(folder, "import sys\nprint(sys.executable)")
+    assert execute_notebook.main([str(folder)]) == 0
+
+
+def test_a_cell_that_writes_to_stderr_fails_the_run_and_leaves_the_file(tmp_path, capsys):
+    folder = tmp_path / "noisy"
+    write_notebook(folder, "import sys\nprint('/some/absolute/path', file=sys.stderr)")
+    before = (folder / "notebook.ipynb").read_bytes()
+    assert execute_notebook.main([str(folder)]) == 1
+    assert (folder / "notebook.ipynb").read_bytes() == before
+    assert "wrote to stderr" in capsys.readouterr().err
+
+
+def test_a_warning_in_a_cell_counts_as_stderr(tmp_path):
+    folder = tmp_path / "warns"
+    write_notebook(folder, "import warnings\nwarnings.warn('careful')")
+    assert execute_notebook.main([str(folder)]) == 1
+
+
+def test_the_written_file_is_lf_only(tmp_path):
+    folder = tmp_path / "lf"
+    write_notebook(folder, "print('a')\nprint('b')")
+    assert execute_notebook.main([str(folder)]) == 0
+    raw = (folder / "notebook.ipynb").read_bytes()
+    assert b"\r" not in raw
+    assert raw.endswith(b"\n") and not raw.endswith(b"\n\n")
+
+
+def test_the_notebook_metadata_is_reset_to_the_documented_minimum(tmp_path):
+    folder = tmp_path / "meta"
+    folder.mkdir()
+    nb = nbformat.v4.new_notebook(cells=[nbformat.v4.new_code_cell("pass")])
+    nb.metadata = nbformat.from_dict(
+        {
+            "kernelspec": {"display_name": "Mine", "language": "python", "name": "python3"},
+            "language_info": {"name": "python", "version": "3.99.0"},
+            "widgets": {"state": {}},
+        }
+    )
+    nbformat.write(nb, folder / "notebook.ipynb")
+    assert execute_notebook.main([str(folder)]) == 0
+    after = nbformat.read(folder / "notebook.ipynb", as_version=4)
+    assert after.metadata == execute_notebook.METADATA
+    assert execute_notebook.METADATA == {
+        "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
+        "language_info": {"name": "python"},
+    }
+
+
+def test_no_timings_are_recorded(tmp_path):
+    folder = tmp_path / "timing"
+    write_notebook(folder, "pass")
+    assert execute_notebook.main([str(folder)]) == 0
+    after = nbformat.read(folder / "notebook.ipynb", as_version=4)
+    assert all("execution" not in cell.metadata for cell in after.cells)
+    assert b"iopub" not in (folder / "notebook.ipynb").read_bytes()
+
+
+def test_the_scaffold_setup_cell_starts_inline_and_counts_the_scored_examples(catalog, recipes):
+    _, recipe = entry(catalog, 1)
+    run(1, catalog, recipes)
+    nb = nbformat.read(recipes / recipe["slug"] / "notebook.ipynb", as_version=4)
+    setup = next(c for c in nb.cells if c.get("id") == "setup").source
+    assert setup.splitlines()[0] == "%matplotlib inline"
+    assert 'scored = [e for e in examples if e.split != "demo"]' in setup
+    assert "len(scored)" in setup
+    assert "len(examples)" not in setup
+
+
+def test_the_scaffold_readme_and_measured_cell_leave_room_for_a_recorded_run(catalog, recipes):
+    _, recipe = entry(catalog, 1)
+    run(1, catalog, recipes)
+    folder = recipes / recipe["slug"]
+    readme = (folder / "README.md").read_text("utf-8")
+    section = readme.split("## What was and was not measured")[1].split("## Sources")[0]
+    for field in ("**Mode:**", "**Model, capture date:**", "**N:**"):
+        assert field in section
+    assert section.count("TODO") >= 3
+    assert "model version the API returned" in section
+    assert "Not measured live" in section
+    assert "TYPESAFE_API_KEY" in readme and '".[live]"' in readme
+    nb = nbformat.read(folder / "notebook.ipynb", as_version=4)
+    measured = next(c for c in nb.cells if c.get("id") == "measured").source
+    assert "recorded_dates" in measured and "backend.model" in measured and "N:" in measured
