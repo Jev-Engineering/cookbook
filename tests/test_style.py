@@ -108,10 +108,42 @@ def test_sample_size_is_appended_to_recorded_and_live_only():
     assert style.run_header_text(7, "Triage tickets", via_info) == LIVE_N_TEXT
 
 
-def test_synthetic_and_scripted_text_is_unchanged_and_refuses_a_sample_size():
+def test_synthetic_and_scripted_text_without_a_sample_size_is_unchanged():
+    assert style.run_header_text(7, "Triage tickets", "synthetic") == SYNTHETIC_TEXT
+    assert style.run_header_text(7, "Triage tickets", "scripted") == SCRIPTED_TEXT
+
+
+def test_synthetic_and_scripted_text_with_a_sample_size_is_pinned():
+    synthetic = (
+        "Recipe 07: Triage tickets\n"
+        "Mode: offline replay of synthetic fixtures, "
+        "pipeline check on a fixture sample of 12 examples\n"
+        "Metrics in this run are checks that the pipeline works. They are not Jev results."
+    )
+    scripted = (
+        "Recipe 07: Triage tickets\n"
+        "Mode: offline, scripted backend, pipeline check on a fixture sample of 12 examples\n"
+        "Metrics in this run are checks that the pipeline works. They are not Jev results."
+    )
+    assert style.run_header_text(7, "Triage tickets", "synthetic", n_examples=12) == synthetic
+    assert style.run_header_text(7, "Triage tickets", "scripted", n_examples=12) == scripted
+    info = style.RunInfo("synthetic", n_examples=12)
+    assert style.run_header_text(7, "Triage tickets", info) == synthetic
+
+
+def test_synthetic_and_scripted_sample_size_pluralises_and_keeps_the_notice():
     for mode in ("synthetic", "scripted"):
-        with pytest.raises(ValueError):
-            style.run_header_text(1, "T", mode, n_examples=5)
+        one = style.run_header_text(1, "T", mode, n_examples=1)
+        assert "fixture sample of 1 example\n" in one
+        assert "fixture sample of 2 examples\n" in style.run_header_text(1, "T", mode, n_examples=2)
+        assert one.endswith(style.SYNTHETIC_NOTICE)
+
+
+@pytest.mark.parametrize("mode", ["synthetic", "scripted"])
+@pytest.mark.parametrize("bad", [0, -3, 2.5, True, "7"])
+def test_offline_sample_size_must_be_a_positive_integer(mode, bad):
+    with pytest.raises(ValueError):
+        style.RunInfo(mode, n_examples=bad)
 
 
 @pytest.mark.parametrize("bad", [0, -3, 2.5, True, "7"])
@@ -260,10 +292,11 @@ def test_header_recipe_number_formats():
     assert style.run_header_text("07", "T", "synthetic").startswith("Recipe 07: T")
 
 
-def test_run_header_prints_and_returns_the_text(capsys):
+def test_run_header_prints_the_text_and_returns_none(capsys):
     returned = style.run_header(7, "Triage tickets", "synthetic")
     assert capsys.readouterr().out == SYNTHETIC_TEXT + "\n"
-    assert returned == SYNTHETIC_TEXT
+    assert returned is None
+    assert style.run_header_text(7, "Triage tickets", "synthetic") == SYNTHETIC_TEXT
 
 
 def test_run_header_accepts_run_info():
@@ -327,9 +360,11 @@ def test_format_answer_handles_missing_provenance_and_rejects_non_answers():
         style.format_answer(object())
 
 
-def test_show_answer_prints_the_formatted_text(capsys):
+def test_show_answer_prints_the_formatted_text_and_returns_none(capsys):
     returned = style.show_answer(CHOICE)
-    assert capsys.readouterr().out == returned + "\n"
+    assert returned is None
+    assert capsys.readouterr().out == style.format_answer(CHOICE) + "\n"
+    assert isinstance(style.format_answer(CHOICE), str)
 
 
 # --- charts --------------------------------------------------------------------------------
