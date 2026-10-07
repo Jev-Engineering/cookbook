@@ -1,8 +1,9 @@
 """Decision backends: one call, ``decide(state, questions)``, offline or (later) live.
 
 ``ReplayBackend`` answers from stored responses keyed by ``replay_key``; ``ScriptedBackend``
-answers from a seeded function; ``get_backend`` picks one. The live backend arrives in a
-separate change and plugs into ``get_backend`` through ``_make_live_backend``.
+answers from a seeded function; ``get_backend`` picks one. The opt-in live backend
+(``JEV_COOKBOOK_LIVE=1``) plugs into ``get_backend`` through ``_make_live_backend``; see
+``docs/live.md``.
 """
 
 from __future__ import annotations
@@ -303,11 +304,10 @@ class ScriptedBackend:
 
 
 def _make_live_backend(**kwargs: Any) -> Backend:
-    """Hook for the live backend (issue #64 replaces this body)."""
-    raise LiveBackendUnavailable(
-        f"{LIVE_ENV}=1 is set, but the live backend is not part of this version of "
-        f"jev_cookbook. Unset {LIVE_ENV} to run offline from fixtures or a script."
-    )
+    """Hook ``get_backend`` calls under ``JEV_COOKBOOK_LIVE=1``: builds the live backend."""
+    from .live import live_backend_from_env  # lazy: live.py imports this module
+
+    return live_backend_from_env(**kwargs)
 
 
 def get_backend(
@@ -321,7 +321,9 @@ def get_backend(
     Offline (default): ``script`` gives a ``ScriptedBackend`` (with ``seed``); otherwise
     ``fixtures`` (a mapping, or a path to a JSON file) gives a ``ReplayBackend``. Passing
     both, or neither, is an error. ``JEV_COOKBOOK_LIVE=1`` selects the live backend and
-    raises ``LiveBackendUnavailable`` until it exists; it never falls back to replay. Any
+    never falls back to replay: ``JEV_COOKBOOK_LIVE_MODEL`` is required,
+    ``JEV_COOKBOOK_LIVE_MAX_REQUESTS`` is optional, ``TYPESAFE_API_KEY`` is read from the
+    environment, and a missing setting raises ``LiveConfigError`` (see ``docs/live.md``). Any
     other value than unset, empty, ``0`` or ``1`` is an error. The variable is read when
     this function is called, never at import.
     """

@@ -32,6 +32,17 @@ from .backends import (
     get_backend,
     replay_key,
 )
+from .live import (
+    BudgetExceeded,
+    LiveBackend,
+    LiveCallError,
+    LiveConfigError,
+    LiveResponseError,
+    RecordConflict,
+    RecordReport,
+    merge_responses,
+    record,
+)
 from .questions import Choice, Noul, Question, Score, question_from_dict
 
 __version__ = "0.1.0"
@@ -39,24 +50,33 @@ __version__ = "0.1.0"
 __all__ = [
     "Answer",
     "Backend",
+    "BudgetExceeded",
     "Choice",
     "ChoiceAnswer",
     "DecisionResult",
     "FixtureError",
+    "LiveBackend",
     "LiveBackendUnavailable",
+    "LiveCallError",
+    "LiveConfigError",
+    "LiveResponseError",
     "Noul",
     "NoulAnswer",
     "Provenance",
     "Question",
+    "RecordConflict",
+    "RecordReport",
     "ReplayBackend",
     "ReplayMiss",
     "Score",
     "ScoreAnswer",
     "ScriptedBackend",
     "Usage",
-    "__version__",
     "answer_from_dict",
     "get_backend",
+    "merge_responses",
     "question_from_dict",
+    "record",
     "replay_key",
+    "__version__",
 ]

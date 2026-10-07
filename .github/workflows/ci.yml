@@ -71,7 +71,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: pyproject.toml
+      # py3.14 also installs the optional SDK so tests/test_live_sdk.py runs; py3.10 does not,
+      # proving the package and all offline tests work with the SDK absent.
       - name: Install
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev${{ matrix.python-version == '3.14' && ',live' || '' }}]"
       - name: pytest
         run: pytest
