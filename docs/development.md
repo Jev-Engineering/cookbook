@@ -87,12 +87,50 @@ metadata):
   JWTs, `Authorization` header values, `Bearer` tokens, `name = value` assignments for
   key, token, secret and password names (including `TYPESAFE_API_KEY=...`), tracked `.env`
   files (`.env.example` is allowed), and long high-entropy tokens;
-- in notebook outputs and metadata only: Windows, Linux and macOS home-directory paths,
-  other absolute drive paths, WSL `/mnt/x/` paths, and `os.environ` dumps.
+- in notebook outputs and metadata only (source cells, Markdown and plain text files may
+  mention paths): Windows, Linux and macOS home-directory paths, absolute drive paths with
+  either slash (`C:\x`, `D:/work/x`), WSL `/mnt/x/` paths, username-bearing temp paths
+  (`/tmp/pytest-of-<user>/`), machine-local roots (`/opt/conda*`, `/opt/mambaforge`, `/opt/homebrew`,
+  `/private/var/folders/`, `/Volumes/`), `os.environ` dumps, and the name of the account
+  running the check (see below).
 
 Placeholders such as `<API_KEY>`, `{key}`, `$KEY` and `your-key-here` are accepted, as are
 the bare words `TYPESAFE_API_KEY` and `JEV_COOKBOOK_LIVE`. Findings print the file, the
 cell and output location, the rule, and a masked snippet, never the whole value.
+
+Usernames: a bare username cannot be told from an ordinary word, so names are not treated as
+secrets in general. A name is caught when it sits in one of the path rules above and, as a
+best effort, when it is the account that runs the check (`USER`, `USERNAME`, `LOGNAME` or the
+OS account) as a whole word in an output or metadata. That is reported as `local-username`
+without echoing the name. It helps local and pre-commit runs and leaves CI (account
+`runner`) unaffected. Account names shorter than 4 characters, generic ones (`root`,
+`runner`, `admin`, `ubuntu`, `vscode`, ...) and a short list of ordinary words that are also
+account names (`hello`, `will`, `mark`, `page`, `grant`, `data`, `test`, ...) are not checked
+by name, because that would reject plain prose. The list is not exhaustive: if your account
+name is another common word, expect a local `local-username` finding on any output that
+contains it. Reword that output (the finding gives its cell and line); CI never runs this
+rule, and the path rules still catch the name inside a path. Other people's bare
+names, system library paths (`/usr/lib/python3...`), UNC paths other than WSL, and a lone
+one-letter `x:/` that is not a drive are not told apart from prose and are out of scope.
+
+Notebook structure: a cell, worksheet or `cells` value that nbformat does not allow (for
+example a bare string where a cell object belongs, or a `source` that is not text) is a
+`malformed-notebook-node` finding with its location and the Python type. Its strings are
+still scanned for secrets, so the output stays masked and short. This covers a cell's `id`
+(1-64 letters, digits, `-`, `_`), `cell_type` (code, markdown, raw, heading),
+`execution_count` and `prompt_number` (integer or null). Only a known cell type is ever
+printed in a location. Both `cells` and nbformat 3 `worksheets` are read when both are
+present, including each worksheet's other keys such as `metadata`.
+
+Dictionary keys are scanned like values (`<key name>` in the location), so a secret used as a
+JSON key is a finding. A key is printed in a finding location only when it is short and
+ordinary (such as `text/plain`) and trips no rule that applies there (secret, local path,
+account name); any other key is shown as `<key>`, so a finding never echoes a secret, path or
+account name that sits in a key. A cell that has both `source` and `input` has both scanned.
+
+Arguments: name files, or give none to scan every tracked file. A directory, or a path that
+does not exist, is rejected with exit status 2 and a message. It is never counted as scanned
+and never scanned implicitly; expand a directory yourself (`git ls-files dir`) if you need it.
 
 It does not cover: a TypeSafe key by prefix (the documentation shows no fixed prefix, so
 only the generic rules apply), short or low-entropy secrets, encoded or line-split secrets,
@@ -106,13 +144,19 @@ file-path segments, and `data:` URIs are not treated as entropy findings. If a r
 is ever committed, revoke it; removing it from the branch is not enough.
 
 The fixture validator (#65) checks fixtures separately; this scan also reads fixture files
-as plain text, so a key-like string in a fixture fails here too.
+as plain text, so a key-like string in a fixture fails here too. The validator carries a copy
+of the secret rules only (`src/jev_cookbook/fixtures/_scan.py`), not the notebook-output path,
+account-name and notebook-layout rules, which have no meaning in fixture text. A test in
+`tests/test_fixtures.py` compares the copied rule definitions and functions with
+`tools/check_hygiene.py`, so changing a secret rule there without the copy fails the tests.
 
 ### Optional pre-commit
 
 `.pre-commit-config.yaml` mirrors the CI checks (`ruff check`, `ruff format --check`, the
 hygiene script, the catalog check). `pytest` runs only at push time, so commits stay fast.
-It is optional:
+`ruff format --check` also covers Python code blocks in `*.md` files, as in CI. `ruff check`
+does not lint Markdown, so that hook is unchanged, and `.markdown` and `.mdx` files are left
+out because `ruff format .` ignores them. It is optional:
 
 ```bash
 pip install pre-commit      # in the same virtual environment as pip install -e ".[dev]"
