@@ -323,6 +323,26 @@ def _as_text(value: object) -> str:
     return value if isinstance(value, str) else ""
 
 
+_SAFE_KEY = re.compile(r"[A-Za-z0-9_./+-]{1,48}")
+_LONG_RUN = re.compile(r"[A-Za-z0-9]{16}")
+
+
+def _shown(key: object) -> str:
+    """A dict key as it may appear in a finding location.
+
+    Keys come from the file under test, so one can be (or contain) the secret. Only a short,
+    ordinary-looking key such as ``text/plain`` is printed; anything else is hidden.
+    """
+    if (
+        isinstance(key, str)
+        and _SAFE_KEY.fullmatch(key)
+        and not _LONG_RUN.search(key)
+        and not scan_text(key)
+    ):
+        return key
+    return "<key>"
+
+
 def _walk_strings(node: object, label: str) -> Iterator[tuple[str, str]]:
     """Yield (location, text) for every string below node, skipping binary payloads."""
     if isinstance(node, str):
@@ -341,7 +361,9 @@ def _walk_strings(node: object, label: str) -> Iterator[tuple[str, str]]:
                 continue
             if key in ("attachments", "png", "jpeg", "pdf"):  # attachments; nbformat 3 images
                 continue
-            yield from _walk_strings(v, f"{label}.{key}")
+            if isinstance(key, str):
+                yield f"{label} <key name>", key  # a secret used as a key is still a secret
+            yield from _walk_strings(v, f"{label}.{_shown(key)}")
 
 
 _CELL_TYPES = frozenset({"code", "markdown", "raw", "heading"})
@@ -366,7 +388,8 @@ def scan_notebook_data(nb: dict) -> list[tuple[str, str, str]]:
     for key, value in nb.items():
         if key in ("cells", "worksheets"):
             continue
-        for label, text in _walk_strings(value, key):
+        add(f"{_shown(key)} <key name>", key if isinstance(key, str) else "", environment=True)
+        for label, text in _walk_strings(value, _shown(key)):
             add(label, text, environment=True)
     # nbformat 4 keeps cells at the top level; nbformat 3 keeps them in worksheets and
     # calls the source "input". Both are read when both are present.
@@ -381,7 +404,9 @@ def scan_notebook_data(nb: dict) -> list[tuple[str, str, str]]:
             for key, value in sheet.items():
                 if key == "cells":
                     continue
-                for label, text in _walk_strings(value, f"worksheet {number} {key}"):
+                shown = f"worksheet {number} {_shown(key)}"
+                add(f"{shown} <key name>", key if isinstance(key, str) else "", environment=True)
+                for label, text in _walk_strings(value, shown):
                     add(label, text, environment=True)
             sheet_cells = sheet.get("cells")
             if isinstance(sheet_cells, list):
@@ -421,7 +446,8 @@ def scan_notebook_data(nb: dict) -> list[tuple[str, str, str]]:
         for key, value in cell.items():
             if key in ("source", "input", "cell_type", "id", "execution_count", "prompt_number"):
                 continue
-            where = "outputs" if key == "outputs" else key
+            where = _shown(key)
+            add(f"{base} {where} <key name>", key, environment=True)
             for label, text in _walk_strings(value, f"{base} {where}"):
                 add(label, text, environment=True)
     return results

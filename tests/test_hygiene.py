@@ -923,3 +923,80 @@ def test_cli_flags_the_running_account_only_when_it_is_that_account(tmp_path):
     assert _run(str(path), account="runner").returncode == 0
     lines = _run(str(path), account="quillfeather").stdout.splitlines()
     assert lines and all("quillfeather" not in line.split(": ", 1)[-1] for line in lines)
+
+
+# --- a secret used as a dict key: detected, and never printed in a location -------------
+
+
+def _key_notebooks(key: str) -> dict[str, dict]:
+    path_leak = stream(DRIVE_FWD)
+    return {
+        "output data": notebook(outputs=[result({key: "ok"})]),
+        "output data with another finding": notebook(outputs=[result({key: DRIVE_FWD}), path_leak]),
+        "notebook metadata": notebook(metadata={key: "ok"}),
+        "notebook metadata with another finding": notebook(
+            outputs=[path_leak], metadata={key: DRIVE_FWD}
+        ),
+        "cell key": {
+            **notebook(outputs=[path_leak]),
+            "cells": [{**notebook()["cells"][0], key: 1}],
+        },
+        "top-level key": {**notebook(), key: [DRIVE_FWD]},
+        "worksheet key": {"nbformat": 3, "worksheets": [{"cells": [], key: {"a": DRIVE_FWD}}]},
+        "nested metadata key": notebook(
+            outputs=[{**stream("x"), "metadata": {"a": {key: DRIVE_FWD}}}]
+        ),
+    }
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "output data",
+        "output data with another finding",
+        "notebook metadata",
+        "notebook metadata with another finding",
+        "cell key",
+        "worksheet key",
+        "top-level key",
+        "nested metadata key",
+    ],
+)
+@pytest.mark.parametrize("shape", ["bare", "bearer"])
+def test_a_secret_used_as_a_dict_key_is_found_and_never_echoed(case, shape, tmp_path):
+    key = KEY if shape == "bare" else f"Bearer {KEY}"
+    nb = _key_notebooks(key)[case]
+    path = tmp_path / "n.ipynb"
+    path.write_text(json.dumps(nb))
+    proc = _run(str(path))
+    assert proc.returncode == 1, (case, proc.stdout)
+    assert KEY not in proc.stdout + proc.stderr
+    assert KEY[:12] not in proc.stdout + proc.stderr
+    assert "<key name>" in proc.stdout  # the key itself is a finding, at a useful location
+    if "finding" in case or case in (
+        "cell key",
+        "worksheet key",
+        "top-level key",
+        "nested metadata key",
+    ):
+        assert "<key>" in proc.stdout  # a deeper finding's location hides the key
+    assert len(proc.stdout) < 3000
+
+
+def test_ordinary_keys_stay_readable_in_locations_and_do_not_fail(tmp_path):
+    clean = notebook(
+        outputs=[result({"text/plain": "3", "application/vnd.jupyter.widget-view+json": {"a": 1}})],
+        metadata={"kernelspec": {"display_name": "Python 3", "language": "python"}},
+    )
+    assert scan(tmp_path, clean) == []
+    found = scan(tmp_path, notebook(outputs=[result({"text/plain": DRIVE_FWD})]))
+    assert any("data.text/plain" in f.location for f in found)
+
+
+def test_long_or_odd_keys_are_hidden_but_short_ones_are_not():
+    assert hygiene._shown("text/plain") == "text/plain"
+    assert hygiene._shown(KEY) == "<key>"
+    assert hygiene._shown("a" * 17) == "<key>"
+    assert hygiene._shown("has space") == "<key>"
+    assert hygiene._shown("x" * 49) == "<key>"
+    assert hygiene._shown(7) == "<key>"

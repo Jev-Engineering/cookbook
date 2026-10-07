@@ -122,6 +122,11 @@ still scanned for secrets, so the output stays masked and short. This covers a c
 printed in a location. Both `cells` and nbformat 3 `worksheets` are read when both are
 present, including each worksheet's other keys such as `metadata`.
 
+Dictionary keys are scanned like values (`<key name>` in the location), so a secret used as a
+JSON key is a finding. A key is printed in a finding location only when it is short and
+ordinary (such as `text/plain`); any other key is shown as `<key>`, so a finding never echoes
+a secret that sits in a key.
+
 Arguments: name files, or give none to scan every tracked file. A directory, or a path that
 does not exist, is rejected with exit status 2 and a message. It is never counted as scanned
 and never scanned implicitly; expand a directory yourself (`git ls-files dir`) if you need it.
@@ -138,7 +143,11 @@ file-path segments, and `data:` URIs are not treated as entropy findings. If a r
 is ever committed, revoke it; removing it from the branch is not enough.
 
 The fixture validator (#65) checks fixtures separately; this scan also reads fixture files
-as plain text, so a key-like string in a fixture fails here too.
+as plain text, so a key-like string in a fixture fails here too. The validator carries a copy
+of the secret rules only (`src/jev_cookbook/fixtures/_scan.py`), not the notebook-output path,
+account-name and notebook-layout rules, which have no meaning in fixture text. A test in
+`tests/test_fixtures.py` compares the copied rule definitions and functions with
+`tools/check_hygiene.py`, so changing a secret rule there without the copy fails the tests.
 
 ### Optional pre-commit
 
