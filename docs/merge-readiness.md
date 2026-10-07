@@ -227,7 +227,7 @@ it needs all of the following, each recorded on the pull request before the merg
    result, so the trial merge or that per-check reasoning is the only coverage of the combination.
 2. **Genuine same-head reviewer acceptance of the delta.** The Opus approval of the exact head
    being merged is given with the advance in view and states that it accepts the adjudication for
-   that head, as the review in comment 6031023696 did. Where the contract requires two
+   that head, as the review in comment 6031023696 did for the #91 delta. Where the contract requires two
    approvals, each reviewer does this. An approval that was given without the advance in view, or
    that asked for integration, is not that acceptance, and neither the supervisor's ruling nor a
    builder's or supervisor's own statement stands in for it. Without it, integrate and review
@@ -270,12 +270,12 @@ that relies on the ruling should say so on the pull request.
 
 Both cases below were merged by the orchestrator after an Opus review of the exact head that the
 orchestrator launched. For each, the review comment and the merge note were posted from the same
-orchestrator session, and the review is a record of what that Opus subagent wrote, not an
-independent acceptance of the ruling that the merge note then made. No history is rewritten here,
-and what a source claims is recorded as a claim.
+orchestrator session. Whether the review accepted the ruling differs by case, as set out below.
+No history is rewritten here, and what a source claims is recorded as a claim.
 
 **PR #96** did not meet requirements 1 and 2. The review of head `f843a7c` (comment 6031008513,
-header: orchestrator session `37d430e7`, model `claude-opus-5-5`) approved that exact head. It
+header: orchestrator session `37d430e7`, model `claude-opus-5-5`) came before the ruling and did
+not accept it. It approved that exact head. It
 also stated that after #91 advanced `main` the helper returned `NOT READY` with `behind_by` 1,
 and that a signed integration and a fresh review were needed before merging. The orchestrator
 then ruled the advance immaterial in its merge note (comment 6031022258) and merged without that
@@ -287,8 +287,10 @@ checks were green "on the merge ref with current `main`" was inaccurate: the fiv
 `f843a7c` completed between 03:52:39Z and 03:53:33Z, and #91 merged at 04:32:27Z.
 
 **PR #98** went further for one delta only. Its review of head `b20c2cc` (comment 6031023696)
-recorded the adjudication of #91's advance, `7d14692..7e8ac92`, gave per-check reasoning for it
-and a trial merge against `7e8ac92`, and approved that head with `main` at `7e8ac92`. It also
+recorded the adjudication of #91's advance, `7d14692..7e8ac92`, which had been made before the
+review. It gave per-check reasoning and a trial merge against `7e8ac92`, found #91 immaterial, and
+approved that head under the ruling with `main` at `7e8ac92`. That is an Opus acceptance of the
+ruling for that delta, recorded before the merge note. It also
 corrected the assertion that the pull request's checks ran with current `main`: they ran on the
 merge result of the last push, which did not contain the advance.
 
