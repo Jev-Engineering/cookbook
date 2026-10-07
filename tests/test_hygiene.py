@@ -11,6 +11,7 @@ import gzip
 import importlib.util
 import io
 import json
+import os
 import random
 import string
 import subprocess
@@ -69,6 +70,22 @@ def scan(tmp_path: Path, nb: dict):
     path = tmp_path / "notebook.ipynb"
     path.write_text(json.dumps(nb), encoding="utf-8")
     return hygiene.scan_file(path)
+
+
+_REAL_LOCAL_USERNAMES = hygiene._local_usernames
+
+
+@pytest.fixture(autouse=True)
+def _no_ambient_account(monkeypatch):
+    """The suite must give the same result under any developer account name.
+
+    The local-username rule reads the running account; every test starts with it off and the
+    username tests turn it on explicitly (see the `account` fixture).
+    """
+    monkeypatch.setattr(hygiene, "_local_usernames", lambda: frozenset())
+    hygiene._username_pattern.cache_clear()
+    yield
+    hygiene._username_pattern.cache_clear()
 
 
 def rules(findings) -> set[str]:
@@ -254,9 +271,15 @@ def test_invalid_notebook_json_is_reported(tmp_path):
     assert rules(hygiene.scan_file(path)) == {"invalid-notebook-json"}
 
 
-def _run(*args: str):
+def _run(*args: str, account: str = "runner"):
+    """Run the CLI as a neutral CI-like account, never as whoever is running the tests."""
+    env = {**os.environ, "USER": account, "USERNAME": account, "LOGNAME": account}
     return subprocess.run(
-        [sys.executable, "-I", str(SCRIPT), *args], capture_output=True, text=True, check=False
+        [sys.executable, "-I", str(SCRIPT), *args],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
     )
 
 
@@ -609,12 +632,10 @@ def account(monkeypatch):
         hygiene._username_pattern.cache_clear()
 
     yield use
-    monkeypatch.undo()
-    hygiene._username_pattern.cache_clear()
 
 
 def test_local_username_in_outputs_and_metadata_fails_without_echoing_it(account, tmp_path):
-    name = "zanzibar"
+    name = "quillfeather"
     account(name)
     for nb in (
         notebook(outputs=[stream(f"hello from {name.upper()}!\n")]),
@@ -623,20 +644,21 @@ def test_local_username_in_outputs_and_metadata_fails_without_echoing_it(account
     ):
         found = scan(tmp_path, nb)
         assert rules(found) == {"local-username"}, nb
-        assert all(name not in str(f).lower() for f in found)
+        assert all(name not in (f.snippet + f.location).lower() for f in found)
     # Source, markdown and plain text files are not in scope: the name may be authorship.
     assert scan(tmp_path, notebook(source=f"# {name}", markdown=f"by {name}")) == []
     assert hygiene.scan_text(f"by {name}") == []
 
 
 def test_local_username_is_not_a_blanket_word_rule(account, tmp_path):
-    account("zanzibar")
-    nb = notebook(outputs=[stream("zanzibarian spices; ordinary words stay readable\n")])
+    account("quillfeather")
+    nb = notebook(outputs=[stream("quillfeatherian spices; ordinary words stay readable\n")])
     assert scan(tmp_path, nb) == []  # whole word only: a longer word is not the account name
     assert scan(tmp_path, notebook(outputs=[stream("results: accuracy 0.93\n")])) == []
 
 
 def test_generic_and_short_account_names_are_never_checked_by_name(monkeypatch):
+    monkeypatch.setattr(hygiene, "_local_usernames", _REAL_LOCAL_USERNAMES)
     for var in ("USER", "USERNAME", "LOGNAME"):
         monkeypatch.delenv(var, raising=False)
 
@@ -648,15 +670,15 @@ def test_generic_and_short_account_names_are_never_checked_by_name(monkeypatch):
     monkeypatch.setenv("USER", "tim")
     monkeypatch.setenv("LOGNAME", "Admin")
     assert hygiene._local_usernames() == frozenset()
-    monkeypatch.setenv("USER", "Zanzibar")
-    assert hygiene._local_usernames() == {"zanzibar"}
+    monkeypatch.setenv("USER", "Quillfeather")
+    assert hygiene._local_usernames() == {"quillfeather"}
     monkeypatch.setattr(hygiene.getpass, "getuser", getuser)
-    assert hygiene._local_usernames() == {"zanzibar"}
+    assert hygiene._local_usernames() == {"quillfeather"}
 
 
 def test_no_account_name_means_the_name_check_is_off(account, tmp_path):
     account()
-    assert scan(tmp_path, notebook(outputs=[stream("zanzibar\n")])) == []
+    assert scan(tmp_path, notebook(outputs=[stream("quillfeather\n")])) == []
 
 
 BEARER_CELL = f"Authorization: Bearer {KEY}"
@@ -760,3 +782,144 @@ def test_run_library_call_cannot_false_pass_on_a_directory(tmp_path):
     findings = hygiene.run([tmp_path], ROOT, named=True)
     assert [f.rule for f in findings] == ["not-a-file"]
     assert hygiene.run([tmp_path], ROOT) == []  # git ls-files mode: submodules are skipped
+
+
+# --- review of #98 head 33fc11d: B1 to B4 ----------------------------------------------
+
+
+@pytest.mark.parametrize("name", ["sam", "steve", "s", "sophie", "alice", "Zed"])
+def test_pytest_temp_path_is_caught_for_every_first_letter(name, tmp_path):
+    text = f"/tmp/pytest-of-{name}/pytest-0/x"
+    assert "username-temp-path" in rules(scan(tmp_path, notebook(outputs=[stream(text)])))
+
+
+@pytest.mark.parametrize("sep", [" ", "\t", "\n", "'", '"', ")", "/", "\\"])
+def test_pytest_temp_path_stops_at_whitespace_and_quotes(sep):
+    pattern = dict(hygiene._PATH_PATTERNS)["username-temp-path"]
+    assert pattern.search(f"x pytest-of-sam{sep}rest").group(0) == "pytest-of-sam"
+
+
+def test_pytest_temp_path_without_a_name_is_not_a_finding():
+    pattern = dict(hygiene._PATH_PATTERNS)["username-temp-path"]
+    assert not pattern.search("pytest-of- and pytest-of-<user> and pytest-of-{n}")
+
+
+def test_mambaforge_and_micromamba_roots_are_caught(tmp_path):
+    for root in ("mambaforge", "micromamba", "miniforge3", "anaconda3", "mamba"):
+        text = f"/opt/{root}/bin/python"
+        assert "local-install-path" in rules(scan(tmp_path, notebook(outputs=[stream(text)])))
+
+
+def _nb_with_cell(**cell) -> dict:
+    base = {"cell_type": "code", "id": "c1", "execution_count": None, "source": "x", "outputs": []}
+    return {"cells": [{**base, **cell}], "metadata": {}, "nbformat": 4, "nbformat_minor": 5}
+
+
+@pytest.mark.parametrize(
+    "cell",
+    [
+        {"id": BEARER_CELL},
+        {"id": ["a", BEARER_CELL]},
+        {"cell_type": BEARER_CELL},
+        {"cell_type": ["code", BEARER_CELL]},
+        {"execution_count": BEARER_CELL},
+        {"execution_count": {"k": BEARER_CELL}},
+        {"prompt_number": BEARER_CELL},
+        {"execution_count": 1.5},
+        {"execution_count": True},
+        {"id": 7},
+        {"id": ""},
+        {"cell_type": "mystery"},
+    ],
+)
+def test_malformed_cell_metadata_is_reported_and_scanned(cell, tmp_path):
+    found = scan(tmp_path, _nb_with_cell(**cell))
+    assert "malformed-notebook-node" in rules(found), cell
+    if BEARER_CELL in json.dumps(cell):
+        assert {"authorization-header-value", "bearer-token"} & rules(found), cell
+    assert KEY not in "\n".join(str(f) for f in found)
+
+
+def test_untrusted_cell_type_is_never_part_of_a_location(tmp_path):
+    # A second finding in the same cell used to print the cell_type value unmasked.
+    nb = _nb_with_cell(cell_type=BEARER_CELL, outputs=[stream(DRIVE_FWD)])
+    found = scan(tmp_path, nb)
+    assert "windows-drive-path" in rules(found)
+    assert all(KEY not in f.location and "Bearer" not in f.location for f in found)
+    assert any("(?)" in f.location for f in found)
+    assert KEY not in "\n".join(str(f) for f in found)
+
+
+def test_cli_malformed_cell_metadata_exits_nonzero_redacted_and_bounded(tmp_path):
+    path = tmp_path / "n.ipynb"
+    nb = _nb_with_cell(cell_type=BEARER_CELL, id=BEARER_CELL, outputs=[stream(DRIVE_FWD)])
+    path.write_text(json.dumps(nb))
+    proc = _run(str(path))
+    assert proc.returncode == 1
+    assert "malformed-notebook-node" in proc.stdout and "cell 0" in proc.stdout
+    assert KEY not in proc.stdout + proc.stderr
+    assert len(proc.stdout) < 2000
+
+
+def test_known_cell_types_and_ids_stay_clean(tmp_path):
+    for cell_type in ("code", "markdown", "raw"):
+        nb = _nb_with_cell(cell_type=cell_type, id="ab12-CD_34", execution_count=3)
+        assert scan(tmp_path, nb) == []
+    nb3 = {"nbformat": 3, "worksheets": [{"cells": [{"cell_type": "code", "prompt_number": 2}]}]}
+    assert scan(tmp_path, nb3) == []
+
+
+@pytest.mark.parametrize(
+    "nb",
+    [
+        {"cells": [], "worksheets": [{"cells": [{"cell_type": "code", "input": BEARER_CELL}]}]},
+        {"cells": [], "worksheets": [{"cells": [], "metadata": {"k": BEARER_CELL}}]},
+        {"cells": [], "worksheets": [{"cells": [], "other": [BEARER_CELL]}]},
+        {"cells": [], "worksheets": [BEARER_CELL]},
+        {"cells": [], "worksheets": [{"metadata": {"k": BEARER_CELL}}]},
+        {"cells": [{"cell_type": "code", "source": "x"}], "worksheets": [{"cells": [BEARER_CELL]}]},
+    ],
+)
+def test_worksheets_are_read_even_when_cells_is_present(nb, tmp_path):
+    found = scan(tmp_path, {**nb, "nbformat": 4, "metadata": {}})
+    assert {"authorization-header-value", "bearer-token"} & rules(found), nb
+    assert KEY not in "\n".join(str(f) for f in found)
+
+
+def test_worksheet_without_cells_list_is_malformed(tmp_path):
+    found = scan(tmp_path, {"nbformat": 3, "worksheets": [{"metadata": {}}]})
+    assert "malformed-notebook-node" in rules(found)
+
+
+def test_cli_worksheet_key_exits_nonzero_without_echo(tmp_path):
+    path = tmp_path / "n.ipynb"
+    nb = {"cells": [], "worksheets": [{"cells": [], "metadata": {"k": BEARER_CELL}}]}
+    path.write_text(json.dumps({**nb, "nbformat": 4, "metadata": {}}))
+    proc = _run(str(path))
+    assert proc.returncode == 1 and "worksheet 0 metadata" in proc.stdout
+    assert KEY not in proc.stdout + proc.stderr
+
+
+@pytest.mark.parametrize(
+    "account_name", ["hello", "alice", "quillfeather", "runner", "Tim", "data", "stdout"]
+)
+def test_clean_scans_do_not_depend_on_the_developer_account(account_name, monkeypatch, tmp_path):
+    for var in ("USER", "USERNAME", "LOGNAME"):
+        monkeypatch.setenv(var, account_name)
+    clean = notebook(outputs=[stream("results: hello world, accuracy 0.93\n")], markdown="hi")
+    assert scan(tmp_path, clean) == []
+    path = tmp_path / "c.ipynb"
+    path.write_text(json.dumps(clean))
+    if account_name == "stdout":
+        return  # the in-process scan above is the isolation check; the CLI would flag it
+    proc = _run(str(path), account=account_name)
+    assert proc.returncode == 0, proc.stdout
+
+
+def test_cli_flags_the_running_account_only_when_it_is_that_account(tmp_path):
+    path = tmp_path / "n.ipynb"
+    path.write_text(json.dumps(notebook(outputs=[stream("done by quillfeather\n")])))
+    assert _run(str(path), account="quillfeather").returncode == 1
+    assert _run(str(path), account="runner").returncode == 0
+    lines = _run(str(path), account="quillfeather").stdout.splitlines()
+    assert lines and all("quillfeather" not in line.split(": ", 1)[-1] for line in lines)

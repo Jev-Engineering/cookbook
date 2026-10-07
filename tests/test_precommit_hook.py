@@ -35,13 +35,15 @@ def _hook_files_pattern() -> re.Pattern[str]:
 
 @pytest.mark.parametrize(
     "name",
-    ["README.md", "recipes/01-x/README.md", "docs/a.md", "a.py", "a.pyi", "n.ipynb", "w.pyw"],
+    ["README.md", "recipes/01-x/README.md", "docs/a.md", "a.py", "a.pyi", "n.ipynb"],
 )
 def test_hook_receives_everything_ruff_format_dot_formats(name):
     assert _hook_files_pattern().search(name)
 
 
-@pytest.mark.parametrize("name", ["a.markdown", "a.mdx", "a.txt", "a.json", "a.md.bak", ".env"])
+@pytest.mark.parametrize(
+    "name", ["a.markdown", "a.mdx", "w.pyw", "a.txt", "a.json", "a.md.bak", ".env"]
+)
 def test_hook_skips_what_ruff_would_reject_or_ignore(name):
     assert not _hook_files_pattern().search(name)
 

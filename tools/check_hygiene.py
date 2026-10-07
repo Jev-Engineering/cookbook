@@ -206,14 +206,14 @@ _PATH_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     # The same drive path written with a forward slash (D:/work/x); "://" in a URL is excluded.
     ("windows-drive-path", re.compile(r"\b[A-Za-z]:/(?!/)[A-Za-z0-9_$.]")),
     # pytest names its temp root after the account: /tmp/pytest-of-alice/pytest-0/...
-    ("username-temp-path", re.compile(r"pytest-of-[^/\\s<>{}$'\"`)]+")),
+    ("username-temp-path", re.compile(r"pytest-of-[^/\\\s<>{}$'\"`)]+")),
     # Machine-local roots: macOS per-user temp, conda and Homebrew prefixes, mounted volumes.
     # They name the local setup rather than a person.
     ("local-temp-path", re.compile(r"(?<![\w.])(?:/private)?/var/folders/")),
     (
         "local-install-path",
         re.compile(
-            r"(?<![\w.])/(?:opt/(?:ana|mini|micro)?(?:conda|forge|mamba)\d*(?![\w-])"
+            r"(?<![\w.])/(?:opt/(?:ana|mini|micro|mamba)?(?:conda|forge|mamba)\d*(?![\w-])"
             r"|opt/homebrew(?![\w-])|usr/local/Caskroom(?![\w-])|Volumes/)"
         ),
     ),
@@ -224,7 +224,9 @@ _PATH_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 # name: it is an ordinary word and would only produce false findings.
 _GENERIC_USERNAMES = frozenset(
     "root runner user users admin administrator ubuntu debian vscode jovyan codespace colab "
-    "docker default guest system work build github node pi ec2-user sagemaker".split()
+    "docker default guest system work build github node pi ec2-user sagemaker "
+    # Ordinary words that are also account names: flagging them would reject plain prose.
+    "hello will mark page grant data test demo dev main home public temp owner info mail".split()
 )
 _MIN_USERNAME_LENGTH = 4
 
@@ -342,6 +344,10 @@ def _walk_strings(node: object, label: str) -> Iterator[tuple[str, str]]:
             yield from _walk_strings(v, f"{label}.{key}")
 
 
+_CELL_TYPES = frozenset({"code", "markdown", "raw", "heading"})
+_CELL_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
+
+
 def scan_notebook_data(nb: dict) -> list[tuple[str, str, str]]:
     """Return (location, rule, snippet) for a parsed notebook."""
     results: list[tuple[str, str, str]] = []
@@ -363,30 +369,55 @@ def scan_notebook_data(nb: dict) -> list[tuple[str, str, str]]:
         for label, text in _walk_strings(value, key):
             add(label, text, environment=True)
     # nbformat 4 keeps cells at the top level; nbformat 3 keeps them in worksheets and
-    # calls the source "input".
-    cells: list = []
+    # calls the source "input". Both are read when both are present.
+    cells: list[tuple[str, object]] = []
     if isinstance(nb.get("cells"), list):
-        cells = nb["cells"]
-    elif isinstance(nb.get("worksheets"), list):
+        cells.extend((f"cell {i}", c) for i, c in enumerate(nb["cells"]))
+    if isinstance(nb.get("worksheets"), list):
         for number, sheet in enumerate(nb["worksheets"]):
-            if isinstance(sheet, dict) and isinstance(sheet.get("cells"), list):
-                cells.extend(sheet["cells"])
+            if not isinstance(sheet, dict):
+                malformed(f"worksheet {number}", sheet, "worksheet is not an object")
+                continue
+            for key, value in sheet.items():
+                if key == "cells":
+                    continue
+                for label, text in _walk_strings(value, f"worksheet {number} {key}"):
+                    add(label, text, environment=True)
+            sheet_cells = sheet.get("cells")
+            if isinstance(sheet_cells, list):
+                cells.extend((f"worksheet {number} cell {i}", c) for i, c in enumerate(sheet_cells))
             else:
-                malformed(f"worksheet {number}", sheet, "worksheet is not an object with cells")
-    else:
+                malformed(f"worksheet {number}", sheet_cells, "worksheet cells is not a list")
+    if not any(isinstance(nb.get(k), list) for k in ("cells", "worksheets")):
         results.append(("notebook", "unrecognized-notebook-layout", "no cells or worksheets"))
     for key in ("cells", "worksheets"):  # present but not a list: still read its strings
         if key in nb and not isinstance(nb[key], list):
             malformed(key, nb[key], f"{key} is not a list")
-    for index, cell in enumerate(cells):
+    for name, cell in cells:
         if not isinstance(cell, dict):
-            malformed(f"cell {index}", cell, "cell is not an object")
+            malformed(name, cell, "cell is not an object")
             continue
-        base = f"cell {index} ({cell.get('cell_type', '?')})"
+        # Only a known cell type is ever printed: the value is untrusted and may hold a secret.
+        cell_type = cell.get("cell_type", "?")
+        if not isinstance(cell_type, str) or cell_type not in _CELL_TYPES:
+            if "cell_type" in cell:
+                malformed(f"{name} cell_type", cell_type, "cell_type is not a known cell type")
+            cell_type = "?"
+        base = f"{name} ({cell_type})"
         source = cell.get("source", cell.get("input", ""))
         if not isinstance(source, str | list):
             malformed(f"{base} source", source, "source is not a string or list")
         add(f"{base} source", _as_text(source), environment=False)
+        if "id" in cell:
+            cell_id = cell["id"]
+            if isinstance(cell_id, str) and _CELL_ID.fullmatch(cell_id):
+                add(f"{base} id", cell_id, environment=False)
+            else:
+                malformed(f"{base} id", cell_id, "id is not 1-64 letters, digits, - or _")
+        for key in ("execution_count", "prompt_number"):
+            count = cell.get(key)
+            if count is not None and (isinstance(count, bool) or not isinstance(count, int)):
+                malformed(f"{base} {key}", count, f"{key} is not an integer or null")
         for key, value in cell.items():
             if key in ("source", "input", "cell_type", "id", "execution_count", "prompt_number"):
                 continue

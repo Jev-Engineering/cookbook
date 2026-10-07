@@ -20,7 +20,7 @@ repos:
         # file-name pattern rather than the "markdown" type: ruff reads a named file by its
         # extension and fails on .markdown or .mdx, while `ruff format .` skips them.
         types: [file]
-        files: \.(py|pyi|pyw|ipynb|md)$
+        files: \.(py|pyi|ipynb|md)$
       - id: hygiene
         name: hygiene (secrets, local paths, notebook outputs)
         entry: python tools/check_hygiene.py
