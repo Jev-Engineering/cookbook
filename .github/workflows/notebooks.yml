@@ -89,6 +89,13 @@ jobs:
     timeout-minutes: 20
     strategy:
       fail-fast: false
+      # A full run (push to main, the weekly cron, or a foundation change) can select every recipe
+      # at once; without a cap this one job claims as many of the organisation's concurrent-job
+      # slots as there are recipes, starving CI's other workflows and jobs. 10 keeps a wave a
+      # deliberate, bounded choice (see "Run time and cost" in docs/notebook-ci.md) rather than
+      # whatever the organisation's own limit happens to be, and a pull request (at most one recipe
+      # folder changed, ordinarily) never notices it.
+      max-parallel: 10
       matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
     env:
       RECIPE: ${{ matrix.recipe }}
@@ -110,6 +117,18 @@ jobs:
       # last thing that may use the network.
       - name: Install
         run: pip install -e ".[ml]" -c .github/constraints-notebooks.txt
+      # The execute step below runs the kernel as the runner user with write access to the whole
+      # checkout (sudo/setpriv only drop privileges inside the network namespace, not file
+      # permissions), so a cell could otherwise overwrite the checks run after it, or the committed
+      # notebook they compare against, and heal a stale result from inside the one file a recipe
+      # pull request may change. Freeze both out of the checkout before the notebook runs, and read
+      # the committed notebook from git rather than from the (writable) working tree.
+      - name: Freeze the checks and the committed notebook before execution
+        run: |
+          mkdir -p "$RUNNER_TEMP/frozen/tools"
+          cp tools/check_notebook_fresh.py tools/check_hygiene.py "$RUNNER_TEMP/frozen/tools/"
+          mkdir -p "$RUNNER_TEMP/frozen/committed/$RECIPE"
+          git show "HEAD:recipes/$RECIPE/notebook.ipynb" > "$RUNNER_TEMP/frozen/committed/$RECIPE/notebook.ipynb"
       - name: Copy the recipe to a scratch folder
         run: |
           mkdir -p "$RUNNER_TEMP/run"
@@ -172,10 +191,21 @@ jobs:
             'ip link set lo up && exec setpriv --no-new-privs --reuid="$1" --regid="$2" --clear-groups -- python tools/execute_notebook.py --timeout 300 "$3"' \
             sh "$(id -u)" "$(id -g)" "$RUNNER_TEMP/run/$RECIPE"
           echo "executed $RECIPE in $(( $(date +%s) - started )) s" | tee -a "$GITHUB_STEP_SUMMARY"
+      # A cell has write access to the whole checkout (see the freeze step above). If anything in
+      # it moved, the checks below cannot be trusted even if they pass, so fail loudly here rather
+      # than silently reading a tampered tree.
+      - name: The checkout is untouched after execution
+        run: |
+          status=$(git status --porcelain)
+          if [ -n "$status" ]; then
+            echo "the notebook run wrote into the checkout; the checks read it, so this is a failure:"
+            echo "$status"
+            exit 1
+          fi
       - name: Committed outputs match the fresh run
-        run: python tools/check_notebook_fresh.py "recipes/$RECIPE/notebook.ipynb" "$RUNNER_TEMP/run/$RECIPE/notebook.ipynb"
+        run: python "$RUNNER_TEMP/frozen/tools/check_notebook_fresh.py" "$RUNNER_TEMP/frozen/committed/$RECIPE/notebook.ipynb" "$RUNNER_TEMP/run/$RECIPE/notebook.ipynb"
       - name: Hygiene of the freshly executed notebook
-        run: python tools/check_hygiene.py "$RUNNER_TEMP/run/$RECIPE/notebook.ipynb"
+        run: python "$RUNNER_TEMP/frozen/tools/check_hygiene.py" "$RUNNER_TEMP/run/$RECIPE/notebook.ipynb"
 
   notebooks:
     name: Notebooks (execute)

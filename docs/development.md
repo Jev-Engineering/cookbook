@@ -1,6 +1,9 @@
 # Development
 
-Python 3.10 or newer (the floor of `typesafe-sdk`).
+Python 3.10 or newer (the floor of `typesafe-sdk`). Committable notebook outputs are the one
+exception: they are produced on Python 3.14 with `.github/constraints-notebooks.txt`, because that
+file cannot be installed on the floor (`numpy==2.5.3` needs Python 3.12 or newer) — see "Running CI
+on one recipe".
 
 ## The three commands
 
@@ -89,18 +92,35 @@ To run what the notebook job runs on one recipe, from the repository root (Git B
 or Linux). CI copies to a folder that keeps the recipe's name, so do the same:
 
 ```bash
-pip install -e ".[ml]" -c .github/constraints-notebooks.txt   # CI's install (Python 3.14)
+pip install -e ".[dev,ml]" -c .github/constraints-notebooks.txt   # CI's install (Python 3.14)
+mkdir -p /tmp/frozen/tools && cp tools/check_notebook_fresh.py tools/check_hygiene.py /tmp/frozen/tools/
+mkdir -p /tmp/frozen/committed/NN-slug
+git show HEAD:recipes/NN-slug/notebook.ipynb > /tmp/frozen/committed/NN-slug/notebook.ipynb
 mkdir -p /tmp/run && cp -R recipes/NN-slug /tmp/run/NN-slug
 PYTHONPATH="$PWD/tools/netguard" python tools/execute_notebook.py /tmp/run/NN-slug
-python tools/check_notebook_fresh.py recipes/NN-slug/notebook.ipynb /tmp/run/NN-slug/notebook.ipynb
-python tools/check_hygiene.py /tmp/run/NN-slug/notebook.ipynb
+git status --porcelain   # must print nothing: a cell must not have written into the checkout
+python /tmp/frozen/tools/check_notebook_fresh.py /tmp/frozen/committed/NN-slug/notebook.ipynb /tmp/run/NN-slug/notebook.ipynb
+python /tmp/frozen/tools/check_hygiene.py /tmp/run/NN-slug/notebook.ipynb
 python tools/notebook_ci.py fixtures
 ```
 
 The constraints pin the plotting stack and the kernel stack to the versions CI uses (see
-[notebook-ci.md](notebook-ci.md#pinned-plotting-stack)); drop `-c ...` on an older Python, whose
-figures the freshness check still accepts. Install with the same file before you execute a
-notebook whose outputs you will commit.
+[notebook-ci.md](notebook-ci.md#pinned-plotting-stack)). **Committable outputs require Python 3.14
+with the constraints file**, not just the same `pip install`: text output is compared byte for byte
+against CI's pinned stack, and the floor, Python 3.10, cannot even install the file (`numpy==2.5.3`
+needs Python 3.12 or newer). This is not permission to skip the pins on a newer interpreter either;
+only figures tolerate a different version (they are compared by what they show, not by bytes).
+Install with the same file before you execute a notebook whose outputs you will commit.
+
+The two commands before execution copy the checks and the committed notebook out of the checkout,
+and `git status --porcelain` after execution proves the checkout itself was not written to. This
+mirrors what `.github/workflows/notebooks.yml` does and for the same reason: the kernel runs with
+the recipe folder as its working directory but with write access to the whole checkout, so a cell
+(malicious or merely careless, for example a relative path that climbs out of the recipe folder)
+could otherwise overwrite `tools/check_notebook_fresh.py` or the committed notebook the checks
+compare against, and the checks would then compare a result against itself. Running the checks
+against the frozen copies, and failing if the checkout moved, closes that off; see "Protecting the
+checks from the notebook under test" in [notebook-ci.md](notebook-ci.md).
 
 `PYTHONPATH="$PWD/tools/netguard"` loads the Python-level network guard, as in CI. The path must be
 absolute: the executor starts the kernel with the recipe folder as its working directory, so a

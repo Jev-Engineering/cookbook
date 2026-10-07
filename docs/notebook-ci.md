@@ -16,9 +16,37 @@ contract is [CONTRIBUTING.md](../CONTRIBUTING.md).
 | `Fixtures (validate)` | yes | Every folder under `recipes/` must have a `fixtures/` folder and must pass the fixture validator. |
 | `Scope (recipe pull requests)` | yes | The allowlist for recipe pull requests, in its own workflow (`scope.yml`). It runs on `pull_request_target` (opened, synchronize, reopened, edited), so the workflow file and the script both come from the base branch, and **re-runs when the description or the base branch is edited**, because it classifies a pull request by its closing references: a result that survived a later `Closes #N` would be stale. The `Notebooks` workflow does not re-run on edits. See "The scope check". |
 
-Require the three named ones in branch protection. The other check names (`Lint (ruff)`,
-`Catalog (README is current)`, `Tests (py3.10)`, `Tests (py3.14)`, `Hygiene (secrets and notebook
-outputs)`) are unchanged.
+Require all three named ones in branch protection, but they are not equivalent for a tool that also
+judges current `main`: `Notebooks (execute)` and `Fixtures (validate)` have `push: branches:
+[main]`, so they do appear, and must be `success`, on both a pull request head and on current
+`main`. `Scope (recipe pull requests)` runs on `pull_request_target` only (see "The scope check")
+and by design never appears on a commit of `main` — a commit lands on `main` only by merging a
+pull request, and `pull_request_target` does not fire for a push. Treat it as required on the pull
+request head only: pass `Notebooks (execute)` and `Fixtures (validate)` to
+`tools/check_merge_readiness.py --require-check` (see [merge-readiness.md](merge-readiness.md)),
+and never `Scope (recipe pull requests)`, because the helper demands presence on current `main` as
+well as on the head and would fail forever otherwise. The helper cannot currently express "required
+on the head, not on `main`"; until it can, `Scope` is verified by reading the pull request head's
+own `statusCheckRollup` directly, not through `--require-check`. The other check names (`Lint
+(ruff)`, `Catalog (README is current)`, `Tests (py3.10)`, `Tests (py3.14)`, `Hygiene (secrets and
+notebook outputs)`) are unchanged.
+
+### After this merges
+
+An un-dispatched `pull_request_target` workflow is silent, not red: GitHub simply never creates a
+run, so a broken trigger shows as a missing check rather than a failing one. Before any recipe pull
+request relies on `Scope (recipe pull requests)`, or it is added to branch protection, the first
+pull request opened after this merges must show, read directly rather than assumed:
+
+1. a `Scope` run exists with `event: pull_request_target` (`gh run list --workflow Scope`);
+2. that run's check appears on the pull request's **head commit**, under exactly the name `Scope
+   (recipe pull requests)`, in `statusCheckRollup`;
+3. a path outside the allowlist on that pull request is rejected (`REJECT:` with the path);
+4. editing the pull request's description re-runs the check.
+
+Until all four are observed, the allowlist is enforced by review only, exactly as it was before
+this pull request: a reviewer rejects a `.github/` or out-of-scope change in a recipe pull request
+by hand, the same backstop `docs/notebook-ci.md` already names for the check once it does run.
 
 ## Which notebooks run
 
@@ -102,6 +130,35 @@ real `LiveBackend.decide` call. Each ends the executor with exit status 1 and th
 The executor runs with the recipe folder as the working directory, as `execute_notebook.py` always
 does.
 
+## Protecting the checks from the notebook under test
+
+The network guards stop a cell reaching the outside world; they say nothing about the checkout the
+job runs in. The kernel is started as the runner user (`setpriv` only drops privileges inside the
+network namespace, not filesystem permissions), so a cell has ordinary write access to the whole
+`$GITHUB_WORKSPACE`, not only the scratch copy of the recipe it was given to run in — including
+`tools/check_notebook_fresh.py`, `tools/check_hygiene.py` and the committed `notebook.ipynb` the
+checks read afterwards. Fix round 2 made the matching argument for the scope check ("a pull request
+cannot edit the rule that judges it"); the notebook job has the same hole, by accident as much as on
+purpose (a cell that saves a file with a relative path climbing out of the recipe folder silently
+rewrites whatever it lands on). Two layers close it, and the second is the one that enforces it:
+
+1. **The checks and the committed notebook are frozen before execution runs**, not read from the
+   checkout afterwards. The `Notebook (<recipe>)` job copies `tools/check_notebook_fresh.py` and
+   `tools/check_hygiene.py` to `$RUNNER_TEMP`, and reads the committed notebook with
+   `git show HEAD:recipes/<recipe>/notebook.ipynb` into `$RUNNER_TEMP` rather than from the working
+   tree, before the execute step runs. Both checks afterwards run from those frozen copies. A cell
+   that rewrites the checkout's `tools/` or `recipes/<recipe>/notebook.ipynb` therefore reaches
+   nothing the checks actually use.
+2. **`git status --porcelain` must be empty right after execution — the enforcement.** Freezing
+   two files is not a proof that nothing else in the checkout was touched, so a step immediately
+   after the execute step fails the job if the working tree changed at all. This is what turns an
+   unanticipated write (a relative path that climbed out of the recipe folder, say) into a visible,
+   named failure instead of a silently tampered result; it is not bypassable by writing somewhere
+   the freeze step did not anticipate, the way freezing two specific files would be on its own.
+
+The documented local commands in [development.md](development.md#running-ci-on-one-recipe) mirror
+both steps, so running the sequence by hand gives the same guarantee CI does.
+
 ## The staleness check
 
 `python tools/check_notebook_fresh.py <committed> <fresh>` compares the notebook in the repository
@@ -110,7 +167,11 @@ with the one the job just produced from scratch. Exit 0 means they agree. The ru
 1. **Failures in either file.** Any output with `output_type` `error` (what a cell tagged
    `raises-exception` commits; the executor exits 0 for such a cell, so the check must catch it) and
    any `stderr` stream output are problems, in the committed notebook and in the fresh one, even
-   when the two are identical.
+   when the two are identical. So is a cell tagged `skip-execution`: it is nbclient's own default
+   for `skip_cells_with_tag`, `tools/execute_notebook.py` does not change it, and a cell with this
+   tag is never executed at all, so whatever it commits (fabricated or merely stale) survives
+   unchanged into the "fresh" copy and a presence-only, or an equality-only, comparison would call
+   the two sides a match. The tag is rejected outright, whether or not the cell has any output.
 2. **One normalisation.** Every `outputs[*].data["image/png"]` value is replaced by a marker, so a
    figure must be present on both sides in the same place. Nothing else is normalised. The rest of
    the two notebooks, parsed as JSON, must be equal: sources, ids, metadata, execution counts,
@@ -223,10 +284,10 @@ ref, an unreadable body, an unreadable diff); it fails closed.
 - **Which kind.** A recipe pull request has both markers: branch `recipe/<slug>` and a closing
   reference (`close`, `closes`, `closed`, `fix`, `fixes`, `fixed`, `resolve`, `resolves`, `resolved`,
   with an optional colon, then `#N`, `owner/repo#N` or an issue URL; one inside a fenced code block
-  does not count, as GitHub links nothing written there) to an issue of this repository
-  numbered 1 to 60. Neither marker: a foundation pull request. Only one: rejected. Closing any other
-  issue of this repository as well, or closing two recipe issues: rejected. The branch must be
-  `recipe/` plus the catalog slug of the closed issue, read from the base catalog.
+  or an inline code span does not count, as GitHub links nothing written in either) to an issue of
+  this repository numbered 1 to 60. Neither marker: a foundation pull request. Only one: rejected.
+  Closing any other issue of this repository as well, or closing two recipe issues: rejected. The
+  branch must be `recipe/` plus the catalog slug of the closed issue, read from the base catalog.
 - **Paths and modes**, on `git diff --raw -M -z base...head` (modes and types, not just names; both
   sides of a rename are checked). Every path must be under `recipes/<slug>/` or be exactly `README.md`.
   Inside the folder a deletion is allowed (it has no resulting mode, whatever the deleted entry was);
@@ -262,9 +323,11 @@ grid cell would turn every notebook red at once on `main`. `pyproject.toml` stay
 constraints apply to the notebook execution job only.
 
 **Authors install with the same file.** Text outputs are compared exactly against CI's pinned
-stack, so a recipe author runs `pip install -e ".[ml]" -c .github/constraints-notebooks.txt`
+stack, so a recipe author runs `pip install -e ".[dev,ml]" -c .github/constraints-notebooks.txt`
 (Python 3.14) before executing a notebook and committing its outputs; the template README and
-[recipe-template.md](recipe-template.md) say so.
+[recipe-template.md](recipe-template.md) say so. The constraints file cannot be installed on the
+package floor, Python 3.10 (`numpy==2.5.3` needs Python 3.12 or newer): committable outputs are a
+3.14 activity, not merely a `pip install -c` one.
 
 **Bumping the constraints is a foundation change** that re-executes every notebook: change the
 file, run `python tools/execute_notebook.py recipes/<folder>` for each folder in an environment
@@ -284,7 +347,10 @@ a run that selects all N notebooks is about N + 3. These are estimates from job 
 template's measured time, not billing data; check the repository's usage report. Selecting only
 the recipe folders a push to `main` changed (see "Which notebooks run") avoids re-running every
 notebook on each merge, which over a sixty-recipe build would otherwise add up to well over a
-thousand billed minutes. The organisation's concurrent-job limit turns a full run into waves.
+thousand billed minutes. The `execute` job also caps itself at `max-parallel: 10`, so a full run is
+always a deliberate, bounded set of waves rather than however many of the organisation's own
+concurrent-job slots happen to be free, and the other jobs in `CI` and `Notebooks` are never
+starved by one big `Notebooks (execute)` run.
 
 ## Local commands
 

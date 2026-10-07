@@ -151,3 +151,47 @@ def test_a_weekly_schedule_runs_every_notebook():
     # `else`, which selects everything.
     assert '"$EVENT" = "schedule"' not in body
     assert re.search(r"else\n\s+python tools/notebook_ci.py matrix --github-output", body)
+
+
+def test_execute_job_caps_its_own_concurrency():
+    assert re.search(r"strategy:\n(?:\s+.*\n)*?\s+max-parallel: \d+", code(NOTEBOOKS))
+
+
+def test_checks_run_from_a_frozen_copy_made_before_execution():
+    """The execute step has write access to the whole checkout (#108 fix round 3, M2): a cell could
+    otherwise overwrite the checks run after it, or the committed notebook they compare against, and
+    heal a stale result. The checks must run from copies made before execution, not from the live
+    checkout, and the committed notebook must come from git, not the working tree."""
+    body = code(NOTEBOOKS)
+    freeze = re.search(
+        r"Freeze the checks and the committed notebook before execution\n(.*?)\n\s*- ",
+        body,
+        re.DOTALL,
+    )
+    assert freeze, "no freeze step before execution"
+    execute_index = body.index("Execute the notebook offline")
+    assert body.index(freeze.group(0)) < execute_index, "the freeze step must run before execution"
+    assert "cp tools/check_notebook_fresh.py tools/check_hygiene.py" in freeze.group(1)
+    assert 'git show "HEAD:recipes/$RECIPE/notebook.ipynb"' in freeze.group(1)
+    # The checks afterwards read the frozen copies, never the live checkout's tools/ or recipes/.
+    fresh_check = re.search(r"Committed outputs match the fresh run\n\s+run: (.*)", body)
+    assert fresh_check and fresh_check.group(1).startswith(
+        'python "$RUNNER_TEMP/frozen/tools/check_notebook_fresh.py"'
+    )
+    assert '"$RUNNER_TEMP/frozen/committed/$RECIPE/notebook.ipynb"' in fresh_check.group(1)
+    assert 'recipes/$RECIPE/notebook.ipynb"' not in fresh_check.group(1)
+    hygiene_check = re.search(r"Hygiene of the freshly executed notebook\n\s+run: (.*)", body)
+    assert hygiene_check and hygiene_check.group(1).startswith(
+        'python "$RUNNER_TEMP/frozen/tools/check_hygiene.py"'
+    )
+
+
+def test_the_checkout_is_asserted_untouched_right_after_execution():
+    body = code(NOTEBOOKS)
+    execute_index = body.index("Execute the notebook offline")
+    assertion_index = body.index("The checkout is untouched after execution")
+    fresh_check_index = body.index("Committed outputs match the fresh run")
+    assert execute_index < assertion_index < fresh_check_index
+    assertion = body[assertion_index:fresh_check_index]
+    assert "git status --porcelain" in assertion
+    assert "exit 1" in assertion

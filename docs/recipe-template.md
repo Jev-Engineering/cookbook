@@ -111,8 +111,11 @@ and **never overwrites**: if `recipes/<slug>/` exists it changes nothing and exi
 5. Work through `notebook.ipynb` section by section. The scaffold's setup, state, question and
    answer cells already run once steps 3 and 4 are done; replace each `TODO` and fill the
    `# TODO` code cells. Copy the template's evaluation cells as a starting point.
-6. Install the way CI does, `pip install -e ".[ml]" -c .github/constraints-notebooks.txt` (Python 3.14),
-   so the outputs you commit come from the same library versions; then
+6. Committable outputs require Python 3.14 with the constraints file: the floor, Python 3.10,
+   cannot even install it (`numpy==2.5.3` needs Python 3.12 or newer), and CI compares text output
+   byte for byte against its pinned stack. Install the way CI does,
+   `pip install -e ".[dev,ml]" -c .github/constraints-notebooks.txt` (Python 3.14), so the outputs
+   you commit come from the same library versions; then
    `python tools/execute_notebook.py recipes/NN-slug`, and read the outputs.
 7. Run it twice: the second run must change nothing (`git diff --stat` empty after `git add`).
 8. `ruff check .`, `ruff format --check .`, `pytest`, `python tools/check_hygiene.py`.

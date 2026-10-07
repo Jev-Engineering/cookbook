@@ -16,11 +16,11 @@ request, to which the allowlist does not apply), 1 rejected (one ``REJECT:`` lin
 
 Which kind of pull request is it? A recipe pull request has BOTH markers: the branch is
 ``recipe/<slug>`` and the description has a closing reference (``Closes``, ``Fixes``,
-``Resolves`` and their other forms; one inside a fenced code block does not count, as GitHub
-links nothing written there) to an issue of this repository numbered 1 to 60. A pull
-request with neither marker is a foundation pull request. One marker without the other is
-rejected, as is a ``<slug>`` that is not the catalog slug of the issue, a pull request that
-closes more than one issue of this repository, and a closing reference to an issue of this
+``Resolves`` and their other forms; one inside a fenced code block or an inline code span does
+not count, as GitHub links nothing written in either) to an issue of this repository numbered 1
+to 60. A pull request with neither marker is a foundation pull request. One marker without the
+other is rejected, as is a ``<slug>`` that is not the catalog slug of the issue, a pull request
+that closes more than one issue of this repository, and a closing reference to an issue of this
 repository outside 1 to 60 next to a recipe one.
 
 The allowlist, on ``git diff --raw -M -z base...head`` (``--name-status`` hides modes and types):
@@ -93,6 +93,20 @@ def without_code_fences(body: str) -> str:
     return "\n".join(kept)
 
 
+INLINE_CODE = re.compile(r"(?P<ticks>`+)(?:(?!(?P=ticks)).)*?(?P=ticks)")
+
+
+def without_inline_code(body: str) -> str:
+    """``body`` with inline code spans removed, as GitHub links nothing written inside one.
+
+    An inline code span is a run of one or more backticks, content containing no same-length
+    backtick run, then a closing run of the same length (CommonMark). Unlike a fence it never
+    crosses a line: that matches ``CLOSING``, which also requires the keyword and its reference to
+    share a line.
+    """
+    return "\n".join(INLINE_CODE.sub("", line) for line in body.splitlines())
+
+
 class CannotRun(Exception):
     """The check could not be evaluated (git failed, an input is unreadable)."""
 
@@ -115,7 +129,8 @@ def closing_issues(body: str, github_repo: str) -> set[int]:
     """Numbers of the issues of ``github_repo`` that ``body`` closes (every GitHub keyword form)."""
     wanted = github_repo.lower()
     numbers = set()
-    for match in CLOSING.finditer(without_code_fences(body)):
+    text = without_inline_code(without_code_fences(body))
+    for match in CLOSING.finditer(text):
         repo = match.group("url_repo") or match.group("repo")
         if repo is not None and repo.lower() != wanted:
             continue

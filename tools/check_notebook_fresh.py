@@ -10,7 +10,9 @@ numpy and Pillow (both installed with matplotlib); only the figure comparison ne
 The comparison, in full (it is documented in ``docs/notebook-ci.md``):
 
 1. An ``error`` output (what a cell tagged ``raises-exception`` commits) is a problem, in either
-   file. So is a ``stderr`` stream output.
+   file. So is a ``stderr`` stream output. So is a cell tagged ``skip-execution``: nbclient's
+   default (``tools/execute_notebook.py`` does not override it) never executes such a cell, so
+   whatever it commits, output or none, did not come from the run being checked.
 2. Every ``outputs[*].data["image/png"]`` is replaced by a marker that records only that a PNG is
    there. Nothing else is normalised: after that the two notebooks, parsed as JSON, must be
    equal (sources, metadata, execution counts, text outputs, ids, every other output).
@@ -33,6 +35,12 @@ from typing import Any
 PNG_PRESENT = "<image/png: present>"
 MAX_PROBLEMS = 12
 MAX_TEXT = 90
+
+# Tags nbclient honours to skip a cell's execution entirely (``skip-execution`` is
+# ``NotebookClient.skip_cells_with_tag``'s own default, which ``tools/execute_notebook.py`` leaves
+# unset). A skipped cell keeps whatever it already had, run or not, so its presence defeats the
+# freshness comparison regardless of what the cell outputs.
+SKIP_EXECUTION_TAGS = frozenset({"skip-execution"})
 
 # Figure comparison (``compare_png``). Both images are flattened onto white and shrunk with a box
 # filter to a fixed GRID of cells, so the pixel size does not matter. A cell of one image is
@@ -78,10 +86,23 @@ def _outputs(cell: Any) -> list[Any]:
     return outputs if isinstance(outputs, list) else []
 
 
+def _tags(cell: Any) -> list[Any]:
+    metadata = cell.get("metadata") if isinstance(cell, dict) else None
+    tags = metadata.get("tags") if isinstance(metadata, dict) else None
+    return tags if isinstance(tags, list) else []
+
+
 def output_problems(nb: dict[str, Any], label: str) -> list[str]:
-    """Every ``error`` output and every ``stderr`` stream output in ``nb``."""
+    """Every ``error`` output, every ``stderr`` stream output, and every skipped cell in ``nb``."""
     problems = []
     for index, cell in enumerate(nb["cells"]):
+        skip_tags = sorted(set(_tags(cell)) & SKIP_EXECUTION_TAGS)
+        if skip_tags:
+            problems.append(
+                f"{label}: {_where(index, cell)} is tagged {skip_tags[0]!r}; nbclient never "
+                "executes a cell with this tag, so its outputs cannot have come from a real run "
+                "and a recipe must not use it"
+            )
         for out_index, output in enumerate(_outputs(cell)):
             if not isinstance(output, dict):
                 continue

@@ -95,13 +95,20 @@ CheckRun and a StatusContext) is ambiguous and fails. CheckRuns are read with `f
 a rerun replaces an earlier cancelled run of the same job.
 
 The helper does not read workflow files. Checks added by later workflows (for example notebook
-execution, fixture validation, or the recipe scope check) are **the caller's responsibility**:
-read the current workflows before each merge and pass every new check explicitly.
+execution or fixture validation) are **the caller's responsibility**: read the current workflows
+before each merge and pass every new check explicitly.
 
 ```bash
 python tools/check_merge_readiness.py --pr 123 --expected-head <sha> \
-  --require-check "Notebooks (execute)" --require-check "Scope (recipe paths)"
+  --require-check "Notebooks (execute)" --require-check "Fixtures (validate)"
 ```
+
+**A check that only runs on a pull request is a different case, and does not go on this list.**
+`Scope (recipe pull requests)` runs on `pull_request_target` and therefore never appears on a
+commit of `main` (see [notebook-ci.md](notebook-ci.md)); since this helper requires every
+`--require-check` name to be present on current `main` as well as on the head, passing it here
+would make the helper return `NOT READY` forever. Verify such a check by reading the pull request
+head's own `statusCheckRollup` directly instead of adding it here.
 
 Checks on a pull request run on the merge result as of the last push, not on a `main` that moves
 afterwards, and a green run on an older `main` says nothing about a later one. That is why the

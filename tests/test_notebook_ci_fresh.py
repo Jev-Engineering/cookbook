@@ -303,6 +303,25 @@ def test_stderr_output_fails_even_when_both_match(nb):
     assert len(found) == 2 and all("stderr" in p for p in found)
 
 
+def test_skip_execution_cell_fails_even_when_both_match(nb):
+    # nbclient's default never runs a cell tagged "skip-execution" (tools/execute_notebook.py does
+    # not override it), so a fabricated output survives verbatim into the fresh run too: committed
+    # and fresh end up identical, which is exactly why a presence-only comparison would miss it.
+    target = cell_with(nb, "answer")
+    target["metadata"]["tags"] = ["skip-execution"]
+    target["outputs"] = [
+        {
+            "output_type": "stream",
+            "name": "stdout",
+            "text": ["Jev answered 100% of the hard cases correctly.\n"],
+        }
+    ]
+    twin = copy.deepcopy(nb)
+    found = problems_for(nb, twin)
+    assert len(found) == 2
+    assert all("skip-execution" in p for p in found)
+
+
 def test_cli_exit_status_and_messages(reference, tmp_path):
     fresh_path = tmp_path / "fresh.ipynb"
     fresh_path.write_text(json.dumps(reference), encoding="utf-8")

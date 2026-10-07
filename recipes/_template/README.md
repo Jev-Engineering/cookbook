@@ -118,7 +118,7 @@ Needs only this page and the repository. Recipe `NN` is issue `NN` and its slug 
    from the same library versions (Python 3.14):
 
    ```bash
-   pip install -e ".[ml]" -c .github/constraints-notebooks.txt
+   pip install -e ".[dev,ml]" -c .github/constraints-notebooks.txt
    python tools/execute_notebook.py recipes/NN-slug
    ```
 

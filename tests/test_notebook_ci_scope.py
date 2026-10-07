@@ -543,12 +543,26 @@ def test_closing_issues_ignores_a_reference_inside_a_code_fence(text):
     [
         "```\nnote\n```\nCloses #1",  # after the block
         "Closes #1\n```\nFixes #2\n```",  # before it; the one inside does not count
-        "``` Closes #1 ```",  # inline code, not a fence
         "    Closes #1",  # an indented block is not a fence
     ],
 )
 def test_closing_issues_still_counts_a_reference_outside_a_code_fence(text):
     assert scope.closing_issues(text, "o/r") == {1}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "`Closes #1`",  # the whole reference inside a single-backtick inline code span
+        "``` Closes #1 ```",  # a single line: matching backtick runs make this inline code,
+        # not a fence (a fence needs the backtick run alone, at line start, on its own line)
+        "Closes `#1`",  # only the reference is inside the span
+        "`Closes` #1",  # only the keyword is inside the span
+    ],
+)
+def test_closing_issues_ignores_a_reference_inside_an_inline_code_span(text):
+    assert scope.closing_issues(text, "o/r") == set()
+    assert scope.closing_issues("Closes #1", "o/r") == {1}
 
 
 def test_a_fenced_reference_alone_does_not_make_a_recipe_pull_request(repo):
