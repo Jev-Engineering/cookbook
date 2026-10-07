@@ -67,7 +67,10 @@ def execute(recipe_dir: Path) -> None:
         os.environ.update(saved)
     nb.metadata = nbformat.from_dict(METADATA)
     nbformat.validate(nb)
-    nbformat.write(nb, path)
+    # Always LF, so the file is the same bytes on every platform (nbformat.write would follow
+    # the operating system's newline).
+    text = nbformat.writes(nb) + "\n"
+    path.write_text(text, encoding="utf-8", newline="\n")
 
 
 def main(argv: list[str] | None = None) -> int:
