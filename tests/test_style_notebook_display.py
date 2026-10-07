@@ -1,7 +1,9 @@
 """A cell ending with a returned Figure renders a PNG in a plain ipykernel session."""
 
+import importlib.util
 import json
 import sys
+from pathlib import Path
 
 import matplotlib
 import nbformat
@@ -10,6 +12,17 @@ from nbclient import NotebookClient
 from nbclient.exceptions import DeadKernelError
 
 from jev_cookbook import style
+
+
+def _load_executor():
+    path = Path(__file__).resolve().parent.parent / "tools" / "execute_notebook.py"
+    spec = importlib.util.spec_from_file_location("execute_notebook_for_display_test", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+START_FAILURES = _load_executor().START_FAILURES
 
 SETUP = "from jev_cookbook.style import apply_style, plot_answer_probabilities\napply_style()"
 WITHOUT_SETUP = "from jev_cookbook.style import plot_answer_probabilities"
@@ -53,8 +66,8 @@ def _run(first_cell, second_cell, kernel_name, tmp_path):
         try:
             client.execute()
         except RuntimeError as error:
-            started = not any(m in str(error) for m in ("didn't respond", "died before replying"))
-            if started or isinstance(error, DeadKernelError) or attempt == 2:
+            failed_to_start = any(m in str(error) for m in START_FAILURES)
+            if not failed_to_start or isinstance(error, DeadKernelError) or attempt == 2:
                 raise
         else:
             return nb.cells[1].outputs

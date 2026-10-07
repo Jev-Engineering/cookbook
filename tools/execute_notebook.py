@@ -9,7 +9,8 @@ These things are fixed so that running it twice gives the same file:
   run is offline and replays the fixtures whatever the shell had set. The environment is built
   as a copy and passed to the kernel; this process's own environment is never changed, so
   several notebooks can be executed in parallel (on Windows, starting several kernels at the same
-  time can fail with a ZMQ "Address in use" error: run them one after another, or retry once);
+  time can fail with a ZMQ "Address in use" error, which the tool absorbs by starting a fresh kernel
+  once more, see below);
 * the kernel is the interpreter running this tool (``sys.executable``), not whichever
   ``python3`` kernelspec Jupyter finds first, so a user-level kernelspec cannot swap the
   environment the committed outputs were made in;
@@ -32,7 +33,8 @@ executing at once) a kernel can lose a race for a TCP port ("Address in use"), e
 replies, or take longer than jupyter_client's default 60 seconds to answer. Each of those is a
 ``RuntimeError`` raised before any cell has run, so a second attempt with a fresh kernel cannot hide
 a failing cell; a cell that fails, times out or kills the kernel is never retried. The wait for the
-kernel to answer is ``START_WAIT`` seconds (not ``--timeout``, which is per cell).
+kernel to answer is ``START_WAIT`` seconds (not ``--timeout``, which is per cell), so a kernel that
+never starts fails after at most two such waits (2 x ``START_WAIT``, 360 seconds).
 
 Known limitation: "the kernel never started" is recognised by two jupyter_client messages
 ("Kernel didn't respond", "Kernel died before replying"). Any other start-up ``RuntimeError`` is
@@ -42,6 +44,7 @@ printed as a traceback; the exit status (1) and the unchanged file are the same.
 from __future__ import annotations
 
 import argparse
+import atexit
 import os
 import sys
 from pathlib import Path
@@ -118,7 +121,14 @@ def run_in_fresh_kernel(nb: nbformat.NotebookNode, recipe_dir: Path, timeout: in
         resources={"metadata": {"path": str(recipe_dir)}},
     )
     # ``env`` replaces the kernel's whole environment; this process's is left alone.
-    client.execute(env=offline_environment(dict(os.environ)))
+    try:
+        client.execute(env=offline_environment(dict(os.environ)))
+    except BaseException:
+        # nbclient registers an exit-time kernel cleanup and, when the start fails, never removes
+        # it; at interpreter exit it then raises an ``AssertionError`` (km is None) on stderr.
+        # The kernel was already cleaned up when the error propagated, so drop the hook.
+        atexit.unregister(client._cleanup_kernel)
+        raise
 
 
 def execute(recipe_dir: Path, timeout: int = TIMEOUT_SECONDS) -> None:
