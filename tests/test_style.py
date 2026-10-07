@@ -75,7 +75,7 @@ SCRIPTED_TEXT = (
 RECORDED_TEXT = (
     "Recipe 07: Triage tickets\n"
     "Mode: offline replay of recorded fixtures\n"
-    "The answers were captured from a real Jev call to model system-one-test-model "
+    "The answers were captured from real Jev calls to model system-one-test-model "
     "on 2026-01-02. Any numbers below describe only that recorded sample."
 )
 LIVE_TEXT = (
@@ -226,7 +226,7 @@ def test_synthetic_sentence_only_in_synthetic_and_scripted():
         assert (style.SYNTHETIC_NOTICE in text) == (mode in ("synthetic", "scripted")), mode
     assert "not Jev results" in style.run_header_text(1, "T", "synthetic")
     assert "not Jev results" not in style.run_header_text(
-        1, "T", "recorded", model="m", recorded_on="d"
+        1, "T", "recorded", model="m", recorded_on="2026-01-02"
     )
     assert "not Jev results" not in style.run_header_text(1, "T", "live", model="m")
 

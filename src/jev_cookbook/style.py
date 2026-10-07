@@ -27,6 +27,7 @@ import math
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 
 import matplotlib as mpl
@@ -168,6 +169,13 @@ SYNTHETIC_NOTICE = (
 _MODES = ("synthetic", "scripted", "recorded", "live")
 
 
+def _is_iso_date(value: Any) -> bool:
+    try:
+        return isinstance(value, str) and date.fromisoformat(value).isoformat() == value
+    except ValueError:
+        return False
+
+
 @dataclass(frozen=True)
 class RunInfo:
     """The situation a notebook ran in.
@@ -209,6 +217,10 @@ class RunInfo:
         elif self.mode == "recorded":
             if not self.model or not self.recorded_on:
                 raise ValueError("a recorded run needs both model and recorded_on")
+            for name in ("recorded_on", "recorded_until"):
+                value = getattr(self, name)
+                if value is not None and not _is_iso_date(value):
+                    raise ValueError(f"{name} must be a date as YYYY-MM-DD, got {value!r}")
             if self.recorded_until and self.recorded_until < self.recorded_on:
                 raise ValueError("recorded_until must not be earlier than recorded_on")
         else:
@@ -278,7 +290,7 @@ def run_header_text(
     counted = _plural(info.n_examples) if info.n_examples is not None else "examples"
     when = (
         f"between {info.recorded_on} and {info.recorded_until}"
-        if info.recorded_until
+        if info.recorded_until and info.recorded_until != info.recorded_on
         else f"on {info.recorded_on}"
     )
     if info.mode == "synthetic":
@@ -290,7 +302,7 @@ def run_header_text(
     elif info.mode == "recorded":
         second = "Mode: offline replay of recorded fixtures"
         third = (
-            f"The answers were captured from a real Jev call to model {info.model} "
+            f"The answers were captured from real Jev calls to model {info.model} "
             f"{when}. Any numbers below describe only that recorded sample"
             f"{sample}."
         )

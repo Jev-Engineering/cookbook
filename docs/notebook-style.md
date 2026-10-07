@@ -31,7 +31,7 @@ in it. Wrong combinations raise `ValueError` rather than printing a vague header
 `ScriptedBackend`, or anything with those attributes, such as a live backend) and prints
 exactly the text of that mode below. A synthetic or scripted backend's model name is not
 shown. A recorded backend with one date says `on DATE`; with several it says `between FIRST
-and LAST`, for example `...to model MODEL between 2026-01-02 and 2026-01-09. Any numbers...`.
+and LAST` (one date when they are equal), for example `...to model MODEL between 2026-01-02 and 2026-01-09. Any numbers...`.
 `backend=` cannot be combined with `mode`, `model` or `recorded_on`. The explicit form above
 keeps working unchanged. A sample size of one reads `1 example`, not `1 examples`.
 
@@ -55,7 +55,7 @@ Recorded (offline replay of `recorded` fixtures; the model string and date are t
 ```text
 Recipe 07: Triage tickets
 Mode: offline replay of recorded fixtures
-The answers were captured from a real Jev call to model MODEL on DATE. Any numbers below describe only that recorded sample.
+The answers were captured from real Jev calls to model MODEL on DATE. Any numbers below describe only that recorded sample.
 ```
 
 Live:

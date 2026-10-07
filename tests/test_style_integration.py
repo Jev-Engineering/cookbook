@@ -47,7 +47,7 @@ def _recorded_text(when: str, sample: str = "") -> str:
     return (
         "Recipe 07: Triage tickets\n"
         "Mode: offline replay of recorded fixtures\n"
-        f"The answers were captured from a real Jev call to model {MODEL} {when}. "
+        f"The answers were captured from real Jev calls to model {MODEL} {when}. "
         f"Any numbers below describe only that recorded sample{sample}."
     )
 
@@ -387,3 +387,32 @@ def test_risk_coverage_accepts_an_object_with_coverage_and_risk():
     assert list(line.get_ydata()) == [0.0, 0.1, 0.2]
     with pytest.raises(ValueError):
         style.plot_risk_coverage([0.1, 0.2])
+
+
+def test_equal_first_and_last_dates_print_on_date_not_a_range():
+    info = style.RunInfo("recorded", MODEL, "2026-01-02", recorded_until="2026-01-02")
+    assert style.run_header_text(7, "Triage tickets", info) == _recorded_text("on 2026-01-02")
+
+
+@pytest.mark.parametrize(
+    "recorded_on, recorded_until",
+    [
+        ("2026-1-2", None),
+        ("20260102", None),
+        ("DATE", None),
+        ("2026-02-30", None),
+        (" 2026-01-02", None),
+        ("2026-01-02", "yesterday"),
+        ("2026-01-02", "2026-1-9"),
+        ("2026-01-09", "2026-01-02"),
+    ],
+)
+def test_run_info_rejects_malformed_or_unordered_dates(recorded_on, recorded_until):
+    with pytest.raises(ValueError):
+        style.RunInfo("recorded", MODEL, recorded_on, recorded_until=recorded_until)
+
+
+@pytest.mark.parametrize("recorded_on", ["2026-1-2", "DATE", "2026-02-30"])
+def test_explicit_recorded_header_rejects_malformed_dates(recorded_on):
+    with pytest.raises(ValueError):
+        style.run_header_text(7, "T", "recorded", model=MODEL, recorded_on=recorded_on)
