@@ -22,7 +22,8 @@ recipes/NN-slug/fixtures/
 
 Those are the only files allowed in `fixtures/`. Any other file or folder is an error, so
 nothing in that folder escapes validation and scanning. Keep other things (a recorder's request-id
-ledger, a generator script, notes) outside it.
+ledger, a generator script, notes) outside it. That includes the live recorder's
+`<stem>.drift-<model>.json` comparison files: any name containing `.drift-` is a stray.
 
 All of them are UTF-8 and contain no comments. A leading byte order mark is accepted on
 `inputs.jsonl` and `labels.jsonl` but **rejected on every responses file**, because
@@ -95,8 +96,7 @@ parses, `replay_key` and the backends cannot hash it), so the validator counts b
 strings before it parses and reports a line past the limit as a problem naming the file and line
 (a responses file: the line where the limit is crossed). The same holds on every interpreter. No
 real state, label or stored response comes near 64. Like any malformed line, an over-deep one is a
-problem and not a crash: a malformed stored response is reported naming the file and key, and
-`--all` goes on to the next recipe.
+problem and not a crash, and `--all` goes on to the next recipe.
 
 ## Replay and scripted recipes
 
@@ -176,8 +176,8 @@ leaked-credential report). What the scanner flags and exempts:
   `$`, `...`, `…` or `***` (in any case). `password: EXAMPLE-Summer2024Holiday` passes.
 - **Vendor-shaped strings are always flagged, marker or not:** `sk-` followed by 20 or more
   characters, `ghp_`/`gho_`/`ghu_`/`ghs_`/`ghr_`, `github_pat_`, `AKIA`/`ASIA` ids, `AIza` keys,
-  `xox?-` tokens, JWTs and private-key blocks. `sk-EXAMPLE` followed by 20 more characters, a `ghp_` value with `EXAMPLE` in it, and
-  AWS's own documentation access key id are flagged.
+  `xox?-` tokens, JWTs and private-key blocks. `sk-EXAMPLE` followed by 20 more characters, a
+  `ghp_` value with `EXAMPLE` in it, and AWS's own documentation access key id are flagged.
 - **Long random-looking tokens are always flagged:** a run of 32 or more of `A-Z a-z 0-9 _ + = -`
   (also `/` outside path- and URL-shaped words) that mixes letters with digits (or `+`, `/`,
   `=`) and has an entropy of 4.2 bits per character or more. An `api_key=` value that starts with

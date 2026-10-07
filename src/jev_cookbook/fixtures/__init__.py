@@ -205,7 +205,9 @@ def _object_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 
 
 MAX_DEPTH = 64  # no JSON value in a fixture file nests deeper than this; see docs/fixtures.md
-_TOKENS = re.compile(r'"[^"\\]*(?:\\.[^"\\]*)*"|[\[\]{}]')  # a string (skipped) or a bracket
+# A string (skipped) or a bracket. A string that never closes runs to the end of the text: the
+# parser stops there, and it keeps the scan linear.
+_TOKENS = re.compile(r'"[^"\\]*(?:\\.[^"\\]*)*"?|[\[\]{}]', re.S)
 
 
 class _TooDeep(ValueError):
@@ -381,8 +383,7 @@ def _read_responses(
         try:
             parsed[key] = DecisionResult.from_dict(stored)
         except Exception as exc:  # any failure means ReplayBackend would reject it
-            reason = "nested too deeply to read" if isinstance(exc, RecursionError) else exc
-            problems.append(Problem(name, f"bad stored response: {reason}", ident=key))
+            problems.append(Problem(name, f"bad stored response: {exc}", ident=key))
             continue
         raw[key] = stored
     return raw, parsed, problems, True
@@ -613,7 +614,7 @@ def _layout(folder: Path) -> tuple[dict[str | None, Path], list[Problem]]:
             continue
         if entry.name == RESPONSES_FILE:
             responses[None] = entry
-        elif tagged and _ID.fullmatch(tagged.group(1)):
+        elif ".drift-" not in entry.name and tagged and _ID.fullmatch(tagged.group(1)):
             responses[tagged.group(1)] = entry
         else:
             msg = (

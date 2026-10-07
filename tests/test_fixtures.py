@@ -13,6 +13,7 @@ import inspect
 import json
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -487,6 +488,66 @@ def test_a_very_deep_line_is_a_problem_on_every_interpreter_and_the_run_goes_on(
     assert main(["validate", str(recipe)]) == 1
 
 
+QUOTE = '"'  # a string value that holds one double quote (written `\"` in the file)
+
+
+def state_set(state: object) -> dict:
+    """The good set with ``state`` as the first example's state, re-keyed to match."""
+    data = good_set()
+    key = request_key_for(state)
+    data["inputs"][0]["state"] = state
+    data["responses"][key] = data["responses"].pop(data["inputs"][0]["replay_keys"][0])
+    data["inputs"][0]["replay_keys"] = [key]
+    return data
+
+
+@pytest.mark.parametrize(
+    "state",
+    [
+        "[" * 100 + "{" * 100,
+        'say "' + "{" * 100,
+        "ends with a backslash \\" + "[" * 100,
+        "\u005b" * 100,
+        {"[" * 100: "{" * 100, "k": 'x"' + "[" * 100},
+    ],
+    ids=["plain", "after-escaped-quote", "after-backslash", "escaped-bracket", "in-a-key"],
+)
+def test_brackets_inside_strings_do_not_count_toward_the_nesting_limit(recipe, state):
+    write(recipe, state_set(state))
+    assert messages(recipe) == []
+    data = good_set()
+    data["labels"][0]["label"] = state if isinstance(state, str) else "x"
+    write(recipe, data)
+    assert messages(recipe) == []
+
+
+@pytest.mark.parametrize("string", [QUOTE, "a" + QUOTE, "\\", QUOTE + "\\", "\\" + QUOTE], ids=repr)
+def test_a_deep_value_after_a_string_with_an_escape_is_still_too_deep(recipe, string):
+    """The string ends where the parser says it does, so what follows it counts."""
+    data = state_set({"q": string, "x": nested(LIMIT)})
+    write(recipe, data)
+    assert [m for m in messages(recipe) if TOO_DEEP in m], messages(recipe)
+    data = good_set()
+    data["labels"][0]["label"] = [string, nested(LIMIT)]
+    write(recipe, data)
+    assert [m for m in messages(recipe) if TOO_DEEP in m], messages(recipe)
+
+
+def test_a_string_that_never_closes_is_checked_in_linear_time(recipe):
+    """A 64 KB line of escaped quotes with no closing quote: quadratic scanning took ~18 s."""
+    row = '{"id": "x9", "split": "demo", "replay_keys": [], "state": "' + '\\"' * 32_000
+    with (recipe / "fixtures" / "inputs.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write(row + "\n")
+    start = time.perf_counter()
+    found = messages(recipe)
+    elapsed = time.perf_counter() - start
+    assert any("invalid JSON" in m for m in found), found
+    assert elapsed < 1.0, f"took {elapsed:.2f} s"
+    start = time.perf_counter()
+    fixtures_module._check_depth('"' + '\\"' * 500_000)
+    assert time.perf_counter() - start < 1.0
+
+
 def test_response_without_provenance(recipe):
     data = good_set()
     key = data["inputs"][0]["replay_keys"][0]
@@ -878,6 +939,8 @@ def test_loading_a_missing_tagged_file_names_it(recipe):
         "responses-bad tag.json",
         "responses.json.bak",
         "responses-b.json.bak",
+        "responses.drift-x.json",
+        "responses-b.drift-x.json",
     ],
 )
 def test_any_other_file_in_the_fixtures_folder_is_an_error(recipe, name):
@@ -981,11 +1044,11 @@ def test_blank_lines_and_crlf_are_tolerated_and_keep_line_numbers(recipe):
 
 def test_a_line_separator_inside_a_string_does_not_split_a_row(recipe):
     data = good_set()
-    data["labels"][0]["label"] = "a b"
+    data["labels"][0]["label"] = "a\u2028b"
     folder = recipe / "fixtures"
     text = "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in data["labels"])
     (folder / "labels.jsonl").write_text(text, encoding="utf-8")
-    assert load_labels(recipe)["t0"] == "a b"
+    assert load_labels(recipe)["t0"] == "a\u2028b"
 
 
 def test_not_utf8(recipe):
