@@ -13,7 +13,7 @@
 <!-- catalog:progress:end -->
 ![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-F386A1?style=flat-square&labelColor=1E1E1E) [![License: MIT](https://img.shields.io/badge/License-MIT-DEDEDE?style=flat-square&labelColor=1E1E1E)](LICENSE)
 
-[How a recipe works](#how-a-recipe-works) · [Decision types](#decision-types) · [Levels](#difficulty-levels) · [Categories](#browse-by-category) · [Recipes](#the-recipes) · [Sources](#sources) · [Contributing](#contributing)
+[Quick start](#quick-start) · [How a recipe works](#how-a-recipe-works) · [Decision types](#decision-types) · [Levels](#difficulty-levels) · [Categories](#browse-by-category) · [Recipes](#the-recipes) · [Sources](#sources) · [Contributing](#contributing)
 
 </div>
 
@@ -23,6 +23,27 @@ Jev is TypeSafe AI's System One model. It does not write text. You send it a **s
 
 > [!NOTE]
 > **The generated badge and recipes table show what has shipped.** The catalog lists the planned use cases, categories, and difficulty levels, and it can be revised as recipes are built. A recipe counts as published once its `notebook.ipynb` is in the repository, and its row then links to the notebook. Every other row is marked coming soon and links to the issue tracking it. Each published recipe states in its notebook and README which mode it ran in (synthetic fixtures or recorded responses), and for recorded responses the model version the API returned and the date. Metrics from synthetic runs check that the pipeline behaves as designed. They are not Jev results. Any number reported as a Jev result states the number of examples it was measured on and the model version, comes from recorded inference on a held-out set, and makes no general claim about Jev's quality, latency, or cost. Where a recipe has no such run, its README says "not measured live".
+
+## Quick start
+
+You need Python 3.10 or newer and git. No API key is needed to run anything offline.
+
+```bash
+git clone https://github.com/Jev-Engineering/cookbook.git
+cd cookbook
+python -m venv .venv
+. .venv/bin/activate   # Git Bash: source .venv/Scripts/activate; PowerShell: .venv\Scripts\Activate.ps1
+pip install -e ".[dev]"
+python tools/execute_notebook.py recipes/_template   # run the template notebook offline
+```
+
+The template in `recipes/_template/` is a small, complete recipe, and every recipe works the same
+way; recipe 01 is the start of the curriculum once its row below links to a notebook. Three pages
+take it from here:
+
+- [Getting started](docs/getting-started.md): install, open a notebook, run it offline, run a recipe's tests, switch to live.
+- [Offline and live](docs/offline-and-live.md): what each mode is, what provenance says, why synthetic metrics are pipeline checks, and what "not measured live" means.
+- [Glossary](docs/glossary.md): state, question, `Choice`, `Noul`, `Score`, criteria, probabilities, confidence, threshold, replay key, fixture, provenance, and run mode, each linked to its source.
 
 ## How a recipe works
 
@@ -65,10 +86,10 @@ What every recipe assumes:
 | | |
 | --- | --- |
 | **You** | Know basic Python. No machine learning background is needed for levels 1 to 3. |
-| **Data** | Prepared text or JSON fixtures that ship with the recipe. All of it is synthetic. |
+| **Data** | Prepared text or JSON fixtures that ship with the recipe. The inputs are written for the recipe, never real data. Stored answers are synthetic unless the recipe says they were recorded from real calls, with the model and the date. |
 | **Actions** | Simulated. No recipe sends a message, moves a file, or touches a real system. |
 | **Model calls** | Offline by default, replaying fixtures. Live Jev calls are opt-in with your own key. |
-| **Claims** | Fixture runs show that the pipeline works. Statements about quality, latency, or cost need measured inference on a held-out set, and a recipe says which one you are looking at. |
+| **Claims** | Runs on synthetic or scripted answers show that the pipeline works. Statements about quality, latency, or cost need recorded inference on a held-out set, with the model version, the capture date and the number of examples (N), and a recipe says which one you are looking at. |
 
 ## Decision types
 
