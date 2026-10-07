@@ -9,7 +9,8 @@ These things are fixed so that running it twice gives the same file:
   run is offline and replays the fixtures whatever the shell had set. The environment is built
   as a copy and passed to the kernel; this process's own environment is never changed, so
   several notebooks can be executed in parallel (on Windows, starting several kernels at the same
-  time can fail with a ZMQ "Address in use" error: run them one after another, or retry once);
+  time can fail with a ZMQ "Address in use" error, which the tool absorbs by starting a fresh kernel
+  once more, see below);
 * the kernel is the interpreter running this tool (``sys.executable``), not whichever
   ``python3`` kernelspec Jupyter finds first, so a user-level kernelspec cannot swap the
   environment the committed outputs were made in;
@@ -27,14 +28,23 @@ the timeout (``--timeout``, default 300 seconds, at least 1), the kernel died or
 a cell wrote to stderr (one line on stderr, the file left unchanged), and 2 for a usage error.
 #69 builds CI (network guard, staleness check) on this.
 
-Known limitation: "the kernel never started" is recognised by one jupyter_client message
-("Kernel didn't respond"). A kernel that exits at start-up gives a different ``RuntimeError``,
-which is printed as a traceback; the exit status (1) and the unchanged file are the same.
+Starting the kernel is retried once, and only that: when the machine is loaded (several notebooks
+executing at once) a kernel can lose a race for a TCP port ("Address in use"), exit before it
+replies, or take longer than jupyter_client's default 60 seconds to answer. Each of those is a
+``RuntimeError`` raised before any cell has run, so a second attempt with a fresh kernel cannot hide
+a failing cell; a cell that fails, times out or kills the kernel is never retried. The wait for the
+kernel to answer is ``START_WAIT`` seconds (not ``--timeout``, which is per cell), so a kernel that
+never starts fails after at most two such waits (2 x ``START_WAIT``, 360 seconds).
+
+Known limitation: "the kernel never started" is recognised by two jupyter_client messages
+("Kernel didn't respond", "Kernel died before replying"). Any other start-up ``RuntimeError`` is
+printed as a traceback; the exit status (1) and the unchanged file are the same.
 """
 
 from __future__ import annotations
 
 import argparse
+import atexit
 import os
 import sys
 from pathlib import Path
@@ -50,6 +60,8 @@ NOTEBOOK = "notebook.ipynb"
 KERNEL_NAME = "python3"
 SCRUBBED_PREFIXES = ("JEV_COOKBOOK_", "TYPESAFE_")
 TIMEOUT_SECONDS = 300
+START_WAIT = 180
+START_FAILURES = ("Kernel didn't respond", "Kernel died before replying")
 METADATA = {
     "kernelspec": {"display_name": "Python 3", "language": "python", "name": KERNEL_NAME},
     "language_info": {"name": "python"},
@@ -90,17 +102,9 @@ def check_no_stderr(nb: nbformat.NotebookNode) -> None:
                 )
 
 
-def execute(recipe_dir: Path, timeout: int = TIMEOUT_SECONDS) -> None:
-    """Run ``recipe_dir/notebook.ipynb`` and write it back with outputs.
-
-    Raises ``CellExecutionError`` when a cell fails, ``CellTimeoutError`` when one runs longer than
-    ``timeout`` seconds, ``DeadKernelError`` when the kernel dies, ``KernelStartError`` when it
-    never starts and ``StderrOutput`` when a cell writes to stderr; the file is left unchanged in
-    every case.
-    """
-    recipe_dir = recipe_dir.resolve()
-    path = recipe_dir / NOTEBOOK
-    nb = nbformat.read(path, as_version=4)
+def run_in_fresh_kernel(nb: nbformat.NotebookNode, recipe_dir: Path, timeout: int) -> None:
+    """Execute ``nb`` in a new kernel, in place. A kernel that does not start raises
+    ``RuntimeError`` (see ``START_FAILURES``) before any cell runs."""
     # An async manager is needed for nbclient to notice a dead kernel (``os._exit``, a crash);
     # with a blocking one a dead kernel hangs the run and the cell timeout never applies.
     manager = AsyncKernelManager(
@@ -111,6 +115,7 @@ def execute(recipe_dir: Path, timeout: int = TIMEOUT_SECONDS) -> None:
         km=manager,
         kernel_name=KERNEL_NAME,
         timeout=timeout,
+        startup_timeout=START_WAIT,
         record_timing=False,
         coalesce_streams=True,
         resources={"metadata": {"path": str(recipe_dir)}},
@@ -118,10 +123,37 @@ def execute(recipe_dir: Path, timeout: int = TIMEOUT_SECONDS) -> None:
     # ``env`` replaces the kernel's whole environment; this process's is left alone.
     try:
         client.execute(env=offline_environment(dict(os.environ)))
-    except RuntimeError as error:
-        if "Kernel didn't respond" in str(error):
-            raise KernelStartError(str(error)) from error
+    except BaseException:
+        # nbclient registers an exit-time kernel cleanup and, when the start fails, never removes
+        # it; at interpreter exit it then raises an ``AssertionError`` (km is None) on stderr.
+        # The kernel was already cleaned up when the error propagated, so drop the hook.
+        atexit.unregister(client._cleanup_kernel)
         raise
+
+
+def execute(recipe_dir: Path, timeout: int = TIMEOUT_SECONDS) -> None:
+    """Run ``recipe_dir/notebook.ipynb`` and write it back with outputs.
+
+    Raises ``CellExecutionError`` when a cell fails, ``CellTimeoutError`` when one runs longer than
+    ``timeout`` seconds, ``DeadKernelError`` when the kernel dies, ``KernelStartError`` when it
+    never starts and ``StderrOutput`` when a cell writes to stderr; the file is left unchanged in
+    every case.
+    """
+    recipe_dir = recipe_dir.resolve()
+    path = recipe_dir / NOTEBOOK
+    for attempt in (1, 2):
+        nb = nbformat.read(path, as_version=4)
+        try:
+            run_in_fresh_kernel(nb, recipe_dir, timeout)
+            break
+        except RuntimeError as error:
+            if isinstance(error, DeadKernelError) or not any(
+                message in str(error) for message in START_FAILURES
+            ):
+                raise
+            # No cell has run: the kernel never answered, so a fresh one is tried once.
+            if attempt == 2:
+                raise KernelStartError(str(error)) from error
     check_no_stderr(nb)
     nb.metadata = nbformat.from_dict(METADATA)
     nbformat.validate(nb)

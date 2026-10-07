@@ -157,8 +157,9 @@ the recipe folder as working directory, and writes the outputs back in place.
 - It builds a copy of the environment without any `JEV_COOKBOOK_*` or `TYPESAFE_*` variable and
   passes it to the kernel explicitly; this process's own environment is never changed, so notebooks
   can be executed in parallel. Starting several kernels at once on Windows can fail with a ZMQ
-  "Address in use" error, so run executions one after another, or retry once. A shell that is
-  set up for live calls still runs offline.
+  "Address in use" error, so the tool starts a fresh kernel once more when the first one does not
+  start (never when a cell fails) and waits up to 180 seconds for a kernel to answer. A shell that
+  is set up for live calls still runs offline.
 - The kernel is the interpreter running the tool (`sys.executable`). The name `python3` is
   resolved to that interpreter, not to whichever `python3` kernelspec Jupyter finds first, so a
   user-level kernelspec cannot change what the committed outputs were made with. The tool needs
