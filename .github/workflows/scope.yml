@@ -1,0 +1,55 @@
+name: Scope
+
+# The allowlist for recipe pull requests (#69), in its own workflow so that it can re-run when a
+# pull request description or base branch is edited (`edited`) without re-executing a single
+# notebook. The check classifies a pull request from its description (its closing references), so
+# a result that survived a later edit would be stale. The job name below is part of the contract
+# (it is a required check): rename it only deliberately. See docs/notebook-ci.md.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scope-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  scope:
+    name: Scope (recipe pull requests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      # The check that judges a pull request runs from the base branch, so a pull request cannot
+      # change the rule that judges it. The base has no copy only on the pull request that
+      # introduces the tool; that one runs its own.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          path: trusted
+          ref: ${{ github.event.pull_request.base.sha }}
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.10"
+      - name: Check the allowlist
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          printf '%s' "$PR_BODY" > "$RUNNER_TEMP/pr-body.txt"
+          tool=trusted/tools/check_recipe_scope.py
+          if [ ! -f "$tool" ]; then
+            echo "the base branch has no scope check yet; using this pull request's copy"
+            tool=tools/check_recipe_scope.py
+          fi
+          python "$tool" --repo . --base "origin/$BASE_REF" --head "$HEAD_SHA" --branch "$BRANCH" --body-file "$RUNNER_TEMP/pr-body.txt"

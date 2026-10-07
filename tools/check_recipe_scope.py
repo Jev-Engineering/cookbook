@@ -57,12 +57,14 @@ REGULAR = "100644"
 MISSING = "000000"
 BRANCH_PREFIX = "recipe/"
 
-KEYWORD = r"(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)"
+# As GitHub reads a closing reference: an ASCII keyword (so Unicode case folding cannot make
+# "Cloſes" one), ASCII digits, and the reference on the same line as the keyword.
+KEYWORD = r"(?a:close[sd]?|fix(?:e[sd])?|resolve[sd]?)"
 REFERENCE = (
-    r"(?:https?://github\.com/(?P<url_repo>[\w.-]+/[\w.-]+)/issues/(?P<url_n>\d+)(?!\w)"
-    r"|(?P<repo>[\w.-]+/[\w.-]+)?#(?P<n>\d+)(?!\w))"
+    r"(?:https?://github\.com/(?P<url_repo>[\w.-]+/[\w.-]+)/issues/(?P<url_n>[0-9]+)(?!\w)"
+    r"|(?P<repo>[\w.-]+/[\w.-]+)?#(?P<n>[0-9]+)(?!\w))"
 )
-CLOSING = re.compile(rf"(?<![\w-]){KEYWORD}(?![\w-])\s*:?\s+{REFERENCE}", re.IGNORECASE)
+CLOSING = re.compile(rf"(?<![\w-]){KEYWORD}(?![\w-])[ \t]*:?[ \t]+{REFERENCE}", re.IGNORECASE)
 
 
 class CannotRun(Exception):

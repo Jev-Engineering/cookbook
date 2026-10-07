@@ -1,24 +1,34 @@
 name: Notebooks
 
-# Executes every recipe notebook offline, checks the committed outputs are fresh, validates
-# every recipe's fixtures and enforces the recipe pull request allowlist (#69). Keyless: no
-# secret is used or needed and nothing reaches the TypeSafe API. The job names below are part
-# of the contract (they become required checks), so rename them only deliberately. The required
-# ones are "Notebooks (execute)", "Fixtures (validate)" and "Scope (recipe pull requests)"; the
-# per-recipe "Notebook (<recipe>)" jobs are numerous and dynamic, and "Notebooks (execute)"
-# summarises them under one stable name. See docs/notebook-ci.md.
+# Executes every recipe notebook offline, checks the committed outputs are fresh and validates
+# every recipe's fixtures (#69). Keyless: no secret is used or needed and nothing reaches the
+# TypeSafe API. The recipe pull request allowlist is its own workflow (scope.yml), because it must
+# also re-run when a description is edited and this one must not. The job names below are part of
+# the contract (they become required checks), so rename them only deliberately. The required ones
+# are "Notebooks (execute)" and "Fixtures (validate)" (and "Scope (recipe pull requests)" in
+# scope.yml); the per-recipe "Notebook (<recipe>)" jobs are numerous and dynamic, and
+# "Notebooks (execute)" summarises them under one stable name. See docs/notebook-ci.md.
 
 on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      full:
+        description: "Run every notebook (false: only the recipes changed by the latest commit)"
+        type: boolean
+        default: true
 
 permissions:
   contents: read
 
+# A new push to a pull request cancels its older run. A push to main never cancels or replaces
+# another run (each gets its own group): the push selection below is relative to the previous
+# commit, so a run that is dropped would leave its recipes unverified.
 concurrency:
-  group: notebooks-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: notebooks-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   discover:
@@ -36,16 +46,24 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.14"
-      # A push to main selects every notebook. A pull request selects the recipe folders it
-      # changes, unless it changes anything but recipe folders and README.md, which selects all.
+      # A pull request selects the recipe folders it changes. A push to main selects the recipe
+      # folders changed since the previous tip (`before`). Either way, a change to anything but
+      # recipe folders and README.md selects every notebook, and so does a `before` that is not
+      # available (a first push, a forced push) and a manual run with `full` left true.
       - name: Select the notebooks to execute
         id: matrix
         env:
           EVENT: ${{ github.event_name }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+          FULL: ${{ github.event.inputs.full }}
         run: |
           if [ "$EVENT" = "pull_request" ]; then
             python tools/notebook_ci.py matrix --base "$BASE_SHA" --head HEAD --github-output "$GITHUB_OUTPUT"
+          elif [ "$EVENT" = "push" ]; then
+            python tools/notebook_ci.py matrix --base "$BEFORE_SHA" --head HEAD --lenient --github-output "$GITHUB_OUTPUT"
+          elif [ "$FULL" = "false" ]; then
+            python tools/notebook_ci.py matrix --base HEAD^ --head HEAD --lenient --github-output "$GITHUB_OUTPUT"
           else
             python tools/notebook_ci.py matrix --github-output "$GITHUB_OUTPUT"
           fi
@@ -71,11 +89,14 @@ jobs:
         with:
           python-version: "3.14"
           cache: pip
-          cache-dependency-path: pyproject.toml
-      # Core dependencies only: a recipe must run offline without any extra. Installation is the
+          cache-dependency-path: |
+            pyproject.toml
+            .github/constraints-notebooks.txt
+      # The core dependencies and the `ml` extra (scikit-learn, for recipes that train a baseline),
+      # with the plotting stack pinned by .github/constraints-notebooks.txt. Installation is the
       # last thing that may use the network.
       - name: Install
-        run: pip install -e .
+        run: pip install -e ".[ml]" -c .github/constraints-notebooks.txt
       - name: Copy the recipe to a scratch folder
         run: |
           mkdir -p "$RUNNER_TEMP/run"
@@ -106,19 +127,26 @@ jobs:
           PY
           sudo env "PATH=$PATH" unshare --net -- sh -c \
             'ip link set lo up && exec env -u PYTHONPATH python "$1"' sh "$RUNNER_TEMP/probe.py"
-      # sudo resets the environment, so HOME and PYTHONPATH are passed explicitly, and this step fails if the guard is
-      # not loaded in the sandboxed interpreter.
-      - name: Prove the Python-level guard reaches the sandbox
+      # sudo resets the environment, so HOME and PYTHONPATH are passed explicitly. setpriv drops
+      # root and sets no_new_privs, so a cell cannot sudo its way back out of the namespace. This
+      # step fails if the guard is not loaded in the sandboxed interpreter, if no_new_privs is not
+      # set, or if sudo still works from inside.
+      - name: Prove the Python-level guard and no_new_privs reach the sandbox
         env:
           PYTHONPATH: ${{ github.workspace }}/tools/netguard
         run: |
           cat > "$RUNNER_TEMP/loaded.py" <<'PY'
-          import socket
+          import socket, subprocess
           assert socket.socket.connect.__module__ == "sitecustomize", "netguard not loaded"
           print("netguard loaded")
+          flag = [l for l in open("/proc/self/status") if l.startswith("NoNewPrivs:")]
+          assert flag and flag[0].split()[1] == "1", "no_new_privs is not set"
+          escape = subprocess.run(["sudo", "-n", "true"], capture_output=True)
+          assert escape.returncode != 0, "sudo still works inside the sandbox"
+          print("no_new_privs set; sudo refused")
           PY
           sudo env "PATH=$PATH" "HOME=$HOME" "PYTHONPATH=$PYTHONPATH" unshare --net -- sh -c \
-            'ip link set lo up && exec setpriv --reuid="$1" --regid="$2" --clear-groups -- python "$3"' \
+            'ip link set lo up && exec setpriv --no-new-privs --reuid="$1" --regid="$2" --clear-groups -- python "$3"' \
             sh "$(id -u)" "$(id -g)" "$RUNNER_TEMP/loaded.py"
       - name: Execute the notebook offline
         env:
@@ -128,7 +156,7 @@ jobs:
         run: |
           started=$(date +%s)
           sudo env "PATH=$PATH" "HOME=$HOME" "PYTHONPATH=$PYTHONPATH" unshare --net -- sh -c \
-            'ip link set lo up && exec setpriv --reuid="$1" --regid="$2" --clear-groups -- python tools/execute_notebook.py --timeout 300 "$3"' \
+            'ip link set lo up && exec setpriv --no-new-privs --reuid="$1" --regid="$2" --clear-groups -- python tools/execute_notebook.py --timeout 300 "$3"' \
             sh "$(id -u)" "$(id -g)" "$RUNNER_TEMP/run/$RECIPE"
           echo "executed $RECIPE in $(( $(date +%s) - started )) s" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Committed outputs match the fresh run
@@ -178,40 +206,3 @@ jobs:
       # --all skips a recipe without fixtures/.
       - name: Validate every recipe's fixtures
         run: python tools/notebook_ci.py fixtures
-
-  scope:
-    name: Scope (recipe pull requests)
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha }}
-      # The check that judges a pull request runs from the base branch, so a pull request cannot
-      # change the rule that judges it. The base has no copy only on the pull request that
-      # introduces the tool; that one runs its own.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          path: trusted
-          ref: ${{ github.event.pull_request.base.sha }}
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.10"
-      - name: Check the allowlist
-        env:
-          PR_BODY: ${{ github.event.pull_request.body }}
-          BRANCH: ${{ github.event.pull_request.head.ref }}
-          BASE_REF: ${{ github.event.pull_request.base.ref }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          printf '%s' "$PR_BODY" > "$RUNNER_TEMP/pr-body.txt"
-          tool=trusted/tools/check_recipe_scope.py
-          if [ ! -f "$tool" ]; then
-            echo "the base branch has no scope check yet; using this pull request's copy"
-            tool=tools/check_recipe_scope.py
-          fi
-          python "$tool" --repo . --base "origin/$BASE_REF" --head "$HEAD_SHA" --branch "$BRANCH" --body-file "$RUNNER_TEMP/pr-body.txt"

@@ -508,6 +508,21 @@ def test_closing_issues_helper():
     assert closing("closes", "o/r") == set()
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Closes #１",  # a full-width digit: GitHub closes nothing
+        "Closes\n#1",  # the reference is on the next line: GitHub closes nothing
+        "Closes:\n#1",
+        "Cloſes #1",  # a long s, which Unicode case folding would match to "s"
+        "Closes https://github.com/o/r/issues/１",
+    ],
+)
+def test_closing_issues_ignores_what_github_ignores(text):
+    assert scope.closing_issues(text, "o/r") == set()
+    assert scope.closing_issues("Closes #1", "o/r") == {1}
+
+
 # -- command line and failure modes ------------------------------------------------------------
 
 

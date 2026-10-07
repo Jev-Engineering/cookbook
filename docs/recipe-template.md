@@ -195,10 +195,11 @@ contain a live outcome by accident. To run a notebook live, set `TYPESAFE_API_KE
 or capture answers with the recorder in [live.md](live.md). A recorded recipe states the model
 version the API returned, the capture date and N for every number it reports.
 
-It adds no network guard and no staleness check. Those are #69's. Two things for that work: figure
-outputs are PNG images whose bytes may differ across platforms and matplotlib or FreeType
-versions, and text outputs are stable. A staleness check that compares whole files should be run in
-the CI environment the committed outputs were made in, or compare outputs other than image data.
+The executor itself adds no network guard and no staleness check; the `Notebooks` workflow does
+(#69): it re-executes the notebook offline in a network namespace and compares the result with the
+committed one, text exactly and figures by what they show, because PNG bytes differ across
+platforms and matplotlib or FreeType versions. What that comparison cannot see is in
+[notebook-ci.md](notebook-ci.md).
 
 ## The template in the catalog
 

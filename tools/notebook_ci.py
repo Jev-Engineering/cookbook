@@ -10,6 +10,10 @@ GitHub Actions. Without ``--base`` and ``--head`` (a push to ``main``) it select
 the recipe folders that the pull request changes, and only when every changed path is inside a
 recipe folder or is exactly ``README.md``; any other changed path selects every notebook.
 
+With ``--lenient`` (a push to ``main``, whose ``before`` commit may be all zeros after a forced
+push or missing from the clone) a base or head that is not a commit selects every notebook
+instead of failing; a pull request does not use it, so there an unreadable diff stays an error.
+
 ``fixtures`` validates every folder directly under ``recipes/`` with
 ``python -m jev_cookbook.fixtures validate`` and fails a recipe with no ``fixtures/`` folder,
 which ``validate --all`` would skip without a word.
@@ -58,6 +62,17 @@ def changed_paths(root: Path, base: str, head: str) -> list[str]:
     return [p.decode("utf-8", "surrogateescape") for p in result.stdout.split(b"\0") if p]
 
 
+def is_commit(root: Path, ref: str) -> bool:
+    if not ref or set(ref) == {"0"}:
+        return False
+    result = subprocess.run(
+        ["git", "-C", str(root), "cat-file", "-e", "--end-of-options", f"{ref}^{{commit}}"],
+        capture_output=True,
+        check=False,
+    )
+    return result.returncode == 0
+
+
 def select(root: Path, base: str | None, head: str | None) -> list[str]:
     """The recipe folders to execute (see the module docstring)."""
     everything = with_notebooks(root)
@@ -79,7 +94,15 @@ def command_matrix(args: argparse.Namespace) -> int:
     if (args.base is None) != (args.head is None):
         print("--base and --head go together", file=sys.stderr)
         return 2
-    names = select(args.root, args.base, args.head)
+    base, head = args.base, args.head
+    if (
+        args.lenient
+        and base is not None
+        and not (is_commit(args.root, base) and is_commit(args.root, head))
+    ):
+        print(f"base {base!r} is not a commit here: selecting every notebook", file=sys.stderr)
+        base = head = None
+    names = select(args.root, base, head)
     matrix = json.dumps({"recipe": names}, separators=(",", ":"))
     print(matrix)
     if args.github_output:
@@ -123,6 +146,11 @@ def main(argv: list[str] | None = None) -> int:
     matrix = sub.add_parser("matrix", help="the recipe folders whose notebook to execute")
     matrix.add_argument("--base", help="base commit of a pull request")
     matrix.add_argument("--head", help="head commit of a pull request")
+    matrix.add_argument(
+        "--lenient",
+        action="store_true",
+        help="a base or head that is not a commit selects every notebook (push to main)",
+    )
     matrix.add_argument("--github-output", help="append matrix= and count= lines to this file")
     matrix.set_defaults(run=command_matrix)
     fixtures = sub.add_parser("fixtures", help="validate every recipe's fixtures/ folder")

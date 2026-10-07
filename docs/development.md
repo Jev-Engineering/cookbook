@@ -52,8 +52,10 @@ in [CONTRIBUTING.md](../CONTRIBUTING.md) and [notebook-ci.md](notebook-ci.md).
 `.github/workflows/ci.yml` (workflow `CI`) runs on every pull request and every push to
 `main`. It uses no secrets and makes no live API calls. These job names are stable so they
 can be made required checks; change one only deliberately, and add new jobs under new names.
-Notebook execution, fixture validation and the scope check are in a second workflow, `Notebooks`
-(`.github/workflows/notebooks.yml`), described below and in [notebook-ci.md](notebook-ci.md).
+Notebook execution and fixture validation are in a second workflow, `Notebooks`
+(`.github/workflows/notebooks.yml`), and the scope check is in a third, `Scope`
+(`.github/workflows/scope.yml`, which also re-runs when a pull request description is edited).
+Both are described below and in [notebook-ci.md](notebook-ci.md).
 
 | Check name | What it runs |
 | --- | --- |
@@ -76,21 +78,49 @@ comment; bump them deliberately, and keep the permissions at `contents: read`.
 | Check name | What it runs |
 | --- | --- |
 | `Notebooks (execute)` | The one stable name to require: green when every selected notebook passed. |
-| `Notebook (<recipe>)` | One job per recipe folder: executes `notebook.ipynb` offline in a scratch copy with no key, no network, `check_notebook_fresh.py` against the committed file, `check_hygiene.py` on the fresh copy. |
-| `Notebooks (discover)` | Chooses the recipes to run (a push to `main` runs all, a pull request runs the folders it changes, or all when it changes anything else). |
+| `Notebook (<recipe>)` | One job per recipe folder: installs `.[ml]` under the CI constraints, executes `notebook.ipynb` offline in a scratch copy with no key and no network (a network namespace with `no_new_privs`), `check_notebook_fresh.py` against the committed file, `check_hygiene.py` on the fresh copy. |
+| `Notebooks (discover)` | Chooses the recipes to run (a push to `main` runs the folders changed since the previous tip and a pull request runs the folders it changes, either of them all when anything but `recipes/<folder>/` and `README.md` changed). |
 | `Fixtures (validate)` | `python tools/notebook_ci.py fixtures`: every folder under `recipes/` has `fixtures/` and validates. |
-| `Scope (recipe pull requests)` | `tools/check_recipe_scope.py`, on pull requests only. |
+| `Scope (recipe pull requests)` | `tools/check_recipe_scope.py` (workflow `Scope`), on pull requests only, and again when the description or base is edited. |
 
-To run what CI runs on one recipe, from the repository root:
+### Running CI on one recipe
+
+To run what the notebook job runs on one recipe, from the repository root (Git Bash on Windows,
+or Linux). CI copies to a folder that keeps the recipe's name, so do the same:
 
 ```bash
-pip install -e .
-cp -R recipes/NN-slug /tmp/run-NN-slug
-python tools/execute_notebook.py /tmp/run-NN-slug
-python tools/check_notebook_fresh.py recipes/NN-slug/notebook.ipynb /tmp/run-NN-slug/notebook.ipynb
-python tools/check_hygiene.py /tmp/run-NN-slug/notebook.ipynb
+pip install -e ".[ml]" -c .github/constraints-notebooks.txt   # CI's install (Python 3.14)
+mkdir -p /tmp/run && cp -R recipes/NN-slug /tmp/run/NN-slug
+PYTHONPATH=tools/netguard python tools/execute_notebook.py /tmp/run/NN-slug
+python tools/check_notebook_fresh.py recipes/NN-slug/notebook.ipynb /tmp/run/NN-slug/notebook.ipynb
+python tools/check_hygiene.py /tmp/run/NN-slug/notebook.ipynb
 python tools/notebook_ci.py fixtures
 ```
+
+The constraints pin the plotting stack to the versions CI uses (see
+[notebook-ci.md](notebook-ci.md#pinned-plotting-stack)); drop `-c ...` on an older Python, whose
+figures the freshness check still accepts. `PYTHONPATH=tools/netguard` loads the Python-level
+network guard, as in CI; run `python -c "import socket; socket.create_connection(('example.com',
+80))"` with it set to see the `NetworkBlocked` error it raises. On Linux the enforcing layer can be
+tried the same way CI does it:
+
+```bash
+sudo unshare --net -- sh -c 'ip link set lo up && exec setpriv --no-new-privs \
+  --reuid="$(id -u)" --regid="$(id -g)" --clear-groups -- env "PATH=$PATH" \
+  python -c "import socket; socket.create_connection((\"1.1.1.1\", 53), timeout=5)"'
+```
+
+which must fail with an `OSError` (and `sudo -n true` inside it must fail too). To check a pull
+request description and diff against the allowlist, put the description in a file:
+
+```bash
+printf 'Closes #NN\n' > /tmp/pr-body.txt
+python tools/check_recipe_scope.py --base origin/main --head HEAD \
+    --branch recipe/NN-slug --body-file /tmp/pr-body.txt
+```
+
+A fresh scaffold has no `fixtures/` folder until you run `python recipes/NN-slug/build_fixtures.py`,
+and `Fixtures (validate)` fails a recipe folder without one.
 
 To refresh a stale notebook, run `python tools/execute_notebook.py recipes/NN-slug` and commit
 the result. Everything about these checks, including how the figure comparison works and what
@@ -210,4 +240,9 @@ with at most three of its update pull requests open at once for each.
   never reads an API key, and never imports `typesafe-sdk`. Code that needs the SDK
   imports it lazily, inside the live backend, and fails with a clear message when the
   `live` extra is not installed. A test enforces this for the package import.
-- Recipes run offline with core dependencies only, unless the recipe README names an extra.
+- Recipes run offline with the core dependencies and the `ml` extra. CI installs `.[ml]` in the
+  notebook job (before the network is cut), with the plotting stack pinned by
+  `.github/constraints-notebooks.txt`; the `live` extra is never installed there. A recipe that
+  needs any other extra needs the workflow's install line changed first (a foundation change; a
+  recipe pull request cannot touch `.github/`). Bumping the constraints is a foundation change
+  that re-executes every notebook ([notebook-ci.md](notebook-ci.md#pinned-plotting-stack)).

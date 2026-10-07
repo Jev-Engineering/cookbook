@@ -125,8 +125,16 @@ Needs only this page and the repository. Recipe `NN` is issue `NN` and its slug 
    second run changes nothing; if yours does, something in an output is unstable (a time, an object id,
    an unordered set) and should not be printed. Outputs must not contain absolute paths, usernames or
    environment dumps: print nothing path-like.
+
+   CI re-executes the notebook offline and compares it with the committed one (text exactly, figures by what
+   they show), so a stale output fails `Notebooks (execute)`. Run the same commands locally:
+   [docs/development.md](../../docs/development.md#running-ci-on-one-recipe). A chart is only guarded
+   loosely (a moved line or marker passes), so print the numbers a chart plots, rounded;
+   [docs/notebook-ci.md](../../docs/notebook-ci.md) lists what the figure comparison cannot see.
 8. **Check everything.** From the repository root: `ruff check .`, `ruff format --check .`, `pytest`,
    `python tools/check_hygiene.py`, and `grep -rn TODO recipes/NN-slug` (it must print nothing).
+   `Fixtures (validate)` fails a recipe folder with no `fixtures/`, and a fresh scaffold has none until
+   `python recipes/NN-slug/build_fixtures.py` has run (step 4), so run it before you push.
 
 ### Scripted or simulator recipes
 

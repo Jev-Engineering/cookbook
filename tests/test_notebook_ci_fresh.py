@@ -15,9 +15,15 @@ import subprocess
 import sys
 from pathlib import Path
 
+import numpy as np
 import pytest
 
-from jev_cookbook.style import apply_style, plot_answer_probabilities, plot_confusion_matrix
+from jev_cookbook.style import (
+    apply_style,
+    plot_answer_probabilities,
+    plot_confusion_matrix,
+    plot_threshold_sweep,
+)
 
 REPO = Path(__file__).resolve().parent.parent
 TEMPLATE = REPO / "recipes" / "_template"
@@ -47,6 +53,17 @@ def heatmap(matrix=MATRIX, title="Test split, 27 examples", dpi=100):
     apply_style()
     labels = ["billing", "bug", "account"]
     return png_of(plot_confusion_matrix(matrix, labels=labels, title=title), dpi)
+
+
+def sweep(chosen=0.5):
+    apply_style()
+    thresholds = [i / 20 for i in range(1, 20)]
+    metrics = {
+        "precision": np.linspace(0.6, 0.98, 19),
+        "recall": np.linspace(0.97, 0.4, 19),
+        "f1": np.linspace(0.7, 0.6, 19),
+    }
+    return png_of(plot_threshold_sweep(thresholds, metrics, chosen=chosen, title="Sweep"))
 
 
 def shifted(delta):
@@ -115,6 +132,14 @@ def test_known_limits_small_changes_are_not_seen():
     # to fail the comparison got stricter; update the documented limits with it.
     assert fresh_tool.compare_png(bars(), bars(title="Another answer"))[0]
     assert fresh_tool.compare_png(bars(), bars(probabilities=shifted(0.02)))[0]
+
+
+def test_known_limits_a_moved_threshold_line_is_not_seen():
+    # Documented in docs/notebook-ci.md: a thin line (a threshold or reference line, a curve, a
+    # marker) is narrower than the comparison's 2 by 2 block, so moving it passes. The text outputs
+    # are what guard such a chart. If this starts to fail the comparison got stricter.
+    same, detail = fresh_tool.compare_png(sweep(0.5), sweep(0.6))
+    assert same, detail
 
 
 # -- whole notebooks -----------------------------------------------------------------------------

@@ -169,6 +169,49 @@ def test_base_and_head_go_together(tree):
     assert result.returncode == 2
 
 
+def push_matrix(root, base, head="work", *extra):
+    result = subprocess.run(
+        [sys.executable, str(TOOL), "--root", str(root), "matrix", "--base", base, "--head", head]
+        + list(extra),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result, (json.loads(result.stdout)["recipe"] if result.returncode == 0 else None)
+
+
+def test_push_with_a_missing_or_zero_before_is_an_error_unless_lenient(tree):
+    for before in ("0" * 40, "f" * 40):
+        result, _ = push_matrix(tree, before)
+        assert result.returncode != 0, before
+
+
+def test_lenient_push_with_an_unusable_before_selects_everything(tree):
+    for before in ("0" * 40, "f" * 40, "no-such-ref"):
+        result, names = push_matrix(tree, before, "work", "--lenient")
+        assert result.returncode == 0, result.stderr
+        assert names == ["01-first", "02-second", "_template"], before
+        assert "selecting every notebook" in result.stderr
+
+
+def test_lenient_push_with_a_real_before_selects_only_the_changed_recipe(tree):
+    write(tree, "recipes/02-second/helpers.py", "x = 1\n")
+    write(tree, "README.md", "regenerated\n")
+    git(tree, "add", "-A")
+    git(tree, "commit", "-q", "-m", "recipe")
+    result, names = push_matrix(tree, "main", "work", "--lenient")
+    assert result.returncode == 0 and names == ["02-second"], result.stderr
+
+
+def test_lenient_push_that_touches_shared_code_selects_everything(tree):
+    write(tree, "recipes/02-second/helpers.py", "x = 1\n")
+    write(tree, "docs/guide.md", "changed\n")
+    git(tree, "add", "-A")
+    git(tree, "commit", "-q", "-m", "shared")
+    _, names = push_matrix(tree, "main", "work", "--lenient")
+    assert names == ["01-first", "02-second", "_template"]
+
+
 def test_the_real_repository_matrix_has_the_template():
     assert "_template" in notebook_ci.with_notebooks(REPO)
 

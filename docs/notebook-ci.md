@@ -1,7 +1,8 @@
 # Notebook CI
 
-What the `Notebooks` workflow (`.github/workflows/notebooks.yml`) checks on every pull request
-and every push to `main`, how, and what it cannot see. It uses no secrets and never reaches the
+What the `Notebooks` workflow (`.github/workflows/notebooks.yml`) and the `Scope` workflow
+(`.github/workflows/scope.yml`) check on every pull request and every push to `main`, how, and
+what they cannot see. It uses no secrets and never reaches the
 TypeSafe API. Setup and the other checks are in [development.md](development.md); the recipe
 contract is [CONTRIBUTING.md](../CONTRIBUTING.md).
 
@@ -13,7 +14,7 @@ contract is [CONTRIBUTING.md](../CONTRIBUTING.md).
 | `Notebook (<recipe>)` | no | One job per recipe folder (the names change with the recipes, so they cannot be required one by one). Executes the notebook offline, compares it with the committed one, scans the fresh copy. |
 | `Notebooks (discover)` | no | Chooses the recipes to run and passes them on as a matrix. |
 | `Fixtures (validate)` | yes | Every folder under `recipes/` must have a `fixtures/` folder and must pass the fixture validator. |
-| `Scope (recipe pull requests)` | yes | The allowlist for recipe pull requests. Skipped, which counts as passing, on a push to `main`. |
+| `Scope (recipe pull requests)` | yes | The allowlist for recipe pull requests, in its own workflow (`scope.yml`). It runs on pull requests only and **re-runs when the description or the base branch is edited** (`edited`), because it classifies a pull request by its closing references: a result that survived a later `Closes #N` would be stale. The `Notebooks` workflow does not re-run on edits. |
 
 Require the three named ones in branch protection. The other check names (`Lint (ruff)`,
 `Catalog (README is current)`, `Tests (py3.10)`, `Tests (py3.14)`, `Hygiene (secrets and notebook
@@ -24,23 +25,37 @@ outputs)`) are unchanged.
 `python tools/notebook_ci.py matrix` lists the folders with a `notebook.ipynb`, `_template`
 included.
 
-- A push to `main` runs all of them.
-- A pull request runs only the recipe folders it changes, provided every changed path is inside a
-  `recipes/<folder>/` or is exactly `README.md`. A recipe pull request is limited to that by the
+- **A push to `main`** runs the recipe folders changed since the previous tip of `main`
+  (`github.event.before`) when the push touches nothing outside `recipes/<folder>/` and `README.md`
+  (a recipe merge runs one notebook). It runs every notebook when anything else changed (shared
+  code, tools, workflows, docs, the constraints file, anything a recipe reads), and when `before`
+  is not available (a first or forced push: `matrix --lenient` falls back to everything).
+- **A manual run** (`workflow_dispatch`) has a `full` input. Left true (the default) it runs every
+  notebook; false runs the recipe folders changed by the latest commit, by the same rule.
+- **A pull request** runs only the recipe folders it changes, provided every changed path is inside
+  a `recipes/<folder>/` or is exactly `README.md`. A recipe pull request is limited to that by the
   scope check, so one recipe's pull request does not re-run sixty notebooks.
 - A pull request that changes anything else (shared code, tools, docs, workflows, the template's
   neighbours) runs every notebook, because shared code can change any recipe's result.
-- A pull request that only regenerates `README.md` runs none, and `Notebooks (execute)` is green.
+- A change that only regenerates `README.md` runs none, and `Notebooks (execute)` is green.
+
+Runs on `main` are never cancelled or replaced by a newer push (each push has its own concurrency
+group), because the selection is relative to the previous tip: a dropped run would leave its recipes
+unverified. A new push to a pull request cancels that pull request's older run.
 
 A folder name that is not `NN-slug` or `_template` stops discovery: names go into a matrix and a
 command line.
 
 ## Offline, with no key and no network
 
-Each job installs the package (core dependencies only, Python 3.14) and then runs
+Each job installs the package with the `ml` extra (core dependencies plus scikit-learn, for the
+recipes that train a baseline; Python 3.14) under `.github/constraints-notebooks.txt`, and then runs
 `tools/execute_notebook.py` on a copy of the recipe folder, so the committed file is never
-rewritten. Installation is the last step that may use the network. Three layers keep the run
-offline:
+rewritten. Installation is the last step that may use the network, so installing an extra does not
+weaken the sandbox. The `live` extra is never installed: a recipe runs offline. A recipe whose README
+names any other extra needs a foundation change to the install line first, because a recipe pull
+request cannot touch `.github/`. Three layers keep the run offline, and the third is the one that
+enforces it:
 
 1. **No key, no live switch.** The executor strips every `JEV_COOKBOOK_*` and `TYPESAFE_*` variable
    from the kernel environment (case-insensitively), and CI sets none. This alone is not a network
@@ -49,11 +64,19 @@ offline:
    it at start-up, in the kernel too. Any `connect`, `connect_ex` or `sendto` to a non-loopback
    address, and any name resolution of anything but `localhost` and loopback addresses, fails at
    once with `NetworkBlocked` (an `OSError`) saying that a recipe must run offline. Loopback and
-   Unix sockets stay open because the kernel talks to the runner over loopback. It cannot stop
-   native code that opens its own sockets.
-3. **OS-level guard.** The execute step runs inside a Linux network namespace
+   Unix sockets stay open because the kernel talks to the runner over loopback. **It is a readable
+   error for an honest mistake, not a sandbox.** It is bypassable: `_socket.socket` used directly,
+   `importlib.reload(socket)`, calling the unpatched method through `super()`, `sendmsg`,
+   `getnameinfo`, native code that opens its own sockets, and a child process started without
+   `PYTHONPATH` (or with `python -I`) all go past it. Do not rely on it for anything.
+3. **OS-level guard: the enforcement.** The execute step runs inside a Linux network namespace
    (`unshare --net`) that has a loopback interface and nothing else, and drops root privileges
-   inside it. The step before it runs a self-test in the same kind of namespace (an IPv4 connect, an
+   inside it with `setpriv --no-new-privs`. The runner user has passwordless `sudo`, and without
+   `no_new_privs` a cell could `sudo nsenter` back into the host's network namespace; with it `sudo`
+   cannot gain root, so the cell has no way out. The namespace, not the Python guard, is what stops
+   a cell from reaching the network: it stops every route above, `curl`, child processes and native
+   code alike. The guard self-test step asserts that `no_new_privs` is set and that `sudo -n true`
+   fails from inside the sandbox. The step before it runs a self-test in the same kind of namespace (an IPv4 connect, an
    IPv6 connect and a name lookup must all fail, loopback must work) and fails the job if the
    namespace is not isolating, so a guard that silently does nothing cannot pass.
 
@@ -96,7 +119,9 @@ with the one the job just produced from scratch. Exit 0 means they agree. The ru
      pixel or two and the plot area rescales by a few percent, which leaves a thin line of unmatched
      cells along every hard edge;
    - the figures differ when a 2 by 2 block of cells is unmatched, in either direction. A line along an
-     edge is never a block; a changed bar, a recoloured highlight or a changed heat-map cell is.
+     edge is never a block; a changed bar or a recoloured highlight is, and so is a changed heat-map
+     cell when the cell is larger than a 2 by 2 block of the grid (a 3 by 3 confusion matrix: yes; a
+     20 by 20 heat map: no).
 
    The constants (`GRID`, `SHIFT`, `LEVEL`, `ASPECT_TOLERANCE` in `tools/check_notebook_fresh.py`)
    were calibrated on the template's two figures drawn by two matplotlib versions (3.10.9 on Python
@@ -114,13 +139,31 @@ with the one the job just produced from scratch. Exit 0 means they agree. The ru
 | a bar moves by 2 or 4 percentage points | 0 | passes |
 | one word of the title changes | 0 | passes |
 
-**What the figure comparison cannot see.** It compares areas of colour, not text. A changed title,
-axis label, tick label or in-cell number that does not change a coloured area, a bar that moves by a
-few percentage points (less than about 5% of the plot height), and any change smaller than a 2 by 2
-block of the grid (about 3% of the figure's width and 4% of its height) pass. A different library
+**What the figure comparison cannot see.** It compares areas of colour, not text, and it forgives
+anything thin by construction (the 3 by 3 window and the 2 by 2 block rule). These pass undetected:
+
+- a changed title, axis label, tick label or in-cell number that does not change a coloured area;
+- a bar that moves by a few percentage points (less than about 5% of the plot height);
+- **a moved or reshaped line or curve**, such as a recall curve moved by a few hundredths;
+- **a moved reference or threshold line** (`axvline`, `axhline`, the `chosen` marker of
+  `plot_threshold_sweep`, the `reference_risk` line of `plot_risk_coverage`): a threshold line moved
+  from 0.5 to 0.6 and a reference risk moved from 0.10 to 0.15 both pass;
+- **moved markers and scatter points**: 30 of 300 points shifted by 1.5 standard deviations passes,
+  and a marker moved by 10% of the axis passes;
+- **a small heat-map cell**: one cell of a 20 by 20 heat map changed from v to 1-v passes;
+- any change smaller than a 2 by 2 block of the grid (about 3% of the figure's width and 4% of its
+  height).
+
+A line chart is therefore guarded mainly by the exact comparison of the text outputs, not by the
+picture. A recipe that draws a curve, a threshold or a reference line should also print the numbers
+it plots (rounded: a full-precision `repr` of a transcendental result can differ in the last digit
+between operating systems), so a stale chart arrives with stale text. A different library
 version that moves things by more than a cell, or a larger change in font metrics, would show as a
-difference and need a regenerated notebook. `tests/test_notebook_ci_fresh.py` pins both lists
-(`test_known_limits_small_changes_are_not_seen`).
+difference and need a regenerated notebook. `tests/test_notebook_ci_fresh.py` pins the title, the small bar move and a threshold line
+moved from 0.5 to 0.6 (`test_known_limits_small_changes_are_not_seen`,
+`test_known_limits_a_moved_threshold_line_is_not_seen`); if one starts to fail the comparison got
+stricter and this list needs updating. The scatter, 20 by 20 heat-map and reference-line cases above
+were measured with probe charts (an independent review, across four environments), not pinned.
 The check is a second line behind the text outputs: a number shown in a table or a printed line is
 compared exactly, so a stale chart usually comes with stale text too.
 
@@ -181,8 +224,37 @@ README type change, a README deletion or rename, a rename out of (and into) the 
 outside it, symlinks, submodules, new executables, mode and type changes inside the folder, and every
 mis-tagged branch.
 
+## Pinned plotting stack
+
+The notebook job installs under `.github/constraints-notebooks.txt`, which pins `matplotlib` and
+`numpy` (and the libraries matplotlib pulls in: `pillow`, `contourpy`, `cycler`, `fonttools`,
+`kiwisolver`, `packaging`, `pyparsing`, `python-dateutil`, `six`) to the versions the committed
+template outputs were produced with. Without it every job would take the latest release, and a
+release that changes a `repr`, prints a warning to stderr, or moves figure geometry by more than a
+grid cell would turn every notebook red at once on `main`. `pyproject.toml` stays unpinned, and the
+constraints apply to the notebook execution job only.
+
+**Bumping the constraints is a foundation change** that re-executes every notebook: change the
+file, run `python tools/execute_notebook.py recipes/<folder>` for each folder in an environment
+with the new versions, commit the regenerated notebooks in the same pull request, and read the
+freshness check's output. A change to the file counts as "anything else", so it runs every notebook.
+
 ## Run time and cost
 
-Jobs have timeouts and per-pull-request concurrency with `cancel-in-progress`; pip is cached. The
-execute step prints its own elapsed seconds to the job summary. See the pull request description for
-the measured times of one recipe and how they scale (one job per recipe, in parallel).
+Jobs have timeouts, pip is cached, and a new push to a pull request cancels its older run. The
+execute step prints its own elapsed seconds to the job summary.
+
+**Billed minutes (private repository).** GitHub rounds each job up to a whole minute, so a recipe
+costs at least one minute whatever its run time (about 30 seconds of runner time for the template,
+of which execution is a few seconds). Counting jobs: a run that selects one notebook is about 4
+billed minutes in `Notebooks` (discover, the notebook, the summary, fixtures) plus one for `Scope`;
+a run that selects all N notebooks is about N + 3. These are estimates from job counts and the
+template's measured time, not billing data; check the repository's usage report. Selecting only
+the recipe folders a push to `main` changed (see "Which notebooks run") avoids re-running every
+notebook on each merge, which over a sixty-recipe build would otherwise add up to well over a
+thousand billed minutes. The organisation's concurrent-job limit turns a full run into waves.
+
+## Local commands
+
+The commands that reproduce a job on one recipe, including the network guard and the scope check,
+are in [development.md](development.md#running-ci-on-one-recipe).
