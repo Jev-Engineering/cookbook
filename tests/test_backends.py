@@ -29,7 +29,7 @@ from jev_cookbook import (
     question_from_dict,
     replay_key,
 )
-from jev_cookbook._canonical import canonical_json
+from jev_cookbook._canonical import canonical_json, plain_json
 from jev_cookbook.answers import (
     SYNTHETIC_MODEL,
     choice_confidence,
@@ -1076,3 +1076,87 @@ def test_example_responses_from_the_typesafe_docs_are_accepted():
         legend = [f"level {i}" for i in range(len(probs))]
         answer = ScoreAnswer(score, dict(enumerate(probs)), conf, dict(enumerate(legend)), rec)
         assert answer.score == score
+
+
+# ------------------------------------------------- depth, provenance, usage (tidy-up)
+
+
+def nested_state(levels, *, mixed=False):
+    """A state whose containers nest ``levels`` deep (outermost = level 1)."""
+    value = "leaf"
+    for i in range(levels):
+        value = ([value] if i % 2 == 0 else {"k": value}) if mixed else {"k": value}
+    return value
+
+
+def test_key_at_depth_64_is_pinned():
+    """Golden values computed on main before the depth check existed: they must not move."""
+    qs = {"q": Noul(instructions="x")}
+    assert (
+        replay_key(nested_state(64), qs)
+        == "bd337f7a267064096cafcf46fc6574dc4364937eac115154fddc6bf2838d28bb"
+    )
+    assert (
+        replay_key(nested_state(64, mixed=True), qs)
+        == "7acd7f5bb4e775c0b541d20b3d9ff6ccf4ed5d24d12b0ab5309d3d3b9a507d1c"
+    )
+
+
+def test_a_state_deeper_than_64_levels_is_a_readable_error():
+    qs = {"q": Noul(instructions="x")}
+    for levels in (65, 66, 5000):  # 5000 would be a RecursionError if checked by recursion
+        with pytest.raises(ValueError, match="state: nested deeper than 64 levels"):
+            replay_key(nested_state(levels), qs)
+    with pytest.raises(ValueError, match="nested deeper than 64 levels"):
+        replay_key({"k": nested_state(65, mixed=True)}, qs)
+    cyclic: dict = {}
+    cyclic["k"] = cyclic
+    with pytest.raises(ValueError, match="nested deeper than 64 levels"):
+        replay_key(cyclic, qs)
+
+
+def test_question_content_deeper_than_64_levels_is_a_readable_error():
+    class Deep(Noul):
+        def to_dict(self):
+            return {"type": "noul", "instructions": "x", "criteria": nested_state(70)}
+
+    with pytest.raises(ValueError, match="question 'q': nested deeper than 64 levels"):
+        replay_key(STATE, {"q": Deep(instructions="x")})
+
+
+def test_canonical_json_depth_is_the_same_rule():
+    assert canonical_json(nested_state(64)).count("{") == 64
+    with pytest.raises(ValueError, match="nested deeper than 64 levels"):
+        canonical_json(nested_state(65))
+    with pytest.raises(ValueError):
+        plain_json(nested_state(3), max_depth=2)
+
+
+def test_depth_limit_matches_the_fixture_validator():
+    from jev_cookbook.fixtures import MAX_DEPTH, _check_depth
+
+    assert MAX_DEPTH == 64
+    _check_depth(json.dumps(nested_state(64)))
+    with pytest.raises(ValueError):
+        _check_depth(json.dumps(nested_state(65)))
+
+
+def test_from_dict_rejects_non_object_provenance_naming_the_field():
+    good = recorded_result().to_dict()
+    for bad in ([], ["synthetic"], "synthetic", 3, None):
+        data = json.loads(json.dumps(good))
+        data["answers"]["billing"]["provenance"] = bad
+        with pytest.raises(ValueError, match="provenance must be an object"):
+            DecisionResult.from_dict(data)
+    with pytest.raises(ValueError, match="provenance must be an object"):
+        Provenance.from_dict([])
+
+
+def test_from_dict_rejects_non_object_usage_but_accepts_absent_usage():
+    good = recorded_result().to_dict()
+    for bad in ([], [1], "x", 0, None):
+        with pytest.raises(ValueError, match="usage must be an object"):
+            DecisionResult.from_dict({**good, "usage": bad})
+    absent = {k: v for k, v in good.items() if k != "usage"}
+    assert DecisionResult.from_dict(absent).usage == Usage()
+    assert DecisionResult.from_dict({**good, "usage": {}}).usage == Usage()

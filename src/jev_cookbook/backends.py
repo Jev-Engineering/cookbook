@@ -105,9 +105,14 @@ def replay_key(state: Any, questions: Mapping[str, Question]) -> str:
     payload = {
         "v": KEY_VERSION,
         "state": plain_state,
-        "questions": {name: checked[name].to_dict() for name in sorted(checked)},
+        "questions": {
+            name: plain_json(checked[name].to_dict(), f"question {name!r}")
+            for name in sorted(checked)
+        },
     }
-    return hashlib.sha256(canonical_json(payload).encode("ascii")).hexdigest()
+    # The state and each question are limited above, each on its own (64 levels, the fixture
+    # rule); the payload wraps them in a few more levels of its own, which are not the caller's.
+    return hashlib.sha256(canonical_json(payload, max_depth=None).encode("ascii")).hexdigest()
 
 
 @runtime_checkable

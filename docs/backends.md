@@ -224,6 +224,11 @@ What changes the key: the state (including key order), question names, each ques
 with all-`None` values equal no criteria). What does not: question order. The key version `v` is
 bumped if this rule ever changes.
 
+A state (or the content of a question) nests at most **64 levels** of list/object, counting the
+outermost container as level 1, the same limit and count as the fixture validator
+(`docs/fixtures.md`). Deeper raises `ValueError` ("nested deeper than 64 levels"), not
+`RecursionError`; a state at exactly 64 levels hashes as it always did.
+
 A miss raises `ReplayMiss` (a `LookupError`) whose message and `.key` give the missing key; the
 fix is to rebuild or add the fixture for that key. Replay never fabricates an answer.
 
