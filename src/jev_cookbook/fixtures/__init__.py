@@ -204,9 +204,40 @@ def _object_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return out
 
 
+MAX_DEPTH = 64  # no JSON value in a fixture file nests deeper than this; see docs/fixtures.md
+_TOKENS = re.compile(r'"[^"\\]*(?:\\.[^"\\]*)*"|[\[\]{}]')  # a string (skipped) or a bracket
+
+
+class _TooDeep(ValueError):
+    def __init__(self, line: int) -> None:
+        super().__init__(f"nested deeper than {MAX_DEPTH} levels")
+        self.lineno = line
+
+
+def _check_depth(text: str) -> None:
+    """Raise ``_TooDeep`` if brackets nest deeper than ``MAX_DEPTH`` outside strings.
+
+    A scan, not a parse: it never recurses, so the answer is the same on every interpreter and
+    stack size, and it runs before ``json.loads`` so the parser's own limit never decides.
+    """
+    depth = 0
+    for match in _TOKENS.finditer(text):
+        char = match.group()
+        if char in "[{":
+            depth += 1
+            if depth > MAX_DEPTH:
+                raise _TooDeep(text.count("\n", 0, match.start()) + 1)
+        elif char in "]}":
+            depth -= 1
+
+
 def _loads(text: str) -> Any:
-    """Strict ``json.loads``: no duplicate keys, no NaN. Failures are ``ValueError`` (nesting too
-    deep for the parser included), so callers report them instead of crashing."""
+    """Strict ``json.loads``: no duplicate keys, no NaN, nesting at most ``MAX_DEPTH``.
+
+    Failures are ``ValueError``, so callers report them instead of crashing. The
+    ``RecursionError`` conversion is a backstop for a parser that overflows anyway.
+    """
+    _check_depth(text)
     try:
         return json.loads(text, object_pairs_hook=_object_pairs, parse_constant=_reject_constant)
     except RecursionError:

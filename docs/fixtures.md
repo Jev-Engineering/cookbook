@@ -85,6 +85,19 @@ allowed, but double counts that example.
 labels). Every `train`, `validation` and `test` example needs exactly one label; a label whose
 `id` is not in the inputs is an error.
 
+## Nesting limit
+
+No JSON value in a fixture file nests deeper than **64 levels**, counting the line (or, in a
+responses file, the whole object) as level 1. This holds for `inputs.jsonl`, `labels.jsonl`,
+`responses.json` and every `responses-<tag>.json`. Parsers and stacks disagree about very deep
+JSON (a state that one Python version reads is a `RecursionError` on another, and even where it
+parses, `replay_key` and the backends cannot hash it), so the validator counts brackets outside
+strings before it parses and reports a line past the limit as a problem naming the file and line
+(a responses file: the line where the limit is crossed). The same holds on every interpreter. No
+real state, label or stored response comes near 64. Like any malformed line, an over-deep one is a
+problem and not a crash: a malformed stored response is reported naming the file and key, and
+`--all` goes on to the next recipe.
+
 ## Replay and scripted recipes
 
 Most recipes replay: the notebook answers each request from stored responses. Some do not. A
@@ -150,9 +163,6 @@ rules of `tools/check_hygiene.py` (same rule names, secret rules only). The scan
 into the package because `tools/` is not installed, and a test compares the copy's rule
 definitions and function source with `tools/check_hygiene.py`, so editing one copy fails the
 tests. The message gives the file, line and rule, never the whole value.
-
-A malformed stored response (or a line nested too deeply to parse) is reported as a problem
-naming the file and key; it never stops the run, and `--all` goes on to the next recipe.
 
 Hard cases often need a fake password or key (a prompt-injection line, a phishing message, a
 leaked-credential report). What the scanner flags and exempts:
@@ -244,10 +254,10 @@ def build_state(fields):  # the notebook imports this same function
     return {"text": fields["text"]}
 
 
-rows = [  # (id, split, fields, label, synthetic probability)
+rows = [  # (id, split, fields, label, synthetic probability); t01 and v02 are answered wrongly
     ("v01", "validation", {"text": "I was charged twice."}, "billing", 0.92),
-    ("v02", "validation", {"text": "How do I reset my password?"}, "other", 0.11),
-    ("t01", "test", {"text": "My invoice shows the wrong amount."}, "billing", 0.88),
+    ("v02", "validation", {"text": "How do I reset my password?"}, "other", 0.64),
+    ("t01", "test", {"text": "My invoice shows the wrong amount."}, "billing", 0.45),
     ("t02", "test", {"text": "Your app crashes on start."}, "other", 0.09),
 ]
 folder = Path("fixtures")
@@ -264,6 +274,9 @@ for ident, split, fields, label, p in rows:
 (folder / "labels.jsonl").write_text("".join(json.dumps(r) + "\n" for r in labels), "utf-8")
 (folder / "responses.json").write_text(json.dumps(responses, indent=2) + "\n", "utf-8")
 ```
+
+These four answers are deliberately not all right: a fixture set where every stored answer matches
+its label models nothing, so copy the pattern of imperfect answers, not a perfect set.
 
 An example with `state` computes its key from that state directly. An example with `fields`
 stores the fields and the key of `build_state(fields)`; the notebook calls the same `build_state`

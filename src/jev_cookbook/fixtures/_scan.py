@@ -5,10 +5,11 @@ the installed package, so this module carries a copy of its secret rules (not it
 or ``os.environ`` rules, which only apply to notebook outputs). The rule names are the same:
 private-key-block, sk-prefixed-key, github-token, github-fine-grained-token,
 aws-access-key-id, slack-token, google-api-key, jwt, authorization-header-value,
-bearer-token, secret-assignment and high-entropy-token. A test runs both scanners over the
-same samples and fails when they disagree, so the copy cannot drift unnoticed. Scanning
-fixtures is narrower than the full hygiene run, which also reads every tracked file: this
-scan only sees the three fixture files and reports a line number, never the whole value.
+bearer-token, secret-assignment and high-entropy-token. A test compares the copy's rule
+definitions and function source with ``tools/check_hygiene.py``, so the copy cannot drift
+unnoticed. Scanning fixtures is narrower than the full hygiene run, which also reads every
+tracked file: this scan only sees the files of a recipe's ``fixtures/`` folder (inputs, labels
+and every responses file) and reports a line number, never the whole value.
 """
 
 from __future__ import annotations

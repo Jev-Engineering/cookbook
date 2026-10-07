@@ -180,6 +180,16 @@ def test_label_may_be_a_structure_and_unicode_survives(recipe):
     assert load_labels(recipe)["t0"]["tags"] == ["café", "☃"]
 
 
+def test_a_label_may_be_a_list_and_an_empty_list(recipe):
+    data = good_set()
+    data["labels"][0]["label"] = ["billing", "refund"]
+    data["labels"][1]["label"] = []
+    write(recipe, data)
+    assert messages(recipe) == []
+    assert load_labels(recipe)["t0"] == ["billing", "refund"]
+    assert load_labels(recipe)["t1"] == []
+
+
 # ----------------------------------------------------------- inputs and labels: schema
 
 
@@ -260,6 +270,13 @@ def test_bad_id(recipe, bad):
 def test_state_of_the_wrong_type(recipe):
     mutate_inputs(recipe, lambda rows: rows[0].update(state=5))
     expect(recipe, "field 'state': must be string or object or array, found integer")
+
+
+def test_an_empty_state_string_is_rejected(recipe):
+    data = good_set()
+    data["inputs"][0]["state"] = ""
+    write(recipe, data)
+    expect(recipe, "inputs.jsonl:1 (id 't0'): field 'state':")
 
 
 def test_state_list_must_hold_strings(recipe):
@@ -361,27 +378,113 @@ def test_a_provenance_that_is_not_an_object_is_a_problem_not_a_crash(recipe):
         load_responses(recipe)
 
 
-def test_a_deeply_nested_line_or_response_is_a_problem_not_a_crash(recipe, monkeypatch):
-    """Some interpreters raise RecursionError from json.loads on deep input, some do not (the
-    C scanner's limit differs by platform and version), so the test makes it raise."""
+def test_a_parser_that_overflows_anyway_is_a_problem_not_a_crash(recipe, monkeypatch):
+    """The depth scan normally stops deep input first. This makes ``json.loads`` raise
+    RecursionError for input that passes the scan, to cover the backstop in ``_loads``."""
     real_loads = json.loads
 
     def loads(text, **kwargs):
-        if "[" * 1000 in text:
+        if "OVERFLOW" in text:
             raise RecursionError("maximum recursion depth exceeded")
         return real_loads(text, **kwargs)
 
     monkeypatch.setattr(fixtures_module.json, "loads", loads)
-    deep = "[" * 2000 + "]" * 2000
     folder = recipe / "fixtures"
     (folder / "labels.jsonl").write_text(
-        '{"id": "t0", "label": "x"}\n{"id": "t1", "label": ' + deep + "}\n", encoding="utf-8"
+        '{"id": "t0", "label": "x"}\n{"id": "t1", "label": "OVERFLOW"}\n', encoding="utf-8"
     )
     expect(recipe, "labels.jsonl:2: invalid JSON: nested too deeply")
-    (folder / "responses.json").write_text(f'{{"a": {deep}}}', encoding="utf-8")
+    (folder / "responses.json").write_text('{"a": "OVERFLOW"}', encoding="utf-8")
     expect(recipe, "responses.json: invalid JSON: nested too deeply")
     with pytest.raises(FixtureFileError, match="nested too deeply"):
         load_responses(recipe)
+
+
+# ----------------------------------------------------------- the nesting limit
+
+
+def nested(levels: int, inner: object = 1) -> object:
+    """``{"a": {"a": ... inner}}`` with ``levels`` objects (built without recursion)."""
+    value = inner
+    for _ in range(levels):
+        value = {"a": value}
+    return value
+
+
+def deep_text(levels: int) -> str:
+    return '{"a":' * levels + "1" + "}" * levels
+
+
+def limit_set(levels: int, where: str) -> dict:
+    """The good set with one value that makes its line ``levels`` deep (the line is level 1)."""
+    data = good_set()
+    if where == "state":
+        state = nested(levels - 1)
+        key = request_key_for(state)
+        data["inputs"][0]["state"] = state
+        data["responses"][key] = data["responses"].pop(data["inputs"][0]["replay_keys"][0])
+        data["inputs"][0]["replay_keys"] = [key]
+    elif where == "fields":
+        data["inputs"][0]["fields"] = nested(levels - 1)
+        del data["inputs"][0]["state"]
+    else:
+        data["labels"][0]["label"] = nested(levels - 1)
+    return data
+
+
+def request_key_for(state: object) -> str:
+    return replay_key(state, QUESTIONS)
+
+
+LIMIT = 64  # the documented nesting limit (docs/fixtures.md)
+TOO_DEEP = "nested deeper than 64 levels"
+
+
+@pytest.mark.parametrize("where", ["state", "fields", "label"])
+def test_nesting_up_to_the_limit_is_valid_and_one_more_level_is_not(recipe, where):
+    write(recipe, limit_set(LIMIT, where))
+    assert messages(recipe) == []
+    write(recipe, limit_set(LIMIT + 1, where))
+    name = "labels" if where == "label" else "inputs"
+    found = [m for m in messages(recipe) if TOO_DEEP in m]
+    assert len(found) == 1 and found[0].startswith(
+        f"{(recipe / 'fixtures' / name).as_posix()}.jsonl:1: "
+    ), found
+
+
+def test_a_responses_file_nested_deeper_than_the_limit_is_reported_with_its_line(recipe):
+    for name in ("responses.json", "responses-b.json"):
+        write(recipe, {**good_set(), "tagged": {"b": good_set()["responses"]}})
+        path = recipe / "fixtures" / name
+        for levels, deep in ((LIMIT, False), (LIMIT + 1, True)):
+            # the open brace of the value is on line 3 of the file
+            path.write_text('{\n"a":\n' + deep_text(levels - 1) + "\n}\n", encoding="utf-8")
+            found = [m for m in messages(recipe) if TOO_DEEP in m]
+            assert bool(found) is deep, (name, levels, found)
+            if deep:
+                assert any(m.startswith(f"{path.as_posix()}:3: ") for m in found), found
+    with pytest.raises(FixtureFileError, match=TOO_DEEP):
+        load_responses(recipe, "b")
+
+
+@pytest.mark.parametrize(
+    "name", ["inputs.jsonl", "labels.jsonl", "responses.json", "responses-b.json"]
+)
+def test_a_very_deep_line_is_a_problem_on_every_interpreter_and_the_run_goes_on(recipe, name):
+    """Unmocked: 100,000 levels, which the parser and the stack treat differently per platform."""
+    folder = recipe / "fixtures"
+    (folder / "responses-b.json").write_text("{}", encoding="utf-8")
+    deep = "[" * 100_000 + "]" * 100_000
+    if name.endswith(".jsonl"):
+        row = '{"id": "x9", "split": "demo", "replay_keys": [], "state": ' + deep + "}"
+        row = row if name == "inputs.jsonl" else '{"id": "x9", "label": ' + deep + "}"
+        with (folder / name).open("a", encoding="utf-8") as handle:
+            handle.write(row + "\n")
+    else:
+        (folder / name).write_text('{"a": ' + deep + "}", encoding="utf-8")
+    found = [m for m in messages(recipe) if TOO_DEEP in m]
+    assert len(found) == 1 and found[0].startswith((folder / name).as_posix()), found
+    assert main(["validate", str(recipe)]) == 1
 
 
 def test_response_without_provenance(recipe):
@@ -584,6 +687,24 @@ def test_same_fields_in_two_splits_is_a_leak(recipe):
     expect(recipe, "(id 't2'): same fields as 't0' (validation) in a different split (test)")
 
 
+@pytest.mark.parametrize("what", ["state", "fields"])
+def test_the_leak_rule_ignores_the_order_of_keys(recipe, what):
+    data = good_set()
+    first = {"text": "ticket 0: I was charged twice", "lang": "en"}
+    second = {"lang": "en", "text": "ticket 0: I was charged twice"}  # same content, other order
+    assert first == second and list(first) != list(second)
+    for row in data["inputs"]:
+        row.pop("state")
+    data["inputs"][0][what], data["inputs"][2][what] = first, second
+    data["inputs"][1][what] = {"text": "ticket 1: I was charged twice"}
+    data["inputs"][3][what] = {"text": "ticket 3: I was charged twice"}
+    for row in data["inputs"]:
+        row["replay_keys"] = [request_key(row[what]["text"])]
+    data["responses"] = {row["replay_keys"][0]: result() for row in data["inputs"]}
+    write(recipe, data)
+    expect(recipe, f"(id 't2'): same {what} as 't0' (validation) in a different split (test)")
+
+
 def test_the_same_state_twice_in_one_split_is_not_a_leak(recipe):
     data = good_set()
     data["inputs"][1]["state"] = copy.deepcopy(data["inputs"][0]["state"])
@@ -750,7 +871,14 @@ def test_loading_a_missing_tagged_file_names_it(recipe):
 
 @pytest.mark.parametrize(
     "name",
-    ["ledger.json", "notes.txt", "responses-.json", "responses-bad tag.json", "responses.json.bak"],
+    [
+        "ledger.json",
+        "notes.txt",
+        "responses-.json",
+        "responses-bad tag.json",
+        "responses.json.bak",
+        "responses-b.json.bak",
+    ],
 )
 def test_any_other_file_in_the_fixtures_folder_is_an_error(recipe, name):
     (recipe / "fixtures" / name).write_text("{}\n", encoding="utf-8")
