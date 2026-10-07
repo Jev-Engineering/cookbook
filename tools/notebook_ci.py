@@ -5,14 +5,22 @@
 
 ``matrix`` prints the recipe folders whose notebook must be executed, as JSON
 (``{"recipe": [...]}``), and with ``--github-output`` writes ``matrix=`` and ``count=`` lines for
-GitHub Actions. Without ``--base`` and ``--head`` (a push to ``main``) it selects every
-``recipes/*/notebook.ipynb``, ``_template`` included. With them (a pull request) it selects only
-the recipe folders that the pull request changes, and only when every changed path is inside a
-recipe folder or is exactly ``README.md``; any other changed path selects every notebook.
+GitHub Actions. Without ``--base`` and ``--head`` it selects every ``recipes/*/notebook.ipynb``,
+``_template`` included. With them (a pull request) it selects only the recipe folders that the
+pull request changes (a three-dot diff, from the merge base), and only when every changed path is
+inside a recipe folder or is exactly ``README.md``; any other changed path selects every notebook.
 
-With ``--lenient`` (a push to ``main``, whose ``before`` commit may be all zeros after a forced
-push or missing from the clone) a base or head that is not a commit selects every notebook
-instead of failing; a pull request does not use it, so there an unreadable diff stays an error.
+``--push`` is for a push to ``main``, where ``--base`` is the previous tip (``before``). The diff
+is then two-dot (``before..head``, the trees themselves), and the selection falls back to every
+notebook unless ``before`` is a commit that is an ancestor of ``head``: a first push (all zeros),
+a ``before`` missing from the clone, a rewound ``main`` (``before`` is ahead of ``head``) and a
+rewritten history (``before`` is on another line) all run everything. A three-dot diff would
+start from the merge base and could select nothing, or the wrong folders, after a forced push.
+The workflow also runs everything whenever ``github.event.forced`` is true.
+
+``--lenient`` (a manual run of the latest commit) makes a base or head that is not a commit select
+every notebook instead of failing; a pull request does not use it, so there an unreadable diff
+stays an error.
 
 ``fixtures`` validates every folder directly under ``recipes/`` with
 ``python -m jev_cookbook.fixtures validate`` and fails a recipe with no ``fixtures/`` folder,
@@ -51,14 +59,23 @@ def with_notebooks(root: Path) -> list[str]:
     return names
 
 
-def changed_paths(root: Path, base: str, head: str) -> list[str]:
+def changed_paths(root: Path, base: str, head: str, dots: str = "...") -> list[str]:
     result = subprocess.run(
-        ["git", "-C", str(root), "diff", "--name-only", "--no-renames", "-z", f"{base}...{head}"],
+        [
+            "git",
+            "-C",
+            str(root),
+            "diff",
+            "--name-only",
+            "--no-renames",
+            "-z",
+            f"{base}{dots}{head}",
+        ],
         capture_output=True,
         check=False,
     )
     if result.returncode != 0:
-        raise SystemExit(f"git diff {base}...{head} failed: {result.stderr.decode()[:300]}")
+        raise SystemExit(f"git diff {base}{dots}{head} failed: {result.stderr.decode()[:300]}")
     return [p.decode("utf-8", "surrogateescape") for p in result.stdout.split(b"\0") if p]
 
 
@@ -73,13 +90,22 @@ def is_commit(root: Path, ref: str) -> bool:
     return result.returncode == 0
 
 
-def select(root: Path, base: str | None, head: str | None) -> list[str]:
+def is_ancestor(root: Path, ancestor: str, descendant: str) -> bool:
+    result = subprocess.run(
+        ["git", "-C", str(root), "merge-base", "--is-ancestor", ancestor, descendant],
+        capture_output=True,
+        check=False,
+    )
+    return result.returncode == 0
+
+
+def select(root: Path, base: str | None, head: str | None, dots: str = "...") -> list[str]:
     """The recipe folders to execute (see the module docstring)."""
     everything = with_notebooks(root)
     if base is None or head is None:
         return everything
     chosen: set[str] = set()
-    for path in changed_paths(root, base, head):
+    for path in changed_paths(root, base, head, dots):
         if path == "README.md":
             continue
         parts = path.split("/")
@@ -95,14 +121,30 @@ def command_matrix(args: argparse.Namespace) -> int:
         print("--base and --head go together", file=sys.stderr)
         return 2
     base, head = args.base, args.head
-    if (
+    dots = "..."
+    if args.push:
+        if base is None:
+            print("--push needs --base and --head", file=sys.stderr)
+            return 2
+        dots = ".."
+        if not (is_commit(args.root, base) and is_commit(args.root, head)):
+            print(f"base {base!r} is not a commit here: selecting every notebook", file=sys.stderr)
+            base = head = None
+        elif not is_ancestor(args.root, base, head):
+            print(
+                f"base {base!r} is not an ancestor of the head (rewound or rewritten history): "
+                "selecting every notebook",
+                file=sys.stderr,
+            )
+            base = head = None
+    elif (
         args.lenient
         and base is not None
         and not (is_commit(args.root, base) and is_commit(args.root, head))
     ):
         print(f"base {base!r} is not a commit here: selecting every notebook", file=sys.stderr)
         base = head = None
-    names = select(args.root, base, head)
+    names = select(args.root, base, head, dots)
     matrix = json.dumps({"recipe": names}, separators=(",", ":"))
     print(matrix)
     if args.github_output:
@@ -150,6 +192,12 @@ def main(argv: list[str] | None = None) -> int:
         "--lenient",
         action="store_true",
         help="a base or head that is not a commit selects every notebook (push to main)",
+    )
+    matrix.add_argument(
+        "--push",
+        action="store_true",
+        help="--base is the previous tip of main: two-dot diff, every notebook unless it is an "
+        "ancestor of --head",
     )
     matrix.add_argument("--github-output", help="append matrix= and count= lines to this file")
     matrix.set_defaults(run=command_matrix)

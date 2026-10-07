@@ -2,16 +2,18 @@
 
 Put this folder on ``PYTHONPATH`` and Python imports it at start-up, in the notebook kernel too
 (``tools/execute_notebook.py`` passes ``PYTHONPATH`` on; it strips only ``JEV_COOKBOOK_*`` and
-``TYPESAFE_*``). From then on any attempt to leave the machine fails at once with
-``NetworkBlocked``, an ``OSError``:
+``TYPESAFE_*``). From then on an ordinary attempt to leave the machine fails at once with
+``NetworkBlocked``, an ``OSError``. It is a readable error for an honest mistake, not a sandbox
+(it is bypassable):
 
 * ``connect``, ``connect_ex`` and ``sendto`` to an address that is not loopback;
 * name resolution (``getaddrinfo`` and the ``gethostby*`` functions) of any name other than
   ``localhost`` and a loopback address, so no DNS query is made either.
 
 Unix sockets and loopback (the kernel talks to the notebook runner over loopback) stay open.
-This guard cannot stop native code that opens its own sockets, which is why CI also runs the
-notebooks in a network namespace with no route out. See ``docs/notebook-ci.md``.
+This guard cannot stop native code that opens its own sockets, ``_socket`` used directly, a
+reloaded ``socket`` module or a child process started without it, which is why CI also runs the
+notebooks in a network namespace with no route out, and only that enforces. See ``docs/notebook-ci.md``.
 """
 
 from __future__ import annotations

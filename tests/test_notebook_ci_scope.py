@@ -523,6 +523,40 @@ def test_closing_issues_ignores_what_github_ignores(text):
     assert scope.closing_issues("Closes #1", "o/r") == {1}
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "```\nCloses #1\n```",
+        "Intro\n\n```text\nFixes #1\n```\n",
+        "~~~\nCloses #1\n~~~",
+        "  ```\nCloses #1\n  ```",
+        "````\n```\nCloses #1\n```\n````",  # a shorter fence does not close a longer one
+        "```\nCloses #1",  # a fence that never closes runs to the end
+    ],
+)
+def test_closing_issues_ignores_a_reference_inside_a_code_fence(text):
+    assert scope.closing_issues(text, "o/r") == set()
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "```\nnote\n```\nCloses #1",  # after the block
+        "Closes #1\n```\nFixes #2\n```",  # before it; the one inside does not count
+        "``` Closes #1 ```",  # inline code, not a fence
+        "    Closes #1",  # an indented block is not a fence
+    ],
+)
+def test_closing_issues_still_counts_a_reference_outside_a_code_fence(text):
+    assert scope.closing_issues(text, "o/r") == {1}
+
+
+def test_a_fenced_reference_alone_does_not_make_a_recipe_pull_request(repo):
+    repo.put(f"recipes/{SLUG1}/README.md", "x\n")
+    problems, _ = run_check(repo, body="```\nCloses #1\n```\n")
+    assert problems and "only one recipe marker holds" in problems[0]
+
+
 # -- command line and failure modes ------------------------------------------------------------
 
 

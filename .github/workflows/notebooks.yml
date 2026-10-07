@@ -13,6 +13,11 @@ on:
   pull_request:
   push:
     branches: [main]
+  # A full run once a week, so a `main` run that was skipped, cancelled or lost is eventually
+  # revisited (the push selection is relative to the previous tip). Scheduled runs use the
+  # default branch.
+  schedule:
+    - cron: "17 4 * * 1"
   workflow_dispatch:
     inputs:
       full:
@@ -47,9 +52,13 @@ jobs:
         with:
           python-version: "3.14"
       # A pull request selects the recipe folders it changes. A push to main selects the recipe
-      # folders changed since the previous tip (`before`). Either way, a change to anything but
-      # recipe folders and README.md selects every notebook, and so does a `before` that is not
-      # available (a first push, a forced push) and a manual run with `full` left true.
+      # folders changed since the previous tip (`before`) with a two-dot diff (before..HEAD, the two
+      # trees). Either way, a change to anything but recipe folders and README.md selects every
+      # notebook. A push selects every notebook too when `github.event.forced` is true, when
+      # `before` is not a commit here (a first push), and when `before` is not an ancestor of the
+      # new tip (a rewound or rewritten main: GitHub still sends the old tip as `before`, and a
+      # diff from the merge base would then select nothing or the wrong folders). So does a
+      # scheduled run, and a manual run with `full` left true.
       - name: Select the notebooks to execute
         id: matrix
         env:
@@ -57,12 +66,16 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           BEFORE_SHA: ${{ github.event.before }}
           FULL: ${{ github.event.inputs.full }}
+          FORCED: ${{ github.event.forced }}
         run: |
           if [ "$EVENT" = "pull_request" ]; then
             python tools/notebook_ci.py matrix --base "$BASE_SHA" --head HEAD --github-output "$GITHUB_OUTPUT"
+          elif [ "$EVENT" = "push" ] && [ "$FORCED" != "true" ]; then
+            python tools/notebook_ci.py matrix --base "$BEFORE_SHA" --head HEAD --push --github-output "$GITHUB_OUTPUT"
           elif [ "$EVENT" = "push" ]; then
-            python tools/notebook_ci.py matrix --base "$BEFORE_SHA" --head HEAD --lenient --github-output "$GITHUB_OUTPUT"
-          elif [ "$FULL" = "false" ]; then
+            echo "forced push: running every notebook"
+            python tools/notebook_ci.py matrix --github-output "$GITHUB_OUTPUT"
+          elif [ "$EVENT" = "workflow_dispatch" ] && [ "$FULL" = "false" ]; then
             python tools/notebook_ci.py matrix --base HEAD^ --head HEAD --lenient --github-output "$GITHUB_OUTPUT"
           else
             python tools/notebook_ci.py matrix --github-output "$GITHUB_OUTPUT"

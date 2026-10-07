@@ -212,6 +212,85 @@ def test_lenient_push_that_touches_shared_code_selects_everything(tree):
     assert names == ["01-first", "02-second", "_template"]
 
 
+EVERYTHING = ["01-first", "02-second", "_template"]
+
+
+def test_push_with_an_unusable_before_selects_everything(tree):
+    for before in ("0" * 40, "f" * 40, "no-such-ref"):
+        result, names = push_matrix(tree, before, "work", "--push")
+        assert result.returncode == 0, result.stderr
+        assert names == EVERYTHING, before
+        assert "selecting every notebook" in result.stderr
+
+
+def test_push_with_a_real_before_selects_only_the_changed_recipe(tree):
+    write(tree, "recipes/02-second/helpers.py", "x = 1\n")
+    write(tree, "README.md", "regenerated\n")
+    git(tree, "add", "-A")
+    git(tree, "commit", "-q", "-m", "recipe")
+    result, names = push_matrix(tree, "main", "work", "--push")
+    assert result.returncode == 0 and names == ["02-second"], result.stderr
+
+
+def test_push_that_touches_shared_code_selects_everything(tree):
+    write(tree, "recipes/02-second/helpers.py", "x = 1\n")
+    write(tree, "docs/guide.md", "changed\n")
+    git(tree, "add", "-A")
+    git(tree, "commit", "-q", "-m", "shared")
+    _, names = push_matrix(tree, "main", "work", "--push")
+    assert names == EVERYTHING
+
+
+def test_push_after_a_rewind_selects_everything(tree):
+    """`before` is ahead of the new tip (main was reset back): the merge base is the new tip, so a
+    three-dot diff is empty and would select nothing."""
+    write(tree, "recipes/02-second/helpers.py", "x = 1\n")
+    git(tree, "add", "-A")
+    git(tree, "commit", "-q", "-m", "ahead")
+    ahead = git(tree, "rev-parse", "HEAD")
+    result, names = push_matrix(tree, ahead, "main", "--push")
+    assert result.returncode == 0, result.stderr
+    assert names == EVERYTHING
+    assert "not an ancestor" in result.stderr
+    # What the three-dot diff alone would have said: nothing to run.
+    assert notebook_ci.select(tree, ahead, "main") == []
+
+
+def test_push_after_a_rewrite_selects_everything(tree):
+    """`before` is on another line of history (a rewrite): the three-dot diff starts at the old
+    merge base and sees only the new line's change, a README, so it would select nothing."""
+    write(tree, "recipes/01-first/helpers.py", "x = 1\n")
+    git(tree, "add", "-A")
+    git(tree, "commit", "-q", "-m", "old line")
+    old = git(tree, "rev-parse", "HEAD")
+    git(tree, "checkout", "-q", "-b", "rewritten", "main")
+    write(tree, "README.md", "rewritten\n")
+    git(tree, "add", "-A")
+    git(tree, "commit", "-q", "-m", "new line")
+    result, names = push_matrix(tree, old, "rewritten", "--push")
+    assert result.returncode == 0, result.stderr
+    assert names == EVERYTHING
+    assert "not an ancestor" in result.stderr
+    assert notebook_ci.select(tree, old, "rewritten") == []
+
+
+def test_push_diff_is_between_the_two_trees(tree):
+    write(tree, "recipes/01-first/helpers.py", "x = 1\n")
+    git(tree, "add", "-A")
+    git(tree, "commit", "-q", "-m", "one")
+    assert notebook_ci.changed_paths(tree, "main", "work", "..") == ["recipes/01-first/helpers.py"]
+
+
+def test_push_needs_a_base(tree):
+    result = subprocess.run(
+        [sys.executable, str(TOOL), "--root", str(tree), "matrix", "--push"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 2
+
+
 def test_the_real_repository_matrix_has_the_template():
     assert "_template" in notebook_ci.with_notebooks(REPO)
 

@@ -1,7 +1,9 @@
 # Constraints for the notebook execution job only (.github/workflows/notebooks.yml, `pip install
-# -c`). They pin the plotting and numeric stack to the versions the committed template outputs
-# were produced with (Python 3.14), so a new matplotlib or numpy release cannot turn every
-# notebook red at once on main. pyproject.toml stays unpinned.
+# -c`). They pin the plotting and numeric stack and the kernel stack to the versions the committed
+# template outputs were produced with (Python 3.14), so a new release of any of them cannot turn
+# every notebook red at once on main (a warning on stderr, a changed repr, moved figure geometry).
+# pyproject.toml stays unpinned. Authors install with the same file before they execute a notebook
+# and commit its outputs: pip install -e ".[ml]" -c .github/constraints-notebooks.txt
 #
 # Bumping any line here is a foundation change: re-execute every notebook
 # (`python tools/execute_notebook.py recipes/<folder>`), commit the results, and read the
@@ -17,3 +19,10 @@ packaging==26.3
 pyparsing==3.3.3
 python-dateutil==2.9.0.post0
 six==1.17.0
+ipykernel==7.4.0
+ipython==9.17.1
+jupyter_client==8.10.0
+nbclient==0.11.0
+nbformat==5.11.1
+scikit-learn==1.9.1
+scipy==1.18.1

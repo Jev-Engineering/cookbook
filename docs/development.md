@@ -81,7 +81,7 @@ comment; bump them deliberately, and keep the permissions at `contents: read`.
 | `Notebook (<recipe>)` | One job per recipe folder: installs `.[ml]` under the CI constraints, executes `notebook.ipynb` offline in a scratch copy with no key and no network (a network namespace with `no_new_privs`), `check_notebook_fresh.py` against the committed file, `check_hygiene.py` on the fresh copy. |
 | `Notebooks (discover)` | Chooses the recipes to run (a push to `main` runs the folders changed since the previous tip and a pull request runs the folders it changes, either of them all when anything but `recipes/<folder>/` and `README.md` changed). |
 | `Fixtures (validate)` | `python tools/notebook_ci.py fixtures`: every folder under `recipes/` has `fixtures/` and validates. |
-| `Scope (recipe pull requests)` | `tools/check_recipe_scope.py` (workflow `Scope`), on pull requests only, and again when the description or base is edited. |
+| `Scope (recipe pull requests)` | `tools/check_recipe_scope.py` (workflow `Scope`, `pull_request_target`, so the base branch's copy judges), on pull requests only, and again when the description or base is edited. |
 
 ### Running CI on one recipe
 
@@ -91,26 +91,38 @@ or Linux). CI copies to a folder that keeps the recipe's name, so do the same:
 ```bash
 pip install -e ".[ml]" -c .github/constraints-notebooks.txt   # CI's install (Python 3.14)
 mkdir -p /tmp/run && cp -R recipes/NN-slug /tmp/run/NN-slug
-PYTHONPATH=tools/netguard python tools/execute_notebook.py /tmp/run/NN-slug
+PYTHONPATH="$PWD/tools/netguard" python tools/execute_notebook.py /tmp/run/NN-slug
 python tools/check_notebook_fresh.py recipes/NN-slug/notebook.ipynb /tmp/run/NN-slug/notebook.ipynb
 python tools/check_hygiene.py /tmp/run/NN-slug/notebook.ipynb
 python tools/notebook_ci.py fixtures
 ```
 
-The constraints pin the plotting stack to the versions CI uses (see
+The constraints pin the plotting stack and the kernel stack to the versions CI uses (see
 [notebook-ci.md](notebook-ci.md#pinned-plotting-stack)); drop `-c ...` on an older Python, whose
-figures the freshness check still accepts. `PYTHONPATH=tools/netguard` loads the Python-level
-network guard, as in CI; run `python -c "import socket; socket.create_connection(('example.com',
-80))"` with it set to see the `NetworkBlocked` error it raises. On Linux the enforcing layer can be
-tried the same way CI does it:
+figures the freshness check still accepts. Install with the same file before you execute a
+notebook whose outputs you will commit.
+
+`PYTHONPATH="$PWD/tools/netguard"` loads the Python-level network guard, as in CI. The path must be
+absolute: the executor starts the kernel with the recipe folder as its working directory, so a
+relative `PYTHONPATH` resolves against `/tmp/run/NN-slug`, finds nothing, and the notebook runs
+unguarded without a word. To see that the guard reached the kernel, run a probe cell (a cell that
+prints `socket.socket.connect.__module__` must print `sitecustomize`, and one that calls
+`socket.create_connection(("example.com", 80))` must raise `NetworkBlocked`). The guard is a
+readable error for an honest mistake, not a sandbox. On Linux the enforcing layer can be tried the
+way CI does it. The values that must belong to you (`id -u`, `id -g`, `PATH`) are expanded by your
+shell, outside the quotes, and passed in as arguments; inside the single-quoted script they would
+expand as root:
 
 ```bash
-sudo unshare --net -- sh -c 'ip link set lo up && exec setpriv --no-new-privs \
-  --reuid="$(id -u)" --regid="$(id -g)" --clear-groups -- env "PATH=$PATH" \
-  python -c "import socket; socket.create_connection((\"1.1.1.1\", 53), timeout=5)"'
+sudo env "PATH=$PATH" unshare --net -- sh -c \
+  'ip link set lo up && exec setpriv --no-new-privs --reuid="$1" --regid="$2" --clear-groups -- \
+   python -c "import socket; socket.create_connection((\"1.1.1.1\", 53), timeout=5)"' \
+  sh "$(id -u)" "$(id -g)"
 ```
 
-which must fail with an `OSError` (and `sudo -n true` inside it must fail too). To check a pull
+which must fail with an `OSError` (`Network is unreachable`), as your user and with your `python`
+(add `import os; print(os.getuid())` to the payload to check). `sudo -n true` run from inside it
+must fail too. To check a pull
 request description and diff against the allowlist, put the description in a file:
 
 ```bash

@@ -16,7 +16,8 @@ request, to which the allowlist does not apply), 1 rejected (one ``REJECT:`` lin
 
 Which kind of pull request is it? A recipe pull request has BOTH markers: the branch is
 ``recipe/<slug>`` and the description has a closing reference (``Closes``, ``Fixes``,
-``Resolves`` and their other forms) to an issue of this repository numbered 1 to 60. A pull
+``Resolves`` and their other forms; one inside a fenced code block does not count, as GitHub
+links nothing written there) to an issue of this repository numbered 1 to 60. A pull
 request with neither marker is a foundation pull request. One marker without the other is
 rejected, as is a ``<slug>`` that is not the catalog slug of the issue, a pull request that
 closes more than one issue of this repository, and a closing reference to an issue of this
@@ -67,6 +68,31 @@ REFERENCE = (
 CLOSING = re.compile(rf"(?<![\w-]){KEYWORD}(?![\w-])[ \t]*:?[ \t]+{REFERENCE}", re.IGNORECASE)
 
 
+FENCE = re.compile(r"[ ]{0,3}(?P<mark>`{3,}|~{3,})(?P<info>.*)")
+
+
+def without_code_fences(body: str) -> str:
+    """``body`` with fenced code blocks removed, as GitHub links nothing written inside one.
+
+    A fence is three or more backticks or tildes, indented by at most three spaces; it closes at a
+    line of the same character, at least as long, with nothing but spaces after it, and a fence
+    that never closes runs to the end of the text (CommonMark).
+    """
+    kept = []
+    fence = None  # (character, length) while inside a fenced block
+    for line in body.splitlines():
+        match = FENCE.fullmatch(line)
+        if fence is None:
+            if match and not (match.group("mark")[0] == "`" and "`" in match.group("info")):
+                fence = (match.group("mark")[0], len(match.group("mark")))
+                continue
+            kept.append(line)
+        elif match and match.group("mark")[0] == fence[0]:
+            if len(match.group("mark")) >= fence[1] and not match.group("info").strip():
+                fence = None
+    return "\n".join(kept)
+
+
 class CannotRun(Exception):
     """The check could not be evaluated (git failed, an input is unreadable)."""
 
@@ -89,7 +115,7 @@ def closing_issues(body: str, github_repo: str) -> set[int]:
     """Numbers of the issues of ``github_repo`` that ``body`` closes (every GitHub keyword form)."""
     wanted = github_repo.lower()
     numbers = set()
-    for match in CLOSING.finditer(body):
+    for match in CLOSING.finditer(without_code_fences(body)):
         repo = match.group("url_repo") or match.group("repo")
         if repo is not None and repo.lower() != wanted:
             continue

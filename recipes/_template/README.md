@@ -114,9 +114,11 @@ Needs only this page and the repository. Recipe `NN` is issue `NN` and its slug 
 6. **Test the rule.** Put a test in `tests/test_helpers.py` for every rule `helpers.py` enforces, so the
    claim "it holds whatever the model answers" is checked, not asserted.
 7. **Execute and commit the outputs.** Re-execute before every commit that changes the notebook, its
-   helpers or its fixtures:
+   helpers or its fixtures, in an environment installed the way CI installs it, so your outputs come
+   from the same library versions (Python 3.14):
 
    ```bash
+   pip install -e ".[ml]" -c .github/constraints-notebooks.txt
    python tools/execute_notebook.py recipes/NN-slug
    ```
 

@@ -14,7 +14,7 @@ contract is [CONTRIBUTING.md](../CONTRIBUTING.md).
 | `Notebook (<recipe>)` | no | One job per recipe folder (the names change with the recipes, so they cannot be required one by one). Executes the notebook offline, compares it with the committed one, scans the fresh copy. |
 | `Notebooks (discover)` | no | Chooses the recipes to run and passes them on as a matrix. |
 | `Fixtures (validate)` | yes | Every folder under `recipes/` must have a `fixtures/` folder and must pass the fixture validator. |
-| `Scope (recipe pull requests)` | yes | The allowlist for recipe pull requests, in its own workflow (`scope.yml`). It runs on pull requests only and **re-runs when the description or the base branch is edited** (`edited`), because it classifies a pull request by its closing references: a result that survived a later `Closes #N` would be stale. The `Notebooks` workflow does not re-run on edits. |
+| `Scope (recipe pull requests)` | yes | The allowlist for recipe pull requests, in its own workflow (`scope.yml`). It runs on `pull_request_target` (opened, synchronize, reopened, edited), so the workflow file and the script both come from the base branch, and **re-runs when the description or the base branch is edited**, because it classifies a pull request by its closing references: a result that survived a later `Closes #N` would be stale. The `Notebooks` workflow does not re-run on edits. See "The scope check". |
 
 Require the three named ones in branch protection. The other check names (`Lint (ruff)`,
 `Catalog (README is current)`, `Tests (py3.10)`, `Tests (py3.14)`, `Hygiene (secrets and notebook
@@ -28,15 +28,27 @@ included.
 - **A push to `main`** runs the recipe folders changed since the previous tip of `main`
   (`github.event.before`) when the push touches nothing outside `recipes/<folder>/` and `README.md`
   (a recipe merge runs one notebook). It runs every notebook when anything else changed (shared
-  code, tools, workflows, docs, the constraints file, anything a recipe reads), and when `before`
-  is not available (a first or forced push: `matrix --lenient` falls back to everything).
+  code, tools, workflows, docs, the constraints file, anything a recipe reads). The diff is
+  two-dot (`before..after`, the two trees). **A forced push is not trusted to say what changed**:
+  GitHub sends the old tip as `before` (not zeros) and a three-dot diff would start from the merge
+  base, so a rewound `main` selects nothing and a rewritten one selects the wrong folders. The
+  workflow therefore runs every notebook when `github.event.forced` is true, and
+  `matrix --push` also falls back to every notebook when `before` is not a commit in the clone (a
+  first push) or is not an ancestor of the new tip (a rewind or a rewrite that `forced` somehow did
+  not flag). `tests/test_notebook_ci_gates.py` pins a rewound and a rewritten `before`.
+- **A weekly scheduled run** (Mondays, 04:17 UTC, on the default branch) runs every notebook. It
+  exists so that a `main` run that was skipped, cancelled or lost, whose recipes the push selection
+  would never revisit, is found within a week.
 - **A manual run** (`workflow_dispatch`) has a `full` input. Left true (the default) it runs every
   notebook; false runs the recipe folders changed by the latest commit, by the same rule.
 - **A pull request** runs only the recipe folders it changes, provided every changed path is inside
   a `recipes/<folder>/` or is exactly `README.md`. A recipe pull request is limited to that by the
   scope check, so one recipe's pull request does not re-run sixty notebooks.
 - A pull request that changes anything else (shared code, tools, docs, workflows, the template's
-  neighbours) runs every notebook, because shared code can change any recipe's result.
+  neighbours) runs every notebook, because shared code can change any recipe's result. **That
+  includes a docs-only foundation pull request**: any path outside `recipes/` and `README.md`
+  selects every notebook, `docs/**` included. This is an accepted cost (see "Run time and cost"),
+  because telling which documents a notebook reads would be a second source of truth to maintain.
 - A change that only regenerates `README.md` runs none, and `Notebooks (execute)` is green.
 
 Runs on `main` are never cancelled or replaced by a newer push (each push has its own concurrency
@@ -181,8 +193,21 @@ malformed or drifted responses files fail as the validator defines ([fixtures.md
 ## The scope check
 
 `tools/check_recipe_scope.py` is the allowlist from [CONTRIBUTING.md](../CONTRIBUTING.md),
-enforced. It runs on pull requests, from the base branch's copy of the script (so a pull request
-cannot change the rule that judges it; the pull request that introduces the script runs its own).
+enforced. It runs on `pull_request_target`, so GitHub runs the workflow file of the **base branch**
+and the job checks out the base commit for the script: a pull request, even one that edits
+`.github/workflows/scope.yml` or `tools/check_recipe_scope.py`, is judged by the base's copy. (Under
+plain `pull_request` the workflow file comes from the pull request itself, so a recipe pull request
+could replace the step with `exit 0` and get a green check under the required name; that is why this
+is not `pull_request`.) The job is built so that the base context is safe: `permissions: contents:
+read` and no secret; the pull request head is fetched as git objects (`refs/pull/N/head`), never
+checked out, and the script reads only git objects of `--base` and `--head`; `persist-credentials:
+false`, and the token reaches one `git fetch` only. **No step may run, install, import or source a
+file of the pull request.** Because the workflow file is read from the base branch, a change to
+`scope.yml` takes effect only once it is merged.
+
+**Reviewers still reject any `.github/` change in a recipe pull request by hand.** The scope check
+rejects it too (it is outside `recipes/<slug>/`), but the check is one safeguard, not the only one,
+and a change to a workflow or the tooling must be a foundation pull request.
 
 ```bash
 python tools/check_recipe_scope.py --base origin/main --head HEAD \
@@ -197,7 +222,8 @@ ref, an unreadable body, an unreadable diff); it fails closed.
 
 - **Which kind.** A recipe pull request has both markers: branch `recipe/<slug>` and a closing
   reference (`close`, `closes`, `closed`, `fix`, `fixes`, `fixed`, `resolve`, `resolves`, `resolved`,
-  with an optional colon, then `#N`, `owner/repo#N` or an issue URL) to an issue of this repository
+  with an optional colon, then `#N`, `owner/repo#N` or an issue URL; one inside a fenced code block
+  does not count, as GitHub links nothing written there) to an issue of this repository
   numbered 1 to 60. Neither marker: a foundation pull request. Only one: rejected. Closing any other
   issue of this repository as well, or closing two recipe issues: rejected. The branch must be
   `recipe/` plus the catalog slug of the closed issue, read from the base catalog.
@@ -228,11 +254,17 @@ mis-tagged branch.
 
 The notebook job installs under `.github/constraints-notebooks.txt`, which pins `matplotlib` and
 `numpy` (and the libraries matplotlib pulls in: `pillow`, `contourpy`, `cycler`, `fonttools`,
-`kiwisolver`, `packaging`, `pyparsing`, `python-dateutil`, `six`) to the versions the committed
+`kiwisolver`, `packaging`, `pyparsing`, `python-dateutil`, `six`) and the kernel and ML stack (`ipykernel`, `ipython`,
+`jupyter_client`, `nbclient`, `nbformat`, `scikit-learn`, `scipy`) to the versions the committed
 template outputs were produced with. Without it every job would take the latest release, and a
 release that changes a `repr`, prints a warning to stderr, or moves figure geometry by more than a
 grid cell would turn every notebook red at once on `main`. `pyproject.toml` stays unpinned, and the
 constraints apply to the notebook execution job only.
+
+**Authors install with the same file.** Text outputs are compared exactly against CI's pinned
+stack, so a recipe author runs `pip install -e ".[ml]" -c .github/constraints-notebooks.txt`
+(Python 3.14) before executing a notebook and committing its outputs; the template README and
+[recipe-template.md](recipe-template.md) say so.
 
 **Bumping the constraints is a foundation change** that re-executes every notebook: change the
 file, run `python tools/execute_notebook.py recipes/<folder>` for each folder in an environment
