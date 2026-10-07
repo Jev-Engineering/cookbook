@@ -32,7 +32,7 @@ You need Python 3.10 or newer and git. No API key is needed to run anything offl
 git clone https://github.com/Jev-Engineering/cookbook.git
 cd cookbook
 python -m venv .venv
-. .venv/bin/activate   # Windows, Git Bash: source .venv/Scripts/activate
+. .venv/bin/activate   # Git Bash: source .venv/Scripts/activate; PowerShell: .venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
 python tools/execute_notebook.py recipes/_template   # run the template notebook offline
 ```

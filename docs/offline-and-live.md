@@ -137,7 +137,7 @@ state in it ([live.md](live.md#budget-guard)).
   the same request is a conflict, not an overwrite;
 - every answer is written as soon as it arrives, so an error later in a run keeps what was
   already received;
-- pin the versioned model `jev-1.13.0` when you record, not an alias. The recorder accepts an alias
+- pin a versioned model such as `jev-1.13.0` when you record, not an alias. The recorder accepts an alias
   and does not stop you, so the person recording must not use one: an alias moves when a release
   ships, and a recording made through it may not be reproducible ([live.md](live.md#model)).
 
