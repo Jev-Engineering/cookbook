@@ -140,7 +140,7 @@ header, bearer and assignment rules. Notebooks of any size are parsed, ANSI colo
 tracebacks are stripped, UTF-16 files are decoded, and a file that cannot be scanned (an
 unknown notebook layout, an undecodable or oversized non-image file) is reported as an
 `unscanned-file` or `unrecognized-notebook-layout` finding, never skipped silently. Git SHAs, content hashes, URL and
-file-path segments, and `data:` URIs are not treated as entropy findings. If a real credential
+file-path segments, `data:` URIs, and a bare `name=VALUE` assignment (both sides runs of letters of one case or of digits joined by `_`, the value also by `.`, no quotes, and a name that does not contain api key, secret, token, password, access key or credential), such as the keyword argument `startup_timeout=KERNEL_START_TIMEOUT`, are not treated as entropy findings. If a real credential
 is ever committed, revoke it; removing it from the branch is not enough.
 
 The fixture validator (#65) checks fixtures separately; this scan also reads fixture files
