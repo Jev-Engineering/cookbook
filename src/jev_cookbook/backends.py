@@ -303,11 +303,10 @@ class ScriptedBackend:
 
 
 def _make_live_backend(**kwargs: Any) -> Backend:
-    """Hook for the live backend (issue #64 replaces this body)."""
-    raise LiveBackendUnavailable(
-        f"{LIVE_ENV}=1 is set, but the live backend is not part of this version of "
-        f"jev_cookbook. Unset {LIVE_ENV} to run offline from fixtures or a script."
-    )
+    """Hook ``get_backend`` calls under ``JEV_COOKBOOK_LIVE=1``: builds the live backend."""
+    from .live import live_backend_from_env  # lazy: live.py imports this module
+
+    return live_backend_from_env(**kwargs)
 
 
 def get_backend(
