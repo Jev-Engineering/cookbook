@@ -12,10 +12,15 @@ repos:
         language: system
         types_or: [python, pyi, jupyter]
       - id: ruff-format
-        name: ruff format --check
+        name: ruff format --check (Python, notebooks, Markdown code blocks)
         entry: ruff format --check
         language: system
-        types_or: [python, pyi, jupyter]
+        # CI runs `ruff format --check .`, which also formats the Python code blocks in
+        # *.md files. `ruff check` does not lint Markdown, so only this hook takes it. A
+        # file-name pattern rather than the "markdown" type: ruff reads a named file by its
+        # extension and fails on .markdown or .mdx, while `ruff format .` skips them.
+        types: [file]
+        files: \.(py|pyi|pyw|ipynb|md)$
       - id: hygiene
         name: hygiene (secrets, local paths, notebook outputs)
         entry: python tools/check_hygiene.py

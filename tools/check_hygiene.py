@@ -6,7 +6,8 @@ Standard library only, so CI runs it without installing anything.
     python tools/check_hygiene.py            # every tracked file (git ls-files)
     python tools/check_hygiene.py a.py b.ipynb   # only the named files (pre-commit)
 
-Exit status is 0 when clean, 1 when there are findings, 2 on a usage error.
+Exit status is 0 when clean, 1 when there are findings, 2 on a usage error (a directory or
+missing path among the arguments is one: it is rejected, never counted as scanned).
 
 What it covers (see docs/development.md for the prose version):
 
@@ -17,7 +18,9 @@ What it covers (see docs/development.md for the prose version):
   assignments for key/token/secret/password names (including ``TYPESAFE_API_KEY=...``),
   tracked ``.env`` files, and long high-entropy tokens.
 * Local-environment leaks, in notebook outputs and metadata only: Windows, Linux and macOS
-  home-directory paths, other absolute drive paths, and ``os.environ`` dumps.
+  home-directory paths, absolute drive paths (either slash), username-bearing and
+  machine-local temp or install paths, ``os.environ`` dumps, and the running account's name
+  (whole word; generic or short names are not checked).
 
 What it does not cover: the TypeSafe documentation shows no fixed key prefix, so a TypeSafe
 key is caught only by the generic rules (header, bearer, assignment, entropy), not by a
@@ -35,10 +38,13 @@ matched value in full.
 from __future__ import annotations
 
 import codecs
+import functools
+import getpass
 import gzip
 import io
 import json
 import math
+import os
 import re
 import subprocess
 import sys
@@ -197,7 +203,30 @@ _PATH_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("wsl-unc-path", re.compile(r"[\\/]{2}wsl(?:\.localhost|\$)[\\/]", re.I)),
     ("wsl-windows-path", re.compile(r"(?<![\w.])/mnt/[a-z]/")),
     ("root-home-path", re.compile(r"(?<![\w.])/root/")),
+    # The same drive path written with a forward slash (D:/work/x); "://" in a URL is excluded.
+    ("windows-drive-path", re.compile(r"\b[A-Za-z]:/(?!/)[A-Za-z0-9_$.]")),
+    # pytest names its temp root after the account: /tmp/pytest-of-alice/pytest-0/...
+    ("username-temp-path", re.compile(r"pytest-of-[^/\\s<>{}$'\"`)]+")),
+    # Machine-local roots: macOS per-user temp, conda and Homebrew prefixes, mounted volumes.
+    # They name the local setup rather than a person.
+    ("local-temp-path", re.compile(r"(?<![\w.])(?:/private)?/var/folders/")),
+    (
+        "local-install-path",
+        re.compile(
+            r"(?<![\w.])/(?:opt/(?:ana|mini|micro)?(?:conda|forge|mamba)\d*(?![\w-])"
+            r"|opt/homebrew(?![\w-])|usr/local/Caskroom(?![\w-])|Volumes/)"
+        ),
+    ),
 )
+
+# Common non-personal account names (CI runners, containers, notebook hosts). A local account
+# with one of these names, or one shorter than _MIN_USERNAME_LENGTH, is not checked for by
+# name: it is an ordinary word and would only produce false findings.
+_GENERIC_USERNAMES = frozenset(
+    "root runner user users admin administrator ubuntu debian vscode jovyan codespace colab "
+    "docker default guest system work build github node pi ec2-user sagemaker".split()
+)
+_MIN_USERNAME_LENGTH = 4
 
 _ENV_NAMES = {
     "PATH",
@@ -225,12 +254,42 @@ _ENV_NAME_REF = re.compile(r"""["']?\b([A-Z][A-Z0-9_]*)["']?\s*(?:=|:)\s*\S""")
 _ENV_LINE = re.compile(r"^[A-Z][A-Z0-9_]{2,}=\S")
 
 
+def _local_usernames() -> frozenset[str]:
+    """Names of the account running the check, lower-cased, minus generic or short ones."""
+    names = {os.environ.get(v, "") for v in ("USER", "USERNAME", "LOGNAME")}
+    try:
+        names.add(getpass.getuser())
+    except (OSError, KeyError, ImportError):
+        pass  # no account name is available: the name check then does nothing
+    lowered = {n.strip().lower() for n in names}
+    return frozenset(
+        n for n in lowered if len(n) >= _MIN_USERNAME_LENGTH and n not in _GENERIC_USERNAMES
+    )
+
+
+@functools.lru_cache(maxsize=1)
+def _username_pattern() -> re.Pattern[str] | None:
+    names = sorted(_local_usernames(), key=len, reverse=True)
+    if not names:
+        return None
+    alternation = "|".join(re.escape(n) for n in names)
+    return re.compile(rf"(?<![A-Za-z0-9])(?:{alternation})(?![A-Za-z0-9])", re.IGNORECASE)
+
+
 def _scan_environment_text(text: str) -> Iterator[tuple[str, str]]:
     for line in text.splitlines():
         for rule, pattern in _PATH_PATTERNS:
             m = pattern.search(line)
             if m:
                 yield rule, m.group(0)[:4] + "..."
+    username = _username_pattern()
+    if username is not None:
+        for line in text.splitlines():
+            m = username.search(line)
+            if m:
+                # Never echo the name: it is exactly what this rule keeps out of the repository.
+                yield "local-username", f"the current account name (len {len(m.group(0))})"
+                break
     if "environ(" in text or "environ({" in text:
         yield "environment-dump", "os.environ repr"
         return
@@ -292,6 +351,12 @@ def scan_notebook_data(nb: dict) -> list[tuple[str, str, str]]:
             where = f"{label} line {line_no}" if line_no else label
             results.append((where, rule, snip))
 
+    def malformed(label: str, value: object, why: str) -> None:
+        """A node the notebook format does not allow: report it, and still read its strings."""
+        results.append((label, "malformed-notebook-node", f"{why} (is {type(value).__name__})"))
+        for where, text in _walk_strings(value, label):
+            add(where, text, environment=True)
+
     for key, value in nb.items():
         if key in ("cells", "worksheets"):
             continue
@@ -303,16 +368,24 @@ def scan_notebook_data(nb: dict) -> list[tuple[str, str, str]]:
     if isinstance(nb.get("cells"), list):
         cells = nb["cells"]
     elif isinstance(nb.get("worksheets"), list):
-        for sheet in nb["worksheets"]:
+        for number, sheet in enumerate(nb["worksheets"]):
             if isinstance(sheet, dict) and isinstance(sheet.get("cells"), list):
                 cells.extend(sheet["cells"])
+            else:
+                malformed(f"worksheet {number}", sheet, "worksheet is not an object with cells")
     else:
         results.append(("notebook", "unrecognized-notebook-layout", "no cells or worksheets"))
+    for key in ("cells", "worksheets"):  # present but not a list: still read its strings
+        if key in nb and not isinstance(nb[key], list):
+            malformed(key, nb[key], f"{key} is not a list")
     for index, cell in enumerate(cells):
         if not isinstance(cell, dict):
+            malformed(f"cell {index}", cell, "cell is not an object")
             continue
         base = f"cell {index} ({cell.get('cell_type', '?')})"
         source = cell.get("source", cell.get("input", ""))
+        if not isinstance(source, str | list):
+            malformed(f"{base} source", source, "source is not a string or list")
         add(f"{base} source", _as_text(source), environment=False)
         for key, value in cell.items():
             if key in ("source", "input", "cell_type", "id", "execution_count", "prompt_number"):
@@ -436,10 +509,20 @@ def tracked_files(root: Path) -> list[Path]:
     return [root / p for p in out.decode("utf-8").split("\0") if p]
 
 
-def run(paths: Iterable[Path], root: Path) -> list[Finding]:
+def non_files(paths: Iterable[Path]) -> list[Path]:
+    """Named paths that are not regular files: a directory is rejected, never half-scanned."""
+    return [path for path in paths if not path.is_file()]
+
+
+def run(paths: Iterable[Path], root: Path, *, named: bool = False) -> list[Finding]:
+    """Scan paths. With named=True (explicit arguments) a non-file is a finding, not a skip;
+    otherwise (git ls-files) a deleted file or a submodule directory is skipped."""
     findings: list[Finding] = []
     for path in paths:
         if not path.is_file():
+            if named:
+                kind = "directory" if path.is_dir() else "missing or not a regular file"
+                findings.append(Finding(path.as_posix(), "file", "not-a-file", kind))
             continue
         try:
             display = path.resolve().relative_to(root.resolve()).as_posix()
@@ -457,7 +540,18 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, subprocess.CalledProcessError) as exc:
         print(f"check_hygiene: cannot list tracked files: {exc}", file=sys.stderr)
         return 2
-    findings = run(paths, root)
+    bad = non_files(paths) if args else []
+    if bad:
+        for path in bad:
+            what = "a directory" if path.is_dir() else "missing or not a regular file"
+            print(f"check_hygiene: {path.as_posix()} is {what}", file=sys.stderr)
+        print(
+            "check_hygiene: name files, or give no arguments to scan every tracked file "
+            "(directories are never scanned implicitly)",
+            file=sys.stderr,
+        )
+        return 2
+    findings = run(paths, root, named=bool(args))
     for finding in findings:
         print(finding)
     if findings:

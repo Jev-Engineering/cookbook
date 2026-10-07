@@ -544,3 +544,219 @@ def test_large_notebook_exemption_is_what_lets_it_through(tmp_path, monkeypatch)
     path.write_text(json.dumps(nb))
     assert path.stat().st_size > 1000
     assert "bearer-token" in rules(hygiene.scan_file(path))
+
+
+# --- audit #97: paths, usernames, malformed cells, directory arguments ------------------
+
+DRIVE_FWD = "D:/" + "work/project/x.py"
+PYTEST_TMP = "/tmp/" + "pytest-of-alice/pytest-0/test_x0/out.txt"
+
+
+@pytest.mark.parametrize(
+    ("text", "rule"),
+    [
+        (DRIVE_FWD, "windows-drive-path"),
+        ("saved to d:/data/run1", "windows-drive-path"),
+        (PYTEST_TMP, "username-temp-path"),
+        ("C:\\\\Temp\\\\" + "pytest-of-alice\\\\x", "username-temp-path"),
+        ("/opt/" + "conda/lib/python3.12/site-packages/x.py", "local-install-path"),
+        ("/opt/" + "miniconda3/envs/a/bin/python", "local-install-path"),
+        ("/opt/" + "homebrew/bin/python3", "local-install-path"),
+        ("/private/" + "var/folders/zz/abc/T/tmpq1", "local-temp-path"),
+        ("/var/" + "folders/zz/abc/T/tmpq1", "local-temp-path"),
+        ("/Volumes/" + "Data/run", "local-install-path"),
+    ],
+)
+def test_missed_local_paths_fail_in_outputs_and_metadata(text, rule, tmp_path):
+    error = {"output_type": "error", "ename": "E", "evalue": "x", "traceback": [text]}
+    for nb in (
+        notebook(outputs=[stream(f"saved: {text}\n")]),
+        notebook(outputs=[result({"text/plain": text})]),
+        notebook(outputs=[error]),
+        notebook(metadata={"papermill": {"input_path": text}}),
+    ):
+        assert rule in rules(scan(tmp_path, nb)), (text, nb)
+
+
+def test_missed_local_paths_stay_allowed_where_the_policy_allows_them(tmp_path):
+    text = f"{DRIVE_FWD} {PYTEST_TMP} /opt/conda/bin"
+    assert scan(tmp_path, notebook(source=f"# {text}", markdown=text)) == []
+    assert hygiene.scan_text(text) == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "https://example.com/a/b and http://localhost:8000/x and ftp://h/p",
+        "a://b/c and mailto:/x is not a path",
+        "/tmp/pytest-of-<user>/pytest-0 and pytest-of-{name}",
+        "/opt/condatools and /opt/conda-forge-notes and /optional/conda",
+        "/var/foldersmith and var/folders/x",
+        "Volumes/ and the /Volumes directory",
+        "ratio 3:/4 and 10:/20",
+    ],
+)
+def test_ordinary_text_near_the_new_path_rules_is_not_flagged(text, tmp_path):
+    assert scan(tmp_path, notebook(outputs=[stream(text)])) == []
+
+
+@pytest.fixture
+def account(monkeypatch):
+    """Pretend the check runs under the given local account names."""
+
+    def use(*names: str) -> None:
+        monkeypatch.setattr(hygiene, "_local_usernames", lambda: frozenset(names))
+        hygiene._username_pattern.cache_clear()
+
+    yield use
+    monkeypatch.undo()
+    hygiene._username_pattern.cache_clear()
+
+
+def test_local_username_in_outputs_and_metadata_fails_without_echoing_it(account, tmp_path):
+    name = "zanzibar"
+    account(name)
+    for nb in (
+        notebook(outputs=[stream(f"hello from {name.upper()}!\n")]),
+        notebook(outputs=[result({"text/plain": f"owner={name}"})]),
+        notebook(metadata={"author": name}),
+    ):
+        found = scan(tmp_path, nb)
+        assert rules(found) == {"local-username"}, nb
+        assert all(name not in str(f).lower() for f in found)
+    # Source, markdown and plain text files are not in scope: the name may be authorship.
+    assert scan(tmp_path, notebook(source=f"# {name}", markdown=f"by {name}")) == []
+    assert hygiene.scan_text(f"by {name}") == []
+
+
+def test_local_username_is_not_a_blanket_word_rule(account, tmp_path):
+    account("zanzibar")
+    nb = notebook(outputs=[stream("zanzibarian spices; ordinary words stay readable\n")])
+    assert scan(tmp_path, nb) == []  # whole word only: a longer word is not the account name
+    assert scan(tmp_path, notebook(outputs=[stream("results: accuracy 0.93\n")])) == []
+
+
+def test_generic_and_short_account_names_are_never_checked_by_name(monkeypatch):
+    for var in ("USER", "USERNAME", "LOGNAME"):
+        monkeypatch.delenv(var, raising=False)
+
+    def getuser():
+        raise OSError("no account")
+
+    monkeypatch.setattr(hygiene.getpass, "getuser", lambda: "runner")
+    assert hygiene._local_usernames() == frozenset()
+    monkeypatch.setenv("USER", "tim")
+    monkeypatch.setenv("LOGNAME", "Admin")
+    assert hygiene._local_usernames() == frozenset()
+    monkeypatch.setenv("USER", "Zanzibar")
+    assert hygiene._local_usernames() == {"zanzibar"}
+    monkeypatch.setattr(hygiene.getpass, "getuser", getuser)
+    assert hygiene._local_usernames() == {"zanzibar"}
+
+
+def test_no_account_name_means_the_name_check_is_off(account, tmp_path):
+    account()
+    assert scan(tmp_path, notebook(outputs=[stream("zanzibar\n")])) == []
+
+
+BEARER_CELL = f"Authorization: Bearer {KEY}"
+
+
+@pytest.mark.parametrize(
+    "cells",
+    [
+        [BEARER_CELL],
+        [None],
+        [42],
+        [["x = 1", BEARER_CELL]],
+        [{"cell_type": "code", "source": "ok"}, BEARER_CELL],
+    ],
+)
+def test_non_object_cells_are_findings_and_still_scanned(cells, tmp_path):
+    nb = {"cells": cells, "metadata": {}, "nbformat": 4, "nbformat_minor": 5}
+    found = scan(tmp_path, nb)
+    assert "malformed-notebook-node" in rules(found), found
+    assert all(f.location.startswith("cell ") for f in found)
+    text = "\n".join(str(f) for f in found)
+    assert KEY not in text
+    assert len(text) < 800  # bounded: type names and masked snippets only
+    if BEARER_CELL in json.dumps(cells):
+        assert {"authorization-header-value", "bearer-token"} & rules(found)
+
+
+def test_malformed_cell_finding_names_the_cell_index(tmp_path):
+    nb = {"cells": [{"cell_type": "code", "source": "x"}, BEARER_CELL], "nbformat": 4}
+    found = scan(tmp_path, nb)
+    assert any(f.location == "cell 1" and f.rule == "malformed-notebook-node" for f in found)
+    assert any(f.location.startswith("cell 1") and f.rule.endswith("value") for f in found)
+
+
+@pytest.mark.parametrize(
+    "nb",
+    [
+        {"nbformat": 4, "cells": BEARER_CELL},
+        {"nbformat": 4, "cells": {"a": BEARER_CELL}},
+        {"nbformat": 3, "worksheets": BEARER_CELL},
+        {"nbformat": 3, "worksheets": [BEARER_CELL]},
+        {"nbformat": 3, "worksheets": [{"cells": BEARER_CELL}]},
+        {"nbformat": 4, "cells": [{"cell_type": "code", "source": {"k": BEARER_CELL}}]},
+        {"nbformat": 4, "cells": [{"cell_type": "code", "source": 7}]},
+    ],
+)
+def test_other_malformed_containers_are_findings_and_still_scanned(nb, tmp_path):
+    found = scan(tmp_path, nb)
+    assert rules(found) & {"malformed-notebook-node", "unrecognized-notebook-layout"}
+    assert KEY not in "\n".join(str(f) for f in found)
+    if BEARER_CELL in json.dumps(nb):
+        assert {"authorization-header-value", "bearer-token"} & rules(found)
+
+
+def test_well_formed_notebooks_gain_no_malformed_findings(tmp_path):
+    assert scan(tmp_path, notebook(outputs=[stream("ok")], markdown="text")) == []
+
+
+def test_cli_fails_on_a_bare_string_cell_with_redacted_output(tmp_path):
+    path = tmp_path / "n.ipynb"
+    path.write_text(json.dumps({"cells": [BEARER_CELL], "nbformat": 4, "metadata": {}}))
+    proc = _run(str(path))
+    assert proc.returncode == 1
+    assert "malformed-notebook-node" in proc.stdout and "cell 0" in proc.stdout
+    assert KEY not in proc.stdout + proc.stderr
+
+
+def test_directory_argument_is_rejected_not_reported_as_scanned(tmp_path):
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    for i in range(3):
+        nb = notebook(outputs=[stream(BEARER_CELL)])
+        (corpus / f"bad{i}.ipynb").write_text(json.dumps(nb))
+    proc = _run(str(corpus))
+    assert proc.returncode == 2
+    assert "a directory" in proc.stderr
+    assert "passed" not in proc.stdout + proc.stderr
+    # The same files named one by one fail as findings.
+    assert _run(*map(str, sorted(corpus.iterdir()))).returncode == 1
+
+
+def test_directory_among_valid_files_still_fails_and_a_missing_file_is_not_skipped(tmp_path):
+    good = tmp_path / "ok.ipynb"
+    good.write_text(json.dumps(notebook(outputs=[stream("ok")])))
+    proc = _run(str(good), str(tmp_path / "missing.ipynb"), str(tmp_path))
+    assert proc.returncode == 2
+    assert "missing or not a regular file" in proc.stderr and "a directory" in proc.stderr
+    assert "passed" not in proc.stdout
+
+
+def test_valid_file_arguments_still_pass(tmp_path):
+    a = tmp_path / "a.ipynb"
+    a.write_text(json.dumps(notebook(outputs=[stream("ok")])))
+    b = tmp_path / "b.txt"
+    b.write_text("hello")
+    proc = _run(str(a), str(b))
+    assert proc.returncode == 0 and "2 file(s) scanned" in proc.stdout
+
+
+def test_run_library_call_cannot_false_pass_on_a_directory(tmp_path):
+    findings = hygiene.run([tmp_path], ROOT, named=True)
+    assert [f.rule for f in findings] == ["not-a-file"]
+    assert hygiene.run([tmp_path], ROOT) == []  # git ls-files mode: submodules are skipped

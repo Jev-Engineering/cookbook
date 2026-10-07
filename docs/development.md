@@ -87,12 +87,35 @@ metadata):
   JWTs, `Authorization` header values, `Bearer` tokens, `name = value` assignments for
   key, token, secret and password names (including `TYPESAFE_API_KEY=...`), tracked `.env`
   files (`.env.example` is allowed), and long high-entropy tokens;
-- in notebook outputs and metadata only: Windows, Linux and macOS home-directory paths,
-  other absolute drive paths, WSL `/mnt/x/` paths, and `os.environ` dumps.
+- in notebook outputs and metadata only (source cells, Markdown and plain text files may
+  mention paths): Windows, Linux and macOS home-directory paths, absolute drive paths with
+  either slash (`C:\x`, `D:/work/x`), WSL `/mnt/x/` paths, username-bearing temp paths
+  (`/tmp/pytest-of-<user>/`), machine-local roots (`/opt/conda*`, `/opt/homebrew`,
+  `/private/var/folders/`, `/Volumes/`), `os.environ` dumps, and the name of the account
+  running the check (see below).
 
 Placeholders such as `<API_KEY>`, `{key}`, `$KEY` and `your-key-here` are accepted, as are
 the bare words `TYPESAFE_API_KEY` and `JEV_COOKBOOK_LIVE`. Findings print the file, the
 cell and output location, the rule, and a masked snippet, never the whole value.
+
+Usernames: a bare username cannot be told from an ordinary word, so names are not treated as
+secrets in general. A name is caught when it sits in one of the path rules above and, as a
+best effort, when it is the account that runs the check (`USER`, `USERNAME`, `LOGNAME` or the
+OS account) as a whole word in an output or metadata. That is reported as `local-username`
+without echoing the name. It helps local and pre-commit runs and leaves CI (account
+`runner`) unaffected. Account names shorter than 4 characters and generic ones (`root`,
+`runner`, `admin`, `ubuntu`, `vscode`, ...) are not checked by name. Other people's bare
+names, system library paths (`/usr/lib/python3...`), UNC paths other than WSL, and a lone
+one-letter `x:/` that is not a drive are not told apart from prose and are out of scope.
+
+Notebook structure: a cell, worksheet or `cells` value that nbformat does not allow (for
+example a bare string where a cell object belongs, or a `source` that is not text) is a
+`malformed-notebook-node` finding with its location and the Python type. Its strings are
+still scanned for secrets, so the output stays masked and short.
+
+Arguments: name files, or give none to scan every tracked file. A directory, or a path that
+does not exist, is rejected with exit status 2 and a message. It is never counted as scanned
+and never scanned implicitly; expand a directory yourself (`git ls-files dir`) if you need it.
 
 It does not cover: a TypeSafe key by prefix (the documentation shows no fixed prefix, so
 only the generic rules apply), short or low-entropy secrets, encoded or line-split secrets,
@@ -112,7 +135,9 @@ as plain text, so a key-like string in a fixture fails here too.
 
 `.pre-commit-config.yaml` mirrors the CI checks (`ruff check`, `ruff format --check`, the
 hygiene script, the catalog check). `pytest` runs only at push time, so commits stay fast.
-It is optional:
+`ruff format --check` also covers Python code blocks in `*.md` files, as in CI. `ruff check`
+does not lint Markdown, so that hook is unchanged, and `.markdown` and `.mdx` files are left
+out because `ruff format .` ignores them. It is optional:
 
 ```bash
 pip install pre-commit      # in the same virtual environment as pip install -e ".[dev]"
