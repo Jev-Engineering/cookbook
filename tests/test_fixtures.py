@@ -350,6 +350,29 @@ def test_stored_response_that_replay_would_reject(recipe):
     expect(recipe, f"responses.json (id {key!r}): bad stored response:")
 
 
+def test_a_provenance_that_is_not_an_object_is_a_problem_not_a_crash(recipe):
+    data = good_set()
+    key = data["inputs"][0]["replay_keys"][0]
+    data["responses"][key]["answers"]["billing"]["provenance"] = []
+    write(recipe, data)
+    expect(recipe, f"responses.json (id {key!r}): bad stored response:")
+    with pytest.raises(FixtureFileError, match="bad stored response"):
+        load_responses(recipe)
+
+
+def test_a_deeply_nested_line_or_response_is_a_problem_not_a_crash(recipe):
+    deep = "[" * 100_000 + "]" * 100_000
+    folder = recipe / "fixtures"
+    (folder / "labels.jsonl").write_text(
+        '{"id": "t0", "label": "x"}\n{"id": "t1", "label": ' + deep + "}\n", encoding="utf-8"
+    )
+    expect(recipe, "labels.jsonl:2: invalid JSON: nested too deeply")
+    (folder / "responses.json").write_text(f'{{"a": {deep}}}', encoding="utf-8")
+    expect(recipe, "responses.json: invalid JSON: nested too deeply")
+    with pytest.raises(FixtureFileError, match="nested too deeply"):
+        load_responses(recipe)
+
+
 def test_response_without_provenance(recipe):
     data = good_set()
     key = data["inputs"][0]["replay_keys"][0]
@@ -482,14 +505,37 @@ def test_a_key_copied_from_another_example_is_reported(recipe):
     )
 
 
-def test_a_key_copied_between_fields_examples_is_reported(recipe):
+def test_fields_examples_that_differ_only_in_a_python_owned_field_may_share_a_key(recipe):
+    """build_state keeps only the text, so the request (and the key) is the same."""
     data = good_set()
     for row in data["inputs"]:
-        row["fields"] = {"text": row.pop("state")["text"]}
-    data["inputs"][3]["replay_keys"] = list(data["inputs"][2]["replay_keys"])
-    del data["responses"][request_key("ticket 3: I was charged twice")]
+        row["fields"] = {"text": row.pop("state")["text"], "role": "admin"}
+    data["inputs"][1]["fields"] = {**data["inputs"][0]["fields"], "role": "viewer"}
+    data["inputs"][1]["replay_keys"] = list(data["inputs"][0]["replay_keys"])
+    del data["responses"][request_key("ticket 1: I was charged twice")]
     write(recipe, data)
-    expect(recipe, "(id 't3'): replay key", "is also listed by 't2', whose fields differs")
+    assert messages(recipe) == []
+
+
+def test_a_state_example_and_a_fields_example_may_make_the_same_request(recipe):
+    data = good_set()
+    data["inputs"][1]["fields"] = {"text": data["inputs"][0]["state"]["text"], "role": "viewer"}
+    del data["inputs"][1]["state"]
+    data["inputs"][1]["replay_keys"] = list(data["inputs"][0]["replay_keys"])
+    del data["responses"][request_key("ticket 1: I was charged twice")]
+    write(recipe, data)
+    assert messages(recipe) == []
+
+
+def test_multi_request_examples_may_share_a_later_request(recipe):
+    """Each example makes its own routing request, then the same policy request."""
+    data = good_set()
+    policy = request_key("the policy request, identical for every example")
+    for row in data["inputs"]:
+        row["replay_keys"].append(policy)
+    data["responses"][policy] = result()
+    write(recipe, data)
+    assert messages(recipe) == []
 
 
 def test_examples_with_the_same_state_may_share_a_key(recipe):
@@ -584,6 +630,17 @@ def test_listed_keys_without_a_responses_file(recipe):
     write(recipe, data)
     found = messages(recipe)
     assert found == [f"{(recipe / 'fixtures' / 'responses.json').as_posix()}: file is missing"]
+
+
+def test_the_report_keeps_its_mode_through_slicing_copying_and_adding_and_shows_it(recipe):
+    (recipe / "fixtures" / "labels.jsonl").unlink()
+    report = validate_recipe(recipe)
+    assert report.mode == "replay" and len(report) == 1
+    assert report[:].mode == "replay" and report[0:1] == list(report)
+    assert report.copy().mode == "replay" and (report + list(report)).mode == "replay"
+    assert not isinstance(report[0], list) and len(report + list(report)) == 2
+    assert repr(report).startswith("Report(mode='replay', problems=[Problem(")
+    assert repr(validate_recipe(recipe / "nowhere")).startswith("Report(mode=None")
 
 
 def test_mode_is_unknown_when_the_inputs_cannot_be_read(recipe):
@@ -871,6 +928,62 @@ def test_scan_reports_the_line_number(recipe):
     expect(recipe, "labels.jsonl:3: looks like a key or token [sk-prefixed-key]")
 
 
+def test_a_secret_named_field_with_a_long_value_is_flagged_with_its_line(recipe):
+    """Only the raw-text scan sees this: the key and the value are separate decoded strings."""
+    data = good_set()
+    data["labels"][2]["label"] = {"session_token": "abcd1234" * 2 + "abcd"}
+    write(recipe, data)
+    expect(recipe, "labels.jsonl:3: looks like a key or token [secret-assignment]")
+    data["labels"][2]["label"] = {"session_token": "EXAMPLE-" + "abcd1234" * 2}  # marker
+    write(recipe, data)
+    assert messages(recipe) == []
+
+
+def flag_rules(text: str) -> set[str]:
+    return {rule for _, rule, _ in scan_text(text)}
+
+
+# Assembled at run time, like the fakes above, so this file stays clean for the repository scan.
+MARKED_BUT_FLAGGED = [
+    ("sk-" + "EXAMPLE" + "aBcDeFgHiJkLmNoPqRsT", "sk-prefixed-key"),
+    ("ghp_" + "EXAMPLE" + "a1" * 15, "github-token"),
+    ("AKIA" + "IOSFODNN7" + "EXAMPLE", "aws-access-key-id"),
+    ("api_key=" + "EXAMPLE_sk_live_" + "51HxQ2bL9", "high-entropy-token"),
+]
+
+
+@pytest.mark.parametrize(("text", "rule"), MARKED_BUT_FLAGGED)
+def test_a_placeholder_marker_does_not_exempt_vendor_shaped_or_random_looking_values(text, rule):
+    assert rule in flag_rules(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "password: EXAMPLE-Summer2024Holiday",
+        "Authorization: Bearer <redacted>",
+        "api_key = your-key-goes-here-0123456789",
+        "secret: ***" + "0123456789abcdef",
+        "<redacted>",
+        "sk-...",
+        "ghp_...",
+    ],
+)
+def test_a_marker_exempts_key_name_and_header_style_values(text):
+    assert flag_rules(text) == set()
+
+
+def test_the_fake_credential_example_in_the_doc_is_accepted(recipe):
+    doc = (ROOT / "docs" / "fixtures.md").read_text(encoding="utf-8")
+    marker = "<!-- accepted-fake-credential -->\n```text\n"
+    start = doc.index(marker) + len(marker)
+    example = doc[start : doc.index("\n```", start)]
+    data = good_set()
+    data["labels"][2]["label"] = example
+    write(recipe, data)
+    assert messages(recipe) == []
+
+
 def test_a_field_called_token_is_not_needed_and_prose_is_not_flagged(recipe):
     data = good_set()
     data["labels"][0]["label"] = "billing question about a refund token of goodwill"
@@ -1023,10 +1136,36 @@ def make_recipes(root: Path, good: int, bad: int) -> Path:
 
 def test_all_with_no_fixture_folders_passes(tmp_path, capsys, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    assert main(["validate", "--all"]) == 0  # no recipes/ directory at all
     (tmp_path / "recipes" / "01-x").mkdir(parents=True)  # a recipe without fixtures/
     assert main(["validate", "--all"]) == 0
     assert "nothing to validate" in capsys.readouterr().out
+
+
+def test_all_with_a_missing_recipes_directory_is_a_usage_error(tmp_path, capsys, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    for argv in (["validate", "--all"], ["validate", "--all", "--recipes-dir", "recpies"]):
+        with pytest.raises(SystemExit) as caught:
+            main(argv)
+        assert caught.value.code == 2
+    assert "is not a directory" in capsys.readouterr().err
+
+
+def test_all_goes_on_after_a_recipe_with_a_malformed_response(tmp_path, capsys):
+    recipes = tmp_path / "recipes"
+    crash = good_set()
+    key = crash["inputs"][0]["replay_keys"][0]
+    crash["responses"][key]["answers"]["billing"]["provenance"] = []
+    write(recipes / "01-crash", crash)
+    nolabel = good_set()
+    nolabel["labels"].pop(0)
+    write(recipes / "02-nolabel", nolabel)
+    write(recipes / "03-good", good_set())
+    assert main(["validate", "--all", "--recipes-dir", str(recipes)]) == 1
+    captured = capsys.readouterr()
+    assert f"(id {key!r}): bad stored response" in captured.err
+    assert "no label for the validation example" in captured.err
+    assert "03-good: fixtures valid" in captured.out
+    assert "problem(s) in 2 recipe(s)" in captured.err
 
 
 def test_all_validates_every_recipe_that_has_fixtures(tmp_path, capsys):

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 from . import FIXTURES_DIR, validate_all, validate_recipe
 
@@ -24,6 +25,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.all == (args.recipe_dir is not None):
         parser.error("give either a recipe directory or --all")
     if args.all:
+        if not Path(args.recipes_dir).is_dir():
+            parser.error(f"--recipes-dir {args.recipes_dir!r} is not a directory")
         results = validate_all(args.recipes_dir)
         if not results:
             print(f"no {args.recipes_dir}/*/{FIXTURES_DIR} folders found; nothing to validate")

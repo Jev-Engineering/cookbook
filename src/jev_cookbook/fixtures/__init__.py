@@ -108,6 +108,21 @@ class Report(list):  # a list of Problem; empty means valid
         super().__init__(problems)
         self.mode = mode
 
+    # Slicing, ``copy()`` and ``report + problems`` keep the mode; other list operations
+    # (``sorted``, ``*``) return a plain list.
+    def __getitem__(self, index):
+        picked = super().__getitem__(index)
+        return Report(picked, self.mode) if isinstance(index, slice) else picked
+
+    def __add__(self, other):
+        return Report(super().__add__(other), self.mode)
+
+    def copy(self) -> Report:
+        return Report(self, self.mode)
+
+    def __repr__(self) -> str:
+        return f"Report(mode={self.mode!r}, problems={list.__repr__(self)})"
+
 
 class FixtureFileError(ValueError):
     """A fixture file is missing or malformed. ``.problems`` lists every ``Problem``."""
@@ -190,7 +205,12 @@ def _object_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 
 
 def _loads(text: str) -> Any:
-    return json.loads(text, object_pairs_hook=_object_pairs, parse_constant=_reject_constant)
+    """Strict ``json.loads``: no duplicate keys, no NaN. Failures are ``ValueError`` (nesting too
+    deep for the parser included), so callers report them instead of crashing."""
+    try:
+        return json.loads(text, object_pairs_hook=_object_pairs, parse_constant=_reject_constant)
+    except RecursionError:
+        raise ValueError("nested too deeply to read") from None
 
 
 def _lines(text: str) -> list[str]:
@@ -329,8 +349,9 @@ def _read_responses(
             continue
         try:
             parsed[key] = DecisionResult.from_dict(stored)
-        except (ValueError, TypeError) as exc:
-            problems.append(Problem(name, f"bad stored response: {exc}", ident=key))
+        except Exception as exc:  # any failure means ReplayBackend would reject it
+            reason = "nested too deeply to read" if isinstance(exc, RecursionError) else exc
+            problems.append(Problem(name, f"bad stored response: {reason}", ident=key))
             continue
         raw[key] = stored
     return raw, parsed, problems, True
@@ -434,17 +455,22 @@ def _check_examples(
                     f"({other.split})"
                 )
                 problems.append(Problem(inputs_name, msg, ident=other.id))
-    # A replay key is a hash of the state, so examples whose content differs cannot share one.
+    # Catches a key copied from another example. The key is the hash of what Jev sees, so only
+    # an example with `state` and exactly one key makes a request the validator can see:
+    # `fields` go through the recipe's build_state (it may drop Python-owned values), and a
+    # later request of a multi-key example depends on an earlier answer.
     owners: dict[str, Example] = {}
     for e in examples:
-        for key in e.replay_keys:
-            first = owners.setdefault(key, e)
-            if first is not e and _content(first) != _content(e):
-                msg = (
-                    f"replay key {key} is also listed by {first.id!r}, whose "
-                    f"{_content(first)[0]} differs: a key belongs to one request"
-                )
-                problems.append(Problem(inputs_name, msg, ident=e.id))
+        if e.state is None or len(e.replay_keys) != 1:
+            continue
+        key = e.replay_keys[0]
+        first = owners.setdefault(key, e)
+        if first is not e and _canonical(first.state) != _canonical(e.state):
+            msg = (
+                f"replay key {key} is also listed by {first.id!r}, whose state differs: "
+                "a key belongs to one request"
+            )
+            problems.append(Problem(inputs_name, msg, ident=e.id))
     return problems
 
 
@@ -485,13 +511,20 @@ def _check_provenance_agreement(parsed: Mapping[str, DecisionResult], name: str)
 
 
 def _strings(node: Any) -> list[str]:
-    if isinstance(node, str):
-        return [node]
-    if isinstance(node, dict):
-        return [t for k, v in node.items() for t in [k, *_strings(v)]]
-    if isinstance(node, list):
-        return [t for v in node for t in _strings(v)]
-    return []
+    """Every string in a decoded JSON value, keys included (iterative: depth cannot overflow)."""
+    out: list[str] = []
+    pending = [node]
+    while pending:
+        item = pending.pop()
+        if isinstance(item, str):
+            out.append(item)
+        elif isinstance(item, dict):
+            for key, value in item.items():
+                out.append(key)
+                pending.append(value)
+        elif isinstance(item, list):
+            pending.extend(item)
+    return out
 
 
 def _scan_file(path: Path) -> list[Problem]:
