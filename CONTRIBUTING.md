@@ -52,6 +52,8 @@ A recipe pull request touches only `recipes/NN-slug/`, with one bounded exceptio
 
 - Every response fixture records its provenance: `synthetic` (written for the recipe) or `recorded` (captured from a live call, with the model version the API returned and the date).
 - The notebook states near the top which mode it ran in. In a synthetic run, any metric is a check that the pipeline works, and the notebook says so next to the number.
+- The disclosure is the same in every recipe, and the template implements it with `run_header` (see [docs/offline-and-live.md](docs/offline-and-live.md)): the run mode (`synthetic`, `scripted`, `recorded` or `live`), and for `recorded` and `live` the model string the API returned, for `recorded` the capture date, and N, the number of examples a reported number covers. A synthetic or scripted run states N as the size of the fixture sample it checked the pipeline on.
+- A live run over a recipe's fixture inputs measures those N small, written-for-the-recipe inputs with that model and nothing else. Its metrics may be reported as exactly that (N, model, date) and may not be generalized: they say nothing about Jev's quality on other data, and nothing about latency or cost unless that was itself measured and recorded. The next rule still applies: a sentence about Jev is allowed only when it comes from recorded inference on a held-out set.
 - No sentence about Jev's quality, latency, or cost appears unless it comes from recorded live inference on a held-out set, with the model version stated. If no live run was made, the recipe README says "not measured live".
 - Recipes that compare backends or optimize anything keep a test split that is used once, after choices are frozen.
 

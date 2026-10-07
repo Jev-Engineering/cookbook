@@ -27,7 +27,7 @@ root, with the environment active.
 
 ## 2. Pick a notebook
 
-Each recipe is a folder, `recipes/NN-slug/`, with `notebook.ipynb`, a one-page `README.md`, and
+Each recipe is a folder, `recipes/NN-slug/` (`NN` is the recipe number and `slug` its name, for example `01-sentiment-classification`), with `notebook.ipynb`, a one-page `README.md`, and
 `fixtures/`. The recipe numbers and their status are in the table in the
 [README](../README.md#the-recipes): a row links to its notebook once the recipe is published, and
 to its issue until then.
@@ -52,8 +52,10 @@ The first command prints `recipes/_template: fixtures valid (mode replay)` and e
 runs the notebook top to bottom in a fresh kernel with the recipe folder as its working directory,
 and writes the outputs into `notebook.ipynb`. It prints `_template: executed notebook.ipynb
 offline` and exits 0. On Windows it may also print warnings of its own on stderr; judge success by
-the exit status. For a committed recipe the rewritten file is identical, so
-`git status` shows nothing new. The executor removes every `JEV_COOKBOOK_*` and `TYPESAFE_*`
+the exit status. Only the text outputs are expected to match what is committed: the chart images
+are PNG bytes that differ with the matplotlib version, so on another Python version `git status`
+may show `notebook.ipynb` as modified even though nothing changed that matters (the staleness rule
+is in [recipe-template.md](recipe-template.md#executing-a-notebook)). The executor removes every `JEV_COOKBOOK_*` and `TYPESAFE_*`
 variable from the kernel's environment, so it never runs live, even from a shell set up for live
 calls ([recipe-template.md](recipe-template.md#executing-a-notebook)).
 
@@ -93,6 +95,7 @@ other checks are in [development.md](development.md).
 ## 5. Make your own recipe
 
 ```bash
+# replace NN with the recipe number, 1 to 60
 python tools/new_recipe.py NN                  # recipes/NN-slug/ from the catalog; NN is 1 to 60
 python tools/new_recipe.py NN --mode scripted  # the same, for a scripted or simulator recipe
 ```
