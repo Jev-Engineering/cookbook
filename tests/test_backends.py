@@ -1130,19 +1130,26 @@ def test_question_content_at_64_levels_keeps_its_main_key():
         replay_key("s", {"q": Score(criteria=["low", deep64])})
         == "5315763ac8431d0a89363604146176f0c65d297bd153423954eba9b373d02fe5"
     )
+    assert (
+        replay_key("s", {"q": Choice(criteria={"a": deep64, "b": None})})
+        == "062fac3b99867627ddbfabe911d4908e846504662ea95d8d8bac4564ce24fc93"
+    )
+    assert (
+        replay_key("s", {"q": Noul(criteria={"true": None, "false": deep64})})
+        == "3ab6a94ae0483aca81fdaf33cfe10a5c6d1ded3301eb93932d3dc1cc5063ba6d"
+    )
 
 
 def test_question_content_deeper_than_64_levels_is_a_readable_error():
     deep65 = nested_state(65)
-    cases = {
-        "instructions": Noul(instructions=deep65),
-        "criteria[1]": Score(criteria=["low", deep65]),
-        "criteria[0]": Choice(criteria={"a": deep65, "b": None}),
-        "criteria[true]": Noul(criteria={"true": None, "false": deep65}),
-    }
-    for where, question in cases.items():
-        label = where.split("[")[0]
-        with pytest.raises(ValueError, match=rf"question 'q' {label}.*: nested deeper than 64"):
+    cases = [
+        (Noul(instructions=deep65), "instructions"),
+        (Score(criteria=["low", deep65]), r"criteria\[1\]"),
+        (Choice(criteria={"a": deep65, "b": None}), r"criteria\['a'\]"),
+        (Noul(criteria={"true": None, "false": deep65}), r"criteria\['false'\]"),
+    ]
+    for question, where in cases:
+        with pytest.raises(ValueError, match=rf"question 'q' {where}: nested deeper than 64"):
             replay_key(STATE, {"q": question})
 
 

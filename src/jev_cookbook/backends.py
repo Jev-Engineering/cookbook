@@ -109,9 +109,9 @@ def replay_key(state: Any, questions: Mapping[str, Question]) -> str:
         # the state; the {"type", "instructions", "criteria"} wrapper is not the caller's level.
         check_depth(content.get("instructions"), f"question {name!r} instructions", MAX_DEPTH)
         criteria = content.get("criteria")
-        parts = criteria.values() if isinstance(criteria, dict) else criteria or ()
-        for i, part in enumerate(parts):
-            check_depth(part, f"question {name!r} criteria[{i}]", MAX_DEPTH)
+        parts = criteria.items() if isinstance(criteria, dict) else enumerate(criteria or ())
+        for label, part in parts:
+            check_depth(part, f"question {name!r} criteria[{label!r}]", MAX_DEPTH)
         questions_json[name] = content
     payload = {"v": KEY_VERSION, "state": plain_state, "questions": questions_json}
     # The envelope adds levels of its own, so the payload as a whole is not limited.
