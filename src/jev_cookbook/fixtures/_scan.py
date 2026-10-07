@@ -99,6 +99,14 @@ _PATH_SHAPED = re.compile(r"://|^/[a-z_.-]+/|^\.{1,2}/|^[A-Za-z]:[\/]|\.[A-Za-z0
 _DATA_URI = re.compile(r"data:[\w./+-]+;base64,[A-Za-z0-9+/=]+")
 _ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 _ENTROPY_THRESHOLD = 4.2
+# An identifier assigned another identifier, such as a ruff-style keyword argument
+# ``startup_timeout=KERNEL_START_TIMEOUT``, is code, not a secret. The right side must be one
+# or more runs of letters or digits joined by "_" or "." where no run mixes letters with
+# digits and no run mixes cases (SCREAMING_SNAKE or lower_snake, no quotes), so a value like
+# ``token=a1B2c3...`` or a quoted string is still scored.
+_IDENT_ASSIGNMENT = re.compile(
+    r"[A-Za-z_][A-Za-z0-9_]*=_*(?:[A-Z]+|[a-z]+|[0-9]+)(?:[_.]+(?:[A-Z]+|[a-z]+|[0-9]+))*_*"
+)
 
 
 def _scan_secrets_line(line: str) -> Iterator[tuple[str, str]]:
@@ -119,6 +127,8 @@ def _scan_secrets_line(line: str) -> Iterator[tuple[str, str]]:
         if _letters_and_digits(v) and not _is_placeholder(v):
             yield "secret-assignment", _mask(v)
     for word in _WORD.findall(line):
+        if _IDENT_ASSIGNMENT.fullmatch(word):
+            continue
         pattern = _TOKEN if _PATH_SHAPED.search(word) else _TOKEN_SLASH
         for t in pattern.findall(word):
             # Random base64 sometimes has no digit; "+", "/" or "=" then marks it as non-prose.

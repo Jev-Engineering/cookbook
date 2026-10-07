@@ -1105,3 +1105,57 @@ def test_shown_hides_a_key_that_trips_a_secret_rule_without_a_long_run():
     assert len(key) <= 48 and not hygiene._LONG_RUN.search(key)
     assert hygiene.scan_text(key)  # the secret rules do flag it
     assert hygiene._shown(key) == "<key>"
+
+
+# --- keyword arguments of the form name=CONSTANT are code, not secrets (issue #114) -----
+
+IDENTIFIER_ASSIGNMENTS = [
+    "client = make(startup_timeout=KERNEL_START_TIMEOUT)",
+    "policy = run(retry_policy=DEFAULT_RETRY_POLICY_SETTINGS)",
+    "limit = run(max_requests_per_run=DEFAULT_MAX_REQUESTS)",
+    "limit = run(max_requests_per_run=default_max_requests_value)",
+    "cfg = build(request_timeout_seconds=settings.default_request_timeout)",
+    "startup_timeout=KERNEL_START_TIMEOUT,",
+]
+
+
+@pytest.mark.parametrize("line", IDENTIFIER_ASSIGNMENTS)
+def test_identifier_keyword_arguments_are_not_high_entropy_findings(line, tmp_path):
+    assert hygiene.scan_text(line) == []
+    assert scan(tmp_path, notebook(source=line)) == []
+    path = tmp_path / "module.py"
+    path.write_text(f"{line}\n", encoding="utf-8")
+    assert hygiene.run([path], tmp_path) == []
+
+
+def test_the_reported_line_was_a_high_entropy_finding_before_the_exemption():
+    # The exemption is what lets the line through: without it the word scores as a token.
+    line = "client = make(startup_timeout=KERNEL_START_TIMEOUT)"
+    assert len(line.split("(")[1].rstrip(")")) >= 32
+    assert hygiene._IDENT_ASSIGNMENT.fullmatch("startup_timeout=KERNEL_START_TIMEOUT")
+    word = "startup_timeout=KERNEL_START_TIMEOUT"
+    token = hygiene._TOKEN_SLASH.findall(word)[0]
+    assert hygiene._entropy(token) >= hygiene._ENTROPY_THRESHOLD
+
+
+LONG_VALUE = "Zx3cV6bN" + "9mQ2wE5r" + "T8yU1iO4" + "pA7sD0fG" + "2hJ"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        f"api_key={KEY}",
+        f'api_key="{KEY}"',
+        f"token={KEY}{KEY[:10]}",
+        f"password={KEY}",
+        f"retry_policy={LONG_VALUE}",
+        f"startup_timeout={LONG_VALUE.upper()}",
+        f'startup_timeout="KERNEL_START_TIMEOUT_{LONG_VALUE}"',
+        f"max_requests_per_run={LONG_VALUE}=",
+        f"max_requests_per_run=DEFAULT_{LONG_VALUE}",
+        f"max_requests_per_run=default_{LONG_VALUE}",
+    ],
+)
+def test_assignments_of_secret_looking_values_are_still_caught(text, tmp_path):
+    assert hygiene.scan_text(text), text
+    assert scan(tmp_path, notebook(source=text)), text
