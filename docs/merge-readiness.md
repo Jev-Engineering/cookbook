@@ -138,13 +138,16 @@ added a job silently under-checks, which is why the list is explicit and the rec
    SHA=$(gh pr view <PR> --repo $REPO --json mergeCommit --jq .mergeCommit.oid)
 
    # CheckRuns on that commit: the count, then name, app, status, conclusion per run
-   gh api "repos/$REPO/commits/$SHA/check-runs?filter=latest&per_page=100"      --jq '.total_count, (.check_runs[] | [.name, .app.slug, .status, .conclusion] | @tsv)'
+   gh api "repos/$REPO/commits/$SHA/check-runs?filter=latest&per_page=100" \
+     --jq '.total_count, (.check_runs[] | [.name, .app.slug, .status, .conclusion] | @tsv)'
 
    # The same, with filter=all, to audit earlier attempts such as a cancelled one
-   gh api "repos/$REPO/commits/$SHA/check-runs?filter=all&per_page=100"      --jq '.total_count, (.check_runs[] | [.id, .name, .app.slug, .status, .conclusion] | @tsv)'
+   gh api "repos/$REPO/commits/$SHA/check-runs?filter=all&per_page=100" \
+     --jq '.total_count, (.check_runs[] | [.id, .name, .app.slug, .status, .conclusion] | @tsv)'
 
    # StatusContexts on that commit (empty today; read it for any added external check)
-   gh api "repos/$REPO/commits/$SHA/status?per_page=100"      --jq '.sha, .total_count, (.statuses[] | [.context, .state] | @tsv)'
+   gh api "repos/$REPO/commits/$SHA/status?per_page=100" \
+     --jq '.sha, .total_count, (.statuses[] | [.context, .state] | @tsv)'
 
    # The commit is on main: expect "ahead 0" or "identical 0" (main at or after $SHA)
    gh api "repos/$REPO/compare/$SHA...main" --jq '[.status, .behind_by] | join(" ")'
@@ -186,15 +189,44 @@ again, because an update changes the head and voids the earlier approval.
 For **foundation pull requests only**, the original supervisor, as sole serial merge controller,
 may instead rule that an advance of `main` is immaterial and merge the reviewed head without
 updating it. The ruling is a manual adjudication of the narrow case where the update would void
-an approval for no change in what is merged. It needs all of the following, each recorded on the
-pull request before the merge:
+an approval for no change in what is merged.
 
-1. **Explicit evidence of the current delta and its effect.** Name the commits that advanced
-   `main` since the branch last integrated it, show the delta (for example
+### A recorded departure from the PROMPT checklist, not a satisfied condition
+
+The exception contradicts `orchestration/PROMPT.md` as it is written today, and it does not
+reconcile the two. The PROMPT checklist is still the operative rule for every merge, and this
+document does not amend it:
+
+- the "Merging" checklist requires that "the branch is current against `main`" (line 128);
+- a foundation pull request left behind by a merge is updated by its owner and reviewed again
+  (line 142);
+- Wave 0 foundation pull requests are each updated against the last and re-reviewed if the head
+  changed (line 309).
+
+A merge under this exception does not meet those conditions. It is a supervisor-adjudicated,
+recorded departure from them, to be named as such on the pull request. Changing the PROMPT
+wording is a separate foundation pull request with its own review; this document does not do it,
+and until one lands the contradiction stands and is not resolved here. For the same follow-up,
+`orchestration/PROMPT.md` line 136 merges with `--delete-branch`, while the serial-merge section
+above says not to add it.
+
+The earlier supervisor wording that treated the helper's ancestry result as advisory in the
+immaterial case is not adopted. The result stays a binding `NOT READY`; the exception is a
+separate manual ruling that sits next to it.
+
+### Requirements
+
+An exception needs all of the following, each recorded on the pull request before the merge:
+
+1. **Explicit evidence of the current delta and its effect, pinned to a `main` SHA.** Record the
+   exact `main` SHA evaluated and the helper receipt that showed the ancestry failure. Name the
+   commits that advanced `main` since the branch last integrated it, show the delta (for example
    `git diff <main at last integration>..<current main>`), and show that none of it touches the
-   pull request's files or the shared code they depend on. Then state the effect on each required
-   check at the merge result, for example from a trial merge that is not committed
-   (`git merge-tree --write-tree <head> <current main>`) and the relevant checks run on it.
+   pull request's files or the shared code they depend on. Then show the effect on **every**
+   required check at the merge result: run each one on an uncommitted trial merge
+   (`git merge-tree --write-tree <head> <current main>`), or reason about each one separately. The
+   head's own check runs came from an older merge result, so the trial merge or that per-check
+   reasoning is the only coverage of the combination.
 2. **Explicit genuine reviewer agreement at the same head.** A genuine Opus review of the exact
    head being merged states that it accepts the adjudication for that head. A review that asked
    for integration is not satisfied by the supervisor's ruling alone; the same-head reviewer must
@@ -208,6 +240,9 @@ pull request before the merge:
    the exact merge commit as in the post-merge step above, and wait for it to finish green before
    merging anything else. If it is red, stop merging.
 
+If `main` advances again before the merge, the ruling and the reviewer's agreement no longer
+apply. Both must be renewed for the new delta, or the branch is updated and reviewed again.
+
 The exception covers only the ancestry failure. Any other failure in the receipt (head pin,
 draft or closed pull request, a failed, cancelled, missing or pending check) still stands.
 
@@ -218,22 +253,26 @@ the renewed head review are required.
 ### Recipe pull requests are not covered
 
 The exception does not extend to recipe pull requests and does not weaken #69's recipe gate or
-the ownership of the generated README. `CONTRIBUTING.md` and `orchestration/PROMPT.md` stay as
-written: a recipe branch is updated against current `main` with a signed merge commit, the
+the ownership of the generated README. `CONTRIBUTING.md` and the recipe rules in
+`orchestration/PROMPT.md` stay as written and have no exception: a recipe branch is updated against current `main` with a signed merge commit, the
 generated README regions are computed from the **base** README, strict scope and catalog CI
 must pass, and the new head is reviewed again after any update.
 
 ### Recorded history
 
-PR #96 is the recorded case. The Opus review of head `f843a7c` (comment 6031008513) approved that
-content and stated that, after #91 advanced `main`, the helper returned `NOT READY` with
-`behind_by` 1 and that a signed integration and a fresh review were needed before merging. The
-supervisor's merge note (comment 6031022258) ruled the advance immaterial and merged without that
-refresh. The audit receipt (issue #80, comment 6031048875) records this as an adjudicated process
-exception, not proof that the review's precondition or the helper's ancestry gate passed. The
-requirements above are the explicit version of that adjudication; they do not approve #96
-retroactively.
+PR #96 is the recorded case. It did not meet requirements 1 and 2 above. The Opus review of head
+`f843a7c` (comment 6031008513) approved that content, and stated that after #91 advanced `main`
+the helper returned `NOT READY` with `behind_by` 1 and that a signed integration and a fresh
+review were needed before merging. The supervisor's merge note (comment 6031022258) ruled the
+advance immaterial and merged without that refresh. No later #96 comment records the reviewer
+accepting that ruling, and no per-check effect evidence was recorded there. The audit receipt
+(issue #80, comment 6031048875) records this as an adjudicated process exception, not proof that
+the review's precondition or the helper's ancestry gate passed. The requirements above are not a
+description of what #96 did, they do not approve #96 retroactively, and no reviewer agreement is
+supplied for it after the fact.
 
-The PR #98 review (comment 6031023696) recorded a related ruling, and it corrected the claim that
-the pull request's checks already ran with current `main`: they ran on the merge result of the
-last push, which did not contain the advance. The post-merge CI on `main` is the backstop.
+The merge note also said the five checks were green "on the merge ref with current `main`". They
+were not run against the advance: the five checks on `f843a7c` completed between 03:52:39Z and
+03:53:33Z, and #91 merged at 04:32:27Z. The PR #98 review (comment 6031023696) made the same
+correction for its own checks: they ran on the merge result of the last push, which did not
+contain the advance. In both cases the post-merge CI on `main` is the backstop.
