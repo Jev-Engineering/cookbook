@@ -13,8 +13,10 @@ touches the network. The SDK is imported (and ``TYPESAFE_API_KEY`` read) only wh
 from __future__ import annotations
 
 import datetime
+import inspect
 import json
 import os
+import re
 import tempfile
 import threading
 import time
@@ -62,6 +64,12 @@ BACKOFF_INITIAL = 0.5
 BACKOFF_MAX = 8.0
 RETRY_AFTER_MAX = 30.0
 _MESSAGE_LIMIT = 300
+OFFICIAL_BASE_URL = "https://api.typesafe.ai"
+BASE_URL_ENV = "TYPESAFE_BASE_URL"
+# The only per-call options a recorder may pass through. Everything else (retry, extra_body,
+# extra_headers, state, questions, model, response_model, ...) can change what is sent or how
+# many times, so it is rejected rather than forwarded.
+ALLOWED_REQUEST_KWARGS = frozenset({"provider", "timeout"})
 
 
 class LiveConfigError(LiveBackendUnavailable):
@@ -102,7 +110,14 @@ class LiveResponseError(ValueError):
 
 
 class RecordConflict(ValueError):
-    """A responses file already holds a different response under this replay key."""
+    """A responses file already holds a different response under this replay key.
+
+    When the conflict happens after a paid call, ``result`` holds that ``DecisionResult`` and
+    ``saved_to`` the side file it was kept in (``None`` if even that write failed).
+    """
+
+    result: DecisionResult | None = None
+    saved_to: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -116,10 +131,38 @@ class CallRecord:
     date: str
 
 
-def _scrub(text: str, secret: str | None) -> str:
-    if secret:
+def _secret_variants(*raw: str | None) -> tuple[str, ...]:
+    """Every form of the key that may be echoed: as given, and trimmed (what the SDK sends)."""
+    forms = set()
+    for value in raw:
+        if value and value.strip():
+            forms.update((value, value.strip()))
+    return tuple(sorted(forms, key=len, reverse=True))
+
+
+def _redact(text: str, secrets: Iterable[str]) -> str:
+    for secret in secrets:
         text = text.replace(secret, "[redacted]")
+    return text
+
+
+def _scrub(text: str, secrets: Iterable[str]) -> str:
+    text = _redact(text, secrets)
     return text if len(text) <= _MESSAGE_LIMIT else text[:_MESSAGE_LIMIT] + "..."
+
+
+def _redact_data(data: Any, secrets: tuple[str, ...]) -> Any:
+    """Copy parsed JSON with the key removed from every string and key."""
+    if isinstance(data, str):
+        return _redact(data, secrets)
+    if isinstance(data, Mapping):
+        return {
+            (_redact(k, secrets) if isinstance(k, str) else k): _redact_data(v, secrets)
+            for k, v in data.items()
+        }
+    if isinstance(data, list):
+        return [_redact_data(v, secrets) for v in data]
+    return data
 
 
 def _today_utc() -> str:
@@ -136,6 +179,17 @@ def _import_sdk() -> Any:
             f"{LIVE_ENV}=1 and {API_KEY_ENV}. Offline runs do not need it."
         ) from None
     return typesafe_sdk
+
+
+def _check_base_url() -> None:
+    """Refuse to send the key anywhere but the official host (the SDK reads this variable)."""
+    raw = os.environ.get(BASE_URL_ENV, "").strip()
+    if raw and raw.rstrip("/").lower() != OFFICIAL_BASE_URL:
+        raise LiveConfigError(
+            f"{BASE_URL_ENV} is set to a host other than {OFFICIAL_BASE_URL}, and the SDK would "
+            f"send {API_KEY_ENV} there. Unset it for a live run. To use another endpoint on "
+            "purpose, build the client yourself and pass LiveBackend(model, client=...)."
+        )
 
 
 def _read_key() -> str:
@@ -267,7 +321,36 @@ def _is_retryable(exc: BaseException) -> bool:
     return isinstance(exc, (ConnectionError, TimeoutError))
 
 
-def _describe_failure(exc: BaseException, key: str | None) -> LiveCallError:
+def _is_validation_error(exc: BaseException) -> bool:
+    return (
+        type(getattr(exc, "field_path", None)) is str and type(getattr(exc, "status", None)) is int
+    )
+
+
+def _response_validation_error(exc: BaseException, secrets: tuple[str, ...]) -> LiveResponseError:
+    """A 200 the SDK rejected: keep the (scrubbed) body, as docs/live.md promises."""
+    path = _redact(str(getattr(exc, "field_path", "")), secrets)
+    body = getattr(exc, "body", None)
+    msg = f"the API answered HTTP {getattr(exc, 'status', 200)} but the body is not a valid result"
+    if path:
+        msg += f" (invalid or missing field {path!r})"
+    parsed = None
+    if isinstance(body, Mapping):
+        parsed = _redact_data(body, secrets)
+    elif isinstance(body, str) and body:
+        msg += f". The body was not a JSON object. It begins: {_scrub(body, secrets)!r}"
+    return LiveResponseError(msg, response=parsed)
+
+
+def _takes_retry(client: Any) -> bool:
+    """True when ``client.system_one`` has a per-call ``retry`` parameter (the SDK's does)."""
+    try:
+        return "retry" in inspect.signature(client.system_one).parameters
+    except (TypeError, ValueError, AttributeError):
+        return False
+
+
+def _describe_failure(exc: BaseException, secrets: tuple[str, ...]) -> LiveCallError:
     status = getattr(exc, "status", None)
     status = status if type(status) is int else None
     rid = getattr(exc, "request_id", None)
@@ -281,10 +364,11 @@ def _describe_failure(exc: BaseException, key: str | None) -> LiveCallError:
         what = f"the API returned HTTP {status}"
     else:
         what = "the request failed"
-    detail = _scrub(str(exc), key)
+    detail = _scrub(str(exc), secrets)
     hint = ""
     if status == 401:
         hint = f" Check {API_KEY_ENV}."
+    rid = _redact(rid, secrets) if rid else rid
     msg = f"{what} ({kind}{f', request id {rid}' if rid else ''}).{hint}"
     if detail:
         msg += f" Detail: {detail}"
@@ -305,7 +389,10 @@ class LiveBackend:
     so that this class owns retries and every attempt is counted. An injected client reads
     nothing from the environment; if it retries internally those retries are not visible to the
     budget, so build it with retries off. ``request_kwargs`` are passed to every
-    ``system_one`` call (the seam for the System One Adapter's ``provider=``).
+    ``system_one`` call (the seam for the System One Adapter's ``provider=``); only
+    ``provider`` and ``timeout`` are accepted, because anything else (``retry``, ``extra_body``,
+    ...) could change what is sent or how many times. The backend always passes its own no-retry
+    policy per call when the client's ``system_one`` takes ``retry=``.
 
     The budget: at most ``max_requests`` attempts (each retry counts; a timeout counts as
     spent). A request over the budget raises ``BudgetExceeded`` before anything is sent.
@@ -338,6 +425,13 @@ class LiveBackend:
         self.model: str = model
         self.max_requests: int = max_requests
         self.max_retries: int = max_retries
+        bad = sorted(set(request_kwargs or {}) - ALLOWED_REQUEST_KWARGS)
+        if bad:
+            raise ValueError(
+                f"request_kwargs {bad} are not allowed: they could change what is sent or how "
+                "many requests are made, which the budget cannot see. Allowed: "
+                f"{sorted(ALLOWED_REQUEST_KWARGS)}."
+            )
         self._request_kwargs = dict(request_kwargs or {})
         self._sleep = sleep
         self._today = today
@@ -349,20 +443,32 @@ class LiveBackend:
         self._calls_without_usage = 0
         self._records: list[CallRecord] = []
         self._owns_client = client is None
+        # Only used to scrub messages; an injected client's key came from somewhere we cannot
+        # see, and the usual place is this variable.
+        self._secrets = _secret_variants(os.environ.get(API_KEY_ENV))
+        self._call_extra: dict[str, Any] = {}
         if client is None:
             client = self._build_client()
+            self._call_extra["retry"] = _import_sdk().RetryPolicy(max_retries=0)
+        elif _takes_retry(client):
+            self._call_extra["retry"] = _import_sdk().RetryPolicy(max_retries=0)
         self._client = client
 
     def _build_client(self) -> Any:
         key = _read_key()
+        _check_base_url()
+        self._secrets = _secret_variants(os.environ.get(API_KEY_ENV), key)
         sdk = _import_sdk()
+        failure = None
         try:
-            return sdk.TypeSafeClient(api_key=key, retry=sdk.RetryPolicy(max_retries=0))
+            return sdk.TypeSafeClient(
+                api_key=key, base_url=OFFICIAL_BASE_URL, retry=sdk.RetryPolicy(max_retries=0)
+            )
         except Exception as exc:
-            raise LiveConfigError(
-                f"the TypeSafe SDK rejected {API_KEY_ENV} ({type(exc).__name__}): "
-                + _scrub(str(exc), key)
-            ) from None
+            failure = (type(exc).__name__, _scrub(str(exc), self._secrets))
+        raise LiveConfigError(
+            f"the TypeSafe SDK rejected {API_KEY_ENV} ({failure[0]}): {failure[1]}"
+        )
 
     def __repr__(self) -> str:
         return (
@@ -446,31 +552,47 @@ class LiveBackend:
         key = replay_key(state, questions)
         payload = {name: _question_payload(q) for name, q in checked.items()}
         attempt = 0
+        # Errors are raised after their `except` block has ended, so neither `__cause__` nor
+        # `__context__` carries the SDK exception (its message may echo the key).
         while True:
             self._spend()
+            failure: Exception | None = None
+            delay = 0.0
             try:
                 response = self._client.system_one(
                     state=plain_json(plain_state, "state"),
                     questions=payload,
                     model=self.requested_model,
                     **self._request_kwargs,
+                    **self._call_extra,
                 )
             except Exception as exc:
                 with self._lock:
                     self._failed += 1
                 if _is_retryable(exc) and attempt < self.max_retries:
                     attempt += 1
-                    self._sleep(self._delay(exc, attempt))
-                    continue
-                raise _describe_failure(exc, os.environ.get(API_KEY_ENV)) from None
-            break
+                    delay = self._delay(exc, attempt)
+                elif _is_validation_error(exc):
+                    failure = _response_validation_error(exc, self._secrets)
+                else:
+                    failure = _describe_failure(exc, self._secrets)
+            else:
+                break
+            if failure is not None:
+                raise failure
+            self._sleep(delay)
         date = self._today()
+        problem: tuple[str, Any] | None = None
         try:
             result, rid = _parse_response(response, checked, date)
-        except LiveResponseError:
+        except LiveResponseError as exc:
             with self._lock:
                 self._failed += 1
-            raise
+            problem = (str(exc), exc.response)
+        if problem is not None:
+            raise LiveResponseError(
+                _redact(problem[0], self._secrets), response=_redact_data(problem[1], self._secrets)
+            )
         self._note_success(CallRecord(key, result.model, rid, result.usage, date))
         return result
 
@@ -588,6 +710,25 @@ class RecordReport:
     ledger_path: Path | None = None
 
 
+def _keep_paid_response(
+    exc: RecordConflict, target: Path, key: str, result: DecisionResult
+) -> RecordConflict:
+    """Save a response that could not be merged (alias moved, answer differs) beside the file."""
+    safe = re.sub(r"[^A-Za-z0-9._-]", "_", result.model)
+    side = target.with_name(f"{target.stem}-{safe}{target.suffix}")
+    saved: Path | None = None
+    try:
+        merge_responses(side, {key: result.to_dict()}, overwrite=False)
+        saved = side
+        note = f" The response was paid for, so it was kept in {side} (nothing else changed)."
+    except Exception as inner:
+        note = f" Keeping it in {side} also failed ({type(inner).__name__}); it is on .result."
+    err = RecordConflict(f"{exc}{note}")
+    err.result = result
+    err.saved_to = saved
+    return err
+
+
 def record(
     backend: LiveBackend,
     requests: Iterable[tuple[Any, Mapping[str, Question]]],
@@ -614,7 +755,7 @@ def record(
     written: list[str] = []
     skipped: list[str] = []
     unchanged: list[str] = []
-    sidecar: dict[str, Any] = {}
+    out_ledger: Path | None = None
     seen: set[str] = set()
     for state, questions in requests:
         key = replay_key(state, questions)
@@ -626,23 +767,25 @@ def record(
             continue
         result = backend.decide(state, questions)
         rec = backend.records[-1]
-        w, u = merge_responses(target, {key: result.to_dict()}, overwrite=overwrite)
+        # The call is paid for: record its request id first, then the response.
+        if ledger_path is not None:
+            out_ledger = Path(ledger_path)
+            old = _load_responses(out_ledger)
+            old[key] = {
+                "request_id": rec.request_id,
+                "model": rec.model,
+                "date": rec.date,
+                "input_tokens": rec.usage.input_tokens,
+                "output_tokens": rec.usage.output_tokens,
+            }
+            _write_atomic(out_ledger, _dump(old))
+        try:
+            w, u = merge_responses(target, {key: result.to_dict()}, overwrite=overwrite)
+        except RecordConflict as exc:
+            raise _keep_paid_response(exc, target, key, result) from None
         written += w
         unchanged += u
         existing.add(key)
-        sidecar[key] = {
-            "request_id": rec.request_id,
-            "model": rec.model,
-            "date": rec.date,
-            "input_tokens": rec.usage.input_tokens,
-            "output_tokens": rec.usage.output_tokens,
-        }
-    out_ledger = None
-    if ledger_path is not None and sidecar:
-        out_ledger = Path(ledger_path)
-        old = _load_responses(out_ledger)
-        old.update(sidecar)
-        _write_atomic(out_ledger, _dump(old))
     return RecordReport(
         target,
         tuple(written),

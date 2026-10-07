@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import traceback
 import types
 
 import pytest
@@ -354,6 +355,7 @@ def clean_env(monkeypatch):
         "TYPESAFE_API_KEY",
         "JEV_COOKBOOK_LIVE_MODEL",
         "JEV_COOKBOOK_LIVE_MAX_REQUESTS",
+        "TYPESAFE_BASE_URL",
     ):
         monkeypatch.delenv(name, raising=False)
     return monkeypatch
@@ -362,6 +364,7 @@ def clean_env(monkeypatch):
 class FakeSdkClient:
     def __init__(self, *, api_key=None, retry=None, **kw):
         self.api_key = api_key
+        self.kw = kw
         self.retry = retry
         self.closed = False
         if api_key.startswith("reject"):
@@ -646,3 +649,145 @@ def test_duplicate_requests_in_one_run_are_sent_once(tmp_path):
     backend, client = make()
     report = record(backend, [(STATE, QUESTIONS), (STATE, QUESTIONS)], tmp_path / "r.json")
     assert len(client.calls) == 1 and len(report.written) == 1
+
+
+# -- fix round 1: key scrubbing, request kwargs, ledger after a partial run -----------------
+
+PADDED = ["  " + SECRET + " \r\n", SECRET + "\r", SECRET]
+
+
+def everything_said_about(exc, *extra):
+    """Every string a caller could print: str, repr, args and the formatted chain."""
+    seen, texts, e = set(), list(extra), exc
+    stack = [exc]
+    while stack:
+        e = stack.pop()
+        if e is None or id(e) in seen:
+            continue
+        seen.add(id(e))
+        texts += [str(e), repr(e), repr(e.args)]
+        stack += [e.__cause__, e.__context__]
+    texts.append("".join(traceback.format_exception(exc)))
+    return "\n".join(texts), seen
+
+
+@pytest.mark.parametrize("raw", PADDED)
+def test_key_variants_never_reach_messages_tracebacks_or_the_ledger(clean_env, raw):
+    clean_env.setenv("JEV_COOKBOOK_LIVE", "1")
+    clean_env.setenv("TYPESAFE_API_KEY", raw)
+    install_fake_sdk(clean_env)
+    backend = LiveBackend("jev-latest", sleep=lambda s: None, max_retries=0)
+    with pytest.raises(LiveCallError) as err:
+        backend.decide(STATE, QUESTIONS)  # the fake SDK echoes the trimmed key it was given
+    text, chain = everything_said_about(
+        err.value, repr(backend), repr(backend.ledger()), repr(backend.records)
+    )
+    assert SECRET not in text and raw not in text and "[redacted]" in text
+    assert err.value.__cause__ is None and err.value.__context__ is None
+    assert len(chain) == 1  # the SDK exception is nowhere on the chain
+
+
+def test_base_url_other_than_the_official_host_is_refused(clean_env):
+    clean_env.setenv("JEV_COOKBOOK_LIVE", "1")
+    clean_env.setenv("TYPESAFE_API_KEY", SECRET)
+    install_fake_sdk(clean_env)
+    clean_env.setenv("TYPESAFE_BASE_URL", "https://api.typesafe.ai.evil.example")
+    with pytest.raises(LiveConfigError, match="TYPESAFE_BASE_URL") as err:
+        LiveBackend("jev-latest")
+    assert SECRET not in str(err.value)
+    for ok in ("https://api.typesafe.ai", "https://API.typesafe.ai/", "  "):
+        clean_env.setenv("TYPESAFE_BASE_URL", ok)
+        backend = LiveBackend("jev-latest")
+        # the host is also passed explicitly, so the SDK never consults the variable
+        assert backend._client.kw["base_url"] == "https://api.typesafe.ai"
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["retry", "extra_body", "extra_headers", "state", "questions", "model", "response_model"],
+)
+def test_request_kwargs_that_change_what_is_sent_are_rejected(name):
+    with pytest.raises(ValueError, match=name):
+        LiveBackend("m", client=FakeClient(), request_kwargs={name: object()})
+
+
+def test_allowed_request_kwargs_are_forwarded():
+    backend, client = make(request_kwargs={"provider": "openai", "timeout": 5})
+    backend.decide(STATE, QUESTIONS)
+    assert client.calls[0]["provider"] == "openai" and client.calls[0]["timeout"] == 5
+    assert "retry" not in client.calls[0]  # a client without a retry parameter gets none
+
+
+class ValidationError(Exception):
+    """Shaped like typesafe_sdk's TypeSafeAPIResponseValidationError (duck typing)."""
+
+    def __init__(self, body, field_path="answers"):
+        super().__init__(200, body, field_path)
+        self.status, self.body, self.field_path = 200, body, field_path
+
+
+def test_a_200_the_sdk_rejects_is_a_response_error_with_the_scrubbed_body(clean_env):
+    clean_env.setenv("TYPESAFE_API_KEY", " " + SECRET + "\r")
+    body = {"model": MODEL, "echo": f"saw {SECRET}", SECRET: 1, "rows": [SECRET]}
+    backend, _ = make(ValidationError(body))
+    with pytest.raises(LiveResponseError, match="answers") as err:
+        backend.decide(STATE, QUESTIONS)
+    assert err.value.response == {
+        "model": MODEL,
+        "echo": "saw [redacted]",
+        "[redacted]": 1,
+        "rows": ["[redacted]"],
+    }
+    assert not isinstance(err.value, LiveCallError)
+    assert SECRET not in everything_said_about(err.value)[0]
+    assert backend.requests_made == 1 and backend.ledger()["failed_attempts"] == 1
+
+
+def test_a_200_with_a_text_body_has_no_parsed_response():
+    backend, _ = make(ValidationError("<html>nope</html>", "$"))
+    with pytest.raises(LiveResponseError, match="nope") as err:
+        backend.decide(STATE, QUESTIONS)
+    assert err.value.response is None
+
+
+def test_failure_on_the_second_call_leaves_a_ledger_with_the_first_request_id(tmp_path):
+    path, ledger = tmp_path / "r.json", tmp_path / "ledger.json"
+    backend, _ = make(Resp(api_body(), "req-paid"), ApiError(400, "bad"))
+    with pytest.raises(LiveCallError):
+        record(backend, two_requests(), path, ledger_path=ledger)
+    first = replay_key(*two_requests()[0])
+    assert set(json.loads(path.read_text("utf-8"))) == {first}
+    side = json.loads(ledger.read_text("utf-8"))
+    assert set(side) == {first} and side[first]["request_id"] == "req-paid"
+    assert backend.ledger()["request_ids"] == ["req-paid"]
+    assert not list(tmp_path.glob(".responses-*"))
+
+
+def test_budget_exhaustion_leaves_the_ledger_consistent(tmp_path):
+    path, ledger = tmp_path / "r.json", tmp_path / "ledger.json"
+    backend, _ = make(Resp(api_body(), "req-1"), max_requests=1)
+    with pytest.raises(BudgetExceeded):
+        record(backend, two_requests(), path, ledger_path=ledger)
+    assert set(json.loads(ledger.read_text("utf-8"))) == set(json.loads(path.read_text("utf-8")))
+
+
+def test_ledger_entry_is_kept_even_when_the_merge_fails(tmp_path):
+    path, ledger = tmp_path / "r.json", tmp_path / "ledger.json"
+    backend, _ = make(Resp(api_body("jev-1.13.0"), "r1"), Resp(api_body("jev-1.14.0"), "r2"))
+    with pytest.raises(RecordConflict):
+        record(backend, two_requests(), path, ledger_path=ledger)
+    assert {v["request_id"] for v in json.loads(ledger.read_text("utf-8")).values()} == {"r1", "r2"}
+
+
+def test_a_paid_response_from_a_moved_alias_is_kept_in_a_side_file(tmp_path):
+    path = tmp_path / "responses.json"
+    backend, _ = make(Resp(api_body("jev-1.13.0"), "r1"), Resp(api_body("jev-1.14.0"), "r2"))
+    with pytest.raises(RecordConflict, match="more than one model|kept in") as err:
+        record(backend, two_requests(), path)
+    second = replay_key(*two_requests()[1])
+    side = tmp_path / "responses-jev-1.14.0.json"
+    assert err.value.saved_to == side and err.value.result.model == "jev-1.14.0"
+    assert set(json.loads(side.read_text("utf-8"))) == {second}
+    assert ReplayBackend.from_json(side).model == "jev-1.14.0"
+    assert ReplayBackend.from_json(path).model == "jev-1.13.0"  # the main file is untouched
+    assert set(json.loads(path.read_text("utf-8"))) == {replay_key(*two_requests()[0])}

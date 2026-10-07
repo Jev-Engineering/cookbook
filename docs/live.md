@@ -14,8 +14,15 @@ Three things are needed, and each missing one gives an error that says what to d
    Importing `jev_cookbook` never imports it; only building a live client does.
 2. `JEV_COOKBOOK_LIVE=1` in the environment. Any other value than unset, empty, `0` or `1` is an
    error; `1` never falls back to replay.
-3. `TYPESAFE_API_KEY` in the environment, read when the backend is built. Never put a key in a
-   notebook, fixture or committed file.
+3. `TYPESAFE_API_KEY` in the environment, read when the backend is built (trimmed of
+   surrounding whitespace once, as the SDK does). Never put a key in a notebook, fixture or
+   committed file.
+
+The SDK also reads `TYPESAFE_BASE_URL`, which would send the key to whatever host it names. When
+the backend builds its own client it refuses to start (`LiveConfigError`) if that variable is set
+to anything but `https://api.typesafe.ai`, and it passes the official host to the client
+explicitly. To use another endpoint on purpose, build the client yourself and inject it with
+`client=`. There is no environment opt-in for this.
 
 ```python
 from jev_cookbook import LiveBackend
@@ -37,7 +44,8 @@ in live mode the backend is the only thing that changes.
 
 ### Model
 
-The model is passed explicitly for every run, never defaulted. The documentation lists the pinned
+**Recordings must pin a versioned model: use `jev-1.13.0`, not an alias.** The model is passed
+explicitly for every run, never defaulted. The documentation lists the pinned
 ID `jev-1.13.0` and the aliases `jev-latest` and `jev-preview`. An alias moves when a release
 ships, so a recording made through an alias may not be reproducible later; the response's `model`
 field reports the versioned ID that answered. `backend.model` is the requested string until the
@@ -66,7 +74,16 @@ sent). The returned string is what goes on `DecisionResult.model` and into every
 `LiveBackend(model, *, client=None, max_requests=25, max_retries=2, request_kwargs=None)`.
 
 - At most `max_requests` attempts per backend instance, enforced before each send. The next one
-  raises `BudgetExceeded` and nothing is sent.
+  raises `BudgetExceeded` and nothing is sent. The budget belongs to the instance: a new
+  `LiveBackend` (or a second `get_backend()` call under `JEV_COOKBOOK_LIVE=1`) starts a fresh one.
+  Cumulative accounting across instances, runs and sessions is the orchestrator's job, not this
+  module's; persist `backend.ledger()` and the recorder sidecar (below) for it.
+- `request_kwargs` accepts only `provider` and `timeout`. Anything else (`retry`, `extra_body`,
+  `extra_headers`, `state`, `questions`, `model`, `response_model`, ...) raises `ValueError`,
+  because it could change what is sent or how many requests one call makes. The backend also
+  passes its own no-retry policy on every call whenever the client's `system_one` takes `retry=`
+  (the SDK's does), so a client built with its own retries cannot exceed the budget either: at
+  most `max_requests` HTTP requests are ever sent.
 - Retries count. A request whose outcome is unknown (timeout after send) counts as spent. So does
   a request the API answered with an error, and one whose response failed validation.
 - Retries: HTTP 408, 429 and 5xx, connection errors and timeouts, up to `max_retries` times with
@@ -81,9 +98,11 @@ sent). The returned string is what goes on `DecisionResult.model` and into every
   key, state or answers.
 
 An injected `client` is yours: any object with `system_one(state=..., questions=..., model=...)`
-returning an SDK-style response. The backend reads nothing from the environment for it (no opt-in,
-no key), and if that client retries inside itself those retries are invisible to the budget, so
-build it with retries off.
+returning an SDK-style response. The backend requires no opt-in or key for it (it reads
+`TYPESAFE_API_KEY` only to scrub that text from error messages). If the client's `system_one` takes
+`retry=` the backend passes a no-retry policy per call, so the SDK's own retries cannot add
+requests; a client without that parameter that retries inside itself is invisible to the budget,
+so build it with retries off.
 
 ## Recorder
 
@@ -117,12 +136,23 @@ report = record(
   writes nothing.
 - Each response is written as soon as it arrives, so an error later in the run (budget, network, an
   invalid answer) keeps what was already paid for. Duplicate requests in one run are sent once.
+- A paid response that cannot be merged (for example the alias moved and the file holds another
+  model, or the same key holds a different answer) is not lost: it is written to a side file
+  `<responses stem>-<returned model><suffix>` (for example `responses-jev-1.14.0.json`) beside the
+  main file, which is left untouched, and `RecordConflict` is raised with `.result` (the
+  `DecisionResult`) and `.saved_to` (the side file). Pin the model to avoid this.
+- One recorder per responses file: the merge is read-modify-write, and two recorders on one file
+  race.
 - `RecordReport` lists `written`, `skipped` and `unchanged` keys, the number of attempts the
   backend made, and the returned model.
 - `ledger_path`: a JSON sidecar `{replay_key: {request_id, model, date, input_tokens,
   output_tokens}}` for the calls made in this run. It is separate from the responses file because
   the stored-response format has no field for the request id. It is optional; if the fixture
-  validator of #65 restricts the files in `fixtures/`, point it somewhere else.
+  validator of #65 restricts the files in `fixtures/`, point it somewhere else. It is rewritten
+  atomically after every successful call, before that response is merged, so a failure part-way
+  (HTTP error, budget, a merge conflict) leaves the request ids of the calls already paid for.
+  Failed attempts are not in the sidecar (they have no response); persist `backend.ledger()` in a
+  `finally` to keep their count.
 
 ### Tolerances: what the first real recording settles
 
@@ -140,11 +170,15 @@ either way.
 
 ## What is and is not logged
 
-- This module makes no `logging` calls and prints nothing. The key is read once, passed to the
-  SDK client and not stored on the backend, so it is not in `repr`/`str` of the backend, in
+- This module makes no `logging` calls and prints nothing. The key is read once and passed to the
+  SDK client; the backend keeps only the private strings it scrubs with, so the key is not in
+  `repr`/`str` of the backend, in
   `ledger()`, in `records`, in fixtures or in the sidecar. Error messages carry the exception
-  class, HTTP status, the request id and the SDK's message with the key text replaced by
-  `[redacted]`, and are raised without the original exception chained.
+  class, HTTP status, the request id and the SDK's message with every form of the key (as
+  exported and trimmed) replaced by `[redacted]`. They are raised after the SDK's exception has
+  been handled, so neither `__cause__` nor `__context__` carries it. An HTTP 200 that the SDK
+  rejects (a missing field, a body that is not JSON) is a `LiveResponseError` whose `.response`
+  is the parsed body, scrubbed the same way, or `None` for a non-JSON body.
 - The SDK has its own `typesafe_sdk` logger (`TYPESAFE_LOG_LEVEL`). It redacts secret headers,
   but request and response **bodies are not redacted**. Leave it off in notebooks whose state is
   sensitive, and do not paste its output into a pull request.
