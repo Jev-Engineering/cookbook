@@ -26,6 +26,7 @@ from jev_cookbook import (
     get_backend,
     replay_key,
 )
+from jev_cookbook import fixtures as fixtures_module
 from jev_cookbook.fixtures import (
     FixtureFileError,
     load_inputs,
@@ -360,8 +361,18 @@ def test_a_provenance_that_is_not_an_object_is_a_problem_not_a_crash(recipe):
         load_responses(recipe)
 
 
-def test_a_deeply_nested_line_or_response_is_a_problem_not_a_crash(recipe):
-    deep = "[" * 100_000 + "]" * 100_000
+def test_a_deeply_nested_line_or_response_is_a_problem_not_a_crash(recipe, monkeypatch):
+    """Some interpreters raise RecursionError from json.loads on deep input, some do not (the
+    C scanner's limit differs by platform and version), so the test makes it raise."""
+    real_loads = json.loads
+
+    def loads(text, **kwargs):
+        if "[" * 1000 in text:
+            raise RecursionError("maximum recursion depth exceeded")
+        return real_loads(text, **kwargs)
+
+    monkeypatch.setattr(fixtures_module.json, "loads", loads)
+    deep = "[" * 2000 + "]" * 2000
     folder = recipe / "fixtures"
     (folder / "labels.jsonl").write_text(
         '{"id": "t0", "label": "x"}\n{"id": "t1", "label": ' + deep + "}\n", encoding="utf-8"
