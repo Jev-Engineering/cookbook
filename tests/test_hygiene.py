@@ -11,6 +11,7 @@ import gzip
 import importlib.util
 import io
 import json
+import os
 import random
 import string
 import subprocess
@@ -69,6 +70,22 @@ def scan(tmp_path: Path, nb: dict):
     path = tmp_path / "notebook.ipynb"
     path.write_text(json.dumps(nb), encoding="utf-8")
     return hygiene.scan_file(path)
+
+
+_REAL_LOCAL_USERNAMES = hygiene._local_usernames
+
+
+@pytest.fixture(autouse=True)
+def _no_ambient_account(monkeypatch):
+    """The suite must give the same result under any developer account name.
+
+    The local-username rule reads the running account; every test starts with it off and the
+    username tests turn it on explicitly (see the `account` fixture).
+    """
+    monkeypatch.setattr(hygiene, "_local_usernames", lambda: frozenset())
+    hygiene._username_pattern.cache_clear()
+    yield
+    hygiene._username_pattern.cache_clear()
 
 
 def rules(findings) -> set[str]:
@@ -254,9 +271,15 @@ def test_invalid_notebook_json_is_reported(tmp_path):
     assert rules(hygiene.scan_file(path)) == {"invalid-notebook-json"}
 
 
-def _run(*args: str):
+def _run(*args: str, account: str = "runner"):
+    """Run the CLI as a neutral CI-like account, never as whoever is running the tests."""
+    env = {**os.environ, "USER": account, "USERNAME": account, "LOGNAME": account}
     return subprocess.run(
-        [sys.executable, "-I", str(SCRIPT), *args], capture_output=True, text=True, check=False
+        [sys.executable, "-I", str(SCRIPT), *args],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
     )
 
 
@@ -544,3 +567,541 @@ def test_large_notebook_exemption_is_what_lets_it_through(tmp_path, monkeypatch)
     path.write_text(json.dumps(nb))
     assert path.stat().st_size > 1000
     assert "bearer-token" in rules(hygiene.scan_file(path))
+
+
+# --- audit #97: paths, usernames, malformed cells, directory arguments ------------------
+
+DRIVE_FWD = "D:/" + "work/project/x.py"
+PYTEST_TMP = "/tmp/" + "pytest-of-alice/pytest-0/test_x0/out.txt"
+
+
+@pytest.mark.parametrize(
+    ("text", "rule"),
+    [
+        (DRIVE_FWD, "windows-drive-path"),
+        ("saved to d:/data/run1", "windows-drive-path"),
+        (PYTEST_TMP, "username-temp-path"),
+        ("C:\\\\Temp\\\\" + "pytest-of-alice\\\\x", "username-temp-path"),
+        ("/opt/" + "conda/lib/python3.12/site-packages/x.py", "local-install-path"),
+        ("/opt/" + "miniconda3/envs/a/bin/python", "local-install-path"),
+        ("/opt/" + "homebrew/bin/python3", "local-install-path"),
+        ("/private/" + "var/folders/zz/abc/T/tmpq1", "local-temp-path"),
+        ("/var/" + "folders/zz/abc/T/tmpq1", "local-temp-path"),
+        ("/Volumes/" + "Data/run", "local-install-path"),
+    ],
+)
+def test_missed_local_paths_fail_in_outputs_and_metadata(text, rule, tmp_path):
+    error = {"output_type": "error", "ename": "E", "evalue": "x", "traceback": [text]}
+    for nb in (
+        notebook(outputs=[stream(f"saved: {text}\n")]),
+        notebook(outputs=[result({"text/plain": text})]),
+        notebook(outputs=[error]),
+        notebook(metadata={"papermill": {"input_path": text}}),
+    ):
+        assert rule in rules(scan(tmp_path, nb)), (text, nb)
+
+
+def test_missed_local_paths_stay_allowed_where_the_policy_allows_them(tmp_path):
+    text = f"{DRIVE_FWD} {PYTEST_TMP} /opt/conda/bin"
+    assert scan(tmp_path, notebook(source=f"# {text}", markdown=text)) == []
+    assert hygiene.scan_text(text) == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "https://example.com/a/b and http://localhost:8000/x and ftp://h/p",
+        "a://b/c and mailto:/x is not a path",
+        "/tmp/pytest-of-<user>/pytest-0 and pytest-of-{name}",
+        "/opt/condatools and /opt/conda-forge-notes and /optional/conda",
+        "/var/foldersmith and var/folders/x",
+        "Volumes/ and the /Volumes directory",
+        "ratio 3:/4 and 10:/20",
+    ],
+)
+def test_ordinary_text_near_the_new_path_rules_is_not_flagged(text, tmp_path):
+    assert scan(tmp_path, notebook(outputs=[stream(text)])) == []
+
+
+@pytest.fixture
+def account(monkeypatch):
+    """Pretend the check runs under the given local account names."""
+
+    def use(*names: str) -> None:
+        monkeypatch.setattr(hygiene, "_local_usernames", lambda: frozenset(names))
+        hygiene._username_pattern.cache_clear()
+
+    yield use
+
+
+def test_local_username_in_outputs_and_metadata_fails_without_echoing_it(account, tmp_path):
+    name = "quillfeather"
+    account(name)
+    for nb in (
+        notebook(outputs=[stream(f"hello from {name.upper()}!\n")]),
+        notebook(outputs=[result({"text/plain": f"owner={name}"})]),
+        notebook(metadata={"author": name}),
+    ):
+        found = scan(tmp_path, nb)
+        assert rules(found) == {"local-username"}, nb
+        assert all(name not in (f.snippet + f.location).lower() for f in found)
+    # Source, markdown and plain text files are not in scope: the name may be authorship.
+    assert scan(tmp_path, notebook(source=f"# {name}", markdown=f"by {name}")) == []
+    assert hygiene.scan_text(f"by {name}") == []
+
+
+def test_local_username_is_not_a_blanket_word_rule(account, tmp_path):
+    account("quillfeather")
+    nb = notebook(outputs=[stream("quillfeatherian spices; ordinary words stay readable\n")])
+    assert scan(tmp_path, nb) == []  # whole word only: a longer word is not the account name
+    assert scan(tmp_path, notebook(outputs=[stream("results: accuracy 0.93\n")])) == []
+
+
+def test_generic_and_short_account_names_are_never_checked_by_name(monkeypatch):
+    monkeypatch.setattr(hygiene, "_local_usernames", _REAL_LOCAL_USERNAMES)
+    for var in ("USER", "USERNAME", "LOGNAME"):
+        monkeypatch.delenv(var, raising=False)
+
+    def getuser():
+        raise OSError("no account")
+
+    monkeypatch.setattr(hygiene.getpass, "getuser", lambda: "runner")
+    assert hygiene._local_usernames() == frozenset()
+    monkeypatch.setenv("USER", "tim")
+    monkeypatch.setenv("LOGNAME", "Admin")
+    assert hygiene._local_usernames() == frozenset()
+    monkeypatch.setenv("USER", "Quillfeather")
+    assert hygiene._local_usernames() == {"quillfeather"}
+    monkeypatch.setattr(hygiene.getpass, "getuser", getuser)
+    assert hygiene._local_usernames() == {"quillfeather"}
+
+
+def test_no_account_name_means_the_name_check_is_off(account, tmp_path):
+    account()
+    assert scan(tmp_path, notebook(outputs=[stream("quillfeather\n")])) == []
+
+
+BEARER_CELL = f"Authorization: Bearer {KEY}"
+
+
+@pytest.mark.parametrize(
+    "cells",
+    [
+        [BEARER_CELL],
+        [None],
+        [42],
+        [["x = 1", BEARER_CELL]],
+        [{"cell_type": "code", "source": "ok"}, BEARER_CELL],
+    ],
+)
+def test_non_object_cells_are_findings_and_still_scanned(cells, tmp_path):
+    nb = {"cells": cells, "metadata": {}, "nbformat": 4, "nbformat_minor": 5}
+    found = scan(tmp_path, nb)
+    assert "malformed-notebook-node" in rules(found), found
+    assert all(f.location.startswith("cell ") for f in found)
+    text = "\n".join(str(f) for f in found)
+    assert KEY not in text
+    assert len(text) < 800  # bounded: type names and masked snippets only
+    if BEARER_CELL in json.dumps(cells):
+        assert {"authorization-header-value", "bearer-token"} & rules(found)
+
+
+def test_malformed_cell_finding_names_the_cell_index(tmp_path):
+    nb = {"cells": [{"cell_type": "code", "source": "x"}, BEARER_CELL], "nbformat": 4}
+    found = scan(tmp_path, nb)
+    assert any(f.location == "cell 1" and f.rule == "malformed-notebook-node" for f in found)
+    assert any(f.location.startswith("cell 1") and f.rule.endswith("value") for f in found)
+
+
+@pytest.mark.parametrize(
+    "nb",
+    [
+        {"nbformat": 4, "cells": BEARER_CELL},
+        {"nbformat": 4, "cells": {"a": BEARER_CELL}},
+        {"nbformat": 3, "worksheets": BEARER_CELL},
+        {"nbformat": 3, "worksheets": [BEARER_CELL]},
+        {"nbformat": 3, "worksheets": [{"cells": BEARER_CELL}]},
+        {"nbformat": 4, "cells": [{"cell_type": "code", "source": {"k": BEARER_CELL}}]},
+        {"nbformat": 4, "cells": [{"cell_type": "code", "source": 7}]},
+    ],
+)
+def test_other_malformed_containers_are_findings_and_still_scanned(nb, tmp_path):
+    found = scan(tmp_path, nb)
+    assert rules(found) & {"malformed-notebook-node", "unrecognized-notebook-layout"}
+    assert KEY not in "\n".join(str(f) for f in found)
+    if BEARER_CELL in json.dumps(nb):
+        assert {"authorization-header-value", "bearer-token"} & rules(found)
+
+
+def test_well_formed_notebooks_gain_no_malformed_findings(tmp_path):
+    assert scan(tmp_path, notebook(outputs=[stream("ok")], markdown="text")) == []
+
+
+def test_cli_fails_on_a_bare_string_cell_with_redacted_output(tmp_path):
+    path = tmp_path / "n.ipynb"
+    path.write_text(json.dumps({"cells": [BEARER_CELL], "nbformat": 4, "metadata": {}}))
+    proc = _run(str(path))
+    assert proc.returncode == 1
+    assert "malformed-notebook-node" in proc.stdout and "cell 0" in proc.stdout
+    assert KEY not in proc.stdout + proc.stderr
+
+
+def test_directory_argument_is_rejected_not_reported_as_scanned(tmp_path):
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    for i in range(3):
+        nb = notebook(outputs=[stream(BEARER_CELL)])
+        (corpus / f"bad{i}.ipynb").write_text(json.dumps(nb))
+    proc = _run(str(corpus))
+    assert proc.returncode == 2
+    assert "a directory" in proc.stderr
+    assert "passed" not in proc.stdout + proc.stderr
+    # The same files named one by one fail as findings.
+    assert _run(*map(str, sorted(corpus.iterdir()))).returncode == 1
+
+
+def test_directory_among_valid_files_still_fails_and_a_missing_file_is_not_skipped(tmp_path):
+    good = tmp_path / "ok.ipynb"
+    good.write_text(json.dumps(notebook(outputs=[stream("ok")])))
+    proc = _run(str(good), str(tmp_path / "missing.ipynb"), str(tmp_path))
+    assert proc.returncode == 2
+    assert "missing or not a regular file" in proc.stderr and "a directory" in proc.stderr
+    assert "passed" not in proc.stdout
+
+
+def test_valid_file_arguments_still_pass(tmp_path):
+    a = tmp_path / "a.ipynb"
+    a.write_text(json.dumps(notebook(outputs=[stream("ok")])))
+    b = tmp_path / "b.txt"
+    b.write_text("hello")
+    proc = _run(str(a), str(b))
+    assert proc.returncode == 0 and "2 file(s) scanned" in proc.stdout
+
+
+def test_run_library_call_cannot_false_pass_on_a_directory(tmp_path):
+    findings = hygiene.run([tmp_path], ROOT, named=True)
+    assert [f.rule for f in findings] == ["not-a-file"]
+    assert hygiene.run([tmp_path], ROOT) == []  # git ls-files mode: submodules are skipped
+
+
+# --- review of #98 head 33fc11d: B1 to B4 ----------------------------------------------
+
+
+@pytest.mark.parametrize("name", ["sam", "steve", "s", "sophie", "alice", "Zed"])
+def test_pytest_temp_path_is_caught_for_every_first_letter(name, tmp_path):
+    text = f"/tmp/pytest-of-{name}/pytest-0/x"
+    assert "username-temp-path" in rules(scan(tmp_path, notebook(outputs=[stream(text)])))
+
+
+@pytest.mark.parametrize("sep", [" ", "\t", "\n", "'", '"', ")", "/", "\\"])
+def test_pytest_temp_path_stops_at_whitespace_and_quotes(sep):
+    pattern = dict(hygiene._PATH_PATTERNS)["username-temp-path"]
+    assert pattern.search(f"x pytest-of-sam{sep}rest").group(0) == "pytest-of-sam"
+
+
+def test_pytest_temp_path_without_a_name_is_not_a_finding():
+    pattern = dict(hygiene._PATH_PATTERNS)["username-temp-path"]
+    assert not pattern.search("pytest-of- and pytest-of-<user> and pytest-of-{n}")
+
+
+def test_mambaforge_and_micromamba_roots_are_caught(tmp_path):
+    for root in ("mambaforge", "micromamba", "miniforge3", "anaconda3", "mamba"):
+        text = f"/opt/{root}/bin/python"
+        assert "local-install-path" in rules(scan(tmp_path, notebook(outputs=[stream(text)])))
+
+
+def _nb_with_cell(**cell) -> dict:
+    base = {"cell_type": "code", "id": "c1", "execution_count": None, "source": "x", "outputs": []}
+    return {"cells": [{**base, **cell}], "metadata": {}, "nbformat": 4, "nbformat_minor": 5}
+
+
+@pytest.mark.parametrize(
+    "cell",
+    [
+        {"id": BEARER_CELL},
+        {"id": ["a", BEARER_CELL]},
+        {"cell_type": BEARER_CELL},
+        {"cell_type": ["code", BEARER_CELL]},
+        {"execution_count": BEARER_CELL},
+        {"execution_count": {"k": BEARER_CELL}},
+        {"prompt_number": BEARER_CELL},
+        {"execution_count": 1.5},
+        {"execution_count": True},
+        {"id": 7},
+        {"id": ""},
+        {"cell_type": "mystery"},
+    ],
+)
+def test_malformed_cell_metadata_is_reported_and_scanned(cell, tmp_path):
+    found = scan(tmp_path, _nb_with_cell(**cell))
+    assert "malformed-notebook-node" in rules(found), cell
+    if BEARER_CELL in json.dumps(cell):
+        assert {"authorization-header-value", "bearer-token"} & rules(found), cell
+    assert KEY not in "\n".join(str(f) for f in found)
+
+
+def test_untrusted_cell_type_is_never_part_of_a_location(tmp_path):
+    # A second finding in the same cell used to print the cell_type value unmasked.
+    nb = _nb_with_cell(cell_type=BEARER_CELL, outputs=[stream(DRIVE_FWD)])
+    found = scan(tmp_path, nb)
+    assert "windows-drive-path" in rules(found)
+    assert all(KEY not in f.location and "Bearer" not in f.location for f in found)
+    assert any("(?)" in f.location for f in found)
+    assert KEY not in "\n".join(str(f) for f in found)
+
+
+def test_cli_malformed_cell_metadata_exits_nonzero_redacted_and_bounded(tmp_path):
+    path = tmp_path / "n.ipynb"
+    nb = _nb_with_cell(cell_type=BEARER_CELL, id=BEARER_CELL, outputs=[stream(DRIVE_FWD)])
+    path.write_text(json.dumps(nb))
+    proc = _run(str(path))
+    assert proc.returncode == 1
+    assert "malformed-notebook-node" in proc.stdout and "cell 0" in proc.stdout
+    assert KEY not in proc.stdout + proc.stderr
+    assert len(proc.stdout) < 2000
+
+
+def test_known_cell_types_and_ids_stay_clean(tmp_path):
+    for cell_type in ("code", "markdown", "raw"):
+        nb = _nb_with_cell(cell_type=cell_type, id="ab12-CD_34", execution_count=3)
+        assert scan(tmp_path, nb) == []
+    nb3 = {"nbformat": 3, "worksheets": [{"cells": [{"cell_type": "code", "prompt_number": 2}]}]}
+    assert scan(tmp_path, nb3) == []
+
+
+@pytest.mark.parametrize(
+    "nb",
+    [
+        {"cells": [], "worksheets": [{"cells": [{"cell_type": "code", "input": BEARER_CELL}]}]},
+        {"cells": [], "worksheets": [{"cells": [], "metadata": {"k": BEARER_CELL}}]},
+        {"cells": [], "worksheets": [{"cells": [], "other": [BEARER_CELL]}]},
+        {"cells": [], "worksheets": [BEARER_CELL]},
+        {"cells": [], "worksheets": [{"metadata": {"k": BEARER_CELL}}]},
+        {"cells": [{"cell_type": "code", "source": "x"}], "worksheets": [{"cells": [BEARER_CELL]}]},
+    ],
+)
+def test_worksheets_are_read_even_when_cells_is_present(nb, tmp_path):
+    found = scan(tmp_path, {**nb, "nbformat": 4, "metadata": {}})
+    assert {"authorization-header-value", "bearer-token"} & rules(found), nb
+    assert KEY not in "\n".join(str(f) for f in found)
+
+
+def test_worksheet_without_cells_list_is_malformed(tmp_path):
+    found = scan(tmp_path, {"nbformat": 3, "worksheets": [{"metadata": {}}]})
+    assert "malformed-notebook-node" in rules(found)
+
+
+def test_cli_worksheet_key_exits_nonzero_without_echo(tmp_path):
+    path = tmp_path / "n.ipynb"
+    nb = {"cells": [], "worksheets": [{"cells": [], "metadata": {"k": BEARER_CELL}}]}
+    path.write_text(json.dumps({**nb, "nbformat": 4, "metadata": {}}))
+    proc = _run(str(path))
+    assert proc.returncode == 1 and "worksheet 0 metadata" in proc.stdout
+    assert KEY not in proc.stdout + proc.stderr
+
+
+@pytest.mark.parametrize(
+    "account_name", ["hello", "alice", "quillfeather", "runner", "Tim", "data", "stdout"]
+)
+def test_clean_scans_do_not_depend_on_the_developer_account(account_name, monkeypatch, tmp_path):
+    for var in ("USER", "USERNAME", "LOGNAME"):
+        monkeypatch.setenv(var, account_name)
+    clean = notebook(outputs=[stream("results: hello world, accuracy 0.93\n")], markdown="hi")
+    assert scan(tmp_path, clean) == []
+    path = tmp_path / "c.ipynb"
+    path.write_text(json.dumps(clean))
+    if account_name == "stdout":
+        return  # the in-process scan above is the isolation check; the CLI would flag it
+    proc = _run(str(path), account=account_name)
+    assert proc.returncode == 0, proc.stdout
+
+
+def test_cli_flags_the_running_account_only_when_it_is_that_account(tmp_path):
+    path = tmp_path / "n.ipynb"
+    path.write_text(json.dumps(notebook(outputs=[stream("done by quillfeather\n")])))
+    assert _run(str(path), account="quillfeather").returncode == 1
+    assert _run(str(path), account="runner").returncode == 0
+    lines = _run(str(path), account="quillfeather").stdout.splitlines()
+    assert lines and all("quillfeather" not in line.split(": ", 1)[-1] for line in lines)
+
+
+# --- a secret used as a dict key: detected, and never printed in a location -------------
+
+
+def _key_notebooks(key: str) -> dict[str, dict]:
+    path_leak = stream(DRIVE_FWD)
+    return {
+        "output data": notebook(outputs=[result({key: "ok"})]),
+        "output data with another finding": notebook(outputs=[result({key: DRIVE_FWD}), path_leak]),
+        "notebook metadata": notebook(metadata={key: "ok"}),
+        "notebook metadata with another finding": notebook(
+            outputs=[path_leak], metadata={key: DRIVE_FWD}
+        ),
+        "cell key": {
+            **notebook(outputs=[path_leak]),
+            "cells": [{**notebook()["cells"][0], key: 1}],
+        },
+        "top-level key": {**notebook(), key: [DRIVE_FWD]},
+        "worksheet key": {"nbformat": 3, "worksheets": [{"cells": [], key: {"a": DRIVE_FWD}}]},
+        "nested metadata key": notebook(
+            outputs=[{**stream("x"), "metadata": {"a": {key: DRIVE_FWD}}}]
+        ),
+    }
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "output data",
+        "output data with another finding",
+        "notebook metadata",
+        "notebook metadata with another finding",
+        "cell key",
+        "worksheet key",
+        "top-level key",
+        "nested metadata key",
+    ],
+)
+@pytest.mark.parametrize("shape", ["bare", "bearer"])
+def test_a_secret_used_as_a_dict_key_is_found_and_never_echoed(case, shape, tmp_path):
+    key = KEY if shape == "bare" else f"Bearer {KEY}"
+    nb = _key_notebooks(key)[case]
+    path = tmp_path / "n.ipynb"
+    path.write_text(json.dumps(nb))
+    proc = _run(str(path))
+    assert proc.returncode == 1, (case, proc.stdout)
+    assert KEY not in proc.stdout + proc.stderr
+    assert KEY[:12] not in proc.stdout + proc.stderr
+    assert "<key name>" in proc.stdout  # the key itself is a finding, at a useful location
+    if "finding" in case or case in (
+        "cell key",
+        "worksheet key",
+        "top-level key",
+        "nested metadata key",
+    ):
+        assert "<key>" in proc.stdout  # a deeper finding's location hides the key
+    assert len(proc.stdout) < 3000
+
+
+def test_ordinary_keys_stay_readable_in_locations_and_do_not_fail(tmp_path):
+    clean = notebook(
+        outputs=[result({"text/plain": "3", "application/vnd.jupyter.widget-view+json": {"a": 1}})],
+        metadata={"kernelspec": {"display_name": "Python 3", "language": "python"}},
+    )
+    assert scan(tmp_path, clean) == []
+    found = scan(tmp_path, notebook(outputs=[result({"text/plain": DRIVE_FWD})]))
+    assert any("data.text/plain" in f.location for f in found)
+
+
+def test_long_or_odd_keys_are_hidden_but_short_ones_are_not():
+    assert hygiene._shown("text/plain") == "text/plain"
+    assert hygiene._shown(KEY) == "<key>"
+    assert hygiene._shown("a" * 17) == "<key>"
+    assert hygiene._shown("has space") == "<key>"
+    assert hygiene._shown("x" * 49) == "<key>"
+    assert hygiene._shown(7) == "<key>"
+
+
+# --- review of #98 head 3cc35ef: R1, R2 and two test gaps --------------------------------
+
+
+@pytest.mark.parametrize(
+    "cell",
+    [
+        {"source": "", "input": BEARER_CELL},
+        {"input": BEARER_CELL, "source": ""},
+        {"source": "x = 1", "input": [BEARER_CELL]},
+        {"source": BEARER_CELL, "input": "y = 2"},
+    ],
+)
+def test_source_and_input_are_both_scanned_when_both_are_present(cell, tmp_path):
+    nb = _nb_with_cell(**cell)
+    path = tmp_path / "n.ipynb"
+    path.write_text(json.dumps(nb))
+    proc = _run(str(path))
+    assert proc.returncode == 1, (cell, proc.stdout)
+    assert KEY not in proc.stdout + proc.stderr
+    assert {"authorization-header-value", "bearer-token"} & rules(scan(tmp_path, nb))
+
+
+def test_a_non_text_input_beside_source_is_malformed(tmp_path):
+    found = scan(tmp_path, _nb_with_cell(source="x", input=7))
+    assert any(f.rule == "malformed-notebook-node" and f.location.endswith(" input") for f in found)
+
+
+def test_source_only_and_input_only_cells_still_pass(tmp_path):
+    assert scan(tmp_path, _nb_with_cell(source="x = 1")) == []
+    nb3 = {"nbformat": 3, "worksheets": [{"cells": [{"cell_type": "code", "input": "x = 1"}]}]}
+    assert scan(tmp_path, nb3) == []
+    # Paths in code are still allowed in either field (source-only contract).
+    assert scan(tmp_path, _nb_with_cell(source=DRIVE_FWD, input=DRIVE_FWD)) == []
+
+
+def _key_with_rule_shapes() -> dict[str, str]:
+    return {
+        "home path": "/home/" + "alice/data.csv",
+        "windows path": "C:" + chr(92) + "Users" + chr(92) + "alice" + chr(92) + "x.csv",
+        "drive path": DRIVE_FWD,
+        "macos path": "/Users/" + "alice/x",
+        "pytest temp": "/tmp/" + "pytest-of-alice/x",
+        "conda path": "/opt/" + "conda/x",
+    }
+
+
+@pytest.mark.parametrize("shape", sorted(_key_with_rule_shapes()))
+@pytest.mark.parametrize("where", ["cell metadata", "output data", "notebook metadata"])
+def test_a_path_used_as_a_dict_key_is_hidden_in_other_findings_locations(shape, where, tmp_path):
+    key = _key_with_rule_shapes()[shape]
+    value = "D:/" + "w/x"  # a second, different finding under the key
+    if where == "cell metadata":
+        nb = _nb_with_cell(metadata={key: value})
+    elif where == "output data":
+        nb = notebook(outputs=[result({key: value})])
+    else:
+        nb = notebook(metadata={key: value})
+    path = tmp_path / "n.ipynb"
+    path.write_text(json.dumps(nb))
+    proc = _run(str(path))
+    assert proc.returncode == 1
+    out = proc.stdout.replace(str(path), "").replace(path.as_posix(), "")
+    assert "<key name>" in out and "<key>" in out
+    assert key not in out and key.replace("\\", "/") not in out
+    assert all(part not in out for part in ("alice", "data.csv", "pytest-of"))
+    assert len(out) < 3000
+
+
+def test_the_account_name_as_a_dict_key_is_hidden(tmp_path):
+    name = "quillfeather"
+    nb = _nb_with_cell(metadata={name: DRIVE_FWD})
+    path = tmp_path / "n.ipynb"
+    path.write_text(json.dumps(nb))
+    proc = _run(str(path), account=name)
+    out = proc.stdout.replace(str(path), "").replace(path.as_posix(), "")
+    assert proc.returncode == 1
+    assert "<key name>" in out and "[local-username]" in out
+    assert name not in out.lower()
+
+
+def test_ordinary_keys_stay_visible_when_no_rule_applies(account, tmp_path):
+    account("quillfeather")
+    assert hygiene._shown("text/plain") == "text/plain"
+    assert hygiene._shown("application/vnd.jupyter.widget-view+json") != "<key>"
+    assert hygiene._shown("quillfeather") == "<key>"
+    found = scan(tmp_path, notebook(outputs=[result({"text/plain": DRIVE_FWD})]))
+    assert any("data.text/plain" in f.location for f in found)
+
+
+def test_a_valid_format_cell_id_holding_a_key_is_scanned(tmp_path):
+    assert hygiene._CELL_ID.fullmatch(KEY)  # a key can be a perfectly valid id
+    found = scan(tmp_path, _nb_with_cell(id=KEY))
+    assert found and all(KEY not in str(f) for f in found)
+    assert any(") id" in f.location for f in found)
+
+
+def test_shown_hides_a_key_that_trips_a_secret_rule_without_a_long_run():
+    rng = random.Random(3)
+    groups = ["".join(rng.choice("abcdefgh0123456789") for _ in range(5)) for _ in range(6)]
+    key = "sk" + "-" + "-".join(groups)  # no 16-character alphanumeric run, under 48 chars
+    assert len(key) <= 48 and not hygiene._LONG_RUN.search(key)
+    assert hygiene.scan_text(key)  # the secret rules do flag it
+    assert hygiene._shown(key) == "<key>"
