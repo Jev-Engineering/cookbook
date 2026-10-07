@@ -66,10 +66,11 @@ writes) is accepted.
 - A missing file is a `FileNotFoundError` naming the folder; an error inside `helpers.py`
   propagates and nothing is cached. `reload=True` executes the file again.
 - Objects from helpers cannot be pickled by module name. Keep them out of anything pickled.
-- Because the module is removed from `sys.modules`, `typing.get_type_hints` on a helper
-  dataclass fails under `from __future__ import annotations` (`NameError`: the module cannot be
-  found to resolve the names). Do not use postponed annotations in `helpers.py`; the scaffold's
-  `helpers.py` does not.
+- The file is compiled with `dont_inherit=True`, so it gets the semantics `import` would give it:
+  postponed annotations only if the file itself says `from __future__ import annotations`. Because
+  the module is removed from `sys.modules`, `typing.get_type_hints` on a helper dataclass then
+  fails (`NameError`: the module cannot be found to resolve the names). Do not use postponed
+  annotations in `helpers.py`; neither the template's nor the scaffold's `helpers.py` does.
 - **Keep `helpers.py` a single, self-contained file.** A `helpers.py` that does `import sibling`
   appears to work in the notebook, because the kernel can import from the recipe folder (and it
   then writes `__pycache__/` there), but it raises `ModuleNotFoundError` under pytest and in
@@ -140,8 +141,15 @@ the recipe folder as working directory, and writes the outputs back in place.
   byte-identical files.
 - A cell that writes to stderr (a warning, a traceback printed by hand) fails the run: stderr
   carries absolute paths. Fix the cause; do not filter the output.
-- Exit status: 0 on success, 1 when a cell fails or writes to stderr (the file is left
-  unchanged), 2 for a usage error.
+- Exit status, with the file left unchanged in every failing case and one line (or the cell's
+  error) on stderr:
+  - 0: the notebook ran to the end;
+  - 1: a cell raised; a cell ran longer than the timeout (`--timeout SECONDS`, default 300); the
+    kernel died (`os._exit`, a crash); the kernel never started; or a cell wrote to stderr;
+  - 2: usage error (for example no `notebook.ipynb` in the folder).
+
+  Judge success by the exit status, not by an empty stderr: on Windows the tool and the kernel
+  print harmless warnings of their own.
 
 **Running live.** The executor never runs live, on purpose, so a committed notebook cannot
 contain a live outcome by accident. To run a notebook live, set `TYPESAFE_API_KEY`,

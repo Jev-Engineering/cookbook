@@ -144,7 +144,7 @@ run_header(
         code(
             "state",
             """
-example = examples[0]
+example = next(e for e in examples if e.split == "demo")
 state = helpers.build_state(example.fields)
 print(state)
 """,
@@ -208,7 +208,7 @@ for answer in result.answers.values():
             "measured",
             """
 if offline:
-    print("Provenance: synthetic. Not measured live.")
+    print(f"Provenance: {backend.mode}. Not measured live: a pipeline check, not a Jev result.")
 else:
     dates = ", ".join(getattr(backend, "recorded_dates", ()) or ()) or "this run"
     print(f"Provenance: {backend.mode}, model {backend.model}")
@@ -325,10 +325,11 @@ def build_questions():
 
 
 def rows_hint(level: int) -> str:
-    """How many examples to write, from the contract: tens at levels 1 and 2, more from level 3."""
+    """How many examples to write, from the contract: tens at levels 1 and 2, and at every level
+    the size is stated wherever a number is reported."""
     if level <= 2:
         return f"tens of examples (about twenty) at level {level}"
-    return f"as many examples as level {level} needs to show its hard cases, more than at levels 1 and 2"
+    return f"as many examples as level {level} needs to show its hard cases, small enough to read; state the size wherever a number is reported"
 
 
 def build_fixtures_text(recipe: dict) -> str:

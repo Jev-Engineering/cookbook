@@ -55,7 +55,8 @@ def load_helpers(
     objects from helpers cannot be pickled by name; keep them out of anything that is pickled.
     It also means ``typing.get_type_hints`` on a helper dataclass fails under
     ``from __future__ import annotations`` (the module cannot be found to resolve the names), so
-    do not use postponed annotations in ``helpers.py``.
+    do not use postponed annotations in ``helpers.py``. The file is compiled with
+    ``dont_inherit=True``, so only its own future imports apply.
 
     Raises ``FileNotFoundError`` naming the folder when there is no ``helpers.py``; an
     exception raised by the file itself propagates unchanged and nothing is cached.
@@ -80,7 +81,9 @@ def load_helpers(
         # write __pycache__ folders into recipes.
         # Bytes, not text: ``compile`` then honours a UTF-8 byte order mark (which Windows
         # PowerShell writes) and a coding cookie, as ``import`` would.
-        exec(compile(source, str(path), "exec"), module.__dict__)
+        # ``dont_inherit``: this module's own ``from __future__ import annotations`` must not leak
+        # into the helpers, which get the semantics ``import`` would give them.
+        exec(compile(source, str(path), "exec", dont_inherit=True), module.__dict__)
     finally:
         if previous is missing:
             sys.modules.pop(name, None)

@@ -5,8 +5,6 @@ fixture generator, the notebook and the tests all load this one file with
 ``jev_cookbook.load_helpers``, so the questions, the state and the rule cannot disagree.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import Any
 

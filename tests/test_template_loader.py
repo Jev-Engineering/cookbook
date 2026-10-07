@@ -119,3 +119,37 @@ def test_an_error_in_helpers_propagates_and_is_not_cached(tmp_path):
     assert "recipe_09_broken_helpers" not in sys.modules
     (folder / "helpers.py").write_text("VALUE = 9\n", encoding="utf-8")
     assert load_helpers(folder).VALUE == 9
+
+
+_HINTS = """{future}import dataclasses
+import typing
+
+
+@dataclasses.dataclass
+class Item:
+    name: str
+
+
+@dataclasses.dataclass
+class Box:
+    items: list[Item]
+
+
+def hints():
+    return typing.get_type_hints(Box)
+"""
+
+
+def test_a_helpers_file_without_the_future_import_resolves_its_type_hints(tmp_path):
+    """The loader's own ``from __future__ import annotations`` must not leak into helpers."""
+    folder = make_recipe(tmp_path, "03-hints", _HINTS.format(future=""))
+    hints = load_helpers(folder).hints()
+    assert hints["items"] == list[load_helpers(folder).Item]
+
+
+def test_a_helpers_file_with_the_future_import_still_fails_as_documented(tmp_path):
+    folder = make_recipe(
+        tmp_path, "04-hints", _HINTS.format(future="from __future__ import annotations\n")
+    )
+    with pytest.raises(NameError):
+        load_helpers(folder).hints()

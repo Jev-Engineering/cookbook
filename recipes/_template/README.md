@@ -99,7 +99,7 @@ Needs only this page and the repository. Recipe `NN` is issue `NN` and its slug 
    Never `import helpers`: every recipe has a `helpers` module, pytest runs them all in one process, and
    the second would silently get the first. `load_helpers` loads the file by path under a name taken from
    the folder (`recipe_01_sentiment_classification_helpers`), so recipes cannot collide.
-4. **Write the fixtures.** Fill `ROWS` in `build_fixtures.py`: about twenty invented examples across
+4. **Write the fixtures.** Fill `ROWS` in `build_fixtures.py`: about twenty invented examples (this template has 22) across
    `validation` and `test`, plus a couple of `demo` ones, gold labels, and stored answers that are
    deliberately imperfect (some wrong, one hard case). Then write `answers_for`, which turns each row's
    spec into typed answers (for example `ChoiceAnswer.from_probabilities`); until you do it stops with a
@@ -152,5 +152,5 @@ The full contract is [CONTRIBUTING.md](../../CONTRIBUTING.md); in short:
   questions. This template has no `Noul`, but a recipe that uses one follows the cookbook rule.
 - A `Noul` has no confidence field, so a threshold on it is chosen on `validation` from examples. A
   `Choice` has one: the top probability rescaled by the number of options, `(p_max - 1/n) / (1 - 1/n)`
-  (see [the confidence page](https://docs.typesafe.ai/confidence.md)); it is not the raw top probability.
+  (see [the confidence page](https://docs.typesafe.ai/confidence)); it is not the raw top probability.
 - A fixture miss is an error (`ReplayMiss`); nothing invents an answer to keep a notebook running.

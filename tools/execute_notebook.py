@@ -3,7 +3,7 @@
     python tools/execute_notebook.py recipes/NN-slug
 
 It runs ``notebook.ipynb`` in a fresh kernel and writes the outputs back to the same file.
-Three things are fixed so that running it twice gives the same file:
+These things are fixed so that running it twice gives the same file:
 
 * the kernel's environment has no ``JEV_COOKBOOK_*`` and no ``TYPESAFE_*`` variable, so the
   run is offline and replays the fixtures whatever the shell had set. The environment is built
@@ -22,8 +22,9 @@ Three things are fixed so that running it twice gives the same file:
 A run in which any cell wrote to stderr also fails: stderr carries warnings and absolute paths,
 which must not be committed.
 
-Exit status is 0 when the notebook ran to the end, 1 when a cell failed, the kernel died or a cell
-wrote to stderr (the file is left unchanged), and 2 for a usage error. #69 builds CI (network guard, staleness check) on this.
+Exit status is 0 when the notebook ran to the end, 1 when a cell failed, a cell ran longer than
+the timeout (``--timeout``, default 300 seconds), the kernel died or never started, or a cell wrote
+to stderr (one line on stderr, the file left unchanged), and 2 for a usage error. #69 builds CI (network guard, staleness check) on this.
 """
 
 from __future__ import annotations
@@ -38,7 +39,7 @@ from ipykernel.kernelspec import get_kernel_dict
 from jupyter_client.kernelspec import KernelSpec, KernelSpecManager
 from jupyter_client.manager import AsyncKernelManager
 from nbclient import NotebookClient
-from nbclient.exceptions import CellExecutionError, DeadKernelError
+from nbclient.exceptions import CellExecutionError, CellTimeoutError, DeadKernelError
 
 NOTEBOOK = "notebook.ipynb"
 KERNEL_NAME = "python3"
@@ -65,6 +66,10 @@ def offline_environment(environ: dict[str, str]) -> dict[str, str]:
     return {k: v for k, v in environ.items() if not k.upper().startswith(SCRUBBED_PREFIXES)}
 
 
+class KernelStartError(Exception):
+    """The kernel did not start (nbclient reports it as a bare ``RuntimeError``)."""
+
+
 class StderrOutput(Exception):
     """A cell wrote to stderr, which can carry absolute paths and so must not be committed."""
 
@@ -80,11 +85,13 @@ def check_no_stderr(nb: nbformat.NotebookNode) -> None:
                 )
 
 
-def execute(recipe_dir: Path) -> None:
+def execute(recipe_dir: Path, timeout: int = TIMEOUT_SECONDS) -> None:
     """Run ``recipe_dir/notebook.ipynb`` and write it back with outputs.
 
-    Raises ``CellExecutionError`` when a cell fails, ``DeadKernelError`` when the kernel dies
-    and ``StderrOutput`` when a cell writes to stderr; the file is left unchanged in every case.
+    Raises ``CellExecutionError`` when a cell fails, ``CellTimeoutError`` when one runs longer than
+    ``timeout`` seconds, ``DeadKernelError`` when the kernel dies, ``KernelStartError`` when it
+    never starts and ``StderrOutput`` when a cell writes to stderr; the file is left unchanged in
+    every case.
     """
     recipe_dir = recipe_dir.resolve()
     path = recipe_dir / NOTEBOOK
@@ -98,13 +105,18 @@ def execute(recipe_dir: Path) -> None:
         nb,
         km=manager,
         kernel_name=KERNEL_NAME,
-        timeout=TIMEOUT_SECONDS,
+        timeout=timeout,
         record_timing=False,
         coalesce_streams=True,
         resources={"metadata": {"path": str(recipe_dir)}},
     )
     # ``env`` replaces the kernel's whole environment; this process's is left alone.
-    client.execute(env=offline_environment(dict(os.environ)))
+    try:
+        client.execute(env=offline_environment(dict(os.environ)))
+    except RuntimeError as error:
+        if "Kernel didn't respond" in str(error):
+            raise KernelStartError(str(error)) from error
+        raise
     check_no_stderr(nb)
     nb.metadata = nbformat.from_dict(METADATA)
     nbformat.validate(nb)
@@ -117,19 +129,38 @@ def execute(recipe_dir: Path) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Execute a recipe notebook in place, offline.")
     parser.add_argument("recipe_dir", help="a recipe folder, such as recipes/01-slug")
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=TIMEOUT_SECONDS,
+        help=f"seconds one cell may run (default {TIMEOUT_SECONDS})",
+    )
     args = parser.parse_args(argv)
     folder = Path(args.recipe_dir)
     if not (folder / NOTEBOOK).is_file():
         print(f"no {NOTEBOOK} in {folder.name!r}", file=sys.stderr)
         return 2
     try:
-        execute(folder)
+        execute(folder, args.timeout)
     except StderrOutput as error:
         print(f"{folder.name}: {error}; {NOTEBOOK} left unchanged", file=sys.stderr)
         return 1
     except DeadKernelError as error:
         print(
             f"{folder.name}: the kernel died ({error}); {NOTEBOOK} left unchanged", file=sys.stderr
+        )
+        return 1
+    except CellTimeoutError as error:
+        print(
+            f"{folder.name}: a cell ran longer than {args.timeout} s ({error}); "
+            f"{NOTEBOOK} left unchanged",
+            file=sys.stderr,
+        )
+        return 1
+    except KernelStartError as error:
+        print(
+            f"{folder.name}: the kernel did not start ({error}); {NOTEBOOK} left unchanged",
+            file=sys.stderr,
         )
         return 1
     except CellExecutionError as error:

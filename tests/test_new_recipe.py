@@ -255,7 +255,7 @@ def test_the_kernel_runs_in_the_recipe_folder_without_the_live_switch(tmp_path, 
     monkeypatch.setenv("JEV_COOKBOOK_LIVE", "1")
     monkeypatch.setenv("TYPESAFE_API_KEY", "placeholder")
     assert execute_notebook.main([str(folder)]) == 0
-    assert os.environ["JEV_COOKBOOK_LIVE"] == "1"  # the parent's environment is restored
+    assert os.environ["JEV_COOKBOOK_LIVE"] == "1"  # the parent's environment is untouched
     assert os.environ["TYPESAFE_API_KEY"] == "placeholder"
 
 
@@ -371,6 +371,37 @@ def test_a_dead_kernel_fails_the_run_quickly_and_leaves_the_file(tmp_path):
     assert (folder / "notebook.ipynb").read_bytes() == before
 
 
+def test_a_looping_cell_hits_the_timeout_with_one_line_and_leaves_the_file(tmp_path):
+    folder = tmp_path / "loop"
+    write_notebook(folder, "while True:\n    pass")
+    before = (folder / "notebook.ipynb").read_bytes()
+    tool = REPO / "tools" / "execute_notebook.py"
+    result = subprocess.run(
+        [sys.executable, str(tool), str(folder), "--timeout", "3"],
+        capture_output=True,
+        text=True,
+        timeout=90,
+    )
+    assert result.returncode == 1
+    assert "ran longer than 3 s" in result.stderr
+    assert "Traceback" not in result.stderr
+    assert (folder / "notebook.ipynb").read_bytes() == before
+
+
+def test_a_kernel_that_never_starts_exits_1_with_one_line(tmp_path, monkeypatch, capsys):
+    folder = tmp_path / "nostart"
+    write_notebook(folder, "1 + 1")
+    before = (folder / "notebook.ipynb").read_bytes()
+
+    def refuse(self, *args, **kwargs):
+        raise RuntimeError("Kernel didn't respond in 60 seconds")
+
+    monkeypatch.setattr(execute_notebook.NotebookClient, "execute", refuse)
+    assert execute_notebook.main([str(folder)]) == 1
+    assert "the kernel did not start" in capsys.readouterr().err
+    assert (folder / "notebook.ipynb").read_bytes() == before
+
+
 def test_a_warning_in_a_cell_counts_as_stderr(tmp_path):
     folder = tmp_path / "warns"
     write_notebook(folder, "import warnings\nwarnings.warn('careful')")
@@ -444,6 +475,18 @@ def test_the_scaffold_readme_and_measured_cell_leave_room_for_a_recorded_run(cat
     nb = nbformat.read(folder / "notebook.ipynb", as_version=4)
     measured = next(c for c in nb.cells if c.get("id") == "measured").source
     assert "recorded_dates" in measured and "backend.model" in measured and "N:" in measured
+    # The sentence follows the backend mode: scripted says pipeline check too, never "synthetic".
+    assert "Provenance: synthetic" not in measured and "{backend.mode}. Not measured" in measured
+    state = next(c for c in nb.cells if c.get("id") == "state").source
+    assert 'e.split == "demo"' in state and "examples[0]" not in state
+
+
+def test_the_fixture_size_hint_follows_the_contract_at_every_level():
+    assert "tens of examples" in new_recipe.rows_hint(1)
+    assert "tens of examples" in new_recipe.rows_hint(2)
+    for level in (3, 4, 5):
+        hint = new_recipe.rows_hint(level)
+        assert "more than at levels" not in hint and "state the size" in hint
 
 
 def test_no_synthetic_claim_in_the_scaffold_is_left_without_a_todo(catalog, recipes):
