@@ -18,7 +18,7 @@ dependencies = [
 
 [project.optional-dependencies]
 # Live inference only. Never imported at module import time by jev_cookbook.
-live = ["typesafe-sdk"]
+live = ["typesafe-sdk>=0.7.2,<0.8"]
 ml = ["scikit-learn"]
 dev = ["ruff==0.16.10", "pytest"]
 

@@ -242,8 +242,10 @@ numbers say nothing about how Jev performs.
 
 `get_backend(*, fixtures=None, script=None, seed=0)` returns a `ScriptedBackend` (script) or a
 `ReplayBackend` (fixtures: a mapping or a JSON path); pass exactly one. `JEV_COOKBOOK_LIVE=1`
-selects the live backend and currently raises `LiveBackendUnavailable`; it never falls back to
-replay. Values other than unset, empty, `0`, `1` are an error. The environment is read when
+selects the live backend and never falls back to replay: it requires `JEV_COOKBOOK_LIVE_MODEL`,
+accepts an optional `JEV_COOKBOOK_LIVE_MAX_REQUESTS`, reads `TYPESAFE_API_KEY` from the
+environment, and raises `LiveConfigError` when a setting is missing (see [live.md](live.md)).
+Values other than unset, empty, `0`, `1` are an error. The environment is read when
 `get_backend` is called, not at import.
 
 ## Backend attributes
