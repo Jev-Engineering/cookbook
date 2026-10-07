@@ -32,11 +32,14 @@ NEW_HEAD = "e" * 40
 DONE = {"success", "failure", "cancelled", "timed_out", "neutral", "skipped"}
 
 
-def run(name: str, state: str = "success", sha: str = HEAD, id_: int = 1) -> dict:
+def run(
+    name: str, state: str = "success", sha: str = HEAD, id_: int = 1, app: str = "github-actions"
+) -> dict:
     return {
         "id": id_,
         "name": name,
         "head_sha": sha,
+        "app": {"slug": app},
         "status": "completed" if state in DONE else state,
         "conclusion": state if state in DONE else None,
     }
@@ -73,6 +76,7 @@ class FakeGitHub:
         }
         self.fail_on: str | None = None
         self.inflate_total = 0
+        self.status_sha: str | None = None
 
     def __call__(self, path: str):
         self.calls.append(path)
@@ -98,7 +102,7 @@ class FakeGitHub:
         if base.endswith("/status"):
             sha = base.split("/")[-2]
             body = self._page(self.statuses.get(sha, []), "statuses", params)
-            body["sha"] = sha
+            body["sha"] = self.status_sha or sha
             return body
         raise AssertionError(f"unexpected API path: {path}")
 
@@ -230,19 +234,51 @@ def test_completed_run_without_conclusion_fails_closed(gh):
         assess(gh)
 
 
-def test_status_context_success_satisfies_a_required_check(gh):
-    gh.runs[HEAD] = [r for r in gh.runs[HEAD] if r["name"] != "Lint (ruff)"]
-    gh.statuses[HEAD] = [{"id": 900, "context": "Lint (ruff)", "state": "success"}]
-    receipt = assess(gh)
+EXTERNAL = "external/deploy-preview"
+
+
+def test_status_context_satisfies_an_additional_required_check(gh):
+    for sha in (MAIN, HEAD):
+        gh.statuses[sha] = [{"id": 900, "context": EXTERNAL, "state": "success"}]
+    receipt = assess(gh, [EXTERNAL])
     assert receipt["ready"]
-    assert receipt["checks"]["head"][0]["kind"] == "status_context"
+    assert receipt["checks"]["head"][-1]["kind"] == "status_context"
 
 
 @pytest.mark.parametrize("state", ["pending", "failure", "error"])
 def test_status_context_not_success_fails(gh, state):
+    gh.statuses[MAIN] = [{"id": 900, "context": EXTERNAL, "state": "success"}]
+    gh.statuses[HEAD] = [{"id": 900, "context": EXTERNAL, "state": state}]
+    assert any(f"is {state}" in f for f in assess(gh, [EXTERNAL])["failures"])
+
+
+def test_additional_check_may_be_a_check_run_from_another_app(gh):
+    for sha in (MAIN, HEAD):
+        gh.runs[sha].append(run("Deploy preview", sha=sha, id_=99, app="some-ci-app"))
+    receipt = assess(gh, ["Deploy preview"])
+    assert receipt["ready"] and receipt["checks"]["head"][-1]["app"] == "some-ci-app"
+
+
+def test_status_context_cannot_stand_in_for_a_missing_baseline_job(gh):
     gh.runs[HEAD] = [r for r in gh.runs[HEAD] if r["name"] != "Lint (ruff)"]
-    gh.statuses[HEAD] = [{"id": 900, "context": "Lint (ruff)", "state": state}]
-    assert any(f"is {state}" in f for f in assess(gh)["failures"])
+    gh.statuses[HEAD] = [{"id": 900, "context": "Lint (ruff)", "state": "success"}]
+    failures = assess(gh)["failures"]
+    assert any(
+        "baseline check Lint (ruff) is not a CheckRun from github-actions" in f for f in failures
+    )
+
+
+def test_baseline_check_run_from_another_app_is_rejected(gh):
+    gh.runs[HEAD][0] = run("Lint (ruff)", id_=1, app="impostor")
+    assert not assess(gh)["ready"]
+    gh.runs[HEAD][0]["app"] = None
+    assert not assess(gh)["ready"]
+
+
+def test_check_runs_request_latest_explicitly(gh):
+    assess(gh)
+    runs = [c for c in gh.calls if "/check-runs" in c]
+    assert runs and all("filter=latest" in c for c in runs)
 
 
 def test_duplicate_and_conflicting_results_fail(gh):
@@ -308,6 +344,38 @@ def test_pr_head_moving_during_collection_fails(gh):
     gh.hooks.append(push)
     failures = assess(gh)["failures"]
     assert any(f"PR head moved from {HEAD} to {NEW_HEAD}" in f for f in failures)
+
+
+def test_default_branch_renamed_during_collection_fails(gh):
+    def rename(g, path):
+        if path.startswith(f"repos/{REPO}/commits/{HEAD}/status"):
+            g.default_branch = "trunk"
+
+    gh.hooks.append(rename)
+    failures = assess(gh)["failures"]
+    assert any("default branch changed from main to trunk" in f for f in failures)
+
+
+def test_pr_closed_during_collection_fails_once(gh):
+    def close(g, path):
+        if path.startswith(f"repos/{REPO}/commits/{HEAD}/status"):
+            g.pr["state"] = "closed"
+
+    gh.hooks.append(close)
+    assert any("race: PR is no longer open" in f for f in assess(gh)["failures"])
+
+
+def test_pr_already_closed_is_not_also_reported_as_a_race(gh):
+    gh.pr["state"] = "closed"
+    failures = assess(gh)["failures"]
+    assert any("PR is not open" in f for f in failures)
+    assert not any(f.startswith("race:") for f in failures)
+
+
+def test_combined_status_for_another_commit_fails_closed(gh):
+    gh.status_sha = NEW_HEAD
+    with pytest.raises(mr.ApiFailure, match="different commit"):
+        assess(gh)
 
 
 def test_main_and_pr_are_refetched_after_evidence(gh):
@@ -405,7 +473,7 @@ def test_output_carries_no_credentials(gh, monkeypatch, capsys):
 
 
 def _proc(returncode=0, stdout="{}", stderr=""):
-    return subprocess.CompletedProcess(["gh"], returncode, stdout, stderr)
+    return subprocess.CompletedProcess(["gh"], returncode, stdout.encode(), stderr.encode())
 
 
 def test_run_gh_uses_plain_get_and_parses(monkeypatch):
@@ -428,6 +496,11 @@ def test_run_gh_uses_plain_get_and_parses(monkeypatch):
         ("HTTP 401: Bad credentials token=ghp_secret", "not authenticated"),
         ("To get started with GitHub CLI, please run: gh auth login", "not authenticated"),
         ("HTTP 404: Not Found", "not found"),
+        ("gh: Not Found (HTTP 404)", "not found (HTTP 404)"),
+        ("gh: Resource not accessible (HTTP 403)", "forbidden (HTTP 403)"),
+        ("HTTP 429: slow down", "rate limited"),
+        ("request 4031 and 4044 failed", "gh failed"),
+        ("HTTP 502: Bad Gateway", "gh failed (HTTP 502)"),
     ],
 )
 def test_run_gh_failures_are_categorised_without_echoing_stderr(monkeypatch, stderr, label):
@@ -453,3 +526,102 @@ def test_run_gh_missing_cli_timeout_and_bad_json(monkeypatch):
     monkeypatch.setattr(mr.subprocess, "run", lambda *a, **k: _proc(stdout="<html>"))
     with pytest.raises(mr.ApiFailure):
         mr.run_gh("p")
+
+
+# --- the real runner against a real child process ---------------------------------------------
+#
+# The child stands in for ``gh`` and writes raw bytes, so the actual subprocess decoding in
+# ``run_gh`` runs. Windows decoded gh's UTF-8 with the locale code page (cp1252) and crashed on
+# bytes such as 0x81, which is what these cases lock down.
+
+SECRET = "ghp_" + "Q" * 36
+CHILD = (
+    "import sys\n"
+    "sys.stdout.buffer.write({out!r})\n"
+    "sys.stderr.buffer.write({err!r})\n"
+    "sys.exit({code})\n"
+)
+
+
+@pytest.fixture
+def child_gh(monkeypatch):
+    """Route run_gh's subprocess call to a real Python child that emits the given bytes."""
+    real_run = subprocess.run
+
+    def configure(out: bytes = b"{}", err: bytes = b"", code: int = 0):
+        script = CHILD.format(out=out, err=err, code=code)
+
+        def run_child(cmd, **kwargs):
+            assert cmd[:2] == ["gh", "api"]
+            return real_run([sys.executable, "-c", script], **kwargs)
+
+        monkeypatch.setattr(mr.subprocess, "run", run_child)
+
+    return configure
+
+
+UNICODE_JSON = '{"title": "Zażółć \u201d \u2010 ā ✓ 🎉", "n": 1}'.encode()
+
+
+def test_real_child_valid_non_cp1252_utf8_is_decoded(child_gh):
+    # U+201D, U+2010 and 'ā' contain bytes (0x81, 0x90) that cp1252 cannot decode.
+    child_gh(out=UNICODE_JSON)
+    assert mr.run_gh("repos/x/y")["n"] == 1
+
+
+@pytest.mark.parametrize(
+    "out",
+    [b"\xff\xfe{}", b'{"a": "\x81\x8d"}', b"\x80", b"<html>not json</html>", b"", b"[1, 2"],
+)
+def test_real_child_invalid_output_is_api_failure(child_gh, out):
+    child_gh(out=out)
+    with pytest.raises(mr.ApiFailure):
+        mr.run_gh("repos/x/y")
+
+
+def test_real_child_invalid_stderr_bytes_do_not_crash_or_leak(child_gh):
+    child_gh(out=b"", err=b"HTTP 401 \xff\xfe " + SECRET.encode(), code=1)
+    with pytest.raises(mr.ApiFailure) as exc:
+        mr.run_gh("repos/x/y")
+    assert SECRET not in str(exc.value)
+
+
+@pytest.mark.parametrize(
+    "out",
+    [b"\xff\xfe\x81" + SECRET.encode(), b"<html>" + SECRET.encode(), b"[]", b'"text"'],
+)
+def test_real_child_main_exits_3_with_bounded_receipt(child_gh, out, capsys):
+    child_gh(out=out)
+    code = mr.main(["--pr", "95", "--expected-head", HEAD])
+    captured = capsys.readouterr()
+    receipt = json.loads(captured.out)
+    assert code == mr.EXIT_API and receipt["ready"] is False
+    assert SECRET not in captured.out + captured.err
+    assert len(receipt["failures"]) == 1 and len(receipt["failures"][0]) <= 400
+
+
+def test_real_child_unicode_responses_flow_through_main(child_gh, capsys):
+    child_gh(out=UNICODE_JSON)  # decodes fine, but is not a repository object
+    assert mr.main(["--pr", "95", "--expected-head", HEAD]) == mr.EXIT_API
+    assert json.loads(capsys.readouterr().out)["ready"] is False
+
+
+def test_unexpected_failure_exits_3_without_its_message(capsys):
+    def boom(path):
+        raise RuntimeError(f"surprise {SECRET} from {path}")
+
+    code = mr.main(["--pr", "95", "--expected-head", HEAD], gh=boom)
+    captured = capsys.readouterr()
+    receipt = json.loads(captured.out)
+    assert code == mr.EXIT_API and receipt["ready"] is False
+    assert "unexpected RuntimeError" in receipt["failures"][0]
+    assert SECRET not in captured.out + captured.err
+    assert captured.out.isascii()
+
+
+def test_unexpected_none_output_is_exit_3(monkeypatch, capsys):
+    monkeypatch.setattr(
+        mr.subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(["gh"], 0, None, "")
+    )
+    assert mr.main(["--pr", "95", "--expected-head", HEAD]) == mr.EXIT_API
+    assert json.loads(capsys.readouterr().out)["ready"] is False

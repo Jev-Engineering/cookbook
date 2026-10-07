@@ -41,8 +41,10 @@ python tools/check_merge_readiness.py --pr 95 --expected-head <full 40-character
 | `--require-check NAME` | An additional required check, exact name, repeatable. |
 
 Exit status: `0` ready, `1` not ready, `2` usage error, `3` GitHub could not be read or
-returned data that cannot be trusted. A JSON receipt is always printed to stdout; a one-line
-summary goes to stderr.
+returned data that cannot be trusted, including any unexpected internal failure. Once the
+arguments are valid, a bounded JSON receipt (ASCII only) is always printed to stdout and a
+one-line summary goes to stderr. A usage error (`2`) prints argparse's usage message instead and
+no receipt.
 
 ### What it verifies
 
@@ -64,7 +66,9 @@ summary goes to stderr.
 Authentication failure, rate limiting, missing visibility, malformed or untyped API data, and
 incomplete listings all fail closed (exit `3`). The receipt contains SHAs, check names, ids and
 states, a failure list capped at 25 entries, and bounded text. It carries no tokens, headers,
-or raw API error bodies.
+or raw API output or error bodies: `gh` output is decoded as strict UTF-8 (never the Windows
+code page), and bytes that are not valid UTF-8, non-JSON output, or an unexpected exception
+produce exit `3` with a one-line, type-only reason.
 
 ### Required checks
 
@@ -76,6 +80,14 @@ The five baseline checks are always required. They are the job names in
 - `Tests (py3.10)`
 - `Tests (py3.14)`
 - `Hygiene (secrets and notebook outputs)`
+
+Each baseline name must be a **CheckRun published by `github-actions`**: a commit status or a
+CheckRun from another app posted under the same name cannot stand in for a missing Actions job
+and is reported as a failure. Checks you add with `--require-check` may be a CheckRun from any
+app or a StatusContext, since that is how external checks report; the receipt shows each one's
+`kind` and, for CheckRuns, the `app`. A name that appears more than once (for example as both a
+CheckRun and a StatusContext) is ambiguous and fails. CheckRuns are read with `filter=latest`, so
+a rerun replaces an earlier cancelled run of the same job.
 
 The helper does not read workflow files. Checks added by later workflows (for example notebook
 execution, fixture validation, or the recipe scope check) are **the caller's responsibility**:
@@ -95,11 +107,33 @@ added a job silently under-checks, which is why the list is explicit and the rec
 1. **Before the merge**, with the merge lock held, after the Opus approval for the current head
    is verified: run the helper with `--expected-head` set to that approved head. Anything but
    exit `0` stops the merge; fix the cause rather than rerunning until green.
-2. **Merge pinned to the head**: `gh pr merge <PR> --squash --delete-branch --match-head-commit <sha>`
-   (the merge itself is the supervisor's, not the helper's). Never use admin bypass.
-3. **After the merge**, verify the exact merge commit on `main`: wait for CI on that commit and
-   confirm every required check succeeded there, for example by running the same check on the
-   next pull request, whose `main` is that commit. If it is red, stop merging.
+2. **Merge pinned to the head**, by the original supervisor only, with exactly the authorized
+   command `gh pr merge <PR> --squash --match-head-commit <sha>`. Do not add `--delete-branch`
+   or `--admin`, and never bypass a rule. The helper does not run this and cannot authorize it.
+3. **After the merge**, verify the exact merge commit, not whatever `main` is later. Use the
+   squash commit's SHA and read its CheckRuns and StatusContexts directly (read-only GETs):
+
+   ```bash
+   REPO=Jev-Engineering/cookbook
+   SHA=$(gh pr view <PR> --repo $REPO --json mergeCommit --jq .mergeCommit.oid)
+
+   # CheckRuns on that commit: the count, then name, app, status, conclusion per run
+   gh api "repos/$REPO/commits/$SHA/check-runs?filter=latest&per_page=100"      --jq '.total_count, (.check_runs[] | [.name, .app.slug, .status, .conclusion] | @tsv)'
+
+   # StatusContexts on that commit (empty today; read it for any added external check)
+   gh api "repos/$REPO/commits/$SHA/status?per_page=100"      --jq '.sha, .total_count, (.statuses[] | [.context, .state] | @tsv)'
+
+   # The commit is on main: expect "ahead 0" or "identical 0" (main at or after $SHA)
+   gh api "repos/$REPO/compare/$SHA...main" --jq '[.status, .behind_by] | join(" ")'
+   ```
+
+   Every required check (the five baseline names plus each `--require-check` used) must appear
+   exactly once, `completed` with conclusion `success` (or state `success` for a status), and the
+   printed counts must match the rows listed. Missing, pending, cancelled or duplicate rows mean
+   the merge is not verified. Push CI on `main` cancels an older run when a newer merge lands, so
+   a cancelled push run on a superseded commit is a real gap, as with PR #83: record it, rerun the
+   workflow on that exact commit, and read the rows again. Do not treat a later commit's green
+   run as proof for this one. If the merge commit is red, stop merging.
 
 The helper narrows, but does not close, the window between the check and the merge:
 `--match-head-commit` pins the head, and `main` can still advance in that gap, which is why the

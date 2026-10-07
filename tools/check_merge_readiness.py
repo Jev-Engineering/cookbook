@@ -7,8 +7,9 @@ Standard library plus the ``gh`` CLI (read-only ``gh api`` GET requests only).
     python tools/check_merge_readiness.py --pr 95 --expected-head <sha> \
         --require-check "Notebooks (execute)"
 
-Exit status: 0 ready, 1 not ready, 2 usage error, 3 GitHub API failure or incomplete data.
-A bounded JSON receipt is always printed to stdout.
+Exit status: 0 ready, 1 not ready, 2 usage error, 3 GitHub API failure, incomplete data, or any
+unexpected internal failure (all fail closed). With valid arguments a bounded ASCII JSON receipt
+is always printed to stdout; an argument error exits 2 with argparse's usage message instead.
 
 This answers ONE question: is the pull request head, as pinned, based on the current default
 branch with every expected CI check successful on both current main and that head? It does not
@@ -30,6 +31,10 @@ DEFAULT_REPO = "Jev-Engineering/cookbook"
 
 # The baseline gate: the job names in .github/workflows/ci.yml and hygiene.yml. Checks added
 # by later workflows are the caller's responsibility, passed with --require-check.
+# The app that publishes the baseline jobs. A baseline name is only satisfied by a CheckRun from
+# it, so a commit status posted under the same name cannot stand in for a missing Actions job.
+# Checks named with --require-check may be a CheckRun from any app or a StatusContext.
+BASELINE_APP = "github-actions"
 BASELINE_CHECKS = (
     "Lint (ruff)",
     "Catalog (README is current)",
@@ -60,10 +65,11 @@ GhRunner = Callable[[str], Any]
 def run_gh(path: str) -> Any:
     """GET one API path with ``gh api`` and return parsed JSON. Never sends a body or a method."""
     try:
+        # Raw bytes, decoded below as strict UTF-8 (what gh writes). Text mode would use the
+        # locale code page (cp1252 on Windows), which cannot decode valid gh output.
         proc = subprocess.run(
             ["gh", "api", "-H", "Accept: application/vnd.github+json", path],
             capture_output=True,
-            text=True,
             timeout=GH_TIMEOUT_SECONDS,
             check=False,
         )
@@ -72,23 +78,35 @@ def run_gh(path: str) -> Any:
     except subprocess.TimeoutExpired:
         raise ApiFailure("gh timed out") from None
     if proc.returncode != 0:
-        # Only a category is reported: stderr can echo request details.
-        err = proc.stderr.lower()
-        if "rate limit" in err or "secondary rate" in err:
-            kind = "rate limited"
-        elif "401" in err or "bad credentials" in err or "gh auth login" in err:
-            kind = "not authenticated"
-        elif "403" in err:
-            kind = "forbidden (403)"
-        elif "404" in err:
-            kind = "not found (404)"
-        else:
-            kind = f"gh exited {proc.returncode}"
-        raise ApiFailure(f"GitHub API request failed: {kind}: {_clip(path)}")
+        # stderr is only classified, never repeated, and a bad byte there cannot crash it.
+        stderr = (
+            proc.stderr.decode("utf-8", errors="replace") if isinstance(proc.stderr, bytes) else ""
+        )
+        raise ApiFailure(f"GitHub API request failed: {_classify(stderr)}: {_clip(path)}")
+    if not isinstance(proc.stdout, bytes):
+        raise ApiFailure(f"gh produced no readable output for {_clip(path)}")
     try:
-        return json.loads(proc.stdout)
+        return json.loads(proc.stdout.decode("utf-8"))
+    except UnicodeDecodeError:
+        raise ApiFailure(f"gh output is not valid UTF-8 for {_clip(path)}") from None
     except ValueError:
         raise ApiFailure(f"GitHub returned non-JSON for {_clip(path)}") from None
+
+
+def _classify(stderr: object) -> str:
+    """Name the failure without repeating stderr, which can echo request details."""
+    err = stderr.lower() if isinstance(stderr, str) else ""
+    match = re.search(r"\bhttp[ /:]*(\d{3})\b", err)
+    code = match.group(1) if match else ""
+    if "rate limit" in err or code == "429":
+        return "rate limited"
+    if code == "401" or "bad credentials" in err or "gh auth login" in err:
+        return "not authenticated"
+    if code == "403":
+        return "forbidden (HTTP 403)"
+    if code == "404":
+        return "not found (HTTP 404)"
+    return f"gh failed (HTTP {code})" if code else "gh failed"
 
 
 def _clip(value: object, limit: int = MAX_TEXT) -> str:
@@ -177,7 +195,9 @@ def _paged(gh: GhRunner, path: str, list_key: str, what: str) -> tuple[dict, lis
 
 def collect_checks(gh: GhRunner, repo: str, sha: str) -> list[dict]:
     """Every CheckRun and StatusContext on ``sha``, normalised to name/kind/state."""
-    _, runs = _paged(gh, f"repos/{repo}/commits/{sha}/check-runs", "check_runs", "check runs")
+    # filter=latest is the API default, stated so a rerun replaces an earlier cancelled run.
+    runs_path = f"repos/{repo}/commits/{sha}/check-runs?filter=latest"
+    _, runs = _paged(gh, runs_path, "check_runs", "check runs")
     combined, statuses = _paged(gh, f"repos/{repo}/commits/{sha}/status", "statuses", "statuses")
     if _sha(combined.get("sha"), "combined status") != sha:
         raise ApiFailure("combined status describes a different commit")
@@ -196,6 +216,7 @@ def collect_checks(gh: GhRunner, repo: str, sha: str) -> list[dict]:
                 "name": _get(run, "name", str, "check run"),
                 "kind": "check_run",
                 "id": _get(run, "id", int, "check run"),
+                "app": _app_slug(run),
                 "state": _run_state(status, conclusion),
             }
         )
@@ -210,6 +231,12 @@ def collect_checks(gh: GhRunner, repo: str, sha: str) -> list[dict]:
             }
         )
     return found
+
+
+def _app_slug(run: dict) -> str | None:
+    app = run.get("app")
+    slug = app.get("slug") if isinstance(app, dict) else None
+    return slug if isinstance(slug, str) else None
 
 
 def _run_state(status: str, conclusion: str | None) -> str:
@@ -249,7 +276,15 @@ def judge_checks(
             evidence.append(
                 {"name": name, "kind": entry["kind"], "id": entry["id"], "state": entry["state"]}
             )
-            if entry["state"] != "success":
+            if entry["kind"] == "check_run":
+                evidence[-1]["app"] = _clip(entry["app"], 60)
+            if name in BASELINE_CHECKS and (
+                entry["kind"] != "check_run" or entry["app"] != BASELINE_APP
+            ):
+                failures.append(
+                    f"{label}: baseline check {_clip(name)} is not a CheckRun from {BASELINE_APP}"
+                )
+            elif entry["state"] != "success":
                 failures.append(f"{label}: check {_clip(name)} is {_clip(entry['state'])}")
     return evidence, failures
 
@@ -324,7 +359,8 @@ def assess(gh: GhRunner, repo: str, number: int, expected_head: str, extra: list
         failures.append(
             f"race: PR head moved from {pr['head_sha']} to {pr_after['head_sha']} during the check"
         )
-    if pr_after["state"] != "open" or pr_after["merged"]:
+    was_open = pr["state"] == "open" and not pr["merged"]
+    if was_open and (pr_after["state"] != "open" or pr_after["merged"]):
         failures.append("race: PR is no longer open")
 
     return {
@@ -381,21 +417,30 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     return args
 
 
+def _fail_closed(args: argparse.Namespace, message: str) -> int:
+    receipt = {
+        "ready": False,
+        "repository": args.repo,
+        "pull_request": args.pr,
+        "expected_head_sha": args.expected_head,
+        "failures": [_clip(message, 400)],
+    }
+    print(json.dumps(receipt, indent=2))
+    print("NOT READY: GitHub evidence unavailable or untrusted", file=sys.stderr)
+    return EXIT_API
+
+
 def main(argv: list[str] | None = None, gh: GhRunner = run_gh) -> int:
     args = parse_args(argv)
     try:
         receipt = bounded(assess(gh, args.repo, args.pr, args.expected_head, args.require_check))
     except ApiFailure as exc:
-        receipt = {
-            "ready": False,
-            "repository": args.repo,
-            "pull_request": args.pr,
-            "expected_head_sha": args.expected_head,
-            "failures": [_clip(f"cannot verify (failing closed): {exc}", 400)],
-        }
-        print(json.dumps(receipt, indent=2))
-        print("NOT READY: GitHub evidence unavailable or untrusted", file=sys.stderr)
-        return EXIT_API
+        return _fail_closed(args, f"cannot verify (failing closed): {exc}")
+    except Exception as exc:  # any surprise must still fail closed with a receipt
+        # Only the exception type is reported: its text could carry raw output.
+        return _fail_closed(
+            args, f"cannot verify (failing closed): unexpected {type(exc).__name__}"
+        )
     print(json.dumps(receipt, indent=2))
     if receipt["ready"]:
         print(
