@@ -66,6 +66,10 @@ writes) is accepted.
 - A missing file is a `FileNotFoundError` naming the folder; an error inside `helpers.py`
   propagates and nothing is cached. `reload=True` executes the file again.
 - Objects from helpers cannot be pickled by module name. Keep them out of anything pickled.
+- Because the module is removed from `sys.modules`, `typing.get_type_hints` on a helper
+  dataclass fails under `from __future__ import annotations` (`NameError`: the module cannot be
+  found to resolve the names). Do not use postponed annotations in `helpers.py`; the scaffold's
+  `helpers.py` does not.
 - **Keep `helpers.py` a single, self-contained file.** A `helpers.py` that does `import sibling`
   appears to work in the notebook, because the kernel can import from the recipe folder (and it
   then writes `__pycache__/` there), but it raises `ModuleNotFoundError` under pytest and in
@@ -83,7 +87,9 @@ writes) is accepted.
 - `README.md`: the recipe README with the same fields, the run commands for this slug, and a `TODO`
   where you write what it teaches;
 - `helpers.py`, `build_fixtures.py`, `tests/test_helpers.py`: skeletons that raise
-  `NotImplementedError("TODO ...")` until you write them.
+  `NotImplementedError("TODO ...")` until you write them. The test file's replay-key test assumes
+  one request per example (`example.replay_keys` holds a single key); adapt it when an example
+  needs a dependent second request, which is a later request with its own key.
 
 Every place you must write is marked `TODO`, so `grep -rn TODO recipes/NN-slug` lists what remains;
 a finished recipe prints nothing. The command validates that `NN` is a whole number from 1 to 60
@@ -117,11 +123,16 @@ the recipe folder as working directory, and writes the outputs back in place.
 
 - It builds a copy of the environment without any `JEV_COOKBOOK_*` or `TYPESAFE_*` variable and
   passes it to the kernel explicitly; this process's own environment is never changed, so notebooks
-  can be executed in parallel. A shell that is set up for live calls still runs offline.
+  can be executed in parallel. Starting several kernels at once on Windows can fail with a ZMQ
+  "Address in use" error, so run executions one after another, or retry once. A shell that is set up for live calls still runs offline.
 - The kernel is the interpreter running the tool (`sys.executable`). The name `python3` is
   resolved to that interpreter, not to whichever `python3` kernelspec Jupyter finds first, so a
   user-level kernelspec cannot change what the committed outputs were made with. The tool needs
   `ipykernel` installed in that interpreter, which `pip install -e ".[dev]"` provides.
+- Stream output is coalesced, so a printed line is never split into two outputs by a flush that
+  lands between its text and its newline; without that, re-execution was not byte-identical under
+  load. A kernel that dies (a crash, `os._exit`) fails the run with exit status 1 and leaves the
+  file unchanged.
 - It records no timings, writes LF line endings on every platform, and resets the notebook
   metadata to the interpreter-independent minimum (kernel `python3`, language `python`), so the
   file does not change with the Python version that ran it. `tests/test_new_recipe.py` and

@@ -53,6 +53,9 @@ def load_helpers(
     and is removed afterwards, along with nothing else: ``sys.path`` is never touched, and a
     different module that happened to hold the same name is put back. A consequence is that
     objects from helpers cannot be pickled by name; keep them out of anything that is pickled.
+    It also means ``typing.get_type_hints`` on a helper dataclass fails under
+    ``from __future__ import annotations`` (the module cannot be found to resolve the names), so
+    do not use postponed annotations in ``helpers.py``.
 
     Raises ``FileNotFoundError`` naming the folder when there is no ``helpers.py``; an
     exception raised by the file itself propagates unchanged and nothing is cached.

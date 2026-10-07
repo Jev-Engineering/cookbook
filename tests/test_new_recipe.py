@@ -183,9 +183,19 @@ def test_every_catalog_recipe_scaffolds_to_lint_clean_files(catalog, recipes):
     subprocess.run([*ruff, "format", "--check", *config, str(recipes)], check=True)
 
 
-def test_the_default_target_is_the_real_recipes_folder_and_this_test_never_uses_it():
+def test_the_default_target_is_the_real_recipes_folder_and_this_test_never_uses_it(
+    catalog, recipes
+):
+    """Every other test scaffolds into a temporary folder; the real ``recipes/`` listing is the
+    same before and after (checked without naming any recipe, so adding one never breaks it)."""
     assert new_recipe.ROOT == REPO
-    assert not (REPO / "recipes" / "01-sentiment-classification").exists()
+
+    def listing():
+        return sorted(p.name for p in (REPO / "recipes").iterdir() if p.name != "__pycache__")
+
+    before = listing()
+    assert run(1, catalog, recipes) == 0
+    assert listing() == before
 
 
 def test_a_scaffold_runs_once_the_helpers_and_fixtures_exist(catalog, recipes):
@@ -327,6 +337,38 @@ def test_a_cell_that_writes_to_stderr_fails_the_run_and_leaves_the_file(tmp_path
     assert execute_notebook.main([str(folder)]) == 1
     assert (folder / "notebook.ipynb").read_bytes() == before
     assert "wrote to stderr" in capsys.readouterr().err
+
+
+def test_a_printed_line_is_one_stream_output_even_when_the_flush_lands_in_the_middle(tmp_path):
+    """Without ``coalesce_streams`` the text and the newline of a ``print`` can arrive as two
+    outputs whenever an IOPub flush falls between them."""
+    folder = tmp_path / "split"
+    code = (
+        "import sys, time\nsys.stdout.write('a')\nsys.stdout.flush()\ntime.sleep(0.5)\nprint('b')"
+    )
+    write_notebook(folder, code)
+    assert execute_notebook.main([str(folder)]) == 0
+    after = nbformat.read(folder / "notebook.ipynb", as_version=4)
+    outputs = after.cells[0].outputs
+    assert [(o.output_type, o.name, o.text) for o in outputs] == [("stream", "stdout", "ab\n")]
+
+
+def test_a_dead_kernel_fails_the_run_quickly_and_leaves_the_file(tmp_path):
+    """A cell that kills the kernel used to hang the executor forever, the cell timeout
+    notwithstanding. It runs in a subprocess so that a regression is a failure, not a hang."""
+    folder = tmp_path / "dead"
+    write_notebook(folder, "import os\nos._exit(1)")
+    before = (folder / "notebook.ipynb").read_bytes()
+    tool = REPO / "tools" / "execute_notebook.py"
+    result = subprocess.run(
+        [sys.executable, str(tool), str(folder)],
+        capture_output=True,
+        text=True,
+        timeout=90,
+    )
+    assert result.returncode == 1
+    assert "the kernel died" in result.stderr
+    assert (folder / "notebook.ipynb").read_bytes() == before
 
 
 def test_a_warning_in_a_cell_counts_as_stderr(tmp_path):

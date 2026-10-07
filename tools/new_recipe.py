@@ -261,6 +261,7 @@ From the repository root, in an environment with `pip install -e ".[dev]"`:
 ```bash
 python -m jev_cookbook.fixtures validate recipes/{slug}
 python tools/execute_notebook.py recipes/{slug}
+pytest recipes/{slug}
 ```
 
 The notebook runs from this folder with no network and no API key, replaying `fixtures/`.
@@ -303,9 +304,10 @@ The fixture generator, the notebook and the tests all load this file with
 ``jev_cookbook.load_helpers``, so the questions and the state cannot disagree.
 """
 
-from __future__ import annotations
-
 from typing import Any
+
+# No ``from __future__ import annotations`` here: load_helpers removes this module from
+# ``sys.modules``, so typing.get_type_hints cannot resolve postponed annotations on a dataclass.
 
 
 def build_state(fields: dict[str, Any]):
@@ -320,6 +322,13 @@ def build_questions():
 
 # {TODO_MARK}: the rule or rules Python enforces whatever the model answers, with tests.
 '''
+
+
+def rows_hint(level: int) -> str:
+    """How many examples to write, from the contract: tens at levels 1 and 2, more from level 3."""
+    if level <= 2:
+        return f"tens of examples (about twenty) at level {level}"
+    return f"as many examples as level {level} needs to show its hard cases, more than at levels 1 and 2"
 
 
 def build_fixtures_text(recipe: dict) -> str:
@@ -341,7 +350,7 @@ helpers = load_helpers(HERE)
 QUESTIONS = helpers.build_questions()
 
 # (id, split, fields, gold label or None for a demo example, how the stored answer is written)
-ROWS = []  # {TODO_MARK}: about twenty examples at level 1 or 2, across validation and test
+ROWS = []  # {TODO_MARK}: {rows_hint(recipe["level"])}, across validation and test
 
 
 def answers_for(spec, provenance: Provenance):
@@ -393,7 +402,9 @@ def test_questions_are_built_by_python():
 
 
 def test_every_replay_key_in_the_fixtures_matches_the_current_question():
-    # The fixture validator cannot see question drift; this test can.
+    # The fixture validator cannot see question drift; this test can. It assumes one request per
+    # example; adapt it when an example needs a dependent second request (CONTRIBUTING: a question that depends on an
+    # earlier answer goes in a later request).
     questions = helpers.build_questions()
     for example in load_inputs(RECIPE):
         assert example.replay_keys == (replay_key(helpers.build_state(example.fields), questions),)
