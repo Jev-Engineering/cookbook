@@ -144,7 +144,9 @@ report = record(
   untouched, and `RecordConflict` is raised with `.result` (the `DecisionResult`) and `.saved_to`
   (the drift file). The name is deliberately not a fixture name: the fixture validator flags it as
   a stray file, which is the signal for the author to deal with it (keep it out of the commit, or
-  record again with a pinned model). Pin the model to avoid this.
+  record again with a pinned model). Pin the model to avoid this. The drift file lands next to the
+  responses file, so the fixture validator will flag it as a stray file; that is intended, because
+  it makes sure nobody commits it unnoticed.
 - One recorder per responses file: the merge is read-modify-write, and two recorders on one file
   race.
 - `RecordReport` lists `written`, `skipped` and `unchanged` keys, the number of attempts the
@@ -153,20 +155,32 @@ report = record(
   from the responses file because the stored-response format has no field for the request id. It
   is optional, and **it must live outside `fixtures/`**: `record` refuses (`ValueError`, before any
   call) a path inside a `fixtures/` directory, because the fixture validator rejects stray files
-  there. Never commit it as a fixture. It is rewritten atomically after every call.
+  there, and a path that is the same file as `responses_path` (including through a different
+  spelling or a link). Never commit it as a fixture. It is rewritten atomically after every call.
   - A call that produced a response is `{replay_key: {status: "recorded", request_id, model, date,
-    input_tokens, output_tokens}}`, written before that response is merged, so a merge conflict
-    still leaves its request id.
+    input_tokens, output_tokens, attempts, retried}}`, written before that response is merged, so
+    a merge conflict still leaves its request id. `request_id` is the id of the answering
+    attempt. `attempts` is every HTTP attempt that call spent, the answering one included (1 when
+    nothing was retried). `retried` lists the failed attempts it retried past, oldest first, as
+    `{error_type, http_status, request_id}` (`http_status` and `request_id` are null when the
+    attempt got no response, for example a timeout); it is `[]` when nothing was retried.
   - A call that produced nothing to record is written before the error is re-raised, as
     `{replay_key + "!failed-N": {status, error_type, http_status, request_id, model, date,
-    attempts}}`. `status` is `invalid_response` (the API answered but the result failed
+    attempts, retried}}`. `status` is `invalid_response` (the API answered but the result failed
     validation, or contained the key), `error` (an HTTP or connection error), `timeout` or
-    `budget_stopped`. `attempts` is the number of HTTP attempts that one call spent (0 for a budget
-    stop). `request_id` is filled whenever a response came back, including a rejected 200; a
-    timeout has none. The same id is on the exception (`LiveResponseError.request_id`,
-    `LiveCallError.request_id`). A failed line never replaces the entry of an earlier call for the
-    same key.
-  - `overwrite=True` still replaces the earlier `recorded` entry for a re-recorded key.
+    `budget_stopped`. `error_type`, `http_status` and `request_id` describe the last attempt (the
+    one that ended the call; a timeout has no request id; for `budget_stopped` `error_type` is
+    `BudgetExceeded` and the other two are null). `attempts` is the HTTP attempts this call spent: 0 only when the
+    budget was already spent before the call sent anything, and otherwise includes any attempts
+    made before the budget stopped it. `retried` is as above. The same last-attempt id is on the
+    exception (`LiveResponseError.request_id`, `LiveCallError.request_id`). A failed line never
+    replaces the entry of an earlier call for the same key.
+  - Reconciling: within one fresh sidecar, the sum of `attempts` over its lines (including any
+    `superseded` entries, below) equals `backend.ledger()["requests_made"]` for the backend that
+    ran. Every request id the backend saw is on disk: as `request_id` or inside `retried`.
+  - `overwrite=True` keeps the earlier entry: when a key already has a `recorded` line, the new
+    line carries the earlier one (and any it already carried) under `superseded`, oldest first,
+    each with its own request id, attempts and retried list.
 
 Operational notes for a recording run:
 
@@ -211,8 +225,11 @@ either way.
   `logging.Filter` on that logger that replaces every spelling of the key (as exported, trimmed,
   and their repr and JSON escapes) with `[redacted]` in the message and its arguments, leaves the
   rest of the line as the SDK wrote it, and removes it again in `close()` (shared and reference
-  counted across backends). **An injected client is the caller's responsibility:** the backend
-  installs nothing for it, so redact its logging yourself. The request and response bodies still
+  counted across backends). The filter covers the `typesafe_sdk` logger's own messages and
+  arguments. It does not cover `exc_info` tracebacks (a handler formats those later) or records
+  logged on child loggers such as `typesafe_sdk.x`; SDK 0.7.2 uses neither, and the `<0.8` pin keeps
+  it so, but a later SDK that does needs this re-checked. **An injected client is the caller's
+  responsibility:** the backend installs nothing for it, so redact its logging yourself. The request and response bodies still
   contain your state and the answers, so keep `TYPESAFE_LOG_LEVEL` unset in notebooks whose state
   is sensitive, and do not paste its output into a pull request.
 - Recorded fixtures contain the answers and provenance only, never the state. Keep notebook
@@ -253,9 +270,11 @@ backend = LiveBackend(
 ```
 
 This already type-checks against the contract above: `LiveBackend` only needs `system_one` and
-SDK-shaped responses, ignores the adapter's extra `usage` and `debug` fields, and reads no
-environment variable for an injected client. This snippet is a design note, not a tested path:
-no test builds an adapter client. Two cautions when it is used: the adapter's own provider
+SDK-shaped responses, and reads no environment variable for an injected client. The adapter's
+extra `usage` block is parsed like any other, so it must have the System One shape
+(`input_tokens` and `output_tokens` as non-negative integers or null; anything else raises
+`LiveResponseError`), and its `debug` field is not read. This snippet is a design note, not a
+tested path: no test builds an adapter client. Two cautions when it is used: the adapter's own provider
 retries are invisible to the request budget (set them low), and one `system_one` call may make
 several provider requests, so the budget counts calls to `system_one`, not provider requests. A
 later issue should decide whether a named `AdapterBackend` (own opt-in variable, own key rules, a

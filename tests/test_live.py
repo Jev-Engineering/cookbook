@@ -628,6 +628,8 @@ def test_record_writes_an_optional_request_id_sidecar(tmp_path):
             "date": DAY,
             "input_tokens": 7,
             "output_tokens": None,
+            "attempts": 1,
+            "retried": [],
         }
     }
     assert "req-9" not in path.read_text("utf-8")  # the stored-response shape is untouched
@@ -770,6 +772,7 @@ def test_failure_on_the_second_call_leaves_a_ledger_with_the_first_request_id(tm
         "model": "jev-latest",
         "date": DAY,
         "attempts": 1,
+        "retried": [],
     }
     assert backend.ledger()["request_ids"] == ["req-paid"]
     assert not list(tmp_path.glob(".responses-*"))
@@ -953,3 +956,115 @@ def test_a_clean_response_is_unaffected_by_the_key_scan(clean_env):
     clean_env.setenv("TYPESAFE_API_KEY", SECRET)
     backend, _ = make(Resp(api_body(), "r"))
     assert backend.decide(STATE, QUESTIONS).model == MODEL
+
+
+# -- fix round 3: retried attempts are on disk; history survives; the sidecar is its own file ---
+
+
+def doc(n):
+    return [({"document": f"ticket {n}"}, QUESTIONS)]
+
+
+def test_sidecar_attempts_add_up_to_requests_made_and_keep_retried_request_ids(tmp_path):
+    path, ledger = tmp_path / "r.json", tmp_path / "ledger.json"
+    backend, _ = make(
+        Resp(api_body(), "req-a"),  # A: one attempt
+        TimeoutError("slow"),  # B: timeout, 500, then a 200
+        ApiError(500),
+        Resp(api_body(), "req-b"),
+        ApiError(400),  # C: fails at once
+        ApiError(503),  # D: retried until the budget stops it
+        ApiError(503),
+        max_requests=7,
+        max_retries=2,
+    )
+    record(backend, doc(1), path, ledger_path=ledger)
+    record(backend, doc(2), path, ledger_path=ledger)
+    with pytest.raises(LiveCallError):
+        record(backend, doc(3), path, ledger_path=ledger)
+    with pytest.raises(BudgetExceeded):
+        record(backend, doc(4), path, ledger_path=ledger)
+    side = json.loads(ledger.read_text("utf-8"))
+    keys = [replay_key(*doc(n)[0]) for n in (1, 2, 3, 4)]
+    assert sorted(side) == sorted([keys[0], keys[1], keys[2] + "!failed-1", keys[3] + "!failed-1"])
+    assert sum(v["attempts"] for v in side.values()) == backend.ledger()["requests_made"] == 7
+    assert [side[k]["attempts"] for k in (keys[0], keys[1])] == [1, 3]
+    assert side[keys[1]]["request_id"] == "req-b"
+    assert side[keys[1]]["retried"] == [
+        {"error_type": "TimeoutError", "http_status": None, "request_id": None},
+        {"error_type": "ApiError", "http_status": 500, "request_id": "req-err-500"},
+    ]
+    assert side[keys[0]]["retried"] == [] and side[keys[2] + "!failed-1"]["retried"] == []
+    stopped = side[keys[3] + "!failed-1"]
+    assert stopped["status"] == "budget_stopped" and stopped["attempts"] == 2
+    assert [r["request_id"] for r in stopped["retried"]] == ["req-err-503", "req-err-503"]
+    assert "req-err-500" in ledger.read_text("utf-8")
+
+
+def test_a_failed_call_after_retries_lists_them_on_the_failed_line(tmp_path):
+    backend, _ = make(ApiError(502), ApiError(400), max_retries=2)
+    _, side, _ = sidecar_after(tmp_path, backend)
+    line = list(side.values())[0]
+    assert line["attempts"] == 2 and line["http_status"] == 400
+    assert line["retried"] == [
+        {"error_type": "ApiError", "http_status": 502, "request_id": "req-err-502"}
+    ]
+
+
+def test_retried_entries_are_scrubbed(tmp_path, clean_env):
+    clean_env.setenv("TYPESAFE_API_KEY", SECRET)
+    err = ApiError(500)
+    err.request_id = f"id-{SECRET}"
+    backend, _ = make(err, Resp(api_body(), "r"), max_retries=1)
+    record(backend, doc(1), tmp_path / "r.json", ledger_path=tmp_path / "l.json")
+    text = (tmp_path / "l.json").read_text("utf-8")
+    assert SECRET not in text and "[redacted]" in text
+
+
+def test_overwrite_keeps_the_earlier_sidecar_entry_as_history(tmp_path):
+    path, ledger = tmp_path / "r.json", tmp_path / "ledger.json"
+    backend, _ = make(
+        Resp(api_body(), "req-old"), Resp(api_body(), "req-mid"), Resp(api_body(), "req-new")
+    )
+    for _ in range(3):
+        record(backend, doc(1), path, ledger_path=ledger, overwrite=True)
+    line = json.loads(ledger.read_text("utf-8"))[replay_key(*doc(1)[0])]
+    assert line["request_id"] == "req-new"
+    assert [h["request_id"] for h in line["superseded"]] == ["req-old", "req-mid"]
+    assert all("superseded" not in h for h in line["superseded"])
+    assert (
+        "superseded"
+        not in json.loads(ledger.read_text("utf-8"))[replay_key(*doc(1)[0])]["superseded"][0]
+    )
+
+
+def test_a_first_recording_has_no_history_field(tmp_path):
+    backend, _ = make()
+    record(backend, doc(1), tmp_path / "r.json", ledger_path=tmp_path / "l.json")
+    line = list(json.loads((tmp_path / "l.json").read_text("utf-8")).values())[0]
+    assert "superseded" not in line
+
+
+def test_the_ledger_may_not_be_the_responses_file(tmp_path):
+    backend, client = make()
+    same = tmp_path / "r.json"
+    with pytest.raises(ValueError, match="same file"):
+        record(backend, doc(1), same, ledger_path=same)
+    with pytest.raises(ValueError, match="same file"):
+        record(backend, doc(1), same, ledger_path=tmp_path / "sub" / ".." / "r.json")
+    assert client.calls == [] and not same.exists()
+
+
+def test_a_hard_link_to_the_responses_file_is_refused(tmp_path):
+    import os
+
+    backend, client = make()
+    same, link = tmp_path / "r.json", tmp_path / "link.json"
+    same.write_text("{}" + chr(10), encoding="utf-8")
+    try:
+        os.link(same, link)
+    except OSError:
+        pytest.skip("hard links are not available here")
+    with pytest.raises(ValueError, match="same file"):
+        record(backend, doc(1), same, ledger_path=link)
+    assert client.calls == []

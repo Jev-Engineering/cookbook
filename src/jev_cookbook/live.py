@@ -537,6 +537,7 @@ class LiveBackend:
         self._output_tokens: int | None = None
         self._calls_without_usage = 0
         self._records: list[CallRecord] = []
+        self._retried: list[dict[str, Any]] = []
         self._owns_client = client is None
         # Only used to scrub messages; an injected client's key came from somewhere we cannot
         # see, and the usual place is this variable.
@@ -606,6 +607,15 @@ class LiveBackend:
         return tuple(r.request_id for r in self._records)
 
     @property
+    def last_retried(self) -> tuple[dict[str, Any], ...]:
+        """The failed attempts the latest ``decide`` call retried past, oldest first.
+
+        Each is ``{error_type, http_status, request_id}`` (scrubbed). Reset at the start of every
+        call, so it describes that call whether it then succeeded or raised.
+        """
+        return tuple(dict(r) for r in self._retried)
+
+    @property
     def last_request_id(self) -> str | None:
         return self._records[-1].request_id if self._records else None
 
@@ -654,6 +664,8 @@ class LiveBackend:
         key = replay_key(state, questions)
         payload = {name: _question_payload(q) for name, q in checked.items()}
         attempt = 0
+        with self._lock:
+            self._retried = []
         # Errors are raised after their `except` block has ended, so neither `__cause__` nor
         # `__context__` carries the SDK exception (its message may echo the key).
         while True:
@@ -674,6 +686,15 @@ class LiveBackend:
                 if _is_retryable(exc) and attempt < self.max_retries:
                     attempt += 1
                     delay = self._delay(exc, attempt)
+                    note = _describe_failure(exc, self._secrets)
+                    with self._lock:
+                        self._retried.append(
+                            {
+                                "error_type": note.error_type,
+                                "http_status": note.status,
+                                "request_id": note.request_id,
+                            }
+                        )
                 elif _is_validation_error(exc):
                     failure = _response_validation_error(exc, self._secrets)
                 else:
@@ -872,14 +893,18 @@ def record(
     ``{replay_key: {status: "recorded", request_id, model, date, input_tokens, output_tokens}}``
     and a call that produced nothing to record (``invalid_response``, ``error``, ``timeout``,
     ``budget_stopped``) is ``{replay_key + "!failed-N": {status, error_type, http_status,
-    request_id, model, date, attempts}}``, written before the error is re-raised. A
-    ``ledger_path`` inside a ``fixtures/`` directory is refused with ``ValueError`` before any
-    call is made.
+    request_id, model, date, attempts, retried}}``, written before the error is re-raised.
+    ``attempts`` is the HTTP attempts that call spent (a budget stop with nothing sent is 0) and
+    ``retried`` lists ``{error_type, http_status, request_id}`` for each failed attempt it retried
+    past, on both kinds of line. Re-recording a key with ``overwrite=True`` keeps the earlier
+    ``recorded`` entry under ``superseded``. A ``ledger_path`` inside a ``fixtures/`` directory,
+    or the same file as ``responses_path``, is refused with ``ValueError`` before any call.
     """
     target = Path(responses_path)
     out_ledger = Path(ledger_path) if ledger_path is not None else None
     if out_ledger is not None:
         _refuse_fixtures_dir(out_ledger)
+        _refuse_same_file(out_ledger, target)
     before = backend.requests_made
     existing = set(_load_responses(target))
     written: list[str] = []
@@ -910,14 +935,23 @@ def record(
         # The call is paid for: record its request id first, then the response.
         if out_ledger is not None:
             old = _load_responses(out_ledger)
-            old[key] = {
+            line: dict[str, Any] = {
                 "status": "recorded",
                 "request_id": rec.request_id,
                 "model": rec.model,
                 "date": rec.date,
                 "input_tokens": rec.usage.input_tokens,
                 "output_tokens": rec.usage.output_tokens,
+                "attempts": backend.requests_made - attempts_before,
+                "retried": list(backend.last_retried),
             }
+            previous = old.get(key)
+            if isinstance(previous, dict):
+                # A paid call is never forgotten: an earlier entry for this key moves to history.
+                history = list(previous.get("superseded") or [])
+                history.append({k: v for k, v in previous.items() if k != "superseded"})
+                line["superseded"] = history
+            old[key] = line
             _write_atomic(out_ledger, _dump(old))
             wrote_ledger = True
         try:
@@ -945,6 +979,18 @@ def _refuse_fixtures_dir(path: Path) -> None:
             f"ledger_path {str(path)!r} is inside a fixtures/ directory. The sidecar holds request "
             "ids and failed attempts, not fixtures, and the fixture validator rejects stray files "
             "there. Put it elsewhere (for example next to the recipe, outside fixtures/)."
+        )
+
+
+def _refuse_same_file(ledger: Path, responses: Path) -> None:
+    """The sidecar must not be the responses file (it would write lines into the fixture)."""
+    same = ledger.resolve() == responses.resolve()
+    if not same and ledger.exists() and responses.exists():
+        same = os.path.samefile(ledger, responses)
+    if same:
+        raise ValueError(
+            f"ledger_path {str(ledger)!r} is the same file as responses_path. The sidecar holds "
+            "request ids and failed attempts, not responses; use a separate file."
         )
 
 
@@ -976,6 +1022,7 @@ def _ledger_failure(
         "model": backend.requested_model,
         "date": backend._today(),
         "attempts": attempts,
+        "retried": list(backend.last_retried),
     }
     _write_atomic(ledger, _dump(old))
 
