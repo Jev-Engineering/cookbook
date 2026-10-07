@@ -492,7 +492,7 @@ def test_select_split_rejects_a_misspelled_split(recipe):
 
 # Assembled here, not written out, so this file stays clean for the repository scan.
 FAKE_SK = "sk-" + "Ab3dE6gH9jK2mN5pQ8sT1vW4"
-FAKE_GH = "ghp_" + "aB3dE6gH9jK2mN5pQ8sT1vW4xY7zA0bC3d"
+FAKE_GH = "ghp_" + "aB3d" * 9  # a repeated chunk: matches the vendor rule, not the entropy rule
 FAKE_ASSIGN = "api_key" + ' = "' + "Qw3rT6yU9iO2pA5sD8fG1hJ4" + '"'
 FAKE_BEARER = "Bearer " + "Zx3cV6bN9mQ2wE5rT8yU1iO4pA7"
 FAKE_AWS = "AKIA" + "ABCDEFGH" + "IJKLMNOP"
