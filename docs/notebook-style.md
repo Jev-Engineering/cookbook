@@ -18,11 +18,22 @@ themselves, so they look right even if `apply_style()` was not called.
 
 ## Run header
 
-`run_header(recipe, title, mode, *, model=None, recorded_on=None)` prints three lines and
-returns the same text. `mode` is `"synthetic"`, `"scripted"`, `"recorded"`, `"live"`, or a
+`run_header(recipe, title, mode, *, model=None, recorded_on=None, n_examples=None)` prints
+three lines and returns the same text. `mode` is `"synthetic"`, `"scripted"`, `"recorded"`, `"live"`, or a
 `RunInfo(mode, model, recorded_on, n_examples)`. Recorded needs `model` and `recorded_on`, live needs
 `model`; a synthetic or scripted run refuses a model, because nothing a model produced is
 in it. Wrong combinations raise `ValueError` rather than printing a vague header.
+
+### From a backend
+
+`run_header(recipe, title, backend=backend, n_examples=None)` reads `backend.mode`,
+`backend.model` and, for a recorded run, `backend.recorded_dates` (a `ReplayBackend`, a
+`ScriptedBackend`, or anything with those attributes, such as a live backend) and prints
+exactly the text of that mode below. A synthetic or scripted backend's model name is not
+shown. A recorded backend with one date says `on DATE`; with several it says `between FIRST
+and LAST`, for example `...to model MODEL between 2026-01-02 and 2026-01-09. Any numbers...`.
+`backend=` cannot be combined with `mode`, `model` or `recorded_on`. The explicit form above
+keeps working unchanged. A sample size of one reads `1 example`, not `1 examples`.
 
 `n_examples` is an optional sample size for recorded and live runs: recorded then ends
 `...describe only that recorded sample of 12 examples.` and live ends `...describe only the
@@ -64,8 +75,15 @@ scripted runs and in no other.
 `show_answer(answer)` prints, and `format_answer(answer)` returns, a readable view. Answers
 are read by duck typing: a Choice has `choice`, `probabilities`, `confidence`; a Score has
 `score`, `probabilities`, `confidence`, `legend` (levels are sorted by integer value, so
-`"2"` comes before `"10"`, and the score line is placed by level value); a Noul has `noul` only (the probability
-of yes, with no separate confidence); every answer has a `provenance`.
+`2` comes before `10`, and the score line is placed by level value); a Noul has `noul` only
+(the probability of yes, with no separate confidence); every answer has a `provenance`.
+
+The real classes of `jev_cookbook.answers` work directly. Probabilities, `score`, `confidence`
+and `noul` are shown to two decimals (the stored values are not changed). The read-only
+mappings print as plain values, never as `mappingproxy(...)`. A legend value that is text is
+shown as is; an object or array is shown as compact JSON on the level's line, for example
+`0 {"label": "low", "n": 1}  0.10`. A recorded provenance shows its model and date
+(`Provenance: recorded (MODEL, 2026-01-02)`); a synthetic one shows `synthetic`.
 
 ```text
 Choice: calm (confidence 0.90)
@@ -84,10 +102,15 @@ cell with the returned figure, or call `fig.savefig(...)`.
 
 | Helper | Draws |
 | --- | --- |
-| `plot_confusion_matrix(counts, labels, *, normalize=False, title=None, ax=None)` | gold by predicted, every cell annotated |
+| `plot_confusion_matrix(counts, labels=None, *, normalize=False, title=None, ax=None)` | gold by predicted, every cell annotated; `counts` may be an object with `.labels` and `.matrix` |
 | `plot_answer_probabilities(answer, *, highlight=None, title=None, ax=None)` | probability bars for a Choice, Score, Noul, or a plain mapping |
-| `plot_threshold_sweep(thresholds, metrics, *, chosen=None, title=None, ax=None)` | one line per metric, chosen threshold marked |
-| `plot_risk_coverage(coverage, risk, *, label=None, reference_risk=None, title=None, ax=None)` | error rate on answered cases against fraction answered |
+| `plot_threshold_sweep(thresholds, metrics=None, *, chosen=None, title=None, ax=None)` | one line per metric, chosen threshold marked; `thresholds` may be a list of objects with `.threshold` and `.precision`, `.recall`, `.f1` |
+| `plot_risk_coverage(coverage, risk=None, *, label=None, reference_risk=None, title=None, ax=None)` | error rate on answered cases against fraction answered; `coverage` may be an object with `.coverage` and `.risk` |
+
+The evaluation toolkit's results are accepted by duck typing, without importing it:
+`confusion_matrix(...)` results (`.labels`, `.matrix`), the list from `threshold_sweep(...)`
+(each point has `.threshold`, `.precision`, `.recall`, `.f1`; an undefined NaN value leaves a
+gap in the line), and `selective_curve(...)` results (`.coverage`, `.risk`).
 
 ### Legibility on GitHub's light and dark views
 

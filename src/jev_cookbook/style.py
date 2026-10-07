@@ -22,7 +22,7 @@ Every answer also has a ``provenance``. This module imports no SDK and no other 
 
 from __future__ import annotations
 
-import enum
+import json
 import math
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
@@ -176,12 +176,16 @@ class RunInfo:
     (offline scripted backend), ``recorded`` (offline replay of recorded fixtures; needs
     ``model`` and ``recorded_on``) or ``live`` (calls made now; needs ``model``).
     ``n_examples`` is an optional sample size, stated in the recorded and live headers.
+    ``recorded_until`` (recorded only) is the last capture date when the fixtures were
+    recorded on several days; the header then says "between ``recorded_on`` and
+    ``recorded_until``".
     """
 
     mode: str
     model: str | None = None
     recorded_on: str | None = None
     n_examples: int | None = None
+    recorded_until: str | None = None
 
     def __post_init__(self) -> None:
         if self.mode not in _MODES:
@@ -192,6 +196,8 @@ class RunInfo:
             or self.n_examples < 1
         ):
             raise ValueError("n_examples must be a positive integer")
+        if self.recorded_until and self.mode != "recorded":
+            raise ValueError("recorded_until only applies to a recorded run")
         if self.mode in ("synthetic", "scripted"):
             if self.n_examples is not None:
                 raise ValueError(f"a {self.mode} header does not state a sample size")
@@ -203,6 +209,8 @@ class RunInfo:
         elif self.mode == "recorded":
             if not self.model or not self.recorded_on:
                 raise ValueError("a recorded run needs both model and recorded_on")
+            if self.recorded_until and self.recorded_until < self.recorded_on:
+                raise ValueError("recorded_until must not be earlier than recorded_on")
         else:
             if not self.model:
                 raise ValueError("a live run needs model")
@@ -210,17 +218,55 @@ class RunInfo:
                 raise ValueError("a live run has no recorded_on")
 
 
+def _plural(n: int) -> str:
+    return f"{n} example" if n == 1 else f"{n} examples"
+
+
+def _info_from_backend(backend: Any, n_examples: int | None) -> RunInfo:
+    """A :class:`RunInfo` read from a backend's ``mode``, ``model`` and ``recorded_dates``."""
+    try:
+        mode = backend.mode
+    except AttributeError:
+        raise TypeError(
+            f"{type(backend).__name__} has no 'mode'; expected a jev_cookbook backend"
+        ) from None
+    if mode in ("synthetic", "scripted"):
+        # Nothing a model produced is in these runs, so the backend's model name is not shown.
+        return RunInfo(mode, n_examples=n_examples)
+    if mode == "live":
+        return RunInfo(mode, getattr(backend, "model", None), n_examples=n_examples)
+    if mode == "recorded":
+        dates = sorted(getattr(backend, "recorded_dates", ()) or ())
+        if not dates:
+            raise ValueError("a recorded backend must have at least one recorded date")
+        return RunInfo(
+            mode,
+            getattr(backend, "model", None),
+            dates[0],
+            n_examples,
+            dates[-1] if dates[-1] != dates[0] else None,
+        )
+    raise ValueError(f"unknown run mode {mode!r}; expected one of {list(_MODES)}")
+
+
 def run_header_text(
     recipe: int | str,
     title: str,
-    mode: str | RunInfo,
+    mode: str | RunInfo | None = None,
     *,
     model: str | None = None,
     recorded_on: str | None = None,
     n_examples: int | None = None,
+    backend: Any = None,
 ) -> str:
     """The header text :func:`run_header` prints (three lines, plain text)."""
-    if isinstance(mode, RunInfo):
+    if backend is not None:
+        if mode is not None or model or recorded_on:
+            raise ValueError("pass either a backend or mode, model and recorded_on, not both")
+        info = _info_from_backend(backend, n_examples)
+    elif mode is None:
+        raise ValueError("pass a mode, a RunInfo or a backend")
+    elif isinstance(mode, RunInfo):
         if model or recorded_on or n_examples is not None:
             raise ValueError("pass model, recorded_on and n_examples inside the RunInfo")
         info = mode
@@ -228,8 +274,13 @@ def run_header_text(
         info = RunInfo(mode, model, recorded_on, n_examples)
     number = f"{recipe:02d}" if isinstance(recipe, int) else str(recipe)
     first = f"Recipe {number}: {title}"
-    sample = f" of {info.n_examples} examples" if info.n_examples is not None else ""
-    counted = f"{info.n_examples} " if info.n_examples is not None else ""
+    sample = f" of {_plural(info.n_examples)}" if info.n_examples is not None else ""
+    counted = _plural(info.n_examples) if info.n_examples is not None else "examples"
+    when = (
+        f"between {info.recorded_on} and {info.recorded_until}"
+        if info.recorded_until
+        else f"on {info.recorded_on}"
+    )
     if info.mode == "synthetic":
         second = "Mode: offline replay of synthetic fixtures"
         third = SYNTHETIC_NOTICE
@@ -240,14 +291,14 @@ def run_header_text(
         second = "Mode: offline replay of recorded fixtures"
         third = (
             f"The answers were captured from a real Jev call to model {info.model} "
-            f"on {info.recorded_on}. Any numbers below describe only that recorded sample"
+            f"{when}. Any numbers below describe only that recorded sample"
             f"{sample}."
         )
     else:
         second = "Mode: live"
         third = (
             f"Calls are being made now to model {info.model}. "
-            f"Any numbers below describe only the {counted}examples in this run."
+            f"Any numbers below describe only the {counted} in this run."
         )
     return "\n".join((first, second, third))
 
@@ -255,20 +306,32 @@ def run_header_text(
 def run_header(
     recipe: int | str,
     title: str,
-    mode: str | RunInfo,
+    mode: str | RunInfo | None = None,
     *,
     model: str | None = None,
     recorded_on: str | None = None,
     n_examples: int | None = None,
+    backend: Any = None,
 ) -> str:
     """Print the recipe number, title, run mode and what that mode means. Returns the text.
 
     ``mode`` is ``"synthetic"``, ``"scripted"``, ``"recorded"`` or ``"live"``, or a
     :class:`RunInfo`. Recorded runs need ``model`` and ``recorded_on``; live runs need
-    ``model``. ``n_examples`` adds the sample size to those two. The text never states or implies quality, latency or cost.
+    ``model``. ``n_examples`` adds the sample size to those two.
+
+    Instead of a mode, pass ``backend=`` (any object with ``mode``, ``model`` and, for
+    recorded runs, ``recorded_dates``, such as the backends of ``jev_cookbook.backends``):
+    the header is then read from it, and a recorded backend with several dates says
+    "between FIRST and LAST". The text never states or implies quality, latency or cost.
     """
     text = run_header_text(
-        recipe, title, mode, model=model, recorded_on=recorded_on, n_examples=n_examples
+        recipe,
+        title,
+        mode,
+        model=model,
+        recorded_on=recorded_on,
+        n_examples=n_examples,
+        backend=backend,
     )
     print(text)
     return text
@@ -287,9 +350,12 @@ def _provenance(answer: Any) -> str:
     value = getattr(answer, "provenance", None)
     if value is None:
         return "not stated"
-    if isinstance(value, enum.Enum):
-        value = value.value
-    return str(value)
+    source = getattr(value, "source", None)
+    if source is None:
+        return str(value)
+    model, date = getattr(value, "model", None), getattr(value, "date", None)
+    details = ", ".join(str(x) for x in (model, date) if x)
+    return f"{source} ({details})" if details else str(source)
 
 
 def _kind(answer: Any) -> str:
@@ -318,9 +384,19 @@ def _ordered_levels(probabilities: Mapping[Any, Any]) -> list[Any]:
     return [k for _, k in sorted(zip(values, keys, strict=True), key=lambda vk: vk[0])]
 
 
+def _legend_text(value: Any) -> str:
+    """A legend value as one readable line: text as is, an object or array as compact JSON."""
+    if isinstance(value, str):
+        return value
+    try:
+        return json.dumps(value, ensure_ascii=False, default=str)
+    except (TypeError, ValueError):
+        return str(value)
+
+
 def _level_label(answer: Any, level: Any) -> str:
     legend = dict(getattr(answer, "legend", None) or {})
-    name = legend.get(level, legend.get(str(level), ""))
+    name = _legend_text(legend.get(level, legend.get(str(level), "")))
     return f"{level} {name}".strip()
 
 
@@ -391,7 +467,7 @@ def _text_colour(background: Sequence[float]) -> str:
 
 def plot_confusion_matrix(
     counts: Any,
-    labels: Sequence[str],
+    labels: Sequence[str] | None = None,
     *,
     normalize: bool = False,
     title: str | None = None,
@@ -402,7 +478,16 @@ def plot_confusion_matrix(
     ``normalize=True`` shows each row as a fraction of its gold label's total. Cells are
     annotated with the numbers, so colour is never the only carrier of the value. Returns
     the ``Figure`` (the one that owns ``ax`` when ``ax`` is given).
+
+    ``counts`` may instead be any object with ``.labels`` and ``.matrix`` (such as the
+    evaluation toolkit's ``ConfusionMatrix``); ``labels`` then defaults to ``.labels``.
     """
+    if hasattr(counts, "matrix") and hasattr(counts, "labels"):
+        if labels is None:
+            labels = counts.labels
+        counts = counts.matrix
+    if labels is None:
+        raise ValueError("labels are required unless counts has .labels and .matrix")
     arr = np.asarray(counts, dtype=float)
     n = len(labels)
     if arr.shape != (n, n):
@@ -500,9 +585,21 @@ def plot_answer_probabilities(
     return fig
 
 
+_SWEEP_METRICS = ("precision", "recall", "f1")
+
+
+def _is_threshold_points(value: Any) -> bool:
+    return (
+        isinstance(value, Sequence)
+        and not isinstance(value, str)
+        and len(value) > 0
+        and all(hasattr(p, "threshold") for p in value)
+    )
+
+
 def plot_threshold_sweep(
     thresholds: Any,
-    metrics: Mapping[str, Any],
+    metrics: Mapping[str, Any] | None = None,
     *,
     chosen: float | None = None,
     title: str | None = None,
@@ -512,7 +609,21 @@ def plot_threshold_sweep(
 
     ``metrics`` maps a metric name to values aligned with ``thresholds``. Lines differ by
     colour and marker, so they can be told apart without colour.
+
+    Instead, pass a list of objects with ``.threshold`` and ``.precision``, ``.recall``
+    and ``.f1`` attributes (such as the evaluation toolkit's ``ThresholdPoint`` list) as
+    the only positional argument; each of those three metrics the objects carry is drawn,
+    and an undefined (NaN) value leaves a gap.
     """
+    if _is_threshold_points(thresholds):
+        if metrics is not None:
+            raise ValueError("pass either a list of threshold points or thresholds and metrics")
+        points = list(thresholds)
+        names = [m for m in _SWEEP_METRICS if all(hasattr(p, m) for p in points)]
+        if not names:
+            raise ValueError(f"threshold points need at least one of {list(_SWEEP_METRICS)}")
+        metrics = {m: [float(getattr(p, m)) for p in points] for m in names}
+        thresholds = [float(p.threshold) for p in points]
     x = _as_1d(thresholds, "thresholds")
     if not metrics:
         raise ValueError("metrics must not be empty")
@@ -544,7 +655,7 @@ def plot_threshold_sweep(
 
 def plot_risk_coverage(
     coverage: Any,
-    risk: Any,
+    risk: Any = None,
     *,
     label: str | None = None,
     reference_risk: float | None = None,
@@ -555,7 +666,14 @@ def plot_risk_coverage(
 
     ``coverage`` and ``risk`` are aligned 1-D arrays. ``reference_risk`` draws a dashed line,
     for example the error rate when every case is answered.
+
+    ``coverage`` may instead be any object with ``.coverage`` and ``.risk`` arrays (such as
+    the evaluation toolkit's ``SelectiveCurve``), with ``risk`` left out.
     """
+    if risk is None:
+        if not (hasattr(coverage, "coverage") and hasattr(coverage, "risk")):
+            raise ValueError("pass risk, or an object with .coverage and .risk")
+        coverage, risk = coverage.coverage, coverage.risk
     x = _as_1d(coverage, "coverage")
     y = _as_1d(risk, "risk")
     if x.shape != y.shape:
