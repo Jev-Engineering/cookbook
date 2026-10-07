@@ -66,6 +66,10 @@ notebook execution) under new names.
 | `Tests (py3.14)` | `pytest` on the newest interpreter contributors use |
 | `Hygiene (secrets and notebook outputs)` | `python tools/check_hygiene.py` (workflow `Hygiene`, `.github/workflows/hygiene.yml`) |
 
+The two test jobs differ on purpose: `Tests (py3.14)` installs `.[dev,live]` so the SDK-backed
+tests in `tests/test_live_sdk.py` run, while `Tests (py3.10)` installs `.[dev]` only and proves
+the package and every offline test work with the SDK absent (that one module is skipped).
+
 Run the lint, test and hygiene commands from this document locally before opening a pull
 request. Third-party actions are pinned to full commit SHAs with the version in a
 comment; bump them deliberately, and keep the permissions at `contents: read`.
