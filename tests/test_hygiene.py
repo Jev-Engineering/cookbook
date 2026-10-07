@@ -1109,14 +1109,24 @@ def test_shown_hides_a_key_that_trips_a_secret_rule_without_a_long_run():
 
 # --- keyword arguments of the form name=CONSTANT are code, not secrets (issue #114) -----
 
+# Each value is built from pieces under 32 characters so this file's own source holds no
+# literal run that the exemption under test is needed to wave through (see the module
+# docstring); only the assembled line, at run time, is 32 characters or more.
+_KERNEL_TIMEOUT = "KERNEL_START" + "_TIMEOUT"
+_RETRY_POLICY_SETTINGS = "DEFAULT_RETRY_POLICY" + "_SETTINGS"
+_MAX_REQUESTS = "DEFAULT_MAX" + "_REQUESTS"
+_LIQUOR_JUGS = "pack_my_box_with_five_dozen" + "_liquor_jugs"
+_WAX_BUZZ_PIXEL = "quickly_judge_wax_buzz" + "_frog_pixel"
+_WAX_BULGE = "quick_zephyr_vow_jumpy" + "_wax_bulge"
+
 IDENTIFIER_ASSIGNMENTS = [
-    "client = make(startup_timeout=KERNEL_START_TIMEOUT)",
-    "policy = run(retry_policy=DEFAULT_RETRY_POLICY_SETTINGS)",
-    "limit = run(max_requests_per_run=DEFAULT_MAX_REQUESTS)",
-    "flush = run(flush_queue_jobs=pack_my_box_with_five_dozen_liquor_jugs)",
-    "size = run(max_batch_size=quickly_judge_wax_buzz_frog_pixel)",
-    "box = run(quick_zephyr_vow_jumpy_wax_bulge=settings.fox_size)",
-    "startup_timeout=KERNEL_START_TIMEOUT,",
+    f"client = make(startup_timeout={_KERNEL_TIMEOUT})",
+    f"policy = run(retry_policy={_RETRY_POLICY_SETTINGS})",
+    f"limit = run(max_requests_per_run={_MAX_REQUESTS})",
+    f"flush = run(flush_queue_jobs={_LIQUOR_JUGS})",
+    f"size = run(max_batch_size={_WAX_BUZZ_PIXEL})",
+    f"box = run({_WAX_BULGE}=settings.fox_size)",
+    f"startup_timeout={_KERNEL_TIMEOUT},",
 ]
 
 
