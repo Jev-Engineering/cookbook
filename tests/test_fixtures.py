@@ -494,7 +494,12 @@ QUOTE = '"'  # a string value that holds one double quote (written `\"` in the f
 def state_set(state: object) -> dict:
     """The good set with ``state`` as the first example's state, re-keyed to match."""
     data = good_set()
-    key = request_key_for(state)
+    try:
+        key = request_key_for(state)
+    except ValueError:
+        # replay_key itself refuses a state past the nesting limit, which is the case some
+        # callers want to hand the validator; any well-formed key will do for the file layout
+        key = request_key_for("a state too deep to key")
     data["inputs"][0]["state"] = state
     data["responses"][key] = data["responses"].pop(data["inputs"][0]["replay_keys"][0])
     data["inputs"][0]["replay_keys"] = [key]
@@ -1428,3 +1433,24 @@ def test_importing_the_module_does_not_import_tools_or_sdk():
         "assert not bad, bad"
     )
     subprocess.run([sys.executable, "-c", code], check=True)
+
+
+@pytest.mark.parametrize("tag", ["x.drift-m", "a.drift-", ".drift-a", "b.drift-model.v2"])
+def test_a_tag_that_names_a_drift_comparison_file_is_refused(recipe, tag):
+    """The validator treats any name containing .drift- as a stray, so no tag may make one."""
+    with pytest.raises(ValueError, match=r"bad responses tag.*\.drift-"):
+        fixtures_module.responses_file_name(tag)
+    with pytest.raises(ValueError, match="bad responses tag"):
+        responses_path(recipe, tag)
+    with pytest.raises(ValueError, match="bad responses tag"):
+        load_responses(recipe, tag)
+
+
+def test_every_accepted_tag_is_a_name_the_validator_accepts(recipe):
+    data = good_set()
+    tags = ["b", "drift", "drift-x", "a.b", "x_1", "A9"]
+    data["tagged"] = {tag: data["responses"] for tag in tags}
+    write(recipe, data)
+    assert messages(recipe) == []
+    for tag in tags:
+        assert responses_path(recipe, tag).exists()
