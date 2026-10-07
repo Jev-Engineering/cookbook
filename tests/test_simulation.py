@@ -745,3 +745,22 @@ def test_replay_failing_entry_leaves_store_as_before_that_entry() -> None:
     # A store passed in must start at the version the log started from.
     with pytest.raises(ReplayMismatch, match="version"):
         replay_transactions(_good_log(), store)
+
+
+def test_a_64_level_payload_round_trips_through_the_log_and_the_transactor() -> None:
+    """The depth limit belongs to replay_key only: values these classes accepted still read back."""
+    deep = "leaf"
+    for _ in range(64):
+        deep = {"k": deep}
+    log = ActionLog()
+    log.record("send", deep)
+    assert len(log) == 1
+    assert log.to_dicts()[0]["payload"] == deep
+    assert log.to_dicts() == log.to_dicts()
+
+    tx = Transactor()
+    record = tx.run("put", lambda v, p: v.put("k", p), params=deep, writer="rule:test")
+    assert record.committed
+    assert tx.store.snapshot() == {"k": deep}
+    assert tx.to_dicts()[0]["ops"]
+    assert tx.log[0].to_dict()["ops"]

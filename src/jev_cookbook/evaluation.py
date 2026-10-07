@@ -309,7 +309,16 @@ def per_class_metrics(
         :class:`ClassificationCounts` for exactly when each ratio is NaN. Empty input or
         unequal lengths raise ``ValueError``.
     """
-    g, p = _choice_pair(gold, predicted, "per_class_metrics")
+    return _per_class(gold, predicted, labels, "per_class_metrics")
+
+
+def _per_class(
+    gold: Iterable[Any],
+    predicted: Iterable[Any],
+    labels: Sequence[Hashable] | None,
+    function: str,
+) -> dict[Any, ClassificationCounts]:
+    g, p = _choice_pair(gold, predicted, function)
     labs = list(labels) if labels is not None else _default_labels(g, p)
     out: dict[Any, ClassificationCounts] = {}
     for lab in labs:
@@ -339,7 +348,7 @@ def macro_average(
         ``ValueError`` on empty input, unequal lengths, or when no class in ``labels``
         is present.
     """
-    stats = [c for c in per_class_metrics(gold, predicted, labels).values() if c.present]
+    stats = [c for c in _per_class(gold, predicted, labels, "macro_average").values() if c.present]
     if not stats:
         raise ValueError("no class in labels occurs in gold or predicted")
 
@@ -372,7 +381,7 @@ def micro_average(
         (nothing predicted among ``labels`` for precision; no gold among ``labels`` for
         recall; neither for F1). Empty input or unequal lengths raise ``ValueError``.
     """
-    stats = per_class_metrics(gold, predicted, labels).values()
+    stats = _per_class(gold, predicted, labels, "micro_average").values()
     tp = sum(c.tp for c in stats)
     fp = sum(c.fp for c in stats)
     fn = sum(c.fn for c in stats)
@@ -878,11 +887,12 @@ def mean_ndcg(
 def top_probabilities(answers: Iterable[Any]) -> list[float]:
     """Highest probability in each answer's ``probabilities``.
 
-    Note this differs from ``.confidence``, which is derived from the whole distribution:
-    for Choice, ``(p_max - 1/n) / (1 - 1/n)`` (0 at a uniform spread, 1 at a single peak);
-    for Score, ``max(0, 1 - sum_i p_i |i - m| / MAD_unif)``, a spread measure that depends
-    on the distance between levels (``m`` is the most probable level). Neither is the top
-    probability. The top probability is the usual input to calibration functions (it is
+    Note this is not always ``.confidence``. For Choice, ``.confidence`` is the top probability
+    rescaled, ``(p_max - 1/n) / (1 - 1/n)`` (0 at a uniform spread, 1 at a single peak), so
+    it is not the model's stated chance that its pick is right. For Score, ``.confidence`` is
+    ``max(0, 1 - sum_i p_i |i - m| / MAD_unif)``, a distance-based spread measure that depends
+    on the distance between levels (``m`` is the most probable level), not on the top
+    probability alone. The top probability is the usual input to calibration functions (it is
     the model's stated chance that its own pick is right).
 
     Args:

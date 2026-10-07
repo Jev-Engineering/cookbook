@@ -180,7 +180,35 @@ def test_choice_metrics_reject_noul_and_score_answers_naming_the_function():
         ev.cohens_kappa([2, 0], scores)
     with pytest.raises(ValueError, match=r"confusion_matrix.*Noul"):
         ev.confusion_matrix([1, 0], nouls)
-    with pytest.raises(ValueError, match=r"per_class_metrics.*Noul"):
+    with pytest.raises(ValueError, match=r"macro_average.*Noul"):
         ev.macro_average([1, 0], nouls)
-    with pytest.raises(ValueError, match=r"per_class_metrics.*Score"):
+    with pytest.raises(ValueError, match=r"micro_average.*Score"):
         ev.micro_average([2, 0], scores)
+
+
+def test_average_errors_name_the_function_called():
+    nouls = [NoulAnswer(0.9, SYN), NoulAnswer(0.2, SYN)]
+    scores = [score(0.1, 0.2, 0.7), score(0.6, 0.3, 0.1)]
+    for fn in ("macro_average", "micro_average"):
+        with pytest.raises(ValueError) as exc:
+            getattr(ev, fn)([1, 0], nouls)
+        assert fn in str(exc.value) and "per_class_metrics" not in str(exc.value)
+        with pytest.raises(ValueError) as exc:
+            getattr(ev, fn)(nouls, [1, 0])
+        assert fn in str(exc.value) and "per_class_metrics" not in str(exc.value)
+        with pytest.raises(ValueError, match=rf"{fn}.*Score"):
+            getattr(ev, fn)([2, 0], scores)
+
+
+def test_choice_confidence_is_documented_as_the_rescaled_top_probability():
+    """The wording in the code and the docs: Choice confidence is (p_max - 1/n)/(1 - 1/n)."""
+    from pathlib import Path
+
+    doc = (ev.top_probabilities.__doc__ or "").replace("\n", " ")
+    docs = (Path(__file__).resolve().parent.parent / "docs" / "evaluation.md").read_text(
+        encoding="utf-8"
+    )
+    for text in (" ".join(doc.split()), " ".join(docs.split())):
+        assert "top probability rescaled" in text
+        assert "derived from the whole" not in text
+        assert "distance-based spread" in text  # Score stays the spread measure
