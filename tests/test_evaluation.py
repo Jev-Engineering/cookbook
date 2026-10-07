@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import math
+import subprocess
+import sys
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -703,6 +705,14 @@ def test_length_mismatch_raises(name):
 
 
 def test_import_does_not_pull_in_sdk():
-    import sys
-
-    assert "typesafe_sdk" not in sys.modules
+    # A fresh interpreter: other test modules may legitimately import the SDK
+    # into this process, which says nothing about what evaluation itself imports.
+    code = (
+        "import sys, jev_cookbook.evaluation; "
+        "assert 'typesafe_sdk' not in sys.modules "
+        "and not any(m.startswith('typesafe') for m in sys.modules)"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
