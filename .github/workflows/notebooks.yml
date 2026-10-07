@@ -104,8 +104,22 @@ jobs:
           socket.create_connection(server.getsockname(), timeout=5).close()
           print("loopback works")
           PY
-          sudo -E env "PATH=$PATH" unshare --net -- sh -c \
+          sudo env "PATH=$PATH" unshare --net -- sh -c \
             'ip link set lo up && exec env -u PYTHONPATH python "$1"' sh "$RUNNER_TEMP/probe.py"
+      # sudo can drop PYTHONPATH, so it is passed explicitly, and this step fails if the guard is
+      # not loaded in the sandboxed interpreter.
+      - name: Prove the Python-level guard reaches the sandbox
+        env:
+          PYTHONPATH: ${{ github.workspace }}/tools/netguard
+        run: |
+          cat > "$RUNNER_TEMP/loaded.py" <<'PY'
+          import socket
+          assert socket.socket.connect.__module__ == "sitecustomize", "netguard not loaded"
+          print("netguard loaded")
+          PY
+          sudo env "PATH=$PATH" "PYTHONPATH=$PYTHONPATH" unshare --net -- sh -c \
+            'ip link set lo up && exec setpriv --reuid="$1" --regid="$2" --clear-groups -- python "$3"' \
+            sh "$(id -u)" "$(id -g)" "$RUNNER_TEMP/loaded.py"
       - name: Execute the notebook offline
         env:
           # The Python-level guard (tools/netguard/sitecustomize.py) also reaches the kernel:
@@ -113,7 +127,7 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}/tools/netguard
         run: |
           started=$(date +%s)
-          sudo -E env "PATH=$PATH" unshare --net -- sh -c \
+          sudo env "PATH=$PATH" "PYTHONPATH=$PYTHONPATH" unshare --net -- sh -c \
             'ip link set lo up && exec setpriv --reuid="$1" --regid="$2" --clear-groups -- python tools/execute_notebook.py --timeout 300 "$3"' \
             sh "$(id -u)" "$(id -g)" "$RUNNER_TEMP/run/$RECIPE"
           echo "executed $RECIPE in $(( $(date +%s) - started )) s" | tee -a "$GITHUB_STEP_SUMMARY"
