@@ -32,14 +32,15 @@ def check_depth(value: Any, where: str = "value", limit: int = MAX_DEPTH) -> Non
         stack.extend((child, depth + 1) for child in children)
 
 
-def plain_json(value: Any, where: str = "value", max_depth: int | None = MAX_DEPTH) -> Any:
+def plain_json(value: Any, where: str = "value", max_depth: int | None = None) -> Any:
     """Return a deep copy of ``value`` restricted to plain JSON types.
 
     Accepted: ``str``, ``bool``, ``int``, finite ``float``, ``None``, ``list``/``tuple``
     (copied to ``list``) and ``dict`` with ``str`` keys. Anything else (numpy scalars,
     sets, dataclasses, NaN, infinity) raises ``TypeError`` or ``ValueError`` naming
     the offending path, so a bad state fails loudly instead of hashing differently. Nesting
-    deeper than ``max_depth`` (64 by default; ``None`` skips the check) raises ``ValueError``.
+    deeper than ``max_depth`` raises ``ValueError``; the default ``None`` applies no limit, so
+    shared callers (simulation, questions) behave as they always did. ``replay_key`` passes 64.
     """
     if max_depth is not None:
         check_depth(value, where, max_depth)
@@ -69,7 +70,7 @@ def _plain(value: Any, where: str) -> Any:
     )
 
 
-def canonical_json(value: Any, max_depth: int | None = MAX_DEPTH) -> str:
+def canonical_json(value: Any, max_depth: int | None = None) -> str:
     """Serialize plain JSON deterministically (the string that replay keys hash).
 
     Object keys keep the order they were written in (that is the order the SDK sends);

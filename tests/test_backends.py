@@ -1115,19 +1115,43 @@ def test_a_state_deeper_than_64_levels_is_a_readable_error():
         replay_key(cyclic, qs)
 
 
+def test_question_content_at_64_levels_keeps_its_main_key():
+    """Golden values computed on origin/main before this change: they must not move."""
+    deep64, deep63 = nested_state(64), nested_state(63)
+    assert (
+        replay_key("s", {"q": Noul(instructions=deep64)})
+        == "dc42af6c0cf1fa8c67cd32ef48e5098ef990196e61610683a0e247f601a73fe1"
+    )
+    assert (
+        replay_key("s", {"q": Score(criteria=["low", deep63])})
+        == "327b15c3a76ea64fd2f3ff9e0e90755c5600b33745c4e3763bbb79f3c822fbe5"
+    )
+    assert (
+        replay_key("s", {"q": Score(criteria=["low", deep64])})
+        == "5315763ac8431d0a89363604146176f0c65d297bd153423954eba9b373d02fe5"
+    )
+
+
 def test_question_content_deeper_than_64_levels_is_a_readable_error():
-    class Deep(Noul):
-        def to_dict(self):
-            return {"type": "noul", "instructions": "x", "criteria": nested_state(70)}
+    deep65 = nested_state(65)
+    cases = {
+        "instructions": Noul(instructions=deep65),
+        "criteria[1]": Score(criteria=["low", deep65]),
+        "criteria[0]": Choice(criteria={"a": deep65, "b": None}),
+        "criteria[true]": Noul(criteria={"true": None, "false": deep65}),
+    }
+    for where, question in cases.items():
+        label = where.split("[")[0]
+        with pytest.raises(ValueError, match=rf"question 'q' {label}.*: nested deeper than 64"):
+            replay_key(STATE, {"q": question})
 
-    with pytest.raises(ValueError, match="question 'q': nested deeper than 64 levels"):
-        replay_key(STATE, {"q": Deep(instructions="x")})
 
-
-def test_canonical_json_depth_is_the_same_rule():
-    assert canonical_json(nested_state(64)).count("{") == 64
+def test_canonical_json_and_plain_json_have_no_default_limit():
+    """Shared helpers behave as on main; only replay_key applies the 64-level limit."""
+    assert canonical_json(nested_state(65)).count("{") == 65
+    assert plain_json(nested_state(100)) == nested_state(100)
     with pytest.raises(ValueError, match="nested deeper than 64 levels"):
-        canonical_json(nested_state(65))
+        canonical_json(nested_state(65), max_depth=64)
     with pytest.raises(ValueError):
         plain_json(nested_state(3), max_depth=2)
 

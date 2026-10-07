@@ -154,7 +154,10 @@ characters, and a duplicate key in the file is an error.
 }
 ```
 
-Unknown keys are errors, and provenance is required on every answer. On replay the answers must
+Unknown keys are errors, and provenance is required on every answer. `provenance` and `usage`
+must each be an object: `"usage": null` (or any other non-object `usage`) is rejected with a
+`ValueError` naming the field, where it used to be read as empty. A missing `usage` key still
+means "not reported" (`Usage()`). On replay the answers must
 match the questions asked (same names, same types, same options or number of levels), or
 `FixtureError` is raised. Choice option order is part of the replay key, so reordering the options
 of a question is a `ReplayMiss`, not a fit error (a stored answer only has to name the same options,
@@ -224,13 +227,15 @@ What changes the key: the state (including key order), question names, each ques
 with all-`None` values equal no criteria). What does not: question order. The key version `v` is
 bumped if this rule ever changes.
 
-A state (or the content of a question) nests at most **64 levels** of list/object, counting the
-outermost container as level 1, the same limit and count as the fixture validator
-(`docs/fixtures.md`). Deeper raises `ValueError` ("nested deeper than 64 levels"), not
-`RecursionError`; a state at exactly 64 levels hashes as it always did.
-
-A miss raises `ReplayMiss` (a `LookupError`) whose message and `.key` give the missing key; the
-fix is to rebuild or add the fixture for that key. Replay never fabricates an answer.
+The state, a question's `instructions`, and each `criteria` value (each Score level, Choice
+option description, Noul outcome) each nest at most **64 levels** of list/object, counting the
+outermost container as level 1; the `{"v", "state", "questions"}` envelope is not counted. Deeper
+raises `ValueError` ("nested deeper than 64 levels"), not `RecursionError`; anything at exactly
+64 levels hashes as it always did. Only `replay_key` applies this limit: the shared JSON helpers
+(`plain_json`, `canonical_json`, the simulation classes) have no depth limit by default. The
+count matches the fixture validator (`docs/fixtures.md`), but in `inputs.jsonl` the state sits
+inside the line object, which the validator counts as level 1, so the deepest state a fixture
+can hold is 63 levels of its own while `replay_key` accepts 64.
 
 ## Scripted backend
 

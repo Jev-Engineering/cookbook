@@ -19,7 +19,7 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
-from ._canonical import canonical_json, plain_json
+from ._canonical import MAX_DEPTH, canonical_json, check_depth, plain_json
 from .answers import (
     RECORDED_SOURCE,
     SYNTHETIC_MODEL,
@@ -90,7 +90,7 @@ def _check_request(
         if not isinstance(q, (Noul, Choice, Score)):
             raise TypeError(f"question {name!r} must be Noul, Choice or Score, got {type(q)}")
         checked[name] = q
-    return plain_json(state, "state"), checked
+    return plain_json(state, "state", max_depth=MAX_DEPTH), checked
 
 
 def replay_key(state: Any, questions: Mapping[str, Question]) -> str:
@@ -102,17 +102,20 @@ def replay_key(state: Any, questions: Mapping[str, Question]) -> str:
     shortest-repr floats. Nothing else is normalized.
     """
     plain_state, checked = _check_request(state, questions)
-    payload = {
-        "v": KEY_VERSION,
-        "state": plain_state,
-        "questions": {
-            name: plain_json(checked[name].to_dict(), f"question {name!r}")
-            for name in sorted(checked)
-        },
-    }
-    # The state and each question are limited above, each on its own (64 levels, the fixture
-    # rule); the payload wraps them in a few more levels of its own, which are not the caller's.
-    return hashlib.sha256(canonical_json(payload, max_depth=None).encode("ascii")).hexdigest()
+    questions_json = {}
+    for name in sorted(checked):
+        content = checked[name].to_dict()
+        # Each part of a question is limited on its own, outermost container = level 1, like
+        # the state; the {"type", "instructions", "criteria"} wrapper is not the caller's level.
+        check_depth(content.get("instructions"), f"question {name!r} instructions", MAX_DEPTH)
+        criteria = content.get("criteria")
+        parts = criteria.values() if isinstance(criteria, dict) else criteria or ()
+        for i, part in enumerate(parts):
+            check_depth(part, f"question {name!r} criteria[{i}]", MAX_DEPTH)
+        questions_json[name] = content
+    payload = {"v": KEY_VERSION, "state": plain_state, "questions": questions_json}
+    # The envelope adds levels of its own, so the payload as a whole is not limited.
+    return hashlib.sha256(canonical_json(payload).encode("ascii")).hexdigest()
 
 
 @runtime_checkable
