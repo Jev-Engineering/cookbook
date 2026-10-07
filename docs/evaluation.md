@@ -134,3 +134,20 @@ percentile interval as `BootstrapResult`. Examples must be aligned.
 `sum_usage(usages)` sums per-request `usage` mappings (`input_tokens`, `output_tokens`, each
 possibly `None` or absent) into `UsageTotals`. Requests that did not report a count are tallied
 in `requests_missing_input` / `requests_missing_output`, so a partial total is visible.
+
+## Result types
+
+Every result type is a frozen dataclass whose fields are plain attributes, so other modules
+(for example the notebook helpers) can accept them by duck typing.
+
+| Type | Fields |
+| --- | --- |
+| `ConfusionMatrix` | `labels` (list), `matrix` (numpy integer array, `matrix[i, j]` = gold `labels[i]`, predicted `labels[j]`) |
+| `ThresholdPoint` | `threshold`, `tp`, `fp`, `fn`, `tn`, `precision`, `recall`, `f1`; `threshold_sweep` returns `list[ThresholdPoint]` |
+| `SelectiveCurve` | `thresholds`, `coverage`, `accuracy`, `risk` (equal-length numpy arrays, one entry per threshold) |
+| `SelectiveResult` | `threshold`, `n_total`, `n_answered`, `coverage`, `accuracy`, `risk` |
+| `UsageTotals` | `requests`, `input_tokens`, `output_tokens`, `total_tokens`, `requests_missing_input`, `requests_missing_output` |
+
+The toolkit is tested against the real `jev_cookbook.answers` classes (read-only
+`MappingProxyType` mappings, `int` Score keys, `Usage` and `DecisionResult.usage`) in
+`tests/test_evaluation_answers.py`.
