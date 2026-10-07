@@ -622,6 +622,7 @@ def test_record_writes_an_optional_request_id_sidecar(tmp_path):
     assert report.ledger_path == ledger
     assert json.loads(ledger.read_text("utf-8")) == {
         key: {
+            "status": "recorded",
             "request_id": "req-9",
             "model": MODEL,
             "date": DAY,
@@ -758,7 +759,18 @@ def test_failure_on_the_second_call_leaves_a_ledger_with_the_first_request_id(tm
     first = replay_key(*two_requests()[0])
     assert set(json.loads(path.read_text("utf-8"))) == {first}
     side = json.loads(ledger.read_text("utf-8"))
-    assert set(side) == {first} and side[first]["request_id"] == "req-paid"
+    second = replay_key(*two_requests()[1])
+    assert set(side) == {first, second + "!failed-1"}
+    assert side[first]["request_id"] == "req-paid" and side[first]["status"] == "recorded"
+    assert side[second + "!failed-1"] == {
+        "status": "error",
+        "error_type": "ApiError",
+        "http_status": 400,
+        "request_id": "req-err-400",
+        "model": "jev-latest",
+        "date": DAY,
+        "attempts": 1,
+    }
     assert backend.ledger()["request_ids"] == ["req-paid"]
     assert not list(tmp_path.glob(".responses-*"))
 
@@ -768,7 +780,12 @@ def test_budget_exhaustion_leaves_the_ledger_consistent(tmp_path):
     backend, _ = make(Resp(api_body(), "req-1"), max_requests=1)
     with pytest.raises(BudgetExceeded):
         record(backend, two_requests(), path, ledger_path=ledger)
-    assert set(json.loads(ledger.read_text("utf-8"))) == set(json.loads(path.read_text("utf-8")))
+    side = json.loads(ledger.read_text("utf-8"))
+    second = replay_key(*two_requests()[1])
+    assert set(side) == set(json.loads(path.read_text("utf-8"))) | {second + "!failed-1"}
+    stopped = side[second + "!failed-1"]
+    assert stopped["status"] == "budget_stopped" and stopped["attempts"] == 0
+    assert stopped["request_id"] is None
 
 
 def test_ledger_entry_is_kept_even_when_the_merge_fails(tmp_path):
@@ -785,9 +802,154 @@ def test_a_paid_response_from_a_moved_alias_is_kept_in_a_side_file(tmp_path):
     with pytest.raises(RecordConflict, match="more than one model|kept in") as err:
         record(backend, two_requests(), path)
     second = replay_key(*two_requests()[1])
-    side = tmp_path / "responses-jev-1.14.0.json"
+    side = tmp_path / "responses.drift-jev-1.14.0.json"
     assert err.value.saved_to == side and err.value.result.model == "jev-1.14.0"
     assert set(json.loads(side.read_text("utf-8"))) == {second}
     assert ReplayBackend.from_json(side).model == "jev-1.14.0"
     assert ReplayBackend.from_json(path).model == "jev-1.13.0"  # the main file is untouched
     assert set(json.loads(path.read_text("utf-8"))) == {replay_key(*two_requests()[0])}
+    assert not (tmp_path / "responses-jev-1.14.0.json").exists()  # not a fixture-shaped name
+    assert "drift" in str(err.value)
+
+
+# -- fix round 2: every paid call has a ledger line; the key never reaches a fixture ----------
+
+
+def sidecar_after(tmp_path, backend, requests=None):
+    path, ledger = tmp_path / "r.json", tmp_path / "ledger.json"
+    with pytest.raises(Exception) as err:
+        record(backend, requests or [(STATE, QUESTIONS)], path, ledger_path=ledger)
+    return err.value, json.loads(ledger.read_text("utf-8")), path
+
+
+def test_validation_failure_puts_the_request_id_on_the_error_and_in_the_sidecar(tmp_path):
+    bad = api_body()
+    bad["answers"]["tone"]["confidence"] = 0.99
+    backend, _ = make(Resp(bad, "req-bad"))
+    exc, side, path = sidecar_after(tmp_path, backend)
+    assert isinstance(exc, LiveResponseError) and exc.request_id == "req-bad"
+    line = side[replay_key(STATE, QUESTIONS) + "!failed-1"]
+    assert line["status"] == "invalid_response" and line["request_id"] == "req-bad"
+    assert line["error_type"] == "LiveResponseError" and line["attempts"] == 1
+    assert not path.exists()
+
+
+def test_validation_failure_after_a_success_keeps_both_ledger_lines(tmp_path):
+    bad = api_body()
+    bad["answers"]["tone"]["confidence"] = 0.99
+    backend, _ = make(Resp(api_body(), "req-1"), Resp(bad, "req-2"))
+    exc, side, path = sidecar_after(tmp_path, backend, two_requests())
+    assert exc.request_id == "req-2"
+    assert {v["request_id"] for v in side.values()} == {"req-1", "req-2"}
+    assert len(side) == 2 and len(json.loads(path.read_text("utf-8"))) == 1
+
+
+def test_sdk_style_validation_error_carries_its_request_id(tmp_path):
+    err = ValidationError({"model": MODEL}, "usage")
+    err.request_id = "req-v"
+    backend, _ = make(err)
+    exc, side, _ = sidecar_after(tmp_path, backend)
+    assert exc.request_id == "req-v"
+    assert list(side.values())[0]["request_id"] == "req-v"
+
+
+def test_http_error_is_in_the_sidecar_with_its_status_and_request_id(tmp_path):
+    backend, _ = make(ApiError(429, "slow"), max_retries=0)
+    exc, side, _ = sidecar_after(tmp_path, backend)
+    assert isinstance(exc, LiveCallError) and exc.request_id == "req-err-429"
+    line = side[replay_key(STATE, QUESTIONS) + "!failed-1"]
+    assert (line["status"], line["http_status"]) == ("error", 429)
+    assert line["request_id"] == "req-err-429"
+
+
+def test_a_retried_call_is_one_ledger_line_counting_its_attempts(tmp_path):
+    backend, _ = make(ApiError(500), ApiError(500), ApiError(500), max_retries=2)
+    _, side, _ = sidecar_after(tmp_path, backend)
+    assert list(side.values())[0]["attempts"] == 3 == backend.requests_made
+
+
+def test_timeout_is_in_the_sidecar_without_a_request_id(tmp_path):
+    backend, _ = make(TimeoutError("slow"), max_retries=0)
+    exc, side, _ = sidecar_after(tmp_path, backend)
+    assert isinstance(exc, LiveCallError) and exc.request_id is None
+    line = side[replay_key(STATE, QUESTIONS) + "!failed-1"]
+    assert line["status"] == "timeout" and line["request_id"] is None
+    assert line["http_status"] is None and line["attempts"] == 1
+
+
+def test_budget_stop_is_in_the_sidecar(tmp_path):
+    backend, _ = make(max_requests=1)
+    backend.decide(*two_requests()[0])
+    exc, side, _ = sidecar_after(tmp_path, backend, two_requests()[1:])
+    assert isinstance(exc, BudgetExceeded)
+    assert list(side.values())[0]["status"] == "budget_stopped"
+
+
+def test_two_failures_for_one_key_do_not_overwrite_each_other(tmp_path):
+    ledger = tmp_path / "ledger.json"
+    for _ in range(2):
+        backend, _ = make(ApiError(400), max_retries=0)
+        with pytest.raises(LiveCallError):
+            record(backend, [(STATE, QUESTIONS)], tmp_path / "r.json", ledger_path=ledger)
+    key = replay_key(STATE, QUESTIONS)
+    assert set(json.loads(ledger.read_text("utf-8"))) == {key + "!failed-1", key + "!failed-2"}
+
+
+def test_a_failed_call_needs_no_ledger_path_and_the_error_still_propagates(tmp_path):
+    backend, _ = make(ApiError(400), max_retries=0)
+    with pytest.raises(LiveCallError):
+        record(backend, [(STATE, QUESTIONS)], tmp_path / "r.json")
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("where", ["fixtures", "recipes/01/fixtures", "fixtures/sub", "Fixtures"])
+def test_a_ledger_inside_a_fixtures_directory_is_refused_before_any_call(tmp_path, where):
+    backend, client = make()
+    with pytest.raises(ValueError, match="fixtures/"):
+        record(
+            backend,
+            [(STATE, QUESTIONS)],
+            tmp_path / "r.json",
+            ledger_path=tmp_path / where / "ledger.json",
+        )
+    assert client.calls == [] and backend.requests_made == 0
+    assert not (tmp_path / where).exists()
+
+
+def test_a_ledger_beside_but_not_inside_fixtures_is_accepted(tmp_path):
+    backend, _ = make()
+    report = record(
+        backend,
+        [(STATE, QUESTIONS)],
+        tmp_path / "fixtures" / "responses.json",
+        ledger_path=tmp_path / "ledger.json",
+    )
+    assert report.ledger_path == tmp_path / "ledger.json"
+
+
+def test_a_200_that_echoes_the_key_is_refused_and_nothing_is_written(tmp_path, clean_env):
+    clean_env.setenv("TYPESAFE_API_KEY", " " + SECRET + "\r")
+    path, ledger = tmp_path / "r.json", tmp_path / "ledger.json"
+    backend, _ = make(Resp(api_body(model=f"jev-{SECRET}"), "req-echo"))
+    with pytest.raises(LiveResponseError) as err:
+        record(backend, [(STATE, QUESTIONS)], path, ledger_path=ledger)
+    assert SECRET not in everything_said_about(err.value, repr(backend), repr(backend.ledger()))[0]
+    assert err.value.request_id == "req-echo"
+    assert not path.exists() and backend.records == ()
+    assert backend.model == "jev-latest"  # the echoed string never became the model
+    assert SECRET not in ledger.read_text("utf-8")
+    assert list(json.loads(ledger.read_text("utf-8")).values())[0]["status"] == "invalid_response"
+
+
+def test_a_response_with_the_key_is_counted_as_a_failed_attempt(clean_env):
+    clean_env.setenv("TYPESAFE_API_KEY", SECRET)
+    backend, _ = make(Resp(api_body(model=SECRET), "r"))
+    with pytest.raises(LiveResponseError, match="API key"):
+        backend.decide(STATE, QUESTIONS)
+    assert backend.ledger()["failed_attempts"] == 1
+
+
+def test_a_clean_response_is_unaffected_by_the_key_scan(clean_env):
+    clean_env.setenv("TYPESAFE_API_KEY", SECRET)
+    backend, _ = make(Resp(api_body(), "r"))
+    assert backend.decide(STATE, QUESTIONS).model == MODEL

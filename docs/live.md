@@ -87,7 +87,8 @@ sent). The returned string is what goes on `DecisionResult.model` and into every
 - Retries count. A request whose outcome is unknown (timeout after send) counts as spent. So does
   a request the API answered with an error, and one whose response failed validation.
 - Retries: HTTP 408, 429 and 5xx, connection errors and timeouts, up to `max_retries` times with
-  exponential backoff from 0.5 s capped at 8 s (a `Retry-After` hint is honoured, capped at 30 s).
+  exponential backoff from 0.5 s capped at 8 s. Only the SDK's 429 retry hint is honoured (capped
+  at 30 s); a `Retry-After` header on any other status, such as a 503, is not read.
   Other errors (400, 401, 403, 404, 422, anything unknown) are not retried. When it builds its own
   client the backend turns the SDK's retries off (`RetryPolicy(max_retries=0)`), so this loop is
   the only one and every attempt is counted.
@@ -137,22 +138,47 @@ report = record(
 - Each response is written as soon as it arrives, so an error later in the run (budget, network, an
   invalid answer) keeps what was already paid for. Duplicate requests in one run are sent once.
 - A paid response that cannot be merged (for example the alias moved and the file holds another
-  model, or the same key holds a different answer) is not lost: it is written to a side file
-  `<responses stem>-<returned model><suffix>` (for example `responses-jev-1.14.0.json`) beside the
-  main file, which is left untouched, and `RecordConflict` is raised with `.result` (the
-  `DecisionResult`) and `.saved_to` (the side file). Pin the model to avoid this.
+  model, or the same key holds a different answer) is not lost: it is written to a drift file
+  `<responses stem>.drift-<returned model><suffix>` (for example
+  `responses.drift-jev-1.14.0.json`) in the same directory as the main file, which is left
+  untouched, and `RecordConflict` is raised with `.result` (the `DecisionResult`) and `.saved_to`
+  (the drift file). The name is deliberately not a fixture name: the fixture validator flags it as
+  a stray file, which is the signal for the author to deal with it (keep it out of the commit, or
+  record again with a pinned model). Pin the model to avoid this.
 - One recorder per responses file: the merge is read-modify-write, and two recorders on one file
   race.
 - `RecordReport` lists `written`, `skipped` and `unchanged` keys, the number of attempts the
   backend made, and the returned model.
-- `ledger_path`: a JSON sidecar `{replay_key: {request_id, model, date, input_tokens,
-  output_tokens}}` for the calls made in this run. It is separate from the responses file because
-  the stored-response format has no field for the request id. It is optional; if the fixture
-  validator of #65 restricts the files in `fixtures/`, point it somewhere else. It is rewritten
-  atomically after every successful call, before that response is merged, so a failure part-way
-  (HTTP error, budget, a merge conflict) leaves the request ids of the calls already paid for.
-  Failed attempts are not in the sidecar (they have no response); persist `backend.ledger()` in a
-  `finally` to keep their count.
+- `ledger_path`: a JSON sidecar with one line for every paid call made in this run. It is separate
+  from the responses file because the stored-response format has no field for the request id. It
+  is optional, and **it must live outside `fixtures/`**: `record` refuses (`ValueError`, before any
+  call) a path inside a `fixtures/` directory, because the fixture validator rejects stray files
+  there. Never commit it as a fixture. It is rewritten atomically after every call.
+  - A call that produced a response is `{replay_key: {status: "recorded", request_id, model, date,
+    input_tokens, output_tokens}}`, written before that response is merged, so a merge conflict
+    still leaves its request id.
+  - A call that produced nothing to record is written before the error is re-raised, as
+    `{replay_key + "!failed-N": {status, error_type, http_status, request_id, model, date,
+    attempts}}`. `status` is `invalid_response` (the API answered but the result failed
+    validation, or contained the key), `error` (an HTTP or connection error), `timeout` or
+    `budget_stopped`. `attempts` is the number of HTTP attempts that one call spent (0 for a budget
+    stop). `request_id` is filled whenever a response came back, including a rejected 200; a
+    timeout has none. The same id is on the exception (`LiveResponseError.request_id`,
+    `LiveCallError.request_id`). A failed line never replaces the entry of an earlier call for the
+    same key.
+  - `overwrite=True` still replaces the earlier `recorded` entry for a re-recorded key.
+
+Operational notes for a recording run:
+
+- Every attempt counts against the budget, including each retry. `max_retries` defaults to 2, so a
+  budget of N can yield fewer than N responses: a flaky run may spend three attempts on one
+  request.
+- Keep `TYPESAFE_LOG_LEVEL` unset (see the logging section below).
+- Only `provider` and `timeout` are accepted per call (`request_kwargs`); anything else raises
+  `ValueError`.
+- The sidecar lives outside `fixtures/`, as above.
+- A response whose serialized form contains the API key (in any spelling) is refused as an
+  `invalid_response` and never written to a fixture, the sidecar or `backend.model`.
 
 ### Tolerances: what the first real recording settles
 
@@ -180,8 +206,15 @@ either way.
   rejects (a missing field, a body that is not JSON) is a `LiveResponseError` whose `.response`
   is the parsed body, scrubbed the same way, or `None` for a non-JSON body.
 - The SDK has its own `typesafe_sdk` logger (`TYPESAFE_LOG_LEVEL`). It redacts secret headers,
-  but request and response **bodies are not redacted**. Leave it off in notebooks whose state is
-  sensitive, and do not paste its output into a pull request.
+  but at DEBUG it logs request and response **bodies unredacted**, so a server that echoes the key
+  in an error body would put it in the log. When the backend builds its own client it installs a
+  `logging.Filter` on that logger that replaces every spelling of the key (as exported, trimmed,
+  and their repr and JSON escapes) with `[redacted]` in the message and its arguments, leaves the
+  rest of the line as the SDK wrote it, and removes it again in `close()` (shared and reference
+  counted across backends). **An injected client is the caller's responsibility:** the backend
+  installs nothing for it, so redact its logging yourself. The request and response bodies still
+  contain your state and the answers, so keep `TYPESAFE_LOG_LEVEL` unset in notebooks whose state
+  is sensitive, and do not paste its output into a pull request.
 - Recorded fixtures contain the answers and provenance only, never the state. Keep notebook
   output free of the key as always (`CONTRIBUTING.md` section 1).
 

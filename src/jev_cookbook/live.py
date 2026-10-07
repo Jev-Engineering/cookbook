@@ -15,6 +15,7 @@ from __future__ import annotations
 import datetime
 import inspect
 import json
+import logging
 import os
 import re
 import tempfile
@@ -66,6 +67,7 @@ RETRY_AFTER_MAX = 30.0
 _MESSAGE_LIMIT = 300
 OFFICIAL_BASE_URL = "https://api.typesafe.ai"
 BASE_URL_ENV = "TYPESAFE_BASE_URL"
+SDK_LOGGER = "typesafe_sdk"
 # The only per-call options a recorder may pass through. Everything else (retry, extra_body,
 # extra_headers, state, questions, model, response_model, ...) can change what is sent or how
 # many times, so it is rejected rather than forwarded.
@@ -81,7 +83,10 @@ class BudgetExceeded(RuntimeError):
 
 
 class LiveCallError(RuntimeError):
-    """A request failed. ``status`` and ``request_id`` are set when the API answered."""
+    """A request failed. ``status`` and ``request_id`` are set when the API answered.
+
+    A timeout or a connection error has neither, because no response came back.
+    """
 
     def __init__(
         self,
@@ -102,18 +107,27 @@ class LiveResponseError(ValueError):
 
     The call was made and counted. ``response`` holds the parsed JSON body when there was
     one, so the orchestrator can inspect it; nothing is loosened to make it pass.
+    ``request_id`` is the response's ``x-typesafe-request-id`` when it had one: the paid call
+    can be found by it even though nothing was recorded.
     """
 
-    def __init__(self, message: str, *, response: Mapping[str, Any] | None = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        response: Mapping[str, Any] | None = None,
+        request_id: str | None = None,
+    ) -> None:
         super().__init__(message)
         self.response = response
+        self.request_id = request_id
 
 
 class RecordConflict(ValueError):
     """A responses file already holds a different response under this replay key.
 
     When the conflict happens after a paid call, ``result`` holds that ``DecisionResult`` and
-    ``saved_to`` the side file it was kept in (``None`` if even that write failed).
+    ``saved_to`` the drift file it was kept in (``None`` if even that write failed).
     """
 
     result: DecisionResult | None = None
@@ -163,6 +177,74 @@ def _redact_data(data: Any, secrets: tuple[str, ...]) -> Any:
     if isinstance(data, list):
         return [_redact_data(v, secrets) for v in data]
     return data
+
+
+def _wire_variants(*raw: str | None) -> tuple[str, ...]:
+    """``_secret_variants`` plus the escaped spellings a repr or JSON dump of the text shows."""
+    forms = set()
+    for value in _secret_variants(*raw):
+        forms.update(
+            (value, repr(value)[1:-1], repr(value.encode())[2:-1], json.dumps(value)[1:-1])
+        )
+    return tuple(sorted((f for f in forms if f), key=len, reverse=True))
+
+
+class _RedactingFilter(logging.Filter):
+    """Replace every registered key variant in a record before any handler sees it.
+
+    One instance serves the ``typesafe_sdk`` logger for all backends that built their own
+    client; variants are reference counted, so ``close()`` of one backend does not unprotect
+    another. It runs after the SDK's own header filter, which was added at import.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._counts: dict[str, int] = {}
+        self._lock = threading.Lock()
+
+    def add(self, variants: Iterable[str]) -> None:
+        with self._lock:
+            for v in variants:
+                self._counts[v] = self._counts.get(v, 0) + 1
+
+    def discard(self, variants: Iterable[str]) -> bool:
+        """Drop one reference to each variant; True when no variant is registered any more."""
+        with self._lock:
+            for v in variants:
+                if v in self._counts:
+                    self._counts[v] -= 1
+                    if self._counts[v] <= 0:
+                        del self._counts[v]
+            return not self._counts
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        with self._lock:
+            secrets = tuple(sorted(self._counts, key=len, reverse=True))
+        if not secrets:
+            return True
+        try:
+            message = record.getMessage()
+        except Exception:  # a malformed record: show it without its arguments, never raw
+            message = str(record.msg)
+        if any(s in message for s in secrets):
+            record.msg = _redact(message, secrets)
+            record.args = None
+        return True
+
+
+_LOG_FILTER = _RedactingFilter()
+
+
+def _protect_sdk_logger(variants: Iterable[str]) -> None:
+    logger = logging.getLogger(SDK_LOGGER)
+    if _LOG_FILTER not in logger.filters:
+        logger.addFilter(_LOG_FILTER)
+    _LOG_FILTER.add(variants)
+
+
+def _release_sdk_logger(variants: Iterable[str]) -> None:
+    if _LOG_FILTER.discard(variants):
+        logging.getLogger(SDK_LOGGER).removeFilter(_LOG_FILTER)
 
 
 def _today_utc() -> str:
@@ -266,22 +348,28 @@ def _parse_response(
     response: Any, questions: Mapping[str, Question], date: str
 ) -> tuple[DecisionResult, str | None]:
     """Turn an API response into a recorded ``DecisionResult`` (validated, not loosened)."""
-    data = _response_json(response)
+    rid = _request_id(response)
+    try:
+        data = _response_json(response)
+    except LiveResponseError as exc:
+        raise LiveResponseError(str(exc), response=exc.response, request_id=rid) from None
     model = data.get("model")
     if type(model) is not str or not model:
-        raise LiveResponseError("response has no model string", response=data)
+        raise LiveResponseError("response has no model string", response=data, request_id=rid)
     answers_raw = data.get("answers")
     if not isinstance(answers_raw, dict):
-        raise LiveResponseError("response has no answers object", response=data)
+        raise LiveResponseError("response has no answers object", response=data, request_id=rid)
     try:
         usage = _usage_from(data.get("usage"))
     except LiveResponseError as exc:
-        raise LiveResponseError(str(exc), response=data) from None
+        raise LiveResponseError(str(exc), response=data, request_id=rid) from None
     provenance = Provenance.recorded(model, date).to_dict()
     answers = {}
     for name, raw in answers_raw.items():
         if not isinstance(raw, dict):
-            raise LiveResponseError(f"answer {name!r} is not an object", response=data)
+            raise LiveResponseError(
+                f"answer {name!r} is not an object", response=data, request_id=rid
+            )
         fields = {
             "noul": ("noul",),
             "choice": ("choice", "probabilities", "confidence"),
@@ -289,7 +377,9 @@ def _parse_response(
         }.get(raw.get("type"))
         if fields is None:
             raise LiveResponseError(
-                f"answer {name!r} has an unknown type {raw.get('type')!r}", response=data
+                f"answer {name!r} has an unknown type {raw.get('type')!r}",
+                response=data,
+                request_id=rid,
             )
         stored = {"type": raw["type"], **{f: raw[f] for f in fields if f in raw}}
         stored["provenance"] = dict(provenance)
@@ -302,15 +392,18 @@ def _parse_response(
                 f"validation: {exc}. Reported values: {shown!r}. Nothing was loosened; see "
                 "docs/live.md (Tolerances).",
                 response=data,
+                request_id=rid,
             ) from None
     try:
         result = DecisionResult(answers, model, usage)
         _check_result(questions, result)
     except (ValueError, TypeError, FixtureError) as exc:
         raise LiveResponseError(
-            f"the API response does not fit the questions asked: {exc}", response=data
+            f"the API response does not fit the questions asked: {exc}",
+            response=data,
+            request_id=rid,
         ) from None
-    return result, _request_id(response)
+    return result, rid
 
 
 def _is_retryable(exc: BaseException) -> bool:
@@ -339,7 +432,9 @@ def _response_validation_error(exc: BaseException, secrets: tuple[str, ...]) -> 
         parsed = _redact_data(body, secrets)
     elif isinstance(body, str) and body:
         msg += f". The body was not a JSON object. It begins: {_scrub(body, secrets)!r}"
-    return LiveResponseError(msg, response=parsed)
+    rid = getattr(exc, "request_id", None)
+    rid = _redact(rid, secrets) if isinstance(rid, str) and rid else None
+    return LiveResponseError(msg, response=parsed, request_id=rid)
 
 
 def _takes_retry(client: Any) -> bool:
@@ -447,6 +542,7 @@ class LiveBackend:
         # see, and the usual place is this variable.
         self._secrets = _secret_variants(os.environ.get(API_KEY_ENV))
         self._call_extra: dict[str, Any] = {}
+        self._log_variants: tuple[str, ...] = ()
         if client is None:
             client = self._build_client()
             self._call_extra["retry"] = _import_sdk().RetryPolicy(max_retries=0)
@@ -459,6 +555,10 @@ class LiveBackend:
         _check_base_url()
         self._secrets = _secret_variants(os.environ.get(API_KEY_ENV), key)
         sdk = _import_sdk()
+        # The SDK logs response bodies unredacted at DEBUG. Redact the key from that logger for
+        # as long as this backend's own client lives (an injected client is the caller's job).
+        self._log_variants = _wire_variants(os.environ.get(API_KEY_ENV), key)
+        _protect_sdk_logger(self._log_variants)
         failure = None
         try:
             return sdk.TypeSafeClient(
@@ -466,6 +566,8 @@ class LiveBackend:
             )
         except Exception as exc:
             failure = (type(exc).__name__, _scrub(str(exc), self._secrets))
+        _release_sdk_logger(self._log_variants)
+        self._log_variants = ()
         raise LiveConfigError(
             f"the TypeSafe SDK rejected {API_KEY_ENV} ({failure[0]}): {failure[1]}"
         )
@@ -582,16 +684,27 @@ class LiveBackend:
                 raise failure
             self._sleep(delay)
         date = self._today()
-        problem: tuple[str, Any] | None = None
+        problem: tuple[str, Any, str | None] | None = None
         try:
             result, rid = _parse_response(response, checked, date)
+            if self._secrets and any(
+                s in json.dumps([result.to_dict(), rid]) for s in _wire_variants(*self._secrets)
+            ):
+                # Never keep a response that carries the key (it would be written to a fixture).
+                raise LiveResponseError(
+                    "the response contains the API key, so it was refused and not recorded",
+                    request_id=rid,
+                )
         except LiveResponseError as exc:
             with self._lock:
                 self._failed += 1
-            problem = (str(exc), exc.response)
+            problem = (str(exc), exc.response, exc.request_id)
         if problem is not None:
+            rid = problem[2]
             raise LiveResponseError(
-                _redact(problem[0], self._secrets), response=_redact_data(problem[1], self._secrets)
+                _redact(problem[0], self._secrets),
+                response=_redact_data(problem[1], self._secrets),
+                request_id=_redact(rid, self._secrets) if rid else None,
             )
         self._note_success(CallRecord(key, result.model, rid, result.usage, date))
         return result
@@ -607,6 +720,9 @@ class LiveBackend:
         """Close the client when this backend built it (an injected client stays yours)."""
         if self._owns_client and hasattr(self._client, "close"):
             self._client.close()
+        variants, self._log_variants = self._log_variants, ()
+        if variants:
+            _release_sdk_logger(variants)
 
     def __enter__(self) -> LiveBackend:
         return self
@@ -713,9 +829,13 @@ class RecordReport:
 def _keep_paid_response(
     exc: RecordConflict, target: Path, key: str, result: DecisionResult
 ) -> RecordConflict:
-    """Save a response that could not be merged (alias moved, answer differs) beside the file."""
+    """Save a response that could not be merged (alias moved, answer differs) beside the file.
+
+    The name ``<stem>.drift-<returned model><suffix>`` is deliberately not a fixture name: the
+    fixture validator flags it as a stray file, which is the signal for the author to deal with it.
+    """
     safe = re.sub(r"[^A-Za-z0-9._-]", "_", result.model)
-    side = target.with_name(f"{target.stem}-{safe}{target.suffix}")
+    side = target.with_name(f"{target.stem}.drift-{safe}{target.suffix}")
     saved: Path | None = None
     try:
         merge_responses(side, {key: result.to_dict()}, overwrite=False)
@@ -745,17 +865,27 @@ def record(
     what was already paid for. A key already in the file is skipped without a call unless
     ``overwrite=True``, in which case the new response replaces it. A response that fails
     answer validation raises ``LiveResponseError`` naming the question and field; nothing
-    is loosened. ``ledger_path`` optionally writes ``{replay_key: {request_id, model, date,
-    input_tokens, output_tokens}}`` for the calls made here (``request_id`` is not part of
-    the stored-response format, so it lives in this sidecar).
+    is loosened.
+
+    ``ledger_path`` optionally writes a sidecar with one line per paid call made here
+    (``request_id`` is not part of the stored-response format, so it lives there): a success is
+    ``{replay_key: {status: "recorded", request_id, model, date, input_tokens, output_tokens}}``
+    and a call that produced nothing to record (``invalid_response``, ``error``, ``timeout``,
+    ``budget_stopped``) is ``{replay_key + "!failed-N": {status, error_type, http_status,
+    request_id, model, date, attempts}}``, written before the error is re-raised. A
+    ``ledger_path`` inside a ``fixtures/`` directory is refused with ``ValueError`` before any
+    call is made.
     """
     target = Path(responses_path)
+    out_ledger = Path(ledger_path) if ledger_path is not None else None
+    if out_ledger is not None:
+        _refuse_fixtures_dir(out_ledger)
     before = backend.requests_made
     existing = set(_load_responses(target))
     written: list[str] = []
     skipped: list[str] = []
     unchanged: list[str] = []
-    out_ledger: Path | None = None
+    wrote_ledger = False
     seen: set[str] = set()
     for state, questions in requests:
         key = replay_key(state, questions)
@@ -765,13 +895,23 @@ def record(
         if key in existing and not overwrite:
             skipped.append(key)
             continue
-        result = backend.decide(state, questions)
+        attempts_before = backend.requests_made
+        try:
+            result = backend.decide(state, questions)
+        except Exception as exc:
+            # Every paid attempt gets a ledger line, even when it produced nothing to record.
+            if out_ledger is not None:
+                _ledger_failure(
+                    out_ledger, key, exc, backend, backend.requests_made - attempts_before
+                )
+                wrote_ledger = True
+            raise
         rec = backend.records[-1]
         # The call is paid for: record its request id first, then the response.
-        if ledger_path is not None:
-            out_ledger = Path(ledger_path)
+        if out_ledger is not None:
             old = _load_responses(out_ledger)
             old[key] = {
+                "status": "recorded",
                 "request_id": rec.request_id,
                 "model": rec.model,
                 "date": rec.date,
@@ -779,6 +919,7 @@ def record(
                 "output_tokens": rec.usage.output_tokens,
             }
             _write_atomic(out_ledger, _dump(old))
+            wrote_ledger = True
         try:
             w, u = merge_responses(target, {key: result.to_dict()}, overwrite=overwrite)
         except RecordConflict as exc:
@@ -793,8 +934,50 @@ def record(
         tuple(unchanged),
         backend.requests_made - before,
         backend.model if backend.records else None,
-        out_ledger,
+        out_ledger if wrote_ledger else None,
     )
+
+
+def _refuse_fixtures_dir(path: Path) -> None:
+    """The sidecar is not a fixture: the fixture validator rejects stray files in ``fixtures/``."""
+    if any(part.lower() == "fixtures" for part in path.resolve().parent.parts):
+        raise ValueError(
+            f"ledger_path {str(path)!r} is inside a fixtures/ directory. The sidecar holds request "
+            "ids and failed attempts, not fixtures, and the fixture validator rejects stray files "
+            "there. Put it elsewhere (for example next to the recipe, outside fixtures/)."
+        )
+
+
+def _ledger_failure(
+    ledger: Path, key: str, exc: Exception, backend: LiveBackend, attempts: int
+) -> None:
+    """Add a sidecar line for a ``decide`` call that produced no response to record.
+
+    The line is stored under ``<replay key>!failed-<n>`` so it never replaces the entry of an
+    earlier successful call for the same key.
+    """
+    if isinstance(exc, BudgetExceeded):
+        kind = "budget_stopped"
+    elif isinstance(exc, LiveResponseError):
+        kind = "invalid_response"
+    elif isinstance(exc, LiveCallError):
+        kind = "timeout" if exc.error_type.endswith("TimeoutError") else "error"
+    else:
+        kind = "error"
+    old = _load_responses(ledger)
+    n = 1
+    while f"{key}!failed-{n}" in old:
+        n += 1
+    old[f"{key}!failed-{n}"] = {
+        "status": kind,
+        "error_type": getattr(exc, "error_type", "") or type(exc).__name__,
+        "http_status": getattr(exc, "status", None),
+        "request_id": getattr(exc, "request_id", None),
+        "model": backend.requested_model,
+        "date": backend._today(),
+        "attempts": attempts,
+    }
+    _write_atomic(ledger, _dump(old))
 
 
 def live_backend_from_env(**_ignored: Any) -> LiveBackend:

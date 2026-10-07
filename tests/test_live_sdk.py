@@ -159,9 +159,14 @@ def env_backend(monkeypatch):
             "TypeSafeClient",
             lambda **ckw: real(transport=httpx2.MockTransport(handler), **ckw),
         )
-        return LiveBackend("m", sleep=lambda s: None, **kw)
+        backend = LiveBackend("m", sleep=lambda s: None, **kw)
+        built.append(backend)
+        return backend
 
-    return build
+    built = []
+    yield build
+    for backend in built:
+        backend.close()
 
 
 def echo(request):
@@ -283,3 +288,127 @@ def test_a_200_that_is_not_json_is_a_response_error(env_backend):
         backend.decide("x", QUESTIONS)
     assert err.value.response is None and "hi Bearer [redacted]" in str(err.value)
     assert KEY not in chain_text(err.value)[0]
+
+
+# -- fix round 2: the SDK's DEBUG log, a 200 that echoes the key, the failed-call ledger ------
+
+import logging  # noqa: E402
+
+from jev_cookbook import record  # noqa: E402
+
+
+@pytest.fixture
+def sdk_log():
+    """Everything the SDK logs at DEBUG, formatted the way a handler would show it."""
+    logger = logging.getLogger("typesafe_sdk")
+    lines = []
+
+    class Capture(logging.Handler):
+        def emit(self, rec):
+            lines.append(self.format(rec))
+            lines.append(repr(rec.args))  # a handler that reads args directly
+
+    handler = Capture()
+    handler.setFormatter(logging.Formatter("%(levelname)s %(name)s %(message)s"))
+    previous = logger.level
+    logger.setLevel(logging.DEBUG)  # setLevel, not an attribute: it clears the enabled-for cache
+    logger.addHandler(handler)
+    yield lines
+    logger.removeHandler(handler)
+    logger.setLevel(previous)
+
+
+@pytest.mark.parametrize("raw_key", PADDED_KEYS + ["\t" + KEY])
+@pytest.mark.parametrize("kind", ["401", "429", "500"])
+@pytest.mark.parametrize("retries", [0, 2])
+def test_debug_log_never_contains_the_key_for_error_bodies(
+    env_backend, sdk_log, raw_key, kind, retries
+):
+    backend = env_backend(raw_key, FAILURES[kind], max_retries=retries)
+    with pytest.raises(LiveCallError):
+        backend.decide("x", QUESTIONS)
+    text = "\n".join(sdk_log)
+    assert "<-" in text and "[redacted]" in text  # the log is still readable
+    for variant in {raw_key, raw_key.strip(), KEY}:
+        assert variant not in text
+    assert "authorization" not in text.lower() or "'authorization': '***'" in text.lower()
+
+
+def test_debug_log_keeps_its_non_secret_parts(env_backend, sdk_log):
+    backend = env_backend(KEY, FAILURES["500"], max_retries=0)
+    with pytest.raises(LiveCallError):
+        backend.decide("x", QUESTIONS)
+    text = "\n".join(sdk_log)
+    assert "POST" in text and "oops Bearer [redacted]" in text
+
+
+def test_the_log_filter_follows_the_backend_that_built_the_client(env_backend):
+    from jev_cookbook import live
+
+    logger = logging.getLogger("typesafe_sdk")
+    baseline = dict(live._LOG_FILTER._counts)  # other tests may have left backends open
+    first = env_backend(KEY, FAILURES["500"])
+    second = LiveBackend("m")  # same environment, same patched SDK
+    assert logger.filters.count(live._LOG_FILTER) == 1  # idempotent: one filter, however many
+    first.close()
+    assert live._LOG_FILTER in logger.filters  # the second backend is still protected
+    assert KEY in live._LOG_FILTER._counts
+    second.close()
+    second.close()  # closing twice releases nothing twice
+    assert live._LOG_FILTER._counts == baseline
+    assert (live._LOG_FILTER in logger.filters) == bool(baseline)
+
+
+def test_an_injected_client_gets_no_log_filter():
+    logger = logging.getLogger("typesafe_sdk")
+    from jev_cookbook import live
+
+    before = (list(logger.filters), dict(live._LOG_FILTER._counts))
+    LiveBackend("m", client=client_with(lambda r: httpx2.Response(500)))
+    assert (list(logger.filters), dict(live._LOG_FILTER._counts)) == before  # caller's job
+
+
+def test_a_200_body_echoing_the_key_is_refused_before_any_write(env_backend, tmp_path):
+    def handler(request):
+        return httpx2.Response(200, json={**BODY, "model": echo(request)})
+
+    backend = env_backend(KEY + "\r", handler)
+    path, ledger = tmp_path / "r.json", tmp_path / "ledger.json"
+    with pytest.raises(LiveResponseError) as err:
+        record(backend, [("x", QUESTIONS)], path, ledger_path=ledger)
+    assert KEY not in chain_text(err.value, repr(backend), repr(backend.ledger()))[0]
+    assert not path.exists() and KEY not in ledger.read_text("utf-8")
+    assert backend.model == "m"
+
+
+def test_a_failed_validation_over_the_real_sdk_is_in_the_sidecar_with_its_request_id(
+    env_backend, tmp_path
+):
+    bad = json.loads(json.dumps(BODY))
+    bad["answers"]["tone"]["confidence"] = 0.99
+
+    def handler(request):
+        return httpx2.Response(200, json=bad, headers={"x-typesafe-request-id": "req-paid"})
+
+    backend = env_backend(KEY, handler)
+    ledger = tmp_path / "ledger.json"
+    with pytest.raises(LiveResponseError) as err:
+        record(backend, [("x", QUESTIONS)], tmp_path / "r.json", ledger_path=ledger)
+    assert err.value.request_id == "req-paid"
+    (line,) = json.loads(ledger.read_text("utf-8")).values()
+    assert line["status"] == "invalid_response" and line["request_id"] == "req-paid"
+
+
+def test_an_http_error_over_the_real_sdk_is_in_the_sidecar(env_backend, tmp_path):
+    def handler(request):
+        return httpx2.Response(
+            429, json={"error": "slow"}, headers={"x-typesafe-request-id": "req-429"}
+        )
+
+    backend = env_backend(KEY, handler, max_retries=1)
+    ledger = tmp_path / "ledger.json"
+    with pytest.raises(LiveCallError):
+        record(backend, [("x", QUESTIONS)], tmp_path / "r.json", ledger_path=ledger)
+    (line,) = json.loads(ledger.read_text("utf-8")).values()
+    assert (line["status"], line["http_status"], line["attempts"]) == ("error", 429, 2)
+    assert line["request_id"] == "req-429"
