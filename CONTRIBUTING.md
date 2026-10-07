@@ -21,6 +21,8 @@ recipes/NN-slug/
 
 `NN-slug` is the `slug` of the recipe in [`catalog/recipes.json`](catalog/recipes.json). Do not rename it. Shared code belongs in `src/jev_cookbook/` and changes there go through their own issue and pull request, never inside a recipe pull request.
 
+A recipe's `helpers.py` is never imported by name: every recipe has a `helpers` module and pytest runs them all in one process, so `import helpers` would give the second recipe the first one's code. Load it by path with `jev_cookbook.load_helpers`: `helpers = load_helpers()` in the notebook (its working directory is the recipe folder) and `helpers = load_helpers(Path(__file__).resolve().parent.parent)` in `tests/`. `python tools/new_recipe.py NN` creates a recipe folder from the template in `recipes/_template/`; see [docs/recipe-template.md](docs/recipe-template.md).
+
 A recipe pull request touches only `recipes/NN-slug/`, with one bounded exception. It does not edit the catalog, shared code, workflows, or any hand-written part of `README.md`. The README tables are regenerated from the catalog by `tools/render_catalog.py`, which lists a recipe as published as soon as its `notebook.ipynb` exists, so adding a notebook makes the generated regions of the root `README.md` stale and the `Catalog (README is current)` check fails until they are regenerated.
 
 ### The generated-README exception

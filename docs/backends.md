@@ -133,7 +133,7 @@ Provenance: `Provenance.synthetic()` (no model, no date) or `Provenance.recorded
 ## Stored response (what replay reads)
 
 A stored response is exactly `DecisionResult.to_dict()`; a fixture file is a JSON object
-`{replay_key: stored_response}` (the on-disk format is finalized by the fixture validator). Keys are 64 lowercase hex
+`{replay_key: stored_response}` (the file layout and the validator are in [fixtures.md](fixtures.md)). Keys are 64 lowercase hex
 characters, and a duplicate key in the file is an error.
 
 ```json
@@ -202,6 +202,8 @@ with open("fixtures.json", "w", encoding="utf-8", newline="\n") as fh:
 backend = get_backend(fixtures="fixtures.json")
 assert backend.decide(state, questions) == result
 ```
+
+This example writes a scratch `fixtures.json` in the current directory so that it is self-contained. In a recipe the same mapping lives at `fixtures/responses.json`, written by a generator script next to the notebook; the layout and the validator are in [fixtures.md](fixtures.md).
 
 Change the state or any question and the key changes, so replay misses (`ReplayMiss`) instead of
 guessing. A recorded fixture uses `Provenance.recorded(model, date)` on every answer and the same
