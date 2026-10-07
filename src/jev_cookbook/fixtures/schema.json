@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Jev-Engineering/cookbook/schemas/fixtures.json",
+  "title": "Jev Cookbook fixture files",
+  "description": "Row schemas for a recipe's fixtures/inputs.jsonl and fixtures/labels.jsonl. The responses files are not described here: they are the replay format defined by jev_cookbook.ReplayBackend (see docs/backends.md). See docs/fixtures.md.",
+  "$defs": {
+    "input": {
+      "description": "One line of inputs.jsonl: one example.",
+      "type": "object",
+      "required": ["id", "split", "replay_keys"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "Stable identifier, unique in the recipe, shared with labels.jsonl.",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$"
+        },
+        "split": {
+          "description": "train (optional), validation, test, or demo (illustration only, no label needed).",
+          "enum": ["train", "validation", "test", "demo"]
+        },
+        "state": {
+          "description": "The exact state passed to backend.decide: text, a JSON object, or an array of strings.",
+          "type": ["string", "object", "array"],
+          "minLength": 1,
+          "items": {"type": "string"}
+        },
+        "fields": {
+          "description": "The values the recipe's Python builds the state from. Use this instead of state when the recipe assembles the state.",
+          "type": "object"
+        },
+        "replay_keys": {
+          "description": "replay_key(state, questions) of every request made for this example, as 64 lowercase hex characters. Empty when the notebook answers this example without replaying anything (a scripted or simulated recipe). More than one when a later request depends on an earlier answer.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      },
+      "oneOf": [
+        {"title": "state", "required": ["state"]},
+        {"title": "fields", "required": ["fields"]}
+      ]
+    },
+    "label": {
+      "description": "One line of labels.jsonl: the gold label of one example.",
+      "type": "object",
+      "required": ["id", "label"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "The id of the example this labels.",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$"
+        },
+        "label": {
+          "description": "The gold label. Any JSON value except null: a string, a number, a boolean, a list, or an object (for several labels).",
+          "type": ["string", "number", "boolean", "array", "object"]
+        }
+      }
+    }
+  }
+}
