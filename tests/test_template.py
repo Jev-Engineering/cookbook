@@ -7,6 +7,7 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -23,6 +24,16 @@ def load_tool(name):
     spec = importlib.util.spec_from_file_location(
         f"{name}_for_template_test", REPO / "tools" / name
     )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def load_module_at(path, name):
+    """Import an arbitrary .py file (the template's own build_fixtures.py, not under tools/)
+    so its functions and module-level values (ROWS, build_responses) are plain Python
+    objects, not subprocess output or a re-dump of the file it wrote."""
+    spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -363,11 +374,18 @@ def test_build_fixtures_separates_inputs_labels_from_responses(tmp_path):
 def test_the_committed_responses_are_byte_identical_to_the_recorders_writer():
     """jev_cookbook.live._dump sorts only the top-level keys; json.dumps(..., sort_keys=True)
     sorts every nested dict too and so disagrees with it on every response's field order. The
-    committed file must match _dump exactly, not just agree with it on top-level order."""
+    committed file must match _dump exactly, not just agree with it on top-level order.
+
+    Comparing against _dump(json.loads(raw)) (re-dumping the file's own parsed content)
+    cannot catch a sort_keys=True regression: json.loads preserves whatever nested order the
+    file already has, and _dump only re-sorts the top level, so that round trip would pass no
+    matter which writer produced the file. Instead, import build_fixtures.py and compare
+    against _dump of what build_responses computes directly from ROWS, independent of what
+    main() actually wrote to disk."""
     raw = (TEMPLATE / "fixtures" / "responses.json").read_text("utf-8")
-    data = json.loads(raw)
-    assert len(data) > 1
-    assert raw == _dump(data)
+    module = load_module_at(TEMPLATE / "build_fixtures.py", "template_build_fixtures_for_test")
+    assert len(module.ROWS) > 1
+    assert raw == _dump(module.build_responses(module.ROWS))
 
 
 def test_a_simulated_recording_produces_a_minimal_diff():
@@ -394,8 +412,6 @@ def test_a_simulated_recording_produces_a_minimal_diff():
             }
             new_answers[name] = new_answer
         recorded[key] = {"model": "jev-1.13.0", "usage": response["usage"], "answers": new_answers}
-
-    import tempfile
 
     with tempfile.TemporaryDirectory() as tmp:
         scratch = Path(tmp) / "responses.json"

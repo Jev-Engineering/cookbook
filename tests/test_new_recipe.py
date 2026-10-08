@@ -29,6 +29,16 @@ def load_tool(name):
     return module
 
 
+def load_module_at(path, name):
+    """Import an arbitrary .py file (a scaffolded build_fixtures.py, not under tools/) so its
+    functions and module-level values (ROWS, build_responses) are plain Python objects, not
+    subprocess output."""
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 new_recipe = load_tool("new_recipe.py")
 execute_notebook = load_tool("execute_notebook.py")
 
@@ -950,16 +960,22 @@ def test_build_fixtures_writes_responses_byte_identical_to_the_recorders_writer(
     json.dumps(dict(sorted(data.items())), indent=2, ensure_ascii=False) + "\\n": only the
     top-level keys are sorted, every nested dict keeps DecisionResult.to_dict()'s own field
     order. json.dumps(..., sort_keys=True) sorts every nested dict too, which disagrees with
-    the recorder on every response and roughly quadruples the diff a recording produces
-    (measured on the template: 676 changed lines with sort_keys=True against 176 with the
-    recorder's own writer, for the same 22 responses). The builder must match the recorder
-    exactly, not just agree with it on top-level order."""
+    the recorder on every response and roughly quadruples the diff a recording produces. The
+    builder must match the recorder exactly, not just agree with it on top-level order.
+
+    Comparing the written file against _dump(json.loads(raw)) (re-dumping the file's own
+    parsed content) cannot catch a sort_keys=True regression: json.loads preserves whatever
+    nested order the file already has, and _dump only re-sorts the top level, so that
+    round trip passes regardless of which writer produced the file. Instead, import the
+    freshly scaffolded build_fixtures.py and compare against _dump of what build_responses
+    computes directly from ROWS, independent of what main() actually wrote."""
     from jev_cookbook.live import _dump
 
     folder = scaffold_replay_with_build_script(catalog, recipes, number=4)
     script = folder / "build_fixtures.py"
     subprocess.run([sys.executable, str(script)], check=True, cwd=recipes)
     raw = (folder / "fixtures" / "responses.json").read_text("utf-8")
-    data = json.loads(raw)
-    assert len(data) > 1
-    assert raw == _dump(data)
+
+    module = load_module_at(script, "scaffolded_build_fixtures_for_test")
+    assert len(module.ROWS) > 1
+    assert raw == _dump(module.build_responses(module.ROWS))

@@ -109,9 +109,11 @@ def build_responses(rows):
 
 def _is_recorded(path: Path) -> bool:
     """True if ``path`` exists and holds at least one response whose model is not
-    ``"synthetic"`` (a recorded, or otherwise real, answer). A file that is not a JSON object,
-    or whose entries are not objects, cannot hold a valid synthetic response either, so it is
-    treated the same as a recorded one rather than raising."""
+    ``"synthetic"`` (a recorded, or otherwise real, answer). A file that fails to parse, or
+    whose top level is not a JSON object, cannot hold a valid synthetic response either, so it
+    is treated as not recorded rather than raising; inside an object, an entry that is itself
+    not an object is treated as if it were recorded, so it blocks an overwrite instead of being
+    silently skipped."""
     if not path.exists():
         return False
     try:

@@ -44,10 +44,11 @@ install Jupyter (`pip install jupyterlab`, which is not a dependency of this rep
 a committed notebook; the recorder captures answers into `fixtures/` instead. In live mode this
 notebook makes exactly one call for each of the 22 examples it uses, and no other (each demo example
 is decided once and the stored answer is reused wherever it is shown again). That is below the live
-backend's default request budget of 25 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`); a recipe whose fixtures
-need more calls than the default budget should say so here and tell the reader to raise it before
-running live. The setup, the budget limit and the recorder are in
-[docs/live.md](../../docs/live.md). Never put a key in a notebook, fixture or committed file.
+backend's default request budget of 25 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`); every attempt counts
+against that budget, including each retry, so a recipe this close to the default should mention
+that too. A recipe whose fixtures need more calls than the default budget should say so here and
+tell the reader to raise it before running live. The setup, the budget limit and the recorder are
+in [docs/live.md](../../docs/live.md). Never put a key in a notebook, fixture or committed file.
 
 ## What was and was not measured
 
@@ -169,8 +170,10 @@ What changes, and nothing else does:
 - The notebook's setup cell uses `get_backend(script=helpers.script, seed=helpers.SEED)`, and
   `run_header(..., backend=backend, ...)` states `scripted`. The "measured" cell follows `backend.mode`.
 - The validator reports `fixtures valid (mode scripted)`.
-- The generated replay-key test checks the mode: for a scripted recipe it asserts the keys are empty
-  and that the script gives the same answer to the same request twice.
+- `tests/test_helpers.py` asserts the keys are empty and that a fresh `ScriptedBackend(helpers.script,
+  helpers.SEED)` answers the same request identically twice; the scaffolder writes the one test file
+  that fits `--mode`, so neither carries the other's machinery (a replay recipe's test file has no
+  `ScriptedBackend` or mode check in it at all).
 
 How to drive a closed loop from the script is in [docs/simulation.md](../../docs/simulation.md).
 
