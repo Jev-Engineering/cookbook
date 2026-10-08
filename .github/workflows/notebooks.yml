@@ -136,6 +136,11 @@ jobs:
           sudo chown nbrunner:nbrunner "$RUNNER_TEMP/nbrunner-home"
           sudo chmod 700 "$RUNNER_TEMP/nbrunner-home"
           # So nbrunner can reach its scratch copy below $RUNNER_TEMP; it still owns nothing here.
+          # The runner's own $HOME (the parent of $RUNNER_TEMP, e.g. /home/runner) is mode 750 by
+          # default, which blocks nbrunner from traversing into it at all, before $RUNNER_TEMP's
+          # own permissions are even considered; +x (not +r) is enough to pass through without
+          # letting nbrunner list the runner's home directory itself.
+          sudo chmod o+x "$HOME"
           sudo chmod o+rx "$RUNNER_TEMP"
       # The recipe copy is nbrunner's only writable location: owned by it, mode 700, so nothing
       # else on the runner (including the runner user itself) can read or write it either.
@@ -192,11 +197,6 @@ jobs:
           print("no_new_privs set; sudo refused; euid", os.geteuid())
           PY
           chmod 644 "$RUNNER_TEMP/loaded.py"  # nbrunner must be able to read it, not just root
-          echo "--- debug: path permissions ---"
-          namei -l "$RUNNER_TEMP/loaded.py"
-          echo "--- debug: direct read as nbrunner, no unshare/setpriv ---"
-          sudo -u nbrunner cat "$RUNNER_TEMP/loaded.py" > /dev/null && echo "sudo -u nbrunner: read ok" || echo "sudo -u nbrunner: read FAILED"
-          echo "--- end debug ---"
           sudo env "PATH=$PATH" "HOME=$RUNNER_TEMP/nbrunner-home" "PYTHONPATH=$PYTHONPATH" \
             "PYTHONNOUSERSITE=1" unshare --net -- sh -c \
             'ip link set lo up && exec setpriv --no-new-privs --reuid=nbrunner --regid=nbrunner --clear-groups -- python -s "$1"' \
