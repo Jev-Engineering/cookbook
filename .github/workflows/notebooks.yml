@@ -138,30 +138,32 @@ jobs:
       # The scratch tree lives outside the runner's $HOME (#108 fix round 5, A5 suggestion 2): the
       # earlier shape put it under $RUNNER_TEMP (a child of $HOME, e.g. /home/runner/work/_temp),
       # which bought nbrunner traversal with `chmod o+x "$HOME"` for the sake of this one
-      # subdirectory, and `chmod o+rx "$RUNNER_TEMP"` besides. /srv/nbrun is root-owned, mode 755,
-      # and sits outside $HOME entirely, so neither chmod is needed for the scratch tree or the
-      # self-test probe scripts below, which now live here too. `chmod o+x "$HOME"` is still
-      # required, for a different and unavoidable reason: $GITHUB_WORKSPACE (the checkout nbrunner
-      # must still be able to *read* — tools/execute_notebook.py, tools/netguard, jev_cookbook)
-      # is itself a child of $HOME on a hosted runner, so nbrunner needs the same traversal into
-      # $HOME to reach it regardless of where the scratch sits; moving the scratch narrows what
-      # that traversal is used for, it does not remove the need for it.
+      # subdirectory, and `chmod o+rx "$RUNNER_TEMP"` besides. /srv/nbrun sits outside $HOME
+      # entirely, so neither chmod is needed for it or the self-test probe scripts below, which now
+      # live here too. `/srv` itself is root-owned, so creating /srv/nbrun needs sudo once; it is
+      # then chowned to the runner (mode 755, so nbrunner can still traverse and list it) so the
+      # runner can populate it the rest of the way without sudo, exactly as it already did under
+      # $RUNNER_TEMP. The two things nbrunner must actually be able to write (its own $HOME and its
+      # recipe copy, both below) are separately chowned to it and locked to mode 700, which a
+      # permissive parent directory does not loosen. `chmod o+x "$HOME"` is still required, for a
+      # different and unavoidable reason: $GITHUB_WORKSPACE (the checkout nbrunner must still be
+      # able to *read* — tools/execute_notebook.py, tools/netguard, jev_cookbook) is itself a child
+      # of $HOME on a hosted runner, so nbrunner needs the same traversal into $HOME to reach it
+      # regardless of where the scratch sits; moving the scratch narrows what that traversal is
+      # used for, it does not remove the need for it.
       - name: Create the unprivileged kernel user
         run: |
           sudo useradd -M -s /usr/sbin/nologin nbrunner
           sudo mkdir -m 755 /srv/nbrun
-          sudo mkdir -m 700 /srv/nbrun/nbrunner-home
+          sudo chown "$(id -u):$(id -g)" /srv/nbrun
+          mkdir -m 700 /srv/nbrun/nbrunner-home
           sudo chown nbrunner:nbrunner /srv/nbrun/nbrunner-home
-          # /srv/nbrun itself is root-owned, so the runner user needs its own subdirectory to
-          # populate without sudo; the recipe copy below is chowned away from the runner again
-          # right after.
-          sudo mkdir -m 755 /srv/nbrun/run
-          sudo chown "$(id -u):$(id -g)" /srv/nbrun/run
           sudo chmod o+x "$HOME"
       # The recipe copy is nbrunner's only writable location: owned by it, mode 700, so nothing
       # else on the runner (including the runner user itself) can read or write it either.
       - name: Copy the recipe to nbrunner's scratch folder
         run: |
+          mkdir -p /srv/nbrun/run
           cp -R "recipes/$RECIPE" "/srv/nbrun/run/$RECIPE"
           sudo chown -R nbrunner:nbrunner "/srv/nbrun/run/$RECIPE"
           sudo chmod -R u+rwX,go-rwx "/srv/nbrun/run/$RECIPE"
