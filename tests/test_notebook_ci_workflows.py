@@ -1,9 +1,9 @@
-"""The contracts of the two workflow files that cannot be run locally (#69).
+"""The contracts of the workflow files that cannot be run locally (#69, #126).
 
 These are text checks on the workflow files: a run on GitHub is the real test, and these keep a
 later edit from quietly undoing a decision (a description edit re-runs the scope check from the
 base branch, the notebook workflow does not, the sandbox cannot sudo out, the install uses the
-constraints, a forced push runs everything).
+constraints, a forced push runs everything, `continue-on-error` is pinned absent everywhere).
 """
 
 import re
@@ -13,6 +13,8 @@ REPO = Path(__file__).resolve().parent.parent
 WORKFLOWS = REPO / ".github" / "workflows"
 NOTEBOOKS = (WORKFLOWS / "notebooks.yml").read_text(encoding="utf-8")
 SCOPE = (WORKFLOWS / "scope.yml").read_text(encoding="utf-8")
+CI = (WORKFLOWS / "ci.yml").read_text(encoding="utf-8")
+HYGIENE = (WORKFLOWS / "hygiene.yml").read_text(encoding="utf-8")
 CONSTRAINTS = (REPO / ".github" / "constraints-notebooks.txt").read_text(encoding="utf-8")
 
 
@@ -96,6 +98,24 @@ def test_required_job_names_are_unchanged():
         "Fixtures (validate)",
     ):
         assert f"    name: {name}\n" in NOTEBOOKS, name
+
+
+def test_continue_on_error_is_pinned_absent_everywhere():
+    """#126 (S2 on #125, comment 6060303924): `continue-on-error: true` on the "Execute the
+    notebook offline" step, or on its job, would defeat every assertion in
+    test_execute_step_sets_pipefail_shell at the Actions level without touching the shell at
+    all -- the step could fail outright and the job would still copy the committed notebook out
+    and pass the staleness check. `continue-on-error` is not a shell construct, so `code()` (which
+    only strips comment lines) is enough: a real `continue-on-error:` key is never on a comment
+    line, and nothing here depends on indentation, so this pins it absent at both job and step
+    level in one assertion per file."""
+    for name, text in (
+        ("notebooks.yml", NOTEBOOKS),
+        ("scope.yml", SCOPE),
+        ("ci.yml", CI),
+        ("hygiene.yml", HYGIENE),
+    ):
+        assert "continue-on-error" not in code(text), name
 
 
 def test_every_sandboxed_python_runs_without_new_privileges():
