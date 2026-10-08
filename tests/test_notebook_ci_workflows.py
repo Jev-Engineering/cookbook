@@ -386,6 +386,43 @@ def test_execute_closes_the_pid_namespace_and_reads_back_in_the_same_step():
     assert unshare_index < install_index, "the copy must come after the sandboxed run returns"
 
 
+def test_execute_step_requires_and_confirms_the_pid_namespace():
+    """#108 fix round 6, B6 M1: ``kill_everyone_else_in_my_pid_namespace`` (tools/
+    execute_notebook.py) only ran because this step's shell `exec`s straight into `python`, which
+    is PID 1 only as a result -- nothing asserted that, so an edit that stops it (wrapping the
+    command in something that forks instead of `exec`ing, a `timeout 600` added after a hung job,
+    say) silently disabled the one layer that stops the demonstrated attack, with every other test
+    and check in this pull request still green. ``JEV_COOKBOOK_REQUIRE_PID_NAMESPACE`` turns the
+    inference into a demand (the executor raises if it is not actually PID 1 of a
+    procfs-mounted namespace, see tests/test_notebook_ci_sandbox.py), and the grep below fails this
+    step if the executor's own one-line confirmation is ever missing, not just if its exit code
+    is bad."""
+    body = code(NOTEBOOKS)
+    execute_step = re.search(r"Execute the notebook offline\n(.*?)\n\s*- ", body, re.DOTALL)
+    assert execute_step
+    text = execute_step.group(1)
+    assert 'JEV_COOKBOOK_REQUIRE_PID_NAMESPACE: "1"' in text
+    # Declaring it under the step's own `env:` is not enough: `sudo` wipes the environment unless a
+    # variable is passed through explicitly, exactly as PATH, HOME, PYTHONPATH and
+    # PYTHONNOUSERSITE already are.
+    assert '"JEV_COOKBOOK_REQUIRE_PID_NAMESPACE=$JEV_COOKBOOK_REQUIRE_PID_NAMESPACE"' in text
+    assert 'grep -qx "pid namespace: active"' in text
+    # `python` must be the thing `exec setpriv` hands off to directly: anything interposed between
+    # the final `--` and `python` (a `timeout 600` added after a hung job, say) forks rather than
+    # `exec`s, so `python` lands on PID 2, not PID 1 -- the exact scenario the variable above
+    # exists to catch at runtime. Pinning the literal invocation here catches it statically too.
+    assert '--clear-groups -- python -s tools/execute_notebook.py --timeout 300 "$1"\'' in text, (
+        "python must be exec'd directly after setpriv; nothing may sit between them and steal PID 1"
+    )
+    sandbox_index = text.index("unshare --net --pid --fork --mount-proc")
+    pass_env_index = text.index(
+        '"JEV_COOKBOOK_REQUIRE_PID_NAMESPACE=$JEV_COOKBOOK_REQUIRE_PID_NAMESPACE"'
+    )
+    grep_index = text.index('grep -qx "pid namespace: active"')
+    assert pass_env_index < sandbox_index, "the variable must reach the sandboxed process"
+    assert sandbox_index < grep_index, "the confirmation must be read after the sandboxed run"
+
+
 def test_a_detached_process_is_proved_killable_by_the_backstop():
     """#108 fix round 4, B4 M1 route B, narrowed by #108 fix round 5, M1: a cell can start a
     process that outlives the kernel. The PID namespace plus execute_notebook.py's own

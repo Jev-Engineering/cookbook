@@ -154,18 +154,25 @@ dedicated, unprivileged user, `nbrunner` (`sudo useradd -M -s /usr/sbin/nologin 
 runs the kernel as that user inside the existing network namespace (`setpriv --no-new-privs
 --reuid=nbrunner --regid=nbrunner --clear-groups`), with `python -s` (no user site-packages) and
 `PYTHONNOUSERSITE=1` in its environment (belt and braces: `-s` does not reach the separate
-`ipykernel` subprocess the kernel spawns, but the environment variable does). What `nbrunner` can
+`ipykernel` subprocess the kernel spawns, but the environment variable does). `nbrunner`'s own
+`$HOME` and its scratch copy of the recipe both live under `/srv/nbrun`, outside the runner's own
+`$HOME` entirely (fix round 5, A5 suggestion 2) — the earlier shape put them under `$RUNNER_TEMP`,
+a child of the runner's `$HOME`, which bought `nbrunner` traversal into it with `chmod o+x "$HOME"`
+for that one subdirectory alone, plus `chmod o+rx "$RUNNER_TEMP"` besides; moving the scratch tree
+outside `$HOME` narrows what that one remaining `chmod o+x "$HOME"` is for down to the checkout
+alone (`$GITHUB_WORKSPACE` is itself a child of `$HOME` on a hosted runner, which `nbrunner` must
+still be able to *read*, so that traversal cannot be removed, only narrowed). What `nbrunner` can
 and cannot write:
 
-* **Can write:** only its own copy of the recipe folder (`$RUNNER_TEMP/run/<recipe>`), created and
+* **Can write:** only its own copy of the recipe folder (`/srv/nbrun/run/<recipe>`), created and
   `chown`-ed to it before execution, mode `700` so nothing else — the runner user included — can
   read or write it either.
 * **Cannot write:** the checkout (`$GITHUB_WORKSPACE`, so neither `tools/check_notebook_fresh.py`,
   `tools/check_hygiene.py` nor the committed `recipes/<recipe>/notebook.ipynb`), the interpreter's
   site-packages (so it cannot drop a `sitecustomize.py` that every later `python` would import,
   including the checks run after it), or anything under the runner's own `$HOME` (so it cannot
-  drop a `usercustomize.py` there either — its own `$HOME` is a separate, empty directory it owns,
-  passed explicitly, never the runner's).
+  drop a `usercustomize.py` there either — its own `$HOME` is `/srv/nbrun/nbrunner-home`, a
+  separate, empty directory it owns, passed explicitly, never the runner's).
 
 A self-test step proves this before the notebook runs, rather than assuming it: as `nbrunner`, it
 asserts (`test -w`) that site-packages, the checkout (including `tools/`), the committed notebook
@@ -275,7 +282,7 @@ merges"); until then, a reviewer rejecting a `.github/` change by hand is what s
 `Fixtures (validate)` validates every file under `recipes/<recipe>/fixtures/`; nothing in this
 workflow or in `jev_cookbook` requires a notebook's `get_backend(fixtures=...)` call to point
 inside that folder. In CI this is closed as a side effect of the boundary above, not by a rule that
-checks it: `$RUNNER_TEMP/run/<recipe>` (nbrunner's writable copy) is the only place a notebook cell
+checks it: `/srv/nbrun/run/<recipe>` (nbrunner's writable copy) is the only place a notebook cell
 could stage a file at execution time, and that is thrown away at the end of the job, so the fixtures
 `Fixtures (validate)` validated are the only ones a committed, reviewable `get_backend` call can
 actually reach — a path elsewhere in the checkout is read-only and points at files a reviewer can
@@ -469,27 +476,46 @@ freshness check's output. A change to the file counts as "anything else", so it 
 Jobs have timeouts, pip is cached, and a new push to a pull request cancels its older run. The
 execute step prints its own elapsed seconds to the job summary.
 
-**One recipe, measured.** From this pull request's own CI runs at the fix round 5 head
-(`2411a1583cb194570c5a01de8872b84041a75ecb`;
-[37728218425](https://github.com/Jev-Engineering/cookbook/actions/runs/37728218425),
-[37728218408](https://github.com/Jev-Engineering/cookbook/actions/runs/37728218408)):
-`Notebooks (discover)` 7 s, `Notebook (_template)` 48 s (of which the notebook itself executes in
-3 s; the rest is `setup-python`, install and the sandbox self-tests — now three self-test steps
-instead of fix round 4's two, plus the uid-boundary probe's three new `$GITHUB_*` checks), `Notebooks
-(execute)` 3 s, `Fixtures (validate)` 26 s. The `Notebooks` workflow's wall time for one recipe was
-62 s end to end (discover, then the one notebook job, then the summary; fixtures runs in parallel
-and does not add to that critical path) — about 8 s more than fix round 4's 54 s, the cost of the
-PID-namespace self-test and the three added `$GITHUB_*` probes.
+**One recipe, measured.** Per-job seconds, read from the API rather than estimated, for the most
+recently measured `Notebooks` run in this pull request's history, fix round 5's head
+(`273c79fc376129a41ad56152fc1855b4f0ac869c`;
+[37728525125](https://github.com/Jev-Engineering/cookbook/actions/runs/37728525125)):
+`Notebooks (discover)` 7 s, `Notebook (_template)` 41 s (of which the notebook itself executes in a
+few seconds; the rest is `setup-python`, install and the sandbox self-tests and probes), `Notebooks
+(execute)` 3 s, `Fixtures (validate)` 30 s. The `Notebooks` workflow's wall time for that run —
+`created_at` to `updated_at` on the run itself, the same basis used for every run below — was
+**60 s** end to end (discover, then the one notebook job, then the summary; fixtures runs in
+parallel and does not add to that critical path).
+
+**That number moves between runs, and the shape of this pull request does not explain the spread.**
+Four comparable `Notebooks` runs from this pull request's own history — each the full run for a
+single changed recipe (`_template`), read the same way as above:
+
+| Commit | Run | Wall time | `Notebook (_template)` |
+| --- | --- | --- | --- |
+| `767bc50` (fix round 4's own baseline, re-measured) | [37718584952](https://github.com/Jev-Engineering/cookbook/actions/runs/37718584952) | 54 s | 35 s |
+| `b040de7` (fix round 4's approved head) | [37719814024](https://github.com/Jev-Engineering/cookbook/actions/runs/37719814024) | 66 s | 45 s |
+| `2411a158` (fix round 5, mid-round) | [37728218425](https://github.com/Jev-Engineering/cookbook/actions/runs/37728218425) | 69 s | 48 s |
+| `273c79f` (fix round 5's head, above) | [37728525125](https://github.com/Jev-Engineering/cookbook/actions/runs/37728525125) | 60 s | 41 s |
+
+Each of these is a single sample for its commit — this pull request's CI does not run a commit
+twice to measure variance — and the 54-69 s spread (35-48 s for the notebook job alone) is hosted
+GitHub runner noise at n = 1, not something a particular change can be credited or blamed for:
+`2411a158` and `273c79f` differ only by documentation (no code, test or workflow change between
+them), yet their wall times differ by 9 s, more than the 6 s separating the round-4 baseline from
+its own approved head. **Do not attribute a difference between two runs' wall times to a named
+change** unless the same commit has been measured more than once; one run per commit cannot
+distinguish a real cost from this noise.
 
 **How it scales.** The `execute` job caps itself at `max-parallel: 10` (see "Why 10" below), so a
 run that selects every notebook is not one wave of N jobs in parallel but ⌈N / 10⌉ waves run one
-after another. At sixty recipes that is six waves of ten: roughly 5 minutes of execute time (six
-times the one-recipe execute job's ~48 s, allowing for the fixed per-job overhead not shrinking),
-plus discovery and the summary job, for a **wall time of about 5 minutes** for a full run — not the
-~62 s a single uncapped wave would take. A push to a recipe pull request, or to `main` after a
-recipe merges, still selects only the one or two folders that changed (see "Which notebooks run"),
-so this scaling only matters for a push that selects every notebook: a foundation change outside
-`recipes/`, a forced push, the weekly cron, or a manual run with `full` left `true`.
+after another. At sixty recipes that is six waves of ten: roughly 6 × 41 s ≈ 4-5 minutes of execute
+time (treating the measured run above as one wave and allowing for the fixed per-job overhead not
+shrinking), plus discovery and the summary job, for a **wall time of a few minutes** for a full run
+— not the ~60 s a single uncapped wave would take. A push to a recipe pull request, or to `main`
+after a recipe merges, still selects only the one or two folders that changed (see "Which notebooks
+run"), so this scaling only matters for a push that selects every notebook: a foundation change
+outside `recipes/`, a forced push, the weekly cron, or a manual run with `full` left `true`.
 
 **Why 10.** Without a cap, a full run claims as many of the organisation's concurrent-job slots as
 there are recipes, starving `CI`'s and `Notebooks`' other jobs. The number is a deliberate, bounded
@@ -497,13 +523,13 @@ choice rather than whatever the organisation's limit happens to be at the time; 
 (ordinarily at most one recipe folder changed) never notices it.
 
 **Billed minutes (private repository), measured.** GitHub rounds each job up to a whole minute.
-Counting the runs above: one push to a recipe pull request is `Notebooks` 4 billed minutes
+From commit `2411a158`'s own `CI`/`Hygiene` run
+([37728218408](https://github.com/Jev-Engineering/cookbook/actions/runs/37728218408)): `Lint`
+25 s, `Catalog` 9 s, `Tests (py3.14)` 106 s, `Tests (py3.10)` 85 s, `Hygiene` 7 s. One push to a
+recipe pull request is `Notebooks` 4 billed minutes
 (discover + one notebook + the summary + fixtures) + `Scope` 1, on top of 7 for the existing `CI`
-and `Hygiene` workflows (`Lint` 25 s, `Catalog` 9 s, `Tests (py3.14)` 106 s, `Tests (py3.10)` 85 s,
-`Hygiene` 7 s, each rounding to 1 or 2 billed minutes) — **about 12 billed minutes per push**,
-unchanged from round 4 (this round's added self-tests and probes cost real seconds within
-`Notebook (<recipe>)`'s own 48 s, but do not cross a one-minute rounding boundary on that job, which
-was already at 1 billed minute). A README-only push selects no notebook: 3 + 1 = 4 new. A push to
+and `Hygiene` workflows (each of the five jobs above rounding to 1 or 2 billed minutes) — **about
+12 billed minutes per push**. A README-only push selects no notebook: 3 + 1 = 4 new. A push to
 `main` that selects every notebook — the scaling case above — is 1 (discover) + 60 (one per
 recipe) + 1 (summary) + 1 (fixtures) = 63 jobs, **about 63 billed minutes**, independent of the
 `max-parallel` cap (billing is per job, not per wave); the weekly cron costs the same each time it

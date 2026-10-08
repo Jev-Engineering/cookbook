@@ -27,15 +27,23 @@ These things are fixed so that running it twice gives the same file:
   killed, and confirmed dead, immediately before the result is written
   (``kill_everyone_else_in_my_pid_namespace``) -- a cell can start a detached process that survives
   the kernel's own shutdown and keeps running during this process's, so the write is not the last
-  word on the file's contents unless nothing else can still act on it when it happens.
+  word on the file's contents unless nothing else can still act on it when it happens. Whether
+  that guard is active is inferred (``os.getpid() == 1``, confirmed against ``/proc/self`` too --
+  see ``in_an_isolated_pid_namespace``); it is silent and a no-op when it is not, so a later change
+  that stops this process landing on PID 1 would disable it without failing anything. Setting
+  ``JEV_COOKBOOK_REQUIRE_PID_NAMESPACE`` in the environment (CI's sandboxed execute step does this)
+  turns that inference into a demand: ``require_pid_namespace_if_demanded`` raises, before anything
+  is written, if the namespace is not actually active, and otherwise prints "pid namespace:
+  active", which the workflow step greps for (#108 fix round 6, B6 M1).
 
 A run in which any cell wrote to stderr also fails: stderr carries warnings and absolute paths,
 which must not be committed.
 
 Exit status is 0 when the notebook ran to the end, 1 when a cell failed, a cell ran longer than
-the timeout (``--timeout``, default 300 seconds, at least 1), the kernel died or never started, or
-a cell wrote to stderr (one line on stderr, the file left unchanged), and 2 for a usage error.
-#69 builds CI (network guard, staleness check) on this.
+the timeout (``--timeout``, default 300 seconds, at least 1), the kernel died or never started, a
+cell wrote to stderr (one line on stderr, the file left unchanged), or
+``JEV_COOKBOOK_REQUIRE_PID_NAMESPACE`` was set and the PID namespace it demands was not active, and
+2 for a usage error. #69 builds CI (network guard, staleness check) on this.
 
 Starting the kernel is retried once, and only that: when the machine is loaded (several notebooks
 executing at once) a kernel can lose a race for a TCP port ("Address in use"), exit before it
@@ -157,7 +165,15 @@ def run_in_fresh_kernel(nb: nbformat.NotebookNode, recipe_dir: Path, timeout: in
 def process_state(pid: int) -> str | None:
     """The single-character state field of ``/proc/<pid>/stat`` ('Z' for a zombie, which cannot
     run or write anything), or ``None`` if the process is already gone. The command-name field is
-    parenthesised and may itself contain ``)``, so the split is on the *last* one."""
+    parenthesised and may itself contain ``)``, so the split is on the *last* one.
+
+    Procfs-only: on a platform with no ``/proc`` (Windows, macOS) every PID looks gone, since
+    reading the path always raises ``FileNotFoundError``. That is the documented sentinel for
+    "cannot tell" as well as "gone" -- harmless here, because the only caller
+    (``kill_everyone_else_in_my_pid_namespace``) is itself unconditionally a no-op on those
+    platforms (a Python process cannot be PID 1 of a namespace there), so this function's result
+    is never acted on off Linux.
+    """
     try:
         text = Path(f"/proc/{pid}/stat").read_text()
     except (FileNotFoundError, ProcessLookupError):
@@ -165,14 +181,65 @@ def process_state(pid: int) -> str | None:
     return text.rsplit(")", 1)[1].split()[0]
 
 
+PID_NAMESPACE_REQUIRED_ENV = "JEV_COOKBOOK_REQUIRE_PID_NAMESPACE"
+
+
+def in_an_isolated_pid_namespace() -> bool:
+    """Whether this process is PID 1 of a dedicated PID namespace, confirmed two ways.
+
+    ``os.getpid() == 1`` alone is not proof (#108 fix round 6, A6 suggestion S1 / B6 suggestion 2):
+    it is also true for PID 1 of a container, and for ``unshare --pid --fork`` run *without*
+    ``--mount-proc``, where this process is PID 1 of the new namespace but ``/proc`` is still a
+    view of the *host's* processes (measured in review: ``/proc/self`` resolved to the real host
+    PID while ``os.getpid()`` said 1). Requiring ``/proc/self`` to also resolve to ``"1"`` means
+    the namespace's own procfs is actually mounted, which is what makes reading ``/proc`` below
+    (in ``kill_everyone_else_in_my_pid_namespace``) mean anything at all.
+    """
+    if os.getpid() != 1:
+        return False
+    try:
+        return os.readlink("/proc/self") == "1"
+    except OSError:
+        return False
+
+
+class PidNamespaceNotActive(RuntimeError):
+    """``JEV_COOKBOOK_REQUIRE_PID_NAMESPACE`` demanded an isolated PID namespace and this process
+    is not PID 1 of one."""
+
+
+def require_pid_namespace_if_demanded() -> None:
+    """A no-op unless ``JEV_COOKBOOK_REQUIRE_PID_NAMESPACE`` is set in the environment.
+
+    #108 fix round 6, B6 M1: ``kill_everyone_else_in_my_pid_namespace`` below only does anything
+    when this process happens to be PID 1, which the sandboxed execute step arranges by `exec`-ing
+    straight into ``python`` -- nothing asserted that at runtime, so a later edit that stops it
+    (wrapping the command in something that forks instead of `exec`-ing, a ``timeout 600`` added
+    after a hung job, say) silently turned the one layer that stops a demonstrated attack into a
+    no-op, with every existing test and check still green. The execute step sets this variable so
+    that case is no longer silent: with it set, raises ``PidNamespaceNotActive`` (the file is left
+    unchanged; see ``execute``) if ``in_an_isolated_pid_namespace()`` is not true, and otherwise
+    prints "pid namespace: active", which the workflow step's own log is grepped for immediately
+    afterwards. Unset -- a local run, every test in this repository, the ``Tests`` jobs -- this is
+    a no-op, exactly like the kill helper itself.
+    """
+    if not os.environ.get(PID_NAMESPACE_REQUIRED_ENV):
+        return
+    if not in_an_isolated_pid_namespace():
+        raise PidNamespaceNotActive(
+            f"{PID_NAMESPACE_REQUIRED_ENV} is set but this process is not PID 1 of an isolated, "
+            "procfs-mounted PID namespace; refusing to write the result"
+        )
+    print("pid namespace: active")
+
+
 KILL_OTHER_PROCESSES_TIMEOUT = 2.0
 
 
 def kill_everyone_else_in_my_pid_namespace(timeout: float = KILL_OTHER_PROCESSES_TIMEOUT) -> None:
-    """If this process is PID 1 of an isolated PID namespace (``os.getpid() == 1``, true only when
-    the sandboxed execute step wraps it in ``unshare --pid --fork``), kill and wait out every
-    other, non-zombie process still in it. A no-op outside a PID namespace (a local run, or any
-    test that calls ``execute`` directly): ``os.getpid()`` is never 1 there.
+    """If this process is PID 1 of an isolated PID namespace (``in_an_isolated_pid_namespace()``),
+    kill and wait out every other, non-zombie process still in it. A no-op outside a PID namespace
+    (a local run, or any test that calls ``execute`` directly).
 
     #108 fix round 5, M1: a PID namespace guarantees that nothing survives PID 1 *exiting*, but a
     cell can start a detached (``setsid``) process that outlives the kernel nbclient manages and
@@ -183,7 +250,7 @@ def kill_everyone_else_in_my_pid_namespace(timeout: float = KILL_OTHER_PROCESSES
     instead of narrowing it further. Raises ``RuntimeError`` (the job then fails, rather than
     silently trusting an unverified write) if something will not die within ``timeout`` seconds.
     """
-    if os.getpid() != 1:
+    if not in_an_isolated_pid_namespace():
         return
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -231,6 +298,10 @@ def execute(recipe_dir: Path, timeout: int = TIMEOUT_SECONDS) -> None:
     check_no_stderr(nb)
     nb.metadata = nbformat.from_dict(METADATA)
     nbformat.validate(nb)
+    # #108 fix round 6, B6 M1: fail loudly, before the kill helper runs, if the sandboxed execute
+    # step's demand for a PID namespace is not actually met -- see require_pid_namespace_if_
+    # demanded's docstring.
+    require_pid_namespace_if_demanded()
     # See kill_everyone_else_in_my_pid_namespace's docstring: nothing else may still be alive when
     # the write below happens.
     kill_everyone_else_in_my_pid_namespace()
@@ -271,6 +342,9 @@ def main(argv: list[str] | None = None) -> int:
         execute(folder, args.timeout)
     except StderrOutput as error:
         print(f"{folder.name}: {error}; {NOTEBOOK} left unchanged", file=sys.stderr)
+        return 1
+    except PidNamespaceNotActive as error:
+        print(f"{folder.name}: {error}", file=sys.stderr)
         return 1
     except DeadKernelError as error:
         print(

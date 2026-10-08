@@ -345,13 +345,33 @@ jobs:
           # landed in the notebook's own stderr output and failed the run). Unset, every one of
           # them falls back to a path under $HOME, which is nbrunner's own and writable.
           PYTHONPATH: ${{ github.workspace }}/tools/netguard
+          # #108 fix round 6, B6 M1: kill_everyone_else_in_my_pid_namespace (tools/
+          # execute_notebook.py) only does anything because the `sh -c` below `exec`s straight
+          # into `python`, which is never asserted anywhere -- a later edit that stops that (a
+          # `timeout 600` wrapped around `python`, say, which forks rather than `exec`s) would
+          # silently turn that layer into a no-op with every test and check still green. This
+          # variable makes the executor demand the namespace instead of merely inferring it: it
+          # raises, before writing anything, if it is not actually PID 1 of one, and otherwise
+          # prints "pid namespace: active", which is grepped for below.
+          JEV_COOKBOOK_REQUIRE_PID_NAMESPACE: "1"
         run: |
           started=$(date +%s)
           sudo env -u XDG_CONFIG_HOME -u XDG_CACHE_HOME -u XDG_DATA_HOME -u XDG_STATE_HOME \
             -u XDG_RUNTIME_DIR "PATH=$PATH" "HOME=/srv/nbrun/nbrunner-home" \
-            "PYTHONPATH=$PYTHONPATH" "PYTHONNOUSERSITE=1" unshare --net --pid --fork --mount-proc -- sh -c \
+            "PYTHONPATH=$PYTHONPATH" "PYTHONNOUSERSITE=1" \
+            "JEV_COOKBOOK_REQUIRE_PID_NAMESPACE=$JEV_COOKBOOK_REQUIRE_PID_NAMESPACE" \
+            unshare --net --pid --fork --mount-proc -- sh -c \
             'ip link set lo up && exec setpriv --no-new-privs --reuid=nbrunner --regid=nbrunner --clear-groups -- python -s tools/execute_notebook.py --timeout 300 "$1"' \
-            sh "/srv/nbrun/run/$RECIPE"
+            sh "/srv/nbrun/run/$RECIPE" | tee "$RUNNER_TEMP/execute-notebook.log"
+          # #108 fix round 6, B6 M1: the executor's own exit code already fails this step if the
+          # namespace was demanded and absent (PidNamespaceNotActive), but that exit code looks
+          # the same in the log as every other reason a notebook can fail. This also requires the
+          # one-line proof the executor prints on success, so a configuration that reintroduces
+          # the gap (or a `main()` refactor that stops printing the line) fails this step too.
+          grep -qx "pid namespace: active" "$RUNNER_TEMP/execute-notebook.log" || {
+            echo "FAIL: the executor never confirmed the PID namespace was active"
+            exit 1
+          }
           echo "executed $RECIPE in $(( $(date +%s) - started )) s" | tee -a "$GITHUB_STEP_SUMMARY"
           # The read-back happens here, immediately, in the same step as execution and before any
           # step boundary (#108 fix round 5, M1), as further defence in depth: execute_notebook.py
