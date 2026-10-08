@@ -476,19 +476,22 @@ freshness check's output. A change to the file counts as "anything else", so it 
 Jobs have timeouts, pip is cached, and a new push to a pull request cancels its older run. The
 execute step prints its own elapsed seconds to the job summary.
 
-**One recipe, measured.** Per-job seconds, read from the API rather than estimated, for the most
-recently measured `Notebooks` run in this pull request's history, fix round 5's head
-(`273c79fc376129a41ad56152fc1855b4f0ac869c`;
-[37728525125](https://github.com/Jev-Engineering/cookbook/actions/runs/37728525125)):
-`Notebooks (discover)` 7 s, `Notebook (_template)` 41 s (of which the notebook itself executes in a
-few seconds; the rest is `setup-python`, install and the sandbox self-tests and probes), `Notebooks
-(execute)` 3 s, `Fixtures (validate)` 30 s. The `Notebooks` workflow's wall time for that run —
+**One recipe, measured.** Per-job seconds, read from the API rather than estimated, for fix round
+6's own `Notebooks` run, at this pull request's head
+(`1ab2cf4e93d552f1cf842b2902c4d022541aa277`;
+[37737217198](https://github.com/Jev-Engineering/cookbook/actions/runs/37737217198)):
+`Notebooks (discover)` 9 s, `Notebook (_template)` 48 s (of which the notebook itself executes in a
+few seconds; the rest is `setup-python`, install and the sandbox self-tests and probes, including
+the one this round adds: the execute step confirming `pid namespace: active`), `Notebooks
+(execute)` 3 s, `Fixtures (validate)` 18 s. The `Notebooks` workflow's wall time for that run —
 `created_at` to `updated_at` on the run itself, the same basis used for every run below — was
-**60 s** end to end (discover, then the one notebook job, then the summary; fixtures runs in
-parallel and does not add to that critical path).
+**108 s** end to end (discover, then the one notebook job, then the summary; fixtures runs in
+parallel and does not add to that critical path); most of that is a gap between discovery finishing
+(06:22:22Z) and the notebook job starting (06:23:01Z) rather than any job's own work, i.e. runner
+scheduling, not execution.
 
 **That number moves between runs, and the shape of this pull request does not explain the spread.**
-Four comparable `Notebooks` runs from this pull request's own history — each the full run for a
+Five comparable `Notebooks` runs from this pull request's own history — each the full run for a
 single changed recipe (`_template`), read the same way as above:
 
 | Commit | Run | Wall time | `Notebook (_template)` |
@@ -496,26 +499,30 @@ single changed recipe (`_template`), read the same way as above:
 | `767bc50` (fix round 4's own baseline, re-measured) | [37718584952](https://github.com/Jev-Engineering/cookbook/actions/runs/37718584952) | 54 s | 35 s |
 | `b040de7` (fix round 4's approved head) | [37719814024](https://github.com/Jev-Engineering/cookbook/actions/runs/37719814024) | 66 s | 45 s |
 | `2411a158` (fix round 5, mid-round) | [37728218425](https://github.com/Jev-Engineering/cookbook/actions/runs/37728218425) | 69 s | 48 s |
-| `273c79f` (fix round 5's head, above) | [37728525125](https://github.com/Jev-Engineering/cookbook/actions/runs/37728525125) | 60 s | 41 s |
+| `273c79f` (fix round 5's head) | [37728525125](https://github.com/Jev-Engineering/cookbook/actions/runs/37728525125) | 60 s | 41 s |
+| `1ab2cf4` (fix round 6's head, above) | [37737217198](https://github.com/Jev-Engineering/cookbook/actions/runs/37737217198) | 108 s | 48 s |
 
 Each of these is a single sample for its commit — this pull request's CI does not run a commit
-twice to measure variance — and the 54-69 s spread (35-48 s for the notebook job alone) is hosted
-GitHub runner noise at n = 1, not something a particular change can be credited or blamed for:
-`2411a158` and `273c79f` differ only by documentation (no code, test or workflow change between
-them), yet their wall times differ by 9 s, more than the 6 s separating the round-4 baseline from
-its own approved head. **Do not attribute a difference between two runs' wall times to a named
-change** unless the same commit has been measured more than once; one run per commit cannot
+twice to measure variance — and the spread (54-108 s wall; 35-48 s for the notebook job alone,
+which is the number this section's scaling estimate actually uses) is hosted GitHub runner noise at
+n = 1, not something a particular change can be credited or blamed for: `2411a158` and `273c79f`
+differ only by documentation (no code, test or workflow change between them), yet their wall times
+differ by 9 s, and fix round 6's own run — one environment variable, one `grep`, a few lines in
+`tools/execute_notebook.py` — is the slowest of the five by a wider margin than any of the code
+changes between the other four. **Do not attribute a difference between two runs' wall times to a
+named change** unless the same commit has been measured more than once; one run per commit cannot
 distinguish a real cost from this noise.
 
 **How it scales.** The `execute` job caps itself at `max-parallel: 10` (see "Why 10" below), so a
 run that selects every notebook is not one wave of N jobs in parallel but ⌈N / 10⌉ waves run one
-after another. At sixty recipes that is six waves of ten: roughly 6 × 41 s ≈ 4-5 minutes of execute
-time (treating the measured run above as one wave and allowing for the fixed per-job overhead not
-shrinking), plus discovery and the summary job, for a **wall time of a few minutes** for a full run
-— not the ~60 s a single uncapped wave would take. A push to a recipe pull request, or to `main`
-after a recipe merges, still selects only the one or two folders that changed (see "Which notebooks
-run"), so this scaling only matters for a push that selects every notebook: a foundation change
-outside `recipes/`, a forced push, the weekly cron, or a manual run with `full` left `true`.
+after another. At sixty recipes that is six waves of ten: roughly 6 × 48 s ≈ 5 minutes of execute
+time (treating the measured `Notebook (_template)` job above as one wave and allowing for the fixed
+per-job overhead not shrinking), plus discovery and the summary job, for a **wall time of a few
+minutes** for a full run — not the per-job number times sixty that one uncapped wave would need. A
+push to a recipe pull request, or to `main` after a recipe merges, still selects only the one or two
+folders that changed (see "Which notebooks run"), so this scaling only matters for a push that
+selects every notebook: a foundation change outside `recipes/`, a forced push, the weekly cron, or a
+manual run with `full` left `true`.
 
 **Why 10.** Without a cap, a full run claims as many of the organisation's concurrent-job slots as
 there are recipes, starving `CI`'s and `Notebooks`' other jobs. The number is a deliberate, bounded
@@ -523,10 +530,12 @@ choice rather than whatever the organisation's limit happens to be at the time; 
 (ordinarily at most one recipe folder changed) never notices it.
 
 **Billed minutes (private repository), measured.** GitHub rounds each job up to a whole minute.
-From commit `2411a158`'s own `CI`/`Hygiene` run
-([37728218408](https://github.com/Jev-Engineering/cookbook/actions/runs/37728218408)): `Lint`
-25 s, `Catalog` 9 s, `Tests (py3.14)` 106 s, `Tests (py3.10)` 85 s, `Hygiene` 7 s. One push to a
-recipe pull request is `Notebooks` 4 billed minutes
+From fix round 6's own `CI`/`Hygiene` run, commit `1ab2cf4`
+([37737217322](https://github.com/Jev-Engineering/cookbook/actions/runs/37737217322),
+[37737217310](https://github.com/Jev-Engineering/cookbook/actions/runs/37737217310)): `Lint`
+23 s, `Catalog` 5 s, `Tests (py3.14)` 99 s, `Tests (py3.10)` 79 s, `Hygiene` 6 s — each within the
+noise of the round-5 figures (25 s, 9 s, 106 s, 85 s, 7 s) and rounding to the same billed minutes.
+One push to a recipe pull request is `Notebooks` 4 billed minutes
 (discover + one notebook + the summary + fixtures) + `Scope` 1, on top of 7 for the existing `CI`
 and `Hygiene` workflows (each of the five jobs above rounding to 1 or 2 billed minutes) — **about
 12 billed minutes per push**. A README-only push selects no notebook: 3 + 1 = 4 new. A push to
