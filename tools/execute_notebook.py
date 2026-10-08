@@ -18,7 +18,10 @@ These things are fixed so that running it twice gives the same file:
   stream outputs by an IOPub flush that lands between its text and its newline;
 * execution timings are not recorded;
 * the notebook metadata is reset to the Python version independent minimum (kernel name and
-  language ``python``), so the file does not change with the interpreter that ran it.
+  language ``python``), so the file does not change with the interpreter that ran it;
+* the kernel application's own log level is raised (``--Application.log_level=ERROR``), so
+  ipykernel's unconditional startup notice about its TCP transport cannot be captured as a cell's
+  stderr output under #69's CI sandbox and rejected as if a cell had printed it.
 
 A run in which any cell wrote to stderr also fails: stderr carries warnings and absolute paths,
 which must not be committed.
@@ -118,6 +121,18 @@ def run_in_fresh_kernel(nb: nbformat.NotebookNode, recipe_dir: Path, timeout: in
         startup_timeout=START_WAIT,
         record_timing=False,
         coalesce_streams=True,
+        # ipykernel's own startup unconditionally logs a WARNING ("Kernel is running over TCP
+        # without encryption...") to the kernel process's stderr before the kernel redirects
+        # stdout/stderr to the notebook's streams (ipykernel/kernelapp.py, init_sockets). Under the
+        # extra process layers #69's CI sandbox wraps the kernel in (sudo, a network namespace,
+        # setpriv), that one-line, non-actionable framework notice can land inside the first code
+        # cell's own stderr output instead of the terminal, which check_no_stderr then (correctly,
+        # by its own rule) treats as a run to reject. The warning is about a transport choice this
+        # tool already offline and namespace-isolates; raising the kernel application's own log
+        # level is the flag the sandboxed run needs so framework noise cannot be mistaken for a
+        # cell's own output. A real startup failure still raises (KernelStartError, DeadKernelError)
+        # rather than merely logging, so this cannot hide one.
+        extra_arguments=["--Application.log_level=ERROR"],
         resources={"metadata": {"path": str(recipe_dir)}},
     )
     # ``env`` replaces the kernel's whole environment; this process's is left alone.
