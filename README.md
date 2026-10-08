@@ -9,7 +9,7 @@
 **Sixty notebook recipes for typed decisions with Jev, ordered from a first `Choice` question to closed-loop factory control.**
 
 <!-- catalog:progress:start -->
-![Recipes: 0 of 60 published](https://img.shields.io/badge/Recipes-0%20of%2060%20published-F386A1?style=flat-square&labelColor=1E1E1E) ![Status: coming soon](https://img.shields.io/badge/Status-coming%20soon-E551BA?style=flat-square&labelColor=1E1E1E) ![Categories: 10](https://img.shields.io/badge/Categories-10-F386A1?style=flat-square&labelColor=1E1E1E) ![Levels: 5](https://img.shields.io/badge/Levels-5-F386A1?style=flat-square&labelColor=1E1E1E)
+![Recipes: 1 of 60 published](https://img.shields.io/badge/Recipes-1%20of%2060%20published-F386A1?style=flat-square&labelColor=1E1E1E) ![Status: in progress](https://img.shields.io/badge/Status-in%20progress-E551BA?style=flat-square&labelColor=1E1E1E) ![Categories: 10](https://img.shields.io/badge/Categories-10-F386A1?style=flat-square&labelColor=1E1E1E) ![Levels: 5](https://img.shields.io/badge/Levels-5-F386A1?style=flat-square&labelColor=1E1E1E)
 <!-- catalog:progress:end -->
 ![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-F386A1?style=flat-square&labelColor=1E1E1E) [![License: MIT](https://img.shields.io/badge/License-MIT-DEDEDE?style=flat-square&labelColor=1E1E1E)](LICENSE)
 
@@ -146,7 +146,7 @@ One bounded judgment over a short prepared input with direct inspection of typed
 
 | # | Recipe | Category | Decision | Status |
 | :---: | --- | --- | --- | --- |
-| 01 | **Sentiment classification**<br>Classify a short customer review as positive, neutral, negative, or mixed using a fixed set of labels. | Language & content | `Choice` | Coming soon · [#1](https://github.com/Jev-Engineering/cookbook/issues/1) |
+| 01 | **Sentiment classification**<br>Classify a short customer review as positive, neutral, negative, or mixed using a fixed set of labels. | Language & content | `Choice` | [Open notebook](recipes/01-sentiment-classification/notebook.ipynb) |
 | 02 | **Refund intent detection**<br>Judge whether a customer message explicitly requests a refund so Python can flag it for the appropriate workflow. | Workflow & service operations | `Noul` | Coming soon · [#2](https://github.com/Jev-Engineering/cookbook/issues/2) |
 | 03 | **Response clarity scoring**<br>Score a support response against a clearly defined clarity rubric to identify examples that need editing. | Language & content | `Score` | Coming soon · [#3](https://github.com/Jev-Engineering/cookbook/issues/3) |
 | 04 | **Support ticket routing**<br>Assign a support ticket to a fixed service category or an unclear-request outcome using its subject and description. | Workflow & service operations | `Choice` | Coming soon · [#4](https://github.com/Jev-Engineering/cookbook/issues/4) |
