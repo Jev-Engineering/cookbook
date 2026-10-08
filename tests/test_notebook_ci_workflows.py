@@ -423,6 +423,37 @@ def test_execute_step_requires_and_confirms_the_pid_namespace():
     assert sandbox_index < grep_index, "the confirmation must be read after the sandboxed run"
 
 
+def test_execute_step_sets_pipefail_shell():
+    """#108 fix round 7, A8 M1: round 6 turned this step's single command into a pipeline
+    (``... | tee "$RUNNER_TEMP/execute-notebook.log"``) so the grep right after it would have
+    something to read, but GitHub's default shell for a `run:` block with no `shell:` key is
+    `bash -e {0}` -- with no `pipefail` -- and a pipeline's exit status is its *last* command's,
+    which is `tee`'s, always 0, regardless of what the executor did. An executor that raised
+    (``kill_everyone_else_in_my_pid_namespace`` refusing to write the result, tools/
+    execute_notebook.py) *after* printing "pid namespace: active" left this step green on the
+    still-committed, never-executed notebook: the grep for that confirmation line still passed,
+    and the executor's own nonzero exit reached nothing else. `shell: bash` makes GitHub run the
+    block as `bash --noprofile --norc -eo pipefail {0}` instead, so the pipeline -- and so the
+    step -- fails if either side of it does, restoring the property the plain, unpiped command had
+    before round 6 (#108 fix round 6, B6 M1) added the pipe."""
+    body = code(NOTEBOOKS)
+    execute_step = re.search(r"Execute the notebook offline\n(.*?)\n\s*- ", body, re.DOTALL)
+    assert execute_step
+    text = execute_step.group(1)
+    assert "| tee" in text, "the step must still pipe to the log the grep below reads"
+    assert "shell: bash" in text, (
+        "the step needs `shell: bash` (or an equivalent pipefail) so the executor's exit code "
+        "is not swallowed by `tee` under GitHub's default `bash -e {0}`"
+    )
+    shell_index = text.index("shell: bash")
+    pipe_index = text.index("| tee")
+    grep_index = text.index('grep -qx "pid namespace: active"')
+    assert shell_index < pipe_index < grep_index, (
+        "pipefail must be in force before the pipeline it protects, which must run before the "
+        "confirmation is read"
+    )
+
+
 def test_a_detached_process_is_proved_killable_by_the_backstop():
     """#108 fix round 4, B4 M1 route B, narrowed by #108 fix round 5, M1: a cell can start a
     process that outlives the kernel. The PID namespace plus execute_notebook.py's own

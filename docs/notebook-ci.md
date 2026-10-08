@@ -215,14 +215,38 @@ executor's process is gone; it says nothing about what else might still run in t
 that, during the executor's own write and shutdown.
 
 **The second layer closes that gap from inside the executor itself.**
-`tools/execute_notebook.py`'s `execute()` calls `kill_everyone_else_in_my_pid_namespace()`
-immediately before writing the result: when running as PID 1 of an isolated namespace
-(`os.getpid() == 1`, true only there — a no-op for a local run or any test that calls `execute()`
-directly), it signals every other non-zombie process still in that namespace and confirms, by
-re-checking, that none remain before returning; it raises (failing the job) rather than guessing if
-one will not die in time. With both layers in place, the same attack cell's write race is: kill
-everything else, confirm nothing survives, *then* write — nothing is left alive to race the write
-at all, rather than merely being guaranteed dead sometime after the process exits.
+`tools/execute_notebook.py`'s `execute()` calls `require_pid_namespace_if_demanded()` and then
+`kill_everyone_else_in_my_pid_namespace()` immediately before writing the result. Both are gated on
+`in_an_isolated_pid_namespace()`, which checks two things, not one (#108 fix round 6, A6 suggestion
+S1 / B6 suggestion 2): `os.getpid() == 1` alone is also true for PID 1 of a container, and for
+`unshare --pid --fork` run *without* `--mount-proc`, where `/proc` still views the *host's*
+processes; the function also requires `os.readlink("/proc/self") == "1"`, which only holds once the
+namespace's own procfs is actually mounted. Outside such a namespace — a local run, or any test
+that calls `execute()` directly — both calls are no-ops.
+
+The execute step sets `JEV_COOKBOOK_REQUIRE_PID_NAMESPACE`, which turns that gate from an inference
+into a demand: `require_pid_namespace_if_demanded()` raises `PidNamespaceNotActive` — before
+anything is written — if `in_an_isolated_pid_namespace()` is not true, and otherwise prints
+"pid namespace: active", which the workflow step's own log is grepped for right after the run
+(#108 fix round 6, B6 M1); a configuration that silently loses the namespace, or a refactor that
+stops printing the line, fails the step even in the case where the executor's own exit code alone
+would also have caught it. `kill_everyone_else_in_my_pid_namespace()` then signals every other
+non-zombie process still in the namespace and confirms, by re-checking, that none remain before
+returning; it raises a plain `RuntimeError`, uncaught by anything in this tool, rather than
+guessing if one will not die in time. With both layers in place, the same attack cell's write race
+is: kill everything else, confirm nothing survives, *then* write — nothing is left alive to race
+the write at all, rather than merely being guaranteed dead sometime after the process exits.
+
+**Either raise leaves the notebook unchanged, and the executor's own exit status is nonzero either
+way — making that status reach the step is the workflow's job, not the executor's.** The execute
+step pipes the executor through `tee` so the grep above has a file to read, and declares
+`shell: bash` (#108 fix round 7, A8 M1), so GitHub runs the step as `bash --noprofile --norc -eo
+pipefail {0}` instead of its default `bash -e {0}`. A pipeline's exit status is otherwise its last
+command's — `tee`'s, always 0 — regardless of what the executor did; before this round, a
+`kill_everyone_else_in_my_pid_namespace()` raise *after* the confirmation line was printed left the
+step green on the still-committed, never-executed notebook, because the grep for that line still
+passed and nothing else read the executor's exit code. With `pipefail` set, the executor's exit
+code reaches the step whichever of the two layers above raised, and whenever in the run it happens.
 
 **`pkill -9 -u nbrunner` stays, as a further backstop beyond both layers, not the defence.** It
 still runs immediately after execution (a separate self-test, `Prove a detached nbrunner process

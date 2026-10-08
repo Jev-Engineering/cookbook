@@ -332,6 +332,17 @@ jobs:
       # timeout, not by a signal from outside, so neither layer changes what makes a slow cell
       # fail.
       - name: Execute the notebook offline
+        # #108 fix round 7, A8 M1: this step's `run:` block is a pipeline (`... | tee
+        # "$RUNNER_TEMP/execute-notebook.log"`), and a pipeline's exit status is its last
+        # command's. GitHub's default shell for `run:` is `bash -e {0}` -- no `pipefail` -- so
+        # without this, `tee` (which always exits 0) swallowed the executor's own exit code: an
+        # executor that raised RuntimeError from kill_everyone_else_in_my_pid_namespace *after*
+        # printing "pid namespace: active" (so the grep below still passes) left this step green
+        # on an unexecuted, still-committed notebook. `shell: bash` makes GitHub run this block as
+        # `bash --noprofile --norc -eo pipefail {0}`, so the pipeline now fails if either side
+        # does. Pinned by test_execute_step_sets_pipefail_shell in
+        # tests/test_notebook_ci_workflows.py.
+        shell: bash
         env:
           # The Python-level guard (tools/netguard/sitecustomize.py) also reaches the kernel:
           # the executor strips only JEV_COOKBOOK_* and TYPESAFE_* from its environment. HOME is
