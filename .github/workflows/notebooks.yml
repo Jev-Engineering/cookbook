@@ -203,8 +203,9 @@ jobs:
           print("no_new_privs set; sudo refused; euid", os.geteuid())
           PY
           chmod 644 "$RUNNER_TEMP/loaded.py"  # nbrunner must be able to read it, not just root
-          sudo env "PATH=$PATH" "HOME=$RUNNER_TEMP/nbrunner-home" "PYTHONPATH=$PYTHONPATH" \
-            "PYTHONNOUSERSITE=1" unshare --net -- sh -c \
+          sudo env -u XDG_CONFIG_HOME -u XDG_CACHE_HOME -u XDG_DATA_HOME -u XDG_STATE_HOME \
+            -u XDG_RUNTIME_DIR "PATH=$PATH" "HOME=$RUNNER_TEMP/nbrunner-home" \
+            "PYTHONPATH=$PYTHONPATH" "PYTHONNOUSERSITE=1" unshare --net -- sh -c \
             'ip link set lo up && exec setpriv --no-new-privs --reuid=nbrunner --regid=nbrunner --clear-groups -- python -s "$1"' \
             sh "$RUNNER_TEMP/loaded.py"
       # A cell can start a process that outlives the kernel (a detached grandchild, double-forked or
@@ -269,12 +270,19 @@ jobs:
           # the executor strips only JEV_COOKBOOK_* and TYPESAFE_* from its environment. HOME is
           # nbrunner's own empty directory, never the runner's (see the step above). `-s` and
           # PYTHONNOUSERSITE keep the kernel and the subprocess ipykernel it spawns off any user
-          # site-packages under that $HOME.
+          # site-packages under that $HOME. The runner's own XDG_* variables (set by the runner
+          # image, not by this workflow) are unset rather than passed through: left alone, they
+          # point at the runner's own, nbrunner-unwritable config/cache/data directories (found
+          # the hard way: matplotlib tried to create $XDG_CONFIG_HOME/matplotlib, got
+          # "Permission denied" on /home/runner/.config, and the warning it fell back to printing
+          # landed in the notebook's own stderr output and failed the run). Unset, every one of
+          # them falls back to a path under $HOME, which is nbrunner's own and writable.
           PYTHONPATH: ${{ github.workspace }}/tools/netguard
         run: |
           started=$(date +%s)
-          sudo env "PATH=$PATH" "HOME=$RUNNER_TEMP/nbrunner-home" "PYTHONPATH=$PYTHONPATH" \
-            "PYTHONNOUSERSITE=1" unshare --net -- sh -c \
+          sudo env -u XDG_CONFIG_HOME -u XDG_CACHE_HOME -u XDG_DATA_HOME -u XDG_STATE_HOME \
+            -u XDG_RUNTIME_DIR "PATH=$PATH" "HOME=$RUNNER_TEMP/nbrunner-home" \
+            "PYTHONPATH=$PYTHONPATH" "PYTHONNOUSERSITE=1" unshare --net -- sh -c \
             'ip link set lo up && exec setpriv --no-new-privs --reuid=nbrunner --regid=nbrunner --clear-groups -- python -s tools/execute_notebook.py --timeout 300 "$1"' \
             sh "$RUNNER_TEMP/run/$RECIPE"
           echo "executed $RECIPE in $(( $(date +%s) - started )) s" | tee -a "$GITHUB_STEP_SUMMARY"

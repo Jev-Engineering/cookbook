@@ -251,6 +251,19 @@ def test_kernel_runs_with_no_user_site():
     assert "python -s tools/execute_notebook.py" in execute_step.group(1)
 
 
+def test_kernel_does_not_inherit_the_runners_xdg_directories():
+    """The runner image sets its own XDG_* variables, pointing at directories under the runner's
+    $HOME that nbrunner cannot write. Left alone, a library that honours them (matplotlib's config
+    dir, caught live by this round's own CI run) tries to create a file under the runner's
+    directory, fails, and prints a warning that lands in the notebook's stderr output and fails
+    the run. Unset, each one falls back to a path under $HOME, which is nbrunner's own."""
+    body = code(NOTEBOOKS)
+    execute_step = re.search(r"Execute the notebook offline\n(.*?)\n\s*- ", body, re.DOTALL)
+    assert execute_step
+    for var in ("XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME"):
+        assert f"-u {var}" in execute_step.group(1), var
+
+
 def test_checks_run_directly_from_the_checkout_not_a_frozen_copy():
     """The checkout and tools/ are unwritable by nbrunner by construction (see the uid-boundary
     self-test), so the checks read them directly; nothing needs to be frozen into $RUNNER_TEMP
