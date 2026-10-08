@@ -121,10 +121,12 @@ and **never overwrites**: if `recipes/<slug>/` exists it changes nothing and exi
    `# TODO` code cells. Copy the template's evaluation cells as a starting point.
 6. Committable outputs require Python 3.14 with the constraints file: the floor, Python 3.10,
    cannot even install it (`numpy==2.5.3` needs Python 3.12 or newer), and CI compares text output
-   byte for byte against its pinned stack. Install the way CI does,
-   `pip install -e ".[dev,ml]" -c .github/constraints-notebooks.txt` (Python 3.14), so the outputs
-   you commit come from the same library versions; then
-   `python tools/execute_notebook.py recipes/NN-slug`, and read the outputs.
+   byte for byte against its pinned stack. Install the way the `Notebook (<recipe>)` job does,
+   `pip install -e ".[ml]" -c .github/constraints-notebooks.txt` (Python 3.14; `nbclient` and
+   `ipykernel` are core dependencies, so this alone is enough to execute a notebook — `.[dev]`
+   from step 1 is for `ruff` and `pytest`, which that job does not run), so the outputs you commit
+   come from the same library versions; then `python tools/execute_notebook.py recipes/NN-slug`,
+   and read the outputs.
 7. Run it twice: the second run must change nothing (`git diff --stat` empty after `git add`).
 8. `ruff check .`, `ruff format --check .`, `pytest`, `python tools/check_hygiene.py`.
 9. Open the pull request. Do not run `tools/render_catalog.py` or edit the root `README.md`: the
