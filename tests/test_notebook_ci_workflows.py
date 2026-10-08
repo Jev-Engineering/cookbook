@@ -13,8 +13,6 @@ REPO = Path(__file__).resolve().parent.parent
 WORKFLOWS = REPO / ".github" / "workflows"
 NOTEBOOKS = (WORKFLOWS / "notebooks.yml").read_text(encoding="utf-8")
 SCOPE = (WORKFLOWS / "scope.yml").read_text(encoding="utf-8")
-CI = (WORKFLOWS / "ci.yml").read_text(encoding="utf-8")
-HYGIENE = (WORKFLOWS / "hygiene.yml").read_text(encoding="utf-8")
 CONSTRAINTS = (REPO / ".github" / "constraints-notebooks.txt").read_text(encoding="utf-8")
 
 
@@ -103,19 +101,28 @@ def test_required_job_names_are_unchanged():
 def test_continue_on_error_is_pinned_absent_everywhere():
     """#126 (S2 on #125, comment 6060303924): `continue-on-error: true` on the "Execute the
     notebook offline" step, or on its job, would defeat every assertion in
-    test_execute_step_sets_pipefail_shell at the Actions level without touching the shell at
-    all -- the step could fail outright and the job would still copy the committed notebook out
-    and pass the staleness check. `continue-on-error` is not a shell construct, so `code()` (which
-    only strips comment lines) is enough: a real `continue-on-error:` key is never on a comment
-    line, and nothing here depends on indentation, so this pins it absent at both job and step
-    level in one assertion per file."""
-    for name, text in (
-        ("notebooks.yml", NOTEBOOKS),
-        ("scope.yml", SCOPE),
-        ("ci.yml", CI),
-        ("hygiene.yml", HYGIENE),
-    ):
-        assert "continue-on-error" not in code(text), name
+    test_execute_step_sets_pipefail_shell at the Actions level without touching the shell at all --
+    the step could fail outright and the job would still copy the committed notebook out and pass
+    the staleness check.
+
+    This globs every `*.yml` directly under `.github/workflows/` (#128 review, comment 6061273701,
+    S1) rather than naming the files that exist today: a fifth workflow file added later is checked
+    automatically, with no test to update by hand.
+
+    `code()` strips a line only when it *starts* with `#`: a real `continue-on-error:` key is never
+    written on such a line, so stripping comments only tightens this check. The reverse is not
+    automatic, though (#128 review, M2) -- a trailing comment on a code line, e.g. `shell: bash  #
+    no continue-on-error here`, is NOT stripped and would trip this assertion on the word alone; a
+    future comment that needs to say the words must be written on its own `#`-prefixed line, not
+    trailing one. Declined (#128 review, S2): a hand-escaped key spelling such as
+    `"continue\\x2Don\\x2Derror": true` (which `yaml.safe_load` still reads as the real key) evades
+    this plain substring check. Only a foundation pull request can touch `.github/` at all, so
+    writing that spelling past review is a deliberate act, not an accidental regression, and
+    catching it would cost a YAML parser (not in `[dev]`) that nothing else in this file needs."""
+    workflows = sorted(WORKFLOWS.glob("*.yml"))
+    assert len(workflows) >= 4, workflows  # notebooks.yml, scope.yml, ci.yml, hygiene.yml at least
+    for path in workflows:
+        assert "continue-on-error" not in code(path.read_text(encoding="utf-8")), path.name
 
 
 def test_every_sandboxed_python_runs_without_new_privileges():

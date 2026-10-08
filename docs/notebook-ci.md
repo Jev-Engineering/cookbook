@@ -40,8 +40,22 @@ it is judged by the base's old copy and cannot exercise its own change: a change
 only ever exercised once it is merged. That makes the check below standing, not one-time — it is
 owed after every later change to this file, not only the first one.
 
-The one-time bootstrap that this check replaces ran for #69; all four of its points were observed,
-split across two later pull requests: points 1 and 2 on #108, points 3 and 4 on #123.
+The one-time bootstrap that this check replaces ran for #69. Points 1, 2 and 4 were observed on
+**#123**, not #108: #108's own head (`7858419061573e451b421db2aa8aa2f03c16e5ab`) carries nine checks
+in `statusCheckRollup` and no `Scope (recipe pull requests)`, and the only `Scope`-workflow runs from
+#108's era (`37587384928`, `37587983071`) are `event: pull_request`, not `pull_request_target` — the
+`pull_request_target` variant could only first dispatch once #108 merged. Points 1, 2 and 4 were
+observed on #123's head `e4749b0ece56dfbe2f2cc726048f16cdee0abcb7` (runs `37764311231` and
+`37764605320`, both `pull_request_target`, `SUCCESS`, the second a description-edit re-run) and again
+on its final head `de70694a56920b55d2407e887631bf02a35c9fd8` (run `37774598404`). Point 3, as
+written — a path rejected on a pull request's own `Scope` check — has **not** been observed on any
+`pull_request_target` run: every `Scope` run on a #123 head printed `scope ok: ...`, and the only
+`REJECT:` a `Scope` check has ever printed is a classification rejection with no path in it, on
+throwaway PR #111 (run `37587738356`, `event: pull_request`, pre-#122 design). The only
+`REJECT: <path>` lines in this repository's history come from a `push`-event run of the `Notebooks`
+workflow's own scratch demo step (run `37581785708`, branch `scratch/ci-69-scope-demo`), not from a
+`Scope` check on a pull request. Point 3 is therefore still to be observed on a real recipe pull
+request.
 
 1. a `Scope` run exists with `event: pull_request_target` (`gh run list --workflow Scope`);
 2. that run's check appears on the pull request's **head commit**, under exactly the name `Scope
@@ -64,7 +78,8 @@ exercised the change at all:
    check too;
 3. that same step actually fetched the pull request head — a `* [new ref] refs/pull/<N>/head ->
    pull/head` line, no `could not read Username`, no `403`/`Authentication failed` — rather than
-   merely exiting 0;
+   merely exiting 0, and the following `git cat-file -e "$HEAD_SHA^{commit}"` did not print
+   `head ... is not fetchable`;
 4. the `Check the allowlist` step then printed a real verdict computed from those objects (`scope
    ok: ...` or `REJECT: <path>`), not a skip, confirming the fetched objects were actually there to
    classify rather than the step having been short-circuited.
