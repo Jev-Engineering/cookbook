@@ -191,6 +191,7 @@ jobs:
           assert os.geteuid() != 0, "still root"
           print("no_new_privs set; sudo refused; euid", os.geteuid())
           PY
+          chmod 644 "$RUNNER_TEMP/loaded.py"  # nbrunner must be able to read it, not just root
           sudo env "PATH=$PATH" "HOME=$RUNNER_TEMP/nbrunner-home" "PYTHONPATH=$PYTHONPATH" \
             "PYTHONNOUSERSITE=1" unshare --net -- sh -c \
             'ip link set lo up && exec setpriv --no-new-privs --reuid=nbrunner --regid=nbrunner --clear-groups -- python -s "$1"' \
@@ -241,6 +242,7 @@ jobs:
           fi
           exit $fail
           SH
+          chmod 644 "$RUNNER_TEMP/uid_boundary_probe.sh"  # nbrunner must be able to read it too
           sudo env \
             "SITE_PACKAGES=$SITE_PACKAGES" \
             "WORKSPACE=$GITHUB_WORKSPACE" \
