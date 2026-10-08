@@ -1,0 +1,1042 @@
+{
+  "2d8069c9e6c2de76054098c3e8adf1a381f1ff5be505289f7810531eaffb9f71": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "meeting_note",
+        "probabilities": {
+          "invoice": 0.03,
+          "meeting_note": 0.81,
+          "policy": 0.08,
+          "technical_guide": 0.04,
+          "other": 0.04
+        },
+        "confidence": 0.7625000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "33b9d2d14f4fc41554882646c9da8e5d6d56c043e94a8a6cfbcc0d64a63cd529": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "invoice",
+        "probabilities": {
+          "invoice": 0.85,
+          "meeting_note": 0.04,
+          "policy": 0.03,
+          "technical_guide": 0.04,
+          "other": 0.04
+        },
+        "confidence": 0.8124999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "341c21107fc6c54cc7f7d862ed335cc098bf5a342cd680da3a1b4cf921d76533": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "invoice",
+        "probabilities": {
+          "invoice": 0.86,
+          "meeting_note": 0.04,
+          "policy": 0.03,
+          "technical_guide": 0.03,
+          "other": 0.04
+        },
+        "confidence": 0.8249999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3ac6dcd1cecc0875c458f308a9848506f2455aecd6d8b47aad294a09d6766253": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "technical_guide",
+        "probabilities": {
+          "invoice": 0.03,
+          "meeting_note": 0.03,
+          "policy": 0.04,
+          "technical_guide": 0.85,
+          "other": 0.05
+        },
+        "confidence": 0.8124999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3cce708e8612f71649cf5a756a7ab0f35c73fb786f6c812a3dea8aaa1623ae04": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "technical_guide",
+        "probabilities": {
+          "invoice": 0.03,
+          "meeting_note": 0.03,
+          "policy": 0.05,
+          "technical_guide": 0.82,
+          "other": 0.07
+        },
+        "confidence": 0.7749999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "411c87d7dd04d596a122a1eb42760dbf016bf909754f77ebcd2d3668637b76c0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "policy",
+        "probabilities": {
+          "invoice": 0.03,
+          "meeting_note": 0.04,
+          "policy": 0.5,
+          "technical_guide": 0.4,
+          "other": 0.03
+        },
+        "confidence": 0.37499999999999994,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4a2db0e9ddbcfe904e59a757bd6e4ced0fa30e321018feeb0b59cc84d2aa26f6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "policy",
+        "probabilities": {
+          "invoice": 0.03,
+          "meeting_note": 0.04,
+          "policy": 0.85,
+          "technical_guide": 0.04,
+          "other": 0.04
+        },
+        "confidence": 0.8124999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4a6f1545f2bfa014af00c0e7e4f2d709d49dc6d5caf01e93eb32b607a53095ae": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "technical_guide",
+        "probabilities": {
+          "invoice": 0.03,
+          "meeting_note": 0.03,
+          "policy": 0.05,
+          "technical_guide": 0.8,
+          "other": 0.09
+        },
+        "confidence": 0.7500000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4a9588062e227e1f218e8c4fc5141269a4f9aba24351e9bca66fd921ff771e6c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "meeting_note",
+        "probabilities": {
+          "invoice": 0.03,
+          "meeting_note": 0.5,
+          "policy": 0.11,
+          "technical_guide": 0.33,
+          "other": 0.03
+        },
+        "confidence": 0.37499999999999994,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4bdde67824f0f910ef39060be0d8ad397844b5be238878de19fc7167b5c230c3": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "policy",
+        "probabilities": {
+          "invoice": 0.03,
+          "meeting_note": 0.05,
+          "policy": 0.86,
+          "technical_guide": 0.03,
+          "other": 0.03
+        },
+        "confidence": 0.8249999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4e86f917c63d9b1aec4dbc8e962817a4b6be3707ac5c8276d91a2eb76a471f46": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "invoice",
+        "probabilities": {
+          "invoice": 0.87,
+          "meeting_note": 0.03,
+          "policy": 0.03,
+          "technical_guide": 0.03,
+          "other": 0.04
+        },
+        "confidence": 0.8374999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "510a6d21c2ded334f17e2e6b0c6fe7163ed8d495e2c09406fb3e560b3e3c6867": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "policy",
+        "probabilities": {
+          "invoice": 0.03,
+          "meeting_note": 0.03,
+          "policy": 0.62,
+          "technical_guide": 0.28,
+          "other": 0.04
+        },
+        "confidence": 0.5249999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6e76d986f45fc2e7613a1eefd6f44b7695b2b9e4b2f8458460b22b8660c74be2": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "meeting_note",
+        "probabilities": {
+          "invoice": 0.05,
+          "meeting_note": 0.84,
+          "policy": 0.06,
+          "technical_guide": 0.03,
+          "other": 0.02
+        },
+        "confidence": 0.7999999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "70add2d9f5c784f21a8b253052e32482ad1ef95c0770dfc08d2cfb3f42132cb6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "technical_guide",
+        "probabilities": {
+          "invoice": 0.03,
+          "meeting_note": 0.03,
+          "policy": 0.05,
+          "technical_guide": 0.81,
+          "other": 0.08
+        },
+        "confidence": 0.7625000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "77adb63e0993d00b596f7b98903da266acd465ef80166824e07fa02e76508814": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "meeting_note",
+        "probabilities": {
+          "invoice": 0.03,
+          "meeting_note": 0.8,
+          "policy": 0.05,
+          "technical_guide": 0.09,
+          "other": 0.03
+        },
+        "confidence": 0.7500000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7cd9777790c3d1e2a281c15215f3e82ad0f14fa16cc9ae7427b4cbea51781e3d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "technical_guide",
+        "probabilities": {
+          "invoice": 0.03,
+          "meeting_note": 0.03,
+          "policy": 0.33,
+          "technical_guide": 0.54,
+          "other": 0.07
+        },
+        "confidence": 0.425,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8d14e9976b8e67a1885210525bfe4b2dc3359fd9242166875a5c2e96da27c628": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "invoice",
+        "probabilities": {
+          "invoice": 0.68,
+          "meeting_note": 0.05,
+          "policy": 0.06,
+          "technical_guide": 0.05,
+          "other": 0.16
+        },
+        "confidence": 0.6,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "90cc9fc1c713e35ff49b0dfd307448740cbbba62a7a76adbeed6c0875fa4f7d4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "meeting_note",
+        "probabilities": {
+          "invoice": 0.03,
+          "meeting_note": 0.52,
+          "policy": 0.38,
+          "technical_guide": 0.04,
+          "other": 0.03
+        },
+        "confidence": 0.39999999999999997,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "90f7276e51dc11202b4d9eddd97720705b8c38b66146d4c11ab55fcb189a80ea": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "other",
+        "probabilities": {
+          "invoice": 0.07,
+          "meeting_note": 0.06,
+          "policy": 0.05,
+          "technical_guide": 0.05,
+          "other": 0.77
+        },
+        "confidence": 0.7125,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9e02950fdcf862891b0fbb1ba3f14d3f499f2b1cc4f137fb1a9d56306bdcf07f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "other",
+        "probabilities": {
+          "invoice": 0.06,
+          "meeting_note": 0.05,
+          "policy": 0.04,
+          "technical_guide": 0.05,
+          "other": 0.8
+        },
+        "confidence": 0.7500000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9e8f48c4ea31c35e148750fc107684929a6d6f43b6c2bdbaefe394ce94d41294": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "other",
+        "probabilities": {
+          "invoice": 0.07,
+          "meeting_note": 0.07,
+          "policy": 0.06,
+          "technical_guide": 0.05,
+          "other": 0.75
+        },
+        "confidence": 0.6875,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b10514f78b45f139be52dc215328f78d802c321fbe84ea2d5b618ccb33437910": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "policy",
+        "probabilities": {
+          "invoice": 0.03,
+          "meeting_note": 0.04,
+          "policy": 0.84,
+          "technical_guide": 0.05,
+          "other": 0.04
+        },
+        "confidence": 0.7999999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b6b274dfc7afc2896e0952f0fc0a17cbf4128b8449ea743bc3b3d0778b36b5d7": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "other",
+        "probabilities": {
+          "invoice": 0.34,
+          "meeting_note": 0.05,
+          "policy": 0.04,
+          "technical_guide": 0.04,
+          "other": 0.53
+        },
+        "confidence": 0.4125,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b93100a37fac84aad6bde5a858eb1b81beca5e22c391c78701c6e15b00e0615d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "technical_guide",
+        "probabilities": {
+          "invoice": 0.03,
+          "meeting_note": 0.03,
+          "policy": 0.04,
+          "technical_guide": 0.84,
+          "other": 0.06
+        },
+        "confidence": 0.7999999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "baf95905c1b07f54f7b1923660f597ec3211575ef4960058ed988a7a97a25a54": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "meeting_note",
+        "probabilities": {
+          "invoice": 0.04,
+          "meeting_note": 0.82,
+          "policy": 0.07,
+          "technical_guide": 0.03,
+          "other": 0.04
+        },
+        "confidence": 0.7749999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bf56ec78f7897b9d6a3d0e36051440ca5cb2b92456f8976a3a85027606a5d71d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "invoice",
+        "probabilities": {
+          "invoice": 0.88,
+          "meeting_note": 0.03,
+          "policy": 0.03,
+          "technical_guide": 0.03,
+          "other": 0.03
+        },
+        "confidence": 0.8499999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c1fe1f26f276df80b5f0bddf03276a2673aa34aa6280492bcdf54a20dc247f7c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "technical_guide",
+        "probabilities": {
+          "invoice": 0.03,
+          "meeting_note": 0.03,
+          "policy": 0.04,
+          "technical_guide": 0.83,
+          "other": 0.07
+        },
+        "confidence": 0.7874999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c66af11d3b543c478fd535b7e94e1a4dedbb4185ca12c20cad2cdf87b5d4607c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "other",
+        "probabilities": {
+          "invoice": 0.2,
+          "meeting_note": 0.2,
+          "policy": 0.19,
+          "technical_guide": 0.19,
+          "other": 0.22
+        },
+        "confidence": 0.024999999999999988,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c892bcfbb70c59cef05b19651de4e30b47154b56d25841f28d047fe029e54a54": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "other",
+        "probabilities": {
+          "invoice": 0.08,
+          "meeting_note": 0.06,
+          "policy": 0.05,
+          "technical_guide": 0.05,
+          "other": 0.76
+        },
+        "confidence": 0.7000000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ce35aac88b940a791d8a3987f9f09e36fb15319c0bab472779dd196415165f13": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "meeting_note",
+        "probabilities": {
+          "invoice": 0.04,
+          "meeting_note": 0.84,
+          "policy": 0.06,
+          "technical_guide": 0.03,
+          "other": 0.03
+        },
+        "confidence": 0.7999999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d30aeaa932118545d6b8adff0809953bfb5d7a2bc7a66f6ed170b70430ea6fe6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "meeting_note",
+        "probabilities": {
+          "invoice": 0.04,
+          "meeting_note": 0.83,
+          "policy": 0.06,
+          "technical_guide": 0.03,
+          "other": 0.04
+        },
+        "confidence": 0.7874999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e2484e62ac0bcdd04ad5f27c4efba1ff154ebdb329437c9da42db0973805da0c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "invoice",
+        "probabilities": {
+          "invoice": 0.58,
+          "meeting_note": 0.04,
+          "policy": 0.05,
+          "technical_guide": 0.04,
+          "other": 0.29
+        },
+        "confidence": 0.4749999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e2dc06f407469204ebd9b1d0284b48a1ccf381b5a9e5a47241f38e71e6d9391e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "technical_guide",
+        "probabilities": {
+          "invoice": 0.03,
+          "meeting_note": 0.03,
+          "policy": 0.3,
+          "technical_guide": 0.58,
+          "other": 0.06
+        },
+        "confidence": 0.4749999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e5b9abf9d68880199386cfc8e4023998220d8bf0fab6619d7f110f84c5a1e468": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "policy",
+        "probabilities": {
+          "invoice": 0.03,
+          "meeting_note": 0.36,
+          "policy": 0.56,
+          "technical_guide": 0.03,
+          "other": 0.02
+        },
+        "confidence": 0.45,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e738915986fed109cd7e9837991d2ceb443bde39d396d07808dbc74c3e0ca250": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "invoice",
+        "probabilities": {
+          "invoice": 0.72,
+          "meeting_note": 0.05,
+          "policy": 0.06,
+          "technical_guide": 0.05,
+          "other": 0.12
+        },
+        "confidence": 0.65,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f14ff9e02c52035942f8be5c4a24911a5d990a85344a294295b9a657f9faa4a2": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "policy",
+        "probabilities": {
+          "invoice": 0.04,
+          "meeting_note": 0.4,
+          "policy": 0.46,
+          "technical_guide": 0.06,
+          "other": 0.04
+        },
+        "confidence": 0.325,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f4d0bed8f8b54450dcfad71c085fd7e63d098f6c495afc31ceb6ec3e6eeb9c90": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "policy",
+        "probabilities": {
+          "invoice": 0.03,
+          "meeting_note": 0.04,
+          "policy": 0.83,
+          "technical_guide": 0.06,
+          "other": 0.04
+        },
+        "confidence": 0.7874999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "fb1c43ac98877402103df90e09459dfb6b56b8656fcc26ec1d282b647a44ae21": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "other",
+        "probabilities": {
+          "invoice": 0.42,
+          "meeting_note": 0.03,
+          "policy": 0.03,
+          "technical_guide": 0.04,
+          "other": 0.48
+        },
+        "confidence": 0.3499999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "fb530481f08cefdf86275ccf40b488f0e179d4e56b31030bbe3d7f3e19f19a58": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "other",
+        "probabilities": {
+          "invoice": 0.36,
+          "meeting_note": 0.04,
+          "policy": 0.04,
+          "technical_guide": 0.04,
+          "other": 0.52
+        },
+        "confidence": 0.39999999999999997,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "fbdf48f06c4a8e6b6185cf0344d92cc4fe4bdeedf234c9e14936b70813f9054f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "doc_type": {
+        "type": "choice",
+        "choice": "invoice",
+        "probabilities": {
+          "invoice": 0.86,
+          "meeting_note": 0.03,
+          "policy": 0.04,
+          "technical_guide": 0.03,
+          "other": 0.04
+        },
+        "confidence": 0.8249999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
