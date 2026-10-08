@@ -100,6 +100,14 @@ set -e   # #108 fix round 7, B8 suggestion 4: without this, a failed execute_not
          # involved at all.
 pip install -e ".[dev,ml]" -c .github/constraints-notebooks.txt   # CI's install (Python 3.14)
 BEFORE=$(git status --porcelain)   # see below for why this is a snapshot, not just "is it clean"
+# #108 fix round 8, B9 M1: rm -rf first. /tmp/run/NN-slug survives between runs (nothing in this
+# block ever removes it), and `cp -R src dst` copies INTO an existing dst rather than replacing
+# it, so a second run nests a fresh, unused copy at dst/NN-slug and re-executes the first run's
+# stale copy -- its old helpers.py, its old fixtures/ -- and the freshness check below then
+# reports that stale copy as "a fresh offline run", which it is not. rm -rf before cp -R works
+# the same way under GNU coreutils (Linux) and Git Bash's MSYS2 coreutils (Windows), so it is
+# used here rather than the GNU-only `cp -RT`.
+rm -rf /tmp/run/NN-slug
 mkdir -p /tmp/run && cp -R recipes/NN-slug /tmp/run/NN-slug
 PYTHONPATH="$PWD/tools/netguard" python tools/execute_notebook.py /tmp/run/NN-slug
 [ "$BEFORE" = "$(git status --porcelain)" ] || { echo "the run wrote into the checkout"; git status --porcelain; exit 1; }
@@ -148,6 +156,11 @@ sudo chown nbrunner_local:nbrunner_local /tmp/nbrunner-home
 sudo chmod 700 /tmp/nbrunner-home   # /tmp is world-writable; do not leave this readable by anyone else
 
 BEFORE=$(git status --porcelain)
+# #108 fix round 8, B9 M1: same reason as the simpler block, and here a stale /tmp/run/NN-slug
+# fails loudly rather than silently on its own -- it is nbrunner_local-owned, mode 700, after the
+# chown/chmod below, so a plain `cp -R` cannot write into it on the next run -- but that is still
+# not what this block claims to do, so remove it first, as root, since your own user cannot.
+sudo rm -rf /tmp/run/NN-slug
 mkdir -p /tmp/run && cp -R recipes/NN-slug /tmp/run/NN-slug
 sudo chown -R nbrunner_local:nbrunner_local /tmp/run/NN-slug
 sudo chmod -R u+rwX,go-rwx /tmp/run/NN-slug   # nbrunner_local's only writable location
@@ -169,9 +182,11 @@ sudo env -u XDG_CONFIG_HOME -u XDG_CACHE_HOME -u XDG_DATA_HOME -u XDG_STATE_HOME
 sudo pkill -9 -u nbrunner_local || true
 sleep 1
 if sudo pgrep -u nbrunner_local; then echo "a detached process survived pkill"; exit 1; fi
-# (an `if` condition, not `pgrep ... && { ...; exit 1; }`: under `set -e` above, the latter would
-# abort the script right here on the good path too, since pgrep itself exits nonzero when it
-# finds nothing -- a condition tested by `if` is exempt from `set -e`, a plain command is not)
+# (#108 fix round 8, A9 S1: an `if` condition, kept for clarity, not
+# `pgrep ... && { ...; exit 1; }`. The `&&` form would not abort under `set -e` here: `set -e`
+# only turns a list's own nonzero status into the script's when that list is the last command run,
+# and this one is not the last line of the block. `if` says what is meant either way, so it is the
+# clearer choice regardless.)
 
 sudo install -m 0644 -o "$(id -u)" -g "$(id -g)" /tmp/run/NN-slug/notebook.ipynb /tmp/fresh.ipynb
 

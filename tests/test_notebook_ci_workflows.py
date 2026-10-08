@@ -454,6 +454,26 @@ def test_execute_step_sets_pipefail_shell():
         "whole pipeline's exit status to 0 regardless of `pipefail`, the same bypass as the "
         "missing `shell: bash` with a different spelling"
     )
+    # #108 fix round 8, A9 S3 / B9 suggestion 1: `|| true` is one spelling of "force the
+    # pipeline's exit status to 0 regardless of `pipefail`"; `; true` and `|| :` are two more
+    # (the same effect through a semicolon, and through the `:` builtin instead of `true`), and
+    # `set +o pipefail` is a different route to the same place -- turning `pipefail` back off for
+    # the rest of the step without touching `shell: bash` or the pipeline at all. Each is rejected
+    # on its own rather than folded into one regex, in the same style as the assertion above (see
+    # the docstring's reasoning for not generalising further).
+    assert "; true" not in text, (
+        "a trailing `; true` after the pipeline is the `|| true` bypass spelled with a semicolon "
+        "instead of `||`: the pipeline's own exit status is discarded and the step's status "
+        "becomes `true`'s, always 0"
+    )
+    assert "|| :" not in text, (
+        "a trailing `|| :` after the pipeline is the `|| true` bypass spelled with the `:` "
+        "builtin instead of `true`, which also always exits 0"
+    )
+    assert "set +o pipefail" not in text, (
+        "`set +o pipefail` turns pipefail back off for the rest of the step, defeating "
+        "`shell: bash` without changing the `shell:` line or the pipeline itself"
+    )
     shell_index = text.index("shell: bash")
     pipe_index = text.index("| tee")
     grep_index = text.index('grep -qx "pid namespace: active"')
