@@ -558,9 +558,24 @@ def test_closing_issues_still_counts_a_reference_outside_a_code_fence(text):
         # not a fence (a fence needs the backtick run alone, at line start, on its own line)
         "Closes `#1`",  # only the reference is inside the span
         "`Closes` #1",  # only the keyword is inside the span
+        "See `code\nCloses #1` here",  # a single-backtick span can cross a line (CommonMark);
+        # round 4 fixed this (round 3 only stripped a span within one line)
     ],
 )
 def test_closing_issues_ignores_a_reference_inside_an_inline_code_span(text):
+    assert scope.closing_issues(text, "o/r") == set()
+    assert scope.closing_issues("Closes #1", "o/r") == {1}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "<!-- Closes #1 -->",
+        "<!--\nCloses #1\n-->",  # a comment can cross lines too
+        "Intro <!-- Closes #1 --> more text",
+    ],
+)
+def test_closing_issues_ignores_a_reference_inside_an_html_comment(text):
     assert scope.closing_issues(text, "o/r") == set()
     assert scope.closing_issues("Closes #1", "o/r") == {1}
 
@@ -569,6 +584,24 @@ def test_a_fenced_reference_alone_does_not_make_a_recipe_pull_request(repo):
     repo.put(f"recipes/{SLUG1}/README.md", "x\n")
     problems, _ = run_check(repo, body="```\nCloses #1\n```\n")
     assert problems and "only one recipe marker holds" in problems[0]
+
+
+def test_label_escapes_control_characters_and_ansi_escapes():
+    # Round 3 escaped non-ASCII bytes but left ASCII control characters untouched, so a crafted
+    # path could split a `REJECT:` line into two (a newline) or colour the Actions log (an ANSI
+    # escape); both must now come back escaped like a non-ASCII byte would.
+    assert scope.label("a\nb") == "a\\x0ab"
+    assert scope.label("a\x1b[31mred") == "a\\x1b[31mred"
+    assert scope.label("a\tb\rc") == "a\\x09b\\x0dc"
+    assert scope.label("plain/recipes/01-slug") == "plain/recipes/01-slug"  # unaffected
+    assert scope.label("café") == "caf\\xe9"  # unchanged from round 3's non-ASCII behaviour
+
+
+def test_label_bounds_long_text():
+    long_text = "x" * 150
+    result = scope.label(long_text)
+    assert len(result) == 100
+    assert result.endswith("...")
 
 
 # -- command line and failure modes ------------------------------------------------------------

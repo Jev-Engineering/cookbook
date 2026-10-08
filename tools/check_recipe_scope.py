@@ -16,12 +16,13 @@ request, to which the allowlist does not apply), 1 rejected (one ``REJECT:`` lin
 
 Which kind of pull request is it? A recipe pull request has BOTH markers: the branch is
 ``recipe/<slug>`` and the description has a closing reference (``Closes``, ``Fixes``,
-``Resolves`` and their other forms; one inside a fenced code block or an inline code span does
-not count, as GitHub links nothing written in either) to an issue of this repository numbered 1
-to 60. A pull request with neither marker is a foundation pull request. One marker without the
-other is rejected, as is a ``<slug>`` that is not the catalog slug of the issue, a pull request
-that closes more than one issue of this repository, and a closing reference to an issue of this
-repository outside 1 to 60 next to a recipe one.
+``Resolves`` and their other forms; one inside a fenced code block, an inline code span (even one
+that spans several lines) or an HTML comment does not count, as GitHub renders and links nothing
+written in any of the three) to an issue of this repository numbered 1 to 60. A pull request with
+neither marker is a foundation pull request. One marker without the other is rejected, as is a
+``<slug>`` that is not the catalog slug of the issue, a pull request that closes more than one
+issue of this repository, and a closing reference to an issue of this repository outside 1 to 60
+next to a recipe one.
 
 The allowlist, on ``git diff --raw -M -z base...head`` (``--name-status`` hides modes and types):
 
@@ -44,6 +45,7 @@ import argparse
 import importlib.util
 import json
 import re
+import string
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -93,18 +95,28 @@ def without_code_fences(body: str) -> str:
     return "\n".join(kept)
 
 
-INLINE_CODE = re.compile(r"(?P<ticks>`+)(?:(?!(?P=ticks)).)*?(?P=ticks)")
+INLINE_CODE = re.compile(r"(?P<ticks>`+)(?:(?!(?P=ticks)).)*?(?P=ticks)", re.DOTALL)
 
 
 def without_inline_code(body: str) -> str:
     """``body`` with inline code spans removed, as GitHub links nothing written inside one.
 
     An inline code span is a run of one or more backticks, content containing no same-length
-    backtick run, then a closing run of the same length (CommonMark). Unlike a fence it never
-    crosses a line: that matches ``CLOSING``, which also requires the keyword and its reference to
-    share a line.
+    backtick run, then a closing run of the same length (CommonMark) — and, unlike a fence, it is
+    not anchored to the start of a line, but it still can cross one: GitHub renders ``See `code``
+    on one line and `` Closes #1` here`` on the next as a single code span wrapping both. The
+    removal therefore runs over the whole body (``re.DOTALL``), not line by line; ``CLOSING``
+    still requires the keyword and its reference to share one line on what is left.
     """
-    return "\n".join(INLINE_CODE.sub("", line) for line in body.splitlines())
+    return INLINE_CODE.sub("", body)
+
+
+HTML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
+
+
+def without_html_comments(body: str) -> str:
+    """``body`` with HTML comments removed, as GitHub renders (and so links) nothing inside one."""
+    return HTML_COMMENT.sub("", body)
 
 
 class CannotRun(Exception):
@@ -129,7 +141,7 @@ def closing_issues(body: str, github_repo: str) -> set[int]:
     """Numbers of the issues of ``github_repo`` that ``body`` closes (every GitHub keyword form)."""
     wanted = github_repo.lower()
     numbers = set()
-    text = without_inline_code(without_code_fences(body))
+    text = without_inline_code(without_html_comments(without_code_fences(body)))
     for match in CLOSING.finditer(text):
         repo = match.group("url_repo") or match.group("repo")
         if repo is not None and repo.lower() != wanted:
@@ -189,9 +201,30 @@ def in_scope(path: str, slug: str) -> bool:
     return path == "README.md" or path.startswith(f"recipes/{slug}/")
 
 
+_LABEL_SAFE = frozenset(string.printable) - frozenset("\t\n\r\x0b\x0c")
+
+
+def _escaped_char(char: str) -> str:
+    """One non-safe character, escaped the way ``str.encode("ascii", "backslashreplace")`` would
+    escape a non-ASCII one: ``\\xHH``, ``\\uHHHH`` or ``\\UHHHHHHHH`` by code point size."""
+    code = ord(char)
+    if code <= 0xFF:
+        return f"\\x{code:02x}"
+    if code <= 0xFFFF:
+        return f"\\u{code:04x}"
+    return f"\\U{code:08x}"
+
+
 def label(path: str) -> str:
-    """A path for a message: printable ASCII only, bounded."""
-    text = path.encode("ascii", "backslashreplace").decode("ascii")
+    """A path for a message: only printable, visible ASCII characters, bounded.
+
+    Round 3 escaped non-ASCII bytes but left every ASCII control character alone, so
+    ``label("a\\nb")`` kept its newline and ``label("a\\x1b[31mred")`` kept its escape — either
+    could split a ``REJECT:`` line into two or colour the Actions log from a crafted path. Every
+    character outside ``string.printable``, and every control character still inside it (tab,
+    newline, carriage return, vertical tab, form feed), is escaped instead of passed through.
+    """
+    text = "".join(c if c in _LABEL_SAFE else _escaped_char(c) for c in path)
     return text if len(text) <= 100 else text[:97] + "..."
 
 
