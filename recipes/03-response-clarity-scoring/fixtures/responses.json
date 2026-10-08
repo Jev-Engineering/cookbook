@@ -1,0 +1,1242 @@
+{
+  "0421c1a9c62896c90e05642972966960371575943890c8f0e4b0cbe4a51488aa": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 0.6000000000000001,
+        "probabilities": {
+          "0": 0.6,
+          "1": 0.25,
+          "2": 0.1,
+          "3": 0.05
+        },
+        "confidence": 0.3999999999999999,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0bff20499a88ea3cb7c4893734c83c2d2b7a77aadb9d5eb8d85e696941f7fb8d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 0.6100000000000001,
+        "probabilities": {
+          "0": 0.58,
+          "1": 0.28,
+          "2": 0.09,
+          "3": 0.05
+        },
+        "confidence": 0.3899999999999999,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0fa7aa1868efcf05166999b732ba1bdd5c9d0c737e0df0434217d2308003465c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 1.3,
+        "probabilities": {
+          "0": 0.15,
+          "1": 0.5,
+          "2": 0.25,
+          "3": 0.1
+        },
+        "confidence": 0.4,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "142fe2325d9a0daa75b07d744ce7f06b4744e504e491785ed0b5435c245d2f1e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 2.0,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.11,
+          "2": 0.72,
+          "3": 0.15
+        },
+        "confidence": 0.7,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1b66dce83eede21d8bf12e34a8395b8da6d357fd06c7554608df4a09379b47d6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 2.8,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.03,
+          "2": 0.11,
+          "3": 0.85
+        },
+        "confidence": 0.8,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "20527ada36ebe5b804f784b3b663712bd71ab0e1beb8bae31e469fd8f65bebfe": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 1.35,
+        "probabilities": {
+          "0": 0.1,
+          "1": 0.55,
+          "2": 0.25,
+          "3": 0.1
+        },
+        "confidence": 0.44999999999999996,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "21e8588f30576cb54851eca23c45443fa4ead0f72b73c15eb53903c8fa168ecf": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 1.26,
+        "probabilities": {
+          "0": 0.18,
+          "1": 0.48,
+          "2": 0.24,
+          "3": 0.1
+        },
+        "confidence": 0.38,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3a989dde42f395a97abf37305c19174d08c76520c84c0a5dcc1cd0c541494617": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 2.8400000000000003,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.02,
+          "2": 0.09,
+          "3": 0.88
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "40cedd9da34864085f6a2a6973c780dda13739b155ec30f65c2210417de41db5": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 1.99,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.1,
+          "2": 0.75,
+          "3": 0.13
+        },
+        "confidence": 0.73,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "49ae2fc637dc0ae3f1464c8e964f9b3fb2ad364a8b661ec62d80a06893234f70": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 0.5700000000000001,
+        "probabilities": {
+          "0": 0.62,
+          "1": 0.24,
+          "2": 0.09,
+          "3": 0.05
+        },
+        "confidence": 0.42999999999999994,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4b30aeb0bbd1381cba283ddc6725b0dffd7652f306729f57a3a21660c0218762": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 2.85,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.02,
+          "2": 0.08,
+          "3": 0.89
+        },
+        "confidence": 0.85,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4e53c93709ff4c0fa6270e72bbacaea7090ce9d43f006046f84811f5c749a44c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 2.62,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.07,
+          "2": 0.15,
+          "3": 0.75
+        },
+        "confidence": 0.62,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "55d55f858a0b87c86e15b88660f0fcb0f1346ee76257218040dec2c619fc3d4a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 2.7399999999999998,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.05,
+          "2": 0.1,
+          "3": 0.83
+        },
+        "confidence": 0.74,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "56487b7f6ffc968bccb8902dfa4aa51c29b3dde08c191f413a114a2f5e2a6f53": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 1.32,
+        "probabilities": {
+          "0": 0.12,
+          "1": 0.52,
+          "2": 0.28,
+          "3": 0.08
+        },
+        "confidence": 0.43999999999999995,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "56d7399dc349c47e830a3f8bff7bf02ffcbd56363434bc4328ffe1f3a9468c68": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 1.26,
+        "probabilities": {
+          "0": 0.16,
+          "1": 0.5,
+          "2": 0.26,
+          "3": 0.08
+        },
+        "confidence": 0.41999999999999993,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "58342bd48abf08266a2b59cb3b6b90e837bdce5cd1dd16a0bf1ad6da8e3a0659": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 1.98,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.12,
+          "2": 0.72,
+          "3": 0.14
+        },
+        "confidence": 0.7,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6cc2584350d06859ddd27c518610b354dfc2a61c40e69c298bdd5bcd1fab62c6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 0.43000000000000005,
+        "probabilities": {
+          "0": 0.7,
+          "1": 0.2,
+          "2": 0.07,
+          "3": 0.03
+        },
+        "confidence": 0.57,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "84a5b907ebb12b09138ecd106132783c20a5dfe7fc6fb0f218ce6e4a5cd3e4cf": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 0.29000000000000004,
+        "probabilities": {
+          "0": 0.82,
+          "1": 0.1,
+          "2": 0.05,
+          "3": 0.03
+        },
+        "confidence": 0.71,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8e675898b130ab4fb024b3ee472fee2c3a6aa061c53fff6a8bb16803d11e1b03": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 0.55,
+        "probabilities": {
+          "0": 0.65,
+          "1": 0.2,
+          "2": 0.1,
+          "3": 0.05
+        },
+        "confidence": 0.44999999999999996,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a35bd6d524edf746f1096c0031773576b2a0731861fb5e7aadc3bd3005be0058": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 1.3,
+        "probabilities": {
+          "0": 0.15,
+          "1": 0.5,
+          "2": 0.25,
+          "3": 0.1
+        },
+        "confidence": 0.4,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a37e2defb09fa94654d95d1099896dac2b0c01b1dec7ddaaf8a7ea9bfca1b45c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 1.99,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.1,
+          "2": 0.75,
+          "3": 0.13
+        },
+        "confidence": 0.73,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a3f466db63d8a6835d3a987d605e124623f49f9365adf8bcdcd8ecc4dd470fa3": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 1.24,
+        "probabilities": {
+          "0": 0.2,
+          "1": 0.46,
+          "2": 0.24,
+          "3": 0.1
+        },
+        "confidence": 0.36,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a5ab0b82bf8ef58ccd12a74acb9f823be2e372fc4e071296793ee78e1cceae57": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 1.9500000000000002,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.14,
+          "2": 0.68,
+          "3": 0.15
+        },
+        "confidence": 0.65,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ad95823ce7a19e7ef0f2c0da7ec886dff1ba4cb5eaa3e2eb405b5c7ea975f689": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 0.31,
+        "probabilities": {
+          "0": 0.8,
+          "1": 0.12,
+          "2": 0.05,
+          "3": 0.03
+        },
+        "confidence": 0.69,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "aeb90073371c14c942037acccf1dac59dd142742afc146bb4ea57ab85712ce5d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 2.78,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.03,
+          "2": 0.1,
+          "3": 0.85
+        },
+        "confidence": 0.78,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b4c03119dd90ebeaae5d1b3cbedd48a153aa457ce939199c3c00824d67461cd6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 1.99,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.11,
+          "2": 0.73,
+          "3": 0.14
+        },
+        "confidence": 0.71,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b605ff40736966f24b87a5c447cd956d67974e7f37baf74c08b90d22416436c3": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 2.85,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.02,
+          "2": 0.08,
+          "3": 0.89
+        },
+        "confidence": 0.85,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bb2b98efad2c535a715a3b28daff082ceed7eda4e910c3da4898e177fb7fecca": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 2.8400000000000003,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.02,
+          "2": 0.09,
+          "3": 0.88
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c06d045c92092b6b1a076cd91b2b8818e65b0473ec544c0269818e50eb11ee34": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 2.81,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.03,
+          "2": 0.1,
+          "3": 0.86
+        },
+        "confidence": 0.81,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c50be8efb314969bceefe5d7ee700d37c6f41e5195ed2b4ad10f9db84423ffce": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 2.85,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.02,
+          "2": 0.08,
+          "3": 0.89
+        },
+        "confidence": 0.85,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c61df5a0b747d531d1bb1fbc9f7e615c3e4c0c01e526b80a29063a41f8b8f452": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 0.6000000000000001,
+        "probabilities": {
+          "0": 0.6,
+          "1": 0.25,
+          "2": 0.1,
+          "3": 0.05
+        },
+        "confidence": 0.3999999999999999,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d4870f6350c8d84646804fc4a81c9b13ad9e771111270cbbc8d57a1fcfa363af": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 0.48,
+        "probabilities": {
+          "0": 0.68,
+          "1": 0.2,
+          "2": 0.08,
+          "3": 0.04
+        },
+        "confidence": 0.52,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d59a8d2720829fe719ebba579a32bb522ed7af25701bdbc8971fb217562ab05e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 2.85,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.02,
+          "2": 0.08,
+          "3": 0.89
+        },
+        "confidence": 0.85,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e59f23178f43ed4d458c1e4d2227935b0e45f2b754814f7a5e55ae4e02ef89c5": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 1.35,
+        "probabilities": {
+          "0": 0.1,
+          "1": 0.55,
+          "2": 0.25,
+          "3": 0.1
+        },
+        "confidence": 0.44999999999999996,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e635ad1e6692313d2a67cbb9e359470777e909756367e15cfa2e452d77774a7e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 0.65,
+        "probabilities": {
+          "0": 0.55,
+          "1": 0.3,
+          "2": 0.1,
+          "3": 0.05
+        },
+        "confidence": 0.35,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e81cd8149257888f6d1fcbaca512f249cb29550be5df5022a5ba98ac7d52e4f4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 1.26,
+        "probabilities": {
+          "0": 0.18,
+          "1": 0.48,
+          "2": 0.24,
+          "3": 0.1
+        },
+        "confidence": 0.38,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ea8fe3575eab67644adb252a91f423a2c260737b562331c768de68fd8242c0e4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 1.95,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.13,
+          "2": 0.7,
+          "3": 0.14
+        },
+        "confidence": 0.6699999999999999,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f5554738656036db1998d751a880b438c38cb436d0824a0591d08f070d206205": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 2.8400000000000003,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.02,
+          "2": 0.09,
+          "3": 0.88
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f82ddaa57f5f68e319c09f0bf3e1fd72b37c1ea63cc96e6d15e60367d548fe98": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 2.81,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.03,
+          "2": 0.1,
+          "3": 0.86
+        },
+        "confidence": 0.81,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f8a19a8f296a35498fa036075250b6573d482e7fd825c37c84fddb370cd1fae5": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarity": {
+        "type": "score",
+        "score": 1.9699999999999998,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.12,
+          "2": 0.7,
+          "3": 0.15
+        },
+        "confidence": 0.67,
+        "legend": {
+          "0": "The reader cannot tell what happened to their request or what to do next without asking a follow-up question. The response omits the key fact, uses an undefined internal term or acronym, or contains two statements that contradict each other.",
+          "1": "The reader can find the outcome or the next step only by rereading or by filling in something the response does not state. The response does answer the question, but a pronoun or reference could point to more than one thing, a term is used without being defined, or part of the action is left for the reader to work out.",
+          "2": "The reader understands the outcome and the next step the first time they read the response. The language is specific and the step is stated, though a sentence could be shorter, better ordered, or a term could be spelled out without changing what the response says.",
+          "3": "The reader understands the outcome and the exact next step immediately, in plain language. Every term is already defined or is not needed, there is no detail that does not bear on the outcome, and nothing is left for the reader to infer."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
