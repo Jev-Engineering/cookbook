@@ -21,7 +21,13 @@ These things are fixed so that running it twice gives the same file:
   language ``python``), so the file does not change with the interpreter that ran it;
 * the kernel application's own log level is raised (``--Application.log_level=ERROR``), so
   ipykernel's unconditional startup notice about its TCP transport cannot be captured as a cell's
-  stderr output under #69's CI sandbox and rejected as if a cell had printed it.
+  stderr output under #69's CI sandbox and rejected as if a cell had printed it;
+* when this process is PID 1 of an isolated PID namespace (CI's sandbox wraps it in one so that
+  nothing a cell starts can outlive it), every other process still alive in that namespace is
+  killed, and confirmed dead, immediately before the result is written
+  (``kill_everyone_else_in_my_pid_namespace``) -- a cell can start a detached process that survives
+  the kernel's own shutdown and keeps running during this process's, so the write is not the last
+  word on the file's contents unless nothing else can still act on it when it happens.
 
 A run in which any cell wrote to stderr also fails: stderr carries warnings and absolute paths,
 which must not be committed.
@@ -49,7 +55,9 @@ from __future__ import annotations
 import argparse
 import atexit
 import os
+import signal
 import sys
+import time
 from pathlib import Path
 
 import nbformat
@@ -146,6 +154,57 @@ def run_in_fresh_kernel(nb: nbformat.NotebookNode, recipe_dir: Path, timeout: in
         raise
 
 
+def process_state(pid: int) -> str | None:
+    """The single-character state field of ``/proc/<pid>/stat`` ('Z' for a zombie, which cannot
+    run or write anything), or ``None`` if the process is already gone. The command-name field is
+    parenthesised and may itself contain ``)``, so the split is on the *last* one."""
+    try:
+        text = Path(f"/proc/{pid}/stat").read_text()
+    except (FileNotFoundError, ProcessLookupError):
+        return None
+    return text.rsplit(")", 1)[1].split()[0]
+
+
+KILL_OTHER_PROCESSES_TIMEOUT = 2.0
+
+
+def kill_everyone_else_in_my_pid_namespace(timeout: float = KILL_OTHER_PROCESSES_TIMEOUT) -> None:
+    """If this process is PID 1 of an isolated PID namespace (``os.getpid() == 1``, true only when
+    the sandboxed execute step wraps it in ``unshare --pid --fork``), kill and wait out every
+    other, non-zombie process still in it. A no-op outside a PID namespace (a local run, or any
+    test that calls ``execute`` directly): ``os.getpid()`` is never 1 there.
+
+    #108 fix round 5, M1: a PID namespace guarantees that nothing survives PID 1 *exiting*, but a
+    cell can start a detached (``setsid``) process that outlives the kernel nbclient manages and
+    keeps running during this process's own shutdown -- the gap between the write this guards and
+    this process actually exiting is real, even if small, and a fast enough loop (a 5 ms rewrite of
+    ``notebook.ipynb``, reproduced in review) can still win it; narrowing the gap is not enough.
+    Explicitly killing everything else first, and confirming it is gone before writing, closes it
+    instead of narrowing it further. Raises ``RuntimeError`` (the job then fails, rather than
+    silently trusting an unverified write) if something will not die within ``timeout`` seconds.
+    """
+    if os.getpid() != 1:
+        return
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        alive = [
+            pid
+            for pid in (int(entry) for entry in os.listdir("/proc") if entry.isdigit())
+            if pid != 1 and process_state(pid) not in (None, "Z")
+        ]
+        if not alive:
+            return
+        for pid in alive:
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        time.sleep(0.01)
+    raise RuntimeError(
+        "a process in the sandbox's PID namespace would not die; refusing to write the result"
+    )
+
+
 def execute(recipe_dir: Path, timeout: int = TIMEOUT_SECONDS) -> None:
     """Run ``recipe_dir/notebook.ipynb`` and write it back with outputs.
 
@@ -172,6 +231,9 @@ def execute(recipe_dir: Path, timeout: int = TIMEOUT_SECONDS) -> None:
     check_no_stderr(nb)
     nb.metadata = nbformat.from_dict(METADATA)
     nbformat.validate(nb)
+    # See kill_everyone_else_in_my_pid_namespace's docstring: nothing else may still be alive when
+    # the write below happens.
+    kill_everyone_else_in_my_pid_namespace()
     # Always LF, so the file is the same bytes on every platform (nbformat.write would follow
     # the operating system's newline).
     text = nbformat.writes(nb) + "\n"
