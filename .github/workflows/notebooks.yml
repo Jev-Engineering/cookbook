@@ -117,6 +117,12 @@ jobs:
       # last thing that may use the network.
       - name: Install
         run: pip install -e ".[ml]" -c .github/constraints-notebooks.txt
+      # setup-python's toolcache (`$pythonLocation`) is installed world-writable, so a notebook
+      # could otherwise drop a sitecustomize.py or a .pth file into site-packages, or overwrite the
+      # interpreter binary itself, and have every later `python` run it, including the checks. The
+      # install above is the last thing that writes under $pythonLocation, so this is safe here.
+      - name: Make the interpreter and its site-packages unwritable by anyone but the runner
+        run: sudo chmod -R o-w "$pythonLocation"
       # Fix round 3 tried to protect the checks by copying them (and the committed notebook) out of
       # the checkout before execution. That copy-based defence did not hold: the kernel's working
       # directory is a sibling of the copies under $RUNNER_TEMP, so a cell could reach them by a
