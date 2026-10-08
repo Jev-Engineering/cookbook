@@ -3,7 +3,7 @@
 # template outputs were produced with (Python 3.14), so a new release of any of them cannot turn
 # every notebook red at once on main (a warning on stderr, a changed repr, moved figure geometry).
 # pyproject.toml stays unpinned. Authors install with the same file before they execute a notebook
-# and commit its outputs: pip install -e ".[ml]" -c .github/constraints-notebooks.txt
+# and commit its outputs: pip install -e ".[dev,ml]" -c .github/constraints-notebooks.txt
 #
 # Bumping any line here is a foundation change: re-execute every notebook
 # (`python tools/execute_notebook.py recipes/<folder>`), commit the results, and read the

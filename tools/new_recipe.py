@@ -250,7 +250,9 @@ else:
             "next-md",
             f"## {SECTIONS[8]}\n\n"
             f"{TODO_MARK}: what to try next, and links to neighbouring recipes by slug, for "
-            "example [`NN-slug`](../NN-slug/).",
+            "example [`NN-slug`](../NN-slug/). A folder link like that 404s on GitHub until "
+            "the neighbour's notebook.ipynb is committed; that is the expected, documented "
+            "convention (docs/recipe-template.md), not something to work around.",
         ),
     ]
 
@@ -307,7 +309,11 @@ def readme_text(catalog: dict, recipe: dict, mode: str = "replay") -> str:
 
 ## Run it offline
 
-From the repository root, in an environment with `pip install -e ".[dev]"`:
+From the repository root, in an environment with
+`pip install -e ".[dev,ml]" -c .github/constraints-notebooks.txt` (Python 3.14; this is the install
+that reproduces the committed notebook outputs byte for byte, see
+[docs/recipe-template.md](../../docs/recipe-template.md) step 6; `".[dev]"` alone is enough for the
+fixture and test commands below):
 
 ```bash
 python -m jev_cookbook.fixtures validate recipes/{slug}
@@ -324,7 +330,14 @@ Live calls are opt-in and change nothing but the backend. Install the SDK
 `JEV_COOKBOOK_LIVE_MODEL`; then open `notebook.ipynb` from this folder in Jupyter (not a dependency
 of this repository), or record answers with the recorder described in
 [docs/live.md](../../docs/live.md). `tools/execute_notebook.py` removes those variables on purpose
-and always runs offline. Never put a key in a notebook or a fixture.
+and always runs offline. The live backend's default request budget is 25
+(`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)); every attempt counts
+against that budget, including each retry.
+{TODO_MARK}: state how many calls this notebook makes in live mode (one per example it decides,
+each example decided once, never twice); if that count is more than 25, or close to it once
+retries are counted, tell the reader here to raise `JEV_COOKBOOK_LIVE_MAX_REQUESTS` to at least
+it before running this notebook live, or it stops partway through with `BudgetExceeded`. Never
+put a key in a notebook or a fixture.
 
 ## What was and was not measured
 
@@ -406,12 +419,21 @@ def build_fixtures_text(recipe: dict, mode: str = "replay") -> str:
         return build_scripted_fixtures_text(recipe)
     return f'''"""Write fixtures/inputs.jsonl, labels.jsonl and responses.json for recipe {recipe["rank"]:02d}.
 
-    python build_fixtures.py        # from anywhere; it writes next to this file
+    python build_fixtures.py          # from anywhere; it writes next to this file
+    python build_fixtures.py --force  # also overwrite a responses.json holding a recorded answer
 
 Every response is synthetic and deliberately imperfect: include some wrong answers and the
 hard cases the use case names. See docs/fixtures.md and recipes/_template/build_fixtures.py.
+
+Generating inputs and labels is kept separate from generating responses, on purpose: once
+responses.json holds even one recorded answer (provenance "recorded", captured from a real Jev
+call), running this script again must not silently replace it with a synthetic probability.
+inputs.jsonl and labels.jsonl are always rewritten from ROWS, because neither ever holds a
+model's answer; responses.json is rewritten only when it does not yet exist, holds only
+synthetic answers, or --force is given.
 """
 
+import argparse
 import json
 from pathlib import Path
 
@@ -430,24 +452,100 @@ def answers_for(spec, provenance: Provenance):
     raise NotImplementedError("{TODO_MARK}: build the typed answers from the row's spec")
 
 
-def main() -> None:
-    if not ROWS:
-        raise SystemExit("{TODO_MARK}: add examples to ROWS in build_fixtures.py")
-    inputs, labels, responses = [], [], {{}}
-    for ident, split, fields, label, spec in ROWS:
+def build_inputs_and_labels(rows):
+    """``(inputs, labels)`` from ``rows``. Neither ever holds a model's answer, so both are
+    always safe to regenerate, even after ``responses.json`` has been recorded."""
+    inputs, labels = [], []
+    for ident, split, fields, label, _spec in rows:
         key = replay_key(helpers.build_state(fields), QUESTIONS)
         inputs.append({{"id": ident, "split": split, "fields": fields, "replay_keys": [key]}})
         if label is not None:
             labels.append({{"id": ident, "label": label}})
+    return inputs, labels
+
+
+def build_responses(rows):
+    """``{{replay_key: stored response}}`` from ``rows``. Always synthetic: this script never
+    calls Jev, so it can never produce a recorded response."""
+    responses = {{}}
+    for _ident, _split, fields, _label, spec in rows:
+        key = replay_key(helpers.build_state(fields), QUESTIONS)
         answers = answers_for(spec, Provenance.synthetic())
         responses[key] = DecisionResult(answers, "synthetic").to_dict()
+    return responses
+
+
+def _is_recorded(path: Path) -> bool:
+    """True if ``path`` exists and holds at least one response whose model is not
+    ``"synthetic"`` (a recorded, or otherwise real, answer). A file that fails to parse, or
+    whose top level is not a JSON object, cannot hold a valid synthetic response either, so it
+    is treated as not recorded rather than raising; inside an object, an entry that is itself
+    not an object is treated as if it were recorded, so it blocks an overwrite instead of being
+    silently skipped."""
+    if not path.exists():
+        return False
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return False
+    if not isinstance(data, dict):
+        return False
+    return any(
+        not isinstance(entry, dict) or entry.get("model") != "synthetic" for entry in data.values()
+    )
+
+
+def _unresolved_keys(inputs, responses_file: Path) -> list[str]:
+    """Replay keys the just-rewritten ``inputs`` ask for that ``responses_file`` does not have,
+    used only to warn when a ROWS edit has desynchronised the two."""
+    if not responses_file.exists():
+        return []
+    try:
+        data = json.loads(responses_file.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+    if not isinstance(data, dict):
+        return []
+    return [key for row in inputs for key in row["replay_keys"] if key not in data]
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Write this recipe's fixtures/.")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="overwrite responses.json even if it holds a recorded (non-synthetic) answer",
+    )
+    args = parser.parse_args()
+    if not ROWS:
+        raise SystemExit("{TODO_MARK}: add examples to ROWS in build_fixtures.py")
     folder = HERE / "fixtures"
     folder.mkdir(exist_ok=True)
+    inputs, labels = build_inputs_and_labels(ROWS)
     for name, rows in (("inputs.jsonl", inputs), ("labels.jsonl", labels)):
         text = "".join(json.dumps(row) + "\\n" for row in rows)
         (folder / name).write_text(text, encoding="utf-8", newline="\\n")
-    text = json.dumps(responses, indent=2) + "\\n"
-    (folder / "responses.json").write_text(text, encoding="utf-8", newline="\\n")
+    responses_file = folder / "responses.json"
+    if _is_recorded(responses_file) and not args.force:
+        message = (
+            f"refusing to overwrite {{responses_file}}: it holds a recorded response "
+            "(pass --force to overwrite it anyway)"
+        )
+        if _unresolved_keys(inputs, responses_file):
+            message += (
+                "\\ninputs.jsonl and labels.jsonl above were rewritten from ROWS; "
+                "responses.json was not, and at least one of the keys the rewritten inputs "
+                "ask for is missing from it. The three files are desynchronised until you "
+                "--force a rewrite or record the missing answers."
+            )
+        raise SystemExit(message)
+    responses = build_responses(ROWS)
+    # The same serialization jev_cookbook.live._dump writes: only the top-level keys are
+    # sorted; each response keeps the field order DecisionResult.to_dict() emits. Matching the
+    # recorder exactly, rather than json.dumps(..., sort_keys=True) (which also sorts every
+    # nested dict alphabetically), keeps a recording's diff to the values that actually changed.
+    text = json.dumps(dict(sorted(responses.items())), indent=2, ensure_ascii=False) + "\\n"
+    responses_file.write_text(text, encoding="utf-8", newline="\\n")
     print(f"wrote {{len(inputs)}} examples, {{len(labels)}} labels, {{len(responses)}} responses")
 
 
@@ -499,14 +597,17 @@ if __name__ == "__main__":
 '''
 
 
-def tests_text(recipe: dict) -> str:
-    # One text for both modes: the replay-key test checks which mode the fixtures are in.
-    return f'''"""Tests for recipe {recipe["rank"]:02d}'s helpers. They load the helpers by file path."""
+def tests_text(recipe: dict, mode: str = "replay") -> str:
+    # The scaffolder knows the mode when it writes this file, so each mode gets only the
+    # replay-key test that applies to it: a replay recipe never defines helpers.script or
+    # helpers.SEED, so a scripted branch in its test file would be dead code, copied sixty times.
+    if mode == "scripted":
+        return f'''"""Tests for recipe {recipe["rank"]:02d}'s helpers. They load the helpers by file path."""
 
 from pathlib import Path
 
-from jev_cookbook import ScriptedBackend, load_helpers, replay_key
-from jev_cookbook.fixtures import load_inputs, validate_recipe
+from jev_cookbook import ScriptedBackend, load_helpers
+from jev_cookbook.fixtures import load_inputs
 
 RECIPE = Path(__file__).resolve().parent.parent
 helpers = load_helpers(RECIPE)
@@ -518,23 +619,39 @@ def test_questions_are_built_by_python():
 
 
 def test_every_replay_key_in_the_fixtures_matches_the_current_question():
-    # The fixture validator cannot see question drift; this test can.
+    # A scripted recipe replays nothing: no example lists a key, and helpers.script must give
+    # the same answer to the same request every time (a fresh backend each time, same seed).
     questions = helpers.build_questions()
-    examples = load_inputs(RECIPE)
-    if validate_recipe(RECIPE).mode == "scripted":
-        # A scripted recipe replays nothing: no example lists a key, and helpers.script gives the
-        # same answer to the same request every time (a fresh backend each time, same seed).
-        for example in examples:
-            assert example.replay_keys == ()
-            state = helpers.build_state(example.fields)
-            first = ScriptedBackend(helpers.script, helpers.SEED).decide(state, questions)
-            second = ScriptedBackend(helpers.script, helpers.SEED).decide(state, questions)
-            assert first.to_dict() == second.to_dict()
-        return
-    # A replay recipe: one request per example; adapt this when an example needs a dependent
-    # second request (CONTRIBUTING: a question that depends on an earlier answer goes in a later
-    # request), where the example lists a key for each request in order.
-    for example in examples:
+    for example in load_inputs(RECIPE):
+        assert example.replay_keys == ()
+        state = helpers.build_state(example.fields)
+        first = ScriptedBackend(helpers.script, helpers.SEED).decide(state, questions)
+        second = ScriptedBackend(helpers.script, helpers.SEED).decide(state, questions)
+        assert first.to_dict() == second.to_dict()
+'''
+    return f'''"""Tests for recipe {recipe["rank"]:02d}'s helpers. They load the helpers by file path."""
+
+from pathlib import Path
+
+from jev_cookbook import load_helpers, replay_key
+from jev_cookbook.fixtures import load_inputs
+
+RECIPE = Path(__file__).resolve().parent.parent
+helpers = load_helpers(RECIPE)
+
+
+def test_questions_are_built_by_python():
+    # {TODO_MARK}: assert the option lists and criteria, then test every rule in helpers.py
+    assert helpers.build_questions()
+
+
+def test_every_replay_key_in_the_fixtures_matches_the_current_question():
+    # The fixture validator cannot see question drift; this test can. One request per example;
+    # adapt this when an example needs a dependent second request (CONTRIBUTING: a question that
+    # depends on an earlier answer goes in a later request), where the example lists a key for
+    # each request in order.
+    questions = helpers.build_questions()
+    for example in load_inputs(RECIPE):
         assert example.replay_keys == (replay_key(helpers.build_state(example.fields), questions),)
 '''
 
@@ -546,7 +663,7 @@ def files_for(catalog: dict, recipe: dict, mode: str = "replay") -> dict[str, st
         "README.md": readme_text(catalog, recipe, mode),
         "helpers.py": helpers_text(recipe, mode),
         "build_fixtures.py": build_fixtures_text(recipe, mode),
-        "tests/test_helpers.py": tests_text(recipe),
+        "tests/test_helpers.py": tests_text(recipe, mode),
     }
 
 
