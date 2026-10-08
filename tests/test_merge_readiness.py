@@ -310,6 +310,129 @@ def test_extra_check_missing_on_main_fails(gh):
     assert any("main: required check missing" in f for f in failures)
 
 
+# --- --require-head-check: required on the PR head only, never on main ------------------------
+
+HEAD_ONLY = "Scope (recipe pull requests)"
+
+
+def assess_head(gh: FakeGitHub, extra=(), extra_head=()):
+    return mr.assess(gh, REPO, 95, HEAD, list(extra), list(extra_head))
+
+
+def test_head_only_success_on_head_with_no_main_result_is_ready(gh):
+    """Brief case 1: a head-only check, green on the head and absent from main, is READY."""
+    gh.runs[HEAD].append(run(HEAD_ONLY, sha=HEAD, id_=200))
+    receipt = assess_head(gh, extra_head=[HEAD_ONLY])
+    assert receipt["ready"] and receipt["failures"] == []
+    assert receipt["required_head_checks"] == [HEAD_ONLY]
+    assert any(c["name"] == HEAD_ONLY for c in receipt["checks"]["head"])
+    assert not any(c["name"] == HEAD_ONLY for c in receipt["checks"]["main"])
+    json.dumps(receipt)
+
+
+def test_head_only_missing_on_head_fails_even_if_success_on_main(gh):
+    """Brief case 2: present and green on main is not enough; it must be present on the head."""
+    gh.runs[MAIN].append(run(HEAD_ONLY, sha=MAIN, id_=200))
+    receipt = assess_head(gh, extra_head=[HEAD_ONLY])
+    assert not receipt["ready"]
+    assert any(f"head: required check missing: {HEAD_ONLY}" in f for f in receipt["failures"])
+
+
+def test_head_only_absence_on_main_ignored_but_require_check_absence_still_fails(gh):
+    """Brief case 3: the identical absence on main is ignored for head-only, not for --require-check."""
+    gh.runs[HEAD].append(run(HEAD_ONLY, sha=HEAD, id_=200))
+    assert assess_head(gh, extra_head=[HEAD_ONLY])["ready"]
+    failures = assess_head(gh, extra=[HEAD_ONLY])["failures"]
+    assert any(f"main: required check missing: {HEAD_ONLY}" in f for f in failures)
+
+
+def test_head_only_status_context_success_passes(gh):
+    """Brief case 4a: a StatusContext satisfies a head-only requirement."""
+    gh.statuses[HEAD] = [{"id": 900, "context": HEAD_ONLY, "state": "success"}]
+    receipt = assess_head(gh, extra_head=[HEAD_ONLY])
+    assert receipt["ready"]
+    evidence = next(c for c in receipt["checks"]["head"] if c["name"] == HEAD_ONLY)
+    assert evidence["kind"] == "status_context"
+
+
+def test_head_only_duplicate_results_fail_closed(gh):
+    """Brief case 4b: duplicate head-only results are ambiguous and fail closed."""
+    gh.runs[HEAD].append(run(HEAD_ONLY, sha=HEAD, id_=200))
+    gh.runs[HEAD].append(run(HEAD_ONLY, sha=HEAD, id_=201))
+    failures = assess_head(gh, extra_head=[HEAD_ONLY])["failures"]
+    assert any("duplicate results (2)" in f and HEAD_ONLY in f for f in failures)
+
+
+def test_head_only_check_run_and_status_context_conflict(gh):
+    """Brief case 4c: a CheckRun and a StatusContext with the same head-only name conflict."""
+    gh.runs[HEAD].append(run(HEAD_ONLY, "success", sha=HEAD, id_=200))
+    gh.statuses[HEAD] = [{"id": 900, "context": HEAD_ONLY, "state": "failure"}]
+    assert any("conflicting" in f for f in assess_head(gh, extra_head=[HEAD_ONLY])["failures"])
+
+
+def test_head_only_conflicting_states_fail(gh):
+    """Brief case 4d: two head-only CheckRuns with different states conflict."""
+    gh.runs[HEAD].append(run(HEAD_ONLY, "success", sha=HEAD, id_=200))
+    gh.runs[HEAD].append(run(HEAD_ONLY, "failure", sha=HEAD, id_=201))
+    failures = assess_head(gh, extra_head=[HEAD_ONLY])["failures"]
+    assert any("conflicting results" in f for f in failures)
+
+
+@pytest.mark.parametrize(
+    "state", ["failure", "cancelled", "timed_out", "neutral", "skipped", "in_progress"]
+)
+def test_head_only_non_success_fails(gh, state):
+    """Brief case 4e: non-success head-only results fail closed."""
+    gh.runs[HEAD].append(run(HEAD_ONLY, state, sha=HEAD, id_=200))
+    assert not assess_head(gh, extra_head=[HEAD_ONLY])["ready"]
+
+
+def test_head_only_name_that_is_a_baseline_still_requires_main(gh):
+    """Brief case 5a: a baseline name spelled head-only never weakens its main requirement."""
+    gh.runs[MAIN] = [r for r in gh.runs[MAIN] if r["name"] != "Lint (ruff)"]
+    receipt = assess_head(gh, extra_head=["Lint (ruff)"])
+    assert not receipt["ready"]
+    assert any("main: required check missing: Lint (ruff)" in f for f in receipt["failures"])
+    assert "Lint (ruff)" not in receipt["required_head_checks"]
+
+
+def test_head_only_name_also_given_with_require_check_still_requires_main(gh):
+    """Brief case 5b: a name in both families keeps the stronger head-and-main requirement."""
+    name = "Notebooks (execute)"
+    gh.runs[MAIN].append(run(name, sha=MAIN, id_=99))
+    gh.runs[HEAD].append(run(name, sha=HEAD, id_=99))
+    receipt = assess_head(gh, extra=[name], extra_head=[name])
+    assert receipt["ready"]
+    assert receipt["required_head_checks"] == []
+    assert receipt["required_checks"].count(name) == 1
+    gh.runs[MAIN] = [r for r in gh.runs[MAIN] if r["name"] != name]
+    assert not assess_head(gh, extra=[name], extra_head=[name])["ready"]
+
+
+def test_repeated_head_check_flag_dedupes_requirement_only(gh):
+    """Brief case 6: repeated flags dedupe the requirement, not genuine duplicate results."""
+    gh.runs[HEAD].append(run(HEAD_ONLY, sha=HEAD, id_=200))
+    receipt = assess_head(gh, extra_head=[HEAD_ONLY, HEAD_ONLY])
+    assert receipt["required_head_checks"] == [HEAD_ONLY]
+    assert receipt["ready"]
+    gh.runs[HEAD].append(run(HEAD_ONLY, sha=HEAD, id_=201))
+    assert not assess_head(gh, extra_head=[HEAD_ONLY, HEAD_ONLY])["ready"]
+
+
+def test_head_only_check_main_moving_during_collection_still_fails(gh):
+    """Brief case 6: moving main/head still fails even with a head-only requirement present."""
+    gh.runs[HEAD].append(run(HEAD_ONLY, sha=HEAD, id_=200))
+
+    def advance(g, path):
+        if path.startswith(f"repos/{REPO}/commits/{HEAD}/check-runs"):
+            g.main = NEW_MAIN
+
+    gh.hooks.append(advance)
+    receipt = assess_head(gh, extra_head=[HEAD_ONLY])
+    assert not receipt["ready"]
+    assert any(f"main moved from {MAIN} to {NEW_MAIN}" in f for f in receipt["failures"])
+
+
 def test_pagination_reads_every_page(gh):
     gh.runs[HEAD] = [run(f"filler {i}", sha=HEAD, id_=1000 + i) for i in range(150)] + green(HEAD)
     assert assess(gh)["ready"]
@@ -433,6 +556,59 @@ def test_main_not_ready_exit_1(gh, capsys):
     assert json.loads(capsys.readouterr().out)["ready"] is False
 
 
+def test_main_forwards_require_head_check_to_ready_exit_0(gh, capsys):
+    """CLI wiring, not just assess(): --require-head-check reaches main()'s receipt and exit code."""
+    gh.runs[HEAD].append(run(HEAD_ONLY, sha=HEAD, id_=200))
+    code = mr.main(
+        ["--pr", "95", "--expected-head", HEAD, "--require-head-check", HEAD_ONLY], gh=gh
+    )
+    out = json.loads(capsys.readouterr().out)
+    assert code == mr.EXIT_READY and out["ready"] is True
+    assert out["required_head_checks"] == [HEAD_ONLY]
+    assert out["required_checks"] == list(mr.BASELINE_CHECKS)
+    assert HEAD_ONLY in [c["name"] for c in out["checks"]["head"]]
+    assert HEAD_ONLY not in [c["name"] for c in out["checks"]["main"]]
+
+
+def test_main_forwards_require_head_check_missing_to_not_ready_exit_1(gh, capsys):
+    """Losing the --require-head-check -> assess() wiring would make this pass; it must not."""
+    code = mr.main(
+        ["--pr", "95", "--expected-head", HEAD, "--require-head-check", HEAD_ONLY], gh=gh
+    )
+    out = json.loads(capsys.readouterr().out)
+    assert code == mr.EXIT_NOT_READY and out["ready"] is False
+    assert out["required_head_checks"] == [HEAD_ONLY]
+    assert any(f"head: required check missing: {HEAD_ONLY}" in f for f in out["failures"])
+
+
+def test_main_mixed_require_check_and_require_head_check(gh, capsys):
+    """Both option families reach main() together: separate requirement sets, both enforced."""
+    extra_name = "Notebooks (execute)"
+    for sha in (MAIN, HEAD):
+        gh.runs[sha].append(run(extra_name, sha=sha, id_=99))
+    gh.runs[HEAD].append(run(HEAD_ONLY, sha=HEAD, id_=200))
+    code = mr.main(
+        [
+            "--pr",
+            "95",
+            "--expected-head",
+            HEAD,
+            "--require-check",
+            extra_name,
+            "--require-head-check",
+            HEAD_ONLY,
+        ],
+        gh=gh,
+    )
+    out = json.loads(capsys.readouterr().out)
+    assert code == mr.EXIT_READY and out["ready"] is True
+    assert out["required_checks"] == [*mr.BASELINE_CHECKS, extra_name]
+    assert out["required_head_checks"] == [HEAD_ONLY]
+    assert extra_name in [c["name"] for c in out["checks"]["main"]]
+    assert HEAD_ONLY not in [c["name"] for c in out["checks"]["main"]]
+    assert {HEAD_ONLY, extra_name} <= {c["name"] for c in out["checks"]["head"]}
+
+
 @pytest.mark.parametrize(
     "argv",
     [
@@ -442,6 +618,11 @@ def test_main_not_ready_exit_1(gh, capsys):
         ["--pr", "95", "--expected-head", HEAD.upper()],
         ["--pr", "95", "--expected-head", HEAD, "--repo", "no-slash"],
         ["--pr", "95", "--expected-head", HEAD, "--require-check", " "],
+        ["--pr", "95", "--expected-head", HEAD, "--require-check", ""],
+        ["--pr", "95", "--expected-head", HEAD, "--require-check", "x" * 201],
+        ["--pr", "95", "--expected-head", HEAD, "--require-head-check", " "],
+        ["--pr", "95", "--expected-head", HEAD, "--require-head-check", ""],
+        ["--pr", "95", "--expected-head", HEAD, "--require-head-check", "x" * 201],
     ],
 )
 def test_usage_errors_exit_2(argv):
@@ -625,3 +806,33 @@ def test_unexpected_none_output_is_exit_3(monkeypatch, capsys):
     )
     assert mr.main(["--pr", "95", "--expected-head", HEAD]) == mr.EXIT_API
     assert json.loads(capsys.readouterr().out)["ready"] is False
+
+
+# --- the actual script, invoked as a real child process for --help/usage ----------------------
+#
+# No fake gh needed: argparse validation happens before any gh call, so these exercise the real
+# script end to end without ever touching the network.
+
+SCRIPT = str(ROOT / "tools" / "check_merge_readiness.py")
+
+
+def test_real_cli_help_exits_0_and_documents_both_option_families():
+    result = subprocess.run(
+        [sys.executable, SCRIPT, "--help"], capture_output=True, text=True, timeout=30
+    )
+    assert result.returncode == 0
+    assert "--require-check" in result.stdout
+    assert "--require-head-check" in result.stdout
+
+
+@pytest.mark.parametrize("flag", ["--require-check", "--require-head-check"])
+def test_real_cli_bad_usage_exits_2_without_calling_gh(flag):
+    result = subprocess.run(
+        [sys.executable, SCRIPT, "--pr", "95", "--expected-head", HEAD, flag, "  "],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert flag in result.stderr
