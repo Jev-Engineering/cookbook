@@ -53,7 +53,14 @@ jobs:
       # request this one `git fetch` makes, not only to github.com, and `--config-env` takes the
       # scoped key unchanged (its name contains no `=`). Harmless either way today -- the remote
       # is `origin` on github.com, and curl strips `Authorization` on a cross-host redirect -- but
-      # the narrower scope is free.
+      # the narrower scope is free. The host is hardcoded as `github.com` rather than built from
+      # `${{ github.server_url }}` because that is where this repository actually lives: the
+      # checkout step above builds the same remote from `github.server_url`, which resolves to
+      # `https://github.com` here, so the two agree. It would only need to become
+      # `http.${{ github.server_url }}/.extraheader` if this repository ever moved to GitHub
+      # Enterprise Server -- and even then, a stale `github.com`-scoped key would simply stop
+      # matching and the (unauthenticated, no credential helper, `persist-credentials: false`)
+      # fetch would fail loudly rather than silently fetch nothing.
       - name: Fetch the pull request head (objects only)
         env:
           GH_TOKEN: ${{ github.token }}

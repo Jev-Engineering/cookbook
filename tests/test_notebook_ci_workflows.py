@@ -473,20 +473,28 @@ def test_execute_step_sets_pipefail_shell():
         "`set +o pipefail` turns pipefail back off for the rest of the step, defeating "
         "`shell: bash` without changing the `shell:` line or the pipeline itself"
     )
-    # #122 (A9 re-review of round 8, comment 6057665444, and B9's comment 6057581690): putting
-    # the pipeline into an `&&` list exempts it from `set -e` entirely (the rule applies to the
-    # list as a whole, not to the pipeline that failed inside it), so the step runs on past the
-    # failure and its status becomes the list's last command's -- `true` or `:`, always 0. This is
-    # a real bypass, measured end to end on #108: appending `&& true` or `&& :` to the real
-    # execute step left it at `STEP EXIT=0` with the stale, never-executed notebook copied out as
-    # fresh, the same outcome as `|| true`.
+    # #122 (A9 re-review of round 8, comment 6057665444, and B9's comment 6057581690; corrected
+    # per the #125 review, comment 6060303924, M2): putting the failing pipeline into an `&&`
+    # list exempts it from `set -e` entirely (the rule applies to the list as a whole, not to a
+    # non-last command inside it) -- but NOT by running `true`/`:` and taking their exit status:
+    # `&&` short-circuits on the pipeline's nonzero status, so `true`/`:` never execute at all.
+    # What actually happens is the step simply continues past the failed list to the commands
+    # after it (the grep, the echo, the `sudo install` that copies the stale notebook out), and
+    # the step's exit status becomes whichever of *those* ran last -- 0, since none of them fails
+    # on a never-executed notebook. Measured end to end on #108/#125: appending `&& true` or
+    # `&& :` to the real execute step left it at `STEP EXIT=0` with the stale, never-executed
+    # notebook copied out and certified fresh -- the same outcome as `|| true`, by a different
+    # route.
     assert "&& true" not in text, (
         "a trailing `&& true` after the pipeline is a real bypass: the `&&` list exempts the "
-        "pipeline from `set -e`, so the step runs on and its status becomes `true`'s, always 0"
+        "failing pipeline from `set -e` (its own nonzero status is discarded, and `true` never "
+        "runs -- `&&` short-circuits on it), so the step continues to the commands after the "
+        "list and exits with whichever of those ran last, 0"
     )
     assert "&& :" not in text, (
         "a trailing `&& :` is the same `&&`-list bypass as `&& true`, spelled with the `:` "
-        "builtin instead of `true`"
+        "builtin instead of `true` (which, like `true`, never runs -- `&&` short-circuits on "
+        "the pipeline's nonzero status)"
     )
     # #122, same source: `set +e` is a different route to the same place as `set +o pipefail` --
     # it turns off `-e` (not `pipefail`) for the rest of the step, so the failing pipeline no
