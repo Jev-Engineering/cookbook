@@ -31,12 +31,31 @@ own `statusCheckRollup` directly, not through `--require-check`. The other check
 (ruff)`, `Catalog (README is current)`, `Tests (py3.10)`, `Tests (py3.14)`, `Hygiene (secrets and
 notebook outputs)`) are unchanged.
 
-### After this merges
+### Verifying a change to `scope.yml`
 
 An un-dispatched `pull_request_target` workflow is silent, not red: GitHub simply never creates a
-run, so a broken trigger shows as a missing check rather than a failing one. Before any recipe pull
-request relies on `Scope (recipe pull requests)`, or it is added to branch protection, the first
-pull request opened after this merges must show, read directly rather than assumed:
+run, so a broken trigger shows as a missing check rather than a failing one. `scope.yml` runs on
+`pull_request_target` *from `main`* (see "The scope check" below), so any pull request that changes
+it is judged by the base's old copy and cannot exercise its own change: a change to `scope.yml` is
+only ever exercised once it is merged. That makes the check below standing, not one-time — it is
+owed after every later change to this file, not only the first one.
+
+The one-time bootstrap that this check replaces ran for #69. Points 1, 2 and 4 were observed on
+**#123**, not #108: #108's own head (`7858419061573e451b421db2aa8aa2f03c16e5ab`) carries nine checks
+in `statusCheckRollup` and no `Scope (recipe pull requests)`, and the only `Scope`-workflow runs from
+#108's era (`37587384928`, `37587983071`) are `event: pull_request`, not `pull_request_target` — the
+`pull_request_target` variant could only first dispatch once #108 merged. Points 1, 2 and 4 were
+observed on #123's head `e4749b0ece56dfbe2f2cc726048f16cdee0abcb7` (runs `37764311231` and
+`37764605320`, both `pull_request_target`, `SUCCESS`, the second a description-edit re-run) and again
+on its final head `de70694a56920b55d2407e887631bf02a35c9fd8` (run `37774598404`). Point 3, as
+written — a path rejected on a pull request's own `Scope` check — has **not** been observed on any
+`pull_request_target` run: every `Scope` run on a #123 head printed `scope ok: ...`, and the only
+`REJECT:` a `Scope` check has ever printed is a classification rejection with no path in it, on
+throwaway PR #111 (run `37587738356`, `event: pull_request`, pre-#122 design). The only
+`REJECT: <path>` lines in this repository's history come from a `push`-event run of the `Notebooks`
+workflow's own scratch demo step (run `37581785708`, branch `scratch/ci-69-scope-demo`), not from a
+`Scope` check on a pull request. Point 3 is therefore still to be observed on a real recipe pull
+request.
 
 1. a `Scope` run exists with `event: pull_request_target` (`gh run list --workflow Scope`);
 2. that run's check appears on the pull request's **head commit**, under exactly the name `Scope
@@ -44,9 +63,30 @@ pull request opened after this merges must show, read directly rather than assum
 3. a path outside the allowlist on that pull request is rejected (`REJECT:` with the path);
 4. editing the pull request's description re-runs the check.
 
-Until all four are observed, the allowlist is enforced by review only, exactly as it was before
-this pull request: a reviewer rejects a `.github/` or out-of-scope change in a recipe pull request
-by hand, the same backstop `docs/notebook-ci.md` already names for the check once it does run.
+After any later change to `scope.yml` merges, the next recipe pull request's own `statusCheckRollup`
+and its `Scope` run's log must be read directly — not the summary of the pull request that changed
+`scope.yml`, and not that pull request's own `Scope` run, which (judged by the base's old copy) never
+exercised the change at all:
+
+1. a `Scope (recipe pull requests)` run exists on that recipe pull request's own head commit,
+   `event: pull_request_target`, conclusion `SUCCESS`;
+2. the `Fetch the pull request head (objects only)` step's log shows the fetch line as `scope.yml`
+   reads it after the change — today that is
+   `git --config-env=http.https://github.com/.extraheader=AUTH_HEADER` — and not the line it read
+   before. This is what tells "the change is live" apart from "`main` had not updated yet when this
+   recipe pull request ran"; a green check alone does not, since the base's old copy prints a green
+   check too;
+3. that same step actually fetched the pull request head — a `* [new ref] refs/pull/<N>/head ->
+   pull/head` line, no `could not read Username`, no `403`/`Authentication failed` — rather than
+   merely exiting 0, and the following `git cat-file -e "$HEAD_SHA^{commit}"` did not print
+   `head ... is not fetchable`;
+4. the `Check the allowlist` step then printed a real verdict computed from those objects (`scope
+   ok: ...` or `REJECT: <path>`), not a skip, confirming the fetched objects were actually there to
+   classify rather than the step having been short-circuited.
+
+Until all four are observed for a given change, the allowlist is enforced by review only, exactly
+as before any of this ran: a reviewer rejects a `.github/` or out-of-scope change in a recipe pull
+request by hand, the same backstop named above for the allowlist generally.
 
 ## Which notebooks run
 
@@ -298,8 +338,9 @@ and could in principle neuter the staleness step the same way the workflow file 
 automated thing that stops a recipe pull request from doing that is `Scope (recipe pull requests)`
 (see "The scope check" below), which rejects any path outside `recipes/<slug>/` and `README.md`,
 `.github/workflows/notebooks.yml` included — `notebooks.yml`'s own sandboxing is therefore only as
-trustworthy as `Scope` being wired into branch protection and actually running (see "After this
-merges"); until then, a reviewer rejecting a `.github/` change by hand is what stands behind it.
+trustworthy as `Scope` being wired into branch protection and actually running (see "Verifying a
+change to `scope.yml`"); until then, a reviewer rejecting a `.github/` change by hand is what
+stands behind it.
 
 ### `get_backend(fixtures=...)` and the fixtures gate
 
