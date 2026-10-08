@@ -101,7 +101,8 @@ def check_no_stderr(nb: nbformat.NotebookNode) -> None:
             if output.get("output_type") == "stream" and output.get("name") == "stderr":
                 raise StderrOutput(
                     f"cell {index} ({cell.get('id', 'no id')}) wrote to stderr; "
-                    "fix its cause rather than hiding it"
+                    "fix its cause rather than hiding it\n"
+                    f"DEBUG content: {output.get('text')!r}"
                 )
 
 
