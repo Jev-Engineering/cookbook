@@ -1,12 +1,21 @@
 """Write fixtures/inputs.jsonl, labels.jsonl and responses.json for the template recipe.
 
-    python build_fixtures.py        # from anywhere; it writes next to this file
+    python build_fixtures.py          # from anywhere; it writes next to this file
+    python build_fixtures.py --force  # also overwrite a responses.json holding a recorded answer
 
 Every response here is synthetic: written by hand as probabilities, not produced by a model.
 Some are deliberately wrong, so the evaluation in the notebook has something to find. The
 replay keys come from the same ``build_state`` and ``build_questions`` the notebook uses.
+
+Generating inputs and labels is kept separate from generating responses, on purpose: once
+responses.json holds even one recorded answer (provenance "recorded", captured from a real Jev
+call), running this script again must not silently replace it with a synthetic probability.
+inputs.jsonl and labels.jsonl are always rewritten from ROWS, because neither ever holds a
+model's answer; responses.json is rewritten only when it does not yet exist, holds only
+synthetic answers, or --force is given.
 """
 
+import argparse
 import json
 from pathlib import Path
 
@@ -66,26 +75,75 @@ ROWS = [
 ]  # fmt: skip
 
 
-def main() -> None:
-    options = list(QUESTIONS["route"].criteria)
-    inputs, labels, responses = [], [], {}
-    for ident, split, ticket, subject, message, label, probs in ROWS:
-        fields = {"ticket": ticket, "subject": subject, "message": message}
+def _fields(ticket, subject, message):
+    return {"ticket": ticket, "subject": subject, "message": message}
+
+
+def build_inputs_and_labels(rows):
+    """``(inputs, labels)`` from ``rows``. Neither ever holds a model's answer, so both are
+    always safe to regenerate, even after ``responses.json`` has been recorded."""
+    inputs, labels = [], []
+    for ident, split, ticket, subject, message, label, _probs in rows:
+        fields = _fields(ticket, subject, message)
         key = replay_key(helpers.build_state(fields), QUESTIONS)
         inputs.append({"id": ident, "split": split, "fields": fields, "replay_keys": [key]})
         if label is not None:
             labels.append({"id": ident, "label": label})
+    return inputs, labels
+
+
+def build_responses(rows):
+    """``{replay_key: stored response}`` from ``rows``. Always synthetic: this script never
+    calls Jev, so it can never produce a recorded response."""
+    options = list(QUESTIONS["route"].criteria)
+    responses = {}
+    for _ident, _split, ticket, subject, message, _label, probs in rows:
+        fields = _fields(ticket, subject, message)
+        key = replay_key(helpers.build_state(fields), QUESTIONS)
         answer = ChoiceAnswer.from_probabilities(
             dict(zip(options, probs, strict=True)), Provenance.synthetic()
         )
         responses[key] = DecisionResult({"route": answer}, "synthetic").to_dict()
+    return responses
+
+
+def _is_recorded(path: Path) -> bool:
+    """True if ``path`` exists and holds at least one response whose model is not
+    ``"synthetic"`` (a recorded, or otherwise real, answer)."""
+    if not path.exists():
+        return False
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return False
+    return any(entry.get("model") != "synthetic" for entry in data.values())
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Write this recipe's fixtures/.")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="overwrite responses.json even if it holds a recorded (non-synthetic) answer",
+    )
+    args = parser.parse_args()
     folder = HERE / "fixtures"
     folder.mkdir(exist_ok=True)
+    inputs, labels = build_inputs_and_labels(ROWS)
     for name, rows in (("inputs.jsonl", inputs), ("labels.jsonl", labels)):
         text = "".join(json.dumps(row) + "\n" for row in rows)
         (folder / name).write_text(text, encoding="utf-8", newline="\n")
-    text = json.dumps(responses, indent=2) + "\n"
-    (folder / "responses.json").write_text(text, encoding="utf-8", newline="\n")
+    responses_file = folder / "responses.json"
+    if _is_recorded(responses_file) and not args.force:
+        raise SystemExit(
+            f"refusing to overwrite {responses_file}: it holds a recorded response "
+            "(pass --force to overwrite it anyway)"
+        )
+    responses = build_responses(ROWS)
+    # Sorted keys, matching jev_cookbook.live.record, so recording over this file produces a
+    # minimal diff.
+    text = json.dumps(responses, indent=2, sort_keys=True) + "\n"
+    responses_file.write_text(text, encoding="utf-8", newline="\n")
     print(f"wrote {len(inputs)} examples, {len(labels)} labels, {len(responses)} responses")
 
 

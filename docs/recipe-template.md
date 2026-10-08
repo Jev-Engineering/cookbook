@@ -28,7 +28,7 @@ Python. It is deliberately small, so that it can be read in a few minutes and co
 | `notebook.ipynb` | The recipe, executed, with its outputs committed. Nine sections, in a fixed order. |
 | `README.md` | The one-page recipe README, plus the builder's walkthrough (a real recipe's README has only the first part). |
 | `helpers.py` | `build_state`, `build_questions`, and the rule Python enforces (`route`). |
-| `build_fixtures.py` | Writes `fixtures/`; the replay keys come from `helpers.py`, so they cannot drift from the questions. It lives next to the notebook, outside `fixtures/` ([fixtures.md](fixtures.md)). |
+| `build_fixtures.py` | Writes `fixtures/`; the replay keys come from `helpers.py`, so they cannot drift from the questions. It lives next to the notebook, outside `fixtures/` ([fixtures.md](fixtures.md)). Generating inputs and labels is separate from generating responses: `--force` is needed to overwrite a `responses.json` that already holds a `recorded` answer. |
 | `fixtures/` | `inputs.jsonl`, `labels.jsonl`, `responses.json`: 22 examples (10 `validation`, 10 `test`, 2 `demo`), synthetic and deliberately imperfect. |
 | `tests/test_helpers.py` | Tests for the rule, and a check that the stored keys match the current question. |
 
@@ -107,7 +107,9 @@ and **never overwrites**: if `recipes/<slug>/` exists it changes nothing and exi
    enforces. Write a test for each rule in `tests/test_helpers.py`; run `pytest recipes/NN-slug`.
 4. Fill `ROWS` and `answers_for` in `build_fixtures.py`, run
    `python recipes/NN-slug/build_fixtures.py`, then
-   `python -m jev_cookbook.fixtures validate recipes/NN-slug`.
+   `python -m jev_cookbook.fixtures validate recipes/NN-slug`. Generating `inputs.jsonl` and
+   `labels.jsonl` is separate from generating `responses.json`: once a response is `recorded`,
+   rerunning the script refuses to overwrite it unless you pass `--force`.
 5. Work through `notebook.ipynb` section by section. The scaffold's setup, state, question and
    answer cells already run once steps 3 and 4 are done; replace each `TODO` and fill the
    `# TODO` code cells. Copy the template's evaluation cells as a starting point.
@@ -139,10 +141,10 @@ scripted scaffold changes:
 | File | Replay (default) | Scripted |
 | - | - | - |
 | `helpers.py` | `build_state`, `build_questions` | also `SEED` and `script(state, questions, rng)`, a `TODO` that returns `{question name: spec}` (see `Spec` in [backends.md](backends.md)) |
-| `build_fixtures.py` | `ROWS` of 5 fields, `answers_for`, writes `responses.json` | `ROWS` of 4 fields (no spec), no `answers_for`; writes `inputs.jsonl` and `labels.jsonl` with `"replay_keys": []`, and removes a stale `responses.json` |
+| `build_fixtures.py` | `ROWS` of 5 fields, `answers_for`; `--force` is needed to overwrite a `recorded` `responses.json` | `ROWS` of 4 fields (no spec), no `answers_for`; writes `inputs.jsonl` and `labels.jsonl` with `"replay_keys": []`, and removes a stale `responses.json`; no `responses.json` ever exists, so there is nothing `--force` would protect |
 | setup cell | `get_backend(fixtures=responses_path())` | `get_backend(script=helpers.script, seed=helpers.SEED)`; `run_header(..., backend=backend, n_examples=len(scored))` is the same |
 | `measured` cell | follows `backend.mode` | the same line: `Provenance: scripted. Not measured live: a pipeline check, not a Jev result.` |
-| replay-key test | keys equal `replay_key(state, questions)` | the generated test branches on `validate_recipe(RECIPE).mode`: scripted asserts every example's keys are empty and that a fresh `ScriptedBackend(helpers.script, helpers.SEED)` answers the same request identically twice |
+| `tests/test_helpers.py` | asserts every example's keys equal `replay_key(state, questions)` | asserts the keys are empty and that a fresh `ScriptedBackend(helpers.script, helpers.SEED)` answers the same request identically twice; the scaffolder writes the one test file that fits `--mode`, so neither carries the other's machinery |
 | validator | `fixtures valid (mode replay)` | `fixtures valid (mode scripted)` |
 
 Write `script` with `rng.random()` only for chance and no clock, global `random` or environment

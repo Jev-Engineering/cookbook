@@ -159,12 +159,26 @@ def stream_lines(cell_id):
     ).splitlines()
 
 
-def test_every_metric_line_of_the_evaluation_carries_the_pipeline_check_label():
-    for cell_id in ("evaluation-validation", "evaluation-test"):
-        lines = stream_lines(cell_id)
-        assert lines
-        for line in lines:
-            assert "(a pipeline check, not a Jev result)" in line, line
+def test_every_test_metric_line_of_the_evaluation_carries_the_pipeline_check_label():
+    lines = stream_lines("evaluation-test")
+    assert lines
+    for line in lines:
+        assert "(a pipeline check, not a Jev result)" in line, line
+
+
+def test_every_validation_number_in_every_run_mode_carries_the_selection_label():
+    """CONTRIBUTING.md section 2: a number from the validation split is a selection step, not
+    a result. Unlike `check`, this label must not depend on `backend.mode`: it is printed in
+    the offline run tested here, and it must stay printed in a `recorded` or `live` run too."""
+    threshold_lines = [
+        line for line in stream_lines("python-rule") if line.startswith(("answers that", "chosen"))
+    ]
+    assert len(threshold_lines) == 2
+    validation_lines = stream_lines("evaluation-validation")
+    assert validation_lines
+    for line in threshold_lines + validation_lines:
+        assert "(a selection step, not a reported result)" in line, line
+        assert "(a pipeline check, not a Jev result)" not in line, line
 
 
 def test_the_evaluation_reports_what_the_routing_rule_does():
@@ -253,3 +267,87 @@ def test_the_first_next_step_names_the_tools_that_show_key_drift():
     first = source(cell).split("\n- ")[1]
     assert "pytest recipes/_template" in first and "git checkout" in first
     assert "validator" not in first
+
+
+def test_the_next_steps_settle_the_neighbour_link_convention():
+    """Issue #124, item 8: a neighbour link 404s until that recipe exists. The template keeps
+    the folder-link convention and says so, because the renderer gives no per-recipe anchor to
+    link to instead (tools/render_catalog.py builds the catalog table from bare titles)."""
+    cell = next(c for c in NOTEBOOK["cells"] if c.get("id") == "next-md")
+    text = source(cell)
+    assert "](../" in text  # the neighbour links themselves are unchanged
+    assert "404s on GitHub" in text and "no per-row anchor" in text
+
+
+def test_the_rule_demo_uses_the_threshold_chosen_on_validation_not_a_hardcoded_value():
+    """Issue #124 / PR #123 comment 6059256403: the up-close rule demo should use the frozen
+    threshold chosen on validation, not an arbitrary starting value, and the threshold must be
+    selected before that demo runs."""
+    python_md = source(next(c for c in NOTEBOOK["cells"] if c.get("id") == "python-md"))
+    assert "0.5" not in python_md
+    assert "chosen here, on `validation`, and then frozen" in python_md
+    python_rule = source(next(c for c in NOTEBOOK["cells"] if c.get("id") == "python-rule"))
+    assert "min_confidence=0.5" not in python_rule
+    assert "min_confidence=threshold" in python_rule
+    assert python_rule.index("threshold = select_confidence_threshold") < python_rule.index(
+        "min_confidence=threshold"
+    )
+
+
+def test_report_has_a_comment_about_dropping_the_reasons_tally():
+    """PR #123 comment 6059256403 (suggestion): report()'s reasons tally is dead weight for a
+    rule with a single review reason; the template should say so for copies with a richer
+    rule."""
+    cell = source(next(c for c in NOTEBOOK["cells"] if c.get("id") == "evaluation-validation"))
+    assert "exactly one review reason" in cell
+    assert "Drop `reasons`" in cell
+
+
+def test_the_measured_markdown_does_not_hardcode_a_mode_specific_claim():
+    """Issue #124, item 5: the 'What was and was not measured' markdown must not assert a
+    specific mode (so it cannot go stale once fixtures/responses.json is swapped for a recorded
+    run); the mode-specific claim belongs in the code cell below, which reads backend.mode."""
+    measured_md = source(next(c for c in NOTEBOOK["cells"] if c.get("id") == "measured-md"))
+    assert "backend.mode" in measured_md
+    # The markdown may name every possible mode in general terms, but it must not assert that
+    # *this* run is synthetic or that the stored answers were written by hand: that claim is
+    # mode-specific and belongs in the code cell below, derived from backend.mode at run time.
+    for stale in ("written by hand", "invented messages", "hand-written"):
+        assert stale not in measured_md.lower()
+    assert "demo" in measured_md
+
+
+def test_build_fixtures_separates_inputs_labels_from_responses(tmp_path):
+    copy = tmp_path / "_template"
+    copy.mkdir()
+    for name in ("helpers.py", "build_fixtures.py"):
+        (copy / name).write_bytes((TEMPLATE / name).read_bytes())
+    script = copy / "build_fixtures.py"
+    first = subprocess.run([sys.executable, str(script)], capture_output=True, text=True)
+    assert first.returncode == 0, first.stderr
+
+    responses = copy / "fixtures" / "responses.json"
+    data = json.loads(responses.read_text("utf-8"))
+    for value in data.values():
+        value["model"] = "jev-1.13.0"
+    responses.write_text(
+        json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
+    )
+    before = responses.read_bytes()
+
+    refused = subprocess.run([sys.executable, str(script)], capture_output=True, text=True)
+    assert refused.returncode != 0
+    assert "recorded" in refused.stderr and "--force" in refused.stderr
+    assert responses.read_bytes() == before
+
+    forced = subprocess.run(
+        [sys.executable, str(script), "--force"], capture_output=True, text=True
+    )
+    assert forced.returncode == 0, forced.stderr
+    after = json.loads(responses.read_text("utf-8"))
+    assert all(v["model"] == "synthetic" for v in after.values())
+
+
+def test_the_committed_responses_are_sorted_like_the_recorder():
+    data = json.loads((TEMPLATE / "fixtures" / "responses.json").read_text("utf-8"))
+    assert list(data.keys()) == sorted(data.keys())

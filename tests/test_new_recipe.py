@@ -766,3 +766,146 @@ def test_the_scaffold_tests_include_the_replay_key_test(catalog, recipes):
     tests = (recipes / recipe["slug"] / "tests" / "test_helpers.py").read_text("utf-8")
     assert "def test_every_replay_key_in_the_fixtures_matches_the_current_question" in tests
     assert "replay_keys" in tests and "replay_key(" in tests
+
+
+def test_the_replay_scaffold_tests_have_no_scripted_machinery(catalog, recipes):
+    """A replay recipe never defines helpers.script or helpers.SEED; the scaffolder knows the
+    mode up front, so the generated test file for --mode replay (the default) must not carry
+    the scripted branch (or the runtime mode check that used to select it)."""
+    _, recipe = entry(catalog, 1)
+    run(1, catalog, recipes)
+    tests = (recipes / recipe["slug"] / "tests" / "test_helpers.py").read_text("utf-8")
+    for dead in ("ScriptedBackend", "helpers.script", "helpers.SEED", "validate_recipe"):
+        assert dead not in tests, dead
+
+
+def test_the_scripted_scaffold_tests_have_no_replay_machinery(catalog, recipes):
+    _, recipe = entry(catalog, 36)
+    new_recipe.main(
+        ["36", "--mode", "scripted", "--catalog", str(catalog), "--recipes-dir", str(recipes)]
+    )
+    tests = (recipes / recipe["slug"] / "tests" / "test_helpers.py").read_text("utf-8")
+    for dead in ("replay_key(", "responses_path", "validate_recipe"):
+        assert dead not in tests, dead
+    assert "ScriptedBackend" in tests and "helpers.SEED" in tests
+
+
+def test_the_scaffold_readme_live_section_states_the_budget_and_env_var(catalog, recipes):
+    _, recipe = entry(catalog, 1)
+    run(1, catalog, recipes)
+    readme = (recipes / recipe["slug"] / "README.md").read_text("utf-8")
+    section = readme.split("## Switch to live")[1].split("## What was and was not measured")[0]
+    assert "JEV_COOKBOOK_LIVE_MAX_REQUESTS" in section
+    assert "25" in section
+    assert "TODO" in section
+
+
+MINIMAL_REPLAY_HELPERS = """
+from jev_cookbook import Choice
+
+
+def build_state(fields):
+    return {"text": fields["text"]}
+
+
+def build_questions():
+    return {"pick": Choice(instructions="Which one?", criteria={"a": "first", "b": "second"})}
+"""
+
+MINIMAL_REPLAY_ROWS = (
+    'ROWS = [("v1", "validation", {"text": "x"}, "a", 0.9), '
+    '("t1", "test", {"text": "y"}, "b", 0.8), '
+    '("d1", "demo", {"text": "z"}, None, 0.5)]'
+)
+
+
+def scaffold_replay_with_build_script(catalog, recipes, number=2):
+    """Scaffold a replay recipe and fill in just enough of helpers.py and build_fixtures.py to
+    run build_fixtures.py end to end."""
+    _, recipe = entry(catalog, number)
+    assert run(number, catalog, recipes) == 0
+    folder = recipes / recipe["slug"]
+    (folder / "helpers.py").write_text(
+        MINIMAL_REPLAY_HELPERS.lstrip(), encoding="utf-8", newline="\n"
+    )
+    build = (folder / "build_fixtures.py").read_text("utf-8")
+    build = build.replace(
+        "from jev_cookbook import DecisionResult, Provenance, load_helpers, replay_key",
+        "from jev_cookbook import ChoiceAnswer, DecisionResult, Provenance, load_helpers, "
+        "replay_key",
+    )
+    build = build.replace(
+        '    raise NotImplementedError("TODO: build the typed answers from the row\'s spec")',
+        '    return {"pick": ChoiceAnswer.from_probabilities('
+        '{"a": spec, "b": 1 - spec}, provenance)}',
+    )
+    start = build.index("ROWS = []")
+    end = build.index("\n", start)
+    build = build[:start] + MINIMAL_REPLAY_ROWS + build[end:]
+    (folder / "build_fixtures.py").write_text(build, encoding="utf-8", newline="\n")
+    return folder
+
+
+def test_build_fixtures_refuses_to_overwrite_a_recorded_responses_file(catalog, recipes):
+    folder = scaffold_replay_with_build_script(catalog, recipes)
+    script = folder / "build_fixtures.py"
+    first = subprocess.run(
+        [sys.executable, str(script)], capture_output=True, text=True, cwd=recipes
+    )
+    assert first.returncode == 0, first.stderr
+
+    responses = folder / "fixtures" / "responses.json"
+    data = json.loads(responses.read_text("utf-8"))
+    assert data, "the fixtures should hold at least one response"
+    for value in data.values():
+        value["model"] = "jev-1.13.0"
+    responses.write_text(
+        json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
+    )
+    before = responses.read_bytes()
+
+    refused = subprocess.run(
+        [sys.executable, str(script)], capture_output=True, text=True, cwd=recipes
+    )
+    assert refused.returncode != 0
+    assert "recorded" in refused.stderr and "--force" in refused.stderr
+    assert responses.read_bytes() == before
+
+    forced = subprocess.run(
+        [sys.executable, str(script), "--force"], capture_output=True, text=True, cwd=recipes
+    )
+    assert forced.returncode == 0, forced.stderr
+    after = json.loads(responses.read_text("utf-8"))
+    assert all(v["model"] == "synthetic" for v in after.values())
+
+
+def test_build_fixtures_rewrites_inputs_and_labels_even_when_responses_is_refused(catalog, recipes):
+    folder = scaffold_replay_with_build_script(catalog, recipes, number=3)
+    script = folder / "build_fixtures.py"
+    subprocess.run([sys.executable, str(script)], check=True, cwd=recipes)
+
+    responses = folder / "fixtures" / "responses.json"
+    data = json.loads(responses.read_text("utf-8"))
+    for value in data.values():
+        value["model"] = "jev-1.13.0"
+    responses.write_text(
+        json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
+    )
+
+    inputs = folder / "fixtures" / "inputs.jsonl"
+    inputs.unlink()
+    refused = subprocess.run(
+        [sys.executable, str(script)], capture_output=True, text=True, cwd=recipes
+    )
+    assert refused.returncode != 0
+    assert inputs.exists(), "inputs.jsonl is regenerated even when responses.json is refused"
+
+
+def test_build_fixtures_writes_responses_with_sorted_keys_like_the_recorder(catalog, recipes):
+    folder = scaffold_replay_with_build_script(catalog, recipes, number=4)
+    script = folder / "build_fixtures.py"
+    subprocess.run([sys.executable, str(script)], check=True, cwd=recipes)
+    raw = (folder / "fixtures" / "responses.json").read_text("utf-8")
+    data = json.loads(raw)
+    assert len(data) > 1
+    assert list(data.keys()) == sorted(data.keys())
