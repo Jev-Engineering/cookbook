@@ -14,19 +14,24 @@ from jev_cookbook.evaluation import score_level
 # ``sys.modules``, so typing.get_type_hints cannot resolve postponed annotations on a dataclass.
 
 # The clarity rubric, lowest level first. Each level is judged on its own against the response
-# text (TypeSafe's jaggedness notes, S07 item 1: the model sees the description and nothing
-# else, not a level's number or its neighbours), so every description stands alone: it names
-# what a reader of the response can and cannot do, never "clearer than the level above".
+# text ("Every level is evaluated separately. The model doesn't see a level's number or its
+# neighbours, so 'worse than the previous level' means nothing to it.",
+# https://docs.typesafe.ai/primitives/score.md), so every description stands alone: it names
+# what a reader of the response can and cannot do, never "clearer than the level above". Level
+# 0 and level 1 each gate on whether the outcome and the next step are available to the reader
+# at all, not on the presence of jargon by itself, so a response that states the outcome through
+# an undefined term (the reader can work around it) lands in level 1, not level 0, where the
+# outcome is unavailable outright.
 CONFUSING = (
-    "The reader cannot tell what happened to their request or what to do next without asking "
-    "a follow-up question. The response omits the key fact, uses an undefined internal term or "
-    "acronym, or contains two statements that contradict each other."
+    "The reader cannot tell what happened to their request or what to do next, because the "
+    "response omits the key fact, hides it behind an internal term or acronym the reader has "
+    "no way to resolve, or states two things that contradict each other."
 )
 NEEDS_WORK = (
-    "The reader can find the outcome or the next step only by rereading or by filling in "
-    "something the response does not state. The response does answer the question, but a "
-    "pronoun or reference could point to more than one thing, a term is used without being "
-    "defined, or part of the action is left for the reader to work out."
+    "The reader can find the outcome and the next step, but only with effort: a pronoun or "
+    "reference could point to more than one thing, the response uses a term the reader can "
+    "work around without losing the outcome, or part of the action is left for the reader to "
+    "work out."
 )
 CLEAR = (
     "The reader understands the outcome and the next step the first time they read the "

@@ -71,13 +71,14 @@ costs. This recipe has no recorded fixtures.
 
 ## Pull request rules
 
-This recipe's pull request changes only `recipes/03-response-clarity-scoring/`; the root
-`README.md` is generated and is regenerated separately by an integration worker after this branch
-is handed over, never by this recipe's own pull request. Until that happens,
-`Catalog (README is current)` is expected to be red on this pull request, which is not a defect to
-fix here. No sentence anywhere in this folder states or implies Jev's real quality, latency, or
-cost: every number above is a synthetic pipeline check. The full contract is
-[CONTRIBUTING.md](../../CONTRIBUTING.md).
+This recipe's builder never runs `tools/render_catalog.py` and never hand-edits the root
+`README.md`. A designated integration worker updates this branch against current `main` and
+commits only the generated regions of the root `README.md`, **in this same pull request**,
+before the final review and the final CI run (`CONTRIBUTING.md`, "The generated-README
+exception"). Until that integration step has run, `Catalog (README is current)` is expected to be
+red on this pull request, which is not a defect to fix here. No sentence anywhere in this folder
+states or implies Jev's real quality, latency, or cost: every number above is a synthetic pipeline
+check. The full contract is [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ## Sources
 
