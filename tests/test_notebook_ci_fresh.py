@@ -210,8 +210,13 @@ def test_other_renderer_pixels_pass(reference):
 
 
 def test_source_edit_is_stale(nb, reference):
+    # target_accuracy=1.0 -> 0.5 is a genuine parameter edit: re-executing the template with it
+    # changes the frozen threshold (0.69 -> 0.28) and flips one demo outcome, so this probes a
+    # source edit that would also be stale in substance, not just in text.
     cell = cell_with(nb, "python-rule")
-    cell["source"] = [line.replace("0.5", "0.6") for line in cell["source"]]
+    cell["source"] = [
+        line.replace("target_accuracy=1.0", "target_accuracy=0.5") for line in cell["source"]
+    ]
     assert any("source" in p for p in problems_for(nb, reference))
 
 

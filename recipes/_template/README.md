@@ -17,7 +17,11 @@ evaluation that picks its one setting (a confidence threshold) on `validation` a
 
 ## Run it offline
 
-From the repository root, in an environment with `pip install -e ".[dev]"`:
+From the repository root, in an environment with
+`pip install -e ".[dev,ml]" -c .github/constraints-notebooks.txt` (Python 3.14; this is the
+install that reproduces the committed notebook outputs byte for byte, see
+[docs/recipe-template.md](../../docs/recipe-template.md) step 6; `".[dev]"` alone is enough just
+to run the two commands below that do not re-execute the notebook):
 
 ```bash
 python -m jev_cookbook.fixtures validate recipes/_template   # the fixtures are valid
@@ -38,9 +42,13 @@ install Jupyter (`pip install jupyterlab`, which is not a dependency of this rep
 `notebook.ipynb` from this folder. `tools/execute_notebook.py` always removes `JEV_COOKBOOK_*` and
 `TYPESAFE_*` from the kernel's environment, so it never runs live and never writes a live outcome into
 a committed notebook; the recorder captures answers into `fixtures/` instead. In live mode this
-notebook makes one call for each of the 22 examples it uses, and no other. The setup, the budget
-limit and the recorder are in [docs/live.md](../../docs/live.md). Never put a key in a notebook,
-fixture or committed file.
+notebook makes exactly one call for each of the 22 examples it uses, and no other (each demo example
+is decided once and the stored answer is reused wherever it is shown again). That is below the live
+backend's default request budget of 25 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`); every attempt counts
+against that budget, including each retry, so a recipe this close to the default should mention
+that too. A recipe whose fixtures need more calls than the default budget should say so here and
+tell the reader to raise it before running live. The setup, the budget limit and the recorder are
+in [docs/live.md](../../docs/live.md). Never put a key in a notebook, fixture or committed file.
 
 ## What was and was not measured
 
@@ -62,7 +70,8 @@ _template/
 ├── notebook.ipynb        the recipe, executed, outputs committed
 ├── README.md             this page
 ├── helpers.py            the state, the question, and the rule Python enforces
-├── build_fixtures.py     writes fixtures/ (the keys come from helpers.py, so they cannot drift)
+├── build_fixtures.py     writes fixtures/ (the keys come from helpers.py, so they cannot drift;
+│                         --force is needed to overwrite a recorded responses.json)
 ├── fixtures/
 │   ├── inputs.jsonl      22 examples: 10 validation, 10 test, 2 demo
 │   ├── labels.jsonl      gold labels for the 20 scored examples
@@ -105,7 +114,10 @@ Needs only this page and the repository. Recipe `NN` is issue `NN` and its slug 
    deliberately imperfect (some wrong, one hard case). Then write `answers_for`, which turns each row's
    spec into typed answers (for example `ChoiceAnswer.from_probabilities`); until you do it stops with a
    `TODO` error. Run `python recipes/NN-slug/build_fixtures.py`, then
-   `python -m jev_cookbook.fixtures validate recipes/NN-slug`. Rules: [docs/fixtures.md](../../docs/fixtures.md).
+   `python -m jev_cookbook.fixtures validate recipes/NN-slug`. Generating inputs and labels is
+   separate from generating responses: once `fixtures/responses.json` holds a real, `recorded`
+   answer, rerunning the script refuses to overwrite it (`--force` overrides that, deliberately).
+   Rules: [docs/fixtures.md](../../docs/fixtures.md).
 5. **Write the notebook.** Replace each `TODO` in `notebook.ipynb`, section by section, keeping the
    headings. Prose goes in markdown cells, one sentence per design choice; charts use
    `jev_cookbook.style` ([docs/notebook-style.md](../../docs/notebook-style.md)); metrics use
@@ -158,8 +170,10 @@ What changes, and nothing else does:
 - The notebook's setup cell uses `get_backend(script=helpers.script, seed=helpers.SEED)`, and
   `run_header(..., backend=backend, ...)` states `scripted`. The "measured" cell follows `backend.mode`.
 - The validator reports `fixtures valid (mode scripted)`.
-- The generated replay-key test checks the mode: for a scripted recipe it asserts the keys are empty
-  and that the script gives the same answer to the same request twice.
+- `tests/test_helpers.py` asserts the keys are empty and that a fresh `ScriptedBackend(helpers.script,
+  helpers.SEED)` answers the same request identically twice; the scaffolder writes the one test file
+  that fits `--mode`, so neither carries the other's machinery (a replay recipe's test file has no
+  `ScriptedBackend` or mode check in it at all).
 
 How to drive a closed loop from the script is in [docs/simulation.md](../../docs/simulation.md).
 

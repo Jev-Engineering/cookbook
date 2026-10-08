@@ -292,3 +292,11 @@ in the `id` (`v07-sarcasm`) or keep your own notes in the generator, since rows 
 fields.
 
 Keep fixtures small enough to read: tens of examples at levels 1 and 2 ([CONTRIBUTING.md](../CONTRIBUTING.md), section 5).
+
+A generator that writes `responses.json` should not be able to silently replace a `recorded`
+answer with a synthetic one: once a response's provenance is `recorded`, regenerating fixtures
+should refuse to overwrite it without an explicit override. The scaffold's `build_fixtures.py`
+(and the template's) does this by checking the existing file before writing and requiring
+`--force` to overwrite a recorded one; generating `inputs.jsonl`/`labels.jsonl` stays separate
+from generating `responses.json` so the first two can always be regenerated safely. See
+[docs/recipe-template.md](recipe-template.md).
