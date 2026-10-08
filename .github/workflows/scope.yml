@@ -47,7 +47,20 @@ jobs:
       # from the `AUTH_HEADER` environment variable rather than taking it as a command-line
       # argument: `git -c "...=AUTHORIZATION: basic $auth"` put the token in the fetch process's
       # own argv, visible in /proc/*/cmdline (to anything else running on the runner at that
-      # moment, which on a hosted runner is nothing) for the life of the fetch.
+      # moment, which on a hosted runner is nothing) for the life of the fetch. The key is
+      # host-scoped (`http.https://github.com/.extraheader`, #122, restoring what `b040de7` had
+      # before round 5): round 5's plain `http.extraheader` applies the header to every HTTP(S)
+      # request this one `git fetch` makes, not only to github.com, and `--config-env` takes the
+      # scoped key unchanged (its name contains no `=`). Harmless either way today -- the remote
+      # is `origin` on github.com, and curl strips `Authorization` on a cross-host redirect -- but
+      # the narrower scope is free. The host is hardcoded as `github.com` rather than built from
+      # `${{ github.server_url }}` because that is where this repository actually lives: the
+      # checkout step above builds the same remote from `github.server_url`, which resolves to
+      # `https://github.com` here, so the two agree. It would only need to become
+      # `http.${{ github.server_url }}/.extraheader` if this repository ever moved to GitHub
+      # Enterprise Server -- and even then, a stale `github.com`-scoped key would simply stop
+      # matching and the (unauthenticated, no credential helper, `persist-credentials: false`)
+      # fetch would fail loudly rather than silently fetch nothing.
       - name: Fetch the pull request head (objects only)
         env:
           GH_TOKEN: ${{ github.token }}
@@ -55,7 +68,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           export AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
-          git --config-env=http.extraheader=AUTH_HEADER \
+          git --config-env=http.https://github.com/.extraheader=AUTH_HEADER \
             fetch --no-tags origin "+refs/pull/$PR_NUMBER/head:refs/remotes/pull/head"
           unset AUTH_HEADER
           git cat-file -e "$HEAD_SHA^{commit}" || { echo "head $HEAD_SHA is not fetchable (it was superseded)"; exit 1; }
