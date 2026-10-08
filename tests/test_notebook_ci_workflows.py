@@ -95,14 +95,22 @@ def test_required_job_names_are_unchanged():
 
 
 def test_every_sandboxed_python_runs_without_new_privileges():
+    """Four steps drop into nbrunner inside a namespace: the network-isolation self-test, the
+    netguard self-test, the PID-namespace self-test (#108 fix round 5) and the real execution.
+    Every one must drop privileges the same safe way; only the two that run a notebook-adjacent
+    Python (the guard self-test and the real execution) need `-s` (no user site-packages) — the
+    network probe only needs `socket`, and the PID-namespace self-test does not run Python at all."""
     body = code(NOTEBOOKS)
     calls = re.findall(r"exec setpriv [^\n]*", body)
-    assert len(calls) == 2  # the guard self-test and the notebook execution
+    assert len(calls) == 4, calls
     assert all("--no-new-privs" in call for call in calls), calls
-    # #108 fix round 4: both run as the dedicated unprivileged user, not the runner's own uid.
+    # #108 fix round 4: all four run as the dedicated unprivileged user, not the runner's own uid.
     assert all("--reuid=nbrunner --regid=nbrunner --clear-groups" in call for call in calls), calls
-    assert all(" python -s " in call for call in calls), calls
+    assert sum(" python -s " in call for call in calls) == 2, calls
     assert "unshare --net" in body
+    # #108 fix round 5, M1: the executor's own PID namespace, not the pkill backstop, is what
+    # stops a leftover process from outliving execution; proved by its own self-test below.
+    assert body.count("unshare --net --pid --fork --mount-proc") == 2
 
 
 def test_notebook_job_installs_the_ml_extra_under_the_constraints():
@@ -196,10 +204,27 @@ def test_kernel_runs_as_a_dedicated_unprivileged_user():
     execute_index = body.index("Execute the notebook offline")
     assert useradd_index < execute_index, "the user must exist before the kernel runs"
     # Its own empty $HOME, not the runner's: a usercustomize.py under the runner's $HOME would
-    # reach every later `python`, including the checks run after execution.
-    assert 'chown nbrunner:nbrunner "$RUNNER_TEMP/nbrunner-home"' in body
-    assert '"HOME=$RUNNER_TEMP/nbrunner-home"' in body
+    # reach every later `python`, including the checks run after execution. #108 fix round 5: the
+    # scratch tree (nbrunner's $HOME included) moved to /srv/nbrun, outside the runner's own $HOME.
+    assert "chown nbrunner:nbrunner /srv/nbrun/nbrunner-home" in body
+    assert '"HOME=/srv/nbrun/nbrunner-home"' in body
     assert '"HOME=$HOME"' not in body, "the kernel must not inherit the runner's $HOME"
+
+
+def test_sandbox_scratch_lives_outside_the_runners_home():
+    """#108 fix round 5, A5 suggestion: the scratch tree used to sit under $RUNNER_TEMP, a child
+    of the runner's $HOME, which bought nbrunner traversal into $HOME with a `chmod o+x "$HOME"`
+    justified only by reaching this one subdirectory. /srv/nbrun sits outside $HOME, so that chmod
+    is no longer needed for the scratch tree (it is still needed, and kept, so nbrunner can read
+    the checkout, which remains a child of $HOME on a hosted runner)."""
+    body = code(NOTEBOOKS)
+    assert "/srv/nbrun" in body
+    assert "$RUNNER_TEMP/nbrunner-home" not in body
+    assert "$RUNNER_TEMP/run" not in body
+    assert 'chmod o+x "$HOME"' in body  # kept, for checkout read-traversal, not the scratch
+    assert (
+        'chmod o+rx "$RUNNER_TEMP"' not in body
+    )  # no longer needed: nothing nbrunner reads is here
 
 
 def test_recipe_copy_is_nbrunners_only_writable_location():
@@ -217,9 +242,21 @@ def test_recipe_copy_is_nbrunners_only_writable_location():
 
 
 def test_uid_boundary_is_proved_before_execution_not_assumed():
-    """The self-test must check all three routes fix round 4's review demonstrated (site-packages,
-    the checkout including tools/, and the committed notebook), and that nbrunner can still write
-    its own recipe copy, as the one exception."""
+    """The self-test must check all six routes fix round 4's review and A5's fix round 5 review
+    demonstrated or asked for (site-packages, the checkout, tools/ inside it, the committed
+    notebook, the pinned constraints file, the runner's own $HOME), plus the three files a step
+    uses to talk to later steps (`$GITHUB_ENV`, `$GITHUB_OUTPUT`, `$GITHUB_PATH` — #108 fix round
+    5, A5 suggestion: an attacker-controlled `$GITHUB_PATH` entry would put a fake `python` ahead
+    of the real one for every later step, the checks included), and that nbrunner can still write
+    its own recipe copy, as the one exception.
+
+    #108 fix round 5, M2: the previous version of this test pinned the `sudo env` assignments
+    (`SITE_PACKAGES=...`, `NOTEBOOK=...`, etc.) and the generic `-w "$path"` loop shape, but never
+    looked at the probe script's own `for path in ...` line — so removing a variable from that
+    loop (dropping site-package coverage entirely, the exact route fix round 4 found live) left
+    every assignment and every other assertion here intact and the whole module still passed. This
+    version reads the `for path in ...` line itself and asserts the full, exact set of variable
+    names in it, so dropping any one of them fails this test directly."""
     body = code(NOTEBOOKS)
     probe = re.search(
         r"Prove the uid boundary - nbrunner can write only its own recipe copy\n(.*?)\n\s*- ",
@@ -229,10 +266,27 @@ def test_uid_boundary_is_proved_before_execution_not_assumed():
     assert probe, "no uid-boundary self-test"
     text = probe.group(1)
     assert "sysconfig.get_paths()['purelib']" in text  # site-packages, resolved, not guessed
+    for_line = next((line for line in text.splitlines() if "for path in" in line), None)
+    assert for_line, "no `for path in ...` line in the probe script"
+    assert re.findall(r'"\$([A-Z_]+)(?:/[^"]*)?"', for_line) == [
+        "SITE_PACKAGES",
+        "WORKSPACE",
+        "WORKSPACE",  # "$WORKSPACE/tools"
+        "NOTEBOOK",
+        "CONSTRAINTS",
+        "RUNNER_HOME",
+        "GH_ENV",
+        "GH_OUTPUT",
+        "GH_PATH",
+    ], for_line
+    assert '"$WORKSPACE/tools"' in for_line
     assert '"SITE_PACKAGES=$SITE_PACKAGES"' in text
     assert '"NOTEBOOK=$GITHUB_WORKSPACE/recipes/$RECIPE/notebook.ipynb"' in text
     assert '"CONSTRAINTS=$GITHUB_WORKSPACE/.github/constraints-notebooks.txt"' in text
-    assert '"RECIPE_COPY=$RUNNER_TEMP/run/$RECIPE"' in text
+    assert '"GH_ENV=$GITHUB_ENV"' in text
+    assert '"GH_OUTPUT=$GITHUB_OUTPUT"' in text
+    assert '"GH_PATH=$GITHUB_PATH"' in text
+    assert '"RECIPE_COPY=/srv/nbrun/run/$RECIPE"' in text
     assert '-w "$path"' in text  # must-not-write loop over the read-only locations
     assert '! -w "$RECIPE_COPY"' in text  # must-write check on the one writable exception
     assert "--reuid=nbrunner --regid=nbrunner --clear-groups" in text
@@ -288,28 +342,52 @@ def test_checks_run_directly_from_the_checkout_not_a_frozen_copy():
     assert hygiene_check and hygiene_check.group(1) == (
         'python tools/check_hygiene.py "$RUNNER_TEMP/fresh-notebook.ipynb"'
     )
-    # The executed notebook is copied out of nbrunner's exclusive, mode-700 recipe copy as the
-    # runner, only after every nbrunner process is confirmed dead, before either check reads it.
+    # #108 fix round 5, M1: the executed notebook is copied out of nbrunner's exclusive, mode-700
+    # recipe copy as the runner, inside the "Execute the notebook offline" step itself, immediately
+    # after the sandboxed run and before any step boundary (see test_execute_closes_the_pid_
+    # namespace_and_reads_back_in_the_same_step below) — not as a separate step gated by the kill
+    # step any more, since the PID namespace already guarantees nothing is left to race by the time
+    # that copy runs. `Kill any leftover nbrunner processes` is a backstop that runs after.
+    execute_step = re.search(r"Execute the notebook offline\n(.*?)\n\s*- ", body, re.DOTALL)
+    assert execute_step and "sudo install" in execute_step.group(1)
+    assert '"/srv/nbrun/run/$RECIPE/notebook.ipynb" "$RUNNER_TEMP/fresh-notebook.ipynb"' in (
+        execute_step.group(1)
+    )
+    assert "Copy the executed notebook out, as the runner" not in body
     kill_step = re.search(r"Kill any leftover nbrunner processes\n(.*?)\n\s*- ", body, re.DOTALL)
     assert kill_step and "pkill -9 -u nbrunner" in kill_step.group(1)
     assert "pgrep -u nbrunner" in kill_step.group(1)
-    copy_out = re.search(
-        r"Copy the executed notebook out, as the runner\n(.*?)\n\s*- ", body, re.DOTALL
-    )
-    assert copy_out and "sudo install" in copy_out.group(1)
     execute_index = body.index("Execute the notebook offline")
     kill_index = body.index(kill_step.group(0))
-    copy_out_index = body.index(copy_out.group(0))
     git_show_index = body.index(git_show.group(0))
     fresh_check_index = body.index(fresh_check.group(0))
-    assert execute_index < kill_index < copy_out_index < git_show_index < fresh_check_index
+    assert execute_index < kill_index < git_show_index < fresh_check_index
 
 
-def test_a_detached_process_is_proved_killable_and_killed_before_the_notebook_is_read_back():
-    """#108 fix round 4, B4 M1 route B: a cell can start a process that outlives the kernel and
-    rewrite the freshly executed notebook after the executor exits. A self-test proves `pkill -u
-    nbrunner` actually reaches a detached (setsid'd) grandchild, and the real step runs before the
-    executed notebook is copied out (see the ordering assertion above)."""
+def test_execute_closes_the_pid_namespace_and_reads_back_in_the_same_step():
+    """#108 fix round 5, M1: A5 reproduced a detached, tight-loop `setsid` rewriter beating the old
+    `pkill`-after-execution defence by about two orders of magnitude of margin (a one-shot
+    sleep-then-write, the only shape fix round 4's own proof used, does not exercise this at all).
+    The fix is a PID namespace around the executor (`unshare ... --pid --fork --mount-proc`, on top
+    of the existing `--net`), so nothing it spawns can outlive it, plus reading the result back
+    inside that same step, immediately, before any step boundary a surviving process could still
+    exploit."""
+    body = code(NOTEBOOKS)
+    execute_step = re.search(r"Execute the notebook offline\n(.*?)\n\s*- ", body, re.DOTALL)
+    assert execute_step
+    text = execute_step.group(1)
+    assert "unshare --net --pid --fork --mount-proc" in text
+    install_index = text.index("sudo install")
+    unshare_index = text.index("unshare --net --pid --fork --mount-proc")
+    assert unshare_index < install_index, "the copy must come after the sandboxed run returns"
+
+
+def test_a_detached_process_is_proved_killable_by_the_backstop():
+    """#108 fix round 4, B4 M1 route B, narrowed by #108 fix round 5, M1: a cell can start a
+    process that outlives the kernel. The PID namespace (see the test above) is what actually
+    closes this route now; `pkill -u nbrunner` afterward is kept only as a backstop, and this
+    self-test proves only that it reaches a detached (setsid'd) grandchild when given one — not
+    that it would reach one in time on its own, which is no longer the property being relied on."""
     body = code(NOTEBOOKS)
     self_test = re.search(
         r"Prove a detached nbrunner process can be fully killed\n(.*?)\n\s*- ", body, re.DOTALL
@@ -322,8 +400,32 @@ def test_a_detached_process_is_proved_killable_and_killed_before_the_notebook_is
     self_test_index = body.index(self_test.group(0))
     execute_index = body.index("Execute the notebook offline")
     assert self_test_index < execute_index, (
-        "the kill mechanism must be proved before it is relied on"
+        "the backstop mechanism must be proved before it is relied on"
     )
+
+
+def test_pid_namespace_leaves_no_survivors_even_a_looping_rewriter():
+    """#108 fix round 5, M1's own self-test: unlike the pkill backstop's self-test (a one-shot
+    `sleep 300 & disown`), this one raises a `setsid`'d process that loops forever, inside the same
+    kind of `--pid --fork --mount-proc` namespace the real execute step uses, and asserts nothing
+    of it survives the namespace's own PID 1 exiting — with no `pkill` involved in reaching that
+    conclusion at all."""
+    body = code(NOTEBOOKS)
+    self_test = re.search(
+        r"Prove a PID namespace leaves 0 survivors, even a looping rewriter\n(.*?)\n\s*- ",
+        body,
+        re.DOTALL,
+    )
+    assert self_test, "no self-test proves the PID namespace itself leaves no survivors"
+    text = self_test.group(1)
+    assert "unshare --net --pid --fork --mount-proc" in text
+    assert "setsid sh -c" in text
+    assert "while :; do :; done" in text  # a looping rewriter, not a one-shot sleep-then-write
+    assert "pkill" not in text, "this self-test must not rely on pkill to reach its conclusion"
+    assert "pgrep -u nbrunner" in text
+    self_test_index = body.index(self_test.group(0))
+    execute_index = body.index("Execute the notebook offline")
+    assert self_test_index < execute_index, "the namespace must be proved before it is relied on"
 
 
 def test_the_checkout_is_asserted_untouched_right_after_execution():
