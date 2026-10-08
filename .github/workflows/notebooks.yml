@@ -92,7 +92,7 @@ jobs:
       # A full run (push to main, the weekly cron, or a foundation change) can select every recipe
       # at once; without a cap this one job claims as many of the organisation's concurrent-job
       # slots as there are recipes, starving CI's other workflows and jobs. 10 keeps a wave a
-      # deliberate, bounded choice (see "Run time and cost" in docs/notebook-ci.md) rather than
+      # deliberate, bounded choice (see "Run time and scaling" in docs/notebook-ci.md) rather than
       # whatever the organisation's own limit happens to be, and a pull request (at most one recipe
       # folder changed, ordinarily) never notices it.
       max-parallel: 10
@@ -135,33 +135,44 @@ jobs:
       # readable (so the kernel can still import jev_cookbook and run Python) but not writable by
       # that user, and its $HOME is an empty directory it owns, not the runner's. The self-tests
       # below prove the boundary rather than assume it.
+      # The scratch tree lives outside the runner's $HOME (#108 fix round 5, A5 suggestion 2): the
+      # earlier shape put it under $RUNNER_TEMP (a child of $HOME, e.g. /home/runner/work/_temp),
+      # which bought nbrunner traversal with `chmod o+x "$HOME"` for the sake of this one
+      # subdirectory, and `chmod o+rx "$RUNNER_TEMP"` besides. /srv/nbrun is root-owned, mode 755,
+      # and sits outside $HOME entirely, so neither chmod is needed for the scratch tree or the
+      # self-test probe scripts below, which now live here too. `chmod o+x "$HOME"` is still
+      # required, for a different and unavoidable reason: $GITHUB_WORKSPACE (the checkout nbrunner
+      # must still be able to *read* — tools/execute_notebook.py, tools/netguard, jev_cookbook)
+      # is itself a child of $HOME on a hosted runner, so nbrunner needs the same traversal into
+      # $HOME to reach it regardless of where the scratch sits; moving the scratch narrows what
+      # that traversal is used for, it does not remove the need for it.
       - name: Create the unprivileged kernel user
         run: |
           sudo useradd -M -s /usr/sbin/nologin nbrunner
-          sudo mkdir -p "$RUNNER_TEMP/nbrunner-home"
-          sudo chown nbrunner:nbrunner "$RUNNER_TEMP/nbrunner-home"
-          sudo chmod 700 "$RUNNER_TEMP/nbrunner-home"
-          # So nbrunner can reach its scratch copy below $RUNNER_TEMP; it still owns nothing here.
-          # The runner's own $HOME (the parent of $RUNNER_TEMP, e.g. /home/runner) is mode 750 by
-          # default, which blocks nbrunner from traversing into it at all, before $RUNNER_TEMP's
-          # own permissions are even considered; +x (not +r) is enough to pass through without
-          # letting nbrunner list the runner's home directory itself.
+          sudo mkdir -m 755 /srv/nbrun
+          sudo mkdir -m 700 /srv/nbrun/nbrunner-home
+          sudo chown nbrunner:nbrunner /srv/nbrun/nbrunner-home
+          # /srv/nbrun itself is root-owned, so the runner user needs its own subdirectory to
+          # populate without sudo; the recipe copy below is chowned away from the runner again
+          # right after.
+          sudo mkdir -m 755 /srv/nbrun/run
+          sudo chown "$(id -u):$(id -g)" /srv/nbrun/run
           sudo chmod o+x "$HOME"
-          sudo chmod o+rx "$RUNNER_TEMP"
       # The recipe copy is nbrunner's only writable location: owned by it, mode 700, so nothing
       # else on the runner (including the runner user itself) can read or write it either.
       - name: Copy the recipe to nbrunner's scratch folder
         run: |
-          mkdir -p "$RUNNER_TEMP/run"
-          cp -R "recipes/$RECIPE" "$RUNNER_TEMP/run/$RECIPE"
-          sudo chown -R nbrunner:nbrunner "$RUNNER_TEMP/run/$RECIPE"
-          sudo chmod -R u+rwX,go-rwx "$RUNNER_TEMP/run/$RECIPE"
+          cp -R "recipes/$RECIPE" "/srv/nbrun/run/$RECIPE"
+          sudo chown -R nbrunner:nbrunner "/srv/nbrun/run/$RECIPE"
+          sudo chmod -R u+rwX,go-rwx "/srv/nbrun/run/$RECIPE"
       # The OS-level guard: a network namespace that has a loopback interface and nothing else
       # (the kernel talks to the runner over loopback). The self-test fails the job if the
-      # namespace is not isolating, so a guard that silently does nothing cannot pass.
+      # namespace is not isolating, so a guard that silently does nothing cannot pass. Runs as
+      # nbrunner, not root (#108 fix round 5, A5 suggestion 4): the step's name promises the
+      # sandbox the notebook actually runs in, and the notebook never runs as root.
       - name: Prove the sandbox has no route out
         run: |
-          cat > "$RUNNER_TEMP/probe.py" <<'PY'
+          cat > /srv/nbrun/probe.py <<'PY'
           import socket, sys
           for attempt in (
               lambda: socket.create_connection(("1.1.1.1", 53), timeout=5),
@@ -180,8 +191,10 @@ jobs:
           socket.create_connection(server.getsockname(), timeout=5).close()
           print("loopback works")
           PY
-          sudo env "PATH=$PATH" unshare --net -- sh -c \
-            'ip link set lo up && exec env -u PYTHONPATH python "$1"' sh "$RUNNER_TEMP/probe.py"
+          chmod 644 /srv/nbrun/probe.py  # nbrunner must be able to read it, not just root
+          sudo env "PATH=$PATH" "HOME=/srv/nbrun/nbrunner-home" unshare --net -- sh -c \
+            'ip link set lo up && exec setpriv --no-new-privs --reuid=nbrunner --regid=nbrunner --clear-groups -- env -u PYTHONPATH python "$1"' \
+            sh /srv/nbrun/probe.py
       # sudo resets the environment, so HOME and PYTHONPATH are passed explicitly, to the same
       # values the execute step below uses: nbrunner's own empty $HOME, never the runner's. setpriv
       # drops root and sets no_new_privs, so a cell cannot sudo its way back out of the namespace.
@@ -191,7 +204,7 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}/tools/netguard
         run: |
-          cat > "$RUNNER_TEMP/loaded.py" <<'PY'
+          cat > /srv/nbrun/loaded.py <<'PY'
           import os, socket, subprocess
           assert socket.socket.connect.__module__ == "sitecustomize", "netguard not loaded"
           print("netguard loaded")
@@ -202,17 +215,21 @@ jobs:
           assert os.geteuid() != 0, "still root"
           print("no_new_privs set; sudo refused; euid", os.geteuid())
           PY
-          chmod 644 "$RUNNER_TEMP/loaded.py"  # nbrunner must be able to read it, not just root
+          chmod 644 /srv/nbrun/loaded.py  # nbrunner must be able to read it, not just root
           sudo env -u XDG_CONFIG_HOME -u XDG_CACHE_HOME -u XDG_DATA_HOME -u XDG_STATE_HOME \
-            -u XDG_RUNTIME_DIR "PATH=$PATH" "HOME=$RUNNER_TEMP/nbrunner-home" \
+            -u XDG_RUNTIME_DIR "PATH=$PATH" "HOME=/srv/nbrun/nbrunner-home" \
             "PYTHONPATH=$PYTHONPATH" "PYTHONNOUSERSITE=1" unshare --net -- sh -c \
             'ip link set lo up && exec setpriv --no-new-privs --reuid=nbrunner --regid=nbrunner --clear-groups -- python -s "$1"' \
-            sh "$RUNNER_TEMP/loaded.py"
+            sh /srv/nbrun/loaded.py
       # A cell can start a process that outlives the kernel (a detached grandchild, double-forked or
-      # setsid'd): nothing about ending the kernel ends it too, and it could rewrite the executed
-      # notebook after the executor exits but before the checks read it back. Prove the backstop
-      # (pkill -u nbrunner, run for real right after execution below) actually reaches such a
-      # process before relying on it, by raising one here and killing it the same way.
+      # setsid'd). The PID namespace the execute step runs in (below) is what actually closes this
+      # route: the kernel is PID 1 of its own namespace, so nothing in it can survive the namespace
+      # exiting. `pkill -u nbrunner` afterward is a backstop, not the defence — #108 fix round 5, M1
+      # found that a process *holding* the file open in a 5 ms rewrite loop wins the ~455 ms between
+      # the executor exiting and `pkill` running, where a one-shot write after a `sleep` does not.
+      # This self-test proves only what a backstop can prove: that `pkill` reaches a detached
+      # process at all, once it is given one. The self-test below proves the property that matters:
+      # that the namespace leaves nothing to reach in the first place.
       - name: Prove a detached nbrunner process can be fully killed
         run: |
           sudo setpriv --no-new-privs --reuid=nbrunner --regid=nbrunner --clear-groups -- \
@@ -226,19 +243,46 @@ jobs:
             exit 1
           fi
           echo "ok: pkill -u nbrunner leaves nothing, including a detached grandchild"
+      # The property that actually has to hold: nothing the kernel spawns, however it is detached,
+      # can outlive the executor's own process tree. A PID namespace gives this for free, rather
+      # than racing a kill against it: the wrapped command becomes PID 1 of a fresh namespace, and
+      # the instant PID 1 exits, the kernel SIGKILLs every other process left in that namespace —
+      # there is no step boundary, and no pkill, for anything to survive into. Proved here with the
+      # same attack #108 fix round 5's review used to defeat the old kill-only defence: a
+      # `setsid`'d grandchild that keeps running (a tight loop, not a one-shot sleep-then-write) to
+      # maximise the window a kill-based defence would have to beat. `--mount-proc` is needed only
+      # so tools inside the namespace (e.g. `ps`) see its own process table; it is not needed for
+      # the kill-on-exit property itself, which is unconditional kernel behaviour.
+      - name: Prove a PID namespace leaves 0 survivors, even a looping rewriter
+        run: |
+          sudo env -u XDG_CONFIG_HOME -u XDG_CACHE_HOME -u XDG_DATA_HOME -u XDG_STATE_HOME \
+            -u XDG_RUNTIME_DIR "PATH=$PATH" "HOME=/srv/nbrun/nbrunner-home" \
+            unshare --net --pid --fork --mount-proc -- sh -c \
+            'ip link set lo up && exec setpriv --no-new-privs --reuid=nbrunner --regid=nbrunner --clear-groups -- \
+             setsid sh -c "(while :; do :; done &) ; exit 0"'
+          sleep 1
+          if sudo pgrep -u nbrunner >/dev/null; then
+            echo "FAIL: a process spawned inside the PID namespace survived its own PID 1 exiting"
+            sudo ps -u nbrunner -o pid,ppid,cmd
+            exit 1
+          fi
+          echo "ok: the PID namespace leaves 0 survivors, including a detached, looping rewriter"
       # The uid boundary itself, proved rather than assumed: nbrunner must not be able to write the
       # interpreter's site-packages (a sitecustomize.py there would run before every later `python`,
       # including the checks below), the checkout (its tools/ or the committed notebook the checks
-      # compare against), the pinned constraints file, or anything under the runner's own $HOME (a
-      # usercustomize.py there is the same attack by a different path) — and must be able to write
-      # only its own recipe copy.
+      # compare against), the pinned constraints file, anything under the runner's own $HOME (a
+      # usercustomize.py there is the same attack by a different path), or the three files a
+      # workflow step uses to talk to later steps (`$GITHUB_ENV`, `$GITHUB_OUTPUT`, `$GITHUB_PATH` —
+      # #108 fix round 5, A5 suggestion: an appended `$GITHUB_PATH` line would put an
+      # attacker-controlled `python` ahead of the real one for every later step, the checks
+      # included) — and must be able to write only its own recipe copy.
       - name: Prove the uid boundary - nbrunner can write only its own recipe copy
         run: |
           SITE_PACKAGES=$(python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
-          cat > "$RUNNER_TEMP/uid_boundary_probe.sh" <<'SH'
+          cat > /srv/nbrun/uid_boundary_probe.sh <<'SH'
           set -u
           fail=0
-          for path in "$SITE_PACKAGES" "$WORKSPACE" "$WORKSPACE/tools" "$NOTEBOOK" "$CONSTRAINTS" "$RUNNER_HOME"; do
+          for path in "$SITE_PACKAGES" "$WORKSPACE" "$WORKSPACE/tools" "$NOTEBOOK" "$CONSTRAINTS" "$RUNNER_HOME" "$GH_ENV" "$GH_OUTPUT" "$GH_PATH"; do
             if [ -w "$path" ]; then
               echo "FAIL: nbrunner can write $path (it must not)"
               fail=1
@@ -254,16 +298,28 @@ jobs:
           fi
           exit $fail
           SH
-          chmod 644 "$RUNNER_TEMP/uid_boundary_probe.sh"  # nbrunner must be able to read it too
+          chmod 644 /srv/nbrun/uid_boundary_probe.sh  # nbrunner must be able to read it too
           sudo env \
             "SITE_PACKAGES=$SITE_PACKAGES" \
             "WORKSPACE=$GITHUB_WORKSPACE" \
             "NOTEBOOK=$GITHUB_WORKSPACE/recipes/$RECIPE/notebook.ipynb" \
             "CONSTRAINTS=$GITHUB_WORKSPACE/.github/constraints-notebooks.txt" \
             "RUNNER_HOME=$HOME" \
-            "RECIPE_COPY=$RUNNER_TEMP/run/$RECIPE" \
+            "GH_ENV=$GITHUB_ENV" \
+            "GH_OUTPUT=$GITHUB_OUTPUT" \
+            "GH_PATH=$GITHUB_PATH" \
+            "RECIPE_COPY=/srv/nbrun/run/$RECIPE" \
             setpriv --no-new-privs --reuid=nbrunner --regid=nbrunner --clear-groups -- \
-            sh "$RUNNER_TEMP/uid_boundary_probe.sh"
+            sh /srv/nbrun/uid_boundary_probe.sh
+      # #108 fix round 5, M1: `--pid --fork --mount-proc` on the `unshare` already here is the
+      # mechanism that protects the notebook the checks below read — see "Prove a PID namespace
+      # leaves 0 survivors" above for why a kill alone is not enough. The wrapped shell becomes
+      # PID 1 of a fresh PID namespace; when it exits (after the kernel it ran has exited too, and
+      # nbclient has already waited on the kernel subprocess the normal way, so this does not
+      # change when the step considers execution finished), the kernel immediately reaps everything
+      # else left in that namespace, detached or not. `--timeout` below is still enforced in Python
+      # by nbclient's own cell timeout, not by a signal from outside, so the namespace does not
+      # change what makes a slow cell fail.
       - name: Execute the notebook offline
         env:
           # The Python-level guard (tools/netguard/sitecustomize.py) also reaches the kernel:
@@ -281,31 +337,36 @@ jobs:
         run: |
           started=$(date +%s)
           sudo env -u XDG_CONFIG_HOME -u XDG_CACHE_HOME -u XDG_DATA_HOME -u XDG_STATE_HOME \
-            -u XDG_RUNTIME_DIR "PATH=$PATH" "HOME=$RUNNER_TEMP/nbrunner-home" \
-            "PYTHONPATH=$PYTHONPATH" "PYTHONNOUSERSITE=1" unshare --net -- sh -c \
+            -u XDG_RUNTIME_DIR "PATH=$PATH" "HOME=/srv/nbrun/nbrunner-home" \
+            "PYTHONPATH=$PYTHONPATH" "PYTHONNOUSERSITE=1" unshare --net --pid --fork --mount-proc -- sh -c \
             'ip link set lo up && exec setpriv --no-new-privs --reuid=nbrunner --regid=nbrunner --clear-groups -- python -s tools/execute_notebook.py --timeout 300 "$1"' \
-            sh "$RUNNER_TEMP/run/$RECIPE"
+            sh "/srv/nbrun/run/$RECIPE"
           echo "executed $RECIPE in $(( $(date +%s) - started )) s" | tee -a "$GITHUB_STEP_SUMMARY"
-      # A cell could have started a process that outlives the kernel (setsid, double fork, &
-      # disown): stray processes survive step boundaries within a job, so one could still be
-      # running here, free to rewrite the recipe copy's notebook.ipynb (nbrunner's own writable
-      # file) between the executor exiting and the next step reading it. Ending every nbrunner
-      # process before that read closes the route; self-tested above.
+          # The read-back happens here, immediately, in the same step as execution and before any
+          # step boundary (#108 fix round 5, M1): by the time the `unshare --pid --fork` call above
+          # has returned, the namespace it wrapped is already gone and everything in it has already
+          # been reaped, so there is no longer a window, step-boundary or otherwise, in which a
+          # leftover process could still be rewriting the file this copies. nbrunner owns its
+          # recipe copy exclusively (mode 700); copy it out as the runner, into a plain
+          # runner-owned file nbrunner cannot reach.
+          sudo install -m 0644 -o "$(id -u)" -g "$(id -g)" \
+            "/srv/nbrun/run/$RECIPE/notebook.ipynb" "$RUNNER_TEMP/fresh-notebook.ipynb"
+      # Backstop, not the defence (#108 fix round 5, M1): the PID namespace the execute step runs
+      # in means nothing of the kernel's process tree can outlive the `unshare --pid --fork` call
+      # that already returned, above, before the notebook was even copied out — so this should
+      # never find anything. It stays as defence in depth against the namespace construction itself
+      # ever being wrong (a dropped flag, a future refactor), and fails loudly rather than
+      # silently if it ever does find a survivor; it is no longer what makes the copy above
+      # trustworthy.
       - name: Kill any leftover nbrunner processes
         run: |
           sudo pkill -9 -u nbrunner || true
           sleep 1
           if sudo pgrep -u nbrunner >/dev/null; then
-            echo "a detached nbrunner process survived pkill; refusing to trust the notebook it could still touch"
+            echo "a process survived both the PID namespace and pkill; the sandbox's process-tree containment is broken"
             sudo ps -u nbrunner -o pid,ppid,cmd
             exit 1
           fi
-      # nbrunner owns its recipe copy exclusively (mode 700): read it back as the runner, into a
-      # plain runner-owned file, only after every nbrunner process is confirmed dead.
-      - name: Copy the executed notebook out, as the runner
-        run: |
-          sudo install -m 0644 -o "$(id -u)" -g "$(id -g)" \
-            "$RUNNER_TEMP/run/$RECIPE/notebook.ipynb" "$RUNNER_TEMP/fresh-notebook.ipynb"
       # The checkout is unwritable by nbrunner by construction (see the uid-boundary self-test
       # above), so the checks below read it directly rather than from a copy made in advance. This
       # assertion is the backstop in case that construction is ever wrong: it fails loudly rather
