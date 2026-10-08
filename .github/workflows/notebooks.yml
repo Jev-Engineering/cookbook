@@ -192,6 +192,11 @@ jobs:
           print("no_new_privs set; sudo refused; euid", os.geteuid())
           PY
           chmod 644 "$RUNNER_TEMP/loaded.py"  # nbrunner must be able to read it, not just root
+          echo "--- debug: path permissions ---"
+          namei -l "$RUNNER_TEMP/loaded.py"
+          echo "--- debug: direct read as nbrunner, no unshare/setpriv ---"
+          sudo -u nbrunner cat "$RUNNER_TEMP/loaded.py" > /dev/null && echo "sudo -u nbrunner: read ok" || echo "sudo -u nbrunner: read FAILED"
+          echo "--- end debug ---"
           sudo env "PATH=$PATH" "HOME=$RUNNER_TEMP/nbrunner-home" "PYTHONPATH=$PYTHONPATH" \
             "PYTHONNOUSERSITE=1" unshare --net -- sh -c \
             'ip link set lo up && exec setpriv --no-new-privs --reuid=nbrunner --regid=nbrunner --clear-groups -- python -s "$1"' \
