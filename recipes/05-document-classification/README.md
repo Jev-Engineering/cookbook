@@ -31,11 +31,11 @@ The notebook needs no network and no API key. It runs with this folder as its wo
 replays the stored answers in `fixtures/responses.json`, and imports only the standard library and
 `jev_cookbook`. Its first output says which mode ran.
 
-Reproducing the committed notebook outputs byte for byte (rather than just running the recipe)
-needs the exact stack CI installs for the notebook job: `pip install -e ".[ml]"
--c .github/constraints-notebooks.txt` (Python 3.14; `.github/workflows/notebooks.yml`'s `Install`
-step). `".[dev]"` alone is enough for the three commands above, which do not re-execute the
-notebook.
+Reproducing the committed notebook outputs byte for byte needs the exact stack CI installs for the
+`Notebook (<recipe>)` job: `pip install -e ".[ml]" -c .github/constraints-notebooks.txt` (Python
+3.14; `nbclient` and `ipykernel` are core dependencies, so this alone is enough to execute the
+notebook — `.[dev]` above is for `ruff` and `pytest`, which that job does not run; see
+[docs/recipe-template.md](../../docs/recipe-template.md) step 6).
 
 ## Switch to live
 
