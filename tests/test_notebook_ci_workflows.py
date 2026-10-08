@@ -70,6 +70,10 @@ def test_scope_never_checks_out_or_runs_the_pull_request_head():
     # The head is fetched as git objects; it is never the ref of a checkout.
     assert "ref: ${{ github.event.pull_request.head" not in body
     assert "refs/pull/$PR_NUMBER/head" in body
+    # #122 (A9 S2 on #108, folding in A6 S4): the auth header is scoped to github.com, not every
+    # host the fetch might talk to, and `--config-env` -- which takes the scoped key unchanged --
+    # is what actually reads it, not a literal `-c "...=..."` that would put the token in argv.
+    assert "--config-env=http.https://github.com/.extraheader=AUTH_HEADER" in body
     # The only command that runs Python runs the base's script; nothing installs or sources.
     for pattern in (r"\bpip\b", r"\bsource\b", r"\bsetup\.py\b", r"\bnpm\b", r"\bmake\b"):
         assert not re.search(pattern, body), pattern
@@ -455,17 +459,12 @@ def test_execute_step_sets_pipefail_shell():
         "missing `shell: bash` with a different spelling"
     )
     # #108 fix round 8, A9 S3 / B9 suggestion 1: `|| true` is one spelling of "force the
-    # pipeline's exit status to 0 regardless of `pipefail`"; `; true` and `|| :` are two more
-    # (the same effect through a semicolon, and through the `:` builtin instead of `true`), and
-    # `set +o pipefail` is a different route to the same place -- turning `pipefail` back off for
-    # the rest of the step without touching `shell: bash` or the pipeline at all. Each is rejected
-    # on its own rather than folded into one regex, in the same style as the assertion above (see
-    # the docstring's reasoning for not generalising further).
-    assert "; true" not in text, (
-        "a trailing `; true` after the pipeline is the `|| true` bypass spelled with a semicolon "
-        "instead of `||`: the pipeline's own exit status is discarded and the step's status "
-        "becomes `true`'s, always 0"
-    )
+    # pipeline's exit status to 0 regardless of `pipefail`"; `|| :` is another (the same effect
+    # through the `:` builtin instead of `true`), and `set +o pipefail` is a different route to
+    # the same place -- turning `pipefail` back off for the rest of the step without touching
+    # `shell: bash` or the pipeline at all. Each is rejected on its own rather than folded into
+    # one regex, in the same style as the assertion above (see the docstring's reasoning for not
+    # generalising further).
     assert "|| :" not in text, (
         "a trailing `|| :` after the pipeline is the `|| true` bypass spelled with the `:` "
         "builtin instead of `true`, which also always exits 0"
@@ -473,6 +472,42 @@ def test_execute_step_sets_pipefail_shell():
     assert "set +o pipefail" not in text, (
         "`set +o pipefail` turns pipefail back off for the rest of the step, defeating "
         "`shell: bash` without changing the `shell:` line or the pipeline itself"
+    )
+    # #122 (A9 re-review of round 8, comment 6057665444, and B9's comment 6057581690): putting
+    # the pipeline into an `&&` list exempts it from `set -e` entirely (the rule applies to the
+    # list as a whole, not to the pipeline that failed inside it), so the step runs on past the
+    # failure and its status becomes the list's last command's -- `true` or `:`, always 0. This is
+    # a real bypass, measured end to end on #108: appending `&& true` or `&& :` to the real
+    # execute step left it at `STEP EXIT=0` with the stale, never-executed notebook copied out as
+    # fresh, the same outcome as `|| true`.
+    assert "&& true" not in text, (
+        "a trailing `&& true` after the pipeline is a real bypass: the `&&` list exempts the "
+        "pipeline from `set -e`, so the step runs on and its status becomes `true`'s, always 0"
+    )
+    assert "&& :" not in text, (
+        "a trailing `&& :` is the same `&&`-list bypass as `&& true`, spelled with the `:` "
+        "builtin instead of `true`"
+    )
+    # #122, same source: `set +e` is a different route to the same place as `set +o pipefail` --
+    # it turns off `-e` (not `pipefail`) for the rest of the step, so the failing pipeline no
+    # longer aborts anything and the step again exits with its last command's status, 0. Measured
+    # on #108: injecting `set +e` as the block's first line left the step at `STEP EXIT=0` on a
+    # failing executor.
+    assert "set +e" not in text, (
+        "`set +e` turns off `-e` for the rest of the step, the same bypass as `set +o pipefail` "
+        "reached through the other switch -- it also leaves the step exit 0 on a failing executor"
+    )
+    # A trailing `; true`, by contrast, is NOT a bypass: the pipeline is a standalone command (not
+    # part of an `&&`/`||` list), so `set -e` aborts the step at the pipeline itself, before
+    # `; true` is ever reached -- measured on #108: `; true` appended to the real step left it at
+    # `STEP EXIT=1`, identical to the unmodified step. The assertion below is kept anyway, as
+    # harmless over-strictness in the same defensive style as the others (rejecting a spelling
+    # that was never a bypass costs nothing), but -- per the #108 round-8 re-review -- its message
+    # no longer claims the pipeline's exit status is discarded, which is not what happens.
+    assert "; true" not in text, (
+        "a trailing `; true` after the pipeline is not a bypass (`set -e` aborts the step at the "
+        "standalone pipeline before `; true` is ever reached); rejected anyway as harmless "
+        "over-strictness, in the same style as the other spellings here"
     )
     shell_index = text.index("shell: bash")
     pipe_index = text.index("| tee")
