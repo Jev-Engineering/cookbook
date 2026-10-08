@@ -860,12 +860,12 @@
         "type": "choice",
         "choice": "positive",
         "probabilities": {
-          "positive": 0.42,
+          "positive": 0.7,
           "neutral": 0.05,
-          "negative": 0.16,
-          "mixed": 0.37
+          "negative": 0.1,
+          "mixed": 0.15
         },
-        "confidence": 0.22666666666666666,
+        "confidence": 0.6,
         "provenance": {
           "source": "synthetic",
           "model": null,

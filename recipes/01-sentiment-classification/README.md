@@ -37,8 +37,12 @@ and `JEV_COOKBOOK_LIVE_MODEL`; then open `notebook.ipynb` from this folder in Ju
 of this repository), or record answers with the recorder described in
 [docs/live.md](../../docs/live.md). `tools/execute_notebook.py` always removes `JEV_COOKBOOK_*` and
 `TYPESAFE_*` from the kernel's environment, so it never runs live and never writes a live outcome into
-a committed notebook. In live mode this notebook makes one call for each of the 40 examples in
-`fixtures/`, and no other. Never put a key in a notebook, a fixture, or any other committed file.
+a committed notebook. In live mode this notebook makes exactly one call for each of the 40 examples
+in `fixtures/`, and no other (each example is decided once and the stored answer is reused wherever
+it is shown again). That is more than the live backend's default request budget of 25
+(`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)), so set
+`JEV_COOKBOOK_LIVE_MAX_REQUESTS=40` or higher before running this notebook live, or it stops partway
+through with `BudgetExceeded`. Never put a key in a notebook, a fixture, or any other committed file.
 
 ## What was and was not measured
 

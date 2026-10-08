@@ -17,7 +17,15 @@ def answer(probabilities):
 
 CLEAR_POSITIVE = answer({"positive": 0.90, "neutral": 0.04, "negative": 0.03, "mixed": 0.03})
 CLEAR_MIXED = answer({"positive": 0.22, "neutral": 0.05, "negative": 0.18, "mixed": 0.55})
-NEAR_EVEN = answer({"positive": 0.30, "neutral": 0.26, "negative": 0.24, "mixed": 0.20})
+
+# One low-confidence answer per label, each barely ahead of the other three (confidence 0.04),
+# so a rule that exempts only one label from the threshold still fails this file's test for it.
+LOW_CONFIDENCE_BY_LABEL = {
+    "positive": answer({"positive": 0.28, "neutral": 0.26, "negative": 0.24, "mixed": 0.22}),
+    "neutral": answer({"positive": 0.24, "neutral": 0.28, "negative": 0.26, "mixed": 0.22}),
+    "negative": answer({"positive": 0.22, "neutral": 0.24, "negative": 0.28, "mixed": 0.26}),
+    "mixed": answer({"positive": 0.24, "neutral": 0.22, "negative": 0.26, "mixed": 0.28}),
+}
 
 
 def test_questions_are_built_by_python():
@@ -39,9 +47,12 @@ def test_a_confident_answer_is_accepted_whatever_the_label():
         )
 
 
-def test_a_low_confidence_answer_goes_to_review_whatever_the_label():
-    assert NEAR_EVEN.confidence < 0.5
-    result = helpers.classify("R1", NEAR_EVEN, 0.5)
+@pytest.mark.parametrize("label", ["positive", "neutral", "negative", "mixed"])
+def test_a_low_confidence_answer_goes_to_review_whatever_the_label(label):
+    a = LOW_CONFIDENCE_BY_LABEL[label]
+    assert a.choice == label
+    assert a.confidence < 0.5
+    result = helpers.classify("R1", a, 0.5)
     assert result.outcome == helpers.REVIEW
     assert "threshold" in result.reason
 

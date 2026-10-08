@@ -3,11 +3,14 @@
     python build_fixtures.py        # from anywhere; it writes next to this file
 
 Every response is synthetic (written by hand as probabilities, not produced by a model) and
-deliberately imperfect: a few are wrong, and several more are right but at low confidence. The
-hard cases the issue names are included and tagged in their id: sarcasm (``-sarcasm``), a review
-that praises one thing and condemns another (``-mixed``), a neutral statement of fact
-(``-neutral-fact``), and a very short review (``-short``). The replay keys come from the same
-``build_state`` and ``build_questions`` the notebook uses, via ``helpers.py``.
+deliberately imperfect: a few are wrong, several more are right but at low confidence, and one
+(``t16-mixed``) is wrong *and* confident, at 0.6000, comfortably above the threshold this recipe's
+notebook freezes on validation (0.4933) -- so the notebook's selective-prediction numbers show a
+real, non-zero risk on test rather than a guarantee that happens to hold. The hard cases the issue
+names are included and tagged in their id: sarcasm (``-sarcasm``), a review that praises one thing
+and condemns another (``-mixed``), a neutral statement of fact (``-neutral-fact``), and a very
+short review (``-short``). The replay keys come from the same ``build_state`` and
+``build_questions`` the notebook uses, via ``helpers.py``.
 """
 
 import json
@@ -129,7 +132,7 @@ ROWS = [
      "negative", (0.20, 0.07, 0.58, 0.15)),
     ("t16-mixed", "test", "R2016",
      "The keyboard feels great to type on, but two keys stopped registering within a week.",
-     "mixed", (0.42, 0.05, 0.16, 0.37)),
+     "mixed", (0.70, 0.05, 0.10, 0.15)),
     ("t17-neutral-fact", "test", "R2017",
      "Ships in a plain box with the unit wrapped in foam.",
      "neutral", (0.07, 0.82, 0.05, 0.06)),
