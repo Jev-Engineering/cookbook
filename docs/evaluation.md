@@ -88,7 +88,14 @@ micro and macro averages over the remaining classes.
 | `threshold_sweep(gold, noul, thresholds=None)` | the above at each distinct observed value, ascending |
 | `select_threshold(gold, noul, objective="f1", target=None)` | the threshold to freeze: `f1`, `recall_at_precision`, `precision_at_recall`; ties go to the higher threshold |
 | `brier_score(gold, noul)` | mean squared error of the yes probability |
-| `noul_confidence(noul)` | `max(p, 1 - p)`, a toolkit convention for selective prediction (not an API value) |
+| `noul_confidence(noul)` | `\|2p - 1\|`, usable as the `confidence` argument of selective prediction (not an API value) |
+
+`noul_confidence` is the Choice confidence formula above, `(p_max - 1/n) / (1 - 1/n)`, applied to
+a yes-or-no Choice (`n = 2`, `p_max = max(p, 1 - p)`); that reduces to `|2p - 1|`. It is therefore
+on the *same* 0-1 scale as Choice (and Score) confidence, not a separate convention — the
+[confidence page](https://docs.typesafe.ai/confidence) (S03) states this explicitly. A recipe
+that gates both Noul and Choice answers with one confidence threshold can use `noul_confidence`
+and `.confidence` interchangeably.
 
 ### Multi-label
 
@@ -114,6 +121,29 @@ whose set is exactly right (two empty sets match).
 each distinct confidence threshold. `select_confidence_threshold(correct, confidence,
 target_accuracy=... | min_coverage=...)` picks the value to freeze. `evaluate_selective(correct,
 confidence, threshold)` reports coverage, accuracy, risk. Abstentions are not errors.
+
+### Noul three-path pattern
+
+A Noul-gated decision often needs three outcomes, not two: answer yes, answer no, or send the
+item to a person because the model is not confident enough to trust either answer. No helper
+selects the business threshold and the confidence gate together; compose them from
+`threshold_sweep` (via `select_threshold`), `evaluate_threshold` and the selective-prediction
+pair (`select_confidence_threshold`, `evaluate_selective`), choosing both cut-offs on validation
+and freezing both for test:
+
+```python
+t = select_threshold(val_gold, val_noul, "f1")  # business threshold, chosen on validation
+conf = noul_confidence(val_noul)  # same 0-1 scale as Choice confidence
+correct = [(v >= t) == bool(g) for v, g in zip(val_noul, val_gold)]  # was the yes/no right?
+c = select_confidence_threshold(correct, conf, target_accuracy=0.95)  # confidence gate
+result = evaluate_selective(correct, conf, c)  # test: swap in test_gold/test_noul before this
+# result.coverage auto-answers "noul >= t"; below c, route to review instead
+```
+
+On test data: auto-answer `noul >= t` whenever `noul_confidence(noul) >= c` (`result.accuracy` is
+the accuracy of those auto-answers); route everything else to review. `evaluate_threshold(gold,
+noul, t)` separately reports precision and recall of the business rule alone, with no confidence
+gate, and `threshold_sweep` is what `select_threshold` sweeps to choose `t`.
 
 ### Calibration
 

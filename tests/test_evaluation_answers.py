@@ -71,7 +71,8 @@ def test_noul_thresholds_on_noul_answers():
     t = ev.select_threshold(gold, answers, objective="f1")
     assert t == pytest.approx(0.6)  # 0.6: tp 2, fp 0, fn 0 -> f1 1.0
     assert ev.brier_score(gold, answers) == pytest.approx((0.1**2 + 0.4**2 + 0.4**2 + 0.55**2) / 4)
-    assert ev.noul_confidence(answers) == pytest.approx([0.9, 0.6, 0.6, 0.55])
+    # |2p - 1|: 0.8, 0.2, 0.2, 0.1
+    assert ev.noul_confidence(answers) == pytest.approx([0.8, 0.2, 0.2, 0.1])
 
 
 def test_score_functions_on_score_answers():

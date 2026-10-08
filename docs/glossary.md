@@ -85,6 +85,11 @@ you can recompute it, and the cookbook checks stored answers against these formu
   the middle level), and floored at 0. Probability on a neighbouring level lowers it less than the
   same probability on a distant level. The exact formula, with a worked example, is on the
   [confidence page](https://docs.typesafe.ai/confidence) (S03).
+- **Noul** has no `confidence` field, but the page defines one for it anyway, as the Choice
+  formula above applied to a yes-or-no Choice (`n = 2`, `p_max = max(p, 1 - p)`), which reduces to
+  `|2p - 1|` for a Noul's probability `p`: 0 at `p = 0.5`, 1 at `p = 0` or `p = 1`. It is on the
+  *same* 0-1 scale as Choice confidence, not a separate convention. [evaluation.md](evaluation.md)
+  provides this as `noul_confidence(noul)`.
 
 ## threshold
 
