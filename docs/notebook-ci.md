@@ -75,7 +75,7 @@ included.
 - A pull request that changes anything else (shared code, tools, docs, workflows, the template's
   neighbours) runs every notebook, because shared code can change any recipe's result. **That
   includes a docs-only foundation pull request**: any path outside `recipes/` and `README.md`
-  selects every notebook, `docs/**` included. This is an accepted cost (see "Run time and cost"),
+  selects every notebook, `docs/**` included. This is an accepted cost (see "Run time and scaling"),
   because telling which documents a notebook reads would be a second source of truth to maintain.
 - A change that only regenerates `README.md` runs none, and `Notebooks (execute)` is green.
 
@@ -133,31 +133,93 @@ does.
 ## Protecting the checks from the notebook under test
 
 The network guards stop a cell reaching the outside world; they say nothing about the checkout the
-job runs in. The kernel is started as the runner user (`setpriv` only drops privileges inside the
-network namespace, not filesystem permissions), so a cell has ordinary write access to the whole
-`$GITHUB_WORKSPACE`, not only the scratch copy of the recipe it was given to run in — including
-`tools/check_notebook_fresh.py`, `tools/check_hygiene.py` and the committed `notebook.ipynb` the
-checks read afterwards. Fix round 2 made the matching argument for the scope check ("a pull request
-cannot edit the rule that judges it"); the notebook job has the same hole, by accident as much as on
+job runs in. Fix round 2 made the matching argument for the scope check ("a pull request cannot
+edit the rule that judges it"); the notebook job has the same hole, by accident as much as on
 purpose (a cell that saves a file with a relative path climbing out of the recipe folder silently
-rewrites whatever it lands on). Two layers close it, and the second is the one that enforces it:
+rewrites whatever it lands on).
 
-1. **The checks and the committed notebook are frozen before execution runs**, not read from the
-   checkout afterwards. The `Notebook (<recipe>)` job copies `tools/check_notebook_fresh.py` and
-   `tools/check_hygiene.py` to `$RUNNER_TEMP`, and reads the committed notebook with
-   `git show HEAD:recipes/<recipe>/notebook.ipynb` into `$RUNNER_TEMP` rather than from the working
-   tree, before the execute step runs. Both checks afterwards run from those frozen copies. A cell
-   that rewrites the checkout's `tools/` or `recipes/<recipe>/notebook.ipynb` therefore reaches
-   nothing the checks actually use.
-2. **`git status --porcelain` must be empty right after execution — the enforcement.** Freezing
-   two files is not a proof that nothing else in the checkout was touched, so a step immediately
-   after the execute step fails the job if the working tree changed at all. This is what turns an
-   unanticipated write (a relative path that climbed out of the recipe folder, say) into a visible,
-   named failure instead of a silently tampered result; it is not bypassable by writing somewhere
-   the freeze step did not anticipate, the way freezing two specific files would be on its own.
+Fix round 3 tried to close it by copying `tools/check_notebook_fresh.py`, `tools/check_hygiene.py`
+and the committed notebook out of the checkout before execution, and running the checks against
+those copies afterwards. **That did not hold.** The kernel still ran as the runner user (`setpriv
+--reuid="$(id -u)"` only drops privileges inside the network namespace, not filesystem
+permissions), which owns `$RUNNER_TEMP`, the checkout and the interpreter's site-packages alike,
+and the kernel's working directory was a sibling of the frozen copies under `$RUNNER_TEMP`, so a
+cell could reach them with no environment variable needed — `pathlib.Path.cwd().parents[1] /
+"frozen"` — and overwrite either script or heal the committed notebook before it was compared.
+`git status --porcelain` only ever looked at the checkout, so none of that was visible to it. The
+fix round 4 review reproduced the whole bypass end to end.
+
+**The enforcement is a uid boundary, not a copy.** The `Notebook (<recipe>)` job creates a
+dedicated, unprivileged user, `nbrunner` (`sudo useradd -M -s /usr/sbin/nologin nbrunner`), and
+runs the kernel as that user inside the existing network namespace (`setpriv --no-new-privs
+--reuid=nbrunner --regid=nbrunner --clear-groups`), with `python -s` (no user site-packages) and
+`PYTHONNOUSERSITE=1` in its environment (belt and braces: `-s` does not reach the separate
+`ipykernel` subprocess the kernel spawns, but the environment variable does). What `nbrunner` can
+and cannot write:
+
+* **Can write:** only its own copy of the recipe folder (`$RUNNER_TEMP/run/<recipe>`), created and
+  `chown`-ed to it before execution, mode `700` so nothing else — the runner user included — can
+  read or write it either.
+* **Cannot write:** the checkout (`$GITHUB_WORKSPACE`, so neither `tools/check_notebook_fresh.py`,
+  `tools/check_hygiene.py` nor the committed `recipes/<recipe>/notebook.ipynb`), the interpreter's
+  site-packages (so it cannot drop a `sitecustomize.py` that every later `python` would import,
+  including the checks run after it), or anything under the runner's own `$HOME` (so it cannot
+  drop a `usercustomize.py` there either — its own `$HOME` is a separate, empty directory it owns,
+  passed explicitly, never the runner's).
+
+A self-test step proves this before the notebook runs, rather than assuming it: as `nbrunner`, it
+asserts (`test -w`) that site-packages, the checkout (including `tools/`), the committed notebook
+and the pinned constraints file are **not** writable, and that the recipe copy **is**. The checks
+afterwards read the checkout directly — no copy is needed any more, because the checkout is
+unwritable by the kernel by construction, not merely by a freeze step's foresight.
+
+**A detached process is a second route to the same place, and the uid boundary alone does not
+close it.** A cell can start a process that outlives the kernel (`setsid`, a double fork, `&
+disown`); stray processes survive step boundaries within a job, so one could still be running after
+the executor exits, free to rewrite the recipe copy's `notebook.ipynb` — the one file `nbrunner`
+legitimately owns — before the next step reads it back. A `Kill any leftover nbrunner processes`
+step (`pkill -9 -u nbrunner`, then `pgrep -u nbrunner` asserted empty) runs immediately after
+execution and before the notebook is copied out; a self-test earlier in the job (`Prove a detached
+nbrunner process can be fully killed`) raises a `setsid`'d process of its own first and asserts the
+same `pkill`/`pgrep` pair actually reaches it, so the backstop is proved, not assumed, on every run.
+
+**The committed notebook is read with `git show HEAD:recipes/<recipe>/notebook.ipynb`, not from the
+working tree**, as a second, independent layer on top of the uid boundary: even if the boundary or
+the `git status --porcelain` assertion were ever wrong, the comparison still reads the actual
+committed blob rather than whatever file happens to sit in the checkout at that point. `git status
+--porcelain` right after execution stays as a backstop on the checkout generally, in case the uid
+boundary is ever wrong; it was never the mechanism that makes the comparison itself trustworthy,
+and the `git show` step above no longer depends on it being one.
+
+**What this does and does not cover.** The boundary is a Linux uid: `nbrunner` cannot write the
+checkout, the interpreter's site-packages or the runner's `$HOME`, under any path, however it is
+reached — directly from a notebook cell, from a function called at import time from `helpers.py`,
+or from a process that outlives the kernel. It does not cover, and nothing here claims it covers:
+a vulnerability in the kernel or the Python interpreter itself that lets `nbrunner` regain the
+runner's uid (`--no-new-privs` and the dropped `sudo` access narrow this, they do not eliminate the
+general case); a notebook that passes a validated-looking fixtures path the fixture validator never
+saw (see "`get_backend(fixtures=...)` and the fixtures gate" below); or anything about the quality
+of the notebook's own logic, which review covers, not CI. Do not describe any layer here as
+"unbypassable" — say what it is (a uid boundary, a process-kill backstop, a second read path) and
+what it stops, the way this section tries to.
 
 The documented local commands in [development.md](development.md#running-ci-on-one-recipe) mirror
-both steps, so running the sequence by hand gives the same guarantee CI does.
+the real boundary where that is practical (it needs `sudo` and a spare system user) and say
+plainly where the local, no-`sudo` variant is weaker.
+
+### `get_backend(fixtures=...)` and the fixtures gate
+
+`Fixtures (validate)` validates every file under `recipes/<recipe>/fixtures/`; nothing in this
+workflow or in `jev_cookbook` requires a notebook's `get_backend(fixtures=...)` call to point
+inside that folder. In CI this is closed as a side effect of the boundary above, not by a rule that
+checks it: `$RUNNER_TEMP/run/<recipe>` (nbrunner's writable copy) is the only place a notebook cell
+could stage a file at execution time, and that is thrown away at the end of the job, so the fixtures
+`Fixtures (validate)` validated are the only ones a committed, reviewable `get_backend` call can
+actually reach — a path elsewhere in the checkout is read-only and points at files a reviewer can
+see in the diff. **This does not hold locally**, where a notebook's author runs as their own user
+and can point `fixtures=` at any file on disk they own, validated or not. The shared-code half (a
+runtime check that `get_backend` refuses a fixtures path outside the recipe's own `fixtures/`)
+belongs to the fixtures backend itself (#65/#66), not to this workflow.
 
 ## The staleness check
 
@@ -334,23 +396,45 @@ file, run `python tools/execute_notebook.py recipes/<folder>` for each folder in
 with the new versions, commit the regenerated notebooks in the same pull request, and read the
 freshness check's output. A change to the file counts as "anything else", so it runs every notebook.
 
-## Run time and cost
+## Run time and scaling
 
 Jobs have timeouts, pip is cached, and a new push to a pull request cancels its older run. The
 execute step prints its own elapsed seconds to the job summary.
 
-**Billed minutes (private repository).** GitHub rounds each job up to a whole minute, so a recipe
-costs at least one minute whatever its run time (about 30 seconds of runner time for the template,
-of which execution is a few seconds). Counting jobs: a run that selects one notebook is about 4
-billed minutes in `Notebooks` (discover, the notebook, the summary, fixtures) plus one for `Scope`;
-a run that selects all N notebooks is about N + 3. These are estimates from job counts and the
-template's measured time, not billing data; check the repository's usage report. Selecting only
-the recipe folders a push to `main` changed (see "Which notebooks run") avoids re-running every
-notebook on each merge, which over a sixty-recipe build would otherwise add up to well over a
-thousand billed minutes. The `execute` job also caps itself at `max-parallel: 10`, so a full run is
-always a deliberate, bounded set of waves rather than however many of the organisation's own
-concurrent-job slots happen to be free, and the other jobs in `CI` and `Notebooks` are never
-starved by one big `Notebooks (execute)` run.
+**One recipe, measured.** From this pull request's own CI runs
+([37705273938](https://github.com/Jev-Engineering/cookbook/actions/runs/37705273938),
+[37705273783](https://github.com/Jev-Engineering/cookbook/actions/runs/37705273783)):
+`Notebooks (discover)` 6 s, `Notebook (_template)` 41 s (of which the notebook itself executes in
+3 s; the rest is `setup-python`, install and the sandbox self-tests), `Notebooks (execute)` 3 s,
+`Fixtures (validate)` 28 s. The `Notebooks` workflow's wall time for one recipe was 91 s.
+
+**How it scales.** The `execute` job caps itself at `max-parallel: 10` (see "Why 10" below), so a
+run that selects every notebook is not one wave of N jobs in parallel but ⌈N / 10⌉ waves run one
+after another. At sixty recipes that is six waves of ten: roughly 4½ minutes of execute time (six
+times the one-recipe execute job's ~41 s, allowing for the fixed per-job overhead not shrinking),
+plus discovery and the summary job, for a **wall time of about 5–6 minutes** for a full run — not
+the ~91 s a single uncapped wave would take. A push to a recipe pull request, or to `main` after a
+recipe merges, still selects only the one or two folders that changed (see "Which notebooks run"),
+so this scaling only matters for a push that selects every notebook: a foundation change outside
+`recipes/`, a forced push, the weekly cron, or a manual run with `full` left `true`.
+
+**Why 10.** Without a cap, a full run claims as many of the organisation's concurrent-job slots as
+there are recipes, starving `CI`'s and `Notebooks`' other jobs. The number is a deliberate, bounded
+choice rather than whatever the organisation's limit happens to be at the time; a pull request
+(ordinarily at most one recipe folder changed) never notices it.
+
+**Billed minutes (private repository), measured.** GitHub rounds each job up to a whole minute.
+Counting the runs above: one push to a recipe pull request is `Notebooks` 4 billed minutes
+(discover + one notebook + the summary + fixtures) + `Scope` 1, on top of 7 for the existing `CI`
+and `Hygiene` workflows (`Lint` 25 s, `Catalog` 6 s, `Tests (py3.14)` 90 s, `Tests (py3.10)` 109 s,
+`Hygiene` 7 s, each rounding to 1 or 2 billed minutes) — **about 12 billed minutes per push**. A
+README-only push selects no notebook: 3 + 1 = 4 new. A push to `main` that selects every
+notebook — the scaling case above — is 1 (discover) + 60 (one per recipe) + 1 (summary) + 1
+(fixtures) = 63 jobs, **about 63 billed minutes**, independent of the `max-parallel` cap (billing is
+per job, not per wave); the weekly cron costs the same each time it runs. Selecting only the recipe
+folders a normal recipe merge changed (see "Which notebooks run") keeps an ordinary merge to `main`
+at 4 new billed minutes rather than 63. These are measured from the runs named above, not an
+estimate from job counts; check the repository's usage report for totals over time.
 
 ## Local commands
 

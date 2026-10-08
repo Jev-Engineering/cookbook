@@ -93,14 +93,11 @@ or Linux). CI copies to a folder that keeps the recipe's name, so do the same:
 
 ```bash
 pip install -e ".[dev,ml]" -c .github/constraints-notebooks.txt   # CI's install (Python 3.14)
-mkdir -p /tmp/frozen/tools && cp tools/check_notebook_fresh.py tools/check_hygiene.py /tmp/frozen/tools/
-mkdir -p /tmp/frozen/committed/NN-slug
-git show HEAD:recipes/NN-slug/notebook.ipynb > /tmp/frozen/committed/NN-slug/notebook.ipynb
 mkdir -p /tmp/run && cp -R recipes/NN-slug /tmp/run/NN-slug
 PYTHONPATH="$PWD/tools/netguard" python tools/execute_notebook.py /tmp/run/NN-slug
-git status --porcelain   # must print nothing: a cell must not have written into the checkout
-python /tmp/frozen/tools/check_notebook_fresh.py /tmp/frozen/committed/NN-slug/notebook.ipynb /tmp/run/NN-slug/notebook.ipynb
-python /tmp/frozen/tools/check_hygiene.py /tmp/run/NN-slug/notebook.ipynb
+test -z "$(git status --porcelain)" || { echo "the run wrote into the checkout"; git status --porcelain; exit 1; }
+python tools/check_notebook_fresh.py recipes/NN-slug/notebook.ipynb /tmp/run/NN-slug/notebook.ipynb
+python tools/check_hygiene.py /tmp/run/NN-slug/notebook.ipynb
 python tools/notebook_ci.py fixtures
 ```
 
@@ -112,15 +109,51 @@ needs Python 3.12 or newer). This is not permission to skip the pins on a newer 
 only figures tolerate a different version (they are compared by what they show, not by bytes).
 Install with the same file before you execute a notebook whose outputs you will commit.
 
-The two commands before execution copy the checks and the committed notebook out of the checkout,
-and `git status --porcelain` after execution proves the checkout itself was not written to. This
-mirrors what `.github/workflows/notebooks.yml` does and for the same reason: the kernel runs with
-the recipe folder as its working directory but with write access to the whole checkout, so a cell
-(malicious or merely careless, for example a relative path that climbs out of the recipe folder)
-could otherwise overwrite `tools/check_notebook_fresh.py` or the committed notebook the checks
-compare against, and the checks would then compare a result against itself. Running the checks
-against the frozen copies, and failing if the checkout moved, closes that off; see "Protecting the
-checks from the notebook under test" in [notebook-ci.md](notebook-ci.md).
+**This is the weaker, no-`sudo` variant, and it is honest about why.** The kernel above runs as
+your own user, who already owns the checkout that `tools/check_notebook_fresh.py`,
+`tools/check_hygiene.py` and the committed notebook are read from — there is no boundary here
+stopping a cell from writing any of them, only the `test -z "$(git status --porcelain)"` line
+catching it afterwards (a real backstop: it does fail if a cell wrote into the checkout, the same
+way CI's own backstop would). CI does not rely on a backstop alone; it runs the kernel as a
+separate, unprivileged user who cannot write the checkout, the interpreter's site-packages or the
+runner's `$HOME` at all — see "Protecting the checks from the notebook under test" in
+[notebook-ci.md](notebook-ci.md). To reproduce that boundary locally rather than only its
+backstop, on Linux, with `sudo` and a spare system user:
+
+```bash
+sudo useradd -M -s /usr/sbin/nologin nbrunner_local   # once; pick a name that cannot collide
+sudo mkdir -p /tmp/nbrunner-home
+sudo chown nbrunner_local:nbrunner_local /tmp/nbrunner-home
+
+mkdir -p /tmp/run && cp -R recipes/NN-slug /tmp/run/NN-slug
+sudo chown -R nbrunner_local:nbrunner_local /tmp/run/NN-slug
+sudo chmod -R u+rwX,go-rwx /tmp/run/NN-slug   # nbrunner_local's only writable location
+
+sudo env "PATH=$PATH" "HOME=/tmp/nbrunner-home" "PYTHONPATH=$PWD/tools/netguard" \
+  "PYTHONNOUSERSITE=1" setpriv --no-new-privs --reuid=nbrunner_local --regid=nbrunner_local \
+  --clear-groups -- python -s tools/execute_notebook.py /tmp/run/NN-slug
+
+# A cell could have started a process that outlives the kernel (setsid, a double fork, & disown);
+# end every nbrunner_local process before trusting anything it could still touch.
+sudo pkill -9 -u nbrunner_local || true
+sleep 1
+sudo pgrep -u nbrunner_local && { echo "a detached process survived pkill"; exit 1; }
+
+sudo install -m 0644 -o "$(id -u)" -g "$(id -g)" /tmp/run/NN-slug/notebook.ipynb /tmp/fresh.ipynb
+
+test -z "$(git status --porcelain)" || { echo "the run wrote into the checkout"; exit 1; }
+git show HEAD:recipes/NN-slug/notebook.ipynb > /tmp/committed.ipynb
+python tools/check_notebook_fresh.py /tmp/committed.ipynb /tmp/fresh.ipynb
+python tools/check_hygiene.py /tmp/fresh.ipynb
+python tools/notebook_ci.py fixtures
+
+sudo userdel nbrunner_local   # tidy up afterwards; the home and scratch directories are in /tmp
+```
+
+This reproduces the uid boundary around the checkout, site-packages and `$HOME`, and the
+leftover-process kill; it does not also reproduce CI's network namespace (`unshare --net`), which
+needs root for the whole duration rather than one dropped-privilege command and is demonstrated
+separately below.
 
 `PYTHONPATH="$PWD/tools/netguard"` loads the Python-level network guard, as in CI. The path must be
 absolute: the executor starts the kernel with the recipe folder as its working directory, so a

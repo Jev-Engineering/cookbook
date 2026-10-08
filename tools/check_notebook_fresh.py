@@ -10,9 +10,11 @@ numpy and Pillow (both installed with matplotlib); only the figure comparison ne
 The comparison, in full (it is documented in ``docs/notebook-ci.md``):
 
 1. An ``error`` output (what a cell tagged ``raises-exception`` commits) is a problem, in either
-   file. So is a ``stderr`` stream output. So is a cell tagged ``skip-execution``: nbclient's
+   file. So is a ``stderr`` stream output. So is a code cell tagged ``skip-execution``: nbclient's
    default (``tools/execute_notebook.py`` does not override it) never executes such a cell, so
-   whatever it commits, output or none, did not come from the run being checked.
+   whatever it commits, output or none, did not come from the run being checked. (nbclient only
+   ever skips code cells; a markdown or raw cell has no outputs to fabricate, so the rule does
+   not apply to one even if it happens to carry the tag.)
 2. Every ``outputs[*].data["image/png"]`` is replaced by a marker that records only that a PNG is
    there. Nothing else is normalised: after that the two notebooks, parsed as JSON, must be
    equal (sources, metadata, execution counts, text outputs, ids, every other output).
@@ -92,16 +94,22 @@ def _tags(cell: Any) -> list[Any]:
     return tags if isinstance(tags, list) else []
 
 
+def _is_code_cell(cell: Any) -> bool:
+    return isinstance(cell, dict) and cell.get("cell_type") == "code"
+
+
 def output_problems(nb: dict[str, Any], label: str) -> list[str]:
-    """Every ``error`` output, every ``stderr`` stream output, and every skipped cell in ``nb``."""
+    """Every ``error`` output, every ``stderr`` stream output, and every skipped code cell in
+    ``nb``. nbclient only ever skips a code cell, so a markdown or raw cell that happens to carry
+    the tag is not flagged: it has no outputs to fabricate."""
     problems = []
     for index, cell in enumerate(nb["cells"]):
-        skip_tags = sorted(set(_tags(cell)) & SKIP_EXECUTION_TAGS)
+        skip_tags = sorted(set(_tags(cell)) & SKIP_EXECUTION_TAGS) if _is_code_cell(cell) else []
         if skip_tags:
             problems.append(
                 f"{label}: {_where(index, cell)} is tagged {skip_tags[0]!r}; nbclient never "
-                "executes a cell with this tag, so its outputs cannot have come from a real run "
-                "and a recipe must not use it"
+                "executes a code cell with this tag, so its outputs cannot have come from a real "
+                "run and a recipe must not use it"
             )
         for out_index, output in enumerate(_outputs(cell)):
             if not isinstance(output, dict):

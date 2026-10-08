@@ -117,22 +117,34 @@ jobs:
       # last thing that may use the network.
       - name: Install
         run: pip install -e ".[ml]" -c .github/constraints-notebooks.txt
-      # The execute step below runs the kernel as the runner user with write access to the whole
-      # checkout (sudo/setpriv only drop privileges inside the network namespace, not file
-      # permissions), so a cell could otherwise overwrite the checks run after it, or the committed
-      # notebook they compare against, and heal a stale result from inside the one file a recipe
-      # pull request may change. Freeze both out of the checkout before the notebook runs, and read
-      # the committed notebook from git rather than from the (writable) working tree.
-      - name: Freeze the checks and the committed notebook before execution
+      # Fix round 3 tried to protect the checks by copying them (and the committed notebook) out of
+      # the checkout before execution. That copy-based defence did not hold: the kernel's working
+      # directory is a sibling of the copies under $RUNNER_TEMP, so a cell could reach them by a
+      # relative path (`../../frozen/...`) with no environment variable needed, and `setpriv
+      # --reuid="$(id -u)"` kept the kernel at the runner's own uid, which owns that whole tree and
+      # the interpreter's site-packages besides. `git status --porcelain` only ever looks at the
+      # checkout, so none of that was visible to it. Fix round 4 replaces the copy with a uid
+      # boundary: the kernel runs as a dedicated, unprivileged user who owns nothing but its own
+      # scratch copy of the recipe. The checkout, the tools, and the interpreter's site-packages are
+      # readable (so the kernel can still import jev_cookbook and run Python) but not writable by
+      # that user, and its $HOME is an empty directory it owns, not the runner's. The self-tests
+      # below prove the boundary rather than assume it.
+      - name: Create the unprivileged kernel user
         run: |
-          mkdir -p "$RUNNER_TEMP/frozen/tools"
-          cp tools/check_notebook_fresh.py tools/check_hygiene.py "$RUNNER_TEMP/frozen/tools/"
-          mkdir -p "$RUNNER_TEMP/frozen/committed/$RECIPE"
-          git show "HEAD:recipes/$RECIPE/notebook.ipynb" > "$RUNNER_TEMP/frozen/committed/$RECIPE/notebook.ipynb"
-      - name: Copy the recipe to a scratch folder
+          sudo useradd -M -s /usr/sbin/nologin nbrunner
+          sudo mkdir -p "$RUNNER_TEMP/nbrunner-home"
+          sudo chown nbrunner:nbrunner "$RUNNER_TEMP/nbrunner-home"
+          sudo chmod 700 "$RUNNER_TEMP/nbrunner-home"
+          # So nbrunner can reach its scratch copy below $RUNNER_TEMP; it still owns nothing here.
+          sudo chmod o+rx "$RUNNER_TEMP"
+      # The recipe copy is nbrunner's only writable location: owned by it, mode 700, so nothing
+      # else on the runner (including the runner user itself) can read or write it either.
+      - name: Copy the recipe to nbrunner's scratch folder
         run: |
           mkdir -p "$RUNNER_TEMP/run"
           cp -R "recipes/$RECIPE" "$RUNNER_TEMP/run/$RECIPE"
+          sudo chown -R nbrunner:nbrunner "$RUNNER_TEMP/run/$RECIPE"
+          sudo chmod -R u+rwX,go-rwx "$RUNNER_TEMP/run/$RECIPE"
       # The OS-level guard: a network namespace that has a loopback interface and nothing else
       # (the kernel talks to the runner over loopback). The self-test fails the job if the
       # namespace is not isolating, so a guard that silently does nothing cannot pass.
@@ -159,40 +171,123 @@ jobs:
           PY
           sudo env "PATH=$PATH" unshare --net -- sh -c \
             'ip link set lo up && exec env -u PYTHONPATH python "$1"' sh "$RUNNER_TEMP/probe.py"
-      # sudo resets the environment, so HOME and PYTHONPATH are passed explicitly. setpriv drops
-      # root and sets no_new_privs, so a cell cannot sudo its way back out of the namespace. This
-      # step fails if the guard is not loaded in the sandboxed interpreter, if no_new_privs is not
-      # set, or if sudo still works from inside.
+      # sudo resets the environment, so HOME and PYTHONPATH are passed explicitly, to the same
+      # values the execute step below uses: nbrunner's own empty $HOME, never the runner's. setpriv
+      # drops root and sets no_new_privs, so a cell cannot sudo its way back out of the namespace.
+      # This step fails if the guard is not loaded in the sandboxed interpreter, if no_new_privs is
+      # not set, or if sudo still works from inside.
       - name: Prove the Python-level guard and no_new_privs reach the sandbox
         env:
           PYTHONPATH: ${{ github.workspace }}/tools/netguard
         run: |
           cat > "$RUNNER_TEMP/loaded.py" <<'PY'
-          import socket, subprocess
+          import os, socket, subprocess
           assert socket.socket.connect.__module__ == "sitecustomize", "netguard not loaded"
           print("netguard loaded")
           flag = [l for l in open("/proc/self/status") if l.startswith("NoNewPrivs:")]
           assert flag and flag[0].split()[1] == "1", "no_new_privs is not set"
           escape = subprocess.run(["sudo", "-n", "true"], capture_output=True)
           assert escape.returncode != 0, "sudo still works inside the sandbox"
-          print("no_new_privs set; sudo refused")
+          assert os.geteuid() != 0, "still root"
+          print("no_new_privs set; sudo refused; euid", os.geteuid())
           PY
-          sudo env "PATH=$PATH" "HOME=$HOME" "PYTHONPATH=$PYTHONPATH" unshare --net -- sh -c \
-            'ip link set lo up && exec setpriv --no-new-privs --reuid="$1" --regid="$2" --clear-groups -- python "$3"' \
-            sh "$(id -u)" "$(id -g)" "$RUNNER_TEMP/loaded.py"
+          sudo env "PATH=$PATH" "HOME=$RUNNER_TEMP/nbrunner-home" "PYTHONPATH=$PYTHONPATH" \
+            "PYTHONNOUSERSITE=1" unshare --net -- sh -c \
+            'ip link set lo up && exec setpriv --no-new-privs --reuid=nbrunner --regid=nbrunner --clear-groups -- python -s "$1"' \
+            sh "$RUNNER_TEMP/loaded.py"
+      # A cell can start a process that outlives the kernel (a detached grandchild, double-forked or
+      # setsid'd): nothing about ending the kernel ends it too, and it could rewrite the executed
+      # notebook after the executor exits but before the checks read it back. Prove the backstop
+      # (pkill -u nbrunner, run for real right after execution below) actually reaches such a
+      # process before relying on it, by raising one here and killing it the same way.
+      - name: Prove a detached nbrunner process can be fully killed
+        run: |
+          sudo setpriv --no-new-privs --reuid=nbrunner --regid=nbrunner --clear-groups -- \
+            setsid sh -c 'sleep 300 & disown' &
+          sleep 1
+          sudo pkill -9 -u nbrunner || true
+          sleep 1
+          if sudo pgrep -u nbrunner >/dev/null; then
+            echo "FAIL: a detached nbrunner process survived pkill -u nbrunner"
+            sudo ps -u nbrunner -o pid,ppid,cmd
+            exit 1
+          fi
+          echo "ok: pkill -u nbrunner leaves nothing, including a detached grandchild"
+      # The uid boundary itself, proved rather than assumed: nbrunner must not be able to write the
+      # interpreter's site-packages (a sitecustomize.py there would run before every later `python`,
+      # including the checks below), the checkout (its tools/ or the committed notebook the checks
+      # compare against), the pinned constraints file, or anything under the runner's own $HOME (a
+      # usercustomize.py there is the same attack by a different path) — and must be able to write
+      # only its own recipe copy.
+      - name: Prove the uid boundary - nbrunner can write only its own recipe copy
+        run: |
+          SITE_PACKAGES=$(python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
+          cat > "$RUNNER_TEMP/uid_boundary_probe.sh" <<'SH'
+          set -u
+          fail=0
+          for path in "$SITE_PACKAGES" "$WORKSPACE" "$WORKSPACE/tools" "$NOTEBOOK" "$CONSTRAINTS" "$RUNNER_HOME"; do
+            if [ -w "$path" ]; then
+              echo "FAIL: nbrunner can write $path (it must not)"
+              fail=1
+            else
+              echo "ok: nbrunner cannot write $path"
+            fi
+          done
+          if [ ! -w "$RECIPE_COPY" ]; then
+            echo "FAIL: nbrunner cannot write its own recipe copy $RECIPE_COPY (it must)"
+            fail=1
+          else
+            echo "ok: nbrunner can write $RECIPE_COPY"
+          fi
+          exit $fail
+          SH
+          sudo env \
+            "SITE_PACKAGES=$SITE_PACKAGES" \
+            "WORKSPACE=$GITHUB_WORKSPACE" \
+            "NOTEBOOK=$GITHUB_WORKSPACE/recipes/$RECIPE/notebook.ipynb" \
+            "CONSTRAINTS=$GITHUB_WORKSPACE/.github/constraints-notebooks.txt" \
+            "RUNNER_HOME=$HOME" \
+            "RECIPE_COPY=$RUNNER_TEMP/run/$RECIPE" \
+            setpriv --no-new-privs --reuid=nbrunner --regid=nbrunner --clear-groups -- \
+            sh "$RUNNER_TEMP/uid_boundary_probe.sh"
       - name: Execute the notebook offline
         env:
           # The Python-level guard (tools/netguard/sitecustomize.py) also reaches the kernel:
-          # the executor strips only JEV_COOKBOOK_* and TYPESAFE_* from its environment.
+          # the executor strips only JEV_COOKBOOK_* and TYPESAFE_* from its environment. HOME is
+          # nbrunner's own empty directory, never the runner's (see the step above). `-s` and
+          # PYTHONNOUSERSITE keep the kernel and the subprocess ipykernel it spawns off any user
+          # site-packages under that $HOME.
           PYTHONPATH: ${{ github.workspace }}/tools/netguard
         run: |
           started=$(date +%s)
-          sudo env "PATH=$PATH" "HOME=$HOME" "PYTHONPATH=$PYTHONPATH" unshare --net -- sh -c \
-            'ip link set lo up && exec setpriv --no-new-privs --reuid="$1" --regid="$2" --clear-groups -- python tools/execute_notebook.py --timeout 300 "$3"' \
-            sh "$(id -u)" "$(id -g)" "$RUNNER_TEMP/run/$RECIPE"
+          sudo env "PATH=$PATH" "HOME=$RUNNER_TEMP/nbrunner-home" "PYTHONPATH=$PYTHONPATH" \
+            "PYTHONNOUSERSITE=1" unshare --net -- sh -c \
+            'ip link set lo up && exec setpriv --no-new-privs --reuid=nbrunner --regid=nbrunner --clear-groups -- python -s tools/execute_notebook.py --timeout 300 "$1"' \
+            sh "$RUNNER_TEMP/run/$RECIPE"
           echo "executed $RECIPE in $(( $(date +%s) - started )) s" | tee -a "$GITHUB_STEP_SUMMARY"
-      # A cell has write access to the whole checkout (see the freeze step above). If anything in
-      # it moved, the checks below cannot be trusted even if they pass, so fail loudly here rather
+      # A cell could have started a process that outlives the kernel (setsid, double fork, &
+      # disown): stray processes survive step boundaries within a job, so one could still be
+      # running here, free to rewrite the recipe copy's notebook.ipynb (nbrunner's own writable
+      # file) between the executor exiting and the next step reading it. Ending every nbrunner
+      # process before that read closes the route; self-tested above.
+      - name: Kill any leftover nbrunner processes
+        run: |
+          sudo pkill -9 -u nbrunner || true
+          sleep 1
+          if sudo pgrep -u nbrunner >/dev/null; then
+            echo "a detached nbrunner process survived pkill; refusing to trust the notebook it could still touch"
+            sudo ps -u nbrunner -o pid,ppid,cmd
+            exit 1
+          fi
+      # nbrunner owns its recipe copy exclusively (mode 700): read it back as the runner, into a
+      # plain runner-owned file, only after every nbrunner process is confirmed dead.
+      - name: Copy the executed notebook out, as the runner
+        run: |
+          sudo install -m 0644 -o "$(id -u)" -g "$(id -g)" \
+            "$RUNNER_TEMP/run/$RECIPE/notebook.ipynb" "$RUNNER_TEMP/fresh-notebook.ipynb"
+      # The checkout is unwritable by nbrunner by construction (see the uid-boundary self-test
+      # above), so the checks below read it directly rather than from a copy made in advance. This
+      # assertion is the backstop in case that construction is ever wrong: it fails loudly rather
       # than silently reading a tampered tree.
       - name: The checkout is untouched after execution
         run: |
@@ -202,10 +297,15 @@ jobs:
             echo "$status"
             exit 1
           fi
+      # Read from git, not the working tree, as a second, independent check on top of the uid
+      # boundary and the assertion above: even if either were ever wrong, this line still compares
+      # against the actual committed blob rather than whatever file happens to sit in the checkout.
+      - name: Read the committed notebook from git, not the working tree
+        run: git show "HEAD:recipes/$RECIPE/notebook.ipynb" > "$RUNNER_TEMP/committed-notebook.ipynb"
       - name: Committed outputs match the fresh run
-        run: python "$RUNNER_TEMP/frozen/tools/check_notebook_fresh.py" "$RUNNER_TEMP/frozen/committed/$RECIPE/notebook.ipynb" "$RUNNER_TEMP/run/$RECIPE/notebook.ipynb"
+        run: python tools/check_notebook_fresh.py "$RUNNER_TEMP/committed-notebook.ipynb" "$RUNNER_TEMP/fresh-notebook.ipynb"
       - name: Hygiene of the freshly executed notebook
-        run: python "$RUNNER_TEMP/frozen/tools/check_hygiene.py" "$RUNNER_TEMP/run/$RECIPE/notebook.ipynb"
+        run: python tools/check_hygiene.py "$RUNNER_TEMP/fresh-notebook.ipynb"
 
   notebooks:
     name: Notebooks (execute)

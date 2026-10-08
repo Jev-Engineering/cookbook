@@ -21,6 +21,22 @@ def code(text):
     return "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#"))
 
 
+def lines_after(text, marker, limit=20):
+    """Up to ``limit`` lines following the first line containing ``marker`` (exclusive).
+
+    A bounded, linear alternative to a regex like ``r"marker\\n(?:\\s+.*\\n)*?\\s+target"``: that
+    idiom's lazy, unanchored ``(?:\\s+.*\\n)*?`` backtracks catastrophically when ``target`` is
+    absent (#108 fix round 4, M2 — deleting ``max-parallel: 10`` made the test that used it hang
+    for minutes instead of failing). A plain line scan with an explicit limit cannot backtrack at
+    all: it is worst case O(limit), not exponential in the input size.
+    """
+    found = text.splitlines()
+    for index, line in enumerate(found):
+        if marker in line:
+            return found[index + 1 : index + 1 + limit]
+    return []
+
+
 def test_scope_reruns_when_the_description_is_edited():
     match = re.search(r"pull_request_target:\n\s+types: \[([^\]]*)\]", code(SCOPE))
     assert match, "scope.yml must list its pull_request_target types"
@@ -83,6 +99,9 @@ def test_every_sandboxed_python_runs_without_new_privileges():
     calls = re.findall(r"exec setpriv [^\n]*", body)
     assert len(calls) == 2  # the guard self-test and the notebook execution
     assert all("--no-new-privs" in call for call in calls), calls
+    # #108 fix round 4: both run as the dedicated unprivileged user, not the runner's own uid.
+    assert all("--reuid=nbrunner --regid=nbrunner --clear-groups" in call for call in calls), calls
+    assert all(" python -s " in call for call in calls), calls
     assert "unshare --net" in body
 
 
@@ -125,7 +144,8 @@ def test_main_runs_are_never_cancelled_and_pull_request_runs_are():
 def test_push_selection_uses_the_previous_tip_and_a_manual_run_can_force_everything():
     body = code(NOTEBOOKS)
     assert "workflow_dispatch:" in body
-    assert re.search(r"inputs:\n\s+full:\n(?:\s+.*\n)*?\s+default: true", body)
+    following = lines_after(body, "full:", limit=5)
+    assert any(re.fullmatch(r"\s+default: true", line) for line in following), following
     assert '--base "$BEFORE_SHA" --head HEAD --push' in body
     assert "BEFORE_SHA: ${{ github.event.before }}" in body
 
@@ -154,35 +174,142 @@ def test_a_weekly_schedule_runs_every_notebook():
 
 
 def test_execute_job_caps_its_own_concurrency():
-    assert re.search(r"strategy:\n(?:\s+.*\n)*?\s+max-parallel: \d+", code(NOTEBOOKS))
+    following = lines_after(code(NOTEBOOKS), "strategy:", limit=5)
+    assert any(re.fullmatch(r"\s+max-parallel: \d+", line) for line in following), following
 
 
-def test_checks_run_from_a_frozen_copy_made_before_execution():
-    """The execute step has write access to the whole checkout (#108 fix round 3, M2): a cell could
-    otherwise overwrite the checks run after it, or the committed notebook they compare against, and
-    heal a stale result. The checks must run from copies made before execution, not from the live
-    checkout, and the committed notebook must come from git, not the working tree."""
+def test_kernel_runs_as_a_dedicated_unprivileged_user():
+    """#108 fix round 4, M1: a copy-based defence (freezing the checks to $RUNNER_TEMP before
+    execution) did not hold, because the kernel ran at the runner's own uid, which owns
+    $RUNNER_TEMP, the checkout and the interpreter's site-packages, and its working directory was a
+    sibling of the frozen copies reachable by a relative path. The kernel must instead run as a
+    dedicated user who owns only its own recipe copy."""
     body = code(NOTEBOOKS)
-    freeze = re.search(
-        r"Freeze the checks and the committed notebook before execution\n(.*?)\n\s*- ",
+    useradd = re.search(r"useradd [^\n]*", body)
+    assert useradd, "no dedicated user is created for the kernel"
+    assert (
+        "-M" in useradd.group(0)
+        and "nologin" in useradd.group(0)
+        and "nbrunner" in useradd.group(0)
+    )
+    useradd_index = body.index(useradd.group(0))
+    execute_index = body.index("Execute the notebook offline")
+    assert useradd_index < execute_index, "the user must exist before the kernel runs"
+    # Its own empty $HOME, not the runner's: a usercustomize.py under the runner's $HOME would
+    # reach every later `python`, including the checks run after execution.
+    assert 'chown nbrunner:nbrunner "$RUNNER_TEMP/nbrunner-home"' in body
+    assert '"HOME=$RUNNER_TEMP/nbrunner-home"' in body
+    assert '"HOME=$HOME"' not in body, "the kernel must not inherit the runner's $HOME"
+
+
+def test_recipe_copy_is_nbrunners_only_writable_location():
+    body = code(NOTEBOOKS)
+    copy_step = re.search(
+        r"Copy the recipe to nbrunner's scratch folder\n(.*?)\n\s*- ", body, re.DOTALL
+    )
+    assert copy_step, "no step copies the recipe to a folder nbrunner owns"
+    assert "cp -R" in copy_step.group(1) and '"recipes/$RECIPE"' in copy_step.group(1)
+    assert "chown -R nbrunner:nbrunner" in copy_step.group(1)
+    assert "chmod -R u+rwX,go-rwx" in copy_step.group(1)
+    copy_index = body.index(copy_step.group(0))
+    execute_index = body.index("Execute the notebook offline")
+    assert copy_index < execute_index
+
+
+def test_uid_boundary_is_proved_before_execution_not_assumed():
+    """The self-test must check all three routes fix round 4's review demonstrated (site-packages,
+    the checkout including tools/, and the committed notebook), and that nbrunner can still write
+    its own recipe copy, as the one exception."""
+    body = code(NOTEBOOKS)
+    probe = re.search(
+        r"Prove the uid boundary - nbrunner can write only its own recipe copy\n(.*?)\n\s*- ",
         body,
         re.DOTALL,
     )
-    assert freeze, "no freeze step before execution"
+    assert probe, "no uid-boundary self-test"
+    text = probe.group(1)
+    assert "sysconfig.get_paths()['purelib']" in text  # site-packages, resolved, not guessed
+    assert '"SITE_PACKAGES=$SITE_PACKAGES"' in text
+    assert '"NOTEBOOK=$GITHUB_WORKSPACE/recipes/$RECIPE/notebook.ipynb"' in text
+    assert '"CONSTRAINTS=$GITHUB_WORKSPACE/.github/constraints-notebooks.txt"' in text
+    assert '"RECIPE_COPY=$RUNNER_TEMP/run/$RECIPE"' in text
+    assert '-w "$path"' in text  # must-not-write loop over the read-only locations
+    assert '! -w "$RECIPE_COPY"' in text  # must-write check on the one writable exception
+    assert "--reuid=nbrunner --regid=nbrunner --clear-groups" in text
+    probe_index = body.index(probe.group(0))
     execute_index = body.index("Execute the notebook offline")
-    assert body.index(freeze.group(0)) < execute_index, "the freeze step must run before execution"
-    assert "cp tools/check_notebook_fresh.py tools/check_hygiene.py" in freeze.group(1)
-    assert 'git show "HEAD:recipes/$RECIPE/notebook.ipynb"' in freeze.group(1)
-    # The checks afterwards read the frozen copies, never the live checkout's tools/ or recipes/.
-    fresh_check = re.search(r"Committed outputs match the fresh run\n\s+run: (.*)", body)
-    assert fresh_check and fresh_check.group(1).startswith(
-        'python "$RUNNER_TEMP/frozen/tools/check_notebook_fresh.py"'
+    assert probe_index < execute_index, "the boundary must be proved before the kernel runs"
+
+
+def test_kernel_runs_with_no_user_site():
+    """`-s` and PYTHONNOUSERSITE keep the kernel (and the ipykernel subprocess it spawns, which
+    does not inherit `-s`) off anything under nbrunner's own $HOME."""
+    body = code(NOTEBOOKS)
+    execute_step = re.search(r"Execute the notebook offline\n(.*?)\n\s*- ", body, re.DOTALL)
+    assert execute_step
+    assert '"PYTHONNOUSERSITE=1"' in execute_step.group(1)
+    assert "python -s tools/execute_notebook.py" in execute_step.group(1)
+
+
+def test_checks_run_directly_from_the_checkout_not_a_frozen_copy():
+    """The checkout and tools/ are unwritable by nbrunner by construction (see the uid-boundary
+    self-test), so the checks read them directly; nothing needs to be frozen into $RUNNER_TEMP
+    before execution any more. The committed notebook is still read with `git show`, not from the
+    working tree, as a second, independent check on top of the uid boundary (#108 fix round 4:
+    reviewers reproduced the round-3 freeze being bypassed one directory further out, so the
+    comparison does not rely solely on the checkout being untouched)."""
+    body = code(NOTEBOOKS)
+    assert "frozen" not in body
+    git_show = re.search(
+        r"Read the committed notebook from git, not the working tree\n\s+run: (.*)", body
     )
-    assert '"$RUNNER_TEMP/frozen/committed/$RECIPE/notebook.ipynb"' in fresh_check.group(1)
-    assert 'recipes/$RECIPE/notebook.ipynb"' not in fresh_check.group(1)
+    assert git_show and git_show.group(1) == (
+        'git show "HEAD:recipes/$RECIPE/notebook.ipynb" > "$RUNNER_TEMP/committed-notebook.ipynb"'
+    )
+    fresh_check = re.search(r"Committed outputs match the fresh run\n\s+run: (.*)", body)
+    assert fresh_check and fresh_check.group(1) == (
+        'python tools/check_notebook_fresh.py "$RUNNER_TEMP/committed-notebook.ipynb" '
+        '"$RUNNER_TEMP/fresh-notebook.ipynb"'
+    )
     hygiene_check = re.search(r"Hygiene of the freshly executed notebook\n\s+run: (.*)", body)
-    assert hygiene_check and hygiene_check.group(1).startswith(
-        'python "$RUNNER_TEMP/frozen/tools/check_hygiene.py"'
+    assert hygiene_check and hygiene_check.group(1) == (
+        'python tools/check_hygiene.py "$RUNNER_TEMP/fresh-notebook.ipynb"'
+    )
+    # The executed notebook is copied out of nbrunner's exclusive, mode-700 recipe copy as the
+    # runner, only after every nbrunner process is confirmed dead, before either check reads it.
+    kill_step = re.search(r"Kill any leftover nbrunner processes\n(.*?)\n\s*- ", body, re.DOTALL)
+    assert kill_step and "pkill -9 -u nbrunner" in kill_step.group(1)
+    assert "pgrep -u nbrunner" in kill_step.group(1)
+    copy_out = re.search(
+        r"Copy the executed notebook out, as the runner\n(.*?)\n\s*- ", body, re.DOTALL
+    )
+    assert copy_out and "sudo install" in copy_out.group(1)
+    execute_index = body.index("Execute the notebook offline")
+    kill_index = body.index(kill_step.group(0))
+    copy_out_index = body.index(copy_out.group(0))
+    git_show_index = body.index(git_show.group(0))
+    fresh_check_index = body.index(fresh_check.group(0))
+    assert execute_index < kill_index < copy_out_index < git_show_index < fresh_check_index
+
+
+def test_a_detached_process_is_proved_killable_and_killed_before_the_notebook_is_read_back():
+    """#108 fix round 4, B4 M1 route B: a cell can start a process that outlives the kernel and
+    rewrite the freshly executed notebook after the executor exits. A self-test proves `pkill -u
+    nbrunner` actually reaches a detached (setsid'd) grandchild, and the real step runs before the
+    executed notebook is copied out (see the ordering assertion above)."""
+    body = code(NOTEBOOKS)
+    self_test = re.search(
+        r"Prove a detached nbrunner process can be fully killed\n(.*?)\n\s*- ", body, re.DOTALL
+    )
+    assert self_test, "no self-test proves pkill reaches a detached process"
+    text = self_test.group(1)
+    assert "setsid sh -c" in text and "disown" in text
+    assert "pkill -9 -u nbrunner" in text
+    assert "pgrep -u nbrunner" in text
+    self_test_index = body.index(self_test.group(0))
+    execute_index = body.index("Execute the notebook offline")
+    assert self_test_index < execute_index, (
+        "the kill mechanism must be proved before it is relied on"
     )
 
 

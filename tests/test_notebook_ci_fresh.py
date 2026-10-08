@@ -322,6 +322,26 @@ def test_skip_execution_cell_fails_even_when_both_match(nb):
     assert all("skip-execution" in p for p in found)
 
 
+def test_skip_execution_tag_matches_nbclients_actual_default():
+    # SKIP_EXECUTION_TAGS hardcodes nbclient's own default rather than importing it (importing
+    # would run the pinned version's own import-time side effects just to read one constant), so
+    # a future bump of the pin that changes the default would otherwise go unnoticed.
+    from nbclient import NotebookClient
+
+    assert {NotebookClient.skip_cells_with_tag.default_value} == set(fresh_tool.SKIP_EXECUTION_TAGS)
+
+
+def test_skip_execution_tag_on_a_markdown_cell_is_not_flagged(nb):
+    # nbclient only ever skips a code cell; a markdown cell has no outputs to fabricate, so the
+    # tag carries no meaning there and must not be flagged.
+    target = cell_with(nb, "intro")
+    assert target["cell_type"] == "markdown"
+    target.setdefault("metadata", {})["tags"] = ["skip-execution"]
+    twin = copy.deepcopy(nb)
+    found = problems_for(nb, twin)
+    assert not any("skip-execution" in p for p in found), found
+
+
 def test_cli_exit_status_and_messages(reference, tmp_path):
     fresh_path = tmp_path / "fresh.ipynb"
     fresh_path.write_text(json.dumps(reference), encoding="utf-8")
