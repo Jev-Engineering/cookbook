@@ -203,8 +203,8 @@ Never commit a real credential, and never a realistic fake.
 ## Where the notebook runs
 
 A notebook runs with its recipe directory as the working directory. That is a convention the
-recipe relies on, not something these helpers enforce; the recipe CI (#69) sets the working
-directory explicitly when it executes notebooks. Helpers take an explicit `recipe_dir` and default to the
+recipe relies on, not something these helpers enforce; the recipe CI (#69) runs the executor on a copy of the recipe folder, which sets the working
+directory to that folder. Helpers take an explicit `recipe_dir` and default to the
 current directory. Tests pass `Path(__file__).parent.parent`.
 
 ```python

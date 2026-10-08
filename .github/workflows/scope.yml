@@ -1,0 +1,70 @@
+name: Scope
+
+# The allowlist for recipe pull requests (#69), in its own workflow so that it can re-run when a
+# pull request description or base branch is edited (`edited`) without re-executing a single
+# notebook. The check classifies a pull request from its description (its closing references), so
+# a result that survived a later edit would be stale. The job name below is part of the contract
+# (it is a required check): rename it only deliberately. See docs/notebook-ci.md.
+#
+# This is `pull_request_target`, deliberately. Under `pull_request` GitHub runs the workflow file
+# of the pull request itself, so a pull request that edits this file (the step becomes `exit 0`)
+# would judge itself and pass. Under `pull_request_target` the workflow file and the script come
+# from the BASE branch, and a pull request cannot change the rule that judges it. The price is
+# that the job runs with the base's context, so it must never execute anything from the pull
+# request: it checks out the base, fetches the pull request head as git objects only (never
+# checked out), runs the base's Python script on those objects, and has read-only permissions and
+# no secrets. Do not add a step that runs, installs, imports or sources a file of the pull request.
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scope-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  scope:
+    name: Scope (recipe pull requests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # The base commit: the tool and the README renderer both come from here.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.base.sha }}
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.10"
+      # The pull request head as git objects only: fetched, never checked out, so no file of it
+      # is ever in the working tree. The token is passed to this one git command and is not
+      # persisted. `--config-env` (#108 fix round 5, A5 suggestion 5) reads the header's value
+      # from the `AUTH_HEADER` environment variable rather than taking it as a command-line
+      # argument: `git -c "...=AUTHORIZATION: basic $auth"` put the token in the fetch process's
+      # own argv, visible in /proc/*/cmdline (to anything else running on the runner at that
+      # moment, which on a hosted runner is nothing) for the life of the fetch.
+      - name: Fetch the pull request head (objects only)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          export AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          git --config-env=http.extraheader=AUTH_HEADER \
+            fetch --no-tags origin "+refs/pull/$PR_NUMBER/head:refs/remotes/pull/head"
+          unset AUTH_HEADER
+          git cat-file -e "$HEAD_SHA^{commit}" || { echo "head $HEAD_SHA is not fetchable (it was superseded)"; exit 1; }
+      - name: Check the allowlist
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          printf '%s' "$PR_BODY" > "$RUNNER_TEMP/pr-body.txt"
+          python tools/check_recipe_scope.py --repo . --base "$BASE_SHA" --head "$HEAD_SHA" --branch "$BRANCH" --body-file "$RUNNER_TEMP/pr-body.txt"

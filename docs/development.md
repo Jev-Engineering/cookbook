@@ -1,6 +1,9 @@
 # Development
 
-Python 3.10 or newer (the floor of `typesafe-sdk`).
+Python 3.10 or newer (the floor of `typesafe-sdk`). Committable notebook outputs are the one
+exception: they are produced on Python 3.14 with `.github/constraints-notebooks.txt`, because that
+file cannot be installed on the floor (`numpy==2.5.3` needs Python 3.12 or newer) — see "Running CI
+on one recipe".
 
 ## The three commands
 
@@ -42,21 +45,20 @@ renderer, committing only the generated README regions and confirming `--check`,
 review and CI run (see "The generated-README exception" in
 [CONTRIBUTING.md](../CONTRIBUTING.md)). `--check` stays strict and fails on any stale
 content, so on a recipe pull request that adds a notebook the `Catalog` check is expected to be
-red until the integration stage has run; the builder does not fix it. The scope check planned
-for #69 does not exist yet. It applies to a recipe pull request, meaning branch `recipe/<slug>` with
-`Closes #N` for N in 1 to 60, and fails closed if only one of the two holds or the slug cannot be
-resolved. Until it does, reviewers apply the same allowlist by hand with
-`git diff --raw -M origin/main...HEAD`: only paths under `recipes/NN-slug/` plus
-`README.md`, where `README.md` must stay a regular file of mode `100644` and must equal `render(<base README>, <head catalog>)` (rendered from
-the base README, not the head's, with the head's `recipes/` tree deciding publication). Reviewers reject symlink (`120000`) and submodule (`160000`) modes, any mode change (for example `100644 100755`), and any type change; every new or resulting mode must be `100644`; `--name-status` cannot show these, which is why the command is `--raw`. The
-full rule is in [CONTRIBUTING.md](../CONTRIBUTING.md).
+red until the integration stage has run; the builder does not fix it. The scope check
+(`tools/check_recipe_scope.py`, CI check `Scope (recipe pull requests)`) enforces the allowlist
+mechanically on every pull request; reviewers can run the same command locally, and the rule is
+in [CONTRIBUTING.md](../CONTRIBUTING.md) and [notebook-ci.md](notebook-ci.md).
 
 ## Continuous integration
 
 `.github/workflows/ci.yml` (workflow `CI`) runs on every pull request and every push to
 `main`. It uses no secrets and makes no live API calls. These job names are stable so they
-can be made required checks; change one only deliberately, and add new jobs (for example
-notebook execution) under new names.
+can be made required checks; change one only deliberately, and add new jobs under new names.
+Notebook execution and fixture validation are in a second workflow, `Notebooks`
+(`.github/workflows/notebooks.yml`), and the scope check is in a third, `Scope`
+(`.github/workflows/scope.yml`, which also re-runs when a pull request description is edited).
+Both are described below and in [notebook-ci.md](notebook-ci.md).
 
 | Check name | What it runs |
 | --- | --- |
@@ -73,6 +75,174 @@ the package and every offline test work with the SDK absent (that one module is 
 Run the lint, test and hygiene commands from this document locally before opening a pull
 request. Third-party actions are pinned to full commit SHAs with the version in a
 comment; bump them deliberately, and keep the permissions at `contents: read`.
+
+### Notebook checks (workflow `Notebooks`)
+
+| Check name | What it runs |
+| --- | --- |
+| `Notebooks (execute)` | The one stable name to require: green when every selected notebook passed. |
+| `Notebook (<recipe>)` | One job per recipe folder: installs `.[ml]` under the CI constraints, executes `notebook.ipynb` offline in a scratch copy with no key and no network (a network namespace with `no_new_privs`), `check_notebook_fresh.py` against the committed file, `check_hygiene.py` on the fresh copy. |
+| `Notebooks (discover)` | Chooses the recipes to run (a push to `main` runs the folders changed since the previous tip and a pull request runs the folders it changes, either of them all when anything but `recipes/<folder>/` and `README.md` changed). |
+| `Fixtures (validate)` | `python tools/notebook_ci.py fixtures`: every folder under `recipes/` has `fixtures/` and validates. |
+| `Scope (recipe pull requests)` | `tools/check_recipe_scope.py` (workflow `Scope`, `pull_request_target`, so the base branch's copy judges), on pull requests only, and again when the description or base is edited. |
+
+### Running CI on one recipe
+
+To run what the notebook job runs on one recipe, from the repository root (Git Bash on Windows,
+or Linux). CI copies to a folder that keeps the recipe's name, so do the same:
+
+```bash
+set -e   # #108 fix round 7, B8 suggestion 4: without this, a failed execute_notebook.py run
+         # leaves /tmp/run/NN-slug/notebook.ipynb equal to the committed file (it is a copy, and
+         # the executor never wrote a result), so the freshness check below would trivially pass
+         # on a notebook that never actually ran -- the same shape as the execute step's own `|
+         # tee` exit-masking gap in .github/workflows/notebooks.yml, in a shell with no pipe
+         # involved at all.
+pip install -e ".[dev,ml]" -c .github/constraints-notebooks.txt   # CI's install (Python 3.14)
+BEFORE=$(git status --porcelain)   # see below for why this is a snapshot, not just "is it clean"
+# #108 fix round 8, B9 M1: rm -rf first. /tmp/run/NN-slug survives between runs (nothing in this
+# block ever removes it), and `cp -R src dst` copies INTO an existing dst rather than replacing
+# it, so a second run nests a fresh, unused copy at dst/NN-slug and re-executes the first run's
+# stale copy -- its old helpers.py, its old fixtures/ -- and the freshness check below then
+# reports that stale copy as "a fresh offline run", which it is not. rm -rf before cp -R works
+# the same way under GNU coreutils (Linux) and Git Bash's MSYS2 coreutils (Windows), so it is
+# used here rather than the GNU-only `cp -RT`.
+rm -rf /tmp/run/NN-slug
+mkdir -p /tmp/run && cp -R recipes/NN-slug /tmp/run/NN-slug
+PYTHONPATH="$PWD/tools/netguard" python tools/execute_notebook.py /tmp/run/NN-slug
+[ "$BEFORE" = "$(git status --porcelain)" ] || { echo "the run wrote into the checkout"; git status --porcelain; exit 1; }
+python tools/check_notebook_fresh.py recipes/NN-slug/notebook.ipynb /tmp/run/NN-slug/notebook.ipynb
+python tools/check_hygiene.py /tmp/run/NN-slug/notebook.ipynb
+python tools/notebook_ci.py fixtures
+```
+
+**The check above compares a before/after snapshot, not `test -z "$(git status --porcelain)"`**
+(#108 fix round 5, B5 review): while you are writing a recipe, `recipes/NN-slug/` itself is
+uncommitted — a fresh scaffold's `README.md`, `build_fixtures.py`, `fixtures/`, `tests/` and
+`notebook.ipynb` are all untracked until you commit them, so a bare "is the tree clean" check
+reports your own new files as if the run had written into the checkout, on every single run, for
+every recipe author. Comparing `git status --porcelain` before and after instead only flags a
+change the *run itself* caused, whatever the tree looked like beforehand. CI's own copy of this
+assertion (`.github/workflows/notebooks.yml`, "The checkout is untouched after execution") can stay
+a bare "is it clean" check, because CI always starts from a fresh checkout with nothing uncommitted
+to begin with.
+
+The constraints pin the plotting stack and the kernel stack to the versions CI uses (see
+[notebook-ci.md](notebook-ci.md#pinned-plotting-stack)). **Committable outputs require Python 3.14
+with the constraints file**, not just the same `pip install`: text output is compared byte for byte
+against CI's pinned stack, and the floor, Python 3.10, cannot even install the file (`numpy==2.5.3`
+needs Python 3.12 or newer). This is not permission to skip the pins on a newer interpreter either;
+only figures tolerate a different version (they are compared by what they show, not by bytes).
+Install with the same file before you execute a notebook whose outputs you will commit.
+
+**This is the weaker, no-`sudo` variant, and it is honest about why.** The kernel above runs as
+your own user, who already owns the checkout that `tools/check_notebook_fresh.py`,
+`tools/check_hygiene.py` and the committed notebook are read from — there is no boundary here
+stopping a cell from writing any of them, only the `test -z "$(git status --porcelain)"` line
+catching it afterwards (a real backstop: it does fail if a cell wrote into the checkout, the same
+way CI's own backstop would). CI does not rely on a backstop alone; it runs the kernel as a
+separate, unprivileged user who cannot write the checkout, the interpreter's site-packages or the
+runner's `$HOME` at all — see "Protecting the checks from the notebook under test" in
+[notebook-ci.md](notebook-ci.md). To reproduce that boundary locally rather than only its
+backstop, on Linux, with `sudo` and a spare system user:
+
+```bash
+set -e   # same reason as the simpler block above: a failed execute_notebook.py run here would
+         # otherwise leave /tmp/run/NN-slug/notebook.ipynb equal to the committed file, and every
+         # command after it would keep running and end by reporting a fresh, matching notebook
+sudo useradd -M -s /usr/sbin/nologin nbrunner_local   # once; pick a name that cannot collide
+sudo mkdir -p /tmp/nbrunner-home
+sudo chown nbrunner_local:nbrunner_local /tmp/nbrunner-home
+sudo chmod 700 /tmp/nbrunner-home   # /tmp is world-writable; do not leave this readable by anyone else
+
+BEFORE=$(git status --porcelain)
+# #108 fix round 8, B9 M1: same reason as the simpler block, and here a stale /tmp/run/NN-slug
+# fails loudly rather than silently on its own -- it is nbrunner_local-owned, mode 700, after the
+# chown/chmod below, so a plain `cp -R` cannot write into it on the next run -- but that is still
+# not what this block claims to do, so remove it first, as root, since your own user cannot.
+sudo rm -rf /tmp/run/NN-slug
+mkdir -p /tmp/run && cp -R recipes/NN-slug /tmp/run/NN-slug
+sudo chown -R nbrunner_local:nbrunner_local /tmp/run/NN-slug
+sudo chmod -R u+rwX,go-rwx /tmp/run/NN-slug   # nbrunner_local's only writable location
+
+# -u unsets the five XDG_* variables CI also unsets: left set, they point at paths under *your*
+# $HOME (not nbrunner_local's), which nbrunner_local cannot write, and a library that honours them
+# (matplotlib, found live in CI) then warns on stderr and fails the run for a reason that has
+# nothing to do with the notebook itself.
+sudo env -u XDG_CONFIG_HOME -u XDG_CACHE_HOME -u XDG_DATA_HOME -u XDG_STATE_HOME -u XDG_RUNTIME_DIR \
+  "PATH=$PATH" "HOME=/tmp/nbrunner-home" "PYTHONPATH=$PWD/tools/netguard" \
+  "PYTHONNOUSERSITE=1" setpriv --no-new-privs --reuid=nbrunner_local --regid=nbrunner_local \
+  --clear-groups -- python -s tools/execute_notebook.py /tmp/run/NN-slug
+
+# A cell could have started a process that outlives the kernel (setsid, a double fork, & disown);
+# end every nbrunner_local process before trusting anything it could still touch. This is CI's
+# backstop, reproduced locally; CI's actual defence against this is a PID namespace around the
+# execution itself (see "Protecting the checks from the notebook under test" in notebook-ci.md),
+# which a one-shot `sudo setpriv` like this does not reproduce.
+sudo pkill -9 -u nbrunner_local || true
+sleep 1
+if sudo pgrep -u nbrunner_local; then echo "a detached process survived pkill"; exit 1; fi
+# (#108 fix round 8, A9 S1: an `if` condition, kept for clarity, not
+# `pgrep ... && { ...; exit 1; }`. The `&&` form would not abort under `set -e` here: `set -e`
+# only turns a list's own nonzero status into the script's when that list is the last command run,
+# and this one is not the last line of the block. `if` says what is meant either way, so it is the
+# clearer choice regardless.)
+
+sudo install -m 0644 -o "$(id -u)" -g "$(id -g)" /tmp/run/NN-slug/notebook.ipynb /tmp/fresh.ipynb
+
+[ "$BEFORE" = "$(git status --porcelain)" ] || { echo "the run wrote into the checkout"; exit 1; }
+git show HEAD:recipes/NN-slug/notebook.ipynb > /tmp/committed.ipynb
+python tools/check_notebook_fresh.py /tmp/committed.ipynb /tmp/fresh.ipynb
+python tools/check_hygiene.py /tmp/fresh.ipynb
+python tools/notebook_ci.py fixtures
+
+sudo userdel nbrunner_local   # tidy up afterwards; the home and scratch directories are in /tmp
+```
+
+This reproduces the uid boundary around the checkout, site-packages and `$HOME`, and the
+leftover-process kill; it does not also reproduce CI's network namespace (`unshare --net`) or its
+PID namespace (`unshare --pid --fork --mount-proc`), both of which need root for the whole duration
+rather than one dropped-privilege command; the network namespace is demonstrated separately below.
+`/tmp` itself is usually world-writable (sticky bit aside, other users on a shared machine can still
+create their own files there): the `chmod 700` above on `/tmp/nbrunner-home` matters for the same
+reason CI's own scratch directory lives outside the runner's `$HOME` rather than relying on `/tmp`'s
+default mode (see "Protecting the checks from the notebook under test" in notebook-ci.md).
+
+`PYTHONPATH="$PWD/tools/netguard"` loads the Python-level network guard, as in CI. The path must be
+absolute: the executor starts the kernel with the recipe folder as its working directory, so a
+relative `PYTHONPATH` resolves against `/tmp/run/NN-slug`, finds nothing, and the notebook runs
+unguarded without a word. To see that the guard reached the kernel, run a probe cell (a cell that
+prints `socket.socket.connect.__module__` must print `sitecustomize`, and one that calls
+`socket.create_connection(("example.com", 80))` must raise `NetworkBlocked`). The guard is a
+readable error for an honest mistake, not a sandbox. On Linux the enforcing layer can be tried the
+way CI does it. The values that must belong to you (`id -u`, `id -g`, `PATH`) are expanded by your
+shell, outside the quotes, and passed in as arguments; inside the single-quoted script they would
+expand as root:
+
+```bash
+sudo env "PATH=$PATH" unshare --net -- sh -c \
+  'ip link set lo up && exec setpriv --no-new-privs --reuid="$1" --regid="$2" --clear-groups -- \
+   python -c "import socket; socket.create_connection((\"1.1.1.1\", 53), timeout=5)"' \
+  sh "$(id -u)" "$(id -g)"
+```
+
+which must fail with an `OSError` (`Network is unreachable`), as your user and with your `python`
+(add `import os; print(os.getuid())` to the payload to check). `sudo -n true` run from inside it
+must fail too. To check a pull
+request description and diff against the allowlist, put the description in a file:
+
+```bash
+printf 'Closes #NN\n' > /tmp/pr-body.txt
+python tools/check_recipe_scope.py --base origin/main --head HEAD \
+    --branch recipe/NN-slug --body-file /tmp/pr-body.txt
+```
+
+A fresh scaffold has no `fixtures/` folder until you run `python recipes/NN-slug/build_fixtures.py`,
+and `Fixtures (validate)` fails a recipe folder without one.
+
+To refresh a stale notebook, run `python tools/execute_notebook.py recipes/NN-slug` and commit
+the result. Everything about these checks, including how the figure comparison works and what
+it cannot see, is in [notebook-ci.md](notebook-ci.md).
 
 ## Repository hygiene
 
@@ -166,7 +336,10 @@ pre-commit run --all-files --hook-stage pre-push   # include pytest
 ```
 
 The hooks are local (`language: system`) and use the tools from your virtual environment,
-so the pinned ruff version is the one CI uses.
+so the pinned ruff version is the one CI uses. Run `pre-commit` with the project virtual
+environment activated so the pinned `ruff==0.16.10` is first on `PATH`: a stale global ruff (0.14.0 was
+seen) reports `Failed to parse <file>.md` on Markdown files and, when run on `.`, silently skips
+Markdown altogether, which gives a false pass. CI is unaffected because it installs the pinned ruff.
 
 Dependabot (`.github/dependabot.yml`) checks Python dependencies and GitHub Actions weekly,
 with at most three of its update pull requests open at once for each.
@@ -185,4 +358,9 @@ with at most three of its update pull requests open at once for each.
   never reads an API key, and never imports `typesafe-sdk`. Code that needs the SDK
   imports it lazily, inside the live backend, and fails with a clear message when the
   `live` extra is not installed. A test enforces this for the package import.
-- Recipes run offline with core dependencies only, unless the recipe README names an extra.
+- Recipes run offline with the core dependencies and the `ml` extra. CI installs `.[ml]` in the
+  notebook job (before the network is cut), with the plotting stack pinned by
+  `.github/constraints-notebooks.txt`; the `live` extra is never installed there. A recipe that
+  needs any other extra needs the workflow's install line changed first (a foundation change; a
+  recipe pull request cannot touch `.github/`). Bumping the constraints is a foundation change
+  that re-executes every notebook ([notebook-ci.md](notebook-ci.md#pinned-plotting-stack)).

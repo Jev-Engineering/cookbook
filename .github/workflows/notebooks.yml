@@ -1,0 +1,476 @@
+name: Notebooks
+
+# Executes every recipe notebook offline, checks the committed outputs are fresh and validates
+# every recipe's fixtures (#69). Keyless: no secret is used or needed and nothing reaches the
+# TypeSafe API. The recipe pull request allowlist is its own workflow (scope.yml), because it must
+# also re-run when a description is edited and this one must not. The job names below are part of
+# the contract (they become required checks), so rename them only deliberately. The required ones
+# are "Notebooks (execute)" and "Fixtures (validate)" (and "Scope (recipe pull requests)" in
+# scope.yml); the per-recipe "Notebook (<recipe>)" jobs are numerous and dynamic, and
+# "Notebooks (execute)" summarises them under one stable name. See docs/notebook-ci.md.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # A full run once a week, so a `main` run that was skipped, cancelled or lost is eventually
+  # revisited (the push selection is relative to the previous tip). Scheduled runs use the
+  # default branch.
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+    inputs:
+      full:
+        description: "Run every notebook (false: only the recipes changed by the latest commit)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+# A new push to a pull request cancels its older run. A push to main never cancels or replaces
+# another run (each gets its own group): the push selection below is relative to the previous
+# commit, so a run that is dropped would leave its recipes unverified.
+concurrency:
+  group: notebooks-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  discover:
+    name: Notebooks (discover)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      count: ${{ steps.matrix.outputs.count }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+      # A pull request selects the recipe folders it changes. A push to main selects the recipe
+      # folders changed since the previous tip (`before`) with a two-dot diff (before..HEAD, the two
+      # trees). Either way, a change to anything but recipe folders and README.md selects every
+      # notebook. A push selects every notebook too when `github.event.forced` is true, when
+      # `before` is not a commit here (a first push), and when `before` is not an ancestor of the
+      # new tip (a rewound or rewritten main: GitHub still sends the old tip as `before`, and a
+      # diff from the merge base would then select nothing or the wrong folders). So does a
+      # scheduled run, and a manual run with `full` left true.
+      - name: Select the notebooks to execute
+        id: matrix
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+          FULL: ${{ github.event.inputs.full }}
+          FORCED: ${{ github.event.forced }}
+        run: |
+          if [ "$EVENT" = "pull_request" ]; then
+            python tools/notebook_ci.py matrix --base "$BASE_SHA" --head HEAD --github-output "$GITHUB_OUTPUT"
+          elif [ "$EVENT" = "push" ] && [ "$FORCED" != "true" ]; then
+            python tools/notebook_ci.py matrix --base "$BEFORE_SHA" --head HEAD --push --github-output "$GITHUB_OUTPUT"
+          elif [ "$EVENT" = "push" ]; then
+            echo "forced push: running every notebook"
+            python tools/notebook_ci.py matrix --github-output "$GITHUB_OUTPUT"
+          elif [ "$EVENT" = "workflow_dispatch" ] && [ "$FULL" = "false" ]; then
+            python tools/notebook_ci.py matrix --base HEAD^ --head HEAD --lenient --github-output "$GITHUB_OUTPUT"
+          else
+            python tools/notebook_ci.py matrix --github-output "$GITHUB_OUTPUT"
+          fi
+
+  execute:
+    name: Notebook (${{ matrix.recipe }})
+    needs: discover
+    if: needs.discover.outputs.count != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      # A full run (push to main, the weekly cron, or a foundation change) can select every recipe
+      # at once; without a cap this one job claims as many of the organisation's concurrent-job
+      # slots as there are recipes, starving CI's other workflows and jobs. 10 keeps a wave a
+      # deliberate, bounded choice (see "Run time and scaling" in docs/notebook-ci.md) rather than
+      # whatever the organisation's own limit happens to be, and a pull request (at most one recipe
+      # folder changed, ordinarily) never notices it.
+      max-parallel: 10
+      matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
+    env:
+      RECIPE: ${{ matrix.recipe }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # One Python version only: the committed figures are compared by what they show, so the
+      # interpreter and matplotlib version do not have to match the author's.
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            .github/constraints-notebooks.txt
+      # The core dependencies and the `ml` extra (scikit-learn, for recipes that train a baseline),
+      # with the plotting stack pinned by .github/constraints-notebooks.txt. Installation is the
+      # last thing that may use the network.
+      - name: Install
+        run: pip install -e ".[ml]" -c .github/constraints-notebooks.txt
+      # setup-python's toolcache (`$pythonLocation`) is installed world-writable, so a notebook
+      # could otherwise drop a sitecustomize.py or a .pth file into site-packages, or overwrite the
+      # interpreter binary itself, and have every later `python` run it, including the checks. The
+      # install above is the last thing that writes under $pythonLocation, so this is safe here.
+      - name: Make the interpreter and its site-packages unwritable by anyone but the runner
+        run: sudo chmod -R o-w "$pythonLocation"
+      # Fix round 3 tried to protect the checks by copying them (and the committed notebook) out of
+      # the checkout before execution. That copy-based defence did not hold: the kernel's working
+      # directory is a sibling of the copies under $RUNNER_TEMP, so a cell could reach them by a
+      # relative path (`../../frozen/...`) with no environment variable needed, and `setpriv
+      # --reuid="$(id -u)"` kept the kernel at the runner's own uid, which owns that whole tree and
+      # the interpreter's site-packages besides. `git status --porcelain` only ever looks at the
+      # checkout, so none of that was visible to it. Fix round 4 replaces the copy with a uid
+      # boundary: the kernel runs as a dedicated, unprivileged user who owns nothing but its own
+      # scratch copy of the recipe. The checkout, the tools, and the interpreter's site-packages are
+      # readable (so the kernel can still import jev_cookbook and run Python) but not writable by
+      # that user, and its $HOME is an empty directory it owns, not the runner's. The self-tests
+      # below prove the boundary rather than assume it.
+      # The scratch tree lives outside the runner's $HOME (#108 fix round 5, A5 suggestion 2): the
+      # earlier shape put it under $RUNNER_TEMP (a child of $HOME, e.g. /home/runner/work/_temp),
+      # which bought nbrunner traversal with `chmod o+x "$HOME"` for the sake of this one
+      # subdirectory, and `chmod o+rx "$RUNNER_TEMP"` besides. /srv/nbrun sits outside $HOME
+      # entirely, so neither chmod is needed for it or the self-test probe scripts below, which now
+      # live here too. `/srv` itself is root-owned, so creating /srv/nbrun needs sudo once; it is
+      # then chowned to the runner (mode 755, so nbrunner can still traverse and list it) so the
+      # runner can populate it the rest of the way without sudo, exactly as it already did under
+      # $RUNNER_TEMP. The two things nbrunner must actually be able to write (its own $HOME and its
+      # recipe copy, both below) are separately chowned to it and locked to mode 700, which a
+      # permissive parent directory does not loosen. `chmod o+x "$HOME"` is still required, for a
+      # different and unavoidable reason: $GITHUB_WORKSPACE (the checkout nbrunner must still be
+      # able to *read* — tools/execute_notebook.py, tools/netguard, jev_cookbook) is itself a child
+      # of $HOME on a hosted runner, so nbrunner needs the same traversal into $HOME to reach it
+      # regardless of where the scratch sits; moving the scratch narrows what that traversal is
+      # used for, it does not remove the need for it.
+      - name: Create the unprivileged kernel user
+        run: |
+          sudo useradd -M -s /usr/sbin/nologin nbrunner
+          sudo mkdir -m 755 /srv/nbrun
+          sudo chown "$(id -u):$(id -g)" /srv/nbrun
+          mkdir -m 700 /srv/nbrun/nbrunner-home
+          sudo chown nbrunner:nbrunner /srv/nbrun/nbrunner-home
+          sudo chmod o+x "$HOME"
+      # The recipe copy is nbrunner's only writable location: owned by it, mode 700, so nothing
+      # else on the runner (including the runner user itself) can read or write it either.
+      - name: Copy the recipe to nbrunner's scratch folder
+        run: |
+          mkdir -p /srv/nbrun/run
+          cp -R "recipes/$RECIPE" "/srv/nbrun/run/$RECIPE"
+          sudo chown -R nbrunner:nbrunner "/srv/nbrun/run/$RECIPE"
+          sudo chmod -R u+rwX,go-rwx "/srv/nbrun/run/$RECIPE"
+      # The OS-level guard: a network namespace that has a loopback interface and nothing else
+      # (the kernel talks to the runner over loopback). The self-test fails the job if the
+      # namespace is not isolating, so a guard that silently does nothing cannot pass. Runs as
+      # nbrunner, not root (#108 fix round 5, A5 suggestion 4): the step's name promises the
+      # sandbox the notebook actually runs in, and the notebook never runs as root.
+      - name: Prove the sandbox has no route out
+        run: |
+          cat > /srv/nbrun/probe.py <<'PY'
+          import socket, sys
+          for attempt in (
+              lambda: socket.create_connection(("1.1.1.1", 53), timeout=5),
+              lambda: socket.create_connection(("2606:4700:4700::1111", 53), timeout=5),
+              lambda: socket.getaddrinfo("api.typesafe.ai", 443),
+          ):
+              try:
+                  attempt()
+              except OSError as error:
+                  print("blocked:", type(error).__name__)
+              else:
+                  sys.exit("the sandbox reached the network")
+          server = socket.socket()
+          server.bind(("127.0.0.1", 0))
+          server.listen(1)
+          socket.create_connection(server.getsockname(), timeout=5).close()
+          print("loopback works")
+          PY
+          chmod 644 /srv/nbrun/probe.py  # nbrunner must be able to read it, not just root
+          sudo env "PATH=$PATH" "HOME=/srv/nbrun/nbrunner-home" unshare --net -- sh -c \
+            'ip link set lo up && exec setpriv --no-new-privs --reuid=nbrunner --regid=nbrunner --clear-groups -- env -u PYTHONPATH python "$1"' \
+            sh /srv/nbrun/probe.py
+      # sudo resets the environment, so HOME and PYTHONPATH are passed explicitly, to the same
+      # values the execute step below uses: nbrunner's own empty $HOME, never the runner's. setpriv
+      # drops root and sets no_new_privs, so a cell cannot sudo its way back out of the namespace.
+      # This step fails if the guard is not loaded in the sandboxed interpreter, if no_new_privs is
+      # not set, or if sudo still works from inside.
+      - name: Prove the Python-level guard and no_new_privs reach the sandbox
+        env:
+          PYTHONPATH: ${{ github.workspace }}/tools/netguard
+        run: |
+          cat > /srv/nbrun/loaded.py <<'PY'
+          import os, socket, subprocess
+          assert socket.socket.connect.__module__ == "sitecustomize", "netguard not loaded"
+          print("netguard loaded")
+          flag = [l for l in open("/proc/self/status") if l.startswith("NoNewPrivs:")]
+          assert flag and flag[0].split()[1] == "1", "no_new_privs is not set"
+          escape = subprocess.run(["sudo", "-n", "true"], capture_output=True)
+          assert escape.returncode != 0, "sudo still works inside the sandbox"
+          assert os.geteuid() != 0, "still root"
+          print("no_new_privs set; sudo refused; euid", os.geteuid())
+          PY
+          chmod 644 /srv/nbrun/loaded.py  # nbrunner must be able to read it, not just root
+          sudo env -u XDG_CONFIG_HOME -u XDG_CACHE_HOME -u XDG_DATA_HOME -u XDG_STATE_HOME \
+            -u XDG_RUNTIME_DIR "PATH=$PATH" "HOME=/srv/nbrun/nbrunner-home" \
+            "PYTHONPATH=$PYTHONPATH" "PYTHONNOUSERSITE=1" unshare --net -- sh -c \
+            'ip link set lo up && exec setpriv --no-new-privs --reuid=nbrunner --regid=nbrunner --clear-groups -- python -s "$1"' \
+            sh /srv/nbrun/loaded.py
+      # A cell can start a process that outlives the kernel (a detached grandchild, double-forked or
+      # setsid'd). The PID namespace the execute step runs in (below) is what actually closes this
+      # route: the kernel is PID 1 of its own namespace, so nothing in it can survive the namespace
+      # exiting. `pkill -u nbrunner` afterward is a backstop, not the defence — #108 fix round 5, M1
+      # found that a process *holding* the file open in a 5 ms rewrite loop wins the ~455 ms between
+      # the executor exiting and `pkill` running, where a one-shot write after a `sleep` does not.
+      # This self-test proves only what a backstop can prove: that `pkill` reaches a detached
+      # process at all, once it is given one. The self-test below proves the property that matters:
+      # that the namespace leaves nothing to reach in the first place.
+      - name: Prove a detached nbrunner process can be fully killed
+        run: |
+          sudo setpriv --no-new-privs --reuid=nbrunner --regid=nbrunner --clear-groups -- \
+            setsid sh -c 'sleep 300 & disown' &
+          sleep 1
+          sudo pkill -9 -u nbrunner || true
+          sleep 1
+          if sudo pgrep -u nbrunner >/dev/null; then
+            echo "FAIL: a detached nbrunner process survived pkill -u nbrunner"
+            sudo ps -u nbrunner -o pid,ppid,cmd
+            exit 1
+          fi
+          echo "ok: pkill -u nbrunner leaves nothing, including a detached grandchild"
+      # One of the two properties that actually has to hold: nothing the kernel spawns, however it
+      # is detached, can outlive the executor's own process tree *once that tree is gone*. A PID
+      # namespace gives this for free: the wrapped command becomes PID 1 of a fresh namespace, and
+      # the instant PID 1 exits, the kernel SIGKILLs every other process left in that namespace —
+      # proved here with the same attack #108 fix round 5's review used to defeat the old kill-only
+      # defence, a `setsid`'d grandchild that keeps running (a tight loop, not a one-shot
+      # sleep-then-write). This alone is not the whole fix: it says nothing about what else might
+      # still be running *before* PID 1 exits, which is exactly where the real attack kept winning
+      # until tools/execute_notebook.py was also given its own kill-before-write step (see the
+      # comment on the execute step below) — this self-test isolates the namespace's own property
+      # from that second layer, which has its own unit tests instead (tests/test_notebook_ci_
+      # sandbox.py), since it runs inside the Python process, not the shell. `--mount-proc` is
+      # needed only so tools inside the namespace (e.g. `ps`) see its own process table; it is not
+      # needed for the kill-on-exit property itself, which is unconditional kernel behaviour.
+      - name: Prove a PID namespace leaves 0 survivors, even a looping rewriter
+        run: |
+          sudo env -u XDG_CONFIG_HOME -u XDG_CACHE_HOME -u XDG_DATA_HOME -u XDG_STATE_HOME \
+            -u XDG_RUNTIME_DIR "PATH=$PATH" "HOME=/srv/nbrun/nbrunner-home" \
+            unshare --net --pid --fork --mount-proc -- sh -c \
+            'ip link set lo up && exec setpriv --no-new-privs --reuid=nbrunner --regid=nbrunner --clear-groups -- \
+             setsid sh -c "(while :; do :; done &) ; exit 0"'
+          sleep 1
+          if sudo pgrep -u nbrunner >/dev/null; then
+            echo "FAIL: a process spawned inside the PID namespace survived its own PID 1 exiting"
+            sudo ps -u nbrunner -o pid,ppid,cmd
+            exit 1
+          fi
+          echo "ok: the PID namespace leaves 0 survivors, including a detached, looping rewriter"
+      # The uid boundary itself, proved rather than assumed: nbrunner must not be able to write the
+      # interpreter's site-packages (a sitecustomize.py there would run before every later `python`,
+      # including the checks below), the checkout (its tools/ or the committed notebook the checks
+      # compare against), the pinned constraints file, anything under the runner's own $HOME (a
+      # usercustomize.py there is the same attack by a different path), or the three files a
+      # workflow step uses to talk to later steps (`$GITHUB_ENV`, `$GITHUB_OUTPUT`, `$GITHUB_PATH` —
+      # #108 fix round 5, A5 suggestion: an appended `$GITHUB_PATH` line would put an
+      # attacker-controlled `python` ahead of the real one for every later step, the checks
+      # included) — and must be able to write only its own recipe copy.
+      - name: Prove the uid boundary - nbrunner can write only its own recipe copy
+        run: |
+          SITE_PACKAGES=$(python -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")
+          cat > /srv/nbrun/uid_boundary_probe.sh <<'SH'
+          set -u
+          fail=0
+          for path in "$SITE_PACKAGES" "$WORKSPACE" "$WORKSPACE/tools" "$NOTEBOOK" "$CONSTRAINTS" "$RUNNER_HOME" "$GH_ENV" "$GH_OUTPUT" "$GH_PATH"; do
+            if [ -w "$path" ]; then
+              echo "FAIL: nbrunner can write $path (it must not)"
+              fail=1
+            else
+              echo "ok: nbrunner cannot write $path"
+            fi
+          done
+          if [ ! -w "$RECIPE_COPY" ]; then
+            echo "FAIL: nbrunner cannot write its own recipe copy $RECIPE_COPY (it must)"
+            fail=1
+          else
+            echo "ok: nbrunner can write $RECIPE_COPY"
+          fi
+          exit $fail
+          SH
+          chmod 644 /srv/nbrun/uid_boundary_probe.sh  # nbrunner must be able to read it too
+          sudo env \
+            "SITE_PACKAGES=$SITE_PACKAGES" \
+            "WORKSPACE=$GITHUB_WORKSPACE" \
+            "NOTEBOOK=$GITHUB_WORKSPACE/recipes/$RECIPE/notebook.ipynb" \
+            "CONSTRAINTS=$GITHUB_WORKSPACE/.github/constraints-notebooks.txt" \
+            "RUNNER_HOME=$HOME" \
+            "GH_ENV=$GITHUB_ENV" \
+            "GH_OUTPUT=$GITHUB_OUTPUT" \
+            "GH_PATH=$GITHUB_PATH" \
+            "RECIPE_COPY=/srv/nbrun/run/$RECIPE" \
+            setpriv --no-new-privs --reuid=nbrunner --regid=nbrunner --clear-groups -- \
+            sh /srv/nbrun/uid_boundary_probe.sh
+      # #108 fix round 5, M1: `--pid --fork --mount-proc` on the `unshare` already here is the
+      # first of two layers that protect the notebook the checks below read — see "Prove a PID
+      # namespace leaves 0 survivors" above for why a kill alone is not enough. The wrapped shell
+      # becomes PID 1 of a fresh PID namespace; when it exits, the kernel reaps everything else
+      # left in that namespace. That guarantee is about the namespace exiting, not about
+      # execute_notebook.py's own write of notebook.ipynb being the last one -- a real throwaway-PR
+      # attack still won against the namespace alone, inside the gap between that write and the
+      # Python process's own interpreter shutdown finishing. The second layer, inside
+      # tools/execute_notebook.py itself (kill_everyone_else_in_my_pid_namespace, called
+      # immediately before it writes the result), closes that gap: nothing else is left alive to
+      # race the write, confirmed by re-checking, not merely guaranteed dead sometime after this
+      # process exits. `--timeout` below is still enforced in Python by nbclient's own cell
+      # timeout, not by a signal from outside, so neither layer changes what makes a slow cell
+      # fail.
+      - name: Execute the notebook offline
+        # #108 fix round 7, A8 M1: this step's `run:` block is a pipeline (`... | tee
+        # "$RUNNER_TEMP/execute-notebook.log"`), and a pipeline's exit status is its last
+        # command's. GitHub's default shell for `run:` is `bash -e {0}` -- no `pipefail` -- so
+        # without this, `tee` (which always exits 0) swallowed the executor's own exit code: an
+        # executor that raised RuntimeError from kill_everyone_else_in_my_pid_namespace *after*
+        # printing "pid namespace: active" (so the grep below still passes) left this step green
+        # on an unexecuted, still-committed notebook. `shell: bash` makes GitHub run this block as
+        # `bash --noprofile --norc -eo pipefail {0}`, so the pipeline now fails if either side
+        # does. Pinned by test_execute_step_sets_pipefail_shell in
+        # tests/test_notebook_ci_workflows.py.
+        shell: bash
+        env:
+          # The Python-level guard (tools/netguard/sitecustomize.py) also reaches the kernel:
+          # the executor strips only JEV_COOKBOOK_* and TYPESAFE_* from its environment. HOME is
+          # nbrunner's own empty directory, never the runner's (see the step above). `-s` and
+          # PYTHONNOUSERSITE keep the kernel and the subprocess ipykernel it spawns off any user
+          # site-packages under that $HOME. The runner's own XDG_* variables (set by the runner
+          # image, not by this workflow) are unset rather than passed through: left alone, they
+          # point at the runner's own, nbrunner-unwritable config/cache/data directories (found
+          # the hard way: matplotlib tried to create $XDG_CONFIG_HOME/matplotlib, got
+          # "Permission denied" on /home/runner/.config, and the warning it fell back to printing
+          # landed in the notebook's own stderr output and failed the run). Unset, every one of
+          # them falls back to a path under $HOME, which is nbrunner's own and writable.
+          PYTHONPATH: ${{ github.workspace }}/tools/netguard
+          # #108 fix round 6, B6 M1: kill_everyone_else_in_my_pid_namespace (tools/
+          # execute_notebook.py) only does anything because the `sh -c` below `exec`s straight
+          # into `python`, which is never asserted anywhere -- a later edit that stops that (a
+          # `timeout 600` wrapped around `python`, say, which forks rather than `exec`s) would
+          # silently turn that layer into a no-op with every test and check still green. This
+          # variable makes the executor demand the namespace instead of merely inferring it: it
+          # raises, before writing anything, if it is not actually PID 1 of one, and otherwise
+          # prints "pid namespace: active", which is grepped for below.
+          JEV_COOKBOOK_REQUIRE_PID_NAMESPACE: "1"
+        run: |
+          started=$(date +%s)
+          sudo env -u XDG_CONFIG_HOME -u XDG_CACHE_HOME -u XDG_DATA_HOME -u XDG_STATE_HOME \
+            -u XDG_RUNTIME_DIR "PATH=$PATH" "HOME=/srv/nbrun/nbrunner-home" \
+            "PYTHONPATH=$PYTHONPATH" "PYTHONNOUSERSITE=1" \
+            "JEV_COOKBOOK_REQUIRE_PID_NAMESPACE=$JEV_COOKBOOK_REQUIRE_PID_NAMESPACE" \
+            unshare --net --pid --fork --mount-proc -- sh -c \
+            'ip link set lo up && exec setpriv --no-new-privs --reuid=nbrunner --regid=nbrunner --clear-groups -- python -s tools/execute_notebook.py --timeout 300 "$1"' \
+            sh "/srv/nbrun/run/$RECIPE" | tee "$RUNNER_TEMP/execute-notebook.log"
+          # #108 fix round 6, B6 M1: the executor's own exit code already fails this step if the
+          # namespace was demanded and absent (PidNamespaceNotActive), but that exit code looks
+          # the same in the log as every other reason a notebook can fail. This also requires the
+          # one-line proof the executor prints on success, so a configuration that reintroduces
+          # the gap (or a `main()` refactor that stops printing the line) fails this step too.
+          grep -qx "pid namespace: active" "$RUNNER_TEMP/execute-notebook.log" || {
+            echo "FAIL: the executor never confirmed the PID namespace was active"
+            exit 1
+          }
+          echo "executed $RECIPE in $(( $(date +%s) - started )) s" | tee -a "$GITHUB_STEP_SUMMARY"
+          # The read-back happens here, immediately, in the same step as execution and before any
+          # step boundary (#108 fix round 5, M1), as further defence in depth: execute_notebook.py
+          # has already killed and confirmed dead everything else in its own PID namespace before
+          # writing the result (the layer that actually closes the write-ordering race; see the
+          # comment above), and the namespace itself means nothing of that process tree survives
+          # past the `unshare --pid --fork` call above returning either way. nbrunner owns its
+          # recipe copy exclusively (mode 700); copy it out as the runner, into a plain
+          # runner-owned file nbrunner cannot reach.
+          sudo install -m 0644 -o "$(id -u)" -g "$(id -g)" \
+            "/srv/nbrun/run/$RECIPE/notebook.ipynb" "$RUNNER_TEMP/fresh-notebook.ipynb"
+      # Backstop, not the defence (#108 fix round 5, M1): the PID namespace the execute step runs
+      # in means nothing of the kernel's process tree can outlive the `unshare --pid --fork` call
+      # that already returned, above, before the notebook was even copied out — so this should
+      # never find anything. It stays as defence in depth against the namespace construction itself
+      # ever being wrong (a dropped flag, a future refactor), and fails loudly rather than
+      # silently if it ever does find a survivor; it is no longer what makes the copy above
+      # trustworthy.
+      - name: Kill any leftover nbrunner processes
+        run: |
+          sudo pkill -9 -u nbrunner || true
+          sleep 1
+          if sudo pgrep -u nbrunner >/dev/null; then
+            echo "a process survived both the PID namespace and pkill; the sandbox's process-tree containment is broken"
+            sudo ps -u nbrunner -o pid,ppid,cmd
+            exit 1
+          fi
+      # The checkout is unwritable by nbrunner by construction (see the uid-boundary self-test
+      # above), so the checks below read it directly rather than from a copy made in advance. This
+      # assertion is the backstop in case that construction is ever wrong: it fails loudly rather
+      # than silently reading a tampered tree.
+      - name: The checkout is untouched after execution
+        run: |
+          status=$(git status --porcelain)
+          if [ -n "$status" ]; then
+            echo "the notebook run wrote into the checkout; the checks read it, so this is a failure:"
+            echo "$status"
+            exit 1
+          fi
+      # Read from git, not the working tree, as a second, independent check on top of the uid
+      # boundary and the assertion above: even if either were ever wrong, this line still compares
+      # against the actual committed blob rather than whatever file happens to sit in the checkout.
+      - name: Read the committed notebook from git, not the working tree
+        run: git show "HEAD:recipes/$RECIPE/notebook.ipynb" > "$RUNNER_TEMP/committed-notebook.ipynb"
+      - name: Committed outputs match the fresh run
+        run: python tools/check_notebook_fresh.py "$RUNNER_TEMP/committed-notebook.ipynb" "$RUNNER_TEMP/fresh-notebook.ipynb"
+      - name: Hygiene of the freshly executed notebook
+        run: python tools/check_hygiene.py "$RUNNER_TEMP/fresh-notebook.ipynb"
+
+  notebooks:
+    name: Notebooks (execute)
+    needs: [discover, execute]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # The one stable name for branch protection: green only when discovery succeeded and every
+      # selected notebook passed (or none was selected, which a README-only change does).
+      - name: Summarise
+        env:
+          DISCOVER: ${{ needs.discover.result }}
+          EXECUTE: ${{ needs.execute.result }}
+          COUNT: ${{ needs.discover.outputs.count }}
+        run: |
+          echo "discover=$DISCOVER execute=$EXECUTE notebooks=$COUNT"
+          [ "$DISCOVER" = "success" ] || { echo "discovery did not succeed"; exit 1; }
+          if [ "$COUNT" = "0" ]; then
+            [ "$EXECUTE" = "skipped" ] || { echo "no notebook selected but execute ran"; exit 1; }
+          else
+            [ "$EXECUTE" = "success" ] || { echo "a notebook job did not succeed"; exit 1; }
+          fi
+
+  fixtures:
+    name: Fixtures (validate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install
+        run: pip install -e .
+      # Every folder under recipes/ must have fixtures/ and must validate; the validator's own
+      # --all skips a recipe without fixtures/.
+      - name: Validate every recipe's fixtures
+        run: python tools/notebook_ci.py fixtures

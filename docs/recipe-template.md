@@ -111,7 +111,12 @@ and **never overwrites**: if `recipes/<slug>/` exists it changes nothing and exi
 5. Work through `notebook.ipynb` section by section. The scaffold's setup, state, question and
    answer cells already run once steps 3 and 4 are done; replace each `TODO` and fill the
    `# TODO` code cells. Copy the template's evaluation cells as a starting point.
-6. `python tools/execute_notebook.py recipes/NN-slug`, then read the outputs.
+6. Committable outputs require Python 3.14 with the constraints file: the floor, Python 3.10,
+   cannot even install it (`numpy==2.5.3` needs Python 3.12 or newer), and CI compares text output
+   byte for byte against its pinned stack. Install the way CI does,
+   `pip install -e ".[dev,ml]" -c .github/constraints-notebooks.txt` (Python 3.14), so the outputs
+   you commit come from the same library versions; then
+   `python tools/execute_notebook.py recipes/NN-slug`, and read the outputs.
 7. Run it twice: the second run must change nothing (`git diff --stat` empty after `git add`).
 8. `ruff check .`, `ruff format --check .`, `pytest`, `python tools/check_hygiene.py`.
 9. Open the pull request. Do not run `tools/render_catalog.py` or edit the root `README.md`: the
@@ -196,10 +201,11 @@ contain a live outcome by accident. To run a notebook live, set `TYPESAFE_API_KE
 or capture answers with the recorder in [live.md](live.md). A recorded recipe states the model
 version the API returned, the capture date and N for every number it reports.
 
-It adds no network guard and no staleness check. Those are #69's. Two things for that work: figure
-outputs are PNG images whose bytes may differ across platforms and matplotlib or FreeType
-versions, and text outputs are stable. A staleness check that compares whole files should be run in
-the CI environment the committed outputs were made in, or compare outputs other than image data.
+The executor itself adds no network guard and no staleness check; the `Notebooks` workflow does
+(#69): it re-executes the notebook offline in a network namespace and compares the result with the
+committed one, text exactly and figures by what they show, because PNG bytes differ across
+platforms and matplotlib or FreeType versions. What that comparison cannot see is in
+[notebook-ci.md](notebook-ci.md).
 
 ## The template in the catalog
 
