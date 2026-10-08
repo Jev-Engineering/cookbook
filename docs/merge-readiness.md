@@ -108,8 +108,17 @@ and is reported as a failure, whether the name reached the helper as a baseline,
 `--require-head-check` may be a CheckRun from any app or a StatusContext, since that is how
 external checks report; the receipt shows each one's `kind` and, for CheckRuns, the `app`. A name
 that appears more than once (for example as both a CheckRun and a StatusContext) is ambiguous and
-fails. CheckRuns are read with `filter=latest`, so a rerun replaces an earlier cancelled run of
-the same job.
+fails closed, unless it is a `--require-check` or `--require-head-check` name (never one of the
+five baseline checks) and every one of its completed results concluded `success`: several such
+CheckRuns for the same name on one commit then collapse into a single `success` result, and the
+receipt records every merged run's id and conclusion under that check's evidence, so the merge
+stays auditable. Any other mix for such a name -- a failure, neutral, cancelled, timed out,
+skipped, pending/in-progress row, or differing conclusions -- is still ambiguous and fails closed
+exactly as before (#138). This exists because `scope.yml` runs `Scope (recipe pull requests)` on
+`pull_request_target` for `opened`, `synchronize`, `reopened` and `edited`, so a description edit
+after the last push leaves two successful CheckRuns for that name on the same head; without this
+collapse the helper would fail closed forever on an otherwise fully green head. CheckRuns are
+read with `filter=latest`, so a rerun replaces an earlier cancelled run of the same job.
 
 The helper does not read workflow files. Checks added by later workflows (for example notebook
 execution or fixture validation) are **the caller's responsibility**: read the current workflows

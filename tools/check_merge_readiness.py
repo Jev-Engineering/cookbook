@@ -260,7 +260,18 @@ def _run_state(status: str, conclusion: str | None) -> str:
 def judge_checks(
     found: list[dict], required: list[str], label: str
 ) -> tuple[list[dict], list[str]]:
-    """Return (evidence for the required checks, failures). Only exact 'success' passes."""
+    """Return (evidence for the required checks, failures). Only exact 'success' passes.
+
+    A ``--require-check`` or ``--require-head-check`` name (never one of the five
+    BASELINE_CHECKS) can legitimately get more than one completed result on the same commit --
+    for example "Scope (recipe pull requests)", which runs on ``pull_request_target`` and so
+    reruns on a description `edited` after an earlier `synchronize` already succeeded. Several
+    such results collapse into one ``success`` result if and only if every one of them concluded
+    `success`; the merged evidence then lists every run's id and conclusion (#138). Any other
+    mix -- a failure, neutral, cancelled, timed out, skipped, pending/in-progress row, or
+    differing conclusions -- is still ambiguous and fails closed exactly as before, and a
+    baseline name is never collapsed regardless of its results.
+    """
     by_name: dict[str, list[dict]] = {}
     for entry in found:
         by_name.setdefault(entry["name"], []).append(entry)
@@ -274,6 +285,16 @@ def judge_checks(
             evidence.append({"name": name, "state": "missing"})
         elif len(entries) > 1:
             states = sorted({e["state"] for e in entries})
+            if name not in BASELINE_CHECKS and states == ["success"]:
+                evidence.append(
+                    {
+                        "name": name,
+                        "state": "success",
+                        "results": len(entries),
+                        "runs": [_run_evidence(e) for e in entries],
+                    }
+                )
+                continue
             kind = "conflicting" if len(states) > 1 else "duplicate"
             failures.append(f"{label}: {kind} results ({len(entries)}) for check: {_clip(name)}")
             evidence.append({"name": name, "state": "ambiguous", "results": len(entries)})
@@ -293,6 +314,14 @@ def judge_checks(
             elif entry["state"] != "success":
                 failures.append(f"{label}: check {_clip(name)} is {_clip(entry['state'])}")
     return evidence, failures
+
+
+def _run_evidence(entry: dict) -> dict:
+    """One merged duplicate-success row's id and conclusion, kept small (#138 receipt evidence)."""
+    row = {"kind": entry["kind"], "id": entry["id"], "state": entry["state"]}
+    if entry["kind"] == "check_run":
+        row["app"] = _clip(entry["app"], 60)
+    return row
 
 
 def judge_pr(pr: dict, default_branch: str, expected_head: str) -> list[str]:
