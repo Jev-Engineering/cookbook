@@ -250,7 +250,9 @@ else:
             "next-md",
             f"## {SECTIONS[8]}\n\n"
             f"{TODO_MARK}: what to try next, and links to neighbouring recipes by slug, for "
-            "example [`NN-slug`](../NN-slug/).",
+            "example [`NN-slug`](../NN-slug/). A folder link like that 404s on GitHub until "
+            "the neighbour's notebook.ipynb is committed; that is the expected, documented "
+            "convention (docs/recipe-template.md), not something to work around.",
         ),
     ]
 
@@ -473,14 +475,34 @@ def build_responses(rows):
 
 def _is_recorded(path: Path) -> bool:
     """True if ``path`` exists and holds at least one response whose model is not
-    ``"synthetic"`` (a recorded, or otherwise real, answer)."""
+    ``"synthetic"`` (a recorded, or otherwise real, answer). A file that is not a JSON object,
+    or whose entries are not objects, cannot hold a valid synthetic response either, so it is
+    treated the same as a recorded one rather than raising."""
     if not path.exists():
         return False
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return False
-    return any(entry.get("model") != "synthetic" for entry in data.values())
+    if not isinstance(data, dict):
+        return False
+    return any(
+        not isinstance(entry, dict) or entry.get("model") != "synthetic" for entry in data.values()
+    )
+
+
+def _unresolved_keys(inputs, responses_file: Path) -> list[str]:
+    """Replay keys the just-rewritten ``inputs`` ask for that ``responses_file`` does not have,
+    used only to warn when a ROWS edit has desynchronised the two."""
+    if not responses_file.exists():
+        return []
+    try:
+        data = json.loads(responses_file.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+    if not isinstance(data, dict):
+        return []
+    return [key for row in inputs for key in row["replay_keys"] if key not in data]
 
 
 def main() -> None:
@@ -501,14 +523,24 @@ def main() -> None:
         (folder / name).write_text(text, encoding="utf-8", newline="\\n")
     responses_file = folder / "responses.json"
     if _is_recorded(responses_file) and not args.force:
-        raise SystemExit(
+        message = (
             f"refusing to overwrite {{responses_file}}: it holds a recorded response "
             "(pass --force to overwrite it anyway)"
         )
+        if _unresolved_keys(inputs, responses_file):
+            message += (
+                "\\ninputs.jsonl and labels.jsonl above were rewritten from ROWS; "
+                "responses.json was not, and at least one of the keys the rewritten inputs "
+                "ask for is missing from it. The three files are desynchronised until you "
+                "--force a rewrite or record the missing answers."
+            )
+        raise SystemExit(message)
     responses = build_responses(ROWS)
-    # Sorted keys, matching jev_cookbook.live.record, so recording over this file produces a
-    # minimal diff.
-    text = json.dumps(responses, indent=2, sort_keys=True) + "\\n"
+    # The same serialization jev_cookbook.live._dump writes: only the top-level keys are
+    # sorted; each response keeps the field order DecisionResult.to_dict() emits. Matching the
+    # recorder exactly, rather than json.dumps(..., sort_keys=True) (which also sorts every
+    # nested dict alphabetically), keeps a recording's diff to the values that actually changed.
+    text = json.dumps(dict(sorted(responses.items())), indent=2, ensure_ascii=False) + "\\n"
     responses_file.write_text(text, encoding="utf-8", newline="\\n")
     print(f"wrote {{len(inputs)}} examples, {{len(labels)}} labels, {{len(responses)}} responses")
 

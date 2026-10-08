@@ -1,6 +1,7 @@
 """The template recipe is a recipe: its fixtures validate, its notebook keeps the contract."""
 
 import ast
+import difflib
 import importlib.util
 import json
 import re
@@ -11,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from jev_cookbook.fixtures import validate_recipe
+from jev_cookbook.live import _dump, merge_responses
 
 REPO = Path(__file__).resolve().parent.parent
 TEMPLATE = REPO / "recipes" / "_template"
@@ -159,17 +161,28 @@ def stream_lines(cell_id):
     ).splitlines()
 
 
-def test_every_test_metric_line_of_the_evaluation_carries_the_pipeline_check_label():
-    lines = stream_lines("evaluation-test")
+def test_every_metric_line_of_the_evaluation_carries_the_pipeline_check_label():
+    """CONTRIBUTING.md section 2: "In a synthetic run, any metric is a check that the pipeline
+    works, and the notebook says so next to the number." That includes validation numbers: in
+    this (synthetic) run, a validation line is both a selection step and a pipeline check, not
+    one or the other."""
+    threshold_lines = [
+        line for line in stream_lines("python-rule") if line.startswith(("answers that", "chosen"))
+    ]
+    assert len(threshold_lines) == 2
+    lines = (
+        threshold_lines + stream_lines("evaluation-validation") + stream_lines("evaluation-test")
+    )
     assert lines
     for line in lines:
         assert "(a pipeline check, not a Jev result)" in line, line
 
 
-def test_every_validation_number_in_every_run_mode_carries_the_selection_label():
+def test_every_validation_number_carries_the_mode_independent_selection_label():
     """CONTRIBUTING.md section 2: a number from the validation split is a selection step, not
     a result. Unlike `check`, this label must not depend on `backend.mode`: it is printed in
-    the offline run tested here, and it must stay printed in a `recorded` or `live` run too."""
+    the offline (synthetic) run tested here, and it must stay printed in a `recorded` or
+    `live` run too, where `check` goes empty but `selection` must not."""
     threshold_lines = [
         line for line in stream_lines("python-rule") if line.startswith(("answers that", "chosen"))
     ]
@@ -178,7 +191,6 @@ def test_every_validation_number_in_every_run_mode_carries_the_selection_label()
     assert validation_lines
     for line in threshold_lines + validation_lines:
         assert "(a selection step, not a reported result)" in line, line
-        assert "(a pipeline check, not a Jev result)" not in line, line
 
 
 def test_the_evaluation_reports_what_the_routing_rule_does():
@@ -348,6 +360,52 @@ def test_build_fixtures_separates_inputs_labels_from_responses(tmp_path):
     assert all(v["model"] == "synthetic" for v in after.values())
 
 
-def test_the_committed_responses_are_sorted_like_the_recorder():
-    data = json.loads((TEMPLATE / "fixtures" / "responses.json").read_text("utf-8"))
-    assert list(data.keys()) == sorted(data.keys())
+def test_the_committed_responses_are_byte_identical_to_the_recorders_writer():
+    """jev_cookbook.live._dump sorts only the top-level keys; json.dumps(..., sort_keys=True)
+    sorts every nested dict too and so disagrees with it on every response's field order. The
+    committed file must match _dump exactly, not just agree with it on top-level order."""
+    raw = (TEMPLATE / "fixtures" / "responses.json").read_text("utf-8")
+    data = json.loads(raw)
+    assert len(data) > 1
+    assert raw == _dump(data)
+
+
+def test_a_simulated_recording_produces_a_minimal_diff():
+    """Proves issue #124 item 4's actual purpose: recording over this file should change only
+    the values a real call would change, not reformat every response. Simulate a recording
+    that keeps every answer's content but flips its provenance to recorded (what the
+    recording wave does), merge it the way jev_cookbook.live.record does, and check the diff
+    is confined to the lines that actually changed (provenance and, for the top-level entry,
+    its model) rather than a wholesale reordering."""
+    responses_path = TEMPLATE / "fixtures" / "responses.json"
+    before_text = responses_path.read_text("utf-8")
+    before_lines = before_text.splitlines()
+    data = json.loads(before_text)
+
+    recorded = {}
+    for key, response in data.items():
+        new_answers = {}
+        for name, answer in response["answers"].items():
+            new_answer = dict(answer)
+            new_answer["provenance"] = {
+                "source": "recorded",
+                "model": "jev-1.13.0",
+                "date": "2026-10-09",
+            }
+            new_answers[name] = new_answer
+        recorded[key] = {"model": "jev-1.13.0", "usage": response["usage"], "answers": new_answers}
+
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        scratch = Path(tmp) / "responses.json"
+        scratch.write_text(before_text, encoding="utf-8")
+        merge_responses(scratch, recorded, overwrite=True)
+        after_lines = scratch.read_text("utf-8").splitlines()
+
+    diff = list(difflib.unified_diff(before_lines, after_lines, lineterm=""))
+    changed = [line for line in diff if line[:1] in "+-" and line[:3] not in ("+++", "---")]
+    # Every response's provenance block is 3 lines (source, model, date) on each side, and the
+    # top-level model line changes too: for N responses that is at most 4N changed lines on
+    # each side, well under reformatting the whole 500+ line file.
+    assert 0 < len(changed) <= 8 * len(data), len(changed)

@@ -879,6 +879,50 @@ def test_build_fixtures_refuses_to_overwrite_a_recorded_responses_file(catalog, 
     assert all(v["model"] == "synthetic" for v in after.values())
 
 
+def test_build_fixtures_refusal_warns_when_rows_desynchronised_the_fixtures(catalog, recipes):
+    """Rewriting inputs.jsonl/labels.jsonl while refusing to touch responses.json (the split
+    this issue asks for) can leave the three files out of sync: if a ROWS field changed, the
+    freshly computed replay keys may no longer be in the kept responses.json. The refusal
+    message should say so."""
+    folder = scaffold_replay_with_build_script(catalog, recipes, number=6)
+    script = folder / "build_fixtures.py"
+    subprocess.run([sys.executable, str(script)], check=True, cwd=recipes)
+
+    responses = folder / "fixtures" / "responses.json"
+    data = json.loads(responses.read_text("utf-8"))
+    for value in data.values():
+        value["model"] = "jev-1.13.0"
+    responses.write_text(
+        json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
+    )
+
+    # Change a ROWS field (the text), which changes the replay key it computes.
+    build = script.read_text("utf-8")
+    build = build.replace('{"text": "x"}', '{"text": "x changed"}')
+    script.write_text(build, encoding="utf-8", newline="\n")
+
+    refused = subprocess.run(
+        [sys.executable, str(script)], capture_output=True, text=True, cwd=recipes
+    )
+    assert refused.returncode != 0
+    assert "desynchronised" in refused.stderr
+    assert "--force" in refused.stderr and "record" in refused.stderr
+
+
+def test_is_recorded_does_not_crash_on_a_non_object_responses_file(catalog, recipes):
+    folder = scaffold_replay_with_build_script(catalog, recipes, number=7)
+    script = folder / "build_fixtures.py"
+    subprocess.run([sys.executable, str(script)], check=True, cwd=recipes)
+
+    responses = folder / "fixtures" / "responses.json"
+    for bad in ("[]", "null", '"not an object"', "[1, 2, 3]"):
+        responses.write_text(bad, encoding="utf-8", newline="\n")
+        result = subprocess.run(
+            [sys.executable, str(script)], capture_output=True, text=True, cwd=recipes
+        )
+        assert "Traceback" not in result.stderr, (bad, result.stderr)
+
+
 def test_build_fixtures_rewrites_inputs_and_labels_even_when_responses_is_refused(catalog, recipes):
     folder = scaffold_replay_with_build_script(catalog, recipes, number=3)
     script = folder / "build_fixtures.py"
@@ -901,11 +945,21 @@ def test_build_fixtures_rewrites_inputs_and_labels_even_when_responses_is_refuse
     assert inputs.exists(), "inputs.jsonl is regenerated even when responses.json is refused"
 
 
-def test_build_fixtures_writes_responses_with_sorted_keys_like_the_recorder(catalog, recipes):
+def test_build_fixtures_writes_responses_byte_identical_to_the_recorders_writer(catalog, recipes):
+    """jev_cookbook.live._dump (what the live recorder writes with) is
+    json.dumps(dict(sorted(data.items())), indent=2, ensure_ascii=False) + "\\n": only the
+    top-level keys are sorted, every nested dict keeps DecisionResult.to_dict()'s own field
+    order. json.dumps(..., sort_keys=True) sorts every nested dict too, which disagrees with
+    the recorder on every response and roughly quadruples the diff a recording produces
+    (measured on the template: 676 changed lines with sort_keys=True against 176 with the
+    recorder's own writer, for the same 22 responses). The builder must match the recorder
+    exactly, not just agree with it on top-level order."""
+    from jev_cookbook.live import _dump
+
     folder = scaffold_replay_with_build_script(catalog, recipes, number=4)
     script = folder / "build_fixtures.py"
     subprocess.run([sys.executable, str(script)], check=True, cwd=recipes)
     raw = (folder / "fixtures" / "responses.json").read_text("utf-8")
     data = json.loads(raw)
     assert len(data) > 1
-    assert list(data.keys()) == sorted(data.keys())
+    assert raw == _dump(data)

@@ -49,6 +49,12 @@ measured**, **Next steps**. A recipe keeps these headings.
   paths, usernames or environment dumps.
 - **`Noul` propositions are statements** that can be true or false. The contract is stricter than
   TypeSafe's documentation, which also shows questions.
+- **Neighbour links are folder links, and that is the convention.** "Next steps" links a
+  neighbouring recipe as `../NN-slug/`. `tools/render_catalog.py` renders each catalog row as a
+  bare `| NN | **title**<br>use_case | category | decision | status |` with no id or anchor, so
+  there is no more stable target in the generated README to link to instead. A folder link 404s
+  on GitHub until that recipe's `notebook.ipynb` is committed; that is expected, not a defect to
+  fix by removing the link or waiting to add it.
 
 ## How `load_helpers` works
 

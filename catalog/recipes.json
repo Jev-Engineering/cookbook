@@ -99,7 +99,6 @@
       "use_case": "Classify a short customer review as positive, neutral, negative, or mixed using a fixed set of labels.",
       "sources": [
         "S02",
-        "S03",
         "S07"
       ],
       "issue": 1
