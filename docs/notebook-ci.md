@@ -401,19 +401,24 @@ freshness check's output. A change to the file counts as "anything else", so it 
 Jobs have timeouts, pip is cached, and a new push to a pull request cancels its older run. The
 execute step prints its own elapsed seconds to the job summary.
 
-**One recipe, measured.** From this pull request's own CI runs
-([37705273938](https://github.com/Jev-Engineering/cookbook/actions/runs/37705273938),
-[37705273783](https://github.com/Jev-Engineering/cookbook/actions/runs/37705273783)):
-`Notebooks (discover)` 6 s, `Notebook (_template)` 41 s (of which the notebook itself executes in
-3 s; the rest is `setup-python`, install and the sandbox self-tests), `Notebooks (execute)` 3 s,
-`Fixtures (validate)` 28 s. The `Notebooks` workflow's wall time for one recipe was 91 s.
+**One recipe, measured.** From this pull request's own CI runs at the fix round 4 head
+([37718584952](https://github.com/Jev-Engineering/cookbook/actions/runs/37718584952),
+[37718585032](https://github.com/Jev-Engineering/cookbook/actions/runs/37718585032)), after the
+uid-boundary sandbox (fix round 4) added its user creation, its two write-boundary self-tests and
+its leftover-process kill on top of fix round 3's numbers: `Notebooks (discover)` 6 s,
+`Notebook (_template)` 35 s (of which the notebook itself executes in 2 s; the rest is
+`setup-python`, install and the sandbox self-tests — about 7 s more than round 3's 41 s total
+despite a 3 s *faster* job, because pip's cache was warmer on this run; the self-tests themselves
+measured under 2 s combined), `Notebooks (execute)` 3 s, `Fixtures (validate)` 17 s. The
+`Notebooks` workflow's wall time for one recipe was 54 s end to end (discover, then the one
+notebook job, then the summary; fixtures runs in parallel and does not add to that critical path).
 
 **How it scales.** The `execute` job caps itself at `max-parallel: 10` (see "Why 10" below), so a
 run that selects every notebook is not one wave of N jobs in parallel but ⌈N / 10⌉ waves run one
-after another. At sixty recipes that is six waves of ten: roughly 4½ minutes of execute time (six
-times the one-recipe execute job's ~41 s, allowing for the fixed per-job overhead not shrinking),
-plus discovery and the summary job, for a **wall time of about 5–6 minutes** for a full run — not
-the ~91 s a single uncapped wave would take. A push to a recipe pull request, or to `main` after a
+after another. At sixty recipes that is six waves of ten: roughly 3½ minutes of execute time (six
+times the one-recipe execute job's ~35 s, allowing for the fixed per-job overhead not shrinking),
+plus discovery and the summary job, for a **wall time of about 4 minutes** for a full run — not the
+~54 s a single uncapped wave would take. A push to a recipe pull request, or to `main` after a
 recipe merges, still selects only the one or two folders that changed (see "Which notebooks run"),
 so this scaling only matters for a push that selects every notebook: a foundation change outside
 `recipes/`, a forced push, the weekly cron, or a manual run with `full` left `true`.
@@ -426,15 +431,17 @@ choice rather than whatever the organisation's limit happens to be at the time; 
 **Billed minutes (private repository), measured.** GitHub rounds each job up to a whole minute.
 Counting the runs above: one push to a recipe pull request is `Notebooks` 4 billed minutes
 (discover + one notebook + the summary + fixtures) + `Scope` 1, on top of 7 for the existing `CI`
-and `Hygiene` workflows (`Lint` 25 s, `Catalog` 6 s, `Tests (py3.14)` 90 s, `Tests (py3.10)` 109 s,
-`Hygiene` 7 s, each rounding to 1 or 2 billed minutes) — **about 12 billed minutes per push**. A
-README-only push selects no notebook: 3 + 1 = 4 new. A push to `main` that selects every
-notebook — the scaling case above — is 1 (discover) + 60 (one per recipe) + 1 (summary) + 1
-(fixtures) = 63 jobs, **about 63 billed minutes**, independent of the `max-parallel` cap (billing is
-per job, not per wave); the weekly cron costs the same each time it runs. Selecting only the recipe
-folders a normal recipe merge changed (see "Which notebooks run") keeps an ordinary merge to `main`
-at 4 new billed minutes rather than 63. These are measured from the runs named above, not an
-estimate from job counts; check the repository's usage report for totals over time.
+and `Hygiene` workflows (`Lint` 21 s, `Catalog` 6 s, `Tests (py3.14)` 98 s, `Tests (py3.10)` 109 s,
+`Hygiene` 8 s, each rounding to 1 or 2 billed minutes) — **about 12 billed minutes per push**,
+unchanged from round 3 (none of fix round 4's added self-tests cross a one-minute rounding
+boundary on their own job). A README-only push selects no notebook: 3 + 1 = 4 new. A push to
+`main` that selects every notebook — the scaling case above — is 1 (discover) + 60 (one per
+recipe) + 1 (summary) + 1 (fixtures) = 63 jobs, **about 63 billed minutes**, independent of the
+`max-parallel` cap (billing is per job, not per wave); the weekly cron costs the same each time it
+runs. Selecting only the recipe folders a normal recipe merge changed (see "Which notebooks run")
+keeps an ordinary merge to `main` at 4 new billed minutes rather than 63. These are measured from
+the runs named above, not an estimate from job counts; check the repository's usage report for
+totals over time.
 
 ## Local commands
 
