@@ -226,3 +226,43 @@ def test_execute_calls_the_guard_before_writing(monkeypatch, tmp_path):
     execute_notebook.execute(recipe_dir)
 
     assert order == ["run", "check", "kill", "write"]
+
+
+def test_execute_itself_raises_and_leaves_the_file_unwritten_when_the_namespace_is_demanded_and_absent(
+    monkeypatch, tmp_path
+):
+    """#108 fix round 7, B8 M2: nothing pinned that ``execute()`` actually calls
+    ``require_pid_namespace_if_demanded()`` -- deleting that one line from ``execute()`` left
+    every existing test green. ``test_execute_calls_the_guard_before_writing`` above deliberately
+    leaves ``JEV_COOKBOOK_REQUIRE_PID_NAMESPACE`` unset, so the call (if present at all) is a
+    no-op and invisible to its ``order`` list either way; the dedicated unit tests for the guard
+    (``test_require_pid_namespace_raises_when_demanded_and_not_active`` and its neighbours) call
+    ``require_pid_namespace_if_demanded`` directly, never through ``execute()``. This test instead
+    drives the real ``execute()`` call path with the demand set and the namespace absent
+    (``os.getpid`` patched off 1, so ``in_an_isolated_pid_namespace()`` is genuinely ``False``,
+    not mocked away): if the call in ``execute()`` is ever deleted, ``execute()`` instead reaches
+    ``kill_everyone_else_in_my_pid_namespace`` (itself a no-op outside a namespace) and writes the
+    file, so this test would see no raise and a changed file instead of the required one."""
+    import nbformat
+
+    monkeypatch.setenv(execute_notebook.PID_NAMESPACE_REQUIRED_ENV, "1")
+    monkeypatch.setattr(os, "getpid", lambda: 12345)  # not PID 1: not an isolated namespace
+    recipe_dir = tmp_path / "recipe"
+    recipe_dir.mkdir()
+    nb = nbformat.v4.new_notebook()
+    nb.cells = [nbformat.v4.new_code_cell("1 + 1")]
+    notebook_path = recipe_dir / execute_notebook.NOTEBOOK
+    nbformat.write(nb, notebook_path)
+    before = notebook_path.read_bytes()
+
+    monkeypatch.setattr(
+        execute_notebook, "run_in_fresh_kernel", lambda nb, recipe_dir, timeout: None
+    )
+    monkeypatch.setattr(execute_notebook, "check_no_stderr", lambda nb: None)
+
+    with pytest.raises(execute_notebook.PidNamespaceNotActive, match="refusing to write"):
+        execute_notebook.execute(recipe_dir)
+
+    assert notebook_path.read_bytes() == before, (
+        "the file must be left exactly as it was when the namespace is demanded and absent"
+    )

@@ -424,18 +424,22 @@ def test_execute_step_requires_and_confirms_the_pid_namespace():
 
 
 def test_execute_step_sets_pipefail_shell():
-    """#108 fix round 7, A8 M1: round 6 turned this step's single command into a pipeline
-    (``... | tee "$RUNNER_TEMP/execute-notebook.log"``) so the grep right after it would have
-    something to read, but GitHub's default shell for a `run:` block with no `shell:` key is
-    `bash -e {0}` -- with no `pipefail` -- and a pipeline's exit status is its *last* command's,
-    which is `tee`'s, always 0, regardless of what the executor did. An executor that raised
-    (``kill_everyone_else_in_my_pid_namespace`` refusing to write the result, tools/
-    execute_notebook.py) *after* printing "pid namespace: active" left this step green on the
-    still-committed, never-executed notebook: the grep for that confirmation line still passed,
-    and the executor's own nonzero exit reached nothing else. `shell: bash` makes GitHub run the
-    block as `bash --noprofile --norc -eo pipefail {0}` instead, so the pipeline -- and so the
-    step -- fails if either side of it does, restoring the property the plain, unpiped command had
-    before round 6 (#108 fix round 6, B6 M1) added the pipe."""
+    """#108 fix round 7, A8 M1 / B8 M1 (the same finding from both review seats): round 6 turned
+    this step's single command into a pipeline (``... | tee "$RUNNER_TEMP/execute-notebook.log"``)
+    so the grep right after it would have something to read, but GitHub's default shell for a
+    `run:` block with no `shell:` key is `bash -e {0}` -- with no `pipefail` -- and a pipeline's
+    exit status is its *last* command's, which is `tee`'s, always 0, regardless of what the
+    executor did. An executor that raised (``kill_everyone_else_in_my_pid_namespace`` refusing to
+    write the result, tools/execute_notebook.py) *after* printing "pid namespace: active" left
+    this step green on the still-committed, never-executed notebook: the grep for that
+    confirmation line still passed, and the executor's own nonzero exit reached nothing else.
+    `shell: bash` makes GitHub run the block as `bash --noprofile --norc -eo pipefail {0}`
+    instead, so the pipeline -- and so the step -- fails if either side of it does, restoring the
+    property the plain, unpiped command had before round 6 (#108 fix round 6, B6 M1) added the
+    pipe. B8's own mutation for this finding was different from A8's: appending `|| true` to the
+    pipeline, which forces the *whole* pipeline's exit status to 0 regardless of `pipefail` -- a
+    second way to defeat the same property, not caught by only checking for `shell: bash`, so this
+    test also rejects it."""
     body = code(NOTEBOOKS)
     execute_step = re.search(r"Execute the notebook offline\n(.*?)\n\s*- ", body, re.DOTALL)
     assert execute_step
@@ -444,6 +448,11 @@ def test_execute_step_sets_pipefail_shell():
     assert "shell: bash" in text, (
         "the step needs `shell: bash` (or an equivalent pipefail) so the executor's exit code "
         "is not swallowed by `tee` under GitHub's default `bash -e {0}`"
+    )
+    assert "|| true" not in text, (
+        "an `|| true` appended to the pipeline (B8's own mutation for this finding) forces the "
+        "whole pipeline's exit status to 0 regardless of `pipefail`, the same bypass as the "
+        "missing `shell: bash` with a different spelling"
     )
     shell_index = text.index("shell: bash")
     pipe_index = text.index("| tee")

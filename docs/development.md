@@ -92,6 +92,12 @@ To run what the notebook job runs on one recipe, from the repository root (Git B
 or Linux). CI copies to a folder that keeps the recipe's name, so do the same:
 
 ```bash
+set -e   # #108 fix round 7, B8 suggestion 4: without this, a failed execute_notebook.py run
+         # leaves /tmp/run/NN-slug/notebook.ipynb equal to the committed file (it is a copy, and
+         # the executor never wrote a result), so the freshness check below would trivially pass
+         # on a notebook that never actually ran -- the same shape as the execute step's own `|
+         # tee` exit-masking gap in .github/workflows/notebooks.yml, in a shell with no pipe
+         # involved at all.
 pip install -e ".[dev,ml]" -c .github/constraints-notebooks.txt   # CI's install (Python 3.14)
 BEFORE=$(git status --porcelain)   # see below for why this is a snapshot, not just "is it clean"
 mkdir -p /tmp/run && cp -R recipes/NN-slug /tmp/run/NN-slug
@@ -133,6 +139,9 @@ runner's `$HOME` at all — see "Protecting the checks from the notebook under t
 backstop, on Linux, with `sudo` and a spare system user:
 
 ```bash
+set -e   # same reason as the simpler block above: a failed execute_notebook.py run here would
+         # otherwise leave /tmp/run/NN-slug/notebook.ipynb equal to the committed file, and every
+         # command after it would keep running and end by reporting a fresh, matching notebook
 sudo useradd -M -s /usr/sbin/nologin nbrunner_local   # once; pick a name that cannot collide
 sudo mkdir -p /tmp/nbrunner-home
 sudo chown nbrunner_local:nbrunner_local /tmp/nbrunner-home
@@ -159,7 +168,10 @@ sudo env -u XDG_CONFIG_HOME -u XDG_CACHE_HOME -u XDG_DATA_HOME -u XDG_STATE_HOME
 # which a one-shot `sudo setpriv` like this does not reproduce.
 sudo pkill -9 -u nbrunner_local || true
 sleep 1
-sudo pgrep -u nbrunner_local && { echo "a detached process survived pkill"; exit 1; }
+if sudo pgrep -u nbrunner_local; then echo "a detached process survived pkill"; exit 1; fi
+# (an `if` condition, not `pgrep ... && { ...; exit 1; }`: under `set -e` above, the latter would
+# abort the script right here on the good path too, since pgrep itself exits nonzero when it
+# finds nothing -- a condition tested by `if` is exempt from `set -e`, a plain command is not)
 
 sudo install -m 0644 -o "$(id -u)" -g "$(id -g)" /tmp/run/NN-slug/notebook.ipynb /tmp/fresh.ipynb
 

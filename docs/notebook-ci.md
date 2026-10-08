@@ -305,12 +305,21 @@ merges"); until then, a reviewer rejecting a `.github/` change by hand is what s
 
 `Fixtures (validate)` validates every file under `recipes/<recipe>/fixtures/`; nothing in this
 workflow or in `jev_cookbook` requires a notebook's `get_backend(fixtures=...)` call to point
-inside that folder. In CI this is closed as a side effect of the boundary above, not by a rule that
-checks it: `/srv/nbrun/run/<recipe>` (nbrunner's writable copy) is the only place a notebook cell
-could stage a file at execution time, and that is thrown away at the end of the job, so the fixtures
-`Fixtures (validate)` validated are the only ones a committed, reviewable `get_backend` call can
-actually reach — a path elsewhere in the checkout is read-only and points at files a reviewer can
-see in the diff. **This does not hold locally**, where a notebook's author runs as their own user
+inside that folder. The uid boundary makes `/srv/nbrun/run/<recipe>` (nbrunner's writable copy)
+the only place a notebook cell could stage a file at execution time, but that is a weaker
+guarantee than it sounds (#108 fix round 7, B8 suggestions 1 and 2, demonstrated in review): the
+copy's own `fixtures/` subfolder is inside that writable tree, so a cell can write an unvalidated
+file there and call `get_backend(fixtures=...)` against it in the very same run — the committed
+and fresh runs stage it identically, so the staleness check does not catch it either. The same
+copy holds the recipe's `helpers.py`; a cell that rewrites it mid-run changes what later cells in
+that same run import, with nothing here checking that the code which produced the committed
+outputs is the code committed. **What this boundary actually guarantees: the staged file or the
+rewritten module never leaves the discarded copy and never becomes a committed, reviewable
+artifact — a path elsewhere in the checkout is read-only, and a path outside the copy entirely is
+unreachable.** It protects `Fixtures (validate)` and the other jobs from a notebook that tries to
+reach outside its own sandbox, not the notebook's own copy of itself from the notebook; catching
+either case inside the run is for a human reviewer reading the notebook's cells, not this
+mechanism. **This does not hold locally at all**, where a notebook's author runs as their own user
 and can point `fixtures=` at any file on disk they own, validated or not. The shared-code half (a
 runtime check that `get_backend` refuses a fixtures path outside the recipe's own `fixtures/`)
 belongs to the fixtures backend itself (#65/#66), not to this workflow.
@@ -500,10 +509,12 @@ freshness check's output. A change to the file counts as "anything else", so it 
 Jobs have timeouts, pip is cached, and a new push to a pull request cancels its older run. The
 execute step prints its own elapsed seconds to the job summary.
 
-**One recipe, measured.** Per-job seconds, read from the API rather than estimated, for fix round
-6's own `Notebooks` run, at this pull request's head
-(`1ab2cf4e93d552f1cf842b2902c4d022541aa277`;
-[37737217198](https://github.com/Jev-Engineering/cookbook/actions/runs/37737217198)):
+**One recipe, measured.** Per-job seconds, read from the API rather than estimated, for the
+`Notebooks` run at commit `1ab2cf4e93d552f1cf842b2902c4d022541aa277` — fix round 6's own code
+commit, cited by commit rather than as "this pull request's head" because that label goes stale
+the moment a later commit (docs-only or otherwise) moves the head, which it has every round so far
+(#108 fix round 7, A8 suggestion 1 / B8 suggestion 3) —
+[37737217198](https://github.com/Jev-Engineering/cookbook/actions/runs/37737217198):
 `Notebooks (discover)` 9 s, `Notebook (_template)` 48 s (of which the notebook itself executes in a
 few seconds; the rest is `setup-python`, install and the sandbox self-tests and probes, including
 the one this round adds: the execute step confirming `pid namespace: active`), `Notebooks
@@ -524,7 +535,7 @@ single changed recipe (`_template`), read the same way as above:
 | `b040de7` (fix round 4's approved head) | [37719814024](https://github.com/Jev-Engineering/cookbook/actions/runs/37719814024) | 66 s | 45 s |
 | `2411a158` (fix round 5, mid-round) | [37728218425](https://github.com/Jev-Engineering/cookbook/actions/runs/37728218425) | 69 s | 48 s |
 | `273c79f` (fix round 5's head) | [37728525125](https://github.com/Jev-Engineering/cookbook/actions/runs/37728525125) | 60 s | 41 s |
-| `1ab2cf4` (fix round 6's head, above) | [37737217198](https://github.com/Jev-Engineering/cookbook/actions/runs/37737217198) | 108 s | 48 s |
+| `1ab2cf4` (fix round 6's code commit, above) | [37737217198](https://github.com/Jev-Engineering/cookbook/actions/runs/37737217198) | 108 s | 48 s |
 
 Each of these is a single sample for its commit — this pull request's CI does not run a commit
 twice to measure variance — and the spread (54-108 s wall; 35-48 s for the notebook job alone,
