@@ -300,7 +300,9 @@ def readme_problems(repo: Path, base: str, head: str) -> list[str]:
     if head_readme != expected:
         return [
             "README.md: does not equal the renderer's output for the base README and the head "
-            "catalog (only the generated regions may change, exactly as rendered)"
+            "catalog (only the generated regions may change, exactly as rendered; if you just ran "
+            "the renderer and it still disagrees, check that every recipe folder you rendered is "
+            "committed — the renderer reads the working tree, this check reads the head commit)"
         ]
     return []
 
