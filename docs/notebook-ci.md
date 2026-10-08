@@ -187,25 +187,43 @@ copy except for the few milliseconds after each of the executor's own writes. `p
 a process (which it does, and still does) says nothing about whether it reaches it *before* the
 next read, and the measured margin said it did not.
 
-**The fix is a PID namespace, not a faster kill.** The execute step's `unshare` already creates a
-network namespace (`--net`); it now also creates a PID namespace (`--pid --fork --mount-proc`),
-so the sandboxed `python` becomes PID 1 of its own process tree. When PID 1 of a PID namespace
-exits, the kernel immediately reaps every other process still in that namespace — there is no step
-boundary, no race, and no window of any size for a leftover process to run in, because by
-construction nothing can still be running once the `unshare` invocation itself has returned. The
-notebook is then read back from inside the very same shell step, immediately, before any further
-step runs — not two steps later, and not gated by a kill step's timing. A self-test (`Prove a PID
-namespace leaves 0 survivors, even a looping rewriter`) raises exactly this kind of looping,
-`setsid`'d rewriter inside the same shape of namespace and asserts nothing of it survives, with no
-`pkill` involved in reaching that conclusion.
+**The fix has two layers, and the first one alone was not enough — found by this round's own
+throwaway-PR proof, not assumed.** The execute step's `unshare` already creates a network namespace
+(`--net`); it now also creates a PID namespace (`--pid --fork --mount-proc`), so the sandboxed
+`python` (`tools/execute_notebook.py`) becomes PID 1 of its own process tree. When PID 1 of a PID
+namespace exits, the kernel reaps every other process still in that namespace — there is no step
+boundary and no window of any size for a leftover process to run in *after* that exit. A self-test
+(`Prove a PID namespace leaves 0 survivors, even a looping rewriter`) proves exactly this in
+isolation: raise a looping, `setsid`'d rewriter inside the same shape of namespace, and nothing of
+it survives once the namespace's own PID 1 exits, no `pkill` involved.
 
-**`pkill -9 -u nbrunner` stays, as a backstop, not the defence.** It still runs immediately after
-execution (a separate self-test, `Prove a detached nbrunner process can be fully killed`, still
-proves it reaches a one-shot detached process when given one), and it still fails the job loudly if
-it ever finds a survivor — but by the time it runs, the notebook has already been read back from
-inside a namespace nothing could have outlived, so a survivor at that point would mean the namespace
-construction itself is broken, not that the notebook is at risk from what the backstop might still
-catch.
+**That guarantee is about the namespace exiting, not about the executor's own write being final —
+and those are different moments.** Running the fix-round-4 attack cell's upgraded form (a 5 ms
+rewrite loop, not a one-shot sleep-then-write) against the namespace alone, on a real throwaway pull
+request, the grandchild still won: nbclient shuts the kernel down, `execute_notebook.py` writes
+`notebook.ipynb`, and *then* the Python process itself has its own interpreter shutdown to get
+through before it actually exits and the namespace reaps everything — a gap of a few milliseconds
+that a 5 ms loop has good odds of landing inside. The namespace closes the race *after* the
+executor's process is gone; it says nothing about what else might still run in the moments before
+that, during the executor's own write and shutdown.
+
+**The second layer closes that gap from inside the executor itself.**
+`tools/execute_notebook.py`'s `execute()` calls `kill_everyone_else_in_my_pid_namespace()`
+immediately before writing the result: when running as PID 1 of an isolated namespace
+(`os.getpid() == 1`, true only there — a no-op for a local run or any test that calls `execute()`
+directly), it signals every other non-zombie process still in that namespace and confirms, by
+re-checking, that none remain before returning; it raises (failing the job) rather than guessing if
+one will not die in time. With both layers in place, the same attack cell's write race is: kill
+everything else, confirm nothing survives, *then* write — nothing is left alive to race the write
+at all, rather than merely being guaranteed dead sometime after the process exits.
+
+**`pkill -9 -u nbrunner` stays, as a further backstop beyond both layers, not the defence.** It
+still runs immediately after execution (a separate self-test, `Prove a detached nbrunner process
+can be fully killed`, still proves it reaches a one-shot detached process when given one) and still
+fails the job loudly if it ever finds a survivor — but by the time it runs, the notebook has already
+been read back, after the executor's own kill-and-confirm step, so a survivor at that point would
+mean both of the layers above are broken, not that the notebook is at risk from what this backstop
+might still catch.
 
 **The committed notebook is read with `git show HEAD:recipes/<recipe>/notebook.ipynb`, not from the
 working tree**, as a second, independent layer on top of the uid boundary: even if the boundary or

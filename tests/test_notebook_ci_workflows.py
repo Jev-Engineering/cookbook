@@ -368,10 +368,14 @@ def test_execute_closes_the_pid_namespace_and_reads_back_in_the_same_step():
     """#108 fix round 5, M1: A5 reproduced a detached, tight-loop `setsid` rewriter beating the old
     `pkill`-after-execution defence by about two orders of magnitude of margin (a one-shot
     sleep-then-write, the only shape fix round 4's own proof used, does not exercise this at all).
-    The fix is a PID namespace around the executor (`unshare ... --pid --fork --mount-proc`, on top
-    of the existing `--net`), so nothing it spawns can outlive it, plus reading the result back
-    inside that same step, immediately, before any step boundary a surviving process could still
-    exploit."""
+    The workflow-level half of the fix is a PID namespace around the executor
+    (`unshare ... --pid --fork --mount-proc`, on top of the existing `--net`), so nothing it spawns
+    can outlive it once it is gone, plus reading the result back inside that same step, immediately,
+    before any step boundary a surviving process could still exploit. The namespace alone was not
+    enough against the same attack on a real throwaway pull request (it says nothing about what
+    runs *before* the executor's process exits); the other half, inside
+    tools/execute_notebook.py itself, is covered by tests/test_notebook_ci_sandbox.py instead,
+    since it runs in the Python process the namespace wraps, not in this shell."""
     body = code(NOTEBOOKS)
     execute_step = re.search(r"Execute the notebook offline\n(.*?)\n\s*- ", body, re.DOTALL)
     assert execute_step
@@ -384,10 +388,12 @@ def test_execute_closes_the_pid_namespace_and_reads_back_in_the_same_step():
 
 def test_a_detached_process_is_proved_killable_by_the_backstop():
     """#108 fix round 4, B4 M1 route B, narrowed by #108 fix round 5, M1: a cell can start a
-    process that outlives the kernel. The PID namespace (see the test above) is what actually
-    closes this route now; `pkill -u nbrunner` afterward is kept only as a backstop, and this
-    self-test proves only that it reaches a detached (setsid'd) grandchild when given one — not
-    that it would reach one in time on its own, which is no longer the property being relied on."""
+    process that outlives the kernel. The PID namespace plus execute_notebook.py's own
+    kill-before-write (see the tests above and tests/test_notebook_ci_sandbox.py) are what actually
+    close this route now; `pkill -u nbrunner` afterward is kept only as a further backstop, and
+    this self-test proves only that it reaches a detached (setsid'd) grandchild when given one —
+    not that it would reach one in time on its own, which is no longer the property being relied
+    on."""
     body = code(NOTEBOOKS)
     self_test = re.search(
         r"Prove a detached nbrunner process can be fully killed\n(.*?)\n\s*- ", body, re.DOTALL
@@ -405,11 +411,14 @@ def test_a_detached_process_is_proved_killable_by_the_backstop():
 
 
 def test_pid_namespace_leaves_no_survivors_even_a_looping_rewriter():
-    """#108 fix round 5, M1's own self-test: unlike the pkill backstop's self-test (a one-shot
-    `sleep 300 & disown`), this one raises a `setsid`'d process that loops forever, inside the same
-    kind of `--pid --fork --mount-proc` namespace the real execute step uses, and asserts nothing
-    of it survives the namespace's own PID 1 exiting — with no `pkill` involved in reaching that
-    conclusion at all."""
+    """#108 fix round 5, M1's own self-test for the namespace's half of the fix: unlike the pkill
+    backstop's self-test (a one-shot `sleep 300 & disown`), this one raises a `setsid`'d process
+    that loops forever, inside the same kind of `--pid --fork --mount-proc` namespace the real
+    execute step uses, and asserts nothing of it survives *the namespace's own PID 1 exiting* —
+    with no `pkill` involved in reaching that conclusion at all. This is a necessary property, not
+    a sufficient one on its own: a real attack still won against the namespace alone, in the gap
+    before PID 1 actually exits, which is why execute_notebook.py also gets its own
+    kill-before-write (tests/test_notebook_ci_sandbox.py)."""
     body = code(NOTEBOOKS)
     self_test = re.search(
         r"Prove a PID namespace leaves 0 survivors, even a looping rewriter\n(.*?)\n\s*- ",

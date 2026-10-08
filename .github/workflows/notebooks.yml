@@ -245,16 +245,20 @@ jobs:
             exit 1
           fi
           echo "ok: pkill -u nbrunner leaves nothing, including a detached grandchild"
-      # The property that actually has to hold: nothing the kernel spawns, however it is detached,
-      # can outlive the executor's own process tree. A PID namespace gives this for free, rather
-      # than racing a kill against it: the wrapped command becomes PID 1 of a fresh namespace, and
+      # One of the two properties that actually has to hold: nothing the kernel spawns, however it
+      # is detached, can outlive the executor's own process tree *once that tree is gone*. A PID
+      # namespace gives this for free: the wrapped command becomes PID 1 of a fresh namespace, and
       # the instant PID 1 exits, the kernel SIGKILLs every other process left in that namespace —
-      # there is no step boundary, and no pkill, for anything to survive into. Proved here with the
-      # same attack #108 fix round 5's review used to defeat the old kill-only defence: a
-      # `setsid`'d grandchild that keeps running (a tight loop, not a one-shot sleep-then-write) to
-      # maximise the window a kill-based defence would have to beat. `--mount-proc` is needed only
-      # so tools inside the namespace (e.g. `ps`) see its own process table; it is not needed for
-      # the kill-on-exit property itself, which is unconditional kernel behaviour.
+      # proved here with the same attack #108 fix round 5's review used to defeat the old kill-only
+      # defence, a `setsid`'d grandchild that keeps running (a tight loop, not a one-shot
+      # sleep-then-write). This alone is not the whole fix: it says nothing about what else might
+      # still be running *before* PID 1 exits, which is exactly where the real attack kept winning
+      # until tools/execute_notebook.py was also given its own kill-before-write step (see the
+      # comment on the execute step below) — this self-test isolates the namespace's own property
+      # from that second layer, which has its own unit tests instead (tests/test_notebook_ci_
+      # sandbox.py), since it runs inside the Python process, not the shell. `--mount-proc` is
+      # needed only so tools inside the namespace (e.g. `ps`) see its own process table; it is not
+      # needed for the kill-on-exit property itself, which is unconditional kernel behaviour.
       - name: Prove a PID namespace leaves 0 survivors, even a looping rewriter
         run: |
           sudo env -u XDG_CONFIG_HOME -u XDG_CACHE_HOME -u XDG_DATA_HOME -u XDG_STATE_HOME \
@@ -314,14 +318,19 @@ jobs:
             setpriv --no-new-privs --reuid=nbrunner --regid=nbrunner --clear-groups -- \
             sh /srv/nbrun/uid_boundary_probe.sh
       # #108 fix round 5, M1: `--pid --fork --mount-proc` on the `unshare` already here is the
-      # mechanism that protects the notebook the checks below read — see "Prove a PID namespace
-      # leaves 0 survivors" above for why a kill alone is not enough. The wrapped shell becomes
-      # PID 1 of a fresh PID namespace; when it exits (after the kernel it ran has exited too, and
-      # nbclient has already waited on the kernel subprocess the normal way, so this does not
-      # change when the step considers execution finished), the kernel immediately reaps everything
-      # else left in that namespace, detached or not. `--timeout` below is still enforced in Python
-      # by nbclient's own cell timeout, not by a signal from outside, so the namespace does not
-      # change what makes a slow cell fail.
+      # first of two layers that protect the notebook the checks below read — see "Prove a PID
+      # namespace leaves 0 survivors" above for why a kill alone is not enough. The wrapped shell
+      # becomes PID 1 of a fresh PID namespace; when it exits, the kernel reaps everything else
+      # left in that namespace. That guarantee is about the namespace exiting, not about
+      # execute_notebook.py's own write of notebook.ipynb being the last one -- a real throwaway-PR
+      # attack still won against the namespace alone, inside the gap between that write and the
+      # Python process's own interpreter shutdown finishing. The second layer, inside
+      # tools/execute_notebook.py itself (kill_everyone_else_in_my_pid_namespace, called
+      # immediately before it writes the result), closes that gap: nothing else is left alive to
+      # race the write, confirmed by re-checking, not merely guaranteed dead sometime after this
+      # process exits. `--timeout` below is still enforced in Python by nbclient's own cell
+      # timeout, not by a signal from outside, so neither layer changes what makes a slow cell
+      # fail.
       - name: Execute the notebook offline
         env:
           # The Python-level guard (tools/netguard/sitecustomize.py) also reaches the kernel:
@@ -345,10 +354,11 @@ jobs:
             sh "/srv/nbrun/run/$RECIPE"
           echo "executed $RECIPE in $(( $(date +%s) - started )) s" | tee -a "$GITHUB_STEP_SUMMARY"
           # The read-back happens here, immediately, in the same step as execution and before any
-          # step boundary (#108 fix round 5, M1): by the time the `unshare --pid --fork` call above
-          # has returned, the namespace it wrapped is already gone and everything in it has already
-          # been reaped, so there is no longer a window, step-boundary or otherwise, in which a
-          # leftover process could still be rewriting the file this copies. nbrunner owns its
+          # step boundary (#108 fix round 5, M1), as further defence in depth: execute_notebook.py
+          # has already killed and confirmed dead everything else in its own PID namespace before
+          # writing the result (the layer that actually closes the write-ordering race; see the
+          # comment above), and the namespace itself means nothing of that process tree survives
+          # past the `unshare --pid --fork` call above returning either way. nbrunner owns its
           # recipe copy exclusively (mode 700); copy it out as the runner, into a plain
           # runner-owned file nbrunner cannot reach.
           sudo install -m 0644 -o "$(id -u)" -g "$(id -g)" \
