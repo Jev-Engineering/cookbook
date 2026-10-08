@@ -177,11 +177,35 @@ unwritable by the kernel by construction, not merely by a freeze step's foresigh
 close it.** A cell can start a process that outlives the kernel (`setsid`, a double fork, `&
 disown`); stray processes survive step boundaries within a job, so one could still be running after
 the executor exits, free to rewrite the recipe copy's `notebook.ipynb` — the one file `nbrunner`
-legitimately owns — before the next step reads it back. A `Kill any leftover nbrunner processes`
-step (`pkill -9 -u nbrunner`, then `pgrep -u nbrunner` asserted empty) runs immediately after
-execution and before the notebook is copied out; a self-test earlier in the job (`Prove a detached
-nbrunner process can be fully killed`) raises a `setsid`'d process of its own first and asserts the
-same `pkill`/`pgrep` pair actually reaches it, so the backstop is proved, not assumed, on every run.
+legitimately owns — before it is read back. Fix round 4 closed this with a `Kill any leftover
+nbrunner processes` step run between execution and the read; **fix round 5's review defeated that
+by timing, not by evasion**: the executor's single write to `notebook.ipynb` and the `pkill` step
+that followed it were about 455 ms apart, and a `setsid`'d grandchild that *keeps rewriting* the
+file in a 5 ms loop — rather than sleeping once and writing once, the only shape the fix round 4
+proof exercised — holds the file at the committed bytes continuously, so it is never the fresh
+copy except for the few milliseconds after each of the executor's own writes. `pkill` reaching such
+a process (which it does, and still does) says nothing about whether it reaches it *before* the
+next read, and the measured margin said it did not.
+
+**The fix is a PID namespace, not a faster kill.** The execute step's `unshare` already creates a
+network namespace (`--net`); it now also creates a PID namespace (`--pid --fork --mount-proc`),
+so the sandboxed `python` becomes PID 1 of its own process tree. When PID 1 of a PID namespace
+exits, the kernel immediately reaps every other process still in that namespace — there is no step
+boundary, no race, and no window of any size for a leftover process to run in, because by
+construction nothing can still be running once the `unshare` invocation itself has returned. The
+notebook is then read back from inside the very same shell step, immediately, before any further
+step runs — not two steps later, and not gated by a kill step's timing. A self-test (`Prove a PID
+namespace leaves 0 survivors, even a looping rewriter`) raises exactly this kind of looping,
+`setsid`'d rewriter inside the same shape of namespace and asserts nothing of it survives, with no
+`pkill` involved in reaching that conclusion.
+
+**`pkill -9 -u nbrunner` stays, as a backstop, not the defence.** It still runs immediately after
+execution (a separate self-test, `Prove a detached nbrunner process can be fully killed`, still
+proves it reaches a one-shot detached process when given one), and it still fails the job loudly if
+it ever finds a survivor — but by the time it runs, the notebook has already been read back from
+inside a namespace nothing could have outlived, so a survivor at that point would mean the namespace
+construction itself is broken, not that the notebook is at risk from what the backstop might still
+catch.
 
 **The committed notebook is read with `git show HEAD:recipes/<recipe>/notebook.ipynb`, not from the
 working tree**, as a second, independent layer on top of the uid boundary: even if the boundary or
@@ -191,21 +215,42 @@ committed blob rather than whatever file happens to sit in the checkout at that 
 boundary is ever wrong; it was never the mechanism that makes the comparison itself trustworthy,
 and the `git show` step above no longer depends on it being one.
 
-**What this does and does not cover.** The boundary is a Linux uid: `nbrunner` cannot write the
+**What this does and does not cover.** The uid boundary is a Linux uid: `nbrunner` cannot write the
 checkout, the interpreter's site-packages or the runner's `$HOME`, under any path, however it is
-reached — directly from a notebook cell, from a function called at import time from `helpers.py`,
-or from a process that outlives the kernel. It does not cover, and nothing here claims it covers:
-a vulnerability in the kernel or the Python interpreter itself that lets `nbrunner` regain the
-runner's uid (`--no-new-privs` and the dropped `sudo` access narrow this, they do not eliminate the
-general case); a notebook that passes a validated-looking fixtures path the fixture validator never
-saw (see "`get_backend(fixtures=...)` and the fixtures gate" below); or anything about the quality
-of the notebook's own logic, which review covers, not CI. Do not describe any layer here as
-"unbypassable" — say what it is (a uid boundary, a process-kill backstop, a second read path) and
-what it stops, the way this section tries to.
+reached — directly from a notebook cell or from a function called at import time from `helpers.py`.
+A process that outlives the kernel is a *different* route, covered by the PID namespace above, not
+by the uid boundary itself — the two sections above describe which layer closes which route; naming
+only one and crediting it with both was itself fix round 4's gap. Neither covers, and nothing here
+claims they cover: a vulnerability in the kernel or the Python interpreter itself that lets
+`nbrunner` regain the runner's uid (`--no-new-privs` and the dropped `sudo` access narrow this, they
+do not eliminate the general case); a notebook that passes a validated-looking fixtures path the
+fixture validator never saw (see "`get_backend(fixtures=...)` and the fixtures gate" below); or
+anything about the quality of the notebook's own logic, which review covers, not CI. Do not
+describe any layer here as "unbypassable" — say what it is (a uid boundary, a PID namespace, a
+process-kill backstop, a second read path) and what it stops, the way this section tries to.
+
+**Nor does any of this reach the test jobs.** A recipe ships its own `recipes/<slug>/tests/` (and
+may ship a `recipes/<slug>/conftest.py`), and `pyproject.toml`'s `testpaths` runs them in
+`Tests (py3.10)`/`Tests (py3.14)` as the runner user, with network access and write access to that
+job's own checkout — outside the uid boundary and the PID namespace described here entirely, which
+exist only inside the `Notebook (<recipe>)` job. The blast radius is small (no secrets,
+`contents: read`, an ephemeral runner, and recipe-authored tests running is the design, not an
+accident), and the scope check — not this workflow — is what limits a recipe pull request to its
+own `recipes/<slug>/` path in the first place.
 
 The documented local commands in [development.md](development.md#running-ci-on-one-recipe) mirror
 the real boundary where that is practical (it needs `sudo` and a spare system user) and say
 plainly where the local, no-`sudo` variant is weaker.
+
+**None of this protects `notebooks.yml` itself from the pull request it is judging.** It runs on
+plain `pull_request`, so a recipe pull request supplies the very workflow file that runs this job,
+and could in principle neuter the staleness step the same way the workflow file comment above
+"Reviewers still reject any `.github/` change" describes for the scope check's own history. The only
+automated thing that stops a recipe pull request from doing that is `Scope (recipe pull requests)`
+(see "The scope check" below), which rejects any path outside `recipes/<slug>/` and `README.md`,
+`.github/workflows/notebooks.yml` included — `notebooks.yml`'s own sandboxing is therefore only as
+trustworthy as `Scope` being wired into branch protection and actually running (see "After this
+merges"); until then, a reviewer rejecting a `.github/` change by hand is what stands behind it.
 
 ### `get_backend(fixtures=...)` and the fixtures gate
 
@@ -361,7 +406,12 @@ ref, an unreadable body, an unreadable diff); it fails closed.
   `render(<base README.md>, <head catalog/recipes.json>)` byte for byte, using `render` from
   `tools/render_catalog.py` with the head's `recipes/` tree deciding which recipes are published.
   The base README, not the head's own, is rendered, so a prose or marker edit outside the generated
-  regions is rejected.
+  regions is rejected. **`tools/render_catalog.py` and this check disagree about what "published"
+  means**: the renderer (run locally, by an integration worker) reads the working tree, this check
+  reads the head commit. Running the renderer with an uncommitted second recipe folder present, then
+  committing and pushing, produces a README the renderer accepted (`--check` passes locally) but
+  this check rejects — as a `README.md:` diagnostic, since that is the only path difference it can
+  see; committing every recipe folder before rendering avoids it (#108 fix round 5, B5 review).
 - Everything is read from git objects of `--base` and `--head`, not from the working tree.
 
 `tests/test_notebook_ci_scope.py` builds throwaway repositories and covers every excluded class: another
@@ -403,15 +453,17 @@ execute step prints its own elapsed seconds to the job summary.
 
 **One recipe, measured.** From this pull request's own CI runs at the fix round 4 head
 ([37718584952](https://github.com/Jev-Engineering/cookbook/actions/runs/37718584952),
-[37718585032](https://github.com/Jev-Engineering/cookbook/actions/runs/37718585032)), after the
-uid-boundary sandbox (fix round 4) added its user creation, its two write-boundary self-tests and
-its leftover-process kill on top of fix round 3's numbers: `Notebooks (discover)` 6 s,
-`Notebook (_template)` 35 s (of which the notebook itself executes in 2 s; the rest is
-`setup-python`, install and the sandbox self-tests — about 7 s more than round 3's 41 s total
-despite a 3 s *faster* job, because pip's cache was warmer on this run; the self-tests themselves
-measured under 2 s combined), `Notebooks (execute)` 3 s, `Fixtures (validate)` 17 s. The
-`Notebooks` workflow's wall time for one recipe was 54 s end to end (discover, then the one
-notebook job, then the summary; fixtures runs in parallel and does not add to that critical path).
+[37718585032](https://github.com/Jev-Engineering/cookbook/actions/runs/37718585032)):
+`Notebooks (discover)` 6 s, `Notebook (_template)` 35 s (of which the notebook itself executes in
+2 s; the rest is `setup-python`, install and the sandbox self-tests, which measured under 2 s
+combined), `Notebooks (execute)` 3 s, `Fixtures (validate)` 17 s. The `Notebooks` workflow's wall
+time for one recipe was 54 s end to end (discover, then the one notebook job, then the summary;
+fixtures runs in parallel and does not add to that critical path). (#108 fix round 5, B5 review:
+an earlier version of this paragraph also compared these numbers with fix round 3's run and said
+"about 7 s more... despite a 3 s faster job"; checked against the two runs by job step, `Install`
+was 10 s faster and the rest of the job about 4 s slower, which the dropped sentence did not say —
+the comparison added no information the measurements above do not already give directly, so it is
+dropped rather than restated.)
 
 **How it scales.** The `execute` job caps itself at `max-parallel: 10` (see "Why 10" below), so a
 run that selects every notebook is not one wave of N jobs in parallel but ⌈N / 10⌉ waves run one

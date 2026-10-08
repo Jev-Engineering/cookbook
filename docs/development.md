@@ -93,13 +93,25 @@ or Linux). CI copies to a folder that keeps the recipe's name, so do the same:
 
 ```bash
 pip install -e ".[dev,ml]" -c .github/constraints-notebooks.txt   # CI's install (Python 3.14)
+BEFORE=$(git status --porcelain)   # see below for why this is a snapshot, not just "is it clean"
 mkdir -p /tmp/run && cp -R recipes/NN-slug /tmp/run/NN-slug
 PYTHONPATH="$PWD/tools/netguard" python tools/execute_notebook.py /tmp/run/NN-slug
-test -z "$(git status --porcelain)" || { echo "the run wrote into the checkout"; git status --porcelain; exit 1; }
+[ "$BEFORE" = "$(git status --porcelain)" ] || { echo "the run wrote into the checkout"; git status --porcelain; exit 1; }
 python tools/check_notebook_fresh.py recipes/NN-slug/notebook.ipynb /tmp/run/NN-slug/notebook.ipynb
 python tools/check_hygiene.py /tmp/run/NN-slug/notebook.ipynb
 python tools/notebook_ci.py fixtures
 ```
+
+**The check above compares a before/after snapshot, not `test -z "$(git status --porcelain)"`**
+(#108 fix round 5, B5 review): while you are writing a recipe, `recipes/NN-slug/` itself is
+uncommitted — a fresh scaffold's `README.md`, `build_fixtures.py`, `fixtures/`, `tests/` and
+`notebook.ipynb` are all untracked until you commit them, so a bare "is the tree clean" check
+reports your own new files as if the run had written into the checkout, on every single run, for
+every recipe author. Comparing `git status --porcelain` before and after instead only flags a
+change the *run itself* caused, whatever the tree looked like beforehand. CI's own copy of this
+assertion (`.github/workflows/notebooks.yml`, "The checkout is untouched after execution") can stay
+a bare "is it clean" check, because CI always starts from a fresh checkout with nothing uncommitted
+to begin with.
 
 The constraints pin the plotting stack and the kernel stack to the versions CI uses (see
 [notebook-ci.md](notebook-ci.md#pinned-plotting-stack)). **Committable outputs require Python 3.14
@@ -124,24 +136,34 @@ backstop, on Linux, with `sudo` and a spare system user:
 sudo useradd -M -s /usr/sbin/nologin nbrunner_local   # once; pick a name that cannot collide
 sudo mkdir -p /tmp/nbrunner-home
 sudo chown nbrunner_local:nbrunner_local /tmp/nbrunner-home
+sudo chmod 700 /tmp/nbrunner-home   # /tmp is world-writable; do not leave this readable by anyone else
 
+BEFORE=$(git status --porcelain)
 mkdir -p /tmp/run && cp -R recipes/NN-slug /tmp/run/NN-slug
 sudo chown -R nbrunner_local:nbrunner_local /tmp/run/NN-slug
 sudo chmod -R u+rwX,go-rwx /tmp/run/NN-slug   # nbrunner_local's only writable location
 
-sudo env "PATH=$PATH" "HOME=/tmp/nbrunner-home" "PYTHONPATH=$PWD/tools/netguard" \
+# -u unsets the five XDG_* variables CI also unsets: left set, they point at paths under *your*
+# $HOME (not nbrunner_local's), which nbrunner_local cannot write, and a library that honours them
+# (matplotlib, found live in CI) then warns on stderr and fails the run for a reason that has
+# nothing to do with the notebook itself.
+sudo env -u XDG_CONFIG_HOME -u XDG_CACHE_HOME -u XDG_DATA_HOME -u XDG_STATE_HOME -u XDG_RUNTIME_DIR \
+  "PATH=$PATH" "HOME=/tmp/nbrunner-home" "PYTHONPATH=$PWD/tools/netguard" \
   "PYTHONNOUSERSITE=1" setpriv --no-new-privs --reuid=nbrunner_local --regid=nbrunner_local \
   --clear-groups -- python -s tools/execute_notebook.py /tmp/run/NN-slug
 
 # A cell could have started a process that outlives the kernel (setsid, a double fork, & disown);
-# end every nbrunner_local process before trusting anything it could still touch.
+# end every nbrunner_local process before trusting anything it could still touch. This is CI's
+# backstop, reproduced locally; CI's actual defence against this is a PID namespace around the
+# execution itself (see "Protecting the checks from the notebook under test" in notebook-ci.md),
+# which a one-shot `sudo setpriv` like this does not reproduce.
 sudo pkill -9 -u nbrunner_local || true
 sleep 1
 sudo pgrep -u nbrunner_local && { echo "a detached process survived pkill"; exit 1; }
 
 sudo install -m 0644 -o "$(id -u)" -g "$(id -g)" /tmp/run/NN-slug/notebook.ipynb /tmp/fresh.ipynb
 
-test -z "$(git status --porcelain)" || { echo "the run wrote into the checkout"; exit 1; }
+[ "$BEFORE" = "$(git status --porcelain)" ] || { echo "the run wrote into the checkout"; exit 1; }
 git show HEAD:recipes/NN-slug/notebook.ipynb > /tmp/committed.ipynb
 python tools/check_notebook_fresh.py /tmp/committed.ipynb /tmp/fresh.ipynb
 python tools/check_hygiene.py /tmp/fresh.ipynb
@@ -151,9 +173,13 @@ sudo userdel nbrunner_local   # tidy up afterwards; the home and scratch directo
 ```
 
 This reproduces the uid boundary around the checkout, site-packages and `$HOME`, and the
-leftover-process kill; it does not also reproduce CI's network namespace (`unshare --net`), which
-needs root for the whole duration rather than one dropped-privilege command and is demonstrated
-separately below.
+leftover-process kill; it does not also reproduce CI's network namespace (`unshare --net`) or its
+PID namespace (`unshare --pid --fork --mount-proc`), both of which need root for the whole duration
+rather than one dropped-privilege command; the network namespace is demonstrated separately below.
+`/tmp` itself is usually world-writable (sticky bit aside, other users on a shared machine can still
+create their own files there): the `chmod 700` above on `/tmp/nbrunner-home` matters for the same
+reason CI's own scratch directory lives outside the runner's `$HOME` rather than relying on `/tmp`'s
+default mode (see "Protecting the checks from the notebook under test" in notebook-ci.md).
 
 `PYTHONPATH="$PWD/tools/netguard"` loads the Python-level network guard, as in CI. The path must be
 absolute: the executor starts the kernel with the recipe folder as its working directory, so a
