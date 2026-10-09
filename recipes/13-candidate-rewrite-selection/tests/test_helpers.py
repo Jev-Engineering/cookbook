@@ -126,61 +126,39 @@ def test_every_replay_key_in_the_fixtures_matches_the_current_question():
 
 
 def test_stored_answers_are_not_all_right():
-    backend = get_backend(fixtures=responses_path(RECIPE))
-    questions = helpers.build_questions()
-    labels = load_labels(RECIPE)
-    wrong = [
-        e.id
-        for e in load_inputs(RECIPE)
-        if e.id in labels
-        and backend.decide(helpers.build_state(e.fields), questions)["rewrite"].choice
-        != labels[e.id]
-    ]
-    assert wrong, "the fixtures should contain some wrong answers"
-
-
-def test_a_wrong_answer_is_at_or_above_the_frozen_threshold_on_test():
-    # The stronger guard the lexicon lessons ask for: not just "some wrong answer exists
-    # anywhere" (the generic check above), but specifically that the confidence gate, as
-    # select_rewrite actually applies it, lets at least one wrong candidate through on `test` --
-    # otherwise the recipe's selective risk would be a vacuous zero. The threshold is computed
-    # exactly as the notebook computes it: chosen on `validation`, over the candidate-vs-gold
-    # comparisons Jev actually matched to a real candidate (no_suitable_rewrite answers are
-    # excluded from this selection, because select_rewrite never gates them on confidence).
+    """Not just "some wrong answer exists anywhere" -- the confidence gate, as
+    ``select_rewrite`` actually applies it, must let at least one wrong candidate through on
+    ``test``, otherwise the recipe's selective risk would be a vacuous zero. The threshold is
+    computed exactly as the notebook computes it: chosen on ``validation``, over the
+    candidate-vs-gold comparisons Jev actually matched to a real candidate (``no_suitable_rewrite``
+    answers are excluded from this selection, because ``select_rewrite`` never gates them on
+    confidence)."""
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
     labels = load_labels(RECIPE)
     examples = load_inputs(RECIPE)
 
+    def decide(example):
+        return backend.decide(helpers.build_state(example.fields), questions)["rewrite"]
+
     val_examples = select_split(examples, "validation")
-    val_answers = [
-        backend.decide(helpers.build_state(e.fields), questions)["rewrite"] for e in val_examples
-    ]
-    val_gold = [labels[e.id] for e in val_examples]
     real_match = [
-        (a.choice == g, a.confidence)
-        for a, g in zip(val_answers, val_gold, strict=True)
-        if a.choice != helpers.NO_SUITABLE_REWRITE
+        (decide(e).choice == labels[e.id], decide(e).confidence)
+        for e in val_examples
+        if decide(e).choice != helpers.NO_SUITABLE_REWRITE
     ]
     threshold = select_confidence_threshold(
-        [c for c, _ in real_match], [conf for _, conf in real_match], target_accuracy=1.0
+        [ok for ok, _ in real_match], [c for _, c in real_match], target_accuracy=1.0
     )
 
     test_examples = select_split(examples, "test")
-    wrong_and_confident = []
-    for e in test_examples:
-        answer = backend.decide(helpers.build_state(e.fields), questions)["rewrite"]
-        candidates = dict(zip(helpers.CANDIDATES, e.fields["candidates"], strict=True))
-        result = helpers.select_rewrite(e.id, answer, e.fields["original"], candidates, threshold)
-        if result.outcome == helpers.ACCEPTED and result.label != labels[e.id]:
-            wrong_and_confident.append((e.id, answer.confidence, threshold))
-
-    assert wrong_and_confident, (
-        "the test split should contain at least one wrong answer the frozen confidence gate "
-        "lets through (confidence at or above the threshold)"
-    )
-    # Named literally, not just "non-empty": outcome == ACCEPTED already implies
-    # confidence >= threshold by construction (select_rewrite's own gate), so a loop
-    # re-asserting that would never fail. This names the specific fixture the mutation above
-    # is supposed to catch, which can fail if a future edit moves the error elsewhere.
-    assert [ident for ident, _conf, _t in wrong_and_confident] == ["t07-sympathetic-wrong"]
+    # Named literally, not just "non-empty": this is the one fixture the frozen gate lets
+    # through confidently wrong (see the module docstring on build_fixtures.py).
+    wrong_and_confident = [
+        e.id
+        for e in test_examples
+        if decide(e).choice != helpers.NO_SUITABLE_REWRITE
+        and decide(e).choice != labels[e.id]
+        and decide(e).confidence >= threshold
+    ]
+    assert wrong_and_confident == ["t07-sympathetic-wrong"]

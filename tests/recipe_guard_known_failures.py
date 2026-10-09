@@ -38,44 +38,8 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     # --- check 1: tests/test_build_fixtures.py matches the current scaffold -------------------
     # R8: these ship the pre-#162 test_build_fixtures.py (no inputs/labels regeneration
     # assertion, or an older docstring), or (02) no such file at all.
-    (
-        "11-clarification-selection",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
-        "12-thesaurus-word-selection",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
-        "13-candidate-rewrite-selection",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
-        "14-source-span-selection",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
-        "15-sensitive-text-triage",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
     # --- check 2: no "#NNN" issue numbers or "the issue" in a recipe file --------------------
     # R9/R10: a private issue cited by number or by "the issue" in a recipe file.
-    (
-        "11-clarification-selection",
-        "no_issue_citations",
-    ): '"the issue" in helpers.py, build_fixtures.py and notebook:python-md (R10); see #163',
-    (
-        "12-thesaurus-word-selection",
-        "no_issue_citations",
-    ): '"the issue"/"The issue" in notebook:evaluation-md and notebook:keep-original-md (R10); see #163',
-    (
-        "13-candidate-rewrite-selection",
-        "no_issue_citations",
-    ): '"the issue" in build_fixtures.py (R10); see #163',
-    (
-        "15-sensitive-text-triage",
-        "no_issue_citations",
-    ): '"the issue" in build_fixtures.py (R10); see #163',
     (
         "20-claim-support-classification",
         "no_issue_citations",
@@ -90,17 +54,8 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     ): '"the issue" in build_fixtures.py and notebook:by-label-md (R10); see #163',
     # --- check 3: test_stored_answers_are_not_all_right is the strong form -------------------
     # R7, extended to the six Level 1 recipes Wave 2 never reviewed (01-10 are outside its
-    # "Level 2 recipes 11-23" scope): 01-06, 08-10 have no test_stored_answers_are_not_all_right
-    # at all; 07, 12, 13, 16, 19 and 20 ship only the weak "assert wrong" form, which passes
-    # even when the confidence gate catches every mistake.
-    (
-        "12-thesaurus-word-selection",
-        "stored_answers_strong_form",
-    ): "weak assert-wrong form, not re-derived from the frozen threshold (R7); see #163",
-    (
-        "13-candidate-rewrite-selection",
-        "stored_answers_strong_form",
-    ): "weak assert-wrong form, not re-derived from the frozen threshold (R7); see #163",
+    # "Level 2 recipes 11-23" scope). Only 20 remains: it ships the weak "assert wrong" form,
+    # which passes even when the confidence gate catches every mistake.
     (
         "20-claim-support-classification",
         "stored_answers_strong_form",
@@ -113,26 +68,10 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     # --- check 4c: a plot_confusion_matrix / plot_threshold_sweep / plot_risk_coverage title -
     #              carries {check} and not {selection} ---------------------------------------
     # R2: four different conventions across the thirteen; only {check}-only is compliant.
-    (
-        "12-thesaurus-word-selection",
-        "figure_titles_check_only",
-    ): 'validation figure title has no disclosure label at all, "Validation confidence sweep" (R2); see #163',
-    (
-        "14-source-span-selection",
-        "figure_titles_check_only",
-    ): "validation figure title carries {selection}{check} rather than {check} alone (R2); see #163",
-    (
-        "15-sensitive-text-triage",
-        "figure_titles_check_only",
-    ): "validation figure titles carry {selection} without {check} (R2); see #163",
     # --- check 5: every plot_confusion_matrix / plot_risk_coverage / plot_threshold_sweep ----
     #              call prints the plotted object itself, in the same cell -------------------
     # R4 and more besides: a figure plotted with nothing of its own data printed (an aggregate
     # accuracy or a cosmetic line does not count), beyond what Wave 2 reviewed.
-    (
-        "13-candidate-rewrite-selection",
-        "print_what_you_plot",
-    ): "plot_confusion_matrix in evaluation-test prints only a list of wrong ids, not the matrix's own counts; see #163",
     (
         "20-claim-support-classification",
         "print_what_you_plot",
@@ -149,14 +88,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     ): "next-md links ../36-card-game-action-selection/, not published on main (R20); see #163",
     # --- check 6b: every recipe is the target of some other recipe's Next steps -------------
     # R21: a published recipe no other recipe's Next steps links to.
-    (
-        "12-thesaurus-word-selection",
-        "next_steps_inbound_links",
-    ): "no other published recipe's Next steps links ../12-thesaurus-word-selection/ (R21); see #163",
-    (
-        "14-source-span-selection",
-        "next_steps_inbound_links",
-    ): "no other published recipe's Next steps links ../14-source-span-selection/ (R21); see #163",
     (
         "21-quiz-answer-adjudication",
         "next_steps_inbound_links",
