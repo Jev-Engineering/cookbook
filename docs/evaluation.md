@@ -432,12 +432,12 @@ row in the arrays: leave it out of `confidences`/`correct`/`exempt` entirely —
 placeholder is not inert even though the example would stay exempt either way: `thresholds` comes
 from `_candidate_thresholds` of every confidence passed in, so one placeholder value adds a row to
 that grid and moves the curve's x-axis, despite never changing which examples the mask selects.
-This is not a
-blanket ban on ever showing a stand-in number. `docs/recipe-template.md`'s "a sentinel is not the
-same thing as a disclosed stand-in" rule (and #164 ruling 9) allows a disclosed, in-range,
-quantified one, but only where it cannot reach a function that derives threshold candidates from
-the array — `select_confidence_threshold`, `selective_curve` and `outcome_curve`, the
-answered-examples-only rule just above. `evaluate_selective` is not one of those three: it
+This is not a blanket ban on ever showing a stand-in number. `docs/recipe-template.md`'s "a
+sentinel is not the same thing as a disclosed stand-in" rule (and #164 ruling 9) allows a
+disclosed, in-range, quantified one, but only where it cannot reach a function that derives
+threshold candidates from the array — `select_confidence_threshold`, `selective_curve` and
+`outcome_curve`, the answered-examples-only rule just above. `evaluate_selective` is not one of
+those three: it
 reapplies an already-frozen threshold rather than deriving one, so a disclosed stand-in for an
 example that never had a confidence to report may be handed to it. Recipe 14 is the shipped case:
 `t17` never reaches a question (no candidate span), so `confidence_only = [1.0 if a is None else

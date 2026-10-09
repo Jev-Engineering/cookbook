@@ -846,7 +846,10 @@ def test_candidate_thresholds_never_returns_a_value_absent_from_the_input():
     # plain tie, and the endpoints).
     vectors = [
         [0.9, 0.8, 0.7, 0.6, 0.5],
-        [0.42, 0.58, 0.07, 0.93],  # two ULP-twin pairs
+        # 0.42/0.58 and 0.07/0.93 are noul inputs, not twins themselves (four ordinary,
+        # distinct floats); noul_confidence's |2p - 1| is what produces the two ULP-twin
+        # pairs (0.1600.../0.1599... and 0.8599.../0.8600...) this test needs.
+        list(ev.noul_confidence([0.42, 0.58, 0.07, 0.93])),
         [0.5, 0.5, 0.5],  # an ordinary (bit-identical) tie
         [0.0, 1.0],
         [0.3],
