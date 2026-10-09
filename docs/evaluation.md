@@ -112,15 +112,60 @@ literals to `noul_confidence` and the two *results* differ too — `0.1600000000
 the gap between them is `2.220446049250313e-16`) — even though both are meant to express the same
 nominal confidence, `0.16`. The gap is not a fixed multiple: feeding `0.07`/`0.93` (nominal `0.86`)
 differs by only two ULPs. One input ULP does not land as one result ULP; it is "a few", and which
-few depends on the pair. The practical consequence is in `selective_curve` (and anything built on
-it, including `outcome_curve` below): its candidate thresholds are `numpy.unique` of the observed
-confidences, so two fixture rows hand-written as separate mirror-pair literals can land as two
-*adjacent* threshold candidates ("`gate >= 0.86`" printed twice, at a few-ULPs-apart value) instead
-of coalescing into one. This is a property of floating-point decimal literals, not a bug in
-`noul_confidence` to fix by changing it here: #172 tracks rounding the confidence before candidate
-thresholds are taken (inside `noul_confidence`/`_conf_inputs`, or a dedupe in `selective_curve`) as
-a separate, later change. Candidate-threshold deduplication is documented alongside its
-implementation.
+few depends on the pair.
+
+A hand-written Noul mirror pair is one way two stored values end up meant to express the same
+nominal confidence without being bit-identical; it is not the only way, and the mechanism is not
+specific to Noul. A Score recipe can see the same shape with no mirror pair in sight: two entirely
+different probability distributions whose confidence (`1 - spread / even` under the published
+formula) comes out to the same nominal value can still land one ULP apart, because each
+distribution's internal spread sum accumulates its terms in a different order (recipe 03's
+`v07-filler` and `v14-injection`, both nominal `0.40`, are exactly this — not a mirror of each
+other at all). Before this was fixed (#172), the practical consequence was in `selective_curve`
+(and anything built on it, including `outcome_curve` below): its candidate thresholds were
+`numpy.unique` of the observed confidences, so two such values could land as two *adjacent*
+threshold candidates ("`gate >= 0.86`" printed twice, at a few-ULPs-apart value) instead of
+coalescing into one. This was a property of floating-point arithmetic, not a bug in
+`noul_confidence` to fix by changing it: `_candidate_thresholds` (used wherever `selective_curve`,
+`outcome_curve` and `threshold_sweep` derive candidates) now groups the sorted unique values by
+`round(v, 12)` and keeps only the smaller raw member of each group, so such a pair collapses to one
+candidate — never a rounded stand-in — and a caller's own `value >= threshold` comparison on raw
+data stays an exact tie (#172).
+
+**Five recipes carry a twin pair on their real fixtures (02, 03, 06, 10 and 15; 15's `test` split
+carries two more, never printed or plotted), and the fix regenerates three of them.** Collapsing a
+pair always keeps the smaller raw member as the candidate, so the surviving row reports the
+*union* of the two rows' coverage (the larger of the two) and the accuracy of that union. Whether
+anything a reader sees moves turns on one question: does the kept row have *worse* accuracy than
+the row that was dropped?
+
+- 02, 10 and 15's pairs are both-correct **and** the two rows already read the same accuracy (the
+  curve is flat across that segment), so nothing is lost but a genuinely redundant row: 10 and 15
+  each drop one `gate >= 0.86` sweep row (two coverages, one accuracy — `0.200`'s row is dropped,
+  `0.240`'s survives, both `1.000`), and 02's pair is never printed as a row at all, only plotted,
+  where the dropped point is exactly collinear on a flat risk-zero segment, so the plotted line
+  does not move (the figure's bytes do, since the dropped point was still a distinct pixel; that
+  drift is exactly what `tools/check_notebook_fresh.py`'s figure comparison is built to tolerate).
+- 03's pair (`v07-filler`/`v14-injection`, both nominal `0.40`) also agrees on correctness, but the
+  two rows do **not** read the same accuracy: the dropped row (`0.4`) reads `0.937500`, the kept
+  row (`0.3999999999999999`) reads `0.941176` — *better*, because its union coverage includes one
+  more correct answer than the dropped row's. An accuracy value genuinely moves here even though
+  nothing is wrong, which is exactly why "both correct" is not by itself a guarantee that nothing
+  changes. 03 never prints or plots its validation curve, though (only the frozen threshold,
+  `0.65`, unaffected either way), so its committed notebook does not change.
+- 06's pooled pair disagrees on correctness (one right, one wrong), so the kept row's accuracy is
+  *worse* than the dropped row's: `1.000000` at coverage `0.905263` drops to `0.988506` at coverage
+  `0.915789`. 06's own frozen gate (`target_accuracy=0.97`, `0.1200000000000001`) sits elsewhere
+  and is unaffected, but its pooled validation curve genuinely loses a distinguishable operating
+  point — a real change to the plotted line, not merely different bytes — that
+  `tools/check_notebook_fresh.py`'s figure comparison is too coarse to see. 06's notebook is
+  regenerated for this reason even though CI's own check could not have required it.
+
+Every published recipe's own frozen gate — the value its `helpers.py` actually reuses — is
+unchanged by the fix (02's `0.10000000000000009`; 10's and 15's `0.30000000000000004`; 06's
+`0.1200000000000001`; 03's `0.65`), because none of their `target_accuracy`/`min_coverage`
+searches lands on a candidate a twin pair touches. 02's and 03's committed notebooks are verified
+unchanged; 10's, 15's and 06's are regenerated.
 
 ### Multi-label
 
@@ -384,14 +429,15 @@ way. Do not invent a placeholder confidence (`0.0` or otherwise) for such an exa
 row in the arrays: leave it out of `confidences`/`correct`/`exempt` entirely —
 `outcome_curve` sweeps the *answered* examples only — and report it separately with its own
 `evaluate_outcomes`-style accounting (it is still accepted, unconditionally, for that purpose). A
-placeholder is not inert even though the example would stay exempt either way: `thresholds` is
-`numpy.unique` of every confidence passed in, so one placeholder value adds a row to that grid and
-moves the curve's x-axis, despite never changing which examples the mask selects. This is not a
-blanket ban on ever showing a stand-in number. `docs/recipe-template.md`'s "a sentinel is not the
-same thing as a disclosed stand-in" rule (and #164 ruling 9) allows a disclosed, in-range,
-quantified one, but only where it cannot reach a function that derives threshold candidates from
-the array — `select_confidence_threshold`, `selective_curve` and `outcome_curve`, the
-answered-examples-only rule just above. `evaluate_selective` is not one of those three: it
+placeholder is not inert even though the example would stay exempt either way: `thresholds` comes
+from `_candidate_thresholds` of every confidence passed in, so one placeholder value adds a row to
+that grid and moves the curve's x-axis, despite never changing which examples the mask selects.
+This is not a blanket ban on ever showing a stand-in number. `docs/recipe-template.md`'s "a
+sentinel is not the same thing as a disclosed stand-in" rule (and #164 ruling 9) allows a
+disclosed, in-range, quantified one, but only where it cannot reach a function that derives
+threshold candidates from the array — `select_confidence_threshold`, `selective_curve` and
+`outcome_curve`, the answered-examples-only rule just above. `evaluate_selective` is not one of
+those three: it
 reapplies an already-frozen threshold rather than deriving one, so a disclosed stand-in for an
 example that never had a confidence to report may be handed to it. Recipe 14 is the shipped case:
 `t17` never reaches a question (no candidate span), so `confidence_only = [1.0 if a is None else
