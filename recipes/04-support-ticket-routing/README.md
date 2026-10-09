@@ -81,4 +81,5 @@ full contract is [CONTRIBUTING.md](../../CONTRIBUTING.md).
 ## Sources
 
 - S02: [TypeSafe AI: Primitives (Questions)](https://docs.typesafe.ai/primitives)
+- S03: [TypeSafe AI: Confidence](https://docs.typesafe.ai/confidence)
 - S04: [TypeSafe AI: How to build with TypeSafe](https://docs.typesafe.ai/concepts/how-to-build-with-system-one)
