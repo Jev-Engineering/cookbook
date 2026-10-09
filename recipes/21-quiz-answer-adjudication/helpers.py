@@ -36,8 +36,8 @@ OUTCOMES = (MATCH, PARTIAL_MATCH, NO_MATCH, NEEDS_REVIEW)
 _CRITERIA = {
     MATCH: (
         "The response names the accepted answer itself, or adds wording before or after it "
-        "(a title, a role, or another detail) that does not name a different answer, or is a "
-        "misspelling close enough that no other reading fits."
+        "(a title, a role, or another detail) that does not point at someone or something "
+        "else instead, or is a misspelling close enough that no other reading fits."
     ),
     PARTIAL_MATCH: (
         "The response names a person or thing related to the accepted answer, such as a role "
