@@ -233,16 +233,22 @@ def _inconclusive_log(collected=140):
     )
 
 
-def _regression_log_scattered(path_a, old_a, new_a, path_b, old_b, new_b, collected=150):
+def _regression_log_scattered(
+    path_a, test_a, old_a, new_a, path_b, test_b, old_b, new_b, collected=150
+):
     """A genuine behaviour change again, but spread across two files with no visibly shared
     cause: both failures are real assertions (no dependency or infrastructure signal at all),
     but a reader seeing two different tests fail with two unrelated-looking numbers, instead of
     one clean failure, might plausibly hedge rather than call it a confident test_regression.
 
     `--tb=line` is a real pytest flag: one line per failure, `path:lineno: Exception message`,
-    with no separating header. That keeps both lines adjacent in the log, so the second failure
-    sits inside the window `trim_log` keeps around the first -- the hedge the stored answer
-    makes has to be visible in the excerpt Jev actually sees, not only in the full log."""
+    with no separating header -- a bare file path, not the test's node id. That keeps both
+    lines adjacent in the log, so the second failure sits inside the window `trim_log` keeps
+    around the first -- the hedge the stored answer makes has to be visible in the excerpt Jev
+    actually sees, not only in the full log. The short test summary at the end is a different
+    pytest line with a different shape: it always prints the full node id (`path::test_name`),
+    `--tb=line` or not, so ``path_a``/``path_b`` and ``test_a``/``test_b`` are kept apart rather
+    than reusing one argument for both lines."""
     return "\n".join(
         [
             "$ pytest -q --tb=line",
@@ -253,8 +259,8 @@ def _regression_log_scattered(path_a, old_a, new_a, path_b, old_b, new_b, collec
             f"{path_a}:42: AssertionError: assert {new_a} == {old_a}",
             f"{path_b}:17: AssertionError: assert {new_b} == {old_b}",
             "=========================== short test summary info ============================",
-            f"FAILED {path_a} - AssertionError: assert {new_a} == {old_a}",
-            f"FAILED {path_b} - AssertionError: assert {new_b} == {old_b}",
+            f"FAILED {path_a}::{test_a} - AssertionError: assert {new_a} == {old_a}",
+            f"FAILED {path_b}::{test_b} - AssertionError: assert {new_b} == {old_b}",
             f"2 failed, {collected - 2} passed in 24.88s",
         ]
     )
@@ -509,9 +515,11 @@ ROWS = [
             "CI-20105",
             _regression_log_scattered(
                 "tests/test_loyalty_points.py",
+                "test_points_awarded_per_purchase",
                 100,
                 80,
                 "tests/test_cart_summary.py",
+                "test_grand_total_rounding",
                 49.99,
                 49.49,
             ),
