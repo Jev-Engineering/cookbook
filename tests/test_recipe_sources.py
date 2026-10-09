@@ -1,5 +1,6 @@
-"""Ties each published recipe's documented source list (its README's "## Sources" section) to
-catalog/recipes.json, so the two cannot drift again (#130 item 3).
+"""Ties each published recipe's documented source list to catalog/recipes.json, so the two
+cannot drift again (#130 item 3; #137 extends this to the notebook's intro cell, which carries
+its own "Sources:" bullet list independent of the README's "## Sources" section).
 
 recipes/_template is not a catalog slug (see tests/test_template_render.py), so it has no
 catalog "sources" list to compare against and is correctly never selected here: this file's
@@ -49,5 +50,29 @@ def test_the_readme_sources_match_the_catalog(recipe):
     assert documented, f"{recipe['slug']}/README.md has no '## Sources' bullet list"
     assert set(documented) == set(cataloged), (
         f"{recipe['slug']}: README.md lists sources {sorted(documented)} but "
+        f"catalog/recipes.json lists {sorted(cataloged)} for rank {recipe['rank']}"
+    )
+
+
+def _notebook_intro_source_ids(recipe: dict) -> list[str]:
+    """The ``S<N>`` ids bulleted under the first cell's "Sources:" line (tools/new_recipe.py's
+    ``_source_lines``), the same list the README's "## Sources" section repeats."""
+    notebook = json.loads((REPO / "recipes" / recipe["slug"] / "notebook.ipynb").read_text("utf-8"))
+    intro = notebook["cells"][0]["source"]
+    text = intro if isinstance(intro, str) else "".join(intro)
+    marker = "\nSources:\n\n"
+    if marker not in text:
+        return []
+    section = text.split(marker, 1)[1].split("\n## ", 1)[0]
+    return SOURCE_ID.findall(section)
+
+
+@pytest.mark.parametrize("recipe", PUBLISHED, ids=lambda r: r["slug"])
+def test_the_notebook_intro_sources_match_the_catalog(recipe):
+    documented = _notebook_intro_source_ids(recipe)
+    cataloged = recipe.get("sources", [])
+    assert documented, f"{recipe['slug']}/notebook.ipynb's intro cell has no 'Sources:' bullets"
+    assert set(documented) == set(cataloged), (
+        f"{recipe['slug']}: notebook.ipynb lists sources {sorted(documented)} but "
         f"catalog/recipes.json lists {sorted(cataloged)} for rank {recipe['rank']}"
     )

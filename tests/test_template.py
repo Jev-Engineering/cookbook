@@ -1,11 +1,16 @@
-"""The template recipe is a recipe: its fixtures validate, its notebook keeps the contract."""
+"""The template recipe is a recipe: its fixtures validate, its notebook keeps the contract.
+
+The generic build_fixtures.py guard tests (refusal without --force, inputs/labels regenerated
+from ROWS even on a refused run, and the writer byte-identical to jev_cookbook.live's recorder)
+live in recipes/_template/tests/test_build_fixtures.py, the same file every scaffolded replay
+recipe gets a copy of, not here: this file is for behaviour specific to the template as a
+worked example (re-execution, the minimal-diff recording check, the scaffolder's own sections)."""
 
 import ast
 import difflib
 import importlib.util
 import json
 import re
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -13,7 +18,7 @@ from pathlib import Path
 import pytest
 
 from jev_cookbook.fixtures import validate_recipe
-from jev_cookbook.live import _dump, merge_responses
+from jev_cookbook.live import merge_responses
 
 REPO = Path(__file__).resolve().parent.parent
 TEMPLATE = REPO / "recipes" / "_template"
@@ -24,16 +29,6 @@ def load_tool(name):
     spec = importlib.util.spec_from_file_location(
         f"{name}_for_template_test", REPO / "tools" / name
     )
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def load_module_at(path, name):
-    """Import an arbitrary .py file (the template's own build_fixtures.py, not under tools/)
-    so its functions and module-level values (ROWS, build_responses) are plain Python
-    objects, not subprocess output or a re-dump of the file it wrote."""
-    spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -59,6 +54,7 @@ def test_the_template_has_the_documented_files():
         "fixtures/labels.jsonl",
         "fixtures/responses.json",
         "tests/test_helpers.py",
+        "tests/test_build_fixtures.py",
     }
     found = {
         p.relative_to(TEMPLATE).as_posix()
@@ -78,6 +74,45 @@ def test_the_notebook_sections_are_the_scaffolders_sections():
         if line.startswith("## ")
     ]
     assert headings == scaffolder.SECTIONS
+
+
+def test_the_scaffolded_build_fixtures_test_stays_in_step_with_the_template(tmp_path):
+    """recipes/_template/tests/test_build_fixtures.py's own docstring promises that every
+    scaffolded replay recipe gets a copy of it, kept in step with
+    tools/new_recipe.py's build_fixtures_test_text. Prove it rather than assert it: substitute
+    the template's own placeholders ("_template" the folder name, "template_build_fixtures_for_
+    test" the module name) for a recipe's slug and module name, then swap in the scaffolder's own
+    module docstring last (the one intentional difference this test allows: the template's talks
+    about every recipe getting a copy of it, which a scaffolded copy does not need to say about
+    itself) — order matters here, see the comment below. The result must equal what the
+    scaffolder actually emits for that recipe, byte for byte."""
+    new_recipe = load_tool("new_recipe.py")
+    catalog = json.loads((REPO / "catalog" / "recipes.json").read_text("utf-8"))
+    recipe = next(r for r in catalog["recipes"] if r["rank"] == 9)
+    template_text = (TEMPLATE / "tests" / "test_build_fixtures.py").read_text("utf-8")
+    scaffolded = new_recipe.build_fixtures_test_text(recipe)
+
+    template_docstring = template_text.split('"""', 2)[1]
+    scaffolded_docstring = scaffolded.split('"""', 2)[1]
+    assert template_docstring != scaffolded_docstring  # the one difference this test allows
+
+    # The docstring swap must run last, after the slug/module-name substitutions below, not
+    # before: the scaffolded docstring itself says "the recipes/_template/build_fixtures.py
+    # pattern" (a deliberate, unsubstituted reference to the template as the canonical source),
+    # so swapping the docstring in first would let the slug substitution corrupt that reference.
+    # Swapping last has its own trap in the other direction: if the template's docstring ever
+    # came to contain "_template" or the module-name placeholder itself, the substitutions below
+    # would already have mutated that occurrence, and this exact-match replace would then silently
+    # no-op instead of swapping in the scaffolded docstring — failing on an opaque byte diff rather
+    # than naming the cause. Guard it explicitly: the original docstring text must survive the
+    # substitutions below unchanged before this test relies on finding and replacing it.
+    module_name = f"recipe{recipe['rank']:02d}_build_fixtures_for_test"
+    substituted = template_text.replace("_template", recipe["slug"]).replace(
+        "template_build_fixtures_for_test", module_name
+    )
+    assert template_docstring in substituted
+    expected = substituted.replace(template_docstring, scaffolded_docstring)
+    assert scaffolded == expected
 
 
 def test_the_notebook_is_executed_and_has_no_error_output():
@@ -270,21 +305,6 @@ def test_the_confusion_matrix_title_follows_the_mode_and_states_n():
     assert 'title=f"Test split, {len(test_examples)} examples{check}"' in source(cell)
 
 
-def test_the_generator_reproduces_the_committed_fixtures(tmp_path):
-    copy = tmp_path / "_template"
-    copy.mkdir()
-    for name in ("helpers.py", "build_fixtures.py"):
-        (copy / name).write_bytes((TEMPLATE / name).read_bytes())
-    done = subprocess.run(
-        [sys.executable, str(copy / "build_fixtures.py")], capture_output=True, text=True
-    )
-    assert done.returncode == 0, done.stderr
-    for name in ("inputs.jsonl", "labels.jsonl", "responses.json"):
-        assert (copy / "fixtures" / name).read_bytes() == (
-            TEMPLATE / "fixtures" / name
-        ).read_bytes()
-
-
 def test_the_first_next_step_names_the_tools_that_show_key_drift():
     cell = next(c for c in NOTEBOOK["cells"] if c.get("id") == "next-md")
     first = source(cell).split("\n- ")[1]
@@ -338,54 +358,6 @@ def test_the_measured_markdown_does_not_hardcode_a_mode_specific_claim():
     for stale in ("written by hand", "invented messages", "hand-written"):
         assert stale not in measured_md.lower()
     assert "demo" in measured_md
-
-
-def test_build_fixtures_separates_inputs_labels_from_responses(tmp_path):
-    copy = tmp_path / "_template"
-    copy.mkdir()
-    for name in ("helpers.py", "build_fixtures.py"):
-        (copy / name).write_bytes((TEMPLATE / name).read_bytes())
-    script = copy / "build_fixtures.py"
-    first = subprocess.run([sys.executable, str(script)], capture_output=True, text=True)
-    assert first.returncode == 0, first.stderr
-
-    responses = copy / "fixtures" / "responses.json"
-    data = json.loads(responses.read_text("utf-8"))
-    for value in data.values():
-        value["model"] = "jev-1.13.0"
-    responses.write_text(
-        json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
-    )
-    before = responses.read_bytes()
-
-    refused = subprocess.run([sys.executable, str(script)], capture_output=True, text=True)
-    assert refused.returncode != 0
-    assert "recorded" in refused.stderr and "--force" in refused.stderr
-    assert responses.read_bytes() == before
-
-    forced = subprocess.run(
-        [sys.executable, str(script), "--force"], capture_output=True, text=True
-    )
-    assert forced.returncode == 0, forced.stderr
-    after = json.loads(responses.read_text("utf-8"))
-    assert all(v["model"] == "synthetic" for v in after.values())
-
-
-def test_the_committed_responses_are_byte_identical_to_the_recorders_writer():
-    """jev_cookbook.live._dump sorts only the top-level keys; json.dumps(..., sort_keys=True)
-    sorts every nested dict too and so disagrees with it on every response's field order. The
-    committed file must match _dump exactly, not just agree with it on top-level order.
-
-    Comparing against _dump(json.loads(raw)) (re-dumping the file's own parsed content)
-    cannot catch a sort_keys=True regression: json.loads preserves whatever nested order the
-    file already has, and _dump only re-sorts the top level, so that round trip would pass no
-    matter which writer produced the file. Instead, import build_fixtures.py and compare
-    against _dump of what build_responses computes directly from ROWS, independent of what
-    main() actually wrote to disk."""
-    raw = (TEMPLATE / "fixtures" / "responses.json").read_text("utf-8")
-    module = load_module_at(TEMPLATE / "build_fixtures.py", "template_build_fixtures_for_test")
-    assert len(module.ROWS) > 1
-    assert raw == _dump(module.build_responses(module.ROWS))
 
 
 def test_a_simulated_recording_produces_a_minimal_diff():
