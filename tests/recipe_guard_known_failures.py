@@ -98,14 +98,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "15-sensitive-text-triage",
         "build_fixtures_scaffold",
     ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
-        "17-passage-reranking",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
-        "18-duplicate-incident-matching",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
     # --- check 2: no "#NNN" issue numbers or "the issue" in a recipe file --------------------
     # R9/R10: a private issue cited by number or by "the issue" in a recipe file.
     (
@@ -164,10 +156,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "15-sensitive-text-triage",
         "no_issue_citations",
     ): '"the issue" in build_fixtures.py (R10); see #163',
-    (
-        "17-passage-reranking",
-        "no_issue_citations",
-    ): '"the issue" (x3) in helpers.py (R10, R11 business-cutoff recipe); see #163',
     (
         "18-duplicate-incident-matching",
         "no_issue_citations",
@@ -299,10 +287,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "metric_lines_carry_check",
     ): "validation sweep lines carry no {check} at all (R3-shaped, G1(d) clause 2); see #163",
     (
-        "17-passage-reranking",
-        "metric_lines_carry_check",
-    ): "the risk-coverage sweep rows in `selective` carry no disclosure label at all (R3, the six lines the spec names); see #163",
-    (
         "18-duplicate-incident-matching",
         "metric_lines_carry_check",
     ): "validation sweep and outcome lines carry {selection} but no {check} (G1(d) clause 2); see #163",
@@ -409,14 +393,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "14-source-span-selection",
         "next_steps_inbound_links",
     ): "no other published recipe's Next steps links ../14-source-span-selection/ (R21); see #163",
-    (
-        "17-passage-reranking",
-        "next_steps_inbound_links",
-    ): "no other published recipe's Next steps links ../17-passage-reranking/ (R21); see #163",
-    (
-        "19-ci-failure-classification",
-        "next_steps_inbound_links",
-    ): "no other published recipe's Next steps links ../19-ci-failure-classification/ (R21); see #163",
     (
         "21-quiz-answer-adjudication",
         "next_steps_inbound_links",
