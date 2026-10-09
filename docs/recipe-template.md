@@ -44,6 +44,40 @@ measured**, **Next steps**. A recipe keeps these headings.
   the mode, and the setup cell passes `n_examples=len(scored)` in every mode.
 - **Validation chooses, test reports.** The one setting (a confidence threshold) is selected on
   `validation` with `select_confidence_threshold` and frozen before `test` is touched.
+- **`evaluate_selective` reports the same split as the rule only when the rule's only review
+  branch is that confidence gate — `route` here has three, so it is not that rule.**
+  `helpers.py::route` sends a ticket to `human_review` for any of three reasons, in this order:
+  `answer.choice == NONE` ("no option fits"), `answer.choice not in QUEUES` ("not a queue Python
+  may use"), or `answer.confidence < min_confidence` ("confidence below the threshold"). Only
+  the third is a confidence gate; the first two are unconditional, so `evaluate_selective`
+  — which only ever compares a confidence against a threshold — can disagree with `route` about
+  which tickets were answered. It does, on the template's own `test` fixtures, at the threshold
+  the template's own evaluation section computes (`0.6933`):
+
+  ```
+  evaluate_selective(test_correct, test_confidence, threshold)
+  # n_answered=7  coverage=0.7000  accuracy=0.8571  risk=0.1429
+  evaluate_outcomes(accepted, test_correct)   # accepted = [r.outcome != REVIEW for r in routings]
+  # n_answered=6  coverage=0.6000  accuracy=0.8333  risk=0.1667
+  ```
+
+  The one ticket they disagree on, `t07`, names `none` at confidence 0.80 — well above the
+  threshold, so `evaluate_selective` would count it as answered, but `route` sends it to review
+  outright because `none` is never a queue, whatever its confidence. (The template's own
+  evaluation section does not call either function; this is the illustration for recipes that
+  do, not a claim about what the template prints.)
+
+  A rule with any unconditional review branch like `route`'s first two — an explicit fallback
+  option it never confidence-checks (`unsorted`, `no_match`, `unclear`), a check that the chosen
+  option is really a member of some set, or anything else that does not depend on
+  `min_confidence` — can diverge from `evaluate_selective` the same way. Do not paper over this
+  by handing the rejected examples a sentinel confidence (`0.0`, `-1.0`, ...) so the two "happen"
+  to agree: that construction is one-directional (it cannot follow a later change to the rule's
+  own confidence comparison) and an out-of-range sentinel can be selected as a threshold outright
+  (#155). Build selective coverage/accuracy/risk from the rule's own accept/review decisions
+  instead, with `jev_cookbook.evaluation.evaluate_outcomes(accepted, correct)` — see "Selective
+  prediction" in [evaluation.md](evaluation.md), which also proves the two agree exactly when the
+  rule really is confidence-only (which `route` is not, but recipes 01 and 05's rules are).
 - **Figures** are the last expression of a cell. They draw after `apply_style()`; the notebook
   needs no `%matplotlib inline` line.
 - **Nothing path-like is printed.** The hygiene scan fails notebook outputs that contain absolute

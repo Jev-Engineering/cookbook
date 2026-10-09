@@ -1,0 +1,38 @@
+{"id": "v01", "label": ["usability"]}
+{"id": "v02", "label": ["pricing"]}
+{"id": "v03", "label": ["reliability"]}
+{"id": "v04", "label": ["support"]}
+{"id": "v05", "label": ["feature_request"]}
+{"id": "v06", "label": ["pricing", "usability"]}
+{"id": "v07", "label": []}
+{"id": "v08", "label": []}
+{"id": "v09-lookalike", "label": ["support"]}
+{"id": "v10", "label": ["usability"]}
+{"id": "v11", "label": ["feature_request"]}
+{"id": "v12-mixed3", "label": ["pricing", "reliability", "usability"]}
+{"id": "v13", "label": ["pricing"]}
+{"id": "v14", "label": ["reliability"]}
+{"id": "v15", "label": ["pricing", "support"]}
+{"id": "v16-lookalike-wrong", "label": []}
+{"id": "v17", "label": ["pricing", "usability"]}
+{"id": "v18", "label": ["feature_request", "reliability"]}
+{"id": "v19-many", "label": ["pricing", "reliability", "support", "usability"]}
+{"id": "t01", "label": ["pricing"]}
+{"id": "t02", "label": ["reliability"]}
+{"id": "t03", "label": ["usability"]}
+{"id": "t04", "label": ["support"]}
+{"id": "t05", "label": ["feature_request"]}
+{"id": "t06", "label": ["pricing", "usability"]}
+{"id": "t07", "label": []}
+{"id": "t08", "label": []}
+{"id": "t09-lookalike", "label": ["reliability"]}
+{"id": "t10", "label": ["usability"]}
+{"id": "t11", "label": ["feature_request"]}
+{"id": "t12-mixed3", "label": ["pricing", "reliability", "support"]}
+{"id": "t13", "label": ["pricing"]}
+{"id": "t14-lookalike", "label": []}
+{"id": "t15", "label": ["pricing", "support"]}
+{"id": "t16-lookalike-wrong", "label": []}
+{"id": "t17-mixed3", "label": ["pricing", "support", "usability"]}
+{"id": "t18", "label": ["feature_request", "reliability"]}
+{"id": "t19-many", "label": ["pricing", "reliability", "support", "usability"]}
