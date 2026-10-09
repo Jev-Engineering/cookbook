@@ -90,6 +90,18 @@ Scope decisions (see the pull request body for the full reasoning):
   every *other* recipe's notebook the same way ``next_steps_links_exist`` reads every neighbour's
   folder, and ``readme_sources_match_catalog`` already reads the catalog, so there was no real
   distinction between what a per-recipe check can and cannot look at).
+* ``next_steps_inbound_links`` is nonetheless the one check in this module marked
+  ``@pytest.mark.catalog_audit`` and deselected from the default run (#203, issue #76 comment
+  6079429778's "Route #165"). The distinction that matters here is not what the check can read
+  but when it can possibly pass: a recipe pull request may change only its own folder (``Scope``),
+  and no recipe on ``main`` may link forward to a recipe that is not yet published
+  (``next_steps_links_exist`` forbids it), so a new recipe's own PR can never add the backlink
+  this check needs and can never satisfy it -- not a drift to record in
+  ``tests/recipe_guard_known_failures.py``, but a check that is structurally unpassable within
+  the scope of the PR that would trip it. It runs instead as a wave close-out audit, by hand,
+  after the close-out sweep has added the missing backlinks: ``pytest -m catalog_audit
+  tests/test_recipe_guard.py`` (see ``docs/development.md``, "Continuous integration"). Per-PR
+  CI (bare ``pytest``, which reads ``pyproject.toml``'s ``addopts``) never selects it.
 * A recipe with no ``fixtures/responses.json`` (a scripted recipe; none are published yet) is
   skipped, not failed, by every check that reads stored responses
   (``build_fixtures_scaffold``, ``stored_answers_strong_form``,
@@ -867,13 +879,41 @@ def _inbound_next_steps_links() -> dict[str, set[str]]:
 INBOUND_NEXT_STEPS_LINKS = _inbound_next_steps_links()
 
 
-@pytest.mark.parametrize("recipe", guarded("next_steps_inbound_links")())
+def _inbound_audit_params():
+    """Same recipes and ``xfail(strict=True)`` marks as ``guarded("next_steps_inbound_links")``
+    (``guarded`` itself is untouched; every other check in this module keeps its plain-slug id),
+    but with each id prefixed ``inbound-``. #203's PR comment proves the default collection
+    excludes this test and ``-m catalog_audit`` selects exactly its 23 cases by grepping a
+    ``--collect-only -q`` listing for ``inbound``; a plain slug id (``01-sentiment-
+    classification``, shared with every other check's cases) could not be grepped for on its
+    own, so this one audit test's ids carry the substring that makes that proof possible."""
+    check_id = "next_steps_inbound_links"
+    out = []
+    for recipe in PUBLISHED:
+        slug = _slug(recipe)
+        reason = KNOWN_FAILURES.get((slug, check_id))
+        marks = [pytest.mark.xfail(reason=f"#163: {reason}", strict=True)] if reason else []
+        out.append(pytest.param(recipe, id=f"inbound-{slug}", marks=marks))
+    return out
+
+
+@pytest.mark.catalog_audit
+@pytest.mark.parametrize("recipe", _inbound_audit_params())
 def test_every_recipe_is_linked_from_some_other_recipes_next_steps(recipe):
     """G1(f) clause 2 (issue #76 comment 6079429778): "every published recipe is the target of
     at least one other recipe's Next steps" (R21) -- a per-recipe, per-check case exactly like
     ``next_steps_links_exist`` (see the module docstring's scope decisions), computed once over
     the whole published set (``_inbound_next_steps_links``, built from the same
-    ``](../NN-slug/)`` pattern that check reads) and looked up per recipe here."""
+    ``](../NN-slug/)`` pattern that check reads) and looked up per recipe here.
+
+    Marked ``catalog_audit`` (#203) and deselected by default (see ``pyproject.toml``'s
+    ``addopts``): a new recipe's own pull request can never satisfy this check. The recipe
+    being added has no inbound link yet, and nothing in its own PR can create one -- no recipe
+    on ``main`` may link forward to a recipe that is not yet published (``next_steps_links_exist``
+    forbids exactly that), and a recipe pull request may change only its own folder (the
+    ``Scope`` check), so it cannot add a backlink to itself from an older recipe either. The
+    check is therefore run by hand at each wave close-out, after the sweep that adds the
+    missing backlinks: ``pytest -m catalog_audit tests/test_recipe_guard.py``."""
     assert INBOUND_NEXT_STEPS_LINKS[recipe["slug"]], (
         f"{recipe['slug']}: no other published recipe's Next steps links ../{recipe['slug']}/"
     )
