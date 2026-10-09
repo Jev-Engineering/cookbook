@@ -163,7 +163,7 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     # --- check 3: test_stored_answers_are_not_all_right is the strong form -------------------
     # R7, extended to the six Level 1 recipes Wave 2 never reviewed (01-10 are outside its
     # "Level 2 recipes 11-23" scope): 01-06, 08-10 have no test_stored_answers_are_not_all_right
-    # at all; 07, 12, 13, 16, 19 and 20 ship only the weak "assert wrong" form, which passes
+    # at all; 07, 16, 19 and 20 ship only the weak "assert wrong" form, which passes
     # even when the confidence gate catches every mistake.
     (
         "01-sentiment-classification",
