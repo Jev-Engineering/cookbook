@@ -34,7 +34,8 @@ result["tone"].provenance.source  # "synthetic" or "recorded"
 
 They mirror `typesafe_sdk`, and every constructor takes keyword arguments only. `instructions` is
 text, a JSON object or array, or `None`. `Choice(criteria={name: description-or-None})` takes a
-non-empty mapping of at most 255 options. `Score(criteria=[...])` takes an ordered list of 2 to 10
+mapping of 2 to 255 options (see "Single-option Choice" below for the lower bound).
+`Score(criteria=[...])` takes an ordered list of 2 to 10
 levels (each non-empty text, a non-empty JSON object or a non-empty JSON array; the legend holds the level value as given, so a legend value may be text, an object or an array). `Noul(criteria={"true": ..., "false": ...})` optionally
 describes the outcomes. All values must be plain JSON (`str`, `int`, `float`, `bool`, `None`,
 `list`, `dict` with `str` keys); numpy values and NaN are rejected. `to_dict()` /
@@ -42,6 +43,21 @@ describes the outcomes. All values must be plain JSON (`str`, `int`, `float`, `b
 
 The `state` passed to `decide` and `replay_key` is a string, a JSON object (`dict`), or an array
 (`list`/`tuple`) of strings. Bare numbers, booleans and `None` are rejected with `TypeError`.
+
+### Single-option Choice
+
+`Choice` needs at least two options: with one, Jev has nothing to weigh, so building the
+question raises `ValueError` ("a Choice needs at least two options; a forced answer belongs
+to Python, not a request"). `jev_cookbook.answers.choice_confidence` raises the same error for
+`n < 2` instead of returning a value for it (the published formula, `(p_max - 1/n) / (1 - 1/n)`,
+is 0/0 at one option), and a stored `ChoiceAnswer` whose offered option list has one entry fails
+the same way wherever it is loaded, including by `ReplayBackend`. When a recipe's own
+candidate-gathering step leaves a document with only one option (or none), the decision belongs
+to Python, not to a request: resolve it to a result directly in code and never build the
+question or spend a call. Recipes 14 and 22 are the pattern: a document with no candidate span,
+or an observed asset with no shortlisted canonical record, is resolved in Python (`no_candidates`,
+`no_candidate_resolution`) before any `Choice` is ever built, so the single-option case never
+reaches `get_backend` at all.
 
 ## Answers
 
@@ -63,7 +79,7 @@ replay. `to_dict()` also returns a fresh copy you may edit.
 Construction is validated: probabilities sum to 1 (the error message says what they summed
 to); `choice` is the highest-probability option (a gap under 1e-3 counts as a tie, see Tolerances); `confidence`
 equals the published formulas (Choice
-`(p_max - 1/n) / (1 - 1/n)`, one option gives 1; Score `1 - spread / even_spread`, where `spread`
+`(p_max - 1/n) / (1 - 1/n)`; Score `1 - spread / even_spread`, where `spread`
 is the probability-weighted distance from the most likely level and `even_spread` is the same
 quantity for a uniform distribution, see the TypeSafe confidence page); Score `score` equals the
 probability-weighted level. Tolerances are in the next subsection. To avoid computing these by hand use

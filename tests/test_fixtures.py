@@ -780,6 +780,84 @@ def test_the_same_state_twice_in_one_split_is_not_a_leak(recipe):
     assert messages(recipe) == []
 
 
+# ------------------------------- replay-key leak across splits (#175, recipe 14's v17/t15)
+
+
+def test_distinct_replay_keys_across_splits_are_not_a_leak(recipe):
+    """``good_set()`` already gives every example its own key: the paired case to the
+    rejections below."""
+    assert messages(recipe) == []
+
+
+def test_a_shared_replay_key_across_splits_is_a_leak(recipe):
+    """Recipe 14's review: v17 (validation) and t15 (test) had different ``fields``, so the
+    content-based leak rule above never saw a problem, but both listed the same replay key --
+    the same request, byte for byte, as Jev would see it. t0 and t2 keep their own distinct
+    ``state`` here (so only the key, not the content check, can catch this), but t2 lists t0's
+    key."""
+    data = good_set()
+    own = data["inputs"][2]["replay_keys"][0]
+    data["inputs"][2]["replay_keys"] = list(data["inputs"][0]["replay_keys"])
+    del data["responses"][own]
+    write(recipe, data)
+    expect(
+        recipe,
+        "(id 't2'): replay key",
+        "is also listed by 't0' (validation), a different split (test)",
+    )
+
+
+@pytest.mark.parametrize(
+    ("a", "b"), [("train", "validation"), ("validation", "test"), ("train", "test")]
+)
+def test_a_shared_replay_key_in_any_two_of_train_validation_test_is_a_leak(recipe, a, b):
+    data = good_set()
+    data["inputs"][0]["split"], data["inputs"][2]["split"] = a, b
+    data["inputs"][1]["split"], data["inputs"][3]["split"] = "validation", "test"
+    own = data["inputs"][2]["replay_keys"][0]
+    data["inputs"][2]["replay_keys"] = list(data["inputs"][0]["replay_keys"])
+    del data["responses"][own]
+    write(recipe, data)
+    expect(
+        recipe, "(id 't2'): replay key", f"is also listed by 't0' ({a}), a different split ({b})"
+    )
+
+
+def test_demo_may_share_a_replay_key_with_a_scored_split(recipe):
+    """demo is exempt from the replay-key leak check, exactly as it is from the content one."""
+    data = good_set()
+    data["inputs"].append({**data["inputs"][2], "id": "d1", "split": "demo"})
+    write(recipe, data)
+    assert messages(recipe) == []
+
+
+def test_a_shared_replay_key_in_one_split_is_not_a_leak(recipe):
+    """Two examples of the *same* split sharing a key is ordinary (see
+    ``test_a_key_copied_from_another_example_is_reported`` for the mismatched-content case);
+    only a different split is reported."""
+    data = good_set()
+    own = data["inputs"][1]["replay_keys"][0]
+    data["inputs"][1]["replay_keys"] = list(data["inputs"][0]["replay_keys"])
+    data["inputs"][1]["state"] = copy.deepcopy(data["inputs"][0]["state"])
+    del data["responses"][own]
+    write(recipe, data)
+    assert not any("replay key" in m and "different split" in m for m in messages(recipe))
+
+
+def test_a_legitimately_shared_later_request_across_splits_is_not_a_leak(recipe):
+    """docs/fixtures.md: "examples whose later request is the same" may share a key -- this
+    holds across splits too, so the new check only looks at an example whose *entire* request
+    is one key (the same restriction the existing key-copy check above uses), never at one key
+    among several."""
+    data = good_set()
+    policy = request_key("the policy request, identical for every example")
+    for row in data["inputs"]:
+        row["replay_keys"].append(policy)
+    data["responses"][policy] = result()
+    write(recipe, data)
+    assert messages(recipe) == []
+
+
 # ------------------------------------------------- modes: replay and scripted recipes
 
 

@@ -4,7 +4,7 @@ Shapes follow ``typesafe_sdk``: ``instructions`` is text, a JSON object or an ar
 ``None``); ``Choice.criteria`` is a mapping of option name to an optional description;
 ``Score.criteria`` is an ordered list of 2 to 10 levels from 0, each non-empty text, a
 non-empty JSON object or a non-empty JSON array;
-``Choice`` allows at most 255 options; constructors take keyword arguments only;
+``Choice`` allows 2 to 255 options; constructors take keyword arguments only;
 ``Noul.criteria`` optionally describes the ``true`` and ``false`` outcomes.
 """
 
@@ -19,9 +19,18 @@ from ._canonical import plain_json
 __all__ = ["Choice", "Noul", "Question", "Score", "question_from_dict"]
 
 
+MIN_CHOICE_OPTIONS = 2
 MAX_CHOICE_OPTIONS = 255
 MIN_SCORE_LEVELS = 2
 MAX_SCORE_LEVELS = 10
+
+# A Choice with fewer than two options would force an answer Python already knows (there is
+# nothing to choose between), so it is rejected at construction rather than given a value by
+# jev_cookbook.answers.choice_confidence. docs/backends.md ("Single-option Choice") names the
+# pattern: recipes 14 and 22 short-circuit such a case in Python and never build this question.
+SINGLE_OPTION_MESSAGE = (
+    "a Choice needs at least two options; a forced answer belongs to Python, not a request"
+)
 
 
 def _text_or_json(value: Any, what: str) -> Any:
@@ -64,7 +73,11 @@ class Noul:
 class Choice:
     """Pick one named option. ``criteria`` maps option name to a description or ``None``.
 
-    Options are hashed into the replay key in the order written.
+    Options are hashed into the replay key in the order written. ``criteria`` needs at least
+    two options: a single option is not a request, since Jev would have nothing to weigh, so
+    ``Choice`` rejects it at construction instead of letting the model rubber-stamp an answer
+    Python already has (see ``docs/backends.md``, "Single-option Choice"). Build such a case
+    directly in Python and skip the call: see recipes 14 and 22 for the pattern.
     """
 
     criteria: Mapping[str, Any]
@@ -74,6 +87,8 @@ class Choice:
     def __post_init__(self) -> None:
         if not isinstance(self.criteria, Mapping) or not self.criteria:
             raise ValueError("Choice criteria must be a non-empty mapping of option -> description")
+        if len(self.criteria) < MIN_CHOICE_OPTIONS:
+            raise ValueError(SINGLE_OPTION_MESSAGE)
         if len(self.criteria) > MAX_CHOICE_OPTIONS:
             raise ValueError(f"Choice allows at most {MAX_CHOICE_OPTIONS} options")
         crit = plain_json(dict(self.criteria), "criteria")

@@ -76,6 +76,19 @@ example that has `state`, and `fields` for an example that has `fields`; they ar
 whatever the key order. `demo` examples are exempt. The same content twice inside one split is
 allowed, but double counts that example.
 
+**Replay-key leak rule:** a `fields` example's `state` is built by the recipe's `build_state`,
+which the validator never runs, so two examples with different `fields` can still ask Jev the
+identical request without the content check above noticing (recipe 14's `v17` and `t15` did
+exactly this: different `fields`, but the same `replay_keys` entry, caught only once replay
+itself was inspected). `replay_keys` is the hash of what Jev actually sees, so for an example
+whose entire request is one key, the validator compares that key directly: the same key listed
+by an example of a different split among `train`, `validation` and `test` is an error, naming
+both ids. This is narrower than the content rule on purpose: an example with more than one key
+may legitimately share its *later* key with another example on purpose (the same quoted
+sentence above, "so do examples whose later request is the same"), and the validator cannot
+tell that apart from a leak by the key alone, so only a one-key example's sole key is compared.
+`demo` is exempt here too.
+
 ## Labels
 
 ```json
