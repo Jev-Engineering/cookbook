@@ -73,8 +73,9 @@ no receipt.
    requirement always wins, and spelling a baseline as head-only never weakens it. Repeating a name
    only deduplicates the requirement; it does not deduplicate actual results. More than one result
    for one name is ambiguous and fails closed, **except** that several CheckRuns from the one same
-   app, all `success`, for a non-baseline name, collapse into a single `success` result (see
-   "Required checks" below for the exact rule, the `results`/`runs` receipt shape, and why); a
+   app, with that app's slug readable, all `success`, for a non-baseline name, collapse into a
+   single `success` result (see "Required checks" below for the exact rule, the `results`/`runs`
+   receipt shape, and why); a
    baseline name, any mix that is not all-`success`, or results from more than one source (a
    StatusContext mixed with a CheckRun, two StatusContexts, or CheckRuns from different apps) stay
    ambiguous and fail closed exactly as before.
@@ -180,7 +181,14 @@ true of a `Scope` run that completed with `conclusion: failure` once, for a caus
 later edit's successful rerun adds a `success` row alongside the earlier `failure` row rather than
 replacing it, which is `"conflicting"`, not a collapse. Both cases need a new head — a
 `synchronize` event, which runs its own `Scope` check suite from scratch — not another edit of the
-same head's description. This is why the interim rule stated in `BUILDER_RULES.md` — never edit a
+same head's description. Re-running the *original* `Scope` workflow run instead does not help,
+even though this document's own "filter=latest shows what currently counts" (below, in "Required
+checks") and its post-merge remedy of "rerun the workflow on that exact commit" (below, in
+"Where it fits in the serial merge") might suggest otherwise for a push-triggered check: the real
+reason is that `scope.yml` runs on `pull_request_target`, so re-running it replays the *original*
+event payload, and `github.event.pull_request.body` in that payload is the pre-edit body —
+exactly the staleness the `edited` trigger exists to catch — which makes a rerun's verdict
+untrustworthy, not merely unhelpful. This is why the rule in `CONTRIBUTING.md` — never edit a
 pull request's description after the final push of a head that goes to the merge gate — stays in
 force: an edit is the only way `Scope` reruns at all, and every rerun after the first either
 leaves a `cancelled` row behind (if it overlaps a run still in progress) or, if the head already
@@ -404,7 +412,7 @@ orchestrator session. Whether the review accepted the ruling differs by case, as
 No history is rewritten here, and what a source claims is recorded as a claim.
 
 **PR #96** did not meet requirements 1 and 2. The review of head `f843a7c` (comment 6031008513,
-header: orchestrator session `37d430e7`, model `claude-opus-5-5`) came before the ruling and did
+header: orchestrator session `37d430e7`, model `claude-opus-5`) came before the ruling and did
 not accept it. It approved that exact head. It
 also stated that after #91 advanced `main` the helper returned `NOT READY` with `behind_by` 1,
 and that a signed integration and a fresh review were needed before merging. The orchestrator
