@@ -140,7 +140,11 @@ def build_state(fields: dict[str, Any]) -> dict[str, Any]:
 
 def build_questions(fields: dict[str, Any]) -> dict[str, Choice]:
     """The one question asked about this document. Call only when this document has at least
-    one candidate span (see ``build_state``); a ``Choice`` needs a non-empty option set.
+    one candidate span (see ``build_state``): a ``Choice`` needs at least two options, and with
+    no candidate spans the option list would hold only the fallback ``not_stated`` alone, a
+    single-option ``Choice`` that is never built at all -- a document with no candidates is
+    resolved directly by ``no_candidates`` instead, before any question is built and before any
+    request is spent.
 
     The option list is not the same for every document: Python builds it fresh from this
     document's own candidate spans (their ids only -- the text already crossed into
@@ -196,10 +200,13 @@ def select_span(
     non-empty (a document with no candidates never reaches here; see ``no_candidates``).
 
     ``not_stated`` is reported as a final result whatever its confidence: CONTRIBUTING.md
-    section 4 allows a low-confidence fallback to be delivered as a final result, instead of
-    going to review, exactly when choosing it triggers no side effect -- here, nothing is
-    routed, answered or moved, and there is no stored span text for a confidence check to
-    protect (the same reasoning recipe 08 uses for ``no_match``). That is a real trade-off,
+    section 4 allows a fallback option to skip the gate only when it passes all three parts of
+    its test, and ``not_stated`` passes each one -- (a) it is a complete answer, not a deferral:
+    it says plainly that no span supports the supplier, rather than asking a person to decide
+    again; (b) choosing it records no action, since nothing is routed, answered or moved; and
+    (c) being wrong leaves nothing standing beyond the missed item itself, because there is no
+    stored span text a confidence check could have protected either way (the same reasoning
+    recipe 08 uses for ``no_match``). That is a real trade-off,
     not a free pass: "Evaluation" below shows a confidence-only view of the same answers that
     *would* catch a wrong ``not_stated`` pick, at the cost this rule accepts instead. Any
     other choice that does not name one of this document's own candidate spans goes to
