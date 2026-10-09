@@ -535,7 +535,7 @@ grid cell would turn every notebook red at once on `main`. `pyproject.toml` stay
 constraints apply to the notebook execution job only.
 
 **Authors install with the same file.** Text outputs are compared exactly against CI's pinned
-stack, so a recipe author runs `pip install -e ".[dev,ml]" -c .github/constraints-notebooks.txt`
+stack, so a recipe author runs `pip install -e ".[ml]" -c .github/constraints-notebooks.txt`
 (Python 3.14) before executing a notebook and committing its outputs; the template README and
 [recipe-template.md](recipe-template.md) say so. The constraints file cannot be installed on the
 package floor, Python 3.10 (`numpy==2.5.3` needs Python 3.12 or newer): committable outputs are a
