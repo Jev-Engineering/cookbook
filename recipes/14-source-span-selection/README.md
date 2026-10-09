@@ -55,7 +55,7 @@ any other committed file.
 The committed run replays 43 invented purchase documents (40 of them asking a question; 3 with no
 candidate span at all) with hand-written (synthetic) answers, several wrong on purpose and spread
 across different span positions and branches: one in `validation` (`v20`, picking the first of
-two spans), and three in `test` (`t18`, a confident near-miss decoy the gate does not catch;
+two spans), and four in `test` (`t18`, a confident near-miss decoy the gate does not catch;
 `t19`/`t20`, each caught by the gate; `t21`, a wrong `not_stated` pick the gate is never applied
 to at all). Its exact-match accuracy, three model-free baselines, the coverage/accuracy/risk the
 rule's own outcomes produce next to what answering everything would have scored, and the
