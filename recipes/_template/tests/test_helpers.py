@@ -27,7 +27,9 @@ def test_confident_known_option_goes_to_its_queue():
 
 
 def test_low_confidence_goes_to_review_whatever_the_option():
-    assert helpers.route("T-1", VAGUE, 0.5).outcome == helpers.REVIEW
+    routing = helpers.route("T-1", VAGUE, 0.5)
+    assert routing.outcome == helpers.REVIEW
+    assert routing.reason == "confidence below the threshold"
 
 
 def test_none_goes_to_review_even_when_certain():
