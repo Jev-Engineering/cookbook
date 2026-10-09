@@ -4,7 +4,7 @@
     python build_fixtures.py --force  # also overwrite a responses.json holding a recorded answer
 
 Every response is synthetic (written by hand as probabilities, not produced by a model) and
-deliberately imperfect. The hard cases the issue names all appear: true duplicates (several,
+deliberately imperfect. The hard cases this use case names all appear: true duplicates (several,
 across most of the eight open incidents), near duplicates that read almost the same as an open
 incident but name a different affected service (the use case's central trap: text similarity
 alone is not enough, and the shared ``shortlist`` retrieval in ``helpers.py`` ranks on text
@@ -189,9 +189,9 @@ ROWS = [
         "TCK-2009", "marketing-site",
         "The marketing newsletter unsubscribe link redirects readers to a broken page."),
      "no_match", {"no_match": 0.74}),
-    ("t10-nomatch-slack", "test", _fields(
+    ("t10-nomatch-chatops", "test", _fields(
         "TCK-2010", "internal-tools",
-        "The internal Slack integration stopped posting deploy notifications to the team channel."),
+        "The internal chat notification integration stopped posting deploy alerts to the team channel."),
      "no_match", {"no_match": 0.80}),
     # A real duplicate of INC-102, but the stored answer confidently says no_match -- wrong, and
     # no_match is never checked by any threshold, so this missed duplicate is not caught by

@@ -56,7 +56,7 @@ alike, `allowed` included -- is selected to exclude, and four more on `test`: tw
 (one of them a false allow, caught now that `allowed` is gated like every other category instead
 of being exempt from it), and two it does not -- a false flag that clears the gate (an allowed
 message wrongly hidden) and a false allow that clears it too (a message that actually violates
-the rule, read confidently as `allowed` and left standing: the cost the issue names, which gating
+the rule, read confidently as `allowed` and left standing: the cost of a false allow, which gating
 `allowed` does not make impossible, only subject to the same gate every other category gets). Its
 confusion matrix, per-category metrics and the coverage, accuracy and risk the frozen gate produces check
 that the pipeline works; they say nothing about how Jev performs, how fast it is, or what it
