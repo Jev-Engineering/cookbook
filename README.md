@@ -9,7 +9,7 @@
 **Sixty notebook recipes for typed decisions with Jev, ordered from a first `Choice` question to closed-loop factory control.**
 
 <!-- catalog:progress:start -->
-![Recipes: 3 of 60 published](https://img.shields.io/badge/Recipes-3%20of%2060%20published-F386A1?style=flat-square&labelColor=1E1E1E) ![Status: in progress](https://img.shields.io/badge/Status-in%20progress-E551BA?style=flat-square&labelColor=1E1E1E) ![Categories: 10](https://img.shields.io/badge/Categories-10-F386A1?style=flat-square&labelColor=1E1E1E) ![Levels: 5](https://img.shields.io/badge/Levels-5-F386A1?style=flat-square&labelColor=1E1E1E)
+![Recipes: 4 of 60 published](https://img.shields.io/badge/Recipes-4%20of%2060%20published-F386A1?style=flat-square&labelColor=1E1E1E) ![Status: in progress](https://img.shields.io/badge/Status-in%20progress-E551BA?style=flat-square&labelColor=1E1E1E) ![Categories: 10](https://img.shields.io/badge/Categories-10-F386A1?style=flat-square&labelColor=1E1E1E) ![Levels: 5](https://img.shields.io/badge/Levels-5-F386A1?style=flat-square&labelColor=1E1E1E)
 <!-- catalog:progress:end -->
 ![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-F386A1?style=flat-square&labelColor=1E1E1E) [![License: MIT](https://img.shields.io/badge/License-MIT-DEDEDE?style=flat-square&labelColor=1E1E1E)](LICENSE)
 
@@ -150,7 +150,7 @@ One bounded judgment over a short prepared input with direct inspection of typed
 | 02 | **Refund intent detection**<br>Judge whether a customer message explicitly requests a refund so Python can flag it for the appropriate workflow. | Workflow & service operations | `Noul` | Coming soon · [#2](https://github.com/Jev-Engineering/cookbook/issues/2) |
 | 03 | **Response clarity scoring**<br>Score a support response against a clearly defined clarity rubric to identify examples that need editing. | Language & content | `Score` | [Open notebook](recipes/03-response-clarity-scoring/notebook.ipynb) |
 | 04 | **Support ticket routing**<br>Assign a support ticket to a fixed service category or an unclear-request outcome using its subject and description. | Workflow & service operations | `Choice` | [Open notebook](recipes/04-support-ticket-routing/notebook.ipynb) |
-| 05 | **Document classification**<br>Classify a short document as an invoice, meeting note, policy, technical guide, or other document type from its text. | Language & content | `Choice` | Coming soon · [#5](https://github.com/Jev-Engineering/cookbook/issues/5) |
+| 05 | **Document classification**<br>Classify a short document as an invoice, meeting note, policy, technical guide, or other document type from its text. | Language & content | `Choice` | [Open notebook](recipes/05-document-classification/notebook.ipynb) |
 | 06 | **Multiple topic labels**<br>Tag customer feedback with every applicable topic by asking an independent yes-or-no question for each predefined label. | Language & content | `Noul` | Coming soon · [#6](https://github.com/Jev-Engineering/cookbook/issues/6) |
 | 07 | **Word sense selection**<br>Select the intended meaning of an ambiguous word from a fixed sense inventory using its surrounding sentence. | Language & content | `Choice` | Coming soon · [#7](https://github.com/Jev-Engineering/cookbook/issues/7) |
 | 08 | **FAQ selection**<br>Select the best matching FAQ from a short candidate list, including a no-match outcome when none addresses the question. | Search & retrieval | `Choice` | Coming soon · [#8](https://github.com/Jev-Engineering/cookbook/issues/8) |
