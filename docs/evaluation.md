@@ -155,11 +155,13 @@ Two caveats before freezing `c` on a real recipe. First, `|2p - 1|` is distance 
 margin at `t`: it measures certainty about yes-versus-no, not distance from the business
 threshold, so when `t != 0.5` an item sitting just either side of `t` can still read as
 high-confidence, and the item the gate is least sure about need not be the one closest to `t`.
-Second, look at `selective_curve(test_correct, test_conf)` before freezing `c`: if accuracy does
-not fall as coverage rises, confidence is not separating right from wrong on this data and the
-gate buys nothing — on some fixtures every wrong answer happens to be a confident one, in which
-case no `c` routes anything useful to review, even though the code runs without error. (The
-confidence page's own "three paths for using confidence in your code" are three confidence
+Second, look at `selective_curve(val_correct, noul_confidence(val_noul))` before freezing `c`: if
+accuracy does not fall as coverage rises, confidence is not separating right from wrong on this
+data and the gate buys nothing — on some fixtures every wrong answer happens to be a confident
+one, in which case no `c` routes anything useful to review, even though the code runs without
+error. (The same curve on the test split, `selective_curve(test_correct, test_conf)`, is fine to
+look at *after* `c` is frozen, as a reported result rather than as an input to the choice of `c`.)
+(The confidence page's own "three paths for using confidence in your code" are three confidence
 *bands*; this pattern's three paths are a cookbook convention, not that one.)
 
 ### Calibration

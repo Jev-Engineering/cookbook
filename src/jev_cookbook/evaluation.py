@@ -599,7 +599,8 @@ def noul_confidence(noul: Iterable[Any]) -> list[float]:
         noul: Noul answers or plain probabilities in [0, 1].
 
     Returns:
-        A list of floats in [0, 1]. Empty or out-of-range input raises ``ValueError``.
+        A list of floats in [0, 1]. Empty, out-of-range, NaN or infinite input raises
+        ``ValueError``.
     """
     return [float(2.0 * max(v, 1.0 - v) - 1.0) for v in _noul_array(_as_list(noul, "noul"), "noul")]
 
