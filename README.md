@@ -9,7 +9,7 @@
 **Sixty notebook recipes for typed decisions with Jev, ordered from a first `Choice` question to closed-loop factory control.**
 
 <!-- catalog:progress:start -->
-![Recipes: 17 of 60 published](https://img.shields.io/badge/Recipes-17%20of%2060%20published-F386A1?style=flat-square&labelColor=1E1E1E) ![Status: in progress](https://img.shields.io/badge/Status-in%20progress-E551BA?style=flat-square&labelColor=1E1E1E) ![Categories: 10](https://img.shields.io/badge/Categories-10-F386A1?style=flat-square&labelColor=1E1E1E) ![Levels: 5](https://img.shields.io/badge/Levels-5-F386A1?style=flat-square&labelColor=1E1E1E)
+![Recipes: 18 of 60 published](https://img.shields.io/badge/Recipes-18%20of%2060%20published-F386A1?style=flat-square&labelColor=1E1E1E) ![Status: in progress](https://img.shields.io/badge/Status-in%20progress-E551BA?style=flat-square&labelColor=1E1E1E) ![Categories: 10](https://img.shields.io/badge/Categories-10-F386A1?style=flat-square&labelColor=1E1E1E) ![Levels: 5](https://img.shields.io/badge/Levels-5-F386A1?style=flat-square&labelColor=1E1E1E)
 <!-- catalog:progress:end -->
 ![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-F386A1?style=flat-square&labelColor=1E1E1E) [![License: MIT](https://img.shields.io/badge/License-MIT-DEDEDE?style=flat-square&labelColor=1E1E1E)](LICENSE)
 
