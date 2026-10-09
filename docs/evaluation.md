@@ -117,29 +117,41 @@ it, including `outcome_curve` below): its candidate thresholds are `numpy.unique
 confidences, so two fixture rows hand-written as separate mirror-pair literals can land as two
 *adjacent* threshold candidates ("`gate >= 0.86`" printed twice, at a few-ULPs-apart value) instead
 of coalescing into one. This is a property of floating-point decimal literals, not a bug in
-`noul_confidence` to fix by changing it here: #172's fix, not yet landed, will round the
-confidence to 12 decimal places inside `_conf_inputs` — the shared input boundary of
-`selective_curve`, `select_confidence_threshold`, `evaluate_selective` and `outcome_curve` — so
-every one of those functions will see the same, already-deduplicated confidences (not
-"candidates": `evaluate_selective` derives no candidate grid of its own, it only reapplies an
-already-frozen threshold) once it merges, rather than rounding inside `noul_confidence` itself
-(which other, non-selective callers also use) or re-deduping separately inside each curve
-function. `_conf_inputs` on `main` today does none of this — it validates `[0, 1]` and matches
-lengths, nothing more — which is exactly why the duplicate row above is still printed.
+`noul_confidence` to fix by changing it here, and not one #172's fix, not yet landed, will fix by
+rounding confidence itself: an earlier design that rounded every confidence to 12 decimal places
+turned out to flip boundary-exact `conf >= threshold` comparisons in ten recipes whose own
+helpers compare raw confidences directly (found by CI on that design's own pull request), so
+confidence values are never rounded, there or anywhere else. Instead, #172's fix will deduplicate
+only the *candidate-threshold grid* `selective_curve` builds (and, through it,
+`select_confidence_threshold` and `outcome_curve`): candidates will be grouped by `round(v, 12)`,
+and the **minimum raw member of each group** will be kept as the surviving threshold, so every
+returned threshold stays a bit-exact observed confidence and every `conf >= threshold`
+comparison — including a recipe's own, outside this module — stays exact. For a nominal-twin
+pair such as `0.93`/`0.07` (raw confidences `0.8600000000000001` and `0.8599999999999999`), both
+round to `0.86` and will group together; the surviving threshold will be the smaller of the two,
+`0.8599999999999999`, so both twins satisfy `conf >= threshold` and will be counted as accepted
+at that one row — the duplicate row collapses, and the group's coverage is the higher of the two
+it replaces (the union of both twins), never a value in between. `evaluate_selective` is
+unaffected directly: it builds no candidate grid of its own and only reapplies an already-frozen
+threshold, which, once chosen through `select_confidence_threshold`'s deduplicated grid, is the
+same bit-exact minimum-of-the-group value either way. `_conf_inputs` on `main` today does no
+deduplication at all — it validates `[0, 1]` and matches lengths, nothing more — which is exactly
+why the duplicate row above is still printed.
 
-Landing the fix requires regenerating two recipes' committed notebook output, not three, and
+Landing the fix will require regenerating two recipes' committed notebook output, not three, and
 both in the same pull request as the code change. Recipes **10** and **15** carry the colliding
-pair (nominal `0.86`) on validation examples their sweep cell prints as text, so rounding will
+pair (nominal `0.86`) on validation examples their sweep cell prints as text, so the dedup will
 collapse their duplicate `gate >= 0.86` row into one (the surviving row keeps the higher-coverage
 half, `coverage 0.240`; every other row and the `0.30` frozen-gate threshold are unchanged), and
 their committed output will need refreshing to match. Recipe **02** carries the same colliding
 pair in its fixtures but will need **no** regeneration: its sweep cell prints only three derived
-numbers, all identical before and after rounding, and the dropped point is collinear with its
-neighbour on the plotted line. Because CI's notebook matrix re-executes every recipe notebook
-once a change touches anything outside `recipes/` and `README.md`, a #163-style regeneration run
-on `main` ahead of the fix would only reproduce today's duplicated output byte for byte — the
-rounding and 10/15's refreshed output have to ship together, or the `Notebook (<slug>)` checks
-for 10 and 15 go red. (CONTRIBUTING.md's scope allowlist binds recipe pull requests only, so a
+numbers, all identical before and after, and the dropped point is collinear with its neighbour on
+the plotted line. Because CI's notebook matrix re-executes every recipe notebook once a change
+touches anything outside `recipes/` and `README.md`, a #163-style regeneration run on `main`
+ahead of the fix would only reproduce today's duplicated output byte for byte — the dedup and
+10/15's refreshed output have to ship together, or the `Notebook (<slug>)` checks for 10 and 15
+go red; no other recipe's output may move, which CI's notebook jobs on #172's own pull request
+are the proof of. (CONTRIBUTING.md's scope allowlist binds recipe pull requests only, so a
 foundation pull request may carry this `recipes/` output refresh.)
 
 ### Multi-label
