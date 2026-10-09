@@ -48,7 +48,7 @@ pattern must match the whole value, so an id with a trailing newline is refused.
 | `split` | `validation`, `test`, `train` or `demo` (below). |
 | `state` | Exactly one of `state` and `fields`. `state` is the value passed to `backend.decide`: text, a JSON object, or a list of strings. |
 | `fields` | The values the recipe's Python builds the state from (a JSON object), when the notebook assembles the state itself. |
-| `replay_keys` | `replay_key(state, questions)` of every request the notebook replays for this example: 64 lowercase hex characters. May be empty (see "Replay and scripted recipes"). More than one when a later request depends on an earlier answer, in the order the notebook makes the requests. A `demo` example may list keys (list them if the notebook replays it); if it does, the responses must exist like any other. |
+| `replay_keys` | `replay_key(state, questions)` of every request the notebook replays for this example: 64 lowercase hex characters. May be empty (see "Replay and scripted recipes"). More than one when a later request depends on an earlier answer, in the order the notebook makes the requests, or when an example simply makes more than one independent request of its own (recipe 23 asks the same comparison twice, with the two candidates in each order, and lists both keys in the order it makes the requests). A `demo` example may list keys (list them if the notebook replays it); if it does, the responses must exist like any other. |
 
 The validator cannot rebuild a request, because the questions live in the notebook. So the link
 from an example to its responses is written down: `replay_keys`. Compute the keys in the script
@@ -75,6 +75,22 @@ test set into the choices made on validation (or into training). Content means `
 example that has `state`, and `fields` for an example that has `fields`; they are compared as JSON,
 whatever the key order. `demo` examples are exempt. The same content twice inside one split is
 allowed, but double counts that example.
+
+**Replay-key leak rule:** a `fields` example's `state` is built by the recipe's `build_state`,
+which the validator never runs, so two examples with different `fields` can still ask Jev the
+identical request without the content check above noticing (recipe 14's `v17` and `t15` did
+exactly this: different `fields`, but the same `replay_keys` entry, caught only once replay
+itself was inspected). `replay_keys` is the hash of what Jev actually sees, so the validator
+compares it directly: the same *complete* list of keys (order ignored, so listing them out of
+order does not escape comparison) listed by an example of a different split among `train`,
+`validation` and `test` is an error, naming both ids. Comparing the whole list, not one key in
+isolation, is what keeps a legitimately shared *later* key legitimate (the same quoted sentence
+above, "so do examples whose later request is the same"): such an example keeps a distinguishing
+earlier key of its own, so its complete list still differs from every other example's, and
+nothing is flagged; only two examples whose entire set of requests matches, key for key, are a
+leak. That covers a one-key example's sole key (recipe 14's case) and a multi-key example's
+whole set alike (recipe 23's two independent, mirrored requests per example). `demo` is exempt
+here too.
 
 ## Labels
 
@@ -222,6 +238,49 @@ for example in select_split(examples, "validation"):
 returns the problems (empty when valid) and the mode. Loaders raise `FixtureFileError`, whose
 message names the file and the line or id, for example
 `recipes/03-x/fixtures/inputs.jsonl:5 (id 't02'): duplicate id (first used on line 2)`.
+
+## Per-item option order
+
+Whenever a recipe needs a per-example order it does not want to come from the data itself --
+which candidate a `Choice` lists first, which of two answers is shown first in a pairwise
+comparison -- derive it from
+`jev_cookbook.fixtures.stable_permutation(f"{recipe}:{example_id}", n)` (or
+`stable_shuffle(seed_key, items)` to get the items themselves back in that order), never from
+`random.shuffle` and never from the position an item already has in the authored list or in
+`ROWS`.
+
+Two different things go wrong otherwise:
+
+- **`random.shuffle` is not a documented-stable algorithm across CPython versions.** The
+  `random` module's docs promise only that `random.Random.random()` keeps producing the same
+  sequence for the same seed; they make no such promise about `shuffle()`. A replay key is a
+  hash of exactly what Jev is asked, options included, so the moment a generator's shuffled
+  option order depends on a Python version's `shuffle()` output, the committed fixtures and the
+  notebook that replays them become byte-reproducible only by accident, on whichever
+  interpreters happen to agree. `stable_permutation` instead builds the permutation itself
+  (Durstenfeld's Fisher-Yates) calling nothing but `random()`, so it is pinned forever (see
+  `src/jev_cookbook/fixtures/permutation.py` for the full construction, and issue #181).
+- **List position proxies grouped gold.** Fixtures are usually authored gold-candidate-first,
+  for readability, and often written a whole target word or topic at a time -- so the authored
+  order is correlated with the label, and a frozen rule that always picks "option 1" can look
+  right for the wrong reason (recipe 12 hit exactly this: an earlier draft that asked Jev in
+  authored order let "always answer option 1" score as well as the real rule). Deriving the
+  order from a hash of the example's own id, independent of every other example and of the
+  authored order, breaks that correlation without touching which candidates are offered or what
+  the gold label is.
+
+```python
+from jev_cookbook.fixtures import stable_permutation, stable_shuffle
+
+order = stable_permutation(f"{recipe}:{example_id}", len(candidates))  # a permutation of indices
+shown = stable_shuffle(f"{recipe}:{example_id}", candidates)  # the candidates, in that order
+```
+
+For a binary choice such as which of two candidates is shown first, use `n = 2`:
+`stable_permutation(seed_key, 2)[0] == 0` says the first candidate keeps its place.
+`stable_permutation`/`stable_shuffle` live in the shared package precisely so every recipe's
+per-item order is derived the same documented-stable way; recipe 12's `shuffled_candidates` and
+recipe 23's `assign_first_shown` predate this helper and migrate onto it separately (issue #163).
 
 ## Writing fixtures
 
