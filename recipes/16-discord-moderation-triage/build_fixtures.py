@@ -33,9 +33,9 @@ this recipe applies to every category alike (``helpers.moderate``'s three-path p
 * ``t17-false-flag`` is ordinary competitive trash talk read, confidently (0.7750), as a threat:
   a benign message wrongly hidden, clearing the gate anyway.
 * ``t20-missed-violation`` is a passive-aggressive exclusionary remark -- gold
-  `potentially_violating` -- read, confidently (0.7750), as `allowed`: the cost the issue names
-  for a false allow, a message that actually violates the rule left standing, surviving the gate
-  exactly as `t17` does on the other side.
+  `potentially_violating` -- read, confidently (0.7750), as `allowed`: the cost of a false
+  allow, a message that actually violates the rule left standing, surviving the gate exactly as
+  `t17` does on the other side.
 
 ``v09-allowed-hesitant`` is not wrong -- its gold label and its stored category agree, `allowed`
 -- but at 0.4000 confidence it sits below the gate too, so it is escalated despite being right:

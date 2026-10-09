@@ -1,6 +1,6 @@
-"""build_fixtures.py follows the recipes/_template/build_fixtures.py pattern (#124, #129):
-inputs/labels generation is separate from responses generation, a recorded responses.json is
-never silently overwritten, and the committed file matches jev_cookbook.live's writer exactly."""
+"""build_fixtures.py follows the recipes/_template/build_fixtures.py pattern: inputs and
+labels generation is separate from responses generation, a recorded responses.json is never
+silently overwritten, and the committed file matches jev_cookbook.live's writer exactly."""
 
 import importlib.util
 import json
@@ -24,6 +24,10 @@ def load_module_at(path, name):
     return module
 
 
+def _jsonl(rows):
+    return "".join(json.dumps(row) + "\n" for row in rows)
+
+
 def test_the_committed_responses_are_byte_identical_to_the_recorders_writer():
     """jev_cookbook.live._dump sorts only the top-level keys; json.dumps(..., sort_keys=True)
     sorts every nested dict too and so disagrees with it on every response's field order. The
@@ -43,8 +47,10 @@ def test_the_committed_responses_are_byte_identical_to_the_recorders_writer():
 
 def test_build_fixtures_separates_inputs_labels_from_responses(tmp_path):
     """Mutation check: regenerating must never silently overwrite a recorded responses.json,
-    and --force must restore the exact synthetic bytes. (Removing the refusal in build_fixtures
-    main() makes this test fail.)"""
+    and --force must restore the exact synthetic bytes. inputs.jsonl and labels.jsonl are
+    rewritten from ROWS on every run, refused or not: only responses.json is guarded, and this
+    also proves it by corrupting both files before the refused run and checking that they come
+    back exactly as build_inputs_and_labels(ROWS) computes them, not merely "changed"."""
     copy = tmp_path / "16-discord-moderation-triage"
     copy.mkdir()
     for name in ("helpers.py", "build_fixtures.py"):
@@ -62,10 +68,19 @@ def test_build_fixtures_separates_inputs_labels_from_responses(tmp_path):
     )
     before = responses.read_bytes()
 
+    inputs_path = copy / "fixtures" / "inputs.jsonl"
+    labels_path = copy / "fixtures" / "labels.jsonl"
+    inputs_path.write_bytes(b"corrupted")
+    labels_path.write_bytes(b"corrupted")
+
     refused = subprocess.run([sys.executable, str(script)], capture_output=True, text=True)
     assert refused.returncode != 0
     assert "recorded" in refused.stderr and "--force" in refused.stderr
     assert responses.read_bytes() == before
+    module = load_module_at(script, "recipe16_build_fixtures_for_test_refused")
+    expected_inputs, expected_labels = module.build_inputs_and_labels(module.ROWS)
+    assert inputs_path.read_text("utf-8") == _jsonl(expected_inputs)
+    assert labels_path.read_text("utf-8") == _jsonl(expected_labels)
 
     forced = subprocess.run(
         [sys.executable, str(script), "--force"], capture_output=True, text=True
