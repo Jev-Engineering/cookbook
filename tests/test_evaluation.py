@@ -523,6 +523,102 @@ def test_selective_reads_confidence_from_answers():
     assert ev.evaluate_selective(SC, answers, 0.75).n_answered == 2
 
 
+def test_selective_curve_rejects_out_of_range_confidence():
+    # a sentinel confidence (a rule's "never gated" marker) must not reach the curve.
+    with pytest.raises(ValueError, match=r"\[0, 1\]"):
+        ev.selective_curve([1, 0, 1], [0.9, -1.0, 0.5])
+    with pytest.raises(ValueError, match=r"\[0, 1\]"):
+        ev.selective_curve([1, 0, 1], [0.9, 2.0, 0.5])
+
+
+def test_select_confidence_threshold_rejects_out_of_range_confidence():
+    # Before the fix, a -1.0 sentinel among otherwise-high accuracy made this function
+    # happily return -1.0 as "the threshold" whenever target_accuracy admitted every
+    # answer (issue #155): every answer, sentinel included, clears accuracy >= 0.5, so
+    # the lowest (most-covering) threshold was the sentinel itself. That candidate must
+    # never reach the caller.
+    with pytest.raises(ValueError, match=r"\[0, 1\]"):
+        ev.select_confidence_threshold([1, 1, 1], [0.9, 0.8, -1.0], target_accuracy=0.5)
+    with pytest.raises(ValueError, match=r"\[0, 1\]"):
+        ev.select_confidence_threshold([1, 1, 1], [0.9, 0.8, -1.0], min_coverage=0.5)
+
+
+def test_evaluate_selective_rejects_out_of_range_confidence():
+    with pytest.raises(ValueError, match=r"\[0, 1\]"):
+        ev.evaluate_selective(SC, [0.9, 0.8, 0.7, 0.6, -1.0], 0.5)
+
+
+# ---------------------------------------------------------------- Selective prediction from outcomes
+
+
+def test_evaluate_outcomes():
+    # answered positions 0, 1, 3 (True); correct among them: 0 and 3 right, 1 wrong
+    # -> coverage 3/4, accuracy 2/3, risk 1/3
+    r = ev.evaluate_outcomes([True, True, False, True], [True, False, False, True])
+    assert (r.n_total, r.n_answered) == (4, 3)
+    assert (r.coverage, r.accuracy, r.risk) == pytest.approx((0.75, 2 / 3, 1 / 3))
+    assert nan(r.threshold)  # no single confidence cut-off produced this split
+
+
+def test_evaluate_outcomes_nothing_answered_is_nan():
+    r = ev.evaluate_outcomes([False, False], [True, False])
+    assert r.n_answered == 0 and r.coverage == 0.0 and nan(r.accuracy) and nan(r.risk)
+
+
+def test_evaluate_outcomes_accepts_0_1():
+    r = ev.evaluate_outcomes([1, 0, 1], [1, 1, 0])
+    assert (r.n_total, r.n_answered) == (3, 2)
+
+
+def test_evaluate_outcomes_matches_evaluate_selective_for_a_confidence_only_rule():
+    # When a rule's only review branch is "confidence < threshold", evaluate_outcomes
+    # fed the rule's own accept/review split agrees with evaluate_selective fed the raw
+    # confidence and the same threshold, on every field but threshold itself (docs/evaluation.md,
+    # "Selective prediction"). Checked over several thresholds and a non-trivial correctness
+    # pattern, not just one convenient case.
+    rng = np.random.default_rng(155)
+    confidence = rng.random(200).tolist()
+    correct = (rng.random(200) < 0.7).tolist()
+    for threshold in (0.0, 0.1, 0.37, 0.5, 0.63, 0.9, 1.0):
+        accepted = [c >= threshold for c in confidence]
+        by_outcomes = ev.evaluate_outcomes(accepted, correct)
+        by_selective = ev.evaluate_selective(correct, confidence, threshold)
+        assert by_outcomes.n_total == by_selective.n_total
+        assert by_outcomes.n_answered == by_selective.n_answered
+        assert by_outcomes.coverage == pytest.approx(by_selective.coverage)
+        if nan(by_selective.accuracy):
+            assert nan(by_outcomes.accuracy) and nan(by_outcomes.risk)
+        else:
+            assert by_outcomes.accuracy == pytest.approx(by_selective.accuracy)
+            assert by_outcomes.risk == pytest.approx(by_selective.risk)
+        assert nan(by_outcomes.threshold)
+        assert by_selective.threshold == threshold
+
+
+def test_evaluate_outcomes_diverges_from_evaluate_selective_with_a_second_review_branch():
+    # The case evaluate_outcomes is for: a rule with an unconditional review branch beyond
+    # the confidence gate (here, example 1 is rejected outright whatever its confidence).
+    # evaluate_selective knows nothing about that branch and answers it anyway.
+    accepted = [True, False, True]  # the rule's own decisions; index 1 rejected unconditionally
+    correct = [True, True, False]
+    confidence = [0.9, 0.9, 0.1]  # index 1 is confident, but the rule still rejects it
+    threshold = 0.5
+    by_outcomes = ev.evaluate_outcomes(accepted, correct)
+    by_selective = ev.evaluate_selective(correct, confidence, threshold)
+    assert by_outcomes.n_answered == 2  # indices 0, 2
+    assert by_selective.n_answered == 2  # indices 0, 1: evaluate_selective disagrees on which
+    assert by_outcomes.accuracy != pytest.approx(by_selective.accuracy)
+
+
+def test_evaluate_outcomes_errors():
+    with pytest.raises(ValueError):
+        ev.evaluate_outcomes([], [])
+    with pytest.raises(ValueError):
+        ev.evaluate_outcomes([True], [True, False])
+    with pytest.raises(ValueError):
+        ev.evaluate_outcomes([True, 2], [True, False])  # not boolean/0/1
+
+
 # ---------------------------------------------------------------- Calibration
 CP = [0.1, 0.3, 0.35, 0.8, 0.95, 1.0]
 CO = [0, 0, 1, 1, 1, 0]
@@ -683,6 +779,7 @@ EMPTY_CALLS = {
         [], [], target_accuracy=0.5
     ),
     "evaluate_selective": lambda: ev.evaluate_selective([], [], 0.5),
+    "evaluate_outcomes": lambda: ev.evaluate_outcomes([], []),
     "reliability_table": lambda: ev.reliability_table([], []),
     "expected_calibration_error": lambda: ev.expected_calibration_error([], []),
     "paired_bootstrap_difference": lambda: ev.paired_bootstrap_difference([], [], seed=0),
@@ -722,6 +819,7 @@ MISMATCH_CALLS = {
     "top_k_accuracy": lambda: ev.top_k_accuracy([1], [{1: 1.0}, {1: 1.0}], 1),
     "recall_at_budget": lambda: ev.recall_at_budget([1], [1, 2], 1),
     "selective_curve": lambda: ev.selective_curve([1], [0.5, 0.5]),
+    "evaluate_outcomes": lambda: ev.evaluate_outcomes([True], [True, False]),
     "reliability_table": lambda: ev.reliability_table([0.5], [1, 0]),
     "paired_bootstrap_difference": lambda: ev.paired_bootstrap_difference([1], [1, 2], seed=0),
 }

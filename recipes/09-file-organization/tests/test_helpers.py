@@ -113,32 +113,18 @@ def test_the_threshold_is_inclusive():
     assert helpers.propose_destination("F1", CLEAR_INVOICE, t + 1e-9).outcome == helpers.REVIEW
 
 
-def test_placement_confidence_matches_propose_destination():
-    # select_confidence_threshold/evaluate_selective only see one confidence number, so that
-    # number must already rule out "unsorted" the same way propose_destination does: a
-    # threshold of 0.0 (the lowest real confidence can be) must still never select it.
-    assert helpers.placement_confidence(CLEAR_UNSORTED) < 0.0
-    assert helpers.propose_destination("F1", CLEAR_UNSORTED, 0.0).outcome == helpers.REVIEW
-
-
-def test_placement_confidence_is_unchanged_for_a_real_folder():
-    assert helpers.placement_confidence(CLEAR_INVOICE) == CLEAR_INVOICE.confidence
-
-
-def test_selection_signal_excludes_unsorted_so_the_threshold_is_never_the_sentinel():
-    # Mutation check: feeding select_confidence_threshold placement_confidence's full signal
-    # (sentinel included) lets a loose enough target freeze -1.0, which propose_destination then
-    # rejects. With the unsorted answer excluded by selection_signal, even the loosest possible
-    # target (0.0: accept any accuracy) can only select a real confidence.
+def test_selection_signal_excludes_unsorted_so_the_threshold_is_never_affected_by_it():
+    # Mutation check: an unsorted answer has no real confidence a selector could use (it is
+    # never placed, whatever its confidence), so selection_signal must leave it out of the
+    # search entirely rather than standing in some confidence number for it. With it excluded,
+    # even the loosest possible target (0.0: accept any accuracy) can only select a real,
+    # in-range confidence that propose_destination will accept as a threshold.
     answers = [CLEAR_INVOICE, CLEAR_UNSORTED, *LOW_CONFIDENCE_BY_FOLDER.values()]
     gold = ["invoices", "unsorted", *LOW_CONFIDENCE_BY_FOLDER.keys()]
 
-    full_confidence = [helpers.placement_confidence(a) for a in answers]
-    assert min(full_confidence) < 0.0  # the sentinel is present and would be a candidate
-
     correct, confidence = helpers.selection_signal(answers, gold)
     assert len(confidence) == len(answers) - 1  # the unsorted answer is excluded
-    assert all(c >= 0.0 for c in confidence)
+    assert all(0.0 <= c <= 1.0 for c in confidence)
 
     threshold = select_confidence_threshold(correct, confidence, target_accuracy=0.0)
     assert 0.0 <= threshold <= 1.0
