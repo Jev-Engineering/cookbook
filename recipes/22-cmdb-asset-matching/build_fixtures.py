@@ -83,7 +83,7 @@ def _fields(asset_id: str, vendor: str, product: str, version: str, edition: str
 # (id, split, fields, gold label or None for demo, {option: probability} or None for a
 # zero-candidate asset that is never asked -- see candidates_for/answers_for below)
 ROWS = [
-    # --- validation: 19 examples, one wrong on purpose, four held back by low confidence ------
+    # --- validation: 20 examples, one wrong on purpose, two held back by low confidence -------
     ("v01-acrobat", "validation", _fields(
         "AST-1001", "Adobe Systems Incorporated", "Acrobat", "11.0.23", "Professional"),
      "CMDB-04", {"CMDB-04": 0.86}),
