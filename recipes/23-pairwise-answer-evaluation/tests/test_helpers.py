@@ -271,9 +271,13 @@ def test_every_example_lists_two_replay_keys_in_request_order():
 
 def test_stored_answers_are_not_all_right():
     # Mirrors the notebook's own threshold-selection and rule application exactly, so this test
-    # fails the moment the fixtures stop exercising a real, non-zero risk on test: flipping t04
-    # (or t20) to agree with its gold label makes this assertion fail while every other test in
-    # this file keeps passing, which is exactly the gap this test exists to close.
+    # fails the moment either of two different gaps reopens. These are two separate assertions,
+    # not one disjunction, because judge_pair reaches them through two different branches and a
+    # single combined check would still pass if either fixture alone were removed: t04-shaped
+    # mistakes go through the confidence gate (the gate's whole job is to catch most of them,
+    # but not this one); t20-shaped mistakes never reach the gate at all, because an agreed
+    # insufficient_evidence is accepted unconditionally, so "clearing the gate" is not even the
+    # right question to ask about it.
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
     inputs = {e.id: e for e in load_inputs(RECIPE)}
@@ -299,14 +303,29 @@ def test_stored_answers_are_not_all_right():
         [ok for ok, _ in eligible], [c for _, c in eligible], target_accuracy=1.0
     )
 
-    wrong_but_accepted = [
+    # t04-shaped: both orders agree on a/b/tie, the gate is cleared, gold disagrees.
+    wrong_but_gated_accept = [
         e.id
         for e in test
         if pairs[e.id][0] == pairs[e.id][2]
+        and pairs[e.id][0] != helpers.INSUFFICIENT
         and min(pairs[e.id][1], pairs[e.id][3]) >= threshold
         and pairs[e.id][0] != labels[e.id]
     ]
-    assert wrong_but_accepted, (
-        "test should contain at least one comparison whose two orders agree, confidently "
-        "enough to clear the validation-chosen gate, on a label that is not the gold one"
+    assert wrong_but_gated_accept, (
+        "test should contain a comparison whose two orders agree on a/b/tie, clear the "
+        "validation-chosen confidence gate, and still disagree with gold"
+    )
+
+    # t20-shaped: both orders agree on insufficient_evidence (exempt from the gate entirely),
+    # but gold is some other, judgeable label.
+    wrong_insufficient_evidence = [
+        e.id
+        for e in test
+        if pairs[e.id][0] == pairs[e.id][2] == helpers.INSUFFICIENT
+        and labels[e.id] != helpers.INSUFFICIENT
+    ]
+    assert wrong_insufficient_evidence, (
+        "test should contain a comparison whose two orders agree on insufficient_evidence "
+        "while gold is some other, judgeable label"
     )
