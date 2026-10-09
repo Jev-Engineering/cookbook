@@ -72,12 +72,12 @@ def test_build_questions_rejects_an_empty_candidate_list():
     # Defensive, unreachable from this recipe's committed fixtures (every sentence supplies at
     # least one real candidate): with none, the only option would be keep_original alone, a
     # single-option Choice that is never built.
-    with pytest.raises(ValueError, match="no_candidates_resolution"):
+    with pytest.raises(ValueError, match="no_candidate_resolution"):
         helpers.build_questions("quick", [])
 
 
-def test_no_candidates_resolution_is_a_final_keep_original_with_no_candidates():
-    result = helpers.no_candidates_resolution("E1")
+def test_no_candidate_resolution_is_a_final_keep_original_with_no_candidates():
+    result = helpers.no_candidate_resolution("E1")
     assert (result.item_id, result.choice, result.outcome) == (
         "E1",
         helpers.KEEP_ORIGINAL,
