@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from jev_cookbook import Score
-from jev_cookbook.evaluation import recall_at_budget, score_level
+from jev_cookbook.evaluation import score_level
 
 # No ``from __future__ import annotations`` here: load_helpers removes this module from
 # ``sys.modules``, so typing.get_type_hints cannot resolve postponed annotations on a dataclass.
@@ -111,8 +111,8 @@ def classify(passage_id: str, answer: Any, confidence_gate: float) -> Classifica
     if answer.confidence < confidence_gate:
         return Classification(passage_id, level, REVIEW, "confidence below the threshold")
     if level < BUSINESS_CUTOFF:
-        return Classification(passage_id, level, NO_MATCH, "score below the business cutoff")
-    return Classification(passage_id, level, MATCH, "clears the business cutoff")
+        return Classification(passage_id, level, NO_MATCH, "modal level below the business cutoff")
+    return Classification(passage_id, level, MATCH, "modal level clears the business cutoff")
 
 
 # --------------------------------------------------------------------------------- The baseline
@@ -178,39 +178,59 @@ def rerank(
 # -------------------------------------------------------------------------- Top-1 ranking metric
 
 # ``jev_cookbook.evaluation`` has ``mean_ndcg`` to average ``ndcg`` over several ranked lists,
-# but no equivalent average for a top-1 (or top-k) ranking metric: its ``top_k_accuracy`` is for
-# a single Choice-style probability distribution that sums to 1 over one example's options, not
-# a ranked list of per-passage scores over several queries, and ``recall_at_budget`` reports one
-# ranked list at a time with no "mean over several lists" counterpart the way ``mean_ndcg`` is
-# to ``ndcg``. This is a foundation gap, not something this recipe works around by reimplementing
-# tie-breaking or relevance accounting of its own: ``top1_accuracy`` below fills exactly the one
-# missing step (averaging over queries) by calling ``evaluation.recall_at_budget(relevant,
-# scores, 1)`` for each query -- "recall at a budget of 1 item" already *is* "was the top-scored
-# item relevant" for a single list -- and keeps every other rule (tie-averaging, what counts as
-# relevant) inside that tested, shared helper.
+# but nothing for a top-1 (or top-k) *ranking* accuracy: its ``top_k_accuracy`` is for a single
+# Choice-style probability distribution over one example's options, not a ranked list of
+# per-passage scores over several queries. ``recall_at_budget`` looks close -- "recall at a
+# budget of 1 item" sounds like "was the top-scored item relevant" -- but it answers a different
+# question whenever a query has more than one relevant item: it reports the share of *all*
+# relevant items a budget of 1 would find, which is 0.5 for two relevant items among three even
+# when the one top-scored item is itself relevant (see
+# ``tests/test_helpers.py::test_top1_accuracy_differs_from_recall_at_a_budget_of_one``). Earlier
+# code in this recipe computed ``top1_accuracy`` as the mean of
+# ``evaluation.recall_at_budget(relevant, scores, 1)`` over queries on the mistaken assumption
+# that the two always agree; this recipe's own fixtures hid the bug, because every query here has
+# exactly one gold-``direct`` passage. ``top1_accuracy`` below is computed directly instead, as a
+# true top-1 ranking accuracy, so the two are never conflated again. This is a gap in the shared
+# evaluation toolkit worth fixing there (as its own helper, not a wrapper around
+# ``recall_at_budget``), not a convention this recipe invents on its own.
 
 
 def top1_accuracy(queries: list[tuple[list[Any], list[float]]]) -> float:
     """Share of queries whose top-scored passage is gold-relevant.
 
+    This asks, for each query, "is the single top-scored item relevant?", not "what share of
+    the query's relevant items would a review budget of one item find?" (that second question
+    is what ``jev_cookbook.evaluation.recall_at_budget(relevant, scores, budget=1)`` answers,
+    and the module comment above explains why the two differ). A tie for the top score is
+    credited by the probability that a uniformly random tie-break lands on a relevant item --
+    the same expectation-over-tie-orders convention ``recall_at_budget`` uses, computed directly
+    here because the two questions otherwise agree only on ties.
+
     Args:
-        queries: One ``(gold_relevant, scores)`` pair per query, the same shape
-            :func:`jev_cookbook.evaluation.mean_ndcg` takes for ``gold_relevance`` and
-            ``scores``, except ``gold_relevant`` here is binary (1 for the passage or passages
-            that are the gold answer to that query, 0 for the rest): exactly what
-            :func:`jev_cookbook.evaluation.recall_at_budget` expects as ``gold_relevant``.
-            A tie for the top score is credited by the same expectation-over-tie-orders rule
-            ``recall_at_budget`` already implements, not a second tie-break written here.
+        queries: One ``(gold_relevant, scores)`` pair per query: ``gold_relevant`` is binary (1
+            for every passage that is a gold answer to that query, 0 for the rest) and
+            ``scores`` is each passage's ranking score, in the same order.
 
     Returns:
-        The mean, over queries whose relevant set is non-empty, of
-        ``recall_at_budget(gold_relevant, scores, budget=1)``. Raises ``ValueError`` on empty
-        input or if every query's relevant set is empty (the same cases
-        :func:`jev_cookbook.evaluation.recall_at_budget` itself raises or reports as undefined).
+        The mean, over queries with at least one relevant passage, of the share of the
+        top-scored passages (plural only on a tie) that are relevant. Raises ``ValueError`` on
+        empty input, a query whose ``gold_relevant`` and ``scores`` lengths differ, or if no
+        query has a relevant passage.
     """
     if not queries:
         raise ValueError("queries must not be empty")
-    per_query = [recall_at_budget(relevant, scores, 1) for relevant, scores in queries]
+    per_query = []
+    for relevant, scores in queries:
+        relevant = list(relevant)
+        scores = [float(s) for s in scores]
+        if len(relevant) != len(scores):
+            raise ValueError("gold_relevant and scores must have the same length")
+        if not any(relevant):
+            per_query.append(float("nan"))  # no relevant passage in this query: undefined
+            continue
+        top_score = max(scores)
+        tied = [i for i, s in enumerate(scores) if s == top_score]
+        per_query.append(sum(1 for i in tied if relevant[i]) / len(tied))
     defined = [v for v in per_query if v == v]  # drop NaN (no relevant item in that query)
     if not defined:
         raise ValueError("no query has a relevant passage")

@@ -15,12 +15,14 @@ freezes on validation -- so the selective-prediction numbers on `test` show a re
 risk instead of a threshold that happens to look perfect. Two passages (one `test`, one `demo`)
 are written to claim their own relevance directly ("this fully answers your question") without
 stating anything that actually does; they are graded on what they state, not on that claim, and
-the `test` one is the fixture written to be confidently wrong. The lexical baseline a few
-passages per query are worded to defeat (a paraphrase that shares no surface words with the
-query) shows why a semantic reranker earns its keep, and a couple of queries where the baseline
-already agrees with the gold order are kept too, so the comparison is not rigged to always favour
-reranking. The replay keys come from the same ``build_state`` and ``build_questions`` the
-notebook uses, via ``helpers.py``.
+the `test` one is the fixture written to be confidently wrong. In one query per split, a few
+passages are worded so a paraphrase (one that shares no surface words with the query) is the
+gold answer: the stored distributions are written from the gold level, so the reranked order is
+correct by construction there, and the point is only to show where the lexical baseline's
+word-overlap count necessarily fails, not to measure anything about reranking. Three queries per
+split are left with the baseline already agreeing with the gold order, so the comparison is not
+rigged to always favour reranking. The replay keys come from the same ``build_state`` and
+``build_questions`` the notebook uses, via ``helpers.py``.
 
 Generating inputs and labels is kept separate from generating responses, on purpose (the pattern
 ``recipes/_template/build_fixtures.py`` sets): once responses.json holds even one recorded

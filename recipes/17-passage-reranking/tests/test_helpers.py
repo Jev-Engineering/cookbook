@@ -122,13 +122,16 @@ def test_lexical_score_has_no_overlap_for_unrelated_text():
 
 
 def test_baseline_rank_orders_by_lexical_score_then_breaks_ties_by_position():
-    candidates = [
-        helpers.Candidate("A", "refund timing", "unrelated text here", 0),
-        helpers.Candidate("B", "refund timing", "a refund post, with timing details", 1),
-        helpers.Candidate("C", "refund timing", "another refund and timing passage", 2),
-    ]
-    ranks = helpers.baseline_rank(candidates)
-    # B and C tie on lexical_score (2 each); A has 0. Ties go to the lower position (B before C).
+    a = helpers.Candidate("A", "refund timing", "unrelated text here", 0)
+    b = helpers.Candidate("B", "refund timing", "a refund post, with timing details", 1)
+    c = helpers.Candidate("C", "refund timing", "another refund and timing passage", 2)
+    # B and C tie on lexical_score (2 each); A has 0. Ties go to the lower position (B before
+    # C). The candidates are passed in as [C, B, A] -- out of position order, and with C (the
+    # higher-position member of the tie) listed before B -- on purpose: presenting them already
+    # sorted by position would let Python's own stable sort produce the right-looking answer
+    # even with baseline_rank's position tie-break removed, so that ordering could not tell the
+    # two apart.
+    ranks = helpers.baseline_rank([c, b, a])
     assert ranks == {"B": 0, "C": 1, "A": 2}
 
 
@@ -185,6 +188,24 @@ def test_top1_accuracy_empty_queries_is_an_error():
 def test_top1_accuracy_raises_when_no_query_has_a_relevant_item():
     with pytest.raises(ValueError):
         helpers.top1_accuracy([([0, 0], [0.1, 0.9])])
+
+
+def test_top1_accuracy_differs_from_recall_at_a_budget_of_one():
+    # Two of three passages are gold-relevant, and the top-scored passage is one of them: the
+    # single top-scored item IS relevant, so top-1 ranking accuracy is 1.0. But reviewing only
+    # that one item finds just one of the two relevant passages, so recall at a budget of 1
+    # item is 0.5. An earlier version of top1_accuracy computed the mean of
+    # evaluation.recall_at_budget(relevant, scores, 1) over queries, on the mistaken assumption
+    # that the two always agree; this fixture is exactly the case where they do not.
+    from jev_cookbook.evaluation import recall_at_budget
+
+    relevant, scores = [1, 1, 0], [0.9, 0.1, 0.2]
+    assert helpers.top1_accuracy([(relevant, scores)]) == 1.0
+    assert recall_at_budget(relevant, scores, 1) == 0.5
+
+
+def test_top1_accuracy_is_one_when_every_passage_is_relevant():
+    assert helpers.top1_accuracy([([1, 1, 1], [0.9, 0.1, 0.2])]) == 1.0
 
 
 # ----------------------------------------------------------------- The fixtures tell this story
