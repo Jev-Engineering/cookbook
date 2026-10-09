@@ -1073,6 +1073,21 @@ def test_the_scaffold_readme_has_pull_request_rules_matching_contributing(catalo
     assert "CONTRIBUTING.md" in section
 
 
+def test_the_scaffold_readme_states_the_catalog_check_conditionally(catalog, recipes):
+    """PR #193 review (comment 6085949784): the generated sentence must describe the
+    pre-publication state conditionally, so it stays true once the recipe is merged and the
+    catalog has actually been regenerated for it -- not a bare, unconditional "is expected to
+    be red" that would still read as current on a published recipe's README."""
+    _, recipe = entry(catalog, 1)
+    run(1, catalog, recipes)
+    readme = (recipes / recipe["slug"] / "README.md").read_text("utf-8")
+    section = readme.split("## Pull request rules")[1].split("## Sources")[0]
+    flat = " ".join(section.split())
+    assert "While this recipe remains unpublished" in flat
+    assert "is expected to be red on its pull request" in flat
+    assert "once the catalog is regenerated for it, the check turns green" in flat
+
+
 def test_the_scaffold_emits_the_build_fixtures_guard_tests_for_replay(catalog, recipes):
     _, recipe = entry(catalog, 1)
     run(1, catalog, recipes)

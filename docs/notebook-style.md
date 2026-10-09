@@ -138,7 +138,11 @@ way a printed number is. The rest of the title is free text (the template's own
 `f"Test split, {len(test_examples)} examples{check}"` names the split and its size); `{check}` is
 the only *label* it carries. A figure plotted from `validation` still carries only `{check}` in
 its title, even though a *printed* `validation` line carries both `{selection}{check}`
-([recipe-template.md](recipe-template.md)).
+([recipe-template.md](recipe-template.md)). This rule covers the evaluation chart helpers —
+`plot_confusion_matrix`, `plot_risk_coverage`, `plot_threshold_sweep` — each of which summarises
+a whole split; it does not reach `plot_answer_probabilities` shown for one answer up close (the
+template's own `title="One Choice answer"`), which is neither a pipeline check nor a selection
+step on an aggregate and so carries no disclosure label at all.
 
 ### Showing a figure in a notebook
 
