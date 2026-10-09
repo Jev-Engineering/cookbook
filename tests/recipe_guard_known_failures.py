@@ -39,26 +39,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     # R8: these ship the pre-#162 test_build_fixtures.py (no inputs/labels regeneration
     # assertion, or an older docstring), or (02) no such file at all.
     (
-        "06-multiple-topic-labels",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
-        "07-word-sense-selection",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
-        "08-faq-selection",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
-        "09-file-organization",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
-        "10-answer-relevance-check",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
         "11-clarification-selection",
         "build_fixtures_scaffold",
     ): "pre-#162 test_build_fixtures.py (R8); see #163",
@@ -81,26 +61,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     # --- check 2: no "#NNN" issue numbers or "the issue" in a recipe file --------------------
     # R9/R10: a private issue cited by number or by "the issue" in a recipe file.
     (
-        "06-multiple-topic-labels",
-        "no_issue_citations",
-    ): '"the issue" in build_fixtures.py, issue numbers in tests/test_build_fixtures.py (R9/R10); see #163',
-    (
-        "07-word-sense-selection",
-        "no_issue_citations",
-    ): '"the issue" in build_fixtures.py, issue numbers in tests/test_build_fixtures.py (R9/R10); see #163',
-    (
-        "08-faq-selection",
-        "no_issue_citations",
-    ): '"issue #8" in helpers.py, "the issue" in helpers.py/build_fixtures.py/notebook, issue numbers in tests/test_build_fixtures.py (R9/R10); see #163',
-    (
-        "09-file-organization",
-        "no_issue_citations",
-    ): '"the issue" in build_fixtures.py and notebook:evaluation-md, issue numbers in tests/test_build_fixtures.py (R9/R10); see #163',
-    (
-        "10-answer-relevance-check",
-        "no_issue_citations",
-    ): '"the issue" in build_fixtures.py, issue numbers in tests/test_build_fixtures.py (R9/R10); see #163',
-    (
         "11-clarification-selection",
         "no_issue_citations",
     ): '"the issue" in helpers.py, build_fixtures.py and notebook:python-md (R10); see #163',
@@ -122,26 +82,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     # at all; 07, 12, 13, 16, 19 and 20 ship only the weak "assert wrong" form, which passes
     # even when the confidence gate catches every mistake.
     (
-        "06-multiple-topic-labels",
-        "stored_answers_strong_form",
-    ): "no test_stored_answers_are_not_all_right in tests/ at all; see #163",
-    (
-        "07-word-sense-selection",
-        "stored_answers_strong_form",
-    ): "weak assert-wrong form, not re-derived from the frozen threshold (R7); see #163",
-    (
-        "08-faq-selection",
-        "stored_answers_strong_form",
-    ): "no test_stored_answers_are_not_all_right in tests/ at all; see #163",
-    (
-        "09-file-organization",
-        "stored_answers_strong_form",
-    ): "no test_stored_answers_are_not_all_right in tests/ at all; see #163",
-    (
-        "10-answer-relevance-check",
-        "stored_answers_strong_form",
-    ): "no test_stored_answers_are_not_all_right in tests/ at all; see #163",
-    (
         "12-thesaurus-word-selection",
         "stored_answers_strong_form",
     ): "weak assert-wrong form, not re-derived from the frozen threshold (R7); see #163",
@@ -151,44 +91,12 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     ): "weak assert-wrong form, not re-derived from the frozen threshold (R7); see #163",
     # --- check 4a: a validation metric line carries both {selection} and {check} -------------
     # R1/R3: a validation metric line disclosed with {selection} alone.
-    (
-        "08-faq-selection",
-        "validation_lines_carry_selection_and_check",
-    ): "a validation metric line prints {selection} without {check}; see #163",
     # --- check 4b: every printed metric line carries at least {check} (G1(d) clause 2) -------
     # R3 and more besides: a coverage/accuracy/risk/precision/recall/F1/nDCG line with no
     # {check} token (traced through bound variables), beyond what Wave 2 reviewed.
-    (
-        "06-multiple-topic-labels",
-        "metric_lines_carry_check",
-    ): "validation selective-prediction lines carry {selection} but no {check} (G1(d) clause 2); see #163",
-    (
-        "07-word-sense-selection",
-        "metric_lines_carry_check",
-    ): "a validation accuracy line carries {selection} but no {check} (G1(d) clause 2); see #163",
-    (
-        "08-faq-selection",
-        "metric_lines_carry_check",
-    ): "validation accuracy/coverage lines carry {selection} but no {check} (G1(d) clause 2); see #163",
-    (
-        "09-file-organization",
-        "metric_lines_carry_check",
-    ): "a validation accuracy line carries {selection} but no {check} (G1(d) clause 2); see #163",
-    (
-        "10-answer-relevance-check",
-        "metric_lines_carry_check",
-    ): "validation sweep lines carry no {check} at all (R3-shaped, G1(d) clause 2); see #163",
     # --- check 4c: a plot_confusion_matrix / plot_threshold_sweep / plot_risk_coverage title -
     #              carries {check} and not {selection} ---------------------------------------
     # R2: four different conventions across the thirteen; only {check}-only is compliant.
-    (
-        "06-multiple-topic-labels",
-        "figure_titles_check_only",
-    ): "validation figure titles carry {selection} without {check} (R2); see #163",
-    (
-        "10-answer-relevance-check",
-        "figure_titles_check_only",
-    ): "validation figure titles carry {selection} without {check} (R2); see #163",
     (
         "12-thesaurus-word-selection",
         "figure_titles_check_only",
@@ -206,22 +114,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     # R4 and more besides: a figure plotted with nothing of its own data printed (an aggregate
     # accuracy or a cosmetic line does not count), beyond what Wave 2 reviewed.
     (
-        "06-multiple-topic-labels",
-        "print_what_you_plot",
-    ): "plot_threshold_sweep (python-sweep) and plot_risk_coverage (python-cutoff) print no swept rows; see #163",
-    (
-        "08-faq-selection",
-        "print_what_you_plot",
-    ): "plot_confusion_matrix in evaluation-code-test prints only aggregate accuracy, not the matrix's own counts; see #163",
-    (
-        "09-file-organization",
-        "print_what_you_plot",
-    ): "plot_confusion_matrix in test-matrix prints nothing; see #163",
-    (
-        "10-answer-relevance-check",
-        "print_what_you_plot",
-    ): "plot_threshold_sweep in sweep-chart prints no swept rows; see #163",
-    (
         "13-candidate-rewrite-selection",
         "print_what_you_plot",
     ): "plot_confusion_matrix in evaluation-test prints only a list of wrong ids, not the matrix's own counts; see #163",
@@ -229,10 +121,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     # R20: a forward link to a recipe not yet published, which docs/recipe-template.md forbids.
     # --- check 6b: every recipe is the target of some other recipe's Next steps -------------
     # R21: a published recipe no other recipe's Next steps links to.
-    (
-        "09-file-organization",
-        "next_steps_inbound_links",
-    ): "no other published recipe's Next steps links ../09-file-organization/ (R21); see #163",
     (
         "12-thesaurus-word-selection",
         "next_steps_inbound_links",
@@ -246,39 +134,7 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     # 06 and 21's confidence-gated outcome, traced through the reason string, is not "review"
     # either (both read as a plain rename of the review-queue outcome). 16 is a named exemption
     # in that check's own docstring (ESCALATE is a genuine domain-specific outcome), not here.
-    (
-        "06-multiple-topic-labels",
-        "review_value_is_review",
-    ): 'the confidence-gated outcome (UNCERTAIN) is "uncertain", not "review"; see #163',
-    (
-        "09-file-organization",
-        "review_value_is_review",
-    ): 'REVIEW = "unsorted", not "review" (PR #186 review MC3); see #163',
     # --- check 7b: the exact reason string "confidence below the threshold" in helpers.py ----
-    (
-        "06-multiple-topic-labels",
-        "review_reason_string",
-    ): '"confidence below the review cutoff" instead of the lexicon reason string; see #163',
-    (
-        "10-answer-relevance-check",
-        "review_reason_string",
-    ): "helpers.py does not use the lexicon's exact reason string; see #163",
     # --- check 9: no ".[dev,ml]" install line in the README ---------------------------------
     # R15: the pre-#162 README install paragraph combined the two extras into one line.
-    (
-        "06-multiple-topic-labels",
-        "readme_no_dev_ml_install",
-    ): 'README quotes `pip install -e ".[dev,ml]"` for reproducing outputs (R15); see #163',
-    (
-        "07-word-sense-selection",
-        "readme_no_dev_ml_install",
-    ): 'README quotes `pip install -e ".[dev,ml]"` for reproducing outputs (R15); see #163',
-    (
-        "08-faq-selection",
-        "readme_no_dev_ml_install",
-    ): 'README quotes `pip install -e ".[dev,ml]"` for reproducing outputs (R15); see #163',
-    (
-        "09-file-organization",
-        "readme_no_dev_ml_install",
-    ): 'README quotes `pip install -e ".[dev,ml]"` for reproducing outputs (R15); see #163',
 }

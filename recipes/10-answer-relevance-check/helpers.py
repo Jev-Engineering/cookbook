@@ -87,7 +87,7 @@ def check_relevance(
     """Decide one of three outcomes for a (question, response) pair: review, then relevant,
     then not relevant, in that order.
 
-    ``min_confidence`` gates on certainty (``noul_confidence``, distance from an even split),
+    ``min_confidence`` gates on confidence (``noul_confidence``, distance from an even split),
     independently of which way the probability leans: a pair too close to 0.5 to trust either
     way goes to ``REVIEW``, whatever its probability is. Only once a pair clears that gate does
     ``threshold`` decide the business outcome: ``RELEVANT`` when the probability is at or above
@@ -100,13 +100,13 @@ def check_relevance(
     if not 0.0 <= min_confidence <= 1.0:
         raise ValueError(f"min_confidence must be between 0 and 1, got {min_confidence!r}")
     is_relevant = answer.noul >= threshold
-    certainty = noul_confidence([answer.noul])[0]
-    if certainty < min_confidence:
+    confidence = noul_confidence([answer.noul])[0]
+    if confidence < min_confidence:
         return RelevanceCheck(
             pair_id,
             REVIEW,
             is_relevant,
-            "too close to an even split to trust either way: needs a person",
+            "confidence below the threshold",
         )
     if is_relevant:
         return RelevanceCheck(
