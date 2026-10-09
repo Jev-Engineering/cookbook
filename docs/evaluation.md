@@ -112,13 +112,22 @@ literals to `noul_confidence` and the two *results* differ too — `0.1600000000
 the gap between them is `2.220446049250313e-16`) — even though both are meant to express the same
 nominal confidence, `0.16`. The gap is not a fixed multiple: feeding `0.07`/`0.93` (nominal `0.86`)
 differs by only two ULPs. One input ULP does not land as one result ULP; it is "a few", and which
-few depends on the pair. The practical consequence is in `selective_curve` (and anything built on
-it, including `outcome_curve` below): its candidate thresholds are `numpy.unique` of the observed
-confidences, so two fixture rows hand-written as separate mirror-pair literals can land as two
-*adjacent* threshold candidates ("`gate >= 0.86`" printed twice, at a few-ULPs-apart value) instead
-of coalescing into one. This is a property of floating-point decimal literals, not a bug in
+few depends on the pair.
+
+A hand-written Noul mirror pair is one way two stored values end up meant to express the same
+nominal confidence without being bit-identical; it is not the only way, and the mechanism is not
+specific to Noul. A Score recipe can see the same shape with no mirror pair in sight: two entirely
+different probability distributions whose confidence (`1 - spread / even` under the published
+formula) comes out to the same nominal value can still land one ULP apart, because each
+distribution's internal spread sum accumulates its terms in a different order (recipe 03's
+`v07-filler` and `v14-injection`, both nominal `0.40`, are exactly this — not a mirror of each
+other at all). Before this was fixed (#172), the practical consequence was in `selective_curve`
+(and anything built on it, including `outcome_curve` below): its candidate thresholds were
+`numpy.unique` of the observed confidences, so two such values could land as two *adjacent*
+threshold candidates ("`gate >= 0.86`" printed twice, at a few-ULPs-apart value) instead of
+coalescing into one. This was a property of floating-point arithmetic, not a bug in
 `noul_confidence` to fix by changing it: `_candidate_thresholds` (used wherever `selective_curve`,
-`outcome_curve` and `threshold_sweep` derive candidates) groups the sorted unique values by
+`outcome_curve` and `threshold_sweep` derive candidates) now groups the sorted unique values by
 `round(v, 12)` and keeps only the smaller raw member of each group, so such a pair collapses to one
 candidate — never a rounded stand-in — and a caller's own `value >= threshold` comparison on raw
 data stays an exact tie (#172).

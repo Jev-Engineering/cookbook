@@ -186,12 +186,17 @@ def _candidate_thresholds(values: np.ndarray) -> np.ndarray:
     nominal twins collapsed to one candidate: the *minimum* raw member of each group.
 
     ``numpy.unique`` alone can keep two candidates that are meant to be the same nominal
-    value: two independently hand-written decimal literals that are each other's nominal
-    mirror (for example ``0.42``/``0.58``) are not bit-identical inputs, so a value derived
-    from each -- :func:`noul_confidence` of each, say -- can differ by a few ULPs (~1e-16)
-    even though both are meant to express the same confidence (see that function's
-    docstring for the mechanism). Left alone, such a pair lands as two *adjacent*
-    candidates, printed or plotted as a duplicate row or point.
+    value: any two stored probabilities meant to express the same nominal confidence are
+    not necessarily bit-identical inputs, so a value derived from each can differ by a
+    few ULPs (~1e-16) even though neither is wrong. Two independently hand-written decimal
+    literals that are each other's nominal mirror (for example ``0.42``/``0.58``, fed to
+    :func:`noul_confidence` -- see that function's docstring for the mechanism) is one
+    way this happens; it is not the only one. A Score recipe can see it too, with no
+    mirror pair in sight: two entirely different probability distributions that happen to
+    share the same nominal confidence accumulate their internal sum in a different order,
+    landing one ULP apart (``choice_confidence``'s and the Score formula's own spread sum).
+    Left alone, such a pair lands as two *adjacent* candidates, printed or plotted as a
+    duplicate row or point.
 
     This groups the sorted unique values by ``round(v, 12)`` -- far finer than any
     confidence a recipe actually reports, far coarser than the few-ULP gap being closed --
@@ -201,6 +206,14 @@ def _candidate_thresholds(values: np.ndarray) -> np.ndarray:
     an exact tie at that value, never flipped by rounding noise, which is also why both
     members of a nominal-twin pair are accepted once the threshold reaches the group's
     (smaller) survivor -- the larger twin clears it too.
+
+    This is a grid, not a tolerance: two values exactly one ULP apart that straddle a
+    12-decimal rounding *boundary* (for example ``0.5000000000005`` and
+    ``0.5000000000004999``, which round to ``0.500000000001`` and ``0.5`` respectively)
+    still land in different groups and are not merged. This closes the realistic case --
+    two values meant to be the same nominal number, differing by noise far below the
+    4-decimal precision any recipe actually reports -- not every case of two close
+    floats; nothing here claims a universal tolerance.
 
     Args:
         values: A 1-D numpy array of observed values (confidences or noul probabilities).
@@ -1634,9 +1647,10 @@ def outcome_curve(
     leave such examples out of ``confidences``/``correct``/``exempt`` entirely (``outcome_curve``
     sweeps the *answered* examples only) and report them separately with
     :func:`evaluate_outcomes`-style accounting instead. An invented number such as ``0.0`` is not
-    inert here even though the example would be exempt either way: ``thresholds`` is
-    ``numpy.unique`` of every confidence passed in, so a placeholder adds a row to that grid and
-    shifts the curve's x-axis, even though it can never change which examples are selected.
+    inert here even though the example would be exempt either way: ``thresholds`` comes from
+    :func:`_candidate_thresholds` of every confidence passed in, so a placeholder adds a row to
+    that grid and shifts the curve's x-axis, even though it can never change which examples are
+    selected.
 
     Args:
         confidences: Per-example confidence, in [0, 1], for every *answered* example (exempt
