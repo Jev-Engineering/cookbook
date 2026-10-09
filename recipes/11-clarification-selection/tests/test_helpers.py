@@ -1,11 +1,11 @@
 """Tests for recipe 11's helpers. They load the helpers by file path."""
 
-import math
 from pathlib import Path
 
 import pytest
 
 from jev_cookbook import ChoiceAnswer, Provenance, load_helpers, replay_key
+from jev_cookbook.evaluation import evaluate_outcomes
 from jev_cookbook.fixtures import load_inputs
 
 RECIPE = Path(__file__).resolve().parent.parent
@@ -31,6 +31,18 @@ ASK_LABELS = [
     "ask_budget",
     "ask_access_level",
 ]
+# The stored payload Python hands back for a confident match is the thing this recipe exists to
+# keep out of the model's hands; this literal, independent of helpers.CLARIFYING_QUESTIONS, is
+# what pins it (a test against the same dict the rule reads would pass even if every value were
+# swapped for another option's).
+EXPECTED_QUESTIONS = {
+    "ask_deadline": "By when do you need this finished?",
+    "ask_recipient": "Who should receive the result once it's ready?",
+    "ask_scope": "Which records or time period should this cover?",
+    "ask_format": "What file format or type should the result be in?",
+    "ask_budget": "Is there a budget or spending limit this needs to stay under?",
+    "ask_access_level": "Who besides you should be able to view or edit this once it's created?",
+}
 
 
 def answer(probabilities):
@@ -68,7 +80,7 @@ def test_a_confident_catalog_question_is_asked_whatever_the_label(label):
         "T1",
         label,
         helpers.ASK,
-        helpers.CLARIFYING_QUESTIONS[label],
+        EXPECTED_QUESTIONS[label],
     )
 
 
@@ -80,7 +92,7 @@ def test_a_low_confidence_catalog_question_goes_to_review_whatever_the_label(lab
     result = helpers.select_followup("T1", a, 0.5)
     assert result.outcome == helpers.REVIEW
     assert result.question is None
-    assert "threshold" in result.reason
+    assert result.reason == "confidence below the threshold"
 
 
 @pytest.mark.parametrize("top_probability", [0.95, 0.20])
@@ -139,21 +151,24 @@ def test_every_replay_key_in_the_fixtures_matches_the_current_question():
         assert example.replay_keys == (replay_key(helpers.build_state(example.fields), questions),)
 
 
-# --- summarize_outcomes ----------------------------------------------------------------------
+# --- outcome_accounting, composed with jev_cookbook.evaluation.evaluate_outcomes -------------
 
 
 def _selection(task_id, label, outcome):
     return helpers.Selection(task_id, label, outcome, None, "test fixture")
 
 
-def test_summarize_outcomes_counts_ask_and_proceed_as_answered():
+def test_outcome_accounting_counts_ask_and_proceed_as_answered():
     results = [
         _selection("a", "ask_deadline", helpers.ASK),
         _selection("b", "no_clarification_needed", helpers.PROCEED),
         _selection("c", "ask_recipient", helpers.REVIEW),
     ]
     gold = {"a": "ask_deadline", "b": "no_clarification_needed", "c": "ask_recipient"}
-    summary = helpers.summarize_outcomes(results, gold)
+    accepted, correct = helpers.outcome_accounting(results, gold)
+    assert accepted == [True, True, False]
+    assert correct == [True, True, True]
+    summary = evaluate_outcomes(accepted, correct)
     assert summary.n_total == 3
     assert summary.n_answered == 2
     assert summary.coverage == pytest.approx(2 / 3)
@@ -161,7 +176,7 @@ def test_summarize_outcomes_counts_ask_and_proceed_as_answered():
     assert summary.risk == pytest.approx(0.0)
 
 
-def test_summarize_outcomes_counts_a_wrong_proceed_against_accuracy():
+def test_outcome_accounting_counts_a_wrong_proceed_against_accuracy():
     # "b" is answered no_clarification_needed, but the gold label asks for something: the rule
     # never gated this on confidence (no_clarification_needed has no gate), so it is a wrong,
     # answered result, not an abstention.
@@ -170,21 +185,15 @@ def test_summarize_outcomes_counts_a_wrong_proceed_against_accuracy():
         _selection("b", "no_clarification_needed", helpers.PROCEED),
     ]
     gold = {"a": "ask_deadline", "b": "ask_recipient"}
-    summary = helpers.summarize_outcomes(results, gold)
+    accepted, correct = helpers.outcome_accounting(results, gold)
+    assert accepted == [True, True]
+    assert correct == [True, False]
+    summary = evaluate_outcomes(accepted, correct)
     assert summary.n_answered == 2
     assert summary.accuracy == pytest.approx(0.5)
     assert summary.risk == pytest.approx(0.5)
 
 
-def test_summarize_outcomes_is_nan_when_nothing_was_answered():
-    results = [_selection("a", "ask_deadline", helpers.REVIEW)]
-    summary = helpers.summarize_outcomes(results, {"a": "ask_deadline"})
-    assert summary.n_answered == 0
-    assert summary.coverage == 0.0
-    assert math.isnan(summary.accuracy)
-    assert math.isnan(summary.risk)
-
-
-def test_summarize_outcomes_rejects_empty_input():
+def test_outcome_accounting_rejects_empty_input():
     with pytest.raises(ValueError, match="at least one"):
-        helpers.summarize_outcomes([], {})
+        helpers.outcome_accounting([], {})

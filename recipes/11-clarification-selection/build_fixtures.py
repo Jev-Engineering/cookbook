@@ -14,10 +14,15 @@ notebook freezes; under that frozen threshold, ``v08-scope-wrong`` itself ends u
 reported. The other three are in ``test``, each wrong in a different way: one task is answered by
 a real, wrong catalog option at a confidence (0.4750) above the frozen threshold, so the
 confidence gate lets a wrong answer through (``t09-format-wrong``); another is answered
-``no_clarification_needed`` -- wrongly -- at a confidence (0.4750) the rule never checks at all,
-because ``no_clarification_needed`` bypasses the gate entirely (``t12-budget-wrong``); a third
-(``t15-access-wrong-caught``) is wrong but not confident (0.0900), so it is sent to review instead
-of being reported. The hard cases the issue names are included: tasks that omit one specific
+``no_clarification_needed`` -- wrongly -- at a confidence (0.1833) *below* the frozen threshold,
+which a confidence-only rule would therefore have sent to review, but ``select_followup`` never
+checks ``no_clarification_needed``'s confidence at all, so it is delivered as a final "nothing to
+ask" result anyway (``t12-budget-wrong``: the one case in this recipe where the un-gated branch,
+not the gate, is demonstrably what lets a wrong answer through -- a confidence gate reapplied to
+every example here would have reviewed it, and the notebook shows that divergence directly); a
+third (``t15-access-wrong-caught``) is wrong but not confident (0.0900) and names a real catalog
+option, so it is sent to review instead of being reported. The hard cases the issue names are
+included: tasks that omit one specific
 piece of information (every ``ask_*``-labelled row) and tasks that omit nothing
 (``no_clarification_needed``). The replay keys come from the same ``build_state`` and
 ``build_questions`` the notebook uses, via ``helpers.py``.
@@ -85,8 +90,8 @@ ROWS = [
      _fields("TK107", "Pull the sales numbers into a spreadsheet for the regional manager by Friday."),
      "ask_scope", dist(ask_scope=0.83)),
     # ask_scope vs. ask_format; gold is ask_scope (the report's shape is already named, its
-    # period and dataset are not), but the stored answer confidently (0.40) names ask_format
-    # instead -- a plausible, wrong answer, deliberately placed in validation itself (see the
+    # period and dataset are not), but the stored answer confidently (confidence 0.3000) names
+    # ask_format instead -- a plausible, wrong answer, deliberately placed in validation itself (see the
     # module docstring: this is the error that gives select_confidence_threshold something real
     # to cut on, instead of returning the lowest observed confidence for any target accuracy).
     ("v08-scope-wrong", "validation",
@@ -176,12 +181,15 @@ ROWS = [
     ("t11-format-churn", "test",
      _fields("TK211", "Pull last year's churn figures together for the board, ready by the 15th."),
      "ask_format", dist(ask_format=0.79)),
-    # Gold is ask_budget, but the stored answer names no_clarification_needed at 0.4750 --
-    # no_clarification_needed is never run past the confidence gate (it has none), so this
-    # wrong answer is delivered as a final "nothing to ask" result, not caught by any threshold.
+    # Gold is ask_budget, but the stored answer names no_clarification_needed at confidence
+    # 0.1833 -- below the 0.3350 gate, so a confidence-only rule would have sent this one to
+    # review. select_followup never checks no_clarification_needed's confidence at all, so it
+    # is delivered as a final "nothing to ask" result anyway: this is the one row where the
+    # un-gated branch itself, not the gate failing to catch a confident mistake, is what lets a
+    # wrong answer through.
     ("t12-budget-wrong", "test",
      _fields("TK212", "Book travel for the three engineers attending the vendor summit in March."),
-     "ask_budget", dist(no_clarification_needed=0.55, ask_budget=0.25)),
+     "ask_budget", dist(no_clarification_needed=0.30, ask_budget=0.22)),
     ("t13-budget-swag", "test",
      _fields("TK213", "Order the branded swag for the new-hire welcome kits, needed by the 1st."),
      "ask_budget", dist(ask_budget=0.78)),

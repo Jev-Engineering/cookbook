@@ -91,15 +91,23 @@ def test_the_generator_reproduces_the_committed_fixtures(tmp_path):
 
 
 def test_stored_answers_are_not_all_right():
-    """At least one stored test-split answer is wrong at a confidence at or above the confidence
-    gate the notebook freezes on validation, so the gate's lesson is honest: a confident mistake
-    is not something a confidence gate alone catches.
+    """At least one stored test-split answer naming a real catalog entry (``ask_*``, not
+    ``no_clarification_needed``) is wrong at a confidence at or above the confidence gate the
+    notebook freezes on validation, so the gate's lesson is honest: a confident mistake is not
+    something a confidence gate alone catches.
+
+    Narrowed to the real-catalog pool on purpose (the same pool ``select_confidence_threshold``
+    is chosen from): a wrong, confident ``no_clarification_needed`` answer would also satisfy a
+    looser "any option, wrong, confidence >= gate" check, but ``select_followup`` never applies
+    the gate to ``no_clarification_needed`` at all, so that would not actually test what the gate
+    catches. This test fails if a future edit to ``ROWS`` removes the gated, confidently-wrong
+    ``ask_*`` test example (``t09-format-wrong``) without anyone updating the prose that
+    describes it; it does not pass merely because a *different* branch (``no_clarification_needed``)
+    happens to have its own confident mistake.
 
     The gate is recomputed here, from the same validation rows and the same rule the notebook
     uses (``select_confidence_threshold`` over the real-catalog answers, excluding
-    ``no_clarification_needed``, at ``target_accuracy=1.0``), so this test fails if a future
-    edit to ``ROWS`` removes the gated, confidently-wrong test example without anyone updating
-    the prose that describes it.
+    ``no_clarification_needed``, at ``target_accuracy=1.0``).
     """
     module = load_module_at(SCRIPT, "recipe11_build_fixtures_for_wrong_answer_check")
     by_split: dict[str, list] = {}
@@ -109,22 +117,21 @@ def test_stored_answers_are_not_all_right():
         answer = module.answers_for(spec, Provenance.synthetic())["clarification"]
         by_split.setdefault(split, []).append((ident, answer, label))
 
-    validation = by_split["validation"]
-    real_match = [
-        (a.choice == label, a.confidence)
-        for _ident, a, label in validation
-        if a.choice != "no_clarification_needed"
-    ]
+    def real_catalog_only(rows):
+        return [row for row in rows if row[1].choice != "no_clarification_needed"]
+
+    validation_real = real_catalog_only(by_split["validation"])
     gate = select_confidence_threshold(
-        [correct for correct, _conf in real_match],
-        [conf for _correct, conf in real_match],
+        [a.choice == label for _ident, a, label in validation_real],
+        [a.confidence for _ident, a, _label in validation_real],
         target_accuracy=1.0,
     )
 
-    test = by_split["test"]
+    test_real = real_catalog_only(by_split["test"])
     wrong_at_or_above_gate = [
-        ident for ident, a, label in test if a.choice != label and a.confidence >= gate
+        ident for ident, a, label in test_real if a.choice != label and a.confidence >= gate
     ]
     assert wrong_at_or_above_gate, (
-        f"no stored test answer is wrong at a confidence at or above the frozen gate ({gate!r})"
+        "no stored test answer naming a real catalog entry is wrong at a confidence at or "
+        f"above the frozen gate ({gate!r})"
     )

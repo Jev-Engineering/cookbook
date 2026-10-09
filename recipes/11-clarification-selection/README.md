@@ -26,10 +26,10 @@ all synthetic.
 ## Run it offline
 
 From the repository root, in an environment with
-`pip install -e ".[dev,ml]" -c .github/constraints-notebooks.txt` (Python 3.14; this is the install
-that reproduces the committed notebook outputs byte for byte, see
-[docs/recipe-template.md](../../docs/recipe-template.md) step 6; `".[dev]"` alone is enough for the
-fixture and test commands below):
+`pip install -e ".[ml]" -c .github/constraints-notebooks.txt` (Python 3.14; this is the install
+the `Notebook (<recipe>)` CI job uses, and the one that reproduces the committed notebook outputs
+byte for byte, see [docs/recipe-template.md](../../docs/recipe-template.md) step 6; `".[dev]"`
+alone is enough for the fixture and test commands below, which do not re-execute the notebook):
 
 ```bash
 python -m jev_cookbook.fixtures validate recipes/11-clarification-selection
@@ -64,17 +64,20 @@ through with `BudgetExceeded`. Never put a key in a notebook, a fixture, or any 
   examples are shown in the notebook but never scored).
 
 The committed run replays 40 invented task descriptions with hand-written (synthetic) answers,
-three wrong on purpose and in different ways. One is in `validation` itself: a report request read
+four wrong on purpose and in different ways. One is in `validation` itself: a report request read
 as missing its deliverable's shape when it is really missing the report's scope, confidently
-enough that it is what drives the frozen confidence gate up to exclude it. The other two are in
-`test`: one wrong and confident through the confidence gate (a spend-breakdown request read as
-missing its scope when it is really missing its format), and one wrong and confident through the
-un-gated `no_clarification_needed` branch (a travel-booking request read as needing nothing asked
-when it is really missing a budget). A third `test` answer is wrong but caught by the gate at low
-confidence. Its accuracy of the selected follow-up, confusion matrix, per-option precision and
-recall, the accuracy of the coarser ask-or-proceed decision, and the coverage, accuracy and risk of
-the frozen confidence gate check that the pipeline works; they say nothing about how Jev performs,
-how fast it is, or what it costs. This recipe has no recorded fixtures.
+enough that it is what drives the frozen confidence gate up to exclude it. Two are in `test`: one
+wrong and confident through the confidence gate (a spend-breakdown request read as missing its
+scope when it is really missing its format), and one wrong but caught by the gate at low
+confidence (an access-level request misread as missing a recipient instead). The fourth is in
+`test` too, and wrong in a different way again: a travel-booking request read as needing nothing
+asked when it is really missing a budget, at a confidence that sits *below* the gate -- a
+confidence-only rule would have caught it, but the `no_clarification_needed` branch never checks
+confidence at all, so it is delivered as a final result anyway. Its accuracy of the selected
+follow-up, confusion matrix, per-option precision and recall, the accuracy of the coarser
+ask-or-proceed decision, and the coverage, accuracy and risk of the rule's own outcomes check that
+the pipeline works; they say nothing about how Jev performs, how fast it is, or what it costs. This
+recipe has no recorded fixtures.
 
 ## Pull request rules
 

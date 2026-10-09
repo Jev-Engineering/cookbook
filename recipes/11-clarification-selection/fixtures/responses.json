@@ -1046,15 +1046,15 @@
         "type": "choice",
         "choice": "no_clarification_needed",
         "probabilities": {
-          "ask_deadline": 0.039999999999999994,
-          "ask_recipient": 0.039999999999999994,
-          "ask_scope": 0.039999999999999994,
-          "ask_format": 0.039999999999999994,
-          "ask_access_level": 0.039999999999999994,
-          "no_clarification_needed": 0.55,
-          "ask_budget": 0.25
+          "ask_deadline": 0.096,
+          "ask_recipient": 0.096,
+          "ask_scope": 0.096,
+          "ask_format": 0.096,
+          "ask_access_level": 0.096,
+          "no_clarification_needed": 0.3,
+          "ask_budget": 0.22
         },
-        "confidence": 0.47500000000000003,
+        "confidence": 0.18333333333333332,
         "provenance": {
           "source": "synthetic",
           "model": null,

@@ -160,8 +160,10 @@ def select_followup(task_id: str, answer: Any, min_confidence: float) -> Selecti
     ``no_match``). Accepting it unconditionally means a low-confidence
     ``no_clarification_needed`` answer can still be final -- but it triggers no side effect in
     this recipe: Python only returns a "proceed, nothing to ask" result, never a simulated
-    action, so a wrong one costs this pipeline check some accuracy and nothing else (the
-    notebook's "Python's part" section says this explicitly). Choosing a real catalog option
+    action, so a wrong one costs this pipeline check some accuracy and nothing else here (it is
+    exactly the mistake ``risk``, in the notebook's evaluation, is counting; in a real pipeline
+    the cost would be the task moving on without the information it needed -- the notebook's
+    "Python's part" section says this explicitly). Choosing a real catalog option
     that is not in ``OPTIONS`` at all (defensive: ``build_questions`` never offers such an
     option, but the rule does not trust that silently) or one whose confidence is below
     ``min_confidence`` goes to an explicit ``review`` outcome instead of asking a possibly wrong
@@ -182,42 +184,24 @@ def select_followup(task_id: str, answer: Any, min_confidence: float) -> Selecti
     )
 
 
-@dataclass(frozen=True)
-class OutcomeSummary:
-    """Coverage, accuracy and risk computed from ``select_followup``'s own outcomes, over one
-    split.
+def outcome_accounting(
+    results: list[Selection], gold: dict[str, Any]
+) -> tuple[list[bool], list[bool]]:
+    """``(accepted, correct)`` for ``jev_cookbook.evaluation.evaluate_outcomes``, built from a
+    list of ``Selection`` results against ``gold`` (``{task_id: label}``).
 
-    This is deliberately not ``jev_cookbook.evaluation.evaluate_selective`` reapplied to every
-    example: that helper gates every example on one confidence gate, but ``select_followup``
-    never gates ``no_clarification_needed`` on confidence at all, so reapplying a confidence gate
-    to a ``no_clarification_needed`` answer would score a gate the rule does not have. The shared
-    evaluation module does not yet provide a rule-outcomes-based selective-metrics helper on
-    ``main`` as of this recipe's pull request, so this recipe computes the summary directly from
-    the rule's own outcomes instead, the same way recipe 08's ``summarize_outcomes`` does; a
-    later recipe may switch to a shared helper once one lands. ``ask`` and ``proceed`` both
-    count as answered (the rule returned a result: a clarifying question or an explicit "nothing
-    to ask"), and ``review`` counts as not answered. Undefined is NaN, never 0.0, matching the
-    convention in ``jev_cookbook.evaluation``: with nothing answered, accuracy and risk are
-    undefined.
+    ``accepted[i]`` is whether ``select_followup`` answered example ``i`` -- ``ask`` or
+    ``proceed``, either one a real result handed back -- rather than held for ``review``, as the
+    rule itself decided it; ``correct[i]`` is whether that result's label is right, computed for
+    every example (``evaluate_outcomes`` requires a value even where ``accepted`` is False,
+    though it never reads it there). This is deliberately not
+    ``jev_cookbook.evaluation.evaluate_selective`` reapplied to every example: that helper gates
+    every example on one confidence gate, but ``select_followup`` never gates
+    ``no_clarification_needed`` on confidence at all, so reapplying a confidence gate to a
+    ``no_clarification_needed`` answer would score a gate the rule does not have.
     """
-
-    n_total: int
-    n_answered: int
-    coverage: float
-    accuracy: float
-    risk: float
-
-
-def summarize_outcomes(results: list[Selection], gold: dict[str, Any]) -> OutcomeSummary:
-    """Summarize a list of ``Selection`` results against ``gold`` (``{task_id: label}``)."""
     if not results:
-        raise ValueError("summarize_outcomes needs at least one result")
-    n_total = len(results)
-    answered = [r for r in results if r.outcome != REVIEW]
-    n_answered = len(answered)
-    coverage = n_answered / n_total
-    if n_answered == 0:
-        return OutcomeSummary(n_total, n_answered, coverage, float("nan"), float("nan"))
-    correct = sum(1 for r in answered if r.label == gold[r.task_id])
-    accuracy = correct / n_answered
-    return OutcomeSummary(n_total, n_answered, coverage, accuracy, 1.0 - accuracy)
+        raise ValueError("outcome_accounting needs at least one result")
+    accepted = [r.outcome != REVIEW for r in results]
+    correct = [r.label == gold[r.task_id] for r in results]
+    return accepted, correct
