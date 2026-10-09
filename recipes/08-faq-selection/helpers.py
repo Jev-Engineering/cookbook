@@ -14,8 +14,8 @@ from jev_cookbook import Choice
 
 # The fixed FAQ catalog this recipe answers from. Each id is a Choice option; Python, not Jev,
 # holds the stored answer text for it, and returns that text unchanged when a question matches
-# it with enough confidence (issue #8's build note: "Python returns the stored FAQ answer by
-# identifier. The model never writes the answer.").
+# it with enough confidence: Python returns the stored FAQ answer by identifier, never a
+# model-written one.
 PASSWORD_RESET = "password_reset"
 CHANGE_EMAIL = "change_email"
 CANCEL_SUBSCRIPTION = "cancel_subscription"
@@ -152,11 +152,11 @@ def select_faq(question_id: str, answer: Any, min_confidence: float) -> Selectio
 
     ``no_match`` is never run past the confidence gate, whatever its confidence: the option
     itself already says no FAQ addresses the question, so there is no stored answer a
-    confidence check could protect (the issue's build note: options are FAQ identifiers from a
-    short candidate list plus ``no_match``, and Python returns the stored FAQ answer by
-    identifier, never a model-written one). Any other answer that is not confident enough goes
-    to an explicit ``review`` outcome instead of returning a possibly wrong FAQ. The rule is
-    code, so it holds whatever the model answers.
+    confidence check could protect (the options are FAQ identifiers from a short candidate list
+    plus ``no_match``, and Python returns the stored FAQ answer by identifier, never a
+    model-written one). Any other answer that is not confident enough goes to an explicit
+    ``review`` outcome instead of returning a possibly wrong FAQ. The rule is code, so it holds
+    whatever the model answers.
     """
     if not 0.0 <= min_confidence <= 1.0:
         raise ValueError(f"min_confidence must be between 0 and 1, got {min_confidence!r}")
@@ -167,38 +167,3 @@ def select_faq(question_id: str, answer: Any, min_confidence: float) -> Selectio
     if answer.confidence < min_confidence:
         return Selection(question_id, answer.choice, REVIEW, None, "confidence below the threshold")
     return Selection(question_id, answer.choice, MATCHED, ANSWERS[answer.choice], "confident match")
-
-
-@dataclass(frozen=True)
-class OutcomeSummary:
-    """Coverage, accuracy and risk computed from ``select_faq``'s own outcomes, over one split.
-
-    This is deliberately not ``jev_cookbook.evaluation.evaluate_selective`` reapplied to every
-    example: that helper gates every example on one confidence threshold, but ``select_faq``
-    never gates ``no_match`` on confidence at all, so reapplying a threshold to a ``no_match``
-    answer would score a gate the rule does not have. Here, ``matched`` and ``no_match`` both
-    count as answered (the rule returned a result, an FAQ's text or an explicit "no FAQ fits"),
-    and ``review`` counts as not answered. Undefined is NaN, never 0.0, matching the convention
-    in ``jev_cookbook.evaluation``: with nothing answered, accuracy and risk are undefined.
-    """
-
-    n_total: int
-    n_answered: int
-    coverage: float
-    accuracy: float
-    risk: float
-
-
-def summarize_outcomes(results: list[Selection], gold: dict[str, Any]) -> OutcomeSummary:
-    """Summarize a list of ``Selection`` results against ``gold`` (``{question_id: label}``)."""
-    if not results:
-        raise ValueError("summarize_outcomes needs at least one result")
-    n_total = len(results)
-    answered = [r for r in results if r.outcome != REVIEW]
-    n_answered = len(answered)
-    coverage = n_answered / n_total
-    if n_answered == 0:
-        return OutcomeSummary(n_total, n_answered, coverage, float("nan"), float("nan"))
-    correct = sum(1 for r in answered if r.label == gold[r.question_id])
-    accuracy = correct / n_answered
-    return OutcomeSummary(n_total, n_answered, coverage, accuracy, 1.0 - accuracy)
