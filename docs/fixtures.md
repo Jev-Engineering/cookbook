@@ -247,7 +247,10 @@ comparison -- derive it from
 `jev_cookbook.fixtures.stable_permutation(f"{recipe}:{example_id}", n)` (or
 `stable_shuffle(seed_key, items)` to get the items themselves back in that order), never from
 `random.shuffle` and never from the position an item already has in the authored list or in
-`ROWS`.
+`ROWS`. `{recipe}` here is the recipe's own slug (`"12-thesaurus-word-selection"`, never the bare
+issue number `"12"` or `12`): a seed key is a string a person reads while debugging a replay
+miss, and the slug is what the rest of the fixture tooling, and a recipe's own `helpers.py`,
+already use to name the recipe.
 
 Two different things go wrong otherwise:
 
