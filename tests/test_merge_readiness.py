@@ -469,6 +469,98 @@ def test_head_only_two_success_check_runs_different_apps_still_ambiguous(gh):
     assert evidence["state"] == "ambiguous" and evidence["results"] == 2
 
 
+# --- #150: harden the duplicate-collapse rule after #144's Opus re-review (comment 6071769630) -
+
+
+def test_head_only_two_success_check_runs_unreadable_app_slug_still_ambiguous(gh):
+    """#150 item 1: an unreadable app slug (absent `app`, non-dict `app`, or non-string `slug`,
+    here surfaced as a null `slug`) must never count as "the same app" -- `len({None}) == 1` is
+    not evidence of one source, so two such results stay ambiguous rather than collapsing."""
+    gh.runs[HEAD].append(run(HEAD_ONLY, "success", sha=HEAD, id_=200, app=None))
+    gh.runs[HEAD].append(run(HEAD_ONLY, "success", sha=HEAD, id_=201, app=None))
+    receipt = assess_head(gh, extra_head=[HEAD_ONLY])
+    assert not receipt["ready"]
+    assert any(f"duplicate results (2) for check: {HEAD_ONLY}" in f for f in receipt["failures"])
+    evidence = next(c for c in receipt["checks"]["head"] if c["name"] == HEAD_ONLY)
+    assert evidence["state"] == "ambiguous" and evidence["results"] == 2
+    json.dumps(receipt)
+
+
+def test_head_only_single_check_run_unreadable_app_slug_renders_as_null(gh):
+    """#150 item 1: an unreadable app slug renders as JSON `null` in the receipt, never the
+    string "None" (pre-existing in both the single-result path and the merged-runs path)."""
+    gh.runs[HEAD].append(run(HEAD_ONLY, "success", sha=HEAD, id_=200, app=None))
+    receipt = assess_head(gh, extra_head=[HEAD_ONLY])
+    assert receipt["ready"]
+    evidence = next(c for c in receipt["checks"]["head"] if c["name"] == HEAD_ONLY)
+    assert evidence["app"] is None
+    rendered = json.dumps(receipt)
+    assert '"app": "None"' not in rendered
+    assert '"app": null' in rendered
+
+
+def test_head_only_eleven_success_results_caps_runs_list_and_reports_omitted(gh):
+    """#150 item 2: MAX_MERGED_RUNS caps the merged 'runs' list at 10 and the excess is reported
+    as 'runs_omitted'; the true 'results' count is unaffected by the cap. Removing the
+    `[:MAX_MERGED_RUNS]` slice (and the `runs_omitted` block it feeds) makes `runs` list all 11
+    entries and drops the `runs_omitted` key, which the asserts below catch."""
+    for i in range(11):
+        gh.runs[HEAD].append(run(HEAD_ONLY, "success", sha=HEAD, id_=200 + i))
+    receipt = assess_head(gh, extra_head=[HEAD_ONLY])
+    assert receipt["ready"] and receipt["failures"] == []
+    evidence = next(c for c in receipt["checks"]["head"] if c["name"] == HEAD_ONLY)
+    assert evidence["results"] == 11
+    assert len(evidence["runs"]) == mr.MAX_MERGED_RUNS == 10
+    assert evidence["runs_omitted"] == 1
+    json.dumps(receipt)
+
+
+def test_head_only_success_and_pending_ambiguous_evidence_reports_states(gh):
+    """#150 item 3: the ambiguous evidence's 'states' field lets a transient success+pending
+    pair (#138's wait case) be told apart from a genuine conflict, even though both print the
+    identical 'conflicting results' failure string and are both NOT READY."""
+    gh.runs[HEAD].append(run(HEAD_ONLY, "success", sha=HEAD, id_=200))
+    gh.runs[HEAD].append(run(HEAD_ONLY, "in_progress", sha=HEAD, id_=201))
+    receipt = assess_head(gh, extra_head=[HEAD_ONLY])
+    assert not receipt["ready"]
+    assert any(f"conflicting results (2) for check: {HEAD_ONLY}" in f for f in receipt["failures"])
+    evidence = next(c for c in receipt["checks"]["head"] if c["name"] == HEAD_ONLY)
+    assert evidence["states"] == ["pending", "success"]
+    json.dumps(receipt)
+
+
+def test_head_only_success_and_failure_ambiguous_evidence_reports_different_states(gh):
+    """#150 item 3: a genuine conflict (success+failure) prints the same 'conflicting results'
+    string as the transient wait case above, but its 'states' differ -- that is the distinction
+    the receipt now makes available."""
+    gh.runs[HEAD].append(run(HEAD_ONLY, "success", sha=HEAD, id_=200))
+    gh.runs[HEAD].append(run(HEAD_ONLY, "failure", sha=HEAD, id_=201))
+    receipt = assess_head(gh, extra_head=[HEAD_ONLY])
+    assert not receipt["ready"]
+    assert any(f"conflicting results (2) for check: {HEAD_ONLY}" in f for f in receipt["failures"])
+    evidence = next(c for c in receipt["checks"]["head"] if c["name"] == HEAD_ONLY)
+    assert evidence["states"] == ["failure", "success"]
+    json.dumps(receipt)
+
+
+def test_judge_checks_status_context_first_does_not_raise_and_stays_ambiguous():
+    """#150 item 4: `one_source` must read every entry's `app` with `.get`, never by indexing, so
+    it cannot KeyError on a StatusContext (which carries no `app` key at all). `collect_checks`
+    always orders CheckRuns before StatusContexts for the same name, which would hide a regression
+    here, so this calls `judge_checks` directly with a StatusContext placed FIRST in the entries
+    list for the name -- the ordering a plain `e["app"]` would be most exposed by."""
+    name = HEAD_ONLY
+    found = [
+        {"name": name, "kind": "status_context", "id": 900, "state": "success"},
+        {"name": name, "kind": "check_run", "id": 200, "app": "github-actions", "state": "success"},
+        {"name": name, "kind": "check_run", "id": 201, "app": "github-actions", "state": "success"},
+    ]
+    evidence, failures = mr.judge_checks(found, [name], "head")
+    assert any(f"results (3) for check: {name}" in f for f in failures)
+    assert evidence[0]["state"] == "ambiguous" and evidence[0]["results"] == 3
+    json.dumps(evidence)
+
+
 def test_head_only_check_run_and_status_context_conflict(gh):
     """Brief case 4c: a CheckRun and a StatusContext with the same head-only name conflict."""
     gh.runs[HEAD].append(run(HEAD_ONLY, "success", sha=HEAD, id_=200))
