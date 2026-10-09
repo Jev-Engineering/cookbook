@@ -98,7 +98,7 @@ set -e   # #108 fix round 7, B8 suggestion 4: without this, a failed execute_not
          # on a notebook that never actually ran -- the same shape as the execute step's own `|
          # tee` exit-masking gap in .github/workflows/notebooks.yml, in a shell with no pipe
          # involved at all.
-pip install -e ".[dev,ml]" -c .github/constraints-notebooks.txt   # CI's install (Python 3.14)
+pip install -e ".[ml]" -c .github/constraints-notebooks.txt   # CI's install (Python 3.14)
 BEFORE=$(git status --porcelain)   # see below for why this is a snapshot, not just "is it clean"
 # #108 fix round 8, B9 M1: rm -rf first. /tmp/run/NN-slug survives between runs (nothing in this
 # block ever removes it), and `cp -R src dst` copies INTO an existing dst rather than replacing

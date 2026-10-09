@@ -10,9 +10,13 @@ how well Jev performs, how fast it is, or what it costs.
 | --- | --- |
 | [state](#state), [question](#question), [Choice](#choice), [Noul](#noul), [Score](#score), [criteria](#criteria), [probabilities](#probabilities), [confidence](#confidence) | Jev, as documented by TypeSafe |
 | [gold label](#gold-label) | This cookbook's fixtures |
-| [threshold](#threshold) | TypeSafe's guidance, and this cookbook's rule for choosing one |
-| [accuracy](#accuracy) | This cookbook, `jev_cookbook.evaluation` |
+| [business threshold](#business-threshold), [confidence gate](#confidence-gate) | TypeSafe's guidance, and this cookbook's rule for choosing them |
+| [review](#review) | This cookbook |
+| [accuracy](#accuracy), [precision](#precision), [recall](#recall), [F1](#f1), [support](#support) | This cookbook, `jev_cookbook.evaluation` |
+| [coverage](#coverage), [risk](#risk), [selective prediction](#selective-prediction) | This cookbook, `jev_cookbook.evaluation` |
 | [replay key](#replay-key), [fixture](#fixture), [provenance](#provenance), [run mode](#run-mode) | This cookbook |
+
+Each term is defined the first time a recipe's own prose uses it, and that first use links here. The template demonstrates this for the one lexicon term it uses in prose ([gold label](#gold-label), in its "Evaluation" section); a recipe that uses more of the lexicon links each on its own first use.
 
 ## state
 
@@ -38,7 +42,11 @@ The question type that selects one option from a list you supply. The answer hol
 selected option, `probabilities` for every option, and a `confidence`
 ([S02](https://docs.typesafe.ai/primitives)). The cookbook adds explicit `none`, `other`,
 `no_match` or `uncertain` options wherever the task needs them
-([CONTRIBUTING.md](../CONTRIBUTING.md), section 3).
+([CONTRIBUTING.md](../CONTRIBUTING.md), section 3). A `Choice` needs at least two options: with
+one, Jev has nothing to weigh, so building the question raises `ValueError`. When a recipe's own
+candidate-gathering step leaves only one option (or none), the decision belongs to Python, not to
+a request — a forced answer is resolved directly in code, before any question is built and before
+any call is spent ([backends.md](backends.md#single-option-choice)).
 
 ## Noul
 
@@ -101,14 +109,48 @@ recipe's `fixtures/labels.jsonl`, one per scored example; the `demo` examples ca
 ([fixtures.md](fixtures.md#labels)). [accuracy](#accuracy) and every other metric in
 `jev_cookbook.evaluation` compare an answer against its gold label.
 
-## threshold
+## business threshold
 
-A cut-off in your own code that turns a number into an action, for example "route to a person when
-`confidence` is below the cut-off". TypeSafe's guidance is that a threshold is not one number and
-scales with the cost of being wrong ([S03](https://docs.typesafe.ai/confidence)). In this
-cookbook a threshold belongs to the task, so a recipe chooses it from labelled `validation`
-examples, freezes it, and reports on `test` ([evaluation.md](evaluation.md),
-[recipe-template.md](recipe-template.md)).
+A cut-off in your own code that turns a model's judgment into a business decision, for example
+"the ticket is urgent when `score >= 1.5`" or "the statement holds when `noul >= 0.6`". TypeSafe's
+guidance is that a threshold is not one number and scales with the cost of being wrong
+([S03](https://docs.typesafe.ai/confidence)). In this cookbook a business threshold belongs to
+the task, so a recipe chooses it from labelled `validation` examples with
+`jev_cookbook.evaluation.select_threshold`, freezes it, and reports with `evaluate_threshold` on
+`test` ([evaluation.md](evaluation.md), [recipe-template.md](recipe-template.md)). It answers
+"what does the model's judgment mean for the business", which is a separate question from "how
+much do we trust this particular answer" — that second question is the
+[confidence gate](#confidence-gate).
+
+## confidence gate
+
+A second, independent cut-off, applied to an answer's own [confidence](#confidence) (or
+`noul_confidence` for a `Noul`), that decides whether to trust an answer enough to act on it
+automatically or send it to [review](#review) instead. Chosen from `validation` with
+`jev_cookbook.evaluation.select_confidence_threshold`, and reported on `test` with
+`evaluate_selective` (when the rule's only review branch is this gate) or `evaluate_outcomes`
+(every other rule) ([evaluation.md](evaluation.md), [recipe-template.md](recipe-template.md)). A
+rule that also needs a [business threshold](#business-threshold) — for example, a `Noul`'s three
+outcomes, yes, no, or review — chooses the two independently, both on `validation`
+([evaluation.md](evaluation.md), "Noul three-path pattern"). `jev_cookbook.evaluation`'s
+selective-prediction functions reject a confidence outside `[0, 1]`, so a sentinel value cannot be
+chosen as a gate ([CONTRIBUTING.md](../CONTRIBUTING.md), section 4).
+
+## review
+
+The outcome a recipe gives an answer it does not act on automatically: an unconfident or
+inconsistent result below a [confidence gate](#confidence-gate), or a deferral — an outcome that
+asks a person to decide the same question again (`unknown` routed for someone to pick the real
+answer, `needs_review`) — whatever its confidence. By convention the outcome value itself is the
+string `"review"` (not, say, `"human_review"`; a recipe may still name its own domain-specific
+sub-reasons), and the reason string for a confidence-gated review is exactly `"confidence below
+the threshold"`, so two recipes' readers see the same words for the same cause. Simulated with
+`jev_cookbook.simulation.ReviewQueue`; a recipe that simulates no queue still names the outcome in
+its own rule's result type. A fallback option that is itself a complete answer — not a deferral —
+may be delivered as a final result with no gate instead, but only when it passes every part of
+the test [CONTRIBUTING.md](../CONTRIBUTING.md) section 4 states (worked through in
+[recipe-template.md](recipe-template.md)); a deferral never qualifies, whatever its confidence,
+and always counts toward review, not toward [coverage](#coverage).
 
 ## accuracy
 
@@ -116,10 +158,64 @@ The fraction of scored examples whose answer exactly matches its [gold label](#g
 `Choice`, `choice == gold`; for a rule's own outcome, whatever the rule treats as a match.
 Computed by `accuracy(gold, predicted)` in `jev_cookbook.evaluation`
 ([evaluation.md](evaluation.md)). Accuracy on `validation` is a selection step, not a reported
-result: it is exactly how `select_confidence_threshold` chooses a [threshold](#threshold)
-(`target_accuracy` and `min_coverage` are both accuracy-based), so a `validation` accuracy prints
-under the selection label alongside any other `validation` number. Accuracy on `test`, with the
-threshold already frozen, is the reported result, and is never itself used to choose anything.
+result: it is exactly how `select_threshold` chooses a [business threshold](#business-threshold)
+and `select_confidence_threshold` chooses a [confidence gate](#confidence-gate) (`target_accuracy`
+and `min_coverage` are both accuracy-based), so a `validation` accuracy prints under the selection
+label alongside any other `validation` number. Accuracy on `test`, with every setting already
+frozen, is the reported result, and is never itself used to choose anything.
+
+## precision
+
+Of the examples a rule predicted belong to a class, the fraction that actually do:
+`TP / (TP + FP)`. Undefined (`NaN`, never `0.0`) when the class was never predicted. Computed per
+class by `per_class_metrics`, and swept across thresholds for a `Noul` by `evaluate_threshold` /
+`threshold_sweep`, in `jev_cookbook.evaluation` ([evaluation.md](evaluation.md)).
+
+## recall
+
+Of the examples whose [gold label](#gold-label) is a class, the fraction a rule actually predicted
+as that class: `TP / (TP + FN)`. Undefined (`NaN`, never `0.0`) when the class has no gold
+examples. Computed by the same functions as [precision](#precision).
+
+## F1
+
+The harmonic mean of [precision](#precision) and [recall](#recall), `2 TP / (2 TP + FP + FN)`: one
+number that falls when either does. Undefined (`NaN`, never `0.0`) when the class appears in
+neither the gold labels nor the predictions. Computed by the same functions as precision and
+recall.
+
+## support
+
+The number of scored examples whose [gold label](#gold-label) is a given class — the denominator
+[recall](#recall) is computed against. Reported alongside precision, recall and F1 by
+`per_class_metrics` in `jev_cookbook.evaluation` ([evaluation.md](evaluation.md)).
+
+## coverage
+
+The fraction of scored examples a rule actually answered itself, rather than sending to
+[review](#review): `n_answered / n_total`. A deferral — an outcome that asks a person to decide
+the same question again — counts toward review, not coverage, whatever its confidence. A
+complete-answer fallback that passes the test in [CONTRIBUTING.md](../CONTRIBUTING.md) section 4
+counts toward coverage like any other answered example, even when it is also noted in a backlog
+for an unrelated follow-up: the rule already answered the question that was asked, and a note
+about something else is not a review of that answer. Computed by `evaluate_selective` (a
+confidence-only rule) or `evaluate_outcomes` (any rule with an unconditional review branch) in
+`jev_cookbook.evaluation` ([evaluation.md](evaluation.md), "Selective prediction").
+
+## risk
+
+The error rate among the examples a rule answered itself: `1 - accuracy` restricted to the
+answered subset, never computed over examples sent to [review](#review). Reported alongside
+[coverage](#coverage) by the same functions, and swept across confidence gates by
+`selective_curve` ([evaluation.md](evaluation.md)).
+
+## selective prediction
+
+The pattern of answering automatically only when an answer clears a
+[confidence gate](#confidence-gate) and sending everything else to [review](#review), trading
+[coverage](#coverage) for lower [risk](#risk). `jev_cookbook.evaluation`'s `selective_curve`,
+`select_confidence_threshold`, `evaluate_selective` and `evaluate_outcomes` implement it
+([evaluation.md](evaluation.md)); abstaining (sending to review) is never scored as an error.
 
 ## replay key
 
