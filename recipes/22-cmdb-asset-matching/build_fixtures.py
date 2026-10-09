@@ -12,30 +12,31 @@ sent (a forced answer belongs to Python, not a request -- a single-option Choice
 the fallback, is never built). Those five rows carry no ``replay_keys`` and no entry in
 ``responses.json``.
 
-Several assets exercise the Microsoft SQL Server major-version family (CMDB-01/02/03, 2016/2019/
-2022): because retrieval ranks on vendor/product wording alone, all three always tie in similarity
-and so always appear together, tie-broken by id -- this is also why the gold match for this family
-is sometimes the shortlist's second or third entry rather than its first (``v10-sql-2019``,
-``t09-sql-2019``: second; ``v11-sql-2022-lowconf``, ``t08-sql-2022``: third), the opposite of every
-other real match in this recipe, whose shortlist always ranks the true match first because nothing
-else in the catalog shares its vendor and product as closely. ``t10-sql-missing-version-wrong`` has
-no version reported at all: this recipe's policy is that Python never asks Jev to guess a major
-version it cannot see, so the gold label is ``no_match`` -- but the stored answer confidently names
-CMDB-03 anyway, which is this recipe's one false link (an accepted link to the wrong record): a
-real, wrong candidate at a confidence that clears the gate chosen below. ``v13-lookalike-wrong`` is
-the validation set's own wrong answer, placed there on purpose: a lexical look-alike (Acrobat
-Reader is a different, free product from the paid Acrobat the catalog holds, but shares enough
-wording to be retrieved as a candidate) that the stored answer confidently names anyway, at a
-confidence low enough to still be excluded by the gate ``select_confidence_threshold`` picks --
-without a wrong answer inside validation itself, that selection would have nothing real to cut on
-(docs/fixtures.md). ``t14-jira-missed`` is a real match (CMDB-09) the stored answer reports as
-``no_match`` instead, at a confidence (0.58) *below* the gate chosen below -- wrong, and accepted
-anyway, because ``no_match`` bypasses the confidence gate entirely regardless of its own confidence
-(the same shape as recipe 18's ``t11-dup-auth-missed``). ``t15-sql-2016-lowconf`` is a real match
-(CMDB-01) the stored answer names as the wrong sibling (CMDB-02) at a low confidence: wrong, and
-caught (sent to review). ``v11-sql-2022-lowconf``, ``t16-rhel-lowconf`` and ``t17-photoshop-lowconf``
-are each correct but held back by a confidence below the gate -- the coverage cost of excluding the
-two wrong-but-confident answers above. ``v20-rhel-workstation`` and ``t20-rhel-workstation`` exercise
+Several assets exercise the Northcastle LedgerStack Server major-version family (CMDB-01/02/03,
+2017/2020/2023): because retrieval ranks on vendor/product wording alone, all three always tie in
+similarity and so always appear together, tie-broken by id -- this is also why the gold match for
+this family is sometimes the shortlist's second or third entry rather than its first
+(``v10-ledger-2020``, ``t09-ledger-2020``: second; ``v11-ledger-2023-lowconf``, ``t08-ledger-2023``:
+third), the opposite of every other real match in this recipe, whose shortlist always ranks the
+true match first because nothing else in the catalog shares its vendor and product as closely.
+``t10-ledger-missing-version-wrong`` has no version reported at all: this recipe's policy is that
+Python never asks Jev to guess a major version it cannot see, so the gold label is ``no_match`` --
+but the stored answer confidently names CMDB-03 anyway, which is this recipe's one false link (an
+accepted link to the wrong record): a real, wrong candidate at a confidence that clears the gate
+chosen below. ``v13-lookalike-wrong`` is the validation set's own wrong answer, placed there on
+purpose: a lexical look-alike (InkPress Reader is a different, free product from the paid InkPress
+the catalog holds, but shares enough wording to be retrieved as a candidate) that the stored answer
+confidently names anyway, at a confidence low enough to still be excluded by the gate
+``select_confidence_threshold`` picks -- without a wrong answer inside validation itself, that
+selection would have nothing real to cut on (docs/fixtures.md). ``t14-ticketforge-missed`` is a
+real match (CMDB-09) the stored answer reports as ``no_match`` instead, at a confidence (0.58)
+*below* the gate chosen below -- wrong, and accepted anyway, because ``no_match`` bypasses the
+confidence gate entirely regardless of its own confidence (the same shape as recipe 18's
+``t11-dup-auth-missed``). ``t15-ledger-2017-lowconf`` is a real match (CMDB-01) the stored answer
+names as the wrong sibling (CMDB-02) at a low confidence: wrong, and caught (sent to review).
+``v11-ledger-2023-lowconf``, ``t16-entos-lowconf`` and ``t17-pixelforge-lowconf`` are each correct
+but held back by a confidence below the gate -- the coverage cost of excluding the two
+wrong-but-confident answers above. ``v20-entos-workstation`` and ``t20-entos-workstation`` exercise
 the instructions' "a different edition ... is not a match" clause directly: CMDB-08 and CMDB-16
 are the same vendor, product and major version, differing only by edition (Server vs. Workstation),
 so getting either of these two right needs an edition read, not just a version or product read.
@@ -84,171 +85,171 @@ def _fields(asset_id: str, vendor: str, product: str, version: str, edition: str
 # zero-candidate asset that is never asked -- see candidates_for/answers_for below)
 ROWS = [
     # --- validation: 20 examples, one wrong on purpose, two held back by low confidence -------
-    ("v01-acrobat", "validation", _fields(
-        "AST-1001", "Adobe Systems Incorporated", "Acrobat", "11.0.23", "Professional"),
+    ("v01-inkpress", "validation", _fields(
+        "AST-1001", "Candlewood Systems Incorporated", "InkPress", "12.0.23", "Professional"),
      "CMDB-04", {"CMDB-04": 0.86}),
-    ("v02-photoshop", "validation", _fields(
-        "AST-1002", "Adobe Inc.", "Photoshop", "25.1", "Standard"),
+    ("v02-pixelforge", "validation", _fields(
+        "AST-1002", "Candlewood Inc.", "PixelForge", "27.1", "Standard"),
      "CMDB-05", {"CMDB-05": 0.84}),
-    ("v03-oracle-db", "validation", _fields(
-        "AST-1003", "Oracle Corp", "Database", "19.3.0.0.0 (19c)", "Enterprise Edition"),
+    ("v03-vaultdb", "validation", _fields(
+        "AST-1003", "Thornfield Corp", "VaultDB", "21.4.0.0.0 (21q)", "Enterprise Edition"),
      "CMDB-06", {"CMDB-06": 0.86}),
-    ("v04-sap-ecc", "validation", _fields(
-        "AST-1004", "SAP SE", "ECC", "6.0 EHP8", "Enterprise"),
+    ("v04-processwell", "validation", _fields(
+        "AST-1004", "Ashgrove SE", "PWCR", "7.0 EHP8", "Enterprise"),
      "CMDB-07", {"CMDB-07": 0.84}),
-    ("v05-rhel", "validation", _fields(
-        "AST-1005", "Red Hat, Inc.", "RHEL", "8.6", "Server"),
+    ("v05-entos", "validation", _fields(
+        "AST-1005", "Redfern, Inc.", "RFOS", "9.6", "Server"),
      "CMDB-08", {"CMDB-08": 0.87}),
-    ("v06-jira", "validation", _fields(
-        "AST-1006", "Atlassian", "Jira Software", "9.4.1", "Data Center"),
+    ("v06-ticketforge", "validation", _fields(
+        "AST-1006", "Bluequill", "TicketForge Platform", "11.4.1", "Data Center"),
      "CMDB-09", {"CMDB-09": 0.83}),
-    ("v07-sales-cloud", "validation", _fields(
-        "AST-1007", "salesforce.com, inc.", "Sales Cloud", "Spring '24", "Enterprise"),
+    ("v07-pipeline-cloud", "validation", _fields(
+        "AST-1007", "harborcloud.com, inc.", "Pipeline Cloud", "Equinox '26", "Enterprise"),
      "CMDB-10", {"CMDB-10": 0.85}),
-    ("v08-java-se", "validation", _fields(
-        "AST-1008", "Oracle", "Java SE", "17.0.9", "Enterprise"),
+    ("v08-corerun", "validation", _fields(
+        "AST-1008", "Thornfield", "CoreRun SE", "19.0.7", "Enterprise"),
      "CMDB-11", {"CMDB-11": 0.84}),
-    ("v09-sql-2016", "validation", _fields(
-        "AST-1009", "MSFT", "SQL Server", "13.0.1601.5 (SQL Server 2016)", "Standard"),
+    ("v09-ledger-2017", "validation", _fields(
+        "AST-1009", "NSTL", "LedgerStack Server", "14.0.1301.5 (LedgerStack Server 2017)", "Standard"),
      "CMDB-01", {"CMDB-01": 0.86}),
-    ("v10-sql-2019", "validation", _fields(
-        "AST-1010", "Microsoft Corporation", "SQL Server", "15.0.2000.5 (2019)", "Standard Edition"),
+    ("v10-ledger-2020", "validation", _fields(
+        "AST-1010", "Northcastle Corporation", "LedgerStack Server", "16.0.1900.5 (2020)", "Standard Edition"),
      "CMDB-02", {"CMDB-02": 0.84}),
     # Correct (CMDB-03, the shortlist's third entry -- see the module docstring), but held back
     # by a confidence below the gate chosen below: the coverage cost of excluding v13 below.
-    ("v11-sql-2022-lowconf", "validation", _fields(
-        "AST-1011", "Microsoft", "SQL Server", "2022 (16.0.1050.5)", "Standard"),
+    ("v11-ledger-2023-lowconf", "validation", _fields(
+        "AST-1011", "Northcastle", "LedgerStack Server", "2023 (17.0.0950.5)", "Standard"),
      "CMDB-03", {"CMDB-03": 0.30}),
     # The version Python never asks Jev to guess: no observed version at all, so this recipe's
     # policy makes the gold label no_match, and the stored answer agrees (no_match is never
     # gated on confidence, so its own confidence here does not matter).
-    ("v12-sql-missing-version", "validation", _fields(
-        "AST-1012", "Microsoft", "SQL Server", "not reported", "Standard"),
+    ("v12-ledger-missing-version", "validation", _fields(
+        "AST-1012", "Northcastle", "LedgerStack Server", "not reported", "Standard"),
      "no_match", {"no_match": 0.55}),
-    # The validation set's own wrong answer (see the module docstring): Acrobat Reader is a
-    # different, free product from the paid Acrobat the catalog holds, but is retrieved as a
+    # The validation set's own wrong answer (see the module docstring): InkPress Reader is a
+    # different, free product from the paid InkPress the catalog holds, but is retrieved as a
     # candidate because the wording overlaps; the stored answer confidently (but wrongly) links
     # it there anyway, at a confidence below the gate the next section freezes.
     ("v13-lookalike-wrong", "validation", _fields(
-        "AST-1013", "Adobe", "Acrobat Reader DC", "2023.008.20470", "Standard"),
+        "AST-1013", "Candlewood", "InkPress Reader DC", "2023.011.30550", "Standard"),
      "no_match", {"CMDB-04": 0.40}),
     ("v14-zero-candidate", "validation", _fields(
-        "AST-1014", "Zoom Video Communications", "Zoom Workplace", "6.1.0", "Business"),
+        "AST-1014", "Chorus Collective", "Chorus Meet", "7.2.0", "Business"),
      "no_match", None),
     ("v15-zero-candidate", "validation", _fields(
-        "AST-1015", "AgileBits", "1Password Business", "8.10.25", "Business"),
+        "AST-1015", "Keyforge Labs", "Keyforge Vault Business", "9.4.12", "Business"),
      "no_match", None),
-    # A near duplicate of CMDB-01/02/03's own wording (shares "microsoft" only): retrieved
-    # alongside all three SQL Server records, correctly read as no_match.
-    ("v16-teams-decoy", "validation", _fields(
-        "AST-1016", "Microsoft", "Teams", "1.7.00.1061", "Business"),
+    # A near duplicate of CMDB-01/02/03's own wording (shares "northcastle" only): retrieved
+    # alongside all three LedgerStack Server records, correctly read as no_match.
+    ("v16-huddle-decoy", "validation", _fields(
+        "AST-1016", "Northcastle", "Huddle", "2.1.00.1180", "Business"),
      "no_match", {"no_match": 0.80}),
-    ("v17-openshift", "validation", _fields(
-        "AST-1017", "Red Hat", "OpenShift", "4.14", "Server"),
+    ("v17-containerflow", "validation", _fields(
+        "AST-1017", "Redfern", "Containerflow", "6.15", "Server"),
      "CMDB-13", {"CMDB-13": 0.84}),
-    ("v18-confluence", "validation", _fields(
-        "AST-1018", "Atlassian", "Confluence", "8.5.4", "Data Center"),
+    ("v18-wikispring", "validation", _fields(
+        "AST-1018", "Bluequill", "WikiSpring", "10.5.4", "Data Center"),
      "CMDB-14", {"CMDB-14": 0.85}),
-    ("v19-service-cloud", "validation", _fields(
-        "AST-1019", "Salesforce", "Service Cloud", "2024", "Enterprise"),
+    ("v19-support-cloud", "validation", _fields(
+        "AST-1019", "Harbor", "Support Cloud", "2026", "Enterprise"),
      "CMDB-15", {"CMDB-15": 0.83}),
     # CMDB-08 and CMDB-16 are the same vendor, product and major version, differing only by
     # edition (Server vs. Workstation); gold is CMDB-16, the shortlist's second entry (tied with
     # CMDB-08 in retrieval, tie-broken by id) -- getting this right needs an edition read, the
     # instructions' "a different edition ... is not a match" clause, which no other fixture in
     # this recipe exercises.
-    ("v20-rhel-workstation", "validation", _fields(
-        "AST-1020", "Red Hat", "Enterprise Linux", "8.6", "Workstation"),
+    ("v20-entos-workstation", "validation", _fields(
+        "AST-1020", "Redfern", "Enterprise OS", "9.6", "Workstation"),
      "CMDB-16", {"CMDB-16": 0.85}),
     # --- test: 20 examples, three wrong in three different ways ------------------------------
-    ("t01-acrobat", "test", _fields(
-        "AST-2001", "Adobe", "Acrobat", "v11.0.09 Continuous", "Pro (2023 release)"),
+    ("t01-inkpress", "test", _fields(
+        "AST-2001", "Candlewood", "InkPress", "v12.0.09 Continuous", "Pro (2025 release)"),
      "CMDB-04", {"CMDB-04": 0.87}),
-    ("t02-photoshop", "test", _fields(
-        "AST-2002", "Adobe", "Photoshop", "25.9.1", "Std"),
+    ("t02-pixelforge", "test", _fields(
+        "AST-2002", "Candlewood", "PixelForge", "27.9.1", "Std"),
      "CMDB-05", {"CMDB-05": 0.85}),
-    ("t03-oracle-db", "test", _fields(
-        "AST-2003", "Oracle Corporation", "Database", "19c Release 21", "Enterprise"),
+    ("t03-vaultdb", "test", _fields(
+        "AST-2003", "Thornfield Corporation", "VaultDB", "21q Release 14", "Enterprise"),
      "CMDB-06", {"CMDB-06": 0.84}),
-    ("t04-sap-ecc", "test", _fields(
-        "AST-2004", "SAP", "ERP Central Component", "6.0 EHP7", "Enterprise Edition"),
+    ("t04-processwell", "test", _fields(
+        "AST-2004", "Ashgrove", "Processwell Core", "7.0 EHP7", "Enterprise Edition"),
      "CMDB-07", {"CMDB-07": 0.85}),
-    ("t05-rhel", "test", _fields(
-        "AST-2005", "Red Hat Inc", "Enterprise Linux", "8.4", "Server Edition"),
+    ("t05-entos", "test", _fields(
+        "AST-2005", "Redfern Inc", "Enterprise OS", "9.4", "Server Edition"),
      "CMDB-08", {"CMDB-08": 0.84}),
-    ("t06-sales-cloud", "test", _fields(
-        "AST-2006", "SFDC", "Sales Cloud", "Winter '24", "Enterprise Edition"),
+    ("t06-pipeline-cloud", "test", _fields(
+        "AST-2006", "HBCL", "Pipeline Cloud", "Monsoon '25", "Enterprise Edition"),
      "CMDB-10", {"CMDB-10": 0.86}),
-    ("t07-s4hana", "test", _fields(
-        "AST-2007", "SAP SE", "S4HANA", "2023 FPS01", "Enterprise"),
+    ("t07-n4vista", "test", _fields(
+        "AST-2007", "Ashgrove SE", "N4VISTA", "2025 FPS01", "Enterprise"),
      "CMDB-12", {"CMDB-12": 0.85}),
-    ("t08-sql-2022", "test", _fields(
-        "AST-2008", "Microsoft", "SQL Server", "16.0.1000.6, SQL 2022", "Standard"),
+    ("t08-ledger-2023", "test", _fields(
+        "AST-2008", "Northcastle", "LedgerStack Server", "17.0.1000.6, LGS 2023", "Standard"),
      "CMDB-03", {"CMDB-03": 0.88}),
-    ("t09-sql-2019", "test", _fields(
-        "AST-2009", "MS Corp", "SQL Server", "SQL2019 CU18 (15.0.4261.1)", "Standard"),
+    ("t09-ledger-2020", "test", _fields(
+        "AST-2009", "NCS Corp", "LedgerStack Server", "LGS2020 CU18 (16.0.4261.1)", "Standard"),
      "CMDB-02", {"CMDB-02": 0.85}),
     # The one false link this recipe's fixtures contain (see the module docstring): no version
     # is reported, so the gold label is no_match under this recipe's policy, but the stored
     # answer confidently names CMDB-03 anyway, at a confidence that clears the gate below.
-    ("t10-sql-missing-version-wrong", "test", _fields(
-        "AST-2010", "Microsoft", "SQL Server", "not reported", "Standard Edition"),
+    ("t10-ledger-missing-version-wrong", "test", _fields(
+        "AST-2010", "Northcastle", "LedgerStack Server", "not reported", "Standard Edition"),
      "no_match", {"CMDB-03": 0.85}),
     # The same look-alike trap as v13, worded differently, read correctly this time: the
     # contrast shows the same trap landing both ways.
     ("t11-lookalike-correct", "test", _fields(
-        "AST-2011", "Adobe Inc.", "Acrobat Reader", "2024.001.00000", "Reader"),
+        "AST-2011", "Candlewood Inc.", "InkPress Reader", "2026.001.00000", "Reader"),
      "no_match", {"no_match": 0.75}),
     ("t12-zero-candidate", "test", _fields(
-        "AST-2012", "Docker Inc", "Docker Desktop", "4.32", "Business"),
+        "AST-2012", "Craterframe Inc", "Craterframe Desktop", "6.32", "Business"),
      "no_match", None),
-    # A near duplicate of all three SQL Server records plus CMDB-08 and CMDB-16's own wording
-    # ("enterprise", "server"): retrieved alongside several real candidates (candidates_for
-    # below reports exactly how many), correctly read as no_match.
-    ("t13-github-decoy", "test", _fields(
-        "AST-2013", "GitHub", "GitHub Enterprise Server", "3.11.0", "Enterprise"),
+    # A near duplicate of all three LedgerStack Server records plus CMDB-08 and CMDB-16's own
+    # wording ("enterprise", "server"): retrieved alongside several real candidates
+    # (candidates_for below reports exactly how many), correctly read as no_match.
+    ("t13-forge-decoy", "test", _fields(
+        "AST-2013", "Forgewell", "Forgewell Enterprise Server", "5.11.0", "Enterprise"),
      "no_match", {"no_match": 0.78}),
     # A real match (CMDB-09), but the stored answer confidently calls it no_match instead:
     # wrong, and no_match is never checked by any confidence gate at all, so this missed match
     # is not caught by anything (the same shape as recipe 18's t11-dup-auth-missed).
-    ("t14-jira-missed", "test", _fields(
-        "AST-2014", "Atlassian", "Jira Software", "9.12.0", "Data Center"),
+    ("t14-ticketforge-missed", "test", _fields(
+        "AST-2014", "Bluequill", "TicketForge Platform", "11.12.0", "Data Center"),
      "CMDB-09", {"no_match": 0.72}),
-    # A real match (CMDB-01, 2016), but the stored answer names the wrong sibling (CMDB-02,
-    # 2019) at a low confidence: wrong, and caught (sent to review).
-    ("t15-sql-2016-lowconf", "test", _fields(
-        "AST-2015", "Microsoft", "SQL Server", "13.0.6300.2 (2016 SP3)", "Standard"),
+    # A real match (CMDB-01, 2017), but the stored answer names the wrong sibling (CMDB-02,
+    # 2020) at a low confidence: wrong, and caught (sent to review).
+    ("t15-ledger-2017-lowconf", "test", _fields(
+        "AST-2015", "Northcastle", "LedgerStack Server", "14.0.6300.2 (2017 SP3)", "Standard"),
      "CMDB-01", {"CMDB-02": 0.30}),
-    ("t16-rhel-lowconf", "test", _fields(
-        "AST-2016", "Red Hat", "Enterprise Linux", "8.9", "Server"),
+    ("t16-entos-lowconf", "test", _fields(
+        "AST-2016", "Redfern", "Enterprise OS", "9.9", "Server"),
      "CMDB-08", {"CMDB-08": 0.38}),
-    ("t17-photoshop-lowconf", "test", _fields(
-        "AST-2017", "Adobe", "Photoshop", "25.12", "Standard Edition"),
+    ("t17-pixelforge-lowconf", "test", _fields(
+        "AST-2017", "Candlewood", "PixelForge", "27.12", "Standard Edition"),
      "CMDB-05", {"CMDB-05": 0.35}),
     ("t18-zero-candidate", "test", _fields(
-        "AST-2018", "Notion Labs", "Notion", "2.0.44", "Team"),
+        "AST-2018", "Driftnote Labs", "Driftnote", "4.0.44", "Team"),
      "no_match", None),
-    ("t19-s4hana", "test", _fields(
-        "AST-2019", "SAP", "S4HANA", "2023 FPS02", "Enterprise Edition"),
+    ("t19-n4vista", "test", _fields(
+        "AST-2019", "Ashgrove", "N4VISTA", "2025 FPS02", "Enterprise Edition"),
      "CMDB-12", {"CMDB-12": 0.86}),
     # The test-split twin of v20: CMDB-16 again, worded differently, exercising the same
     # edition-disqualifying clause.
-    ("t20-rhel-workstation", "test", _fields(
-        "AST-2020", "Red Hat Inc", "Enterprise Linux", "8.7", "Workstation Edition"),
+    ("t20-entos-workstation", "test", _fields(
+        "AST-2020", "Redfern Inc", "Enterprise OS", "9.7", "Workstation Edition"),
      "CMDB-16", {"CMDB-16": 0.86}),
     # --- demo: 3 examples, shown but never scored -----------------------------------------------
     ("d01-lookalike", "demo", _fields(
-        "AST-3001", "Adobe", "Acrobat Reader", "2022.003.20282", "Standard"),
+        "AST-3001", "Candlewood", "InkPress Reader", "2024.003.20282", "Standard"),
      None, {"no_match": 0.70}),
     ("d02-zero-candidate", "demo", _fields(
-        "AST-3002", "Figma", "Figma Design", "2024.10", "Organization"),
+        "AST-3002", "Panelcraft", "Panelcraft Design", "2026.10", "Organization"),
      None, None),
     # Shown up close in the notebook as the asset whose candidate list is longest: a near
-    # duplicate of all three SQL Server records plus CMDB-08 and CMDB-16's own wording, worded
-    # differently from t13 above. Kept out of validation/test on purpose, so "test is reported
-    # once, not peeked at here" stays literally true in the up-close section.
+    # duplicate of all three LedgerStack Server records plus CMDB-08 and CMDB-16's own wording,
+    # worded differently from t13 above. Kept out of validation/test on purpose, so "test is
+    # reported once, not peeked at here" stays literally true in the up-close section.
     ("d03-decoy-many", "demo", _fields(
-        "AST-3003", "GitLab", "GitLab Enterprise Server", "16.5", "Enterprise"),
+        "AST-3003", "Hedgepath", "Hedgepath Enterprise Server", "18.5", "Enterprise"),
      None, {"no_match": 0.56}),
 ]  # fmt: skip
 

@@ -30,22 +30,22 @@ from jev_cookbook import Choice
 # --------------------------------------------------------------------------------------------
 
 CMDB_RECORDS: dict[str, dict[str, str]] = {
-    "CMDB-01": {"vendor": "Microsoft", "product": "SQL Server", "major_version": "2016", "edition": "Standard"},
-    "CMDB-02": {"vendor": "Microsoft", "product": "SQL Server", "major_version": "2019", "edition": "Standard"},
-    "CMDB-03": {"vendor": "Microsoft", "product": "SQL Server", "major_version": "2022", "edition": "Standard"},
-    "CMDB-04": {"vendor": "Adobe", "product": "Acrobat", "major_version": "11", "edition": "Pro"},
-    "CMDB-05": {"vendor": "Adobe", "product": "Photoshop", "major_version": "25", "edition": "Standard"},
-    "CMDB-06": {"vendor": "Oracle", "product": "Database", "major_version": "19c", "edition": "Enterprise"},
-    "CMDB-07": {"vendor": "SAP", "product": "ERP Central Component", "major_version": "6.0", "edition": "Enterprise"},
-    "CMDB-08": {"vendor": "Red Hat", "product": "Enterprise Linux", "major_version": "8", "edition": "Server"},
-    "CMDB-09": {"vendor": "Atlassian", "product": "Jira", "major_version": "9", "edition": "Data Center"},
-    "CMDB-10": {"vendor": "Salesforce", "product": "Sales Cloud", "major_version": "2024", "edition": "Enterprise"},
-    "CMDB-11": {"vendor": "Oracle", "product": "Java SE", "major_version": "17", "edition": "Enterprise"},
-    "CMDB-12": {"vendor": "SAP", "product": "S4HANA", "major_version": "2023", "edition": "Enterprise"},
-    "CMDB-13": {"vendor": "Red Hat", "product": "OpenShift", "major_version": "4", "edition": "Server"},
-    "CMDB-14": {"vendor": "Atlassian", "product": "Confluence", "major_version": "8", "edition": "Data Center"},
-    "CMDB-15": {"vendor": "Salesforce", "product": "Service Cloud", "major_version": "2024", "edition": "Enterprise"},
-    "CMDB-16": {"vendor": "Red Hat", "product": "Enterprise Linux", "major_version": "8", "edition": "Workstation"},
+    "CMDB-01": {"vendor": "Northcastle", "product": "LedgerStack Server", "major_version": "2017", "edition": "Standard"},
+    "CMDB-02": {"vendor": "Northcastle", "product": "LedgerStack Server", "major_version": "2020", "edition": "Standard"},
+    "CMDB-03": {"vendor": "Northcastle", "product": "LedgerStack Server", "major_version": "2023", "edition": "Standard"},
+    "CMDB-04": {"vendor": "Candlewood", "product": "InkPress", "major_version": "12", "edition": "Pro"},
+    "CMDB-05": {"vendor": "Candlewood", "product": "PixelForge", "major_version": "27", "edition": "Standard"},
+    "CMDB-06": {"vendor": "Thornfield", "product": "VaultDB", "major_version": "21q", "edition": "Enterprise"},
+    "CMDB-07": {"vendor": "Ashgrove", "product": "Processwell Core", "major_version": "7.0", "edition": "Enterprise"},
+    "CMDB-08": {"vendor": "Redfern", "product": "Enterprise OS", "major_version": "9", "edition": "Server"},
+    "CMDB-09": {"vendor": "Bluequill", "product": "TicketForge", "major_version": "11", "edition": "Data Center"},
+    "CMDB-10": {"vendor": "Harbor", "product": "Pipeline Cloud", "major_version": "2026", "edition": "Enterprise"},
+    "CMDB-11": {"vendor": "Thornfield", "product": "CoreRun SE", "major_version": "19", "edition": "Enterprise"},
+    "CMDB-12": {"vendor": "Ashgrove", "product": "N4VISTA", "major_version": "2025", "edition": "Enterprise"},
+    "CMDB-13": {"vendor": "Redfern", "product": "Containerflow", "major_version": "6", "edition": "Server"},
+    "CMDB-14": {"vendor": "Bluequill", "product": "WikiSpring", "major_version": "10", "edition": "Data Center"},
+    "CMDB-15": {"vendor": "Harbor", "product": "Support Cloud", "major_version": "2026", "edition": "Enterprise"},
+    "CMDB-16": {"vendor": "Redfern", "product": "Enterprise OS", "major_version": "9", "edition": "Workstation"},
 }  # fmt: skip
 
 # The explicit fallback the use case names, for an observed asset that matches none of the
@@ -68,13 +68,13 @@ _CANDIDATE_FLOOR = 0.0
 # normalized vendor/product overlap with the observed asset is at least this. A plausible,
 # hand-picked word-overlap threshold, not a value that happens to separate every genuine match
 # from every decoy in this recipe's own fixtures: it does not. An asset whose vendor and product
-# abbreviate or drop a word from the canonical spelling (for example "Jira Software" against
-# "Jira", or "MS Corp" against "Microsoft") can score as low as 0.5, the same as this recipe's
-# own lexical look-alike (the notebook derives and prints the actual overlap for every asset,
-# rather than this comment asserting one). The point this baseline makes does not depend on 0.6
-# being a clean separator: whatever cut-off is chosen, it still reads only vendor and product,
-# so it is exactly as unable to tell CMDB-01/02/03 (or CMDB-08/CMDB-16) apart by version or
-# edition as `baseline_always_top` is.
+# abbreviate or drop a word from the canonical spelling (for example "TicketForge Platform"
+# against "TicketForge", or "NCS Corp" against "Northcastle") can score as low as 0.5, the same
+# as this recipe's own lexical look-alike (the notebook derives and prints the actual overlap for
+# every asset, rather than this comment asserting one). The point this baseline makes does not
+# depend on 0.6 being a clean separator: whatever cut-off is chosen, it still reads only vendor
+# and product, so it is exactly as unable to tell CMDB-01/02/03 (or CMDB-08/CMDB-16) apart by
+# version or edition as `baseline_always_top` is.
 OVERLAP_CUTOFF = 0.6
 
 # Outcomes the rule below can produce.
@@ -89,25 +89,24 @@ REVIEW = "review"
 # Applied to BOTH an observed asset's text and a canonical record's own text, so the two sides
 # of every comparison are normalized the same way.
 _PHRASE_ALIASES = {
-    "microsoft corporation": "microsoft",
-    "microsoft corp": "microsoft",
-    "msft": "microsoft",
-    "red hat, inc.": "red hat",
-    "red hat inc": "red hat",
-    "red hat": "redhat",
-    "rhel": "redhat enterprise linux",
-    "oracle corporation": "oracle",
-    "oracle corp": "oracle",
-    "adobe systems incorporated": "adobe",
-    "adobe systems": "adobe",
-    "adobe inc.": "adobe",
-    "sap se": "sap",
-    "sap ag": "sap",
-    "ecc": "erp central component",
-    "salesforce.com, inc.": "salesforce",
-    "salesforce.com": "salesforce",
-    "sfdc": "salesforce",
-    "atlassian corporation": "atlassian",
+    "northcastle corporation": "northcastle",
+    "northcastle corp": "northcastle",
+    "nstl": "northcastle",
+    "redfern, inc.": "redfern",
+    "redfern inc": "redfern",
+    "rfos": "redfern enterprise os",
+    "thornfield corporation": "thornfield",
+    "thornfield corp": "thornfield",
+    "candlewood systems incorporated": "candlewood",
+    "candlewood systems": "candlewood",
+    "candlewood inc.": "candlewood",
+    "ashgrove se": "ashgrove",
+    "ashgrove ag": "ashgrove",
+    "pwcr": "processwell core",
+    "harborcloud.com, inc.": "harbor",
+    "harborcloud.com": "harbor",
+    "hbcl": "harbor",
+    "bluequill corporation": "bluequill",
 }
 # Corporate-suffix and filler tokens dropped after splitting into words, so they never count as
 # shared vocabulary between two otherwise unrelated vendors or products.
@@ -116,7 +115,7 @@ _STOPWORDS = {"inc", "incorporated", "corp", "corporation", "ltd", "llc", "co"}
 
 def _normalize(text: str) -> str:
     """Lowercase ``text`` and apply the phrase aliases above, longest phrase first so a longer
-    match (for example ``"red hat, inc."``) is not partly consumed by a shorter one first."""
+    match (for example ``"redfern, inc."``) is not partly consumed by a shorter one first."""
     text = text.lower()
     for phrase in sorted(_PHRASE_ALIASES, key=len, reverse=True):
         text = text.replace(phrase, _PHRASE_ALIASES[phrase])
@@ -233,8 +232,8 @@ def build_questions(candidates: list[str]) -> dict[str, Choice]:
     option (the fallback alone), and a single-option Choice is never sent (see
     ``no_candidate_resolution``): a forced answer belongs to Python, not a request. Every observed asset shares one question
     shape (which canonical record, if any, is this the same software as), but the option list is
-    built fresh per asset from its own shortlist, so an Adobe asset is never asked to choose a
-    Salesforce candidate's identifier, and the replay key changes with the shortlist as a result.
+    built fresh per asset from its own shortlist, so a Candlewood asset is never asked to choose a
+    Harbor candidate's identifier, and the replay key changes with the shortlist as a result.
     """
     if not candidates:
         raise ValueError(
