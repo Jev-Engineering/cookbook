@@ -115,47 +115,26 @@ def propose_destination(file_id: str, answer: Any, min_confidence: float) -> Pro
     return Proposal(file_id, answer.choice, PLACED, "confident match")
 
 
-def placement_confidence(answer: Any) -> float:
-    """A confidence signal ``jev_cookbook.evaluation``'s selective-prediction helpers
-    (``select_confidence_threshold``, ``evaluate_selective``) can select a threshold on.
-
-    Those helpers assume one confidence number gates everything, which fits a rule with a
-    single cutoff (the pattern ``docs/fixtures.md`` and recipe 01 use) but not this recipe's
-    two-part rule: an answer of ``unsorted`` is never placed, however confident Jev is that
-    nothing else fits. Reporting ``answer.confidence`` unchanged would let a confident
-    ``unsorted`` answer count as "answered" in the selective-prediction curve, which does not
-    match what ``propose_destination`` actually does with it. This mirrors the documented
-    precedent for a Noul recipe that wants a confidence signal independent of the one field its
-    answer type has (``noul_confidence(noul) = max(p, 1 - p)``, docs/evaluation.md): ``-1.0``
-    sits below every real confidence (which is always in ``[0, 1]``), so an ``unsorted`` answer
-    is never selected by any non-negative threshold, exactly like ``propose_destination``.
-
-    This is safe to *report* with at a threshold already frozen to a real number, but not to
-    *select a threshold from*: ``-1.0`` is itself one of the distinct values a selector such as
-    ``select_confidence_threshold`` can choose between, and a target loose enough to tolerate it
-    would freeze ``-1.0`` as "the" threshold, which ``propose_destination`` then rejects as
-    outside ``[0, 1]``. Use :func:`selection_signal`, not this function, to build the inputs to a
-    selector.
-    """
-    return -1.0 if answer.choice == UNSORTED else answer.confidence
-
-
 def selection_signal(answers: Any, gold: Any) -> tuple[list[bool], list[float]]:
     """``(correct, confidence)`` for choosing a threshold with ``select_confidence_threshold``,
     built only from answers that name a real folder.
 
-    ``placement_confidence``'s ``-1.0`` sentinel is exactly what keeps an ``unsorted`` answer
-    from ever being selected once a threshold is frozen, but it is also a candidate the selector
-    itself could return: a validation target loose enough that the best accuracy is bought by
-    throwing away everything, including the sentinel, would freeze ``-1.0``, and
-    ``propose_destination`` raises on that. Excluding every ``unsorted`` answer here removes the
-    sentinel from the search entirely, so the result is always a real confidence. This changes no
-    accuracy or coverage number at or above a real threshold: an ``unsorted`` answer is already
-    never selected at any non-negative threshold, so leaving it out of the search changes only
-    which numbers the search is allowed to propose, not what a real threshold would select.
+    ``select_confidence_threshold`` assumes one confidence number gates everything, which fits
+    a rule with a single cutoff (the pattern ``docs/fixtures.md`` and recipe 01 use) but not
+    this recipe's two-part rule: an ``unsorted`` answer is never placed, however confident Jev
+    is that nothing else fits, so it has no real confidence a selector could use. Excluding
+    every ``unsorted`` answer here removes it from the search entirely, so the candidates the
+    selector sees are always real confidences; a target loose enough to accept any accuracy
+    still cannot freeze anything ``propose_destination`` would reject. This changes no accuracy
+    or coverage number at or above a real threshold: an ``unsorted`` answer is already never
+    placed at any threshold, so leaving it out of the search changes only which numbers the
+    search is allowed to propose, not what a real threshold would select.
 
-    Report with the full example set and :func:`placement_confidence` as usual; only the
-    threshold *selection* step needs this narrower signal.
+    Report against the rule's own outcomes with :func:`jev_cookbook.evaluation.evaluate_outcomes`,
+    not a confidence signal (``docs/evaluation.md``, "Selective prediction"): this recipe's rule
+    has a review branch beyond the confidence gate, so a function that only ever compares a
+    confidence against a threshold cannot see the ``unsorted`` branch. Only the threshold
+    *selection* step needs this narrower signal.
     """
     pairs = [(a, g) for a, g in zip(answers, gold, strict=True) if a.choice != UNSORTED]
     correct = [a.choice == g for a, g in pairs]
