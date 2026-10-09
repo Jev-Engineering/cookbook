@@ -1,0 +1,1122 @@
+{
+  "011e37b9327e45652325d59f262426e51f660a1f8634b86ac582c276ccfb44db": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "send_email",
+        "probabilities": {
+          "send_email": 0.9314285714285715,
+          "schedule_meeting": 0.011428571428571418,
+          "create_ticket": 0.011428571428571418,
+          "set_reminder": 0.011428571428571418,
+          "update_record": 0.011428571428571418,
+          "lookup_contact": 0.011428571428571418,
+          "no_function": 0.011428571428571418
+        },
+        "confidence": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "07c5f1370cf155a71097e73735144c37d750f741f33d00778747cc30783523b8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "schedule_meeting",
+        "probabilities": {
+          "send_email": 0.028571428571428543,
+          "schedule_meeting": 0.8285714285714287,
+          "create_ticket": 0.028571428571428543,
+          "set_reminder": 0.028571428571428543,
+          "update_record": 0.028571428571428543,
+          "lookup_contact": 0.028571428571428543,
+          "no_function": 0.028571428571428543
+        },
+        "confidence": 0.8000000000000002,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1c901e27a1624e4518193c56d6a9f49f996468d08991e3a4be78aaafe30fff9e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "create_ticket",
+        "probabilities": {
+          "send_email": 0.014285714285714271,
+          "schedule_meeting": 0.014285714285714271,
+          "create_ticket": 0.9142857142857144,
+          "set_reminder": 0.014285714285714271,
+          "update_record": 0.014285714285714271,
+          "lookup_contact": 0.014285714285714271,
+          "no_function": 0.014285714285714271
+        },
+        "confidence": 0.9000000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "22eda8dc1fa5edd0b4e99ce08d25ac4d2568d39763e0e30a2ce58b38d4c3ccaa": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "schedule_meeting",
+        "probabilities": {
+          "send_email": 0.021428571428571425,
+          "schedule_meeting": 0.8714285714285714,
+          "create_ticket": 0.021428571428571425,
+          "set_reminder": 0.021428571428571425,
+          "update_record": 0.021428571428571425,
+          "lookup_contact": 0.021428571428571425,
+          "no_function": 0.021428571428571425
+        },
+        "confidence": 0.85,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "256babba6077975d61f9d0aa6992844c07a1d6a708a5e84bf80a8aa807ddb82c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "no_function",
+        "probabilities": {
+          "send_email": 0.05714285714285713,
+          "schedule_meeting": 0.05714285714285713,
+          "create_ticket": 0.05714285714285713,
+          "set_reminder": 0.05714285714285713,
+          "update_record": 0.05714285714285713,
+          "lookup_contact": 0.05714285714285713,
+          "no_function": 0.6571428571428573
+        },
+        "confidence": 0.6000000000000002,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "29a8022225088ddbec41d9b3763fe9eb9d061dc819b80655e680845ff9e6debd": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "update_record",
+        "probabilities": {
+          "send_email": 0.04,
+          "schedule_meeting": 0.04,
+          "create_ticket": 0.04,
+          "set_reminder": 0.04,
+          "update_record": 0.76,
+          "lookup_contact": 0.04,
+          "no_function": 0.04
+        },
+        "confidence": 0.7200000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2d6e286c620394c6e77a78cc0c91f83bb4141558c64ff8af1655251f6d01557d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "schedule_meeting",
+        "probabilities": {
+          "send_email": 0.05000000000000001,
+          "schedule_meeting": 0.7,
+          "create_ticket": 0.05000000000000001,
+          "set_reminder": 0.05000000000000001,
+          "update_record": 0.05000000000000001,
+          "lookup_contact": 0.05000000000000001,
+          "no_function": 0.05000000000000001
+        },
+        "confidence": 0.65,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "34f976786cef55196d6767f2070342ba3ffec8aee41a36788745a6a28198e63e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "schedule_meeting",
+        "probabilities": {
+          "send_email": 0.021428571428571425,
+          "schedule_meeting": 0.8714285714285714,
+          "create_ticket": 0.021428571428571425,
+          "set_reminder": 0.021428571428571425,
+          "update_record": 0.021428571428571425,
+          "lookup_contact": 0.021428571428571425,
+          "no_function": 0.021428571428571425
+        },
+        "confidence": 0.85,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3d3e5bca080142d41d7a5bd04241473235597aca7d7bbf71227e3b5d682c0a65": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "send_email",
+        "probabilities": {
+          "send_email": 0.9571428571428571,
+          "schedule_meeting": 0.007142857142857155,
+          "create_ticket": 0.007142857142857155,
+          "set_reminder": 0.007142857142857155,
+          "update_record": 0.007142857142857155,
+          "lookup_contact": 0.007142857142857155,
+          "no_function": 0.007142857142857155
+        },
+        "confidence": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3e97dc42b75b54ec5ce89b22cbdbb6c860cf9c6ebacea532e19fff2d4f756195": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "no_function",
+        "probabilities": {
+          "send_email": 0.05000000000000001,
+          "schedule_meeting": 0.05000000000000001,
+          "create_ticket": 0.05000000000000001,
+          "set_reminder": 0.05000000000000001,
+          "update_record": 0.05000000000000001,
+          "lookup_contact": 0.05000000000000001,
+          "no_function": 0.7
+        },
+        "confidence": 0.65,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "43c934084d9d4b6ff7eef4ff60607ebd2166a7e9ef1dd1031491a22e6d5e0d54": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "send_email",
+        "probabilities": {
+          "send_email": 0.8457142857142856,
+          "schedule_meeting": 0.025714285714285728,
+          "create_ticket": 0.025714285714285728,
+          "set_reminder": 0.025714285714285728,
+          "update_record": 0.025714285714285728,
+          "lookup_contact": 0.025714285714285728,
+          "no_function": 0.025714285714285728
+        },
+        "confidence": 0.82,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "53b1d4afdd29bf2178e92ff4b6b3d84c418e3fe4841c1c17b7d1a630fdc89e0c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "set_reminder",
+        "probabilities": {
+          "send_email": 0.0357142857142857,
+          "schedule_meeting": 0.0357142857142857,
+          "create_ticket": 0.0357142857142857,
+          "set_reminder": 0.7857142857142858,
+          "update_record": 0.0357142857142857,
+          "lookup_contact": 0.0357142857142857,
+          "no_function": 0.0357142857142857
+        },
+        "confidence": 0.7500000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "55319578ccb03dbe8b9239fba854561284b2048bb6e9727b0a3b2ffbcce26429": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "create_ticket",
+        "probabilities": {
+          "send_email": 0.04571428571428571,
+          "schedule_meeting": 0.04571428571428571,
+          "create_ticket": 0.7257142857142858,
+          "set_reminder": 0.04571428571428571,
+          "update_record": 0.04571428571428571,
+          "lookup_contact": 0.04571428571428571,
+          "no_function": 0.04571428571428571
+        },
+        "confidence": 0.68,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5a0be7e82bdcb9ca50e2fcdc3a7a779a99fa9fc3dca501fb0c625b69db102f49": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "no_function",
+        "probabilities": {
+          "send_email": 0.021428571428571425,
+          "schedule_meeting": 0.021428571428571425,
+          "create_ticket": 0.021428571428571425,
+          "set_reminder": 0.021428571428571425,
+          "update_record": 0.021428571428571425,
+          "lookup_contact": 0.021428571428571425,
+          "no_function": 0.8714285714285714
+        },
+        "confidence": 0.85,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "623e9d5ba9cd17d0ae3b06494de28cfb65d32964bb077efeeb3eee5c86212164": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "schedule_meeting",
+        "probabilities": {
+          "send_email": 0.04571428571428571,
+          "schedule_meeting": 0.7257142857142858,
+          "create_ticket": 0.04571428571428571,
+          "set_reminder": 0.04571428571428571,
+          "update_record": 0.04571428571428571,
+          "lookup_contact": 0.04571428571428571,
+          "no_function": 0.04571428571428571
+        },
+        "confidence": 0.68,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6e7feac4e6ddc664fe28f9646b90921c58105b66b59fda2cd1c20c11be4c5555": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "lookup_contact",
+        "probabilities": {
+          "send_email": 0.04285714285714285,
+          "schedule_meeting": 0.04285714285714285,
+          "create_ticket": 0.04285714285714285,
+          "set_reminder": 0.04285714285714285,
+          "update_record": 0.04285714285714285,
+          "lookup_contact": 0.7428571428571429,
+          "no_function": 0.04285714285714285
+        },
+        "confidence": 0.7000000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7730314bfa198d88eea585d06e21e4f7c228739abcf902785818d71147583fc9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "schedule_meeting",
+        "probabilities": {
+          "send_email": 0.0357142857142857,
+          "schedule_meeting": 0.7857142857142858,
+          "create_ticket": 0.0357142857142857,
+          "set_reminder": 0.0357142857142857,
+          "update_record": 0.0357142857142857,
+          "lookup_contact": 0.0357142857142857,
+          "no_function": 0.0357142857142857
+        },
+        "confidence": 0.7500000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8255d05d2a68b76b00e330cd66e0cea1d1410364acbed2496f9600fb8c353467": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "send_email",
+        "probabilities": {
+          "send_email": 0.8714285714285714,
+          "schedule_meeting": 0.021428571428571425,
+          "create_ticket": 0.021428571428571425,
+          "set_reminder": 0.021428571428571425,
+          "update_record": 0.021428571428571425,
+          "lookup_contact": 0.021428571428571425,
+          "no_function": 0.021428571428571425
+        },
+        "confidence": 0.85,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "831c3aa06a557892938e8d9e146c3aaa5d7e96bfb71ff3833111bd43b42f0c75": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "set_reminder",
+        "probabilities": {
+          "send_email": 0.09285714285714286,
+          "schedule_meeting": 0.09285714285714286,
+          "create_ticket": 0.09285714285714286,
+          "set_reminder": 0.44285714285714284,
+          "update_record": 0.09285714285714286,
+          "lookup_contact": 0.09285714285714286,
+          "no_function": 0.09285714285714286
+        },
+        "confidence": 0.35,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "89b7efe8ff3ce4050558cb483643b87eeaaa0717d1a7e1de9a496d5ac7b33c50": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "set_reminder",
+        "probabilities": {
+          "send_email": 0.04,
+          "schedule_meeting": 0.04,
+          "create_ticket": 0.04,
+          "set_reminder": 0.76,
+          "update_record": 0.04,
+          "lookup_contact": 0.04,
+          "no_function": 0.04
+        },
+        "confidence": 0.7200000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8fa77601a6634a8dc02215d6e8f90f52a297ee72dc718e1fe960c33614a4ccfe": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "create_ticket",
+        "probabilities": {
+          "send_email": 0.08285714285714285,
+          "schedule_meeting": 0.08285714285714285,
+          "create_ticket": 0.5028571428571429,
+          "set_reminder": 0.08285714285714285,
+          "update_record": 0.08285714285714285,
+          "lookup_contact": 0.08285714285714285,
+          "no_function": 0.08285714285714285
+        },
+        "confidence": 0.42000000000000004,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "90a6e821d0d59695e16411c64c377363779ff2fb7e92e502fae6fdc653e8db2e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "create_ticket",
+        "probabilities": {
+          "send_email": 0.048571428571428564,
+          "schedule_meeting": 0.048571428571428564,
+          "create_ticket": 0.7085714285714286,
+          "set_reminder": 0.048571428571428564,
+          "update_record": 0.048571428571428564,
+          "lookup_contact": 0.048571428571428564,
+          "no_function": 0.048571428571428564
+        },
+        "confidence": 0.6600000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "92aa70950eb16a07ec33b58efc59948f6a57e7d5079a5b427b0a7bdb5544def2": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "create_ticket",
+        "probabilities": {
+          "send_email": 0.04285714285714285,
+          "schedule_meeting": 0.04285714285714285,
+          "create_ticket": 0.7428571428571429,
+          "set_reminder": 0.04285714285714285,
+          "update_record": 0.04285714285714285,
+          "lookup_contact": 0.04285714285714285,
+          "no_function": 0.04285714285714285
+        },
+        "confidence": 0.7000000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "944cd14d4bcbfbb65d05a67de1aec233540f711ba81f1dcd2dc06f7db30e8e92": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "update_record",
+        "probabilities": {
+          "send_email": 0.05000000000000001,
+          "schedule_meeting": 0.05000000000000001,
+          "create_ticket": 0.05000000000000001,
+          "set_reminder": 0.05000000000000001,
+          "update_record": 0.7,
+          "lookup_contact": 0.05000000000000001,
+          "no_function": 0.05000000000000001
+        },
+        "confidence": 0.65,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "97d4fcc8bdab3a049dc69ea692712098b9f7ee70fd9f73a188f41fc83d3aadd9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "create_ticket",
+        "probabilities": {
+          "send_email": 0.028571428571428543,
+          "schedule_meeting": 0.028571428571428543,
+          "create_ticket": 0.8285714285714287,
+          "set_reminder": 0.028571428571428543,
+          "update_record": 0.028571428571428543,
+          "lookup_contact": 0.028571428571428543,
+          "no_function": 0.028571428571428543
+        },
+        "confidence": 0.8000000000000002,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "99ca52a997b6fa8869e1e419d5cf5e46ff5e303fc4511ea07208d196594513f3": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "update_record",
+        "probabilities": {
+          "send_email": 0.05000000000000001,
+          "schedule_meeting": 0.05000000000000001,
+          "create_ticket": 0.05000000000000001,
+          "set_reminder": 0.05000000000000001,
+          "update_record": 0.7,
+          "lookup_contact": 0.05000000000000001,
+          "no_function": 0.05000000000000001
+        },
+        "confidence": 0.65,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9a5edc614e48685ceb4813ec66c326db13b5b24aeda6846b6a689c3d5c167da9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "no_function",
+        "probabilities": {
+          "send_email": 0.028571428571428543,
+          "schedule_meeting": 0.028571428571428543,
+          "create_ticket": 0.028571428571428543,
+          "set_reminder": 0.028571428571428543,
+          "update_record": 0.028571428571428543,
+          "lookup_contact": 0.028571428571428543,
+          "no_function": 0.8285714285714287
+        },
+        "confidence": 0.8000000000000002,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a13441e23b53134efa790aaaae95f34e4c76ff3d1186b135fc2c8bcdbeafc19c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "lookup_contact",
+        "probabilities": {
+          "send_email": 0.04285714285714285,
+          "schedule_meeting": 0.04285714285714285,
+          "create_ticket": 0.04285714285714285,
+          "set_reminder": 0.04285714285714285,
+          "update_record": 0.04285714285714285,
+          "lookup_contact": 0.7428571428571429,
+          "no_function": 0.04285714285714285
+        },
+        "confidence": 0.7000000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a19aaec01e19b4a1b39665f878f57a0cdf4078302ff8478d68dc15d8f2540c0f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "set_reminder",
+        "probabilities": {
+          "send_email": 0.03142857142857144,
+          "schedule_meeting": 0.03142857142857144,
+          "create_ticket": 0.03142857142857144,
+          "set_reminder": 0.8114285714285714,
+          "update_record": 0.03142857142857144,
+          "lookup_contact": 0.03142857142857144,
+          "no_function": 0.03142857142857144
+        },
+        "confidence": 0.7799999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a4887c54c54cace85484210dae19e42b3c2a39327469a65080cf484263f91c7d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "send_email",
+        "probabilities": {
+          "send_email": 0.8285714285714287,
+          "schedule_meeting": 0.028571428571428543,
+          "create_ticket": 0.028571428571428543,
+          "set_reminder": 0.028571428571428543,
+          "update_record": 0.028571428571428543,
+          "lookup_contact": 0.028571428571428543,
+          "no_function": 0.028571428571428543
+        },
+        "confidence": 0.8000000000000002,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ac13c13b7d223f492b0956a909cc0c924ba7a402b35b23ec2431423a6f50298e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "send_email",
+        "probabilities": {
+          "send_email": 0.8714285714285714,
+          "schedule_meeting": 0.021428571428571425,
+          "create_ticket": 0.021428571428571425,
+          "set_reminder": 0.021428571428571425,
+          "update_record": 0.021428571428571425,
+          "lookup_contact": 0.021428571428571425,
+          "no_function": 0.021428571428571425
+        },
+        "confidence": 0.85,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "be1b7309a820f71f610c520265f52b0c14a3d980908c15b6faaef843787fa267": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "send_email",
+        "probabilities": {
+          "send_email": 0.8285714285714287,
+          "schedule_meeting": 0.028571428571428543,
+          "create_ticket": 0.028571428571428543,
+          "set_reminder": 0.028571428571428543,
+          "update_record": 0.028571428571428543,
+          "lookup_contact": 0.028571428571428543,
+          "no_function": 0.028571428571428543
+        },
+        "confidence": 0.8000000000000002,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bf0b803a766a05bb9d0f8a4eb9f21560a40721d98134496e094fe60b99c368b5": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "set_reminder",
+        "probabilities": {
+          "send_email": 0.014285714285714271,
+          "schedule_meeting": 0.014285714285714271,
+          "create_ticket": 0.014285714285714271,
+          "set_reminder": 0.9142857142857144,
+          "update_record": 0.014285714285714271,
+          "lookup_contact": 0.014285714285714271,
+          "no_function": 0.014285714285714271
+        },
+        "confidence": 0.9000000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c69819e4aae3a1359c6b9bf86a5da9f9dc7054363c0f0355d33337b9895e9810": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "set_reminder",
+        "probabilities": {
+          "send_email": 0.09999999999999999,
+          "schedule_meeting": 0.09999999999999999,
+          "create_ticket": 0.09999999999999999,
+          "set_reminder": 0.4,
+          "update_record": 0.09999999999999999,
+          "lookup_contact": 0.09999999999999999,
+          "no_function": 0.09999999999999999
+        },
+        "confidence": 0.3,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c9b8aadee691f1c9c543403a2ec92a02d1e2959883d2d62da551b7cc24d20e6a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "set_reminder",
+        "probabilities": {
+          "send_email": 0.038571428571428555,
+          "schedule_meeting": 0.038571428571428555,
+          "create_ticket": 0.038571428571428555,
+          "set_reminder": 0.7685714285714287,
+          "update_record": 0.038571428571428555,
+          "lookup_contact": 0.038571428571428555,
+          "no_function": 0.038571428571428555
+        },
+        "confidence": 0.7300000000000002,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "cd4651769414bd6668a662b2e2f2e2b0d42976368f97bc491aa52ec8e051d8a4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "update_record",
+        "probabilities": {
+          "send_email": 0.05285714285714286,
+          "schedule_meeting": 0.05285714285714286,
+          "create_ticket": 0.05285714285714286,
+          "set_reminder": 0.05285714285714286,
+          "update_record": 0.6828571428571428,
+          "lookup_contact": 0.05285714285714286,
+          "no_function": 0.05285714285714286
+        },
+        "confidence": 0.63,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "decb88538b407730d27c8f2c4f4e75ab09a8c939d90cdacde775cd4773b486d1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "create_ticket",
+        "probabilities": {
+          "send_email": 0.0857142857142857,
+          "schedule_meeting": 0.0857142857142857,
+          "create_ticket": 0.48571428571428577,
+          "set_reminder": 0.0857142857142857,
+          "update_record": 0.0857142857142857,
+          "lookup_contact": 0.0857142857142857,
+          "no_function": 0.0857142857142857
+        },
+        "confidence": 0.4,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "df7a05af1662a1ecbb588681d1071635ff544edee6f10fcc338c150f07515dbd": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "send_email",
+        "probabilities": {
+          "send_email": 0.6142857142857143,
+          "schedule_meeting": 0.06428571428571428,
+          "create_ticket": 0.06428571428571428,
+          "set_reminder": 0.06428571428571428,
+          "update_record": 0.06428571428571428,
+          "lookup_contact": 0.06428571428571428,
+          "no_function": 0.06428571428571428
+        },
+        "confidence": 0.55,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e047433bb8cb124d65c41e3c017f60edf10e54b955bb9d9643918206a79364e9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "create_ticket",
+        "probabilities": {
+          "send_email": 0.0357142857142857,
+          "schedule_meeting": 0.0357142857142857,
+          "create_ticket": 0.7857142857142858,
+          "set_reminder": 0.0357142857142857,
+          "update_record": 0.0357142857142857,
+          "lookup_contact": 0.0357142857142857,
+          "no_function": 0.0357142857142857
+        },
+        "confidence": 0.7500000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f105460a33b41584e8e0f01a1135c8ec348e4f5338f1112ec0a898ebeab27c25": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "function": {
+        "type": "choice",
+        "choice": "update_record",
+        "probabilities": {
+          "send_email": 0.05428571428571427,
+          "schedule_meeting": 0.05428571428571427,
+          "create_ticket": 0.05428571428571427,
+          "set_reminder": 0.05428571428571427,
+          "update_record": 0.6742857142857144,
+          "lookup_contact": 0.05428571428571427,
+          "no_function": 0.05428571428571427
+        },
+        "confidence": 0.6200000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
