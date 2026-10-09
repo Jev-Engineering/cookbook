@@ -43,8 +43,8 @@ SYNONYM_DEFINITIONS: dict[str, str] = {
 # The fallback every sentence's option list carries, on top of its own candidate synonyms: the
 # use case names a sentence whose supplied candidates do not preserve the target word's meaning,
 # and Python must still offer a way to say so rather than forcing a pick among words that do not
-# fit. Unlike a Choice option that only ever means "the model could not decide" (recipes 07 and
-# 11 use one of those), `keep_original` is a real, final answer: it is the correct, scorable
+# fit. Unlike a Choice option that only ever means "the model could not decide" (recipe 07's
+# "unclear"), `keep_original` is a real, final answer: it is the correct, scorable
 # outcome whenever a fixture's gold set says no candidate fits, and it triggers no side effect
 # of its own (nothing is sent, moved or changed; the sentence is simply left as written), so it
 # never has to be routed to review just for being chosen -- it is held to the same confidence

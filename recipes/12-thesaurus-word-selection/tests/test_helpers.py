@@ -45,8 +45,11 @@ def confident_foreign():
 
 
 def test_candidate_options_adds_keep_original_with_a_gloss_for_every_candidate():
+    # Against a literal expected value, not helpers.KEEP_ORIGINAL itself: comparing against the
+    # module's own constant would still pass if the constant's value and candidate_options'
+    # ordering drifted together.
     criteria = helpers.candidate_options("quick", CANDIDATES)
-    assert list(criteria) == [*CANDIDATES, helpers.KEEP_ORIGINAL]
+    assert list(criteria) == ["fast", "swift", "speedy", "keep_original"]
     assert all(isinstance(d, str) and d for d in criteria.values())
 
 
@@ -60,8 +63,9 @@ def test_build_questions_names_the_word_and_keeps_candidate_order():
     assert list(questions) == ["synonym"]
     synonym = questions["synonym"]
     assert "quick" in synonym.instructions
-    assert helpers.KEEP_ORIGINAL in synonym.instructions
-    assert list(synonym.criteria) == [*CANDIDATES, helpers.KEEP_ORIGINAL]
+    assert "keep_original" in synonym.instructions
+    # Literal expected value: see test_candidate_options_adds_keep_original_with_a_gloss_for_every_candidate.
+    assert list(synonym.criteria) == ["fast", "swift", "speedy", "keep_original"]
 
 
 def test_the_state_hides_the_item_id_and_the_candidates():
@@ -82,10 +86,10 @@ def test_a_confident_option_is_accepted_whatever_it_is(option):
 
 
 def test_a_confident_keep_original_is_accepted_like_any_other_option():
-    # Unlike a Choice option that always means "the model could not decide" (recipes 07 and 11),
-    # keep_original is a real, final answer and triggers no side effect, so a confident
+    # Unlike a Choice option that always means "the model could not decide" (recipe 07's
+    # "unclear"), keep_original is a real, final answer and triggers no side effect, so a confident
     # keep_original is never routed to review just for being chosen.
-    a = confident(helpers.KEEP_ORIGINAL)
+    a = confident("keep_original")
     result = helpers.resolve("E1", a, CANDIDATES, 0.8)
     assert result.outcome == helpers.ACCEPTED
     assert result.reason == "confident"
@@ -103,7 +107,7 @@ def test_a_low_confidence_answer_goes_to_review_whatever_it_is(option):
 
 def test_choosing_an_option_never_offered_goes_to_review_even_when_confident():
     a = confident_foreign()
-    assert a.choice not in (*CANDIDATES, helpers.KEEP_ORIGINAL)
+    assert a.choice not in ("fast", "swift", "speedy", "keep_original")
     assert a.confidence >= 0.8
     result = helpers.resolve("E1", a, CANDIDATES, 0.0)
     assert result.outcome == helpers.REVIEW
@@ -153,8 +157,8 @@ def test_a_wrong_test_answer_clears_the_frozen_confidence_threshold():
     """The threshold this recipe freezes is chosen on `validation` exactly as the notebook does;
     this test recomputes it the same way and asserts that at least one `test` answer is wrong at
     or above it, so the selective-prediction risk the notebook reports on `test` is never zero by
-    construction (#163's lexicon lesson: ship this as its own test, not just a fixture
-    comment)."""
+    construction. This is its own test, not just a comment in `build_fixtures.py`, so a future
+    fixture edit that accidentally removes the wrong-and-confident case fails CI."""
     backend = get_backend(fixtures=responses_path(RECIPE))
     labels = load_labels(RECIPE)
     examples = load_inputs(RECIPE)
