@@ -6,6 +6,7 @@ import math
 import subprocess
 import sys
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -13,6 +14,10 @@ import pytest
 
 from jev_cookbook import answers as ans
 from jev_cookbook import evaluation as ev
+from jev_cookbook import get_backend, load_helpers
+from jev_cookbook.fixtures import load_inputs, load_labels, responses_path, select_split
+
+REPO = Path(__file__).resolve().parent.parent
 
 
 @dataclass
@@ -730,6 +735,27 @@ def test_top_k_query_accuracy_agrees_with_mean_recall_at_budget_for_single_relev
         )
 
 
+def test_top_k_query_accuracy_extracts_noul_and_score_exactly_as_recall_at_budget_does():
+    # Both ranking helpers must take `scores` identically (the docstrings each promise it): a
+    # mixed list of Noul and Score answers run through recall_at_budget/mean_recall_at_budget
+    # and through top_k_query_accuracy must each extract .noul/.score, not raise and not
+    # silently read a wrong number from the bare object.
+    relevant = [0, 1, 0]
+    scores = [NoulStub(0.2), NoulStub(0.9), ScoreStub(0.4, confidence=0.5)]
+    plain = [0.2, 0.9, 0.4]
+    assert ev.recall_at_budget(relevant, scores, 1) == pytest.approx(
+        ev.recall_at_budget(relevant, plain, 1)
+    )
+    assert ev.mean_recall_at_budget([(relevant, scores)], 1) == pytest.approx(
+        ev.mean_recall_at_budget([(relevant, plain)], 1)
+    )
+    assert ev.top_k_query_accuracy([(relevant, scores)], k=1) == pytest.approx(
+        ev.top_k_query_accuracy([(relevant, plain)], k=1)
+    )
+    # concretely: the Noul answer at index 1 (0.9) is the top score and is relevant.
+    assert ev.top_k_query_accuracy([(relevant, scores)], k=1) == pytest.approx(1.0)
+
+
 def test_top_k_query_accuracy_is_one_when_every_item_is_relevant():
     assert ev.top_k_query_accuracy([([1, 1, 1], [0.9, 0.1, 0.2])]) == 1.0
 
@@ -919,57 +945,235 @@ def test_evaluate_outcomes_errors():
         ev.evaluate_outcomes([True, 2], [True, False])  # not boolean/0/1
 
 
-def test_outcome_curve_equals_selective_curve_when_accepted_is_all_true():
-    accepted = [True] * len(SC)
-    oc = ev.outcome_curve(SF, accepted, SC)
+def test_outcome_curve_equals_selective_curve_when_exempt_is_none():
+    # No exemptions at all (the default `exempt=None`, and an explicit all-False mask) means
+    # the two curves are the same identity: outcome_curve exists for the *other* case.
+    oc = ev.outcome_curve(SF, SC)
     sc = ev.selective_curve(SC, SF)
     assert oc.thresholds.tolist() == sc.thresholds.tolist()
     assert oc.coverage == pytest.approx(sc.coverage)
     assert oc.accuracy == pytest.approx(sc.accuracy)
     assert oc.risk == pytest.approx(sc.risk)
+    oc_false = ev.outcome_curve(SF, SC, exempt=[False] * len(SC))
+    assert oc_false.coverage == pytest.approx(oc.coverage)
+    assert oc_false.accuracy == pytest.approx(oc.accuracy)
 
 
-def test_outcome_curve_uses_accepted_and_confidence_together():
-    # accepted True at 0, 1, 3 only (index 2 and 4 are an unconditional review branch, never
-    # answered whatever their confidence). correct True at 0, 1, 3.
+def test_outcome_curve_accepts_an_exempt_example_at_every_threshold():
+    # index 2 is exempt: accepted whatever its confidence (CONTRIBUTING.md section 4's
+    # fallback shape, e.g. recipe 11's no_clarification_needed or recipe 13's
+    # no_suitable_rewrite). Every other index is gated on confidence >= t as usual.
     confidence = [0.9, 0.8, 0.7, 0.6, 0.5]
-    accepted = [True, True, False, True, False]
     correct = [True, False, True, True, True]
-    c = ev.outcome_curve(confidence, accepted, correct)
+    exempt = [False, False, True, False, False]
+    c = ev.outcome_curve(confidence, correct, exempt=exempt)
     assert c.thresholds.tolist() == [0.9, 0.8, 0.7, 0.6, 0.5]
-    # t=0.9: sel {0} -> cov 1/5, acc 1/1=1.0 ; t=0.8: sel {0,1} -> cov 2/5, acc 1/2=0.5
-    # t=0.7: sel {0,1} (2 rejected) -> cov 2/5, acc 0.5 ; t=0.6: sel {0,1,3} -> cov 3/5, acc 2/3
-    # t=0.5: sel {0,1,3} (4 rejected) -> cov 3/5, acc 2/3
-    assert c.coverage == pytest.approx([1 / 5, 2 / 5, 2 / 5, 3 / 5, 3 / 5])
-    assert c.accuracy == pytest.approx([1.0, 0.5, 0.5, 2 / 3, 2 / 3])
+    # t=0.9: nonexempt>=0.9 {0}, + exempt {2} -> sel {0,2}: cov 2/5, acc (T,T)=1.0
+    # t=0.8: nonexempt>=0.8 {0,1}, + {2} -> sel {0,1,2}: cov 3/5, acc (T,F,T)=2/3
+    # t=0.7: nonexempt>=0.7 {0,1} (3's 0.6 < 0.7), + {2} -> sel {0,1,2}: cov 3/5, acc 2/3
+    # t=0.6: nonexempt>=0.6 {0,1,3}, + {2} -> sel {0,1,2,3}: cov 4/5, acc (T,F,T,T)=3/4
+    # t=0.5: nonexempt>=0.5 {0,1,3,4}, + {2} -> sel all: cov 1.0, acc (T,F,T,T,T)=4/5
+    assert c.coverage == pytest.approx([0.4, 0.6, 0.6, 0.8, 1.0])
+    assert c.accuracy == pytest.approx([1.0, 2 / 3, 2 / 3, 0.75, 0.8])
     assert c.risk == pytest.approx((1 - c.accuracy).tolist())
 
 
-def test_outcome_curve_is_nan_where_the_accepted_mask_selects_nothing():
-    # every example above the threshold happens to be one the rule itself rejected: a
-    # threshold can therefore answer nothing here, unlike selective_curve, where every
-    # threshold answers at least one example by construction.
-    confidence = [0.9, 0.8, 0.7]
-    accepted = [False, True, True]
-    correct = [True, True, False]
-    c = ev.outcome_curve(confidence, accepted, correct)
-    assert c.thresholds.tolist() == [0.9, 0.8, 0.7]
-    assert c.coverage == pytest.approx([0.0, 1 / 3, 2 / 3])
-    assert nan(c.accuracy[0]) and nan(c.risk[0])
-    assert c.accuracy[1] == pytest.approx(1.0)
-    assert c.accuracy[2] == pytest.approx(0.5)
+def test_outcome_curve_accuracy_is_never_nan_even_when_an_old_fixed_accept_mask_would_empty_out():
+    # Under the semantics this function replaced (a fixed `accepted & (confidence >= t)`
+    # mask), a threshold whose gate selected nothing but the rule's rejects used to read NaN
+    # (the case test_outcome_curve_is_nan_where_the_accepted_mask_selects_nothing covered
+    # before this fix round). `exempt` cannot reproduce that failure mode: an exempt example
+    # is selected at every threshold, and the top threshold is itself an observed confidence,
+    # so even with no exemptions at least that one example clears it -- the same guarantee
+    # selective_curve has. accuracy (and so risk) is therefore always defined here.
+    confidence = [0.9, 0.1, 0.1]
+    correct = [True, False, True]
+    exempt = [False, False, True]
+    c = ev.outcome_curve(confidence, correct, exempt=exempt)
+    assert not any(nan(a) for a in c.accuracy)
+    assert not any(nan(r) for r in c.risk)
+    # and with no exemptions at all, same as selective_curve: never NaN either.
+    c_none = ev.outcome_curve(confidence, correct)
+    assert not any(nan(a) for a in c_none.accuracy)
+
+
+def test_outcome_curve_accepts_choice_and_noul_answers():
+    # The docstring promises the same input contract as selective_curve: numbers, or
+    # Choice/Score answers (.confidence); Noul must go through noul_confidence first and a
+    # bare Noul answer raises with a pointer to it, exactly as selective_curve does.
+    answers = [ChoiceStub("a", confidence=c) for c in SF]
+    c = ev.outcome_curve(answers, SC)
+    assert c.coverage == pytest.approx(ev.selective_curve(SC, SF).coverage)
+    with pytest.raises(ValueError, match="noul_confidence"):
+        ev.outcome_curve([NoulStub(0.9), NoulStub(0.4)], [1, 0])
+    noul_answers = [NoulStub(0.9), NoulStub(0.4)]
+    ok_curve = ev.outcome_curve(ev.noul_confidence(noul_answers), [1, 0])
+    assert ok_curve.coverage.tolist() == [0.5, 1.0]
 
 
 def test_outcome_curve_rejects_out_of_range_confidence():
     with pytest.raises(ValueError, match=r"\[0, 1\]"):
-        ev.outcome_curve([0.9, -1.0, 0.5], [True, True, True], [True, True, True])
+        ev.outcome_curve([0.9, -1.0, 0.5], [True, True, True])
+
+
+def test_outcome_curve_rejects_non_boolean_exempt():
+    with pytest.raises(ValueError, match="exempt"):
+        ev.outcome_curve([0.9, 0.5], [True, True], exempt=[0, 2])
 
 
 def test_outcome_curve_errors():
     with pytest.raises(ValueError):
-        ev.outcome_curve([], [], [])
+        ev.outcome_curve([], [])
     with pytest.raises(ValueError):
-        ev.outcome_curve([0.9, 0.8], [True], [True, False])
+        ev.outcome_curve([0.9, 0.5], [True])  # confidences/correct length mismatch
+    with pytest.raises(ValueError):
+        ev.outcome_curve([0.9, 0.5], [True, True], exempt=[True])  # exempt length mismatch
+
+
+# ---------------------------------------------------------------- outcome_curve against merged recipes
+
+
+RECIPE_11 = REPO / "recipes" / "11-clarification-selection"
+RECIPE_13 = REPO / "recipes" / "13-candidate-rewrite-selection"
+
+
+def _row_at_or_above(curve: ev.SelectiveCurve, threshold: float) -> tuple[float, float, float]:
+    """The row whose selected set under ``confidence >= t`` is identical to
+    ``confidence >= threshold``: the smallest observed threshold still >= ``threshold`` selects
+    exactly the same examples, because no observed confidence lies strictly between them."""
+    candidates = [i for i, t in enumerate(curve.thresholds) if t >= threshold]
+    idx = max(candidates)  # thresholds descend: the last one >= threshold is the smallest
+    return float(curve.coverage[idx]), float(curve.accuracy[idx]), float(curve.risk[idx])
+
+
+def test_outcome_curve_reproduces_recipe_11s_evaluate_outcomes_at_its_frozen_gate():
+    """Recipe 11's `select_followup` (recipes/11-clarification-selection/helpers.py) accepts
+    `no_clarification_needed` whatever its confidence -- CONTRIBUTING.md section 4's exemption
+    -- and gates every other option on `confidence >= threshold`. Re-derived from the recipe's
+    own committed fixtures (ReplayBackend, no notebook executed, no network): at the notebook's
+    frozen gate, `outcome_curve`'s row must reproduce `evaluate_outcomes`'s coverage, accuracy
+    and risk on the test split, which differ from `evaluate_selective`'s confidence-only
+    numbers because of exactly one unconditionally-accepted wrong answer
+    (`t12-budget-wrong`)."""
+    helpers = load_helpers(RECIPE_11)
+    examples = load_inputs(RECIPE_11)
+    labels = load_labels(RECIPE_11)
+    backend = get_backend(fixtures=responses_path(RECIPE_11))
+    questions = helpers.build_questions()
+
+    def decide(example):
+        return backend.decide(helpers.build_state(example.fields), questions)["clarification"]
+
+    val_examples = select_split(examples, "validation")
+    val_answers = [decide(e) for e in val_examples]
+    val_gold = [labels[e.id] for e in val_examples]
+    real_match = [
+        (a.choice == g, a.confidence)
+        for a, g in zip(val_answers, val_gold, strict=True)
+        if a.choice != helpers.NO_CLARIFICATION_NEEDED
+    ]
+    threshold = ev.select_confidence_threshold(
+        [c for c, _ in real_match], [f for _, f in real_match], target_accuracy=1.0
+    )
+
+    test_examples = select_split(examples, "test")
+    test_answers = [decide(e) for e in test_examples]
+    test_gold = [labels[e.id] for e in test_examples]
+    test_results = [
+        helpers.select_followup(e.fields["task_id"], a, threshold)
+        for e, a in zip(test_examples, test_answers, strict=True)
+    ]
+    test_gold_by_id = {
+        e.fields["task_id"]: g for e, g in zip(test_examples, test_gold, strict=True)
+    }
+    test_accepted, test_correct = helpers.outcome_accounting(test_results, test_gold_by_id)
+    reference = ev.evaluate_outcomes(test_accepted, test_correct)
+
+    confidences = [a.confidence for a in test_answers]
+    correct = [a.choice == g for a, g in zip(test_answers, test_gold, strict=True)]
+    exempt = [a.choice == helpers.NO_CLARIFICATION_NEEDED for a in test_answers]
+    curve = ev.outcome_curve(confidences, correct, exempt=exempt)
+    row_coverage, row_accuracy, row_risk = _row_at_or_above(curve, threshold)
+
+    assert row_coverage == pytest.approx(reference.coverage)
+    assert row_accuracy == pytest.approx(reference.accuracy)
+    assert row_risk == pytest.approx(reference.risk)
+    # the numbers this notebook prints, as of this merge (comment 6081624400's own re-derivation)
+    assert (reference.coverage, reference.accuracy, reference.risk) == pytest.approx(
+        (0.9474, 0.8889, 0.1111), abs=1e-4
+    )
+    # the confidence-only view disagrees: it excludes the exempt wrong answer, reading smaller
+    # on both coverage and risk -- the more flattering number this function exists to avoid.
+    naive = ev.evaluate_selective(correct, confidences, threshold)
+    assert (naive.coverage, naive.accuracy, naive.risk) == pytest.approx(
+        (0.8947, 0.9412, 0.0588), abs=1e-4
+    )
+    naive_row_coverage, _, naive_row_risk = _row_at_or_above(
+        ev.selective_curve(correct, confidences), threshold
+    )
+    assert naive_row_coverage == pytest.approx(naive.coverage)
+    assert naive_row_risk == pytest.approx(naive.risk)
+
+
+def test_outcome_curve_reproduces_recipe_13s_evaluate_outcomes_at_its_frozen_gate():
+    """Recipe 13's `select_rewrite` (recipes/13-candidate-rewrite-selection/helpers.py) accepts
+    `no_suitable_rewrite` whatever its confidence, the same shape as recipe 11. Re-derived from
+    its own committed fixtures: at the frozen gate, `outcome_curve`'s row must reproduce
+    `evaluate_outcomes`'s test-split numbers, not `evaluate_selective`'s -- the two disagree
+    here because `t12-courtesy-credit-wrong`'s confidence (0.2267) sits below the gate (0.28)
+    but `select_rewrite` never checks a `no_suitable_rewrite` answer's confidence."""
+    helpers = load_helpers(RECIPE_13)
+    examples = load_inputs(RECIPE_13)
+    labels = load_labels(RECIPE_13)
+    backend = get_backend(fixtures=responses_path(RECIPE_13))
+    questions = helpers.build_questions()
+
+    def decide(example):
+        return backend.decide(helpers.build_state(example.fields), questions)["rewrite"]
+
+    val_examples = select_split(examples, "validation")
+    val_answers = [decide(e) for e in val_examples]
+    val_gold = [labels[e.id] for e in val_examples]
+    real_match = [
+        (a.choice == g, a.confidence)
+        for a, g in zip(val_answers, val_gold, strict=True)
+        if a.choice != helpers.NO_SUITABLE_REWRITE
+    ]
+    threshold = ev.select_confidence_threshold(
+        [c for c, _ in real_match], [f for _, f in real_match], target_accuracy=1.0
+    )
+
+    test_examples = select_split(examples, "test")
+    test_answers = [decide(e) for e in test_examples]
+    test_gold = [labels[e.id] for e in test_examples]
+
+    def select(e, a):
+        candidates = dict(zip(helpers.CANDIDATES, e.fields["candidates"], strict=True))
+        return helpers.select_rewrite(
+            e.fields["item_id"], a, e.fields["original"], candidates, threshold
+        )
+
+    test_results = [select(e, a) for e, a in zip(test_examples, test_answers, strict=True)]
+    test_accepted = [r.outcome != helpers.REVIEW for r in test_results]
+    test_correct = [a.choice == g for a, g in zip(test_answers, test_gold, strict=True)]
+    reference = ev.evaluate_outcomes(test_accepted, test_correct)
+
+    confidences = [a.confidence for a in test_answers]
+    exempt = [a.choice == helpers.NO_SUITABLE_REWRITE for a in test_answers]
+    curve = ev.outcome_curve(confidences, test_correct, exempt=exempt)
+    row_coverage, row_accuracy, row_risk = _row_at_or_above(curve, threshold)
+
+    assert row_coverage == pytest.approx(reference.coverage)
+    assert row_accuracy == pytest.approx(reference.accuracy)
+    assert row_risk == pytest.approx(reference.risk)
+    assert (reference.coverage, reference.accuracy, reference.risk) == pytest.approx(
+        (0.8421, 0.8750, 0.1250), abs=1e-4
+    )
+    # at this particular gate the confidence-only view happens to equal evaluate_selective's
+    # smaller numbers -- exactly the trap of plotting selective_curve for this rule.
+    naive = ev.evaluate_selective(test_correct, confidences, threshold)
+    assert naive.coverage == pytest.approx(0.7895, abs=1e-4)
+    assert naive.coverage != pytest.approx(reference.coverage)
 
 
 # ---------------------------------------------------------------- Calibration
@@ -1141,7 +1345,7 @@ EMPTY_CALLS = {
     ),
     "evaluate_selective": lambda: ev.evaluate_selective([], [], 0.5),
     "evaluate_outcomes": lambda: ev.evaluate_outcomes([], []),
-    "outcome_curve": lambda: ev.outcome_curve([], [], []),
+    "outcome_curve": lambda: ev.outcome_curve([], []),
     "reliability_table": lambda: ev.reliability_table([], []),
     "expected_calibration_error": lambda: ev.expected_calibration_error([], []),
     "paired_bootstrap_difference": lambda: ev.paired_bootstrap_difference([], [], seed=0),
@@ -1185,7 +1389,7 @@ MISMATCH_CALLS = {
     "recall_at_budget": lambda: ev.recall_at_budget([1], [1, 2], 1),
     "selective_curve": lambda: ev.selective_curve([1], [0.5, 0.5]),
     "evaluate_outcomes": lambda: ev.evaluate_outcomes([True], [True, False]),
-    "outcome_curve": lambda: ev.outcome_curve([0.5], [True, True], [True, True]),
+    "outcome_curve": lambda: ev.outcome_curve([0.5], [True, True]),
     "reliability_table": lambda: ev.reliability_table([0.5], [1, 0]),
     "paired_bootstrap_difference": lambda: ev.paired_bootstrap_difference([1], [1, 2], seed=0),
     "pool_label_decisions": lambda: ev.pool_label_decisions(

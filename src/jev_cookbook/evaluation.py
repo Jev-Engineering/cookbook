@@ -152,6 +152,14 @@ def _noul_value(x: Any) -> Any:
     return x.noul if hasattr(x, "noul") else x
 
 
+def _score_value(x: Any) -> Any:
+    """A ranking score: ``.noul`` or ``.score`` if present, else the value itself. Shared by
+    every ranking function (:func:`recall_at_budget`, :func:`mean_recall_at_budget`,
+    :func:`top_k_query_accuracy`) so they take ``scores`` identically, as their docstrings each
+    promise."""
+    return x.noul if hasattr(x, "noul") else x.score if hasattr(x, "score") else x
+
+
 def _floats(values: Iterable[Any], name: str, unit_interval: bool = False) -> np.ndarray:
     arr = np.asarray([float(v) for v in values], dtype=float)
     _require_nonempty(arr, name)
@@ -1185,13 +1193,7 @@ def recall_at_budget(gold_relevant: Iterable[Any], scores: Iterable[Any], budget
     if budget < 1:
         raise ValueError("budget must be at least 1")
     rel = _binary(_as_list(gold_relevant, "gold_relevant"), "gold_relevant").astype(float)
-    sc = _floats(
-        (
-            x.noul if hasattr(x, "noul") else x.score if hasattr(x, "score") else x
-            for x in _as_list(scores, "scores")
-        ),
-        "scores",
-    )
+    sc = _floats((_score_value(x) for x in _as_list(scores, "scores")), "scores")
     _same_length(rel, sc, "gold_relevant and scores")
     total = float(rel.sum())
     if total == 0:
@@ -1268,9 +1270,12 @@ def top_k_query_accuracy(queries: Iterable[tuple[Any, Any]], k: int = 1) -> floa
     the top-scored item relevant".
 
     Args:
-        queries: Pairs ``(gold_relevant, scores)``, one per query, exactly as :func:`ndcg` and
-            :func:`recall_at_budget` take them: ``gold_relevant`` is binary per item and
-            ``scores`` is each item's ranking score (higher ranks first), the same length.
+        queries: Pairs ``(gold_relevant, scores)``, one per query, exactly as
+            :func:`recall_at_budget` takes them: ``gold_relevant`` is binary per item and
+            ``scores`` is each item's ranking score (higher ranks first) -- a number, or a
+            Noul/Score answer (``.noul`` or ``.score``) -- the same length. (:func:`ndcg` takes
+            ``scores`` as Score answers or numbers only, not Noul; that is a pre-existing
+            inconsistency in this module, not one this function repeats.)
         k: Cut-off, at least 1. Larger than a query's list is the same as the whole list.
 
     Returns:
@@ -1285,7 +1290,7 @@ def top_k_query_accuracy(queries: Iterable[tuple[Any, Any]], k: int = 1) -> floa
     per_query = []
     for rel, sc in _as_list(queries, "queries"):
         relevant = _binary(_as_list(rel, "gold_relevant"), "gold_relevant")
-        scores = _floats(_as_list(sc, "scores"), "scores")
+        scores = _floats((_score_value(x) for x in _as_list(sc, "scores")), "scores")
         _same_length(relevant, scores, "gold_relevant and scores")
         per_query.append(_hit_probability(relevant, scores, k))
     defined = [v for v in per_query if not math.isnan(v)]
@@ -1526,57 +1531,72 @@ def evaluate_outcomes(accepted: Iterable[Any], correct: Iterable[Any]) -> Select
 
 
 def outcome_curve(
-    confidences: Iterable[Any], accepted: Iterable[Any], correct: Iterable[Any]
+    confidences: Iterable[Any],
+    correct: Iterable[Any],
+    *,
+    exempt: Iterable[Any] | None = None,
 ) -> SelectiveCurve:
-    """Risk and coverage of a rule's own outcomes, at every confidence threshold.
+    """Risk and coverage of a rule with an unconditionally-accepted branch, at every threshold.
 
     Companion to :func:`evaluate_outcomes` for a rule whose review branch is more than a
-    confidence gate: :func:`selective_curve` cannot plot that rule's curve, because it
-    reapplies ``confidence >= t`` alone and knows nothing about the rule's other branch (see
-    "Selective prediction" above). Here, for each distinct observed confidence ``t``
-    (descending, as in :func:`selective_curve`), the *selected* subset is ``accepted &
-    (confidence >= t)``: an example counts only when the rule actually accepted it **and** its
-    confidence clears ``t``. This is deliberately neither ``accepted`` alone (which would not
-    vary with ``t``, giving one flat point) nor ``confidence >= t`` alone (exactly what
-    :func:`selective_curve` already computes, and exactly the reconstruction "Selective
-    prediction" above warns against for such a rule). ``coverage`` is the selected share of all
-    examples; ``accuracy`` is the correct share of the selected ones; ``risk = 1 - accuracy``.
+    confidence gate, in the shape CONTRIBUTING.md section 4 describes: an explicit fallback
+    option (``no_match``, ``unclear``, ``no_suitable_rewrite``, ...) that the rule accepts
+    **regardless of its confidence**, with every other example still gated on
+    ``confidence >= t`` as usual. At threshold ``t`` the selected subset is::
 
-    Because the mask also requires ``accepted``, a threshold can select nothing even though
-    examples remain at or above it (every example at or above some ``t`` happened to be one the
-    rule itself rejected), unlike :func:`selective_curve`, where every threshold answers at
-    least one example by construction. ``accuracy`` (and so ``risk``) is NaN at such a
-    threshold; ``coverage`` is always defined (0.0 there).
+        exempt | (~exempt & (confidence >= t))
 
-    When ``accepted`` is all True, the mask reduces to ``confidence >= t`` for every ``t``, and
-    this function returns the same thresholds, coverage, accuracy and risk as
-    :func:`selective_curve` on the same ``confidences``/``correct`` (checked directly in
-    ``tests/test_evaluation.py``).
+    An ``exempt`` example counts at *every* threshold, however low its confidence; every other
+    example counts only once its confidence clears ``t``, exactly as in :func:`selective_curve`.
+    ``coverage`` is the selected share of all examples; ``accuracy`` is the correct share of the
+    selected ones; ``risk = 1 - accuracy``.
+
+    ``exempt=None`` (the default) means no exemptions at all: the mask reduces to
+    ``confidence >= t`` for every ``t``, and this function returns exactly the same thresholds,
+    coverage, accuracy and risk as :func:`selective_curve` on the same
+    ``confidences``/``correct`` (checked directly in ``tests/test_evaluation.py``,
+    ``test_outcome_curve_equals_selective_curve_when_exempt_is_none``). This is the only
+    condition under which the two curves coincide — see "Outcomes versus the confidence-only
+    view" in ``docs/evaluation.md`` for why a rule's own ``accepted`` decisions (as
+    :func:`evaluate_outcomes` takes them) must never be passed here as ``exempt``: ``exempt`` is
+    "accepted no matter what", not "was accepted", and confusing the two reproduces exactly the
+    capped-coverage bug this function exists to avoid.
+
+    Because an exempt example is always selected, every threshold answers at least one example
+    (the exempt ones, if any, plus whichever non-exempt examples currently clear ``t``), so
+    ``accuracy`` (and ``risk``) is never NaN here, unlike some other curves in this module.
+
+    This models only an unconditionally *accepted* branch (CONTRIBUTING.md section 4's
+    exemption). A rule that instead unconditionally *rejects* some examples regardless of
+    confidence (recipe 14's shape) has no single-``exempt`` encoding here; its curve is a later
+    extension, not this one.
 
     Args:
-        confidences: Per-example confidence, in [0, 1]: numbers, or Choice/Score answers
-            (``.confidence``). For Noul see :func:`noul_confidence`.
-        accepted: Whether the rule answered each example, as the rule itself decided it (bool
-            or 0/1), exactly as :func:`evaluate_outcomes` takes it.
-        correct: Whether each answered example's answer was right (bool or 0/1); required but
-            never read where ``accepted`` is False.
+        confidences: Per-example confidence, in [0, 1], for every example (exempt included):
+            numbers, or Choice/Score answers (``.confidence``). For Noul see
+            :func:`noul_confidence`.
+        correct: Whether each example's answer was right (bool or 0/1); read for every example,
+            exempt ones included, since an exempt example is accepted at every threshold.
+        exempt: Whether each example is accepted by the rule regardless of confidence (bool or
+            0/1), or ``None`` for no exemptions. Keyword-only.
 
     Returns:
         A :class:`SelectiveCurve` (the same shape :func:`selective_curve` returns, so
         ``jev_cookbook.style.plot_risk_coverage`` plots it unchanged). Empty input, unequal
-        lengths, or a confidence outside [0, 1] (a sentinel such as -1.0 included) raise
-        ``ValueError``.
+        lengths, a confidence outside [0, 1] (a sentinel such as -1.0 included), or an ``exempt``
+        that is not boolean/0/1 raise ``ValueError``.
     """
-    acc_mask = _binary(_as_list(accepted, "accepted"), "accepted")
-    ok = _binary(_as_list(correct, "correct"), "correct")
-    conf = _floats(_as_list(confidences, "confidences"), "confidences", unit_interval=True)
-    _same_length(acc_mask, ok, "accepted and correct")
-    _same_length(acc_mask, conf, "accepted and confidences")
+    ok, conf = _conf_inputs(correct, confidences)
+    if exempt is None:
+        exempt_mask = np.zeros(len(ok), dtype=bool)
+    else:
+        exempt_mask = _binary(_as_list(exempt, "exempt"), "exempt")
+        _same_length(ok, exempt_mask, "correct and exempt")
     thresholds = np.unique(conf)[::-1]
     n = len(ok)
     cov, accuracy = [], []
     for t in thresholds:
-        sel = acc_mask & (conf >= t)
+        sel = exempt_mask | (~exempt_mask & (conf >= t))
         n_sel = int(sel.sum())
         cov.append(n_sel / n)
         accuracy.append(float(ok[sel].mean()) if n_sel else float("nan"))

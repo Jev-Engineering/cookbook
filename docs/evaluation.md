@@ -30,7 +30,6 @@ out-of-range probabilities and invalid settings. No metric returns a number for 
 | recall at a budget, mean recall at a budget | no item is relevant (mean: skipped if some query has one; NaN if every query does) |
 | `top_k_query_accuracy` | no query has a relevant item |
 | selective accuracy | nothing was answered |
-| `outcome_curve` accuracy/risk at one threshold | the `accepted` mask selects nothing there, even though `confidence >= t` alone would not be empty |
 | `SelectiveResult.threshold` from `evaluate_outcomes` | always (no single confidence cut-off produced the split) |
 | reliability bin means | the bin is empty |
 | `fallback_metrics` precision / recall | the fallback was never chosen / no example's gold set was exactly the fallback |
@@ -101,22 +100,26 @@ on the *same* 0-1 scale as Choice (and Score) confidence, not a separate convent
 that gates both Noul and Choice answers with one confidence threshold can use `noul_confidence`
 and `.confidence` interchangeably.
 
-**Hand-written mirror probabilities can differ from `noul_confidence` by 1 ULP.** The formula
-uses `max(p, 1 - p)`, computed, so it is exactly mirror-symmetric: `noul_confidence([p])` equals
-`noul_confidence([1 - p])` when `1 - p` is *computed* from `p`. It is not guaranteed equal when a
-fixture instead writes out both halves of a mirror pair as separate decimal literals, because
-`1 - p` computed from `p` is not always bit-identical to the literal someone typed for "the
-mirror of `p`": `0.42` and `0.58` look like exact mirrors, but `1 - 0.42 == 0.5800000000000001`
-in floating point, one ULP above the literal `0.58`. Feed both literals to `noul_confidence` and
-the results differ by 1 ULP (`0.16000000000000014` for `0.42`, `0.15999999999999992` for `0.58`),
-even though both are meant to express the same nominal confidence, `0.16`. The practical
-consequence is in `selective_curve` (and anything built on it, including `outcome_curve` below):
-its candidate thresholds are `numpy.unique` of the observed confidences, so two fixture rows
-hand-written as separate mirror-pair literals can land as two *adjacent* threshold candidates
-("`gate >= 0.86`" printed twice, at a 1-ULP apart value) instead of coalescing into one. This is
-a property of floating-point decimal literals, not a bug in `noul_confidence` to fix by changing
-it here: #172 tracks rounding the confidence before candidate thresholds are taken (inside
-`noul_confidence`/`_conf_inputs`, or a dedupe in `selective_curve`) as a separate, later change.
+**Hand-written mirror probabilities can differ from `noul_confidence` by a few ULPs.** The
+formula uses `max(p, 1 - p)`, computed, so it is exactly mirror-symmetric: `noul_confidence([p])`
+equals `noul_confidence([1 - p])` when `1 - p` is *computed* from `p`. It is not guaranteed equal
+when a fixture instead writes out both halves of a mirror pair as separate decimal literals,
+because `1 - p` computed from `p` is not always bit-identical to the literal someone typed for
+"the mirror of `p`": the two *inputs* `0.42` and `0.58` look like exact mirrors, but
+`1 - 0.42 == 0.5800000000000001` in floating point, one ULP above the literal `0.58`. Feed both
+literals to `noul_confidence` and the two *results* differ too — `0.16000000000000014` for `0.42`,
+`0.15999999999999992` for `0.58`, eight ULPs apart (`math.ulp(0.16) == 2.7755575615628914e-17`;
+the gap between them is `2.220446049250313e-16`) — even though both are meant to express the same
+nominal confidence, `0.16`. The gap is not a fixed multiple: feeding `0.07`/`0.93` (nominal `0.86`)
+differs by only two ULPs. One input ULP does not land as one result ULP; it is "a few", and which
+few depends on the pair. The practical consequence is in `selective_curve` (and anything built on
+it, including `outcome_curve` below): its candidate thresholds are `numpy.unique` of the observed
+confidences, so two fixture rows hand-written as separate mirror-pair literals can land as two
+*adjacent* threshold candidates ("`gate >= 0.86`" printed twice, at a few-ULPs-apart value) instead
+of coalescing into one. This is a property of floating-point decimal literals, not a bug in
+`noul_confidence` to fix by changing it here: #172 tracks rounding the confidence before candidate
+thresholds are taken (inside `noul_confidence`/`_conf_inputs`, or a dedupe in `selective_curve`) as
+a separate, later change.
 
 ### Multi-label
 
@@ -209,6 +212,18 @@ confidence, threshold)` reports coverage, accuracy, risk. Abstentions are not er
 sentinel (`-1.0`, `2.0`, ...) cannot leak through `select_confidence_threshold` into a threshold
 and reach a rule's own `min_confidence` check.
 
+**`select_confidence_threshold` freezes the max-coverage cut that still meets the target, not the
+candidate nearest the target.** With `target_accuracy=...`, the value returned is the *lowest*
+threshold (so the *highest* coverage) among the distinct observed validation confidences whose
+answered subset has accuracy `>= target_accuracy`. On a small validation set the candidates can be
+too sparse for loosening the target to buy anything smoothly: recipe 17's validation data reaches
+`target_accuracy=1.0` at threshold `0.5600`, but *every* target from `0.95` down to the function's
+own floor returns the same `0.0600` — the one wrong validation answer sits at confidence `0.10`,
+and the next distinct confidence below the perfect cut is `0.06`, so there is nothing between them
+for a looser target to land on. The code runs without error either way; only looking at the
+candidate confidences themselves (or at `selective_curve` on the same data) shows why loosening
+the target did not move the frozen value until it crossed that gap.
+
 **A rule whose review branch is more than a confidence gate needs `evaluate_outcomes`, not a
 sentinel.** `evaluate_selective` reapplies `confidence >= threshold` itself; it never calls the
 rule. That is exactly right when the rule's only review branch *is* that gate — nothing else can
@@ -268,31 +283,46 @@ Use `evaluate_outcomes` as soon as the rule has a second, unconditional branch (
 option, a membership check): build `accepted` from what the rule returned on each split, and
 never invent a confidence for the examples it rejects outright.
 
-**`outcome_curve(confidences, accepted, correct)` is `evaluate_outcomes`'s risk–coverage curve.**
-`selective_curve` cannot plot such a rule's curve either, for the same reason `evaluate_selective`
-cannot report its single number: it reapplies `confidence >= t` alone and knows nothing about the
-rule's other branch. `outcome_curve` is the curve version of the fix: for each distinct observed
-confidence `t` (descending, as in `selective_curve`), the selected subset is **`accepted &
-(confidence >= t)`** — an example counts at threshold `t` only when the rule actually accepted it
-*and* its confidence clears `t`. This is deliberately neither `accepted` alone (which would not
-vary with `t`, giving one flat point, not a curve) nor `confidence >= t` alone (exactly what
-`selective_curve` already computes, and exactly the reconstruction the sentinel warning above is
-about). Rows have the same shape `selective_curve` returns (`thresholds`, `coverage`, `accuracy`,
-`risk`), so `plot_risk_coverage` plots either one unchanged:
+**`outcome_curve(confidences, correct, *, exempt=None)` is the risk–coverage curve for a rule
+with an unconditionally-accepted branch.** This is narrower than `evaluate_outcomes`: it models
+only the CONTRIBUTING.md section 4 shape, an explicit fallback option (`no_match`, `unclear`,
+`no_suitable_rewrite`, ...) the rule accepts *regardless of its confidence*, with every other
+example still gated on `confidence >= t` as usual. `exempt` is a boolean mask marking those
+fallback examples; at each distinct observed confidence `t` (descending, as in
+`selective_curve`), the selected subset is:
 
 ```python
-curve = outcome_curve(test_confidence, test_accepted, test_correct)
+exempt | (~exempt & (confidence >= t))
+```
+
+An `exempt` example counts at *every* threshold, however low its confidence; every other example
+counts only once its confidence clears `t`, exactly as `selective_curve` already computes for it.
+Rows have the same shape `selective_curve` returns (`thresholds`, `coverage`, `accuracy`, `risk`),
+so `plot_risk_coverage` plots either one unchanged:
+
+```python
+curve = outcome_curve(test_confidence, test_correct, exempt=test_exempt)
 plot_risk_coverage(curve, label="test")  # same call as for a selective_curve result
 ```
 
-Because the mask also requires `accepted`, a threshold can select nothing even though examples
-remain at or above it (every example at or above some `t` happened to be one the rule itself
-rejected) — unlike `selective_curve`, where every threshold answers at least one example by
-construction. `accuracy` (and so `risk`) is NaN at such a threshold; `coverage` is always defined
-(`0.0` there). When `accepted` is all `True`, the mask reduces to `confidence >= t` for every
-`t`, and `outcome_curve` returns exactly what `selective_curve` would on the same
+`exempt=None` (the default) means no exemptions at all: the mask reduces to `confidence >= t` for
+every `t`, and `outcome_curve` returns exactly what `selective_curve` would on the same
 `confidences`/`correct` — checked directly in `tests/test_evaluation.py`,
-`test_outcome_curve_equals_selective_curve_when_accepted_is_all_true`.
+`test_outcome_curve_equals_selective_curve_when_exempt_is_none`. **This is the only condition
+under which the two curves coincide.** Do not pass a rule's own `accepted` array (what
+`evaluate_outcomes` takes) as `exempt`: `accepted` means "was accepted at the gate actually used";
+`exempt` means "accepted no matter what gate is swept". Confusing the two — treating "the rule
+happened to accept this one" as "this one is exempt from the sweep" — reproduces a capped-coverage
+curve that stops rising once `t` falls below whatever gate `accepted` was built from, which is
+exactly the bug this function's signature now rules out (see "The curves coincide under a
+narrower condition" below for a worked example). Because an `exempt` example is always selected, `accuracy` (and so `risk`) is
+never NaN here: every threshold answers at least one example, unlike some other curves in this
+module where a threshold can select nothing.
+
+This function has no counterpart for a rule that *unconditionally rejects* some examples
+regardless of confidence (recipe 14's shape, as opposed to recipe 11's and 13's unconditional
+*accept*): there is no single `exempt`-shaped argument for "always sent to review no matter how
+confident", so such a rule's curve is not yet expressible here.
 
 ### Outcomes versus the confidence-only view
 
@@ -303,15 +333,39 @@ gate needs to know which one it is reading:
   `evaluate_selective`) answers "what would a pure confidence gate do here", by reapplying
   `confidence >= threshold` itself. It never calls the rule.
 * **The outcomes view** (`evaluate_outcomes`, `outcome_curve`) answers "what did the rule itself
-  do", from `accepted`/`correct` as the rule actually returned them.
+  do": `evaluate_outcomes` from `accepted`/`correct` as the rule actually returned them;
+  `outcome_curve` from `correct` and an `exempt` mask naming the rule's own unconditionally-
+  accepted examples (CONTRIBUTING.md section 4), with every other example still gated on
+  confidence.
 
-**When they coincide.** If the rule's only review branch *is* the confidence gate — nothing else
-can send an example to review, and nothing lets one through regardless of confidence — the two
-views agree on every field but `threshold` (`evaluate_outcomes`'s `SelectiveResult.threshold` is
-NaN; the confidence-only functions report the frozen float). This is the case `test_evaluate_outcomes_matches_evaluate_selective_for_a_confidence_only_rule`
-checks directly, and it is also why a recipe built exactly that way can report either number: for
-a multi-label Noul rule, `pool_label_decisions` fed to `evaluate_selective` and
-`pool_label_outcomes` fed to `evaluate_outcomes` give the same pooled coverage, accuracy and risk.
+**When the single numbers coincide.** If the rule's only review branch *is* the confidence gate —
+nothing else can send an example to review, and nothing lets one through regardless of confidence
+— `evaluate_outcomes` and `evaluate_selective` agree on every field but `threshold`
+(`evaluate_outcomes`'s `SelectiveResult.threshold` is NaN; the confidence-only function reports
+the frozen float). This is the case
+`test_evaluate_outcomes_matches_evaluate_selective_for_a_confidence_only_rule` checks directly,
+and it is also why a recipe built exactly that way can report either number: for a multi-label
+Noul rule, `pool_label_decisions` fed to `evaluate_selective` and `pool_label_outcomes` fed to
+`evaluate_outcomes` give the same pooled coverage, accuracy and risk.
+
+**The curves coincide under a narrower condition: `exempt` empty or `None`, not merely "no second
+branch".** `outcome_curve(confidences, correct, exempt=None)` equals `selective_curve(correct,
+confidences)` exactly, by construction — `exempt=None` is unconditionally no exemptions, so this
+holds for *any* rule, confidence-only or not, as long as `exempt` is actually left empty. The
+trap is passing something else there by mistake. Recipe 06 (`pool_label_decisions`/
+`pool_label_outcomes`) is a genuinely confidence-only rule: one global `uncertain` gate (`0.1200`)
+is its only review branch, no fallback label. Its own `accepted` array (what `pool_label_outcomes`
+builds, and what `evaluate_outcomes` correctly takes) is `confidence >= 0.1200` — a *fixed*
+snapshot of that one gate. Reusing that array as `outcome_curve`'s `exempt` argument (instead of
+leaving `exempt=None`, which is what a confidence-only rule actually calls for) does not produce
+recipe 06's curve: on its validation split, sweeping `t` down from `1.0` with `exempt` fixed to
+`confidence >= 0.12` caps coverage at `0.9368` — the share already fixed-gated in — where
+`selective_curve` on the same data rises to `1.0000` as `t` falls below every observed confidence.
+The fixed array was never "accepted no matter what `t` is swept"; it was "accepted at the one gate
+already applied", and feeding it in as `exempt` silently reintroduces exactly the fixed-mask bug
+this function's signature exists to rule out. The correct call for recipe 06 is simply
+`outcome_curve(confidence, correct)`, no `exempt` at all — which, being confidence-only, then
+agrees with `selective_curve` exactly.
 
 **When they differ.** As soon as the rule has a second, unconditional branch — an explicit
 fallback option such as `no_match` or `unclear` that is never confidence-checked (CONTRIBUTING.md
@@ -333,11 +387,13 @@ no check at all, which is exactly the failure mode an explicit review outcome ex
 recipe that does legitimately exempt a true fallback option from its gate should still show the
 reader what gating it too would have cost or bought, as a reported counterfactual, not a silent
 choice: build a second `accepted` that routes the exempted option through the same confidence
-check as everything else, and report both `evaluate_outcomes` results (or both `outcome_curve`
-curves) side by side, so "we chose to exempt this option" and "here is what gating it would have
-looked like" are both on the page. (A recipe that decided *not* to exempt a permissive option at
-all, gating it like everything else, needs none of this: its own `evaluate_outcomes` and
-`evaluate_selective` already agree, exactly as in "when they coincide" above.)
+check as everything else, and report both `evaluate_outcomes` results side by side (or, for the
+curve, two `outcome_curve` calls on the same `confidences`/`correct`: the real one with `exempt`
+set, the counterfactual with `exempt=None`), so "we chose to exempt this option" and "here is
+what gating it would have looked like" are both on the page. (A recipe that decided
+*not* to exempt a permissive option at all, gating it like everything else, needs none of this:
+its own `evaluate_outcomes` and `evaluate_selective` already agree, exactly as in "when the
+single numbers coincide" above.)
 
 ### Noul three-path pattern
 
