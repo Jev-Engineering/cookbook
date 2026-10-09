@@ -184,18 +184,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "19-ci-failure-classification",
         "no_issue_citations",
     ): '"the issue" in build_fixtures.py (R10); see #163',
-    (
-        "20-claim-support-classification",
-        "no_issue_citations",
-    ): '"the issue" in helpers.py and build_fixtures.py (R10); see #163',
-    (
-        "22-cmdb-asset-matching",
-        "no_issue_citations",
-    ): '"the issue" in notebook:per-class-no-match-md and notebook:side-effect-md (R10); see #163',
-    (
-        "23-pairwise-answer-evaluation",
-        "no_issue_citations",
-    ): '"the issue" in build_fixtures.py and notebook:by-label-md (R10); see #163',
     # --- check 3: test_stored_answers_are_not_all_right is the strong form -------------------
     # R7, extended to the six Level 1 recipes Wave 2 never reviewed (01-10 are outside its
     # "Level 2 recipes 11-23" scope): 01-06, 08-10 have no test_stored_answers_are_not_all_right
@@ -255,10 +243,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     ): "weak assert-wrong form, not re-derived from the frozen threshold (R7); see #163",
     (
         "19-ci-failure-classification",
-        "stored_answers_strong_form",
-    ): "weak assert-wrong form, not re-derived from the frozen threshold (R7); see #163",
-    (
-        "20-claim-support-classification",
         "stored_answers_strong_form",
     ): "weak assert-wrong form, not re-derived from the frozen threshold (R7); see #163",
     # --- check 4a: a validation metric line carries both {selection} and {check} -------------
@@ -393,20 +377,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "13-candidate-rewrite-selection",
         "print_what_you_plot",
     ): "plot_confusion_matrix in evaluation-test prints only a list of wrong ids, not the matrix's own counts; see #163",
-    (
-        "20-claim-support-classification",
-        "print_what_you_plot",
-    ): "plot_confusion_matrix in eval-test prints only aggregate accuracy, not the matrix's own counts; see #163",
-    (
-        "23-pairwise-answer-evaluation",
-        "print_what_you_plot",
-    ): "plot_confusion_matrix in eval-confusion prints nothing (R4); see #163",
-    # --- check 6a: every Next-steps link target exists on disk -------------------------------
-    # R20: a forward link to a recipe not yet published, which docs/recipe-template.md forbids.
-    (
-        "21-quiz-answer-adjudication",
-        "next_steps_links_exist",
-    ): "next-md links ../36-card-game-action-selection/, not published on main (R20); see #163",
     # --- check 6b: every recipe is the target of some other recipe's Next steps -------------
     # R21: a published recipe no other recipe's Next steps links to.
     (
@@ -429,18 +399,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "19-ci-failure-classification",
         "next_steps_inbound_links",
     ): "no other published recipe's Next steps links ../19-ci-failure-classification/ (R21); see #163",
-    (
-        "21-quiz-answer-adjudication",
-        "next_steps_inbound_links",
-    ): "no other published recipe's Next steps links ../21-quiz-answer-adjudication/ (R21); see #163",
-    (
-        "22-cmdb-asset-matching",
-        "next_steps_inbound_links",
-    ): "no other published recipe's Next steps links ../22-cmdb-asset-matching/ (R21); see #163",
-    (
-        "23-pairwise-answer-evaluation",
-        "next_steps_inbound_links",
-    ): "no other published recipe's Next steps links ../23-pairwise-answer-evaluation/ (R21); see #163",
     # --- check 7a: helpers.REVIEW == "review" where it exists, traced where it does not -----
     # PR #186 review MC3 / fix round 2 suggestion 2: 09 ships a different REVIEW value directly;
     # 06 and 21's confidence-gated outcome, traced through the reason string, is not "review"
@@ -454,10 +412,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "09-file-organization",
         "review_value_is_review",
     ): 'REVIEW = "unsorted", not "review" (PR #186 review MC3); see #163',
-    (
-        "21-quiz-answer-adjudication",
-        "review_value_is_review",
-    ): 'the confidence-gated outcome (NEEDS_REVIEW) is "needs_review", not "review"; see #163',
     # --- check 7b: the exact reason string "confidence below the threshold" in helpers.py ----
     (
         "02-refund-intent-detection",
