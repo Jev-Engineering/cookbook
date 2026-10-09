@@ -1,0 +1,1002 @@
+{
+  "115eb7b9317d8cd289855ded6802b8fa7b66c75d1b8bcdc5d5c20cd1611a9022": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "test_regression",
+        "probabilities": {
+          "test_regression": 0.8,
+          "dependency_problem": 0.06666666666666665,
+          "infrastructure_failure": 0.06666666666666665,
+          "unknown": 0.06666666666666665
+        },
+        "confidence": 0.7333333333333334,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1d173b7b279cc352966774bbd46e8c42385511fe06d8e53deaa487096ad206f0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "test_regression",
+        "probabilities": {
+          "test_regression": 0.85,
+          "dependency_problem": 0.05000000000000001,
+          "infrastructure_failure": 0.05000000000000001,
+          "unknown": 0.05000000000000001
+        },
+        "confidence": 0.7999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2052b72585f558369b3ef976d7525be5ec28d7a80f6e56268af26a2280f7b12a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "infrastructure_failure",
+        "probabilities": {
+          "test_regression": 0.11666666666666665,
+          "dependency_problem": 0.11666666666666665,
+          "infrastructure_failure": 0.65,
+          "unknown": 0.11666666666666665
+        },
+        "confidence": 0.5333333333333333,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "24242e7ebb87bdfa489023637e15112f9c97e64a3a02e5d48c8fa748f8ae95b0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "dependency_problem",
+        "probabilities": {
+          "test_regression": 0.19999999999999998,
+          "dependency_problem": 0.4,
+          "infrastructure_failure": 0.19999999999999998,
+          "unknown": 0.19999999999999998
+        },
+        "confidence": 0.20000000000000004,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "261c57c7095ef5a1049ff580163deaee14f5ac44eed5b686bacc1d0ec4f4b881": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "test_regression",
+        "probabilities": {
+          "test_regression": 0.68,
+          "dependency_problem": 0.10666666666666665,
+          "infrastructure_failure": 0.10666666666666665,
+          "unknown": 0.10666666666666665
+        },
+        "confidence": 0.5733333333333334,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3536167ecef6b777c490205670ff8be19200c0d51806c18a56159e56ba5bf802": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "test_regression": 0.11666666666666665,
+          "dependency_problem": 0.11666666666666665,
+          "infrastructure_failure": 0.11666666666666665,
+          "unknown": 0.65
+        },
+        "confidence": 0.5333333333333333,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3aa2d79c91ae822c0cefdb2c6234389476824c9724c14319688254bfe0319b92": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "test_regression",
+        "probabilities": {
+          "test_regression": 0.62,
+          "dependency_problem": 0.12666666666666668,
+          "infrastructure_failure": 0.12666666666666668,
+          "unknown": 0.12666666666666668
+        },
+        "confidence": 0.49333333333333335,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3caa9ca8e5269eed56d9c4033806fedce3cb3c9beebc490b308b4e53ddb2440b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "infrastructure_failure",
+        "probabilities": {
+          "test_regression": 0.04666666666666667,
+          "dependency_problem": 0.04666666666666667,
+          "infrastructure_failure": 0.86,
+          "unknown": 0.04666666666666667
+        },
+        "confidence": 0.8133333333333334,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "43716586b2e85b2f433ad9c89961d4628d5c0032c9b024d89de50c8fd55c2d92": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "test_regression": 0.19999999999999998,
+          "dependency_problem": 0.19999999999999998,
+          "infrastructure_failure": 0.19999999999999998,
+          "unknown": 0.4
+        },
+        "confidence": 0.20000000000000004,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4e1fe0ca7daeba8821163412075cfafeab77636d047b317d4de2667d72d5cd08": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "infrastructure_failure",
+        "probabilities": {
+          "test_regression": 0.10000000000000002,
+          "dependency_problem": 0.10000000000000002,
+          "infrastructure_failure": 0.7,
+          "unknown": 0.10000000000000002
+        },
+        "confidence": 0.6,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "59571181de28ea834b365a32226571c2b5afb99a4d96dcc83ff508719dceb33e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "test_regression": 0.08333333333333333,
+          "dependency_problem": 0.08333333333333333,
+          "infrastructure_failure": 0.08333333333333333,
+          "unknown": 0.75
+        },
+        "confidence": 0.6666666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "63ba13778ceb4a1effb81b9d5f2488e58cb9e58ba09658f85b644f3d29eee2f0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "dependency_problem",
+        "probabilities": {
+          "test_regression": 0.14,
+          "dependency_problem": 0.58,
+          "infrastructure_failure": 0.14,
+          "unknown": 0.14
+        },
+        "confidence": 0.43999999999999995,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6c117c72fbeaddabd4468b1b37524f3350c54d8c88cb2664fe15cfd67876329e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "test_regression",
+        "probabilities": {
+          "test_regression": 0.52,
+          "dependency_problem": 0.16,
+          "infrastructure_failure": 0.16,
+          "unknown": 0.16
+        },
+        "confidence": 0.36000000000000004,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6d379b3c85ea168d4d97336b937fe562e195553b12dc11024f649b22083d20b6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "test_regression": 0.06000000000000002,
+          "dependency_problem": 0.06000000000000002,
+          "infrastructure_failure": 0.06000000000000002,
+          "unknown": 0.82
+        },
+        "confidence": 0.7599999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7355985e0b38c85866bd420c626552083fc152e86f48b870f6799b3c04f53d1d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "test_regression": 0.13,
+          "dependency_problem": 0.13,
+          "infrastructure_failure": 0.13,
+          "unknown": 0.61
+        },
+        "confidence": 0.48,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "806989af751f57180d6f41b0512ab61450ef0e2f5220429fd02e9352392cbcb9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "infrastructure_failure",
+        "probabilities": {
+          "test_regression": 0.12333333333333334,
+          "dependency_problem": 0.12333333333333334,
+          "infrastructure_failure": 0.63,
+          "unknown": 0.12333333333333334
+        },
+        "confidence": 0.5066666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "85a2262f42b1532345369af91e0fa187719d97163d3430ca5ea80400dd6157d1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "test_regression": 0.18666666666666668,
+          "dependency_problem": 0.18666666666666668,
+          "infrastructure_failure": 0.18666666666666668,
+          "unknown": 0.44
+        },
+        "confidence": 0.25333333333333335,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8b8fa0468eaf897c8816d8fc96d516b7633b8561fdd31b96d068b916be5e9f15": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "test_regression": 0.21,
+          "dependency_problem": 0.21,
+          "infrastructure_failure": 0.21,
+          "unknown": 0.37
+        },
+        "confidence": 0.16,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "969ec9000b21bd2bfc4b3c3c69aebb42e11d3cc30950a25cc10ec2d082ee8a9d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "dependency_problem",
+        "probabilities": {
+          "test_regression": 0.13333333333333333,
+          "dependency_problem": 0.6,
+          "infrastructure_failure": 0.13333333333333333,
+          "unknown": 0.13333333333333333
+        },
+        "confidence": 0.4666666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9807e4845489137c0e5b11de9d1724c1be3dcbe521b8d02eac00578292e07606": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "infrastructure_failure",
+        "probabilities": {
+          "test_regression": 0.11666666666666665,
+          "dependency_problem": 0.11666666666666665,
+          "infrastructure_failure": 0.65,
+          "unknown": 0.11666666666666665
+        },
+        "confidence": 0.5333333333333333,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9ada69353791c9f2f5c9bb6445b417b56fe404204aa193a305a548a07cabba46": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "infrastructure_failure",
+        "probabilities": {
+          "test_regression": 0.05000000000000001,
+          "dependency_problem": 0.05000000000000001,
+          "infrastructure_failure": 0.85,
+          "unknown": 0.05000000000000001
+        },
+        "confidence": 0.7999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9b8a6fa6781c65331c90f989e8f7607d07002d911993768d1a22a375f3a1c7b8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "dependency_problem",
+        "probabilities": {
+          "test_regression": 0.11666666666666665,
+          "dependency_problem": 0.65,
+          "infrastructure_failure": 0.11666666666666665,
+          "unknown": 0.11666666666666665
+        },
+        "confidence": 0.5333333333333333,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9f0b845ed6e84f7cabe45acfd9a8402cef3b0b9b63df93a2144727e7983761c1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "test_regression",
+        "probabilities": {
+          "test_regression": 0.65,
+          "dependency_problem": 0.11666666666666665,
+          "infrastructure_failure": 0.11666666666666665,
+          "unknown": 0.11666666666666665
+        },
+        "confidence": 0.5333333333333333,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9f4aa86d4b18d1d0057b6cf7a384a2be130f768989036117205a18c8d29357e6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "dependency_problem",
+        "probabilities": {
+          "test_regression": 0.05000000000000001,
+          "dependency_problem": 0.85,
+          "infrastructure_failure": 0.05000000000000001,
+          "unknown": 0.05000000000000001
+        },
+        "confidence": 0.7999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a171770588b09a5a59b3163cd0096955645c063044d577fd1a47067e29269f71": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "infrastructure_failure",
+        "probabilities": {
+          "test_regression": 0.05000000000000001,
+          "dependency_problem": 0.05000000000000001,
+          "infrastructure_failure": 0.85,
+          "unknown": 0.05000000000000001
+        },
+        "confidence": 0.7999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a2ad2bb21041989ce4abc36d8eb748fcd46d3474a1589972d99174bba96ff0c8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "test_regression",
+        "probabilities": {
+          "test_regression": 0.65,
+          "dependency_problem": 0.11666666666666665,
+          "infrastructure_failure": 0.11666666666666665,
+          "unknown": 0.11666666666666665
+        },
+        "confidence": 0.5333333333333333,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a560cfc39406dac05dcf87eda1924378ed3db1fa6ec3deb2da62f5067c2614a1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "dependency_problem",
+        "probabilities": {
+          "test_regression": 0.05000000000000001,
+          "dependency_problem": 0.85,
+          "infrastructure_failure": 0.05000000000000001,
+          "unknown": 0.05000000000000001
+        },
+        "confidence": 0.7999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a6d9e507481be39b455ca4b9030efa2e708034c7236faad9b07088a23e8515ad": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "test_regression": 0.05000000000000001,
+          "dependency_problem": 0.05000000000000001,
+          "infrastructure_failure": 0.05000000000000001,
+          "unknown": 0.85
+        },
+        "confidence": 0.7999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b2a0904534e906a91a358ea8dd4760bd5d57727c534be9422a5951df02d6d9f4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "test_regression",
+        "probabilities": {
+          "test_regression": 0.85,
+          "dependency_problem": 0.05000000000000001,
+          "infrastructure_failure": 0.05000000000000001,
+          "unknown": 0.05000000000000001
+        },
+        "confidence": 0.7999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b3ce26143fcabd0eaefba4545fa64029a2de49d0be00637335f1ea5750a43018": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "infrastructure_failure",
+        "probabilities": {
+          "test_regression": 0.19999999999999998,
+          "dependency_problem": 0.19999999999999998,
+          "infrastructure_failure": 0.4,
+          "unknown": 0.19999999999999998
+        },
+        "confidence": 0.20000000000000004,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b9ce9e3659ef420918a7399ea307c02356ea371c86b767c400657b02bdac480b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "dependency_problem",
+        "probabilities": {
+          "test_regression": 0.04,
+          "dependency_problem": 0.88,
+          "infrastructure_failure": 0.04,
+          "unknown": 0.04
+        },
+        "confidence": 0.84,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "cd27e2a9c42e314ad28cd4637234f02d4682183377dfeff3d74bcb33b33209be": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "test_regression": 0.11666666666666665,
+          "dependency_problem": 0.11666666666666665,
+          "infrastructure_failure": 0.11666666666666665,
+          "unknown": 0.65
+        },
+        "confidence": 0.5333333333333333,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d8040e88edeaa03b705ca0313be5f0571e229558c1516546ff097ad561a355bf": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "test_regression",
+        "probabilities": {
+          "test_regression": 0.3,
+          "dependency_problem": 0.2333333333333333,
+          "infrastructure_failure": 0.2333333333333333,
+          "unknown": 0.2333333333333333
+        },
+        "confidence": 0.06666666666666665,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e622e0a9b89f7b1276963ca8f4077ef5bf9f5aa64c54fd287d57a9b66546daf8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "test_regression",
+        "probabilities": {
+          "test_regression": 0.75,
+          "dependency_problem": 0.08333333333333333,
+          "infrastructure_failure": 0.08333333333333333,
+          "unknown": 0.08333333333333333
+        },
+        "confidence": 0.6666666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e6bcfeb99857d21e26806184184c05fd6a62a5c0541566722bbfccead5d349b2": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "test_regression",
+        "probabilities": {
+          "test_regression": 0.42,
+          "dependency_problem": 0.19333333333333336,
+          "infrastructure_failure": 0.19333333333333336,
+          "unknown": 0.19333333333333336
+        },
+        "confidence": 0.22666666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ef980482c52a89bb6bdac3dc652805c50c4c796846487a7b5b8af644e124b00e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "infrastructure_failure",
+        "probabilities": {
+          "test_regression": 0.11333333333333333,
+          "dependency_problem": 0.11333333333333333,
+          "infrastructure_failure": 0.66,
+          "unknown": 0.11333333333333333
+        },
+        "confidence": 0.5466666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f5dc6cd1cd3aebeb51018fc93691f05802251e28d511a9a09ca2c1cde2751cfc": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "test_regression",
+        "probabilities": {
+          "test_regression": 0.85,
+          "dependency_problem": 0.05000000000000001,
+          "infrastructure_failure": 0.05000000000000001,
+          "unknown": 0.05000000000000001
+        },
+        "confidence": 0.7999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "fd8f4d262235f4fbeb5480185b7659aad5a0071cfb705c7f8e649632b1ae03f3": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "dependency_problem",
+        "probabilities": {
+          "test_regression": 0.05666666666666668,
+          "dependency_problem": 0.83,
+          "infrastructure_failure": 0.05666666666666668,
+          "unknown": 0.05666666666666668
+        },
+        "confidence": 0.7733333333333333,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "fe03be36c5cc2fb0542195d5ef41a2b474455d5fbc18e9ca8f527784d7502da8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "test_regression",
+        "probabilities": {
+          "test_regression": 0.75,
+          "dependency_problem": 0.08333333333333333,
+          "infrastructure_failure": 0.08333333333333333,
+          "unknown": 0.08333333333333333
+        },
+        "confidence": 0.6666666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "fe173ff81f037546e97c4750f581acc8c25b7e356377e93b273dc79f3710fddf": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "test_regression": 0.19999999999999998,
+          "dependency_problem": 0.19999999999999998,
+          "infrastructure_failure": 0.19999999999999998,
+          "unknown": 0.4
+        },
+        "confidence": 0.20000000000000004,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
