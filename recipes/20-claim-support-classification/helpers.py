@@ -15,9 +15,10 @@ from jev_cookbook import Choice
 # The fixed option set the catalog's use case names, in the order the issue's build notes list
 # them. There is no separate "none of the above": UNRESOLVED is the fallback outcome the use
 # case names, and it is a real class a passage can genuinely belong to, not a last resort for an
-# option Python is unwilling to report (see "Pattern decisions" in the brief guidance: a review
-# branch beyond the confidence gate only exists when a rule rejects some option outright, and
-# this one does not -- every option here is one Python is willing to report).
+# option Python is unwilling to report (CONTRIBUTING.md section 4: an uncertain or inconsistent
+# result goes to an explicit review outcome, but a low-confidence fallback option may stand on
+# its own when choosing it triggers no side effect -- here every option is one Python is willing
+# to report, so the only review branch this rule needs is the confidence gate below).
 SUPPORTS = "supports"
 CONTRADICTS = "contradicts"
 UNRESOLVED = "unresolved"

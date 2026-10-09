@@ -18,12 +18,16 @@ deliberately imperfect. The hard cases the issue names are included and tagged i
 - ``-lookalike``: a passage that shares the claim's keywords but is about a different population or
   subject, so it does not address what the claim actually asserts (``unresolved``).
 - ``t16-confident-wrong``: the one case this recipe's evaluation relies on: the stored answer is
-  confidently wrong (``supports`` at a top probability of 0.80, stored on a ``test`` example whose
-  gold label is ``contradicts``), so the frozen confidence threshold -- chosen only from
-  `validation` -- does not catch it and selective risk on `test` is non-zero.
-- ``v16-low-confidence-wrong``: a second, lower-confidence wrong answer, this time on
-  ``validation``, so the threshold chosen there has to actually exclude something (a non-vacuous
-  selection) rather than accepting every validation example as given.
+  confidently wrong (``supports`` at a top probability of 0.80, a Choice confidence of
+  ``(0.80 - 1/3) / (1 - 1/3) = 0.70``, well above the 0.4000 threshold this recipe's notebook
+  freezes on ``validation``), stored on a ``test`` example whose gold label is ``contradicts``, so
+  the frozen confidence threshold does not catch it and selective risk on `test` is non-zero.
+- ``v16-numeric-missed``: a second wrong answer, this time on ``validation``, so the threshold
+  chosen there has to actually exclude something (a non-vacuous selection) rather than accepting
+  every validation example as given. The claim/passage pair is an unambiguous numeric
+  ``contradicts`` by the criteria above (the passage's headcount is well under the claim's), but
+  the stored answer misreads it as ``unresolved`` at a top probability of 0.58 (confidence 0.37),
+  low enough that the frozen threshold sends it to review rather than reporting it wrong.
 
 The replay keys come from the same ``build_state`` and ``build_questions`` the notebook uses, via
 ``helpers.py``. Generating inputs and labels is kept separate from generating responses, on
@@ -119,11 +123,11 @@ ROWS = [
      "Since the new assembly line went live, Northwind Robotics' defect rate dropped from 3.1 "
      "percent to 1.4 percent.",
      "supports", (0.86, 0.05, 0.09)),
-    ("v16-low-confidence-wrong", "validation", "PSG1016",
-     "The clinic added a second pediatrician to its staff.",
-     "The clinic's new hire starts next month and will see patients across several "
-     "departments.",
-     "supports", (0.32, 0.10, 0.58)),
+    ("v16-numeric-missed", "validation", "PSG1016",
+     "The marathon drew more than 2,000 runners this year.",
+     "Registration numbers show 1,840 runners crossed the start line this year, down from "
+     "1,970 the previous year.",
+     "contradicts", (0.10, 0.32, 0.58)),
     ("v17-contradicts", "validation", "PSG1017",
      "Yearly rainfall in the valley exceeded the ten-year average.",
      "This year's rainfall came in 15 percent below the ten-year average for the valley.",

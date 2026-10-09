@@ -4,8 +4,15 @@ from pathlib import Path
 
 import pytest
 
-from jev_cookbook import ChoiceAnswer, Provenance, load_helpers, replay_key
-from jev_cookbook.fixtures import load_inputs, validate_recipe
+from jev_cookbook import ChoiceAnswer, Provenance, get_backend, load_helpers, replay_key
+from jev_cookbook.evaluation import select_confidence_threshold
+from jev_cookbook.fixtures import (
+    load_inputs,
+    load_labels,
+    responses_path,
+    select_split,
+    validate_recipe,
+)
 
 RECIPE = Path(__file__).resolve().parent.parent
 helpers = load_helpers(RECIPE)
@@ -100,3 +107,49 @@ def test_every_replay_key_in_the_fixtures_matches_the_current_question():
     assert validate_recipe(RECIPE).mode == "replay"
     for example in examples:
         assert example.replay_keys == (replay_key(helpers.build_state(example.fields), questions),)
+
+
+def test_stored_answers_are_not_all_right():
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    labels = load_labels(RECIPE)
+    wrong = [
+        e.id
+        for e in load_inputs(RECIPE)
+        if e.id in labels
+        and backend.decide(helpers.build_state(e.fields), questions)["relation"].choice
+        != labels[e.id]
+    ]
+    assert wrong, "the fixtures should contain some wrong answers"
+
+
+def test_a_wrong_answer_survives_the_frozen_threshold():
+    """The lesson this recipe teaches (a frozen confidence threshold is not a guarantee) depends
+    on at least one wrong stored answer clearing the gate. This test re-derives the threshold
+    exactly as the notebook does, from the ``validation`` split, and then checks every scored
+    example against it: a future fixture edit that accidentally made every wrong answer
+    low-confidence would silently remove the lesson, and this test exists to catch that (proven
+    by mutation: making ``t16-confident-wrong``'s stored answer right makes this test fail, while
+    the weaker ``test_stored_answers_are_not_all_right`` above would still pass, because
+    ``v16-numeric-missed`` stays wrong at a confidence below the threshold)."""
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    labels = load_labels(RECIPE)
+    examples = load_inputs(RECIPE)
+
+    val_examples = select_split(examples, "validation")
+    val_answers = [
+        backend.decide(helpers.build_state(e.fields), questions)["relation"] for e in val_examples
+    ]
+    val_gold = [labels[e.id] for e in val_examples]
+    val_correct = [a.choice == g for a, g in zip(val_answers, val_gold, strict=True)]
+    val_confidence = [a.confidence for a in val_answers]
+    threshold = select_confidence_threshold(val_correct, val_confidence, target_accuracy=1.0)
+
+    scored = [e for e in examples if e.id in labels]
+    wrong_and_confident = []
+    for e in scored:
+        a = backend.decide(helpers.build_state(e.fields), questions)["relation"]
+        if a.choice != labels[e.id] and a.confidence >= threshold:
+            wrong_and_confident.append(e.id)
+    assert wrong_and_confident, "at least one wrong stored answer must clear the frozen threshold"
