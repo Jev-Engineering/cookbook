@@ -796,6 +796,118 @@ def test_selective_curve_ties_enter_together():
     assert c.accuracy == pytest.approx([0.5, 2 / 3])
 
 
+def test_selective_curve_collapses_ulp_different_mirror_confidence_into_one_threshold():
+    # 0.42/0.58 and 0.07/0.93 are the hand-written mirror pairs docs/evaluation.md names
+    # (nominal confidence 0.16 and 0.86): fed through noul_confidence, their raw |2p - 1|
+    # values really do differ by a few ULPs, even though both halves of each pair mean the
+    # same confidence -- noul_confidence does not round this away (reverted: a rounded
+    # confidence could disagree, by rounding noise, with the raw value a recipe's own code
+    # compares a frozen threshold against). Instead _candidate_thresholds (used by
+    # selective_curve, outcome_curve and threshold_sweep) groups the sorted unique values
+    # by round(v, 12) and keeps only the smaller raw member of each group, so each pair
+    # collapses to one candidate -- 2 thresholds here, not 4 -- and that candidate is
+    # always one of the actual observed confidences.
+    noul = [0.42, 0.58, 0.07, 0.93]
+    confidence = ev.noul_confidence(noul)
+    assert confidence[0] != confidence[1], "0.42 vs 0.58 must still differ, unrounded"
+    assert confidence[2] != confidence[3], "0.07 vs 0.93 must still differ, unrounded"
+    correct = [True, False, True, False]
+    c = ev.selective_curve(correct, confidence)
+    assert len(c.thresholds) == 2  # not 4: each mirror pair collapsed to one candidate
+    lo_16, hi_16 = sorted((confidence[0], confidence[1]))
+    lo_86, hi_86 = sorted((confidence[2], confidence[3]))
+    assert sorted(c.thresholds.tolist()) == [lo_16, lo_86]
+    # the surviving threshold is the smaller twin, and the larger twin still clears
+    # "confidence >= threshold" against it -- both members of each pair are accepted
+    # together at that one candidate, exactly as if neither had moved.
+    assert hi_16 >= lo_16 and hi_86 >= lo_86
+    # at 0.86's survivor the two high-confidence examples answer (one right -> 0.5); at
+    # 0.16's survivor every example answers (two of four right -> 0.5).
+    assert c.coverage.tolist() == pytest.approx([0.5, 1.0])
+    assert c.accuracy.tolist() == pytest.approx([0.5, 0.5])
+
+
+def test_candidate_thresholds_leaves_ordinary_values_unchanged():
+    # Confidences at ordinary fixture precision (2-4 decimals) are nowhere near a few-ULP
+    # nominal twin, so the candidate-threshold grid must not merge any of them.
+    correct = [True, False, True, False, True]
+    confidence = [0.1234, 0.5, 0.0, 1.0, 0.9999]
+    c = ev.selective_curve(correct, confidence)
+    assert c.thresholds.tolist() == sorted(confidence, reverse=True)  # all 5 kept distinct
+    r = ev.evaluate_selective(correct, confidence, 0.5)
+    assert r.coverage == pytest.approx(3 / 5)  # answers 0.5, 1.0, 0.9999
+
+
+def test_candidate_thresholds_never_returns_a_value_absent_from_the_input():
+    # The headline invariant the whole redesign exists to preserve: every threshold this
+    # module ever returns is a bit-exact member of the array it was given, never a rounded
+    # stand-in. Checked directly against _candidate_thresholds, and through every public
+    # function built on it, over a handful of vectors (an ordinary set, a ULP-twin set, a
+    # plain tie, and the endpoints).
+    vectors = [
+        [0.9, 0.8, 0.7, 0.6, 0.5],
+        # 0.42/0.58 and 0.07/0.93 are noul inputs, not twins themselves (four ordinary,
+        # distinct floats); noul_confidence's |2p - 1| is what produces the two ULP-twin
+        # pairs (0.1600.../0.1599... and 0.8599.../0.8600...) this test needs.
+        list(ev.noul_confidence([0.42, 0.58, 0.07, 0.93])),
+        [0.5, 0.5, 0.5],  # an ordinary (bit-identical) tie
+        [0.0, 1.0],
+        [0.3],
+    ]
+    for values in vectors:
+        arr = np.asarray(values, dtype=float)
+        observed = set(arr.tolist())
+        assert set(ev._candidate_thresholds(arr).tolist()) <= observed
+
+        correct = [True] * len(values)
+        assert set(ev.selective_curve(correct, values).thresholds.tolist()) <= observed
+        assert set(ev.outcome_curve(values, correct).thresholds.tolist()) <= observed
+
+        gold = [v >= values[0] for v in values]  # arbitrary but valid boolean gold
+        points = ev.threshold_sweep(gold, values)
+        assert {p.threshold for p in points} <= observed
+
+
+def _frozen_confidence_gate(recipe_dir: Path) -> float:
+    """Reproduces one recipe's own two-stage threshold selection from its committed
+    fixtures, offline, no network: the business threshold via select_threshold, then the
+    certainty/confidence gate via select_confidence_threshold with min_coverage=0.80,
+    exactly as recipes 10 and 15's own "Python's part" cell does."""
+    helpers = load_helpers(recipe_dir)
+    examples = load_inputs(recipe_dir)
+    labels = load_labels(recipe_dir)
+    backend = get_backend(fixtures=responses_path(recipe_dir))
+    questions = helpers.build_questions()
+    key = next(iter(questions))
+
+    def decide(example):
+        return backend.decide(helpers.build_state(example.fields), questions)[key]
+
+    val_examples = select_split(examples, "validation")
+    val_answers = [decide(e) for e in val_examples]
+    val_gold = [labels[e.id] for e in val_examples]
+    val_noul = [a.noul for a in val_answers]
+    threshold = ev.select_threshold(val_gold, val_noul, objective="f1")
+    would_be = [n >= threshold for n in val_noul]
+    raw_correct = [r == g for r, g in zip(would_be, val_gold, strict=True)]
+    val_confidence = ev.noul_confidence(val_noul)
+    return ev.select_confidence_threshold(raw_correct, val_confidence, min_coverage=0.80)
+
+
+def test_select_confidence_threshold_on_recipes_10_and_15_returns_the_same_gate_as_before():
+    # Recipes 10 and 15's validation fixtures carry the same 0.07/0.93 mirror pair (nominal
+    # certainty 0.86) that printed as a duplicate "gate >= 0.86" sweep row before this fix --
+    # but neither recipe's own *frozen* gate is that pair itself (the duplicate is a few
+    # rows further down the sweep than the frozen gate). The candidate-grid dedup must
+    # therefore not move the value these two notebooks freeze and print as "0.30": it has to
+    # come out bit-for-bit identical to the raw value select_confidence_threshold always
+    # returned, on real fixtures.
+    for recipe_dir in (RECIPE_10, RECIPE_15):
+        gate = _frozen_confidence_gate(recipe_dir)
+        assert gate == 0.30000000000000004, recipe_dir.name
+        assert f"{gate:.2f}" == "0.30"
+
+
 def test_select_confidence_threshold():
     # accuracy >= 0.75 at 0.9, 0.8 and 0.6 (3/4) -> lowest such threshold 0.6
     assert ev.select_confidence_threshold(SC, SF, target_accuracy=0.75) == 0.6
@@ -1056,8 +1168,10 @@ def test_outcome_curve_errors():
 # ---------------------------------------------------------------- outcome_curve against merged recipes
 
 
+RECIPE_10 = REPO / "recipes" / "10-answer-relevance-check"
 RECIPE_11 = REPO / "recipes" / "11-clarification-selection"
 RECIPE_13 = REPO / "recipes" / "13-candidate-rewrite-selection"
+RECIPE_15 = REPO / "recipes" / "15-sensitive-text-triage"
 
 
 def _row_at_or_above(curve: ev.SelectiveCurve, threshold: float) -> tuple[float, float, float]:

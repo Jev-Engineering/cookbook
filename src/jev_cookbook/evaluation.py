@@ -181,6 +181,57 @@ def _binary(values: Iterable[Any], name: str) -> np.ndarray:
     return arr.astype(bool)
 
 
+def _candidate_thresholds(values: np.ndarray) -> np.ndarray:
+    """Distinct candidate thresholds from observed ``values``, ascending, with ULP-close
+    nominal twins collapsed to one candidate: the *minimum* raw member of each group.
+
+    ``numpy.unique`` alone can keep two candidates that are meant to be the same nominal
+    value: any two stored probabilities meant to express the same nominal confidence are
+    not necessarily bit-identical inputs, so a value derived from each can differ by a
+    few ULPs (~1e-16) even though neither is wrong. Two independently hand-written decimal
+    literals that are each other's nominal mirror (for example ``0.42``/``0.58``, fed to
+    :func:`noul_confidence` -- see that function's docstring for the mechanism) is one
+    way this happens; it is not the only one. A Score recipe can see it too, with no
+    mirror pair in sight: two entirely different probability distributions that happen to
+    share the same nominal confidence accumulate their internal sum in a different order,
+    landing one ULP apart (the Score formula's own spread sum).
+    Left alone, such a pair lands as two *adjacent* candidates, printed or plotted as a
+    duplicate row or point.
+
+    This groups the sorted unique values by ``round(v, 12)`` -- far finer than any
+    confidence a recipe actually reports, far coarser than the few-ULP gap being closed --
+    and keeps only the smallest raw value in each group. The returned candidate is always
+    one of the actual observed inputs, never a rounded stand-in: a caller's own
+    ``value >= threshold`` comparison against the same raw data that produced it is still
+    an exact tie at that value, never flipped by rounding noise, which is also why both
+    members of a nominal-twin pair are accepted once the threshold reaches the group's
+    (smaller) survivor -- the larger twin clears it too.
+
+    This is a grid, not a tolerance: two values exactly one ULP apart that straddle a
+    12-decimal rounding *boundary* (for example ``0.5000000000005`` and
+    ``0.5000000000004999``, which round to ``0.500000000001`` and ``0.5`` respectively)
+    still land in different groups and are not merged. This closes the realistic case --
+    two values meant to be the same nominal number, differing by noise far below the
+    4-decimal precision any recipe actually reports -- not every case of two close
+    floats; nothing here claims a universal tolerance.
+
+    Args:
+        values: A 1-D numpy array of observed values (confidences or noul probabilities).
+
+    Returns:
+        The distinct candidates, ascending, one per group of ``values`` that round to the
+        same 12 decimal places.
+    """
+    uniq = np.unique(values)
+    if len(uniq) <= 1:
+        return uniq
+    rounded = np.round(uniq, 12)
+    keep = np.empty(len(uniq), dtype=bool)
+    keep[0] = True
+    keep[1:] = rounded[1:] != rounded[:-1]
+    return uniq[keep]
+
+
 def _default_labels(*seqs: Sequence[Any]) -> list[Any]:
     seen: list[Any] = []
     for seq in seqs:
@@ -507,7 +558,9 @@ def threshold_sweep(
         gold: Gold truth values (bool or 0/1).
         noul: Noul answers or plain probabilities in [0, 1].
         thresholds: Cut-offs to evaluate. Default: every distinct observed noul value,
-            ascending (these are the only thresholds at which the predictions change).
+            ascending (these are the only thresholds at which the predictions change;
+            :func:`_candidate_thresholds` collapses a few-ULP-apart nominal-twin pair to
+            one, keeping the smaller raw value, so a tie against the raw data is exact).
 
     Returns:
         A list of :class:`ThresholdPoint`. Same errors as :func:`evaluate_threshold`;
@@ -515,7 +568,7 @@ def threshold_sweep(
     """
     y, s = _noul_inputs(gold, noul)
     if thresholds is None:
-        ts = [float(t) for t in np.unique(s)]
+        ts = [float(t) for t in _candidate_thresholds(s)]
     else:
         ts = sorted(float(t) for t in thresholds)
         _require_nonempty(ts, "thresholds")
@@ -1338,7 +1391,13 @@ def selective_curve(correct: Iterable[Any], confidence: Iterable[Any]) -> Select
 
     For each distinct confidence value t, ``coverage = (# with confidence >= t) / n`` and
     ``accuracy = (# correct among them) / (# with confidence >= t)``. Examples with equal
-    confidence enter together, so the curve does not depend on input order.
+    confidence enter together, so the curve does not depend on input order. Candidate
+    thresholds come from :func:`_candidate_thresholds`, so two confidences that differ
+    only by a few ULPs (see :func:`noul_confidence`'s note on hand-written mirror-pair
+    literals) land on one threshold rather than two adjacent ones -- the surviving
+    threshold is always one of the actual observed confidences (the smaller of the pair),
+    so a caller's own ``confidence >= threshold`` comparison on the same raw data is an
+    exact tie, never flipped by rounding.
 
     Args:
         correct: Whether each prediction was right (bool or 0/1).
@@ -1351,7 +1410,7 @@ def selective_curve(correct: Iterable[Any], confidence: Iterable[Any]) -> Select
         (a sentinel such as -1.0 included) raise ``ValueError``.
     """
     ok, conf = _conf_inputs(correct, confidence)
-    thresholds = np.unique(conf)[::-1]
+    thresholds = _candidate_thresholds(conf)[::-1]
     n = len(ok)
     cov, acc = [], []
     for t in thresholds:
@@ -1377,9 +1436,12 @@ def select_confidence_threshold(
     * ``min_coverage``: among thresholds with coverage ``>= min_coverage``, the one with
       the highest accuracy (ties go to the lower threshold, i.e. more coverage).
 
-    Candidates are the distinct observed confidence values, so the result is always in
-    [0, 1] itself. Call this on validation data only, then report with
-    :func:`evaluate_selective` on test data using the returned value unchanged.
+    Candidates are the distinct observed confidence values (via :func:`selective_curve`'s
+    own :func:`_candidate_thresholds`, so a few-ULP-apart nominal-twin pair is one
+    candidate, not two -- see :func:`noul_confidence`'s note on hand-written mirror-pair
+    literals), so the result is always one of the actual observed confidences, in [0, 1].
+    Call this on validation data only, then report with :func:`evaluate_selective` on test
+    data using the returned value unchanged.
 
     A rule whose review branch is more than a confidence gate (an explicit fallback
     option, a foreign-option check, any other unconditional branch) has no real
@@ -1549,7 +1611,11 @@ def outcome_curve(
     An ``exempt`` example counts at *every* threshold, however low its confidence; every other
     example counts only once its confidence clears ``t``, exactly as in :func:`selective_curve`.
     ``coverage`` is the selected share of all examples; ``accuracy`` is the correct share of the
-    selected ones; ``risk = 1 - accuracy``.
+    selected ones; ``risk = 1 - accuracy``. Candidate thresholds come from
+    :func:`_candidate_thresholds`, exactly as in :func:`selective_curve`, so two confidences a
+    few ULPs apart (see :func:`noul_confidence`'s note on hand-written mirror-pair literals) are
+    one threshold candidate, not two, and that candidate is always one of the actual observed
+    confidences.
 
     ``exempt=None`` (the default) means no exemptions at all: the mask reduces to
     ``confidence >= t`` for every ``t``, and this function returns exactly the same thresholds,
@@ -1581,9 +1647,10 @@ def outcome_curve(
     leave such examples out of ``confidences``/``correct``/``exempt`` entirely (``outcome_curve``
     sweeps the *answered* examples only) and report them separately with
     :func:`evaluate_outcomes`-style accounting instead. An invented number such as ``0.0`` is not
-    inert here even though the example would be exempt either way: ``thresholds`` is
-    ``numpy.unique`` of every confidence passed in, so a placeholder adds a row to that grid and
-    shifts the curve's x-axis, even though it can never change which examples are selected.
+    inert here even though the example would be exempt either way: ``thresholds`` comes from
+    :func:`_candidate_thresholds` of every confidence passed in, so a placeholder adds a row to
+    that grid and shifts the curve's x-axis, even though it can never change which examples are
+    selected.
 
     Args:
         confidences: Per-example confidence, in [0, 1], for every *answered* example (exempt
@@ -1608,7 +1675,7 @@ def outcome_curve(
     else:
         exempt_mask = _binary(_as_list(exempt, "exempt"), "exempt")
         _same_length(ok, exempt_mask, "correct and exempt")
-    thresholds = np.unique(conf)[::-1]
+    thresholds = _candidate_thresholds(conf)[::-1]
     n = len(ok)
     cov, accuracy = [], []
     for t in thresholds:
