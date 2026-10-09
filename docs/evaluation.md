@@ -128,22 +128,39 @@ A Noul-gated decision often needs three outcomes, not two: answer yes, answer no
 item to a person because the model is not confident enough to trust either answer. No helper
 selects the business threshold and the confidence gate together; compose them from
 `threshold_sweep` (via `select_threshold`), `evaluate_threshold` and the selective-prediction
-pair (`select_confidence_threshold`, `evaluate_selective`), choosing both cut-offs on validation
-and freezing both for test:
+pair (`select_confidence_threshold`, `evaluate_selective`). Both cut-offs are chosen on
+validation and only then applied to test, exactly as in "Choose on validation, report on test"
+above: recompute the confidence and correctness arrays on the test split rather than reusing the
+validation arrays the gate was chosen from (`val_noul`, `test_noul`: plain probabilities, not
+Noul answer objects — extract `.noul` first if you have answers, e.g.
+`val_noul = [a.noul for a in val_answers]`):
 
 ```python
-t = select_threshold(val_gold, val_noul, "f1")  # business threshold, chosen on validation
-conf = noul_confidence(val_noul)  # same 0-1 scale as Choice confidence
-correct = [(v >= t) == bool(g) for v, g in zip(val_noul, val_gold)]  # was the yes/no right?
-c = select_confidence_threshold(correct, conf, target_accuracy=0.95)  # confidence gate
-result = evaluate_selective(correct, conf, c)  # test: swap in test_gold/test_noul before this
-# result.coverage auto-answers "noul >= t"; below c, route to review instead
+t = select_threshold(val_gold, val_noul, "f1")  # validation: business cut-off
+val_correct = [(v >= t) == bool(g) for v, g in zip(val_noul, val_gold, strict=True)]
+c = select_confidence_threshold(val_correct, noul_confidence(val_noul), target_accuracy=0.95)
+
+test_conf = noul_confidence(test_noul)  # test: both cut-offs frozen
+test_correct = [(v >= t) == bool(g) for v, g in zip(test_noul, test_gold, strict=True)]
+result = evaluate_selective(test_correct, test_conf, c)  # result.coverage: share auto-answered
 ```
 
 On test data: auto-answer `noul >= t` whenever `noul_confidence(noul) >= c` (`result.accuracy` is
-the accuracy of those auto-answers); route everything else to review. `evaluate_threshold(gold,
-noul, t)` separately reports precision and recall of the business rule alone, with no confidence
-gate, and `threshold_sweep` is what `select_threshold` sweeps to choose `t`.
+the accuracy of those auto-answers; `result.coverage` is the share of examples auto-answered, not
+an action); route everything else to review. `evaluate_threshold(gold, noul, t)` separately
+reports precision and recall of the business rule alone, with no confidence gate, and
+`threshold_sweep` is what `select_threshold` sweeps to choose `t`.
+
+Two caveats before freezing `c` on a real recipe. First, `|2p - 1|` is distance from 0.5, not
+margin at `t`: it measures certainty about yes-versus-no, not distance from the business
+threshold, so when `t != 0.5` an item sitting just either side of `t` can still read as
+high-confidence, and the item the gate is least sure about need not be the one closest to `t`.
+Second, look at `selective_curve(test_correct, test_conf)` before freezing `c`: if accuracy does
+not fall as coverage rises, confidence is not separating right from wrong on this data and the
+gate buys nothing — on some fixtures every wrong answer happens to be a confident one, in which
+case no `c` routes anything useful to review, even though the code runs without error. (The
+confidence page's own "three paths for using confidence in your code" are three confidence
+*bands*; this pattern's three paths are a cookbook convention, not that one.)
 
 ### Calibration
 

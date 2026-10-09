@@ -264,6 +264,22 @@ def test_noul_confidence_is_the_choice_formula_at_n_equals_2():
         assert ev.noul_confidence([p])[0] == pytest.approx(ans.choice_confidence([p, 1.0 - p]))
 
 
+def test_noul_confidence_is_mirror_symmetric_and_bit_exact_with_choice():
+    # 2 * max(p, 1 - p) - 1 must be exactly mirror-symmetric (f(p) == f(1 - p), where
+    # "1 - p" is computed, not a separately-rounded decimal literal that only looks like
+    # the mirror) and bit-for-bit equal to choice_confidence([p, 1 - p]) at n = 2, over
+    # every two-decimal probability 0.00..1.00. abs(2p - 1) fails both: it differs from
+    # its computed mirror by up to 1 ULP (e.g. p = 0.2 vs computed 1 - 0.2), which this
+    # test is designed to catch.
+    grid = [round(i * 0.01, 2) for i in range(101)]
+    mirror_grid = [1.0 - p for p in grid]  # computed complement, not a grid literal
+    values = ev.noul_confidence(grid)
+    mirror_values = ev.noul_confidence(mirror_grid)
+    assert values == mirror_values, "not exactly mirror-symmetric about p = 0.5"
+    for p, v in zip(grid, values, strict=True):
+        assert v == ans.choice_confidence([p, 1.0 - p]), f"not bit-exact at p={p}"
+
+
 # ---------------------------------------------------------------- Multi-label
 MG = [{"x", "y"}, {"x"}, set()]
 MP = [{"x"}, {"x", "z"}, set()]
