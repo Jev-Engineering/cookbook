@@ -29,7 +29,9 @@ _DESCRIPTIONS = {
     TEST_REGRESSION: (
         "A real behaviour change in the code under test broke a test that used to pass: the "
         "failure is a genuine assertion about the code's output, not about the environment "
-        "the code ran in."
+        "the code ran in. When the excerpt also shows an import or module error, that error "
+        "governs instead (see dependency_problem): a genuine assertion failure elsewhere does "
+        "not outrank a dependency the run needed and never had."
     ),
     DEPENDENCY_PROBLEM: (
         "A package could not be installed, imported, or resolved to a compatible version. "
@@ -187,10 +189,15 @@ def classify(
     answer is logged to ``queue`` instead -- accepted, not rejected for low confidence, but
     still a human's decision to make rather than an action Python proposes on its own.
 
-    "Accepted" here means exactly ``answer.confidence >= min_confidence``: nothing else about
-    the answer changes whether the gate lets it through, which is why this rule's own
-    accept/review split is reported with ``jev_cookbook.evaluation.evaluate_selective`` rather
-    than reimplemented.
+    "Accepted" at the gate means exactly ``answer.confidence >= min_confidence``: nothing else
+    about the answer changes whether it is let through to a ``Diagnosis``. That gate decision is
+    not the same thing as whether a build counts toward *coverage* once it has one, though: an
+    accepted ``unknown`` clears the same gate as everything else, but it is a deferral -- naming
+    it is itself asking a person to find the real cause, the same question the gate already
+    asked -- and CONTRIBUTING.md section 4 part (a) counts a deferral toward review, never
+    toward coverage, whatever its confidence. :func:`accepted_and_correct` builds the narrower
+    array ``jev_cookbook.evaluation.evaluate_outcomes`` needs for that: ``True`` for the three
+    substantive outcomes, ``False`` for ``unknown`` and for a confidence-gated ``review`` alike.
     """
     if not 0.0 <= min_confidence <= 1.0:
         raise ValueError(f"min_confidence must be between 0 and 1, got {min_confidence!r}")
@@ -204,8 +211,8 @@ def classify(
     # Every question option is a key of WORKFLOWS (OUTCOMES and WORKFLOWS are built from the
     # same names), and the backend already rejects an answer whose choice is outside the
     # question's own options before this rule ever sees it (docs/backends.md): indexing
-    # directly relies on that guarantee rather than re-checking it, as backends.md documents as
-    # an equally acceptable alternative to a defensive membership branch.
+    # directly relies on that guarantee rather than re-checking it, which docs/recipe-template.md
+    # documents as an equally acceptable alternative to a defensive membership branch.
     workflow = WORKFLOWS[answer.choice]
     if answer.choice == UNKNOWN:
         queue.submit(
@@ -216,3 +223,18 @@ def classify(
         return Diagnosis(build_id, UNKNOWN, workflow, "no option fits")
     actions.record(workflow, {"build": build_id}, answer=answer, rule="confident match")
     return Diagnosis(build_id, answer.choice, workflow, "confident match")
+
+
+def accepted_and_correct(
+    diagnoses: list[Diagnosis], gold: dict[str, str]
+) -> tuple[list[bool], list[bool]]:
+    """``(accepted, correct)`` for ``jev_cookbook.evaluation.evaluate_outcomes``: ``accepted[i]``
+    is whether ``classify`` reported one of the three substantive outcomes for build ``i``,
+    rather than sending it to a person -- ``review`` (rejected for low confidence) and
+    ``unknown`` (a deferral, CONTRIBUTING.md section 4 part (a)) both count as not accepted,
+    whatever the confidence that produced either one. ``correct[i]`` is whether that outcome
+    equals the gold label (ignored, but still computed, where ``accepted[i]`` is False, exactly
+    as ``evaluate_outcomes`` documents)."""
+    accepted = [d.outcome not in (REVIEW, UNKNOWN) for d in diagnoses]
+    correct = [d.outcome == gold[d.build_id] for d in diagnoses]
+    return accepted, correct

@@ -157,10 +157,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "no_issue_citations",
     ): '"the issue" in build_fixtures.py (R10); see #163',
     (
-        "19-ci-failure-classification",
-        "no_issue_citations",
-    ): '"the issue" in build_fixtures.py (R10); see #163',
-    (
         "20-claim-support-classification",
         "no_issue_citations",
     ): '"the issue" in helpers.py and build_fixtures.py (R10); see #163',
@@ -223,10 +219,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     ): "weak assert-wrong form, not re-derived from the frozen threshold (R7); see #163",
     (
         "13-candidate-rewrite-selection",
-        "stored_answers_strong_form",
-    ): "weak assert-wrong form, not re-derived from the frozen threshold (R7); see #163",
-    (
-        "19-ci-failure-classification",
         "stored_answers_strong_form",
     ): "weak assert-wrong form, not re-derived from the frozen threshold (R7); see #163",
     (

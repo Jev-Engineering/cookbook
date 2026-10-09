@@ -75,10 +75,12 @@ def _dependency_collection_log(package, detail, collected_items=0):
     resolver note before the install is a second, independent place the "version solving
     failed" pattern can fire, in the shape a real resolver retry message takes (version solving
     failed once, a looser constraint was tried, and the package that landed is not the one the
-    import expects)."""
+    import expects). "version solving failed" is Poetry's/PDM's own resolver wording, not
+    pip's, so the command line above it is ``poetry install``, not a pip command: the tool and
+    the message it prints agree."""
     return "\n".join(
         [
-            "$ pip install -r requirements.txt",
+            "$ poetry install",
             f"WARNING: version solving failed for {package}; retrying with a looser constraint",
             "$ pytest -q",
             "============================= test session starts ==============================",
@@ -506,10 +508,10 @@ ROWS = [
         _fields(
             "CI-20105",
             _regression_log_scattered(
-                "tests/test_loyalty_points.py::test_points_awarded_per_purchase",
+                "tests/test_loyalty_points.py",
                 100,
                 80,
-                "tests/test_cart_summary.py::test_grand_total_rounding",
+                "tests/test_cart_summary.py",
                 49.99,
                 49.49,
             ),
@@ -540,7 +542,7 @@ ROWS = [
             ),
         ),
         DEPENDENCY_PROBLEM,
-        _dist(TEST_REGRESSION, 0.75),  # the hard case the issue names: wrong, and above the gate
+        _dist(TEST_REGRESSION, 0.75),  # the hard case this use case names: wrong, above the gate
     ),
     (
         "t-dep-03-fartrim",
