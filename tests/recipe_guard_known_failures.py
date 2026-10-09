@@ -99,10 +99,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "build_fixtures_scaffold",
     ): "pre-#162 test_build_fixtures.py (R8); see #163",
     (
-        "16-discord-moderation-triage",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
         "17-passage-reranking",
         "build_fixtures_scaffold",
     ): "pre-#162 test_build_fixtures.py (R8); see #163",
@@ -168,10 +164,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "15-sensitive-text-triage",
         "no_issue_citations",
     ): '"the issue" in build_fixtures.py (R10); see #163',
-    (
-        "16-discord-moderation-triage",
-        "no_issue_citations",
-    ): '"The issue"/"the issue" in helpers.py, build_fixtures.py, README.md and notebook (R9/R10); see #163',
     (
         "17-passage-reranking",
         "no_issue_citations",
@@ -247,10 +239,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     ): "weak assert-wrong form, not re-derived from the frozen threshold (R7); see #163",
     (
         "13-candidate-rewrite-selection",
-        "stored_answers_strong_form",
-    ): "weak assert-wrong form, not re-derived from the frozen threshold (R7); see #163",
-    (
-        "16-discord-moderation-triage",
         "stored_answers_strong_form",
     ): "weak assert-wrong form, not re-derived from the frozen threshold (R7); see #163",
     (

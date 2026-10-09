@@ -12,10 +12,10 @@ from jev_cookbook import Choice
 # No ``from __future__ import annotations`` here: load_helpers removes this module from
 # ``sys.modules``, so typing.get_type_hints cannot resolve postponed annotations on a dataclass.
 
-# The community rule every message is checked against. The issue's build note says the rule
-# text is supplied in the state; every message in this recipe is checked against this one rule
-# (a fabricated server's conduct rule, not a real server's), so it is a module constant rather
-# than a per-example field, and ``build_state`` below attaches it to every request.
+# The community rule every message is checked against. The rule text is supplied in the state;
+# every message in this recipe is checked against this one rule (a fabricated server's conduct
+# rule, not a real server's), so it is a module constant rather than a per-example field, and
+# ``build_state`` below attaches it to every request.
 RULE_TEXT = (
     "Lumen Games Community conduct rule: be respectful. Do not harass, threaten, demean, or "
     "target a member for who they are. No hate speech, no threats of violence or self-harm, and "
@@ -33,8 +33,8 @@ ALLOWED = "allowed"
 REVIEW_NEEDED = "review_needed"
 POTENTIALLY_VIOLATING = "potentially_violating"
 # jev-1.13's documented option-order lean (S07 item 8) favours whichever option is listed
-# first. Listing ``allowed`` last, rather than first, points that lean away from the option
-# this recipe's rule trusts with no side effect, not toward it.
+# first. Listing ``allowed`` last, rather than first, points that lean away from the option a
+# confidently wrong answer would leave standing with nobody warned, not toward it.
 OPTIONS = (REVIEW_NEEDED, POTENTIALLY_VIOLATING, ALLOWED)
 
 # Descriptions say what belongs to each category and, for the pair that is easiest to confuse
@@ -96,8 +96,10 @@ def build_questions() -> dict[str, Choice]:
 # The simulated moderation actions Python's rule can take, through ``jev_cookbook.simulation``
 # (``ActionLog`` for ``ignore``/``warn``/``hide``, ``ReviewQueue`` for ``escalate``): nothing is
 # ever posted, deleted, or sent to Discord. Every action but ``escalate`` is reached only once
-# the confidence gate clears; ``ignore`` still has no side effect, so there is nothing left for
-# a later step to protect once it is reached, but reaching it is gated like every other action.
+# the confidence gate clears. Reaching ``ignore`` still writes an ``ActionLog`` entry, the same
+# as ``warn`` and ``hide`` -- nothing is posted or deleted in the real world, but a record of the
+# decision is kept -- which is one reason, below, that ``allowed`` is gated like every other
+# category rather than let through on its own.
 IGNORE = "ignore"
 WARN = "warn"
 HIDE = "hide"
@@ -125,14 +127,23 @@ def moderate(message_id: str, answer: Any, min_confidence: float) -> Moderation:
     always escalated to a person, whatever category Jev named, because acting on *any* category
     without confidence is what the gate exists to prevent, and leaving a message that is really
     ``potentially_violating`` standing because it was confidently misread as ``allowed`` is
-    exactly the kind of consequence CONTRIBUTING.md section 4 asks a review outcome to catch --
-    ``allowed`` is a substantive judgement here, not the fallback-shaped option the section's
-    no-side-effect clause is about (that is ``review_needed``, and it is gated too). Only once a
-    category clears the gate does it decide the action: ``allowed`` resolves to ``ignore`` (no
-    side effect, so nothing is left for a later step to protect), a confident ``review_needed``
-    is warned rather than hidden -- the category itself already says the message's violation is
-    not clear-cut -- and a confident ``potentially_violating`` is hidden. The rule is code, so it
-    holds whatever the model answers.
+    exactly the kind of consequence CONTRIBUTING.md section 4 asks a review outcome to catch.
+
+    Neither category this gate catches would even qualify for section 4's no-gate exemption, and
+    each fails a different one of its three parts. ``allowed`` is a complete answer, not a
+    deferral -- part (a) holds -- but it fails the other two: resolving it to ``ignore`` still
+    writes an ``ActionLog`` entry, so choosing it does not record "no action" (part (b)); and
+    when a confidently wrong ``allowed`` answer is really ``potentially_violating``, the message
+    stays live with nobody warned at all, which is harm beyond the missed item itself (part (c)).
+    ``review_needed`` fails the earlier part instead: naming it is itself asking a person to
+    decide the same question again, so it is a deferral, not a complete answer, and a deferral
+    never qualifies for this exemption whatever its confidence (part (a)). Both are gated here
+    for these reasons, the same way ``potentially_violating`` is, not because gating is merely
+    the cautious default. Only once a category clears the gate does it decide the action:
+    ``allowed`` resolves to ``ignore``, a confident ``review_needed`` is warned rather than
+    hidden -- the category itself already says the message's violation is not clear-cut -- and a
+    confident ``potentially_violating`` is hidden. The rule is code, so it holds whatever the
+    model answers.
     """
     if not 0.0 <= min_confidence <= 1.0:
         raise ValueError(f"min_confidence must be between 0 and 1, got {min_confidence!r}")
