@@ -13,9 +13,9 @@ from pathlib import Path
 
 import pytest
 
-from jev_cookbook import NoulAnswer, Provenance, load_helpers, replay_key
-from jev_cookbook.evaluation import noul_confidence
-from jev_cookbook.fixtures import load_inputs
+from jev_cookbook import NoulAnswer, Provenance, get_backend, load_helpers, replay_key
+from jev_cookbook.evaluation import noul_confidence, select_confidence_threshold, select_threshold
+from jev_cookbook.fixtures import load_inputs, load_labels, responses_path
 
 RECIPE = Path(__file__).resolve().parent.parent
 helpers = load_helpers(RECIPE)
@@ -122,3 +122,42 @@ def test_every_replay_key_in_the_fixtures_matches_the_current_question():
     questions = helpers.build_questions()
     for example in load_inputs(RECIPE):
         assert example.replay_keys == (replay_key(helpers.build_state(example.fields), questions),)
+
+
+def test_stored_answers_are_not_all_right():
+    """A wrong answer anywhere is a weak guard: it would still pass even if the confidence gate
+    caught every mistake, which would hide the exact lesson this fixture set exists to teach.
+    Re-derive both cut-offs the way the notebook does -- the business threshold by F1 on
+    validation, then the confidence gate among cut-offs that still cover at least 70% of
+    validation -- and require a wrong, confidently-flagged `test` message at or above the gate:
+    a mistake it would still let through."""
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    labels = load_labels(RECIPE)
+    examples = load_inputs(RECIPE)
+
+    def decide(example):
+        return backend.decide(helpers.build_state(example.fields), questions)["refund_requested"]
+
+    validation = [e for e in examples if e.split == "validation" and e.id in labels]
+    val_noul = [decide(e).noul for e in validation]
+    val_gold = [labels[e.id] for e in validation]
+    threshold = select_threshold(val_gold, val_noul, objective="f1")
+    would_flag = [n >= threshold for n in val_noul]
+    raw_correct = [f == g for f, g in zip(would_flag, val_gold, strict=True)]
+    val_confidence = noul_confidence(val_noul)
+    min_confidence = select_confidence_threshold(raw_correct, val_confidence, min_coverage=0.7)
+
+    test = [e for e in examples if e.split == "test" and e.id in labels]
+    test_noul = [decide(e).noul for e in test]
+    test_gold = [labels[e.id] for e in test]
+    test_would_flag = [n >= threshold for n in test_noul]
+    test_confidence = noul_confidence(test_noul)
+    wrong_and_confident = [
+        e.id
+        for e, flag, gold, conf in zip(
+            test, test_would_flag, test_gold, test_confidence, strict=True
+        )
+        if flag != gold and conf >= min_confidence
+    ]
+    assert wrong_and_confident, "expected at least one confidently wrong test answer"

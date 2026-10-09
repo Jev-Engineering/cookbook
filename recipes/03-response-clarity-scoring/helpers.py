@@ -46,7 +46,7 @@ EXEMPLARY = (
 )
 CLARITY_LEVELS = (CONFUSING, NEEDS_WORK, CLEAR, EXEMPLARY)  # level 0 to level 3
 
-# The cutoff lives in code, per the issue: a response whose most likely level is below CLEAR
+# The cutoff lives in code: a response whose most likely level is below CLEAR
 # (level 2) needs an edit before it reaches a customer. This is a fixed editorial decision, not
 # a value chosen by searching validation: unlike the confidence threshold below, there is no
 # "selecting" step for it, which is also why it is a plain module constant and not an argument.
