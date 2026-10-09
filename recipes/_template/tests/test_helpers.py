@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from jev_cookbook import ChoiceAnswer, Provenance, get_backend, load_helpers, replay_key
+from jev_cookbook.evaluation import select_confidence_threshold
 from jev_cookbook.fixtures import load_inputs, load_labels, responses_path
 
 RECIPE = Path(__file__).resolve().parent.parent
@@ -26,7 +27,9 @@ def test_confident_known_option_goes_to_its_queue():
 
 
 def test_low_confidence_goes_to_review_whatever_the_option():
-    assert helpers.route("T-1", VAGUE, 0.5).outcome == helpers.REVIEW
+    routing = helpers.route("T-1", VAGUE, 0.5)
+    assert routing.outcome == helpers.REVIEW
+    assert routing.reason == "confidence below the threshold"
 
 
 def test_none_goes_to_review_even_when_certain():
@@ -72,13 +75,31 @@ def test_every_replay_key_in_the_fixtures_matches_the_current_question():
 
 
 def test_stored_answers_are_not_all_right():
+    """A wrong answer anywhere is a weak guard: it would still pass even if the confidence gate
+    caught every mistake, which would hide the exact lesson this fixture set exists to teach.
+    Re-derive the threshold the way the notebook does (the lowest confidence at which every
+    validation answer naming a queue is correct) and require a wrong `test` answer at or above
+    it: a mistake the gate would still let through."""
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
     labels = load_labels(RECIPE)
-    wrong = [
-        e.id
-        for e in load_inputs(RECIPE)
-        if e.id in labels
-        and backend.decide(helpers.build_state(e.fields), questions)["route"].choice != labels[e.id]
+    examples = load_inputs(RECIPE)
+
+    def decide(example):
+        return backend.decide(helpers.build_state(example.fields), questions)["route"]
+
+    validation = [e for e in examples if e.split == "validation" and e.id in labels]
+    named = [
+        (decide(e).confidence, decide(e).choice == labels[e.id])
+        for e in validation
+        if decide(e).choice in helpers.QUEUES
     ]
-    assert wrong, "the fixtures should contain some wrong answers"
+    threshold = select_confidence_threshold(
+        [ok for _, ok in named], [c for c, _ in named], target_accuracy=1.0
+    )
+
+    test = [e for e in examples if e.split == "test" and e.id in labels]
+    wrong_and_confident = [
+        e.id for e in test if decide(e).choice != labels[e.id] and decide(e).confidence >= threshold
+    ]
+    assert wrong_and_confident, "expected at least one confidently wrong test answer"

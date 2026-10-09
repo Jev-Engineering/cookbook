@@ -29,9 +29,18 @@ the `log` (a list of `StepRecord(step, observation, action, outcome, done)`) and
 properties `done` and `steps`. A subclass fills in `_reset(rng)`, `_observe()`,
 `_legal_actions()`, `_apply(action, rng)`, `_snapshot()` and optionally `_is_done()`.
 
-- Randomness comes only from the `random.Random(seed)` the base class passes in. Use
-  `rng.random()` and `rng.randrange(n)`; their streams are the same on Linux and Windows and on
-  Python 3.10 to 3.14. Never call the global `random` or `numpy.random` functions in `_apply`.
+- Randomness comes only from the `random.Random(seed)` the base class passes in. Prefer
+  `rng.random()`: the `random` module's own docs commit only `random.Random.random()` to
+  producing the same sequence for the same seed across Python versions ([backends.md](backends.md),
+  "Scripted backend"). `ToyGrid._reset` already calls `rng.randrange(1, n)` for its target cell, and
+  that call stays — its output is pinned byte for byte by
+  `test_golden_values_pin_cross_platform_streams` in `tests/test_simulation.py`, so a change to
+  CPython's generator would be caught here, not merely assumed away — but a *new* `_reset` or
+  `_apply` should derive any discrete choice from `rng.random()` (for example
+  `int(rng.random() * n)`) rather than add another call to `rng.randrange`, `rng.choice`,
+  `rng.shuffle` or anything else that draws from `_randbelow()`/`getrandbits()`: the `random`
+  module names no cross-version guarantee for any of those, only for `random()` itself. Never call
+  the global `random` or `numpy.random` functions in `_apply`.
 - `step` rejects an action that is not in `legal_actions()` with `IllegalActionError`, and
   leaves the state and log unchanged. Python enumerates the legal actions, so a recipe can offer
   them as the fixed options of a `Choice` question and a model answer can never pick an

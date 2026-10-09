@@ -18,7 +18,7 @@ QUEUES = {
     "account": "account-help",
 }
 NONE = "none"
-REVIEW = "human_review"
+REVIEW = "review"
 
 _DESCRIPTIONS = {
     "billing": "charges, invoices, refunds, payment methods and renewals",
@@ -50,7 +50,7 @@ def build_questions() -> dict[str, Choice]:
 
 @dataclass(frozen=True)
 class Routing:
-    """What Python decided: a queue, or ``human_review`` with the reason."""
+    """What Python decided: a queue, or ``review`` with the reason."""
 
     ticket: str
     outcome: str
@@ -60,7 +60,7 @@ class Routing:
 def route(ticket: str, answer: Any, min_confidence: float) -> Routing:
     """Send a ticket to a queue only when the answer is a known queue and confident enough.
 
-    Everything else goes to ``human_review``: the ``none`` option, an option that is not one
+    Everything else goes to ``review``: the ``none`` option, an option that is not one
     of ``QUEUES``, and any confidence below ``min_confidence``. The rule is code, so it holds
     whatever the model answers.
     """

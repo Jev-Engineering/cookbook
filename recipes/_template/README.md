@@ -12,7 +12,7 @@ this template", is for the person building one.
 Jev supplies one narrow judgment, a typed `Choice` over options that Python builds. Python owns
 everything else: the state Jev sees, the identifiers that never reach the model, and a rule that sends a
 ticket to a queue only when the answer is a known queue and confident enough. Anything uncertain goes to
-an explicit `human_review` outcome. The notebook shows the typed answer first, then the rule, then an
+an explicit `review` outcome. The notebook shows the typed answer first, then the rule, then an
 evaluation that picks its one setting (a confidence threshold) on `validation` and reports on `test`.
 
 ## Run it offline
@@ -79,7 +79,8 @@ _template/
 │   ├── labels.jsonl      gold labels for the 20 scored examples
 │   └── responses.json    synthetic answers, keyed by request
 └── tests/
-    ├── test_helpers.py        tests for the rule, and that the fixture keys match the question
+    ├── test_helpers.py        tests for the rule, that the fixture keys match the question, and
+    │                          that a wrong test answer survives the confidence gate
     └── test_build_fixtures.py refusal without --force, inputs/labels regenerated even on a
                                 refused run, and the writer matching jev_cookbook.live's recorder
 ```
@@ -211,10 +212,15 @@ The full contract is [CONTRIBUTING.md](../../CONTRIBUTING.md); in short:
   probability rescaled by the number of options, `(p_max - 1/n) / (1 - 1/n)` (see
   [the confidence page](https://docs.typesafe.ai/confidence)); it is not the raw top probability.
 - A fixture miss is an error (`ReplayMiss`); nothing invents an answer to keep a notebook running.
-- **Python's part:** a low-confidence fallback option (`none` here; `unclear_request` or
-  `no_match` elsewhere) may be delivered as a final result only when choosing it has no side
-  effect — nothing is routed, answered or moved, so there is nothing left for a confidence gate
-  to protect. This template instead sends `none` to `human_review` like every other unconfident
-  case, but a recipe whose fallback itself triggers a side effect must still put it through the
-  same confidence gate as any other option before that side effect runs; the option's name is
-  not an exemption. [docs/recipe-template.md](../../docs/recipe-template.md) states the rule.
+- **Python's part:** a fallback option (`none` here; `no_match`, `not_stated` or `keep_original`
+  elsewhere) may be delivered as a final result at any confidence only when it passes all three
+  parts of the test CONTRIBUTING.md section 4 states: (a) it is a complete answer, not a
+  deferral such as `unknown` or `needs_review` (a deferral is always a review outcome); (b)
+  choosing it records no action, though noting it in a printed, labelled backlog is allowed; (c)
+  being wrong leaves nothing standing beyond the missed item itself, compared with having sent it
+  to review instead. `none` here passes all three, but this template still sends it to `review`
+  like every other unconfident case rather than claim the exemption; gating a qualifying fallback
+  anyway is compliant too. A fallback that fails any part goes through the same confidence gate
+  as any other option before whatever it does runs. A recipe that does claim the exemption prints
+  the gated counterfactual beside the numbers it actually reports.
+  [docs/recipe-template.md](../../docs/recipe-template.md) works through the contrast in full.

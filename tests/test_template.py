@@ -115,6 +115,18 @@ def test_the_scaffolded_build_fixtures_test_stays_in_step_with_the_template(tmp_
     assert scaffolded == expected
 
 
+def test_the_stored_answers_guard_is_the_strong_form_not_the_weak_one():
+    """The weak form, ``assert wrong, "the fixtures should contain some wrong answers"``, passes
+    even when the confidence gate catches every mistake, hiding the lesson this guard exists to
+    teach, and no other test's result changes if `recipes/_template/tests/test_helpers.py` is
+    reverted to it. Pin the strong form's own markers here instead."""
+    text = (TEMPLATE / "tests" / "test_helpers.py").read_text("utf-8")
+    assert 'assert wrong, "the fixtures should contain some wrong answers"' not in text
+    body = text.split("def test_stored_answers_are_not_all_right")[1]
+    assert "select_confidence_threshold" in body
+    assert "confidently wrong test answer" in body
+
+
 def test_the_notebook_is_executed_and_has_no_error_output():
     code = [c for c in NOTEBOOK["cells"] if c["cell_type"] == "code"]
     assert code and all(c["execution_count"] for c in code)
@@ -296,7 +308,7 @@ def test_the_header_counts_the_scored_examples_not_the_demo_ones():
     assert "%matplotlib" not in setup
     assert "n_examples=len(scored)" in setup and "None if offline" not in setup
     assert "header = " not in setup and "sample size" not in setup
-    assert 'scored = [e for e in examples if e.split != "demo"]' in setup
+    assert 'scored = [e for e in examples if e.split not in ("train", "demo")]' in setup
     assert "len(scored)" in setup and "len(examples)" not in setup
 
 
@@ -313,13 +325,15 @@ def test_the_first_next_step_names_the_tools_that_show_key_drift():
 
 
 def test_the_next_steps_settle_the_neighbour_link_convention():
-    """Issue #124, item 8: a neighbour link 404s until that recipe exists. The template keeps
-    the folder-link convention and says so, because the renderer gives no per-recipe anchor to
-    link to instead (tools/render_catalog.py builds the catalog table from bare titles)."""
+    """A neighbour link is a folder link (the renderer gives no per-recipe anchor to link to
+    instead: tools/render_catalog.py builds the catalog table from bare titles), and it must
+    point to a recipe that already exists on `main`: a forward link to one that is not yet
+    published is not allowed."""
     cell = next(c for c in NOTEBOOK["cells"] if c.get("id") == "next-md")
     text = source(cell)
     assert "](../" in text  # the neighbour links themselves are unchanged
-    assert "404s on GitHub" in text and "no per-row anchor" in text
+    assert "no per-row anchor" in text
+    assert "already committed on `main`" in text and "not allowed" in text
 
 
 def test_the_rule_demo_uses_the_threshold_chosen_on_validation_not_a_hardcoded_value():
@@ -358,6 +372,49 @@ def test_the_measured_markdown_does_not_hardcode_a_mode_specific_claim():
     for stale in ("written by hand", "invented messages", "hand-written"):
         assert stale not in measured_md.lower()
     assert "demo" in measured_md
+
+
+def test_the_confusion_matrix_cell_prints_what_it_plots():
+    """ "Print what you plot": the figure comparison in CI is loose, so the printed numbers are
+    what actually pins the matrix byte for byte. Every printed line is a `test` number in an
+    offline run, so it carries `check` like every other metric line in this cell."""
+    cell = next(c for c in NOTEBOOK["cells"] if c.get("id") == "evaluation-matrix")
+    text = source(cell)
+    assert "print(" in text and "matrix.matrix.tolist()" in text
+    lines = stream_lines("evaluation-matrix")
+    assert len(lines) >= 1 + len(["billing", "bug", "account", "none"])
+    for line in lines:
+        assert "(a pipeline check, not a Jev result)" in line, line
+
+
+def test_the_measured_cell_prints_n_in_every_mode_the_markdown_promises_it():
+    """docs/recipe-template.md: the "What was and was not measured" markdown must not promise an
+    N its code does not print, in any mode. The offline branch prints N too, not only the
+    recorded/live branch."""
+    cell = source(next(c for c in NOTEBOOK["cells"] if c.get("id") == "measured"))
+    offline_branch = cell.split("else:")[0]
+    assert "N:" in offline_branch
+    lines = stream_lines("measured")
+    assert any(line.startswith("N:") for line in lines)
+
+
+def test_gold_label_is_defined_in_prose_not_in_a_code_comment_and_links_the_glossary():
+    """CONTRIBUTING.md section 6: prose in markdown cells, not in code comments. The setup cell
+    may still point at the term (so a reader of the code alone is not left wondering why `scored`
+    excludes the demo examples), but the definition itself lives in markdown."""
+    setup = source(next(c for c in NOTEBOOK["cells"] if c.get("id") == "setup"))
+    assert "recorded correct answer" not in setup
+    evaluation_md = source(next(c for c in NOTEBOOK["cells"] if c.get("id") == "evaluation-md"))
+    assert "gold label" in evaluation_md.lower()
+    assert "recorded correct answer" in evaluation_md
+    assert "../../docs/glossary.md#gold-label" in evaluation_md
+
+
+def test_the_fallback_exemption_states_the_three_part_test():
+    python_md = source(next(c for c in NOTEBOOK["cells"] if c.get("id") == "python-md"))
+    assert "complete answer, not a deferral" in python_md
+    assert "writes nothing anywhere" in python_md
+    assert "leaves nothing standing beyond the missed ticket itself" in python_md
 
 
 def test_a_simulated_recording_produces_a_minimal_diff():
