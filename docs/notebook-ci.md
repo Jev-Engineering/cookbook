@@ -626,12 +626,15 @@ totals over time.
 
 ## The recipe guard allowlist
 
-`tests/test_recipe_guard.py` (#165) parametrises nine contract checks — the current scaffold
-shape, no private issue citations, the strong-form `test_stored_answers_are_not_all_right`,
-validation and figure disclosure labels, print-what-you-plot, Next-steps links, the review
-outcome value and reason string, the README sources and live budget note, and the README install
-line — over every published recipe at once, so each is enforced by `Tests (py3.10)`/`Tests
-(py3.14)` on every pull request rather than re-derived by a reviewer by hand. Running it the day
+`tests/test_recipe_guard.py` (#165) parametrises ten contract rules across fourteen per-recipe
+check ids — the current scaffold shape, no private issue citations, the strong-form
+`test_stored_answers_are_not_all_right`, every printed metric line's disclosure label (both that
+a validation line carries both labels and that any metric line carries at least the pipeline-check
+one), figure disclosure labels, print-what-you-plot, Next-steps links both forward (a link resolves)
+and inbound (every recipe is linked from some other recipe), the review outcome value and reason
+string, the README sources and live budget note, and the README install line — over every
+published recipe at once, so each is enforced by `Tests (py3.10)`/`Tests (py3.14)` on every pull
+request rather than re-derived by a reviewer by hand. Running it the day
 it landed found real, pre-existing drift in recipes merged before the guard existed; that drift
 is recorded once, in `tests/recipe_guard_known_failures.py`, as a `(recipe slug, check id)`
 allowlist that marks the pair `xfail(strict=True)` with a reason naming `#163`, the sweep issue

@@ -60,12 +60,14 @@ check id                              rule -> detection
 ``next_steps_inbound_links``          G1(f) clause 2: every published recipe is the target
                                        of at least one other published recipe's Next steps.
 ``review_value_is_review``            docs/glossary.md#review: ``helpers.REVIEW == "review"``
-                                       where a ``REVIEW`` constant exists.
+                                       where it exists; traced through the confidence-gated
+                                       reason string where it does not, less one named
+                                       domain exemption (recipe 16's ``ESCALATE``).
 ``review_reason_string``              docs/glossary.md#review: the exact reason string
                                        ``"confidence below the threshold"`` appears in
                                        ``helpers.py``.
 ``readme_sources_match_catalog``      tests/test_recipe_sources.py's own rule, reused here
-                                       so the guard reports it as one of the nine checks too.
+                                       so the guard reports it as one of these checks too.
 ``readme_budget_note_matches_stored_answers``
                                        CONTRIBUTING.md section 2 / docs/live.md: the stated
                                        live-mode call count equals ``len(responses.json)``.
@@ -556,7 +558,7 @@ def _labelled_names(tree: ast.AST, label: str) -> set[str]:
                 for position, slot in enumerate(node.target.elts):
                     if not isinstance(slot, ast.Name) or slot.id in derived:
                         continue
-                    if any(
+                    if all(
                         isinstance(elt, ast.Tuple | ast.List)
                         and len(elt.elts) == arity
                         and derived & _ast_names(elt.elts[position])
@@ -565,20 +567,53 @@ def _labelled_names(tree: ast.AST, label: str) -> set[str]:
                         derived.add(slot.id)
                         changed = True
         for name, fdef in functions.items():
+            calls = calls_by_func[name]
+            if not calls:
+                continue
             for position, arg in enumerate(fdef.args.args):
                 if arg.arg in derived:
                     continue
-                for call in calls_by_func[name]:
-                    supplied = (
-                        call.args[position]
-                        if position < len(call.args)
-                        else next((kw.value for kw in call.keywords if kw.arg == arg.arg), None)
-                    )
-                    if supplied is not None and derived & _ast_names(supplied):
-                        derived.add(arg.arg)
-                        changed = True
-                        break
+                supplied_per_call = [
+                    call.args[position]
+                    if position < len(call.args)
+                    else next((kw.value for kw in call.keywords if kw.arg == arg.arg), None)
+                    for call in calls
+                ]
+                if all(s is not None and derived & _ast_names(s) for s in supplied_per_call):
+                    derived.add(arg.arg)
+                    changed = True
     return derived
+
+
+def _metric_lines_missing_check(source: str) -> list[str]:
+    """``print(`` calls in ``source`` whose text has a metric keyword and a rounded-float
+    format spec but whose formatted values name no ``{check}``-derived name. Shared by the
+    parametrized check below and by the regression test that proves the tracer's "every call
+    site" requirement actually holds."""
+    candidates = [
+        c
+        for c in extract_calls(source, "print")
+        if METRIC_KEYWORD.search(c) and FLOAT_FORMAT.search(c)
+    ]
+    if not candidates:
+        return []
+    tree = ast.parse(source)
+    check_derived = _labelled_names(tree, "check")
+    missing = []
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and getattr(node.func, "id", None) == "print"):
+            continue
+        text = ast.get_source_segment(source, node) or ""
+        if not (METRIC_KEYWORD.search(text) and FLOAT_FORMAT.search(text)):
+            continue
+        used = {
+            name
+            for arg in (*node.args, *(kw.value for kw in node.keywords))
+            for name in _ast_names(arg)
+        }
+        if not used & check_derived:
+            missing.append(text)
+    return missing
 
 
 @pytest.mark.parametrize("recipe", guarded_with_template("metric_lines_carry_check")())
@@ -602,30 +637,34 @@ def test_every_printed_metric_line_carries_at_least_check(recipe):
     for cell in notebook_cells(recipe_dir(recipe)) if nb.is_file() else []:
         if cell["cell_type"] != "code":
             continue
-        source = cell_source(cell)
-        candidates = [
-            c
-            for c in extract_calls(source, "print")
-            if METRIC_KEYWORD.search(c) and FLOAT_FORMAT.search(c)
-        ]
-        if not candidates:
-            continue
-        tree = ast.parse(source)
-        check_derived = _labelled_names(tree, "check")
-        for node in ast.walk(tree):
-            if not (isinstance(node, ast.Call) and getattr(node.func, "id", None) == "print"):
-                continue
-            text = ast.get_source_segment(source, node) or ""
-            if not (METRIC_KEYWORD.search(text) and FLOAT_FORMAT.search(text)):
-                continue
-            used = {
-                name
-                for arg in (*node.args, *(kw.value for kw in node.keywords))
-                for name in _ast_names(arg)
-            }
-            if not used & check_derived:
-                violations.append(f"cell {cell.get('id', '?')}: {text[:90]!r} carries no {{check}}")
+        for text in _metric_lines_missing_check(cell_source(cell)):
+            violations.append(f"cell {cell.get('id', '?')}: {text[:90]!r} carries no {{check}}")
     assert not violations, "; ".join(violations)
+
+
+def test_the_label_tracer_requires_every_call_site_not_just_one():
+    """Fix round 2, Opus re-review MC-A: ``_labelled_names`` must require a check-derived
+    argument at *every* call site of a function (and at every element of a literal tuple/list
+    ``for``-loop iterable), not just one -- otherwise one labelled split licenses another,
+    undisclosed one. Proved directly against recipe 21's own ``eval-selective`` cell, which
+    calls ``selective_report`` twice: once with ``f"{selection}{check}"``, once with plain
+    ``check``. The unmutated cell has no violation; unlabelling only the second call site (the
+    exact repro the review used) must turn up one."""
+    source = cell_source(
+        next(
+            cell
+            for cell in notebook_cells(recipe_dir({"slug": "21-quiz-answer-adjudication"}))
+            if cell.get("id") == "eval-selective"
+        )
+    )
+    assert not _metric_lines_missing_check(source)
+
+    marker = '"test, called subset", check)'
+    assert marker in source
+    mutated = source.replace(marker, '"test, called subset", "")')
+    assert _metric_lines_missing_check(mutated), (
+        "unlabelling only the second selective_report call site must be caught"
+    )
 
 
 # --------------------------------------------------------------------------------------------
@@ -745,18 +784,20 @@ def test_every_plot_call_has_a_printed_table(recipe):
     every plot_* call with a print of the same data, rounded, in the same cell"; sweep helpers
     are named explicitly alongside the confusion matrix in recipe-template.md). CI's figure
     comparison is loose, so the printed numbers are what actually pins the plotted data byte for
-    byte -- a cell that only prints a different, aggregate number (an overall accuracy, say) does
-    not satisfy this, however many print statements it has.
+    byte.
 
     For every ``plot_confusion_matrix(``, ``plot_risk_coverage(`` or ``plot_threshold_sweep(``
     call, in the *same* cell only (the contract names the same cell, and a preceding-cell
     allowance was checked and found to add nothing real: it only ever let an unrelated print
     satisfy this), take its first positional argument's base name (``matrix``, ``curve``, the
     part before any ``.`` attribute access) and require
-    ``_cell_prints_the_plotted_object``. A plain, unbounded "this name appears somewhere after a
-    ``print(`` in the cell" proxy is not usable here: it is satisfied by a single cosmetic
-    ``print("unrelated")`` anywhere before the plotted name appears in the plot call's own
-    argument list, which is not printing the plotted data at all."""
+    ``_cell_prints_the_plotted_object``: a ``print`` whose argument subtree names that object
+    (directly, or via a ``for`` loop over it). What this actually requires is narrower than "the
+    same data the figure draws" reads as, on purpose and honestly stated: it is satisfied by any
+    print derived from the plotted object, including a count merely derived from it and not its
+    full table, which this check does not tell apart from one -- a cell that prints a number
+    computed independently of the plotted object (an overall accuracy from `test_gold`/
+    `test_answers` directly, say) is the one shape this reliably catches."""
     nb = recipe_dir(recipe) / "notebook.ipynb"
     if not nb.is_file():
         pytest.skip("no notebook")
@@ -843,38 +884,63 @@ def test_every_recipe_is_linked_from_some_other_recipes_next_steps(recipe):
 # --------------------------------------------------------------------------------------------
 
 REASON_STRING = "confidence below the threshold"
+# The identifier immediately preceding a confidence-gated review's reason string, e.g.
+# "Routing(ticket, REVIEW, \"confidence below the threshold\")" or the tuple-unpacking
+# "outcome, reason = UNCERTAIN, \"confidence below the review cutoff\"" (recipe 06's own,
+# non-conforming text -- "confidence below" rather than the exact REASON_STRING, so this
+# traces even the recipes review_reason_string already flags for a different reason).
+CONFIDENCE_REASON_PREFIX = re.compile(r'(\w+)\s*,\s*"confidence below')
+# Recipe 16's REVIEW_NEEDED names one of the rule's own question options, not the outcome a
+# low-confidence answer is routed to; its real outcome, ESCALATE, is a legitimate
+# domain-specific name (an escalation queue), not REVIEW renamed -- see the test's docstring.
+NAMED_DOMAIN_OUTCOME_EXEMPTIONS = {
+    "16-discord-moderation-triage": 'ESCALATE is a genuine domain-specific outcome, not "review" renamed',
+}
 
 
 @pytest.mark.parametrize("recipe", guarded_with_template("review_value_is_review")())
 def test_review_outcome_value_is_review_where_it_exists(recipe):
     """docs/glossary.md#review: "the outcome value itself is the string 'review' (not, say,
-    'human_review'; a recipe may still name its own domain-specific sub-reasons)." Only checked
-    where ``helpers.py`` actually defines a module-level ``REVIEW`` constant: a recipe whose rule
-    names its review outcome some other way has nothing for this particular check to compare, and
-    is not asserted to be wrong by its absence.
+    'human_review'; a recipe may still name its own domain-specific sub-reasons)." Checked
+    directly where ``helpers.py`` defines a module-level ``REVIEW`` constant; traced where it
+    does not, via the identifier immediately preceding a confidence-gated review's reason string
+    (``'\\w+, "confidence below'``, loose enough to also find 06's non-conforming ``"confidence
+    below the review cutoff"`` -- see ``review_reason_string`` for that drift -- not only the
+    exact pinned text, since a recipe that fails one check should not be invisible to the other).
 
-    This skips three recipes today (06, 16, 21), and they are not all the same kind of skip.
-    16's constant is ``REVIEW_NEEDED``, but that names one of the rule's own *question* options
-    (something the model can answer), not the review outcome a wrong or unconfident answer is
-    routed to -- 16's actual review outcome value is ``ESCALATE``, a legitimate domain-specific
-    name for "an escalation queue", the way the glossary's own "a recipe may still name its own
-    domain-specific sub-reasons" clause anticipates (even though that clause's example is about
-    the *reason string*, not the outcome value, the same latitude is the only reading under which
-    16's ``ESCALATE`` is not simply ``"review"`` wearing a disguise). 06 (``UNCERTAIN``) and 21
-    (``NEEDS_REVIEW``, whose value is literally ``"needs_review"``) are a weaker case: both read
-    as a plain rename of the same review-queue outcome the glossary names, which is exactly the
-    drift this sentence exists to stop. A sharper check would trace the outcome value through to
-    wherever the reason string ``"confidence below the threshold"`` is actually returned (a
-    regex over ``helpers.py`` for the identifier immediately preceding that string, resolved via
-    ``load_helpers``) rather than only via the constant name ``REVIEW`` -- but that same trace
-    would also catch 16's ``ESCALATE``, which this docstring has just argued is not drift, so it
-    is not implemented here: a heuristic that cannot tell 16 apart from 06 and 21 would convert
-    one justified skip into a false failure to catch two real ones. 06 and 21's values are left
-    for the #163 sweep to fix at the source."""
+    Three recipes have no ``REVIEW`` constant today (06, 16, 21), and they are not the same kind
+    of case. 16's constant is ``REVIEW_NEEDED``, naming one of the rule's own *question* options
+    (something the model can answer), not the outcome a wrong or unconfident answer is routed to
+    -- 16's actual review outcome, traced the same way, is ``ESCALATE``, a legitimate
+    domain-specific name for "an escalation queue" (the glossary's "a recipe may still name its
+    own domain-specific sub-reasons" clause, read for the outcome value rather than only the
+    reason string, which is the only reading under which ``ESCALATE`` is not simply ``"review"``
+    wearing a disguise). It is named here, once, as the one exemption the trace does not itself
+    decide. 06 (``UNCERTAIN``) and 21 (``NEEDS_REVIEW``, value literally ``"needs_review"``) have
+    no such claim: both read as a plain rename of the same review-queue outcome the glossary
+    names, so the trace reports them as real failures -- recorded in the allowlist with a
+    ``see #163`` reason, not hidden behind a skip whose stated reason would not be the truth
+    about them."""
     helpers = load_helpers(recipe_dir(recipe))
-    if not hasattr(helpers, "REVIEW"):
-        pytest.skip("helpers.py defines no module-level REVIEW constant")
-    assert helpers.REVIEW == "review"
+    if hasattr(helpers, "REVIEW"):
+        assert helpers.REVIEW == "review"
+        return
+    if recipe["slug"] in NAMED_DOMAIN_OUTCOME_EXEMPTIONS:
+        pytest.skip(
+            f"{recipe['slug']}: {NAMED_DOMAIN_OUTCOME_EXEMPTIONS[recipe['slug']]} "
+            "(named exemption, not traced)"
+        )
+    text = (recipe_dir(recipe) / "helpers.py").read_text("utf-8")
+    match = CONFIDENCE_REASON_PREFIX.search(text)
+    assert match, (
+        f"{recipe['slug']}: no REVIEW constant and no identifiable confidence-gated "
+        "outcome for this check to trace"
+    )
+    value = getattr(helpers, match.group(1), None)
+    assert value == "review", (
+        f"{recipe['slug']}: the confidence-gated outcome ({match.group(1)}) is {value!r}, "
+        'not "review"'
+    )
 
 
 @pytest.mark.parametrize("recipe", guarded_with_template("review_reason_string")())
@@ -908,8 +974,8 @@ def _readme_source_ids(readme_text: str) -> list[str]:
 
 @pytest.mark.parametrize("recipe", guarded("readme_sources_match_catalog")())
 def test_readme_sources_match_the_catalog(recipe):
-    """tests/test_recipe_sources.py's own rule, folded into this module as one of the nine
-    checks too (CONTRIBUTING.md: a recipe's README is one page of the contract same as any
+    """tests/test_recipe_sources.py's own rule, folded into this module as one of these checks
+    too (CONTRIBUTING.md: a recipe's README is one page of the contract same as any
     other file). Not run against the template, which has no catalog row to compare against."""
     readme = (recipe_dir(recipe) / "README.md").read_text("utf-8")
     documented = _readme_source_ids(readme)

@@ -17,10 +17,12 @@ The protocol, so later readers do not have to reconstruct it from a diff:
 * **Only a #163 sweep pull request removes an entry**, by fixing the recipe so the check passes
   for real, never by deleting the entry while the underlying file is unchanged.
 * **A new foundation pull request that adds a stricter check here may add entries** for the
-  failures that check newly reveals (this file's first population, when #165 landed the guard,
-  and its fix round 1, which tightened four checks and added two more -- `metric_lines_carry_check`
-  and `next_steps_inbound_links` -- are both exactly that). It may not add an entry for a check
-  that already existed and already passed.
+  failures that check newly reveals (this file's first population, when #165 landed the guard; its
+  fix round 1, which tightened four checks and added two more -- `metric_lines_carry_check` and
+  `next_steps_inbound_links`; and its fix round 2, which turned `review_value_is_review`'s 06 and
+  21 skips into two more entries by implementing the trace that check's docstring had sketched --
+  are all exactly that). It may not add an entry for a check that already existed and already
+  passed.
 * Every entry's reason string names the check's own rule in one clause and ends with
   ``see #163``, so `gh issue list` or a grep for ``#163`` in CI logs finds the work list.
 
@@ -439,13 +441,23 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "23-pairwise-answer-evaluation",
         "next_steps_inbound_links",
     ): "no other published recipe's Next steps links ../23-pairwise-answer-evaluation/ (R21); see #163",
-    # --- check 7a: helpers.REVIEW == "review" where a REVIEW constant exists ----------------
-    # PR #186 review MC3: 09 ships a different review-outcome value. (16 and 21 are discussed,
-    # not allowlisted, in that check's own docstring.)
+    # --- check 7a: helpers.REVIEW == "review" where it exists, traced where it does not -----
+    # PR #186 review MC3 / fix round 2 suggestion 2: 09 ships a different REVIEW value directly;
+    # 06 and 21's confidence-gated outcome, traced through the reason string, is not "review"
+    # either (both read as a plain rename of the review-queue outcome). 16 is a named exemption
+    # in that check's own docstring (ESCALATE is a genuine domain-specific outcome), not here.
+    (
+        "06-multiple-topic-labels",
+        "review_value_is_review",
+    ): 'the confidence-gated outcome (UNCERTAIN) is "uncertain", not "review"; see #163',
     (
         "09-file-organization",
         "review_value_is_review",
     ): 'REVIEW = "unsorted", not "review" (PR #186 review MC3); see #163',
+    (
+        "21-quiz-answer-adjudication",
+        "review_value_is_review",
+    ): 'the confidence-gated outcome (NEEDS_REVIEW) is "needs_review", not "review"; see #163',
     # --- check 7b: the exact reason string "confidence below the threshold" in helpers.py ----
     (
         "02-refund-intent-detection",
