@@ -1,0 +1,1042 @@
+{
+  "036daa2fe132180e4dcaf65e7da813d1bcb0fe2b0ad482edf0bce9b25739ec94": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "feature_request",
+        "probabilities": {
+          "billing": 0.03,
+          "technical_issue": 0.08,
+          "account_access": 0.03,
+          "feature_request": 0.82,
+          "unclear_request": 0.04
+        },
+        "confidence": 0.7749999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "08ee624b4c82d5a5488d619a55f40e4cb9301bfc905a0ba6a3c28a9245760b7e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "billing",
+        "probabilities": {
+          "billing": 0.55,
+          "technical_issue": 0.05,
+          "account_access": 0.05,
+          "feature_request": 0.03,
+          "unclear_request": 0.32
+        },
+        "confidence": 0.4375,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2b407e1c302b4924ce3fc8449b66c8d7b47ce7e604366fbcf8d49a4557d6c156": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "account_access",
+        "probabilities": {
+          "billing": 0.04,
+          "technical_issue": 0.08,
+          "account_access": 0.8,
+          "feature_request": 0.04,
+          "unclear_request": 0.04
+        },
+        "confidence": 0.7500000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3825a8b91a5b023d24350d30149532e594521d2c5b6435857f879afc690b19c9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "technical_issue",
+        "probabilities": {
+          "billing": 0.02,
+          "technical_issue": 0.8,
+          "account_access": 0.07,
+          "feature_request": 0.07,
+          "unclear_request": 0.04
+        },
+        "confidence": 0.7500000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "432bf080c656facfaf6b4f343d059bc604d53bba9bd68fc12f52446d8ef3f2ea": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "billing",
+        "probabilities": {
+          "billing": 0.3,
+          "technical_issue": 0.27,
+          "account_access": 0.05,
+          "feature_request": 0.18,
+          "unclear_request": 0.2
+        },
+        "confidence": 0.12499999999999997,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "46a829c2630eb94184dd51f4ddc20eff1562d4b282a8cd5a82d11906c1c366ce": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "account_access",
+        "probabilities": {
+          "billing": 0.04,
+          "technical_issue": 0.18,
+          "account_access": 0.6,
+          "feature_request": 0.03,
+          "unclear_request": 0.15
+        },
+        "confidence": 0.49999999999999994,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4adfd3dcd01c427d74afaea0b72f75e79e7979663a52fc6487280317c44385de": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "billing",
+        "probabilities": {
+          "billing": 0.42,
+          "technical_issue": 0.05,
+          "account_access": 0.38,
+          "feature_request": 0.03,
+          "unclear_request": 0.12
+        },
+        "confidence": 0.27499999999999997,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4c66d27f1e29980a1607691dabf539640a1e369eda4b84038ee4e44fd7328f00": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "technical_issue",
+        "probabilities": {
+          "billing": 0.02,
+          "technical_issue": 0.84,
+          "account_access": 0.05,
+          "feature_request": 0.05,
+          "unclear_request": 0.04
+        },
+        "confidence": 0.7999999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "508f85c2a29b59b46980febae852b4c674bc72729e1f3aae741f0014477a0171": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "feature_request",
+        "probabilities": {
+          "billing": 0.03,
+          "technical_issue": 0.34,
+          "account_access": 0.05,
+          "feature_request": 0.46,
+          "unclear_request": 0.12
+        },
+        "confidence": 0.325,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "54c4c5788ad87007fbf72099130048dd1a2d9364ecaae015ae8ec3fc914f6cb6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "unclear_request",
+        "probabilities": {
+          "billing": 0.14,
+          "technical_issue": 0.28,
+          "account_access": 0.12,
+          "feature_request": 0.06,
+          "unclear_request": 0.4
+        },
+        "confidence": 0.25,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "59fa89bf6396ef965a9a0be7e9b983b3d4a755e220a1f94973f2e5a992ee70e8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "billing",
+        "probabilities": {
+          "billing": 0.84,
+          "technical_issue": 0.04,
+          "account_access": 0.05,
+          "feature_request": 0.04,
+          "unclear_request": 0.03
+        },
+        "confidence": 0.7999999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5b281cbefcc217afc2abed2e7777f9a4e4b5a89385690325bab062396b87f6da": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "feature_request",
+        "probabilities": {
+          "billing": 0.03,
+          "technical_issue": 0.09,
+          "account_access": 0.03,
+          "feature_request": 0.82,
+          "unclear_request": 0.03
+        },
+        "confidence": 0.7749999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6fa0b6d8c4ce3c70b49db89ce5987a795b95762086435465260a3fa3e711b35a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "unclear_request",
+        "probabilities": {
+          "billing": 0.05,
+          "technical_issue": 0.04,
+          "account_access": 0.03,
+          "feature_request": 0.18,
+          "unclear_request": 0.7
+        },
+        "confidence": 0.6249999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "75b45657ac64e19221b5ea4b046a25a86936baba646cab0c0a1611babaa5de12": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "billing",
+        "probabilities": {
+          "billing": 0.88,
+          "technical_issue": 0.03,
+          "account_access": 0.04,
+          "feature_request": 0.02,
+          "unclear_request": 0.03
+        },
+        "confidence": 0.8499999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7974e9ee53c368e0e3439466def610e792c70048ac48f80572efbefe7a0a5bf4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "unclear_request",
+        "probabilities": {
+          "billing": 0.12,
+          "technical_issue": 0.3,
+          "account_access": 0.1,
+          "feature_request": 0.05,
+          "unclear_request": 0.43
+        },
+        "confidence": 0.2875,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7ee944b37ee7e957635df70866d6525a400fa53584d00cd4fb95a6be69d030be": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "unclear_request",
+        "probabilities": {
+          "billing": 0.2,
+          "technical_issue": 0.15,
+          "account_access": 0.07,
+          "feature_request": 0.08,
+          "unclear_request": 0.5
+        },
+        "confidence": 0.37499999999999994,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "80103729654ec1fc1ad1f1fdbcef8e74bd7dce761cb0069b663e44756e7ccf37": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "unclear_request",
+        "probabilities": {
+          "billing": 0.15,
+          "technical_issue": 0.3,
+          "account_access": 0.12,
+          "feature_request": 0.06,
+          "unclear_request": 0.37
+        },
+        "confidence": 0.21249999999999997,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "80ba946375f9127fb6b53cedbbd14fe101333247be1d0bcf6d475c8857e3e80d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "technical_issue",
+        "probabilities": {
+          "billing": 0.03,
+          "technical_issue": 0.86,
+          "account_access": 0.04,
+          "feature_request": 0.04,
+          "unclear_request": 0.03
+        },
+        "confidence": 0.8249999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "91bd1dd4e81086ee2bb7896a81e7d81860cf1e90c207aee36e059e0b97108d43": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "feature_request",
+        "probabilities": {
+          "billing": 0.02,
+          "technical_issue": 0.07,
+          "account_access": 0.03,
+          "feature_request": 0.85,
+          "unclear_request": 0.03
+        },
+        "confidence": 0.8124999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "923e430bae4444c1d24c8f40cf953c72e42bd9d3b4a2fe888a6845fa3aeb53f9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "account_access",
+        "probabilities": {
+          "billing": 0.03,
+          "technical_issue": 0.05,
+          "account_access": 0.85,
+          "feature_request": 0.04,
+          "unclear_request": 0.03
+        },
+        "confidence": 0.8124999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a3ab8886fb597f0517c8821e642a284fb840b31b34656be007b1910075022a4d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "feature_request",
+        "probabilities": {
+          "billing": 0.02,
+          "technical_issue": 0.08,
+          "account_access": 0.04,
+          "feature_request": 0.83,
+          "unclear_request": 0.03
+        },
+        "confidence": 0.7874999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a6ed1971e8a414d4725f27f58d0a05f2e6d66d5533e35e2be9dba7d7b4da8511": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "billing",
+        "probabilities": {
+          "billing": 0.5,
+          "technical_issue": 0.05,
+          "account_access": 0.05,
+          "feature_request": 0.03,
+          "unclear_request": 0.37
+        },
+        "confidence": 0.37499999999999994,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a9e7f874b15e9bc4c8b9eddac3e70d04055ca749bf541837bd36aa35c4050d94": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "billing",
+        "probabilities": {
+          "billing": 0.86,
+          "technical_issue": 0.04,
+          "account_access": 0.05,
+          "feature_request": 0.02,
+          "unclear_request": 0.03
+        },
+        "confidence": 0.8249999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b08666b92a5cfb62f13f0fc6ca2051b7e44ce21eb1e3078f43b0879493cf4253": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "account_access",
+        "probabilities": {
+          "billing": 0.04,
+          "technical_issue": 0.09,
+          "account_access": 0.78,
+          "feature_request": 0.04,
+          "unclear_request": 0.05
+        },
+        "confidence": 0.7250000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b523522aace0a681e769db804dadece6fee768fb44b4ac64d1aa6328bcf55d06": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "billing",
+        "probabilities": {
+          "billing": 0.85,
+          "technical_issue": 0.04,
+          "account_access": 0.05,
+          "feature_request": 0.03,
+          "unclear_request": 0.03
+        },
+        "confidence": 0.8124999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c04bb0ab241ef25e1ac4ef7960b8cdf8525875ea5847d0f209ed35d9055c895b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "account_access",
+        "probabilities": {
+          "billing": 0.04,
+          "technical_issue": 0.05,
+          "account_access": 0.82,
+          "feature_request": 0.06,
+          "unclear_request": 0.03
+        },
+        "confidence": 0.7749999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c22ac33dd784303159afc1bb199e6144b142a37d7e08d26b694091ae859f3f51": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "billing",
+        "probabilities": {
+          "billing": 0.9,
+          "technical_issue": 0.03,
+          "account_access": 0.03,
+          "feature_request": 0.02,
+          "unclear_request": 0.02
+        },
+        "confidence": 0.8749999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c5acb35725ac79e654f801bfcbf7d7594195effbf33378880c9849157636aa75": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "feature_request",
+        "probabilities": {
+          "billing": 0.03,
+          "technical_issue": 0.1,
+          "account_access": 0.03,
+          "feature_request": 0.8,
+          "unclear_request": 0.04
+        },
+        "confidence": 0.7500000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "cc5b2ff6bbc078883c7f9850be3630bbfe421b9756ddf5ccfc448e2362dd5fb1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "technical_issue",
+        "probabilities": {
+          "billing": 0.03,
+          "technical_issue": 0.88,
+          "account_access": 0.03,
+          "feature_request": 0.04,
+          "unclear_request": 0.02
+        },
+        "confidence": 0.8499999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "cd598a0c018c2d1ad52140a1f47c602630a382358991898630c7fd618e11dafd": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "billing",
+        "probabilities": {
+          "billing": 0.83,
+          "technical_issue": 0.04,
+          "account_access": 0.05,
+          "feature_request": 0.05,
+          "unclear_request": 0.03
+        },
+        "confidence": 0.7874999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d5a37c0245fd0a24784d54da56f879887ff0c29dac91f2ac2d87d491cbb0d925": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "feature_request",
+        "probabilities": {
+          "billing": 0.03,
+          "technical_issue": 0.06,
+          "account_access": 0.03,
+          "feature_request": 0.85,
+          "unclear_request": 0.03
+        },
+        "confidence": 0.8124999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d7ab61d5fed304efa9ecb7412e541df75bff4138c5cb84f70e14c4895cd738a1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "account_access",
+        "probabilities": {
+          "billing": 0.03,
+          "technical_issue": 0.08,
+          "account_access": 0.85,
+          "feature_request": 0.02,
+          "unclear_request": 0.02
+        },
+        "confidence": 0.8124999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "daa6a4f5c61abd6597650f32116b9ccbd6cf66b2b9e625ae3088ae2532a976c2": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "technical_issue",
+        "probabilities": {
+          "billing": 0.02,
+          "technical_issue": 0.83,
+          "account_access": 0.06,
+          "feature_request": 0.05,
+          "unclear_request": 0.04
+        },
+        "confidence": 0.7874999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "dcc1605bc346f48927eed3f4b59016960314ed556ed6dab9279cb18eab5d1654": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "feature_request",
+        "probabilities": {
+          "billing": 0.03,
+          "technical_issue": 0.07,
+          "account_access": 0.03,
+          "feature_request": 0.84,
+          "unclear_request": 0.03
+        },
+        "confidence": 0.7999999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e012134a0fe228c4390932f1724938c7d86431bc0f1f92ef4bb4001de5f18c43": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "account_access",
+        "probabilities": {
+          "billing": 0.05,
+          "technical_issue": 0.2,
+          "account_access": 0.45,
+          "feature_request": 0.05,
+          "unclear_request": 0.25
+        },
+        "confidence": 0.3125,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "eb11aef5fcf985310b17fdc82fe3b58cf56335b10cb05612da8b976297a0c9a5": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "billing",
+        "probabilities": {
+          "billing": 0.4,
+          "technical_issue": 0.06,
+          "account_access": 0.37,
+          "feature_request": 0.04,
+          "unclear_request": 0.13
+        },
+        "confidence": 0.25,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ed7db17cb011da09a7d6c89b8149e76ce8fc8aa9da354433b2e38ba41c913b3d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "account_access",
+        "probabilities": {
+          "billing": 0.03,
+          "technical_issue": 0.07,
+          "account_access": 0.84,
+          "feature_request": 0.03,
+          "unclear_request": 0.03
+        },
+        "confidence": 0.7999999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f2298a4b9be74f36a585fd77cb8725dacb97546e539bf1ca51a9ad7b7872ba6b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "technical_issue",
+        "probabilities": {
+          "billing": 0.02,
+          "technical_issue": 0.81,
+          "account_access": 0.06,
+          "feature_request": 0.07,
+          "unclear_request": 0.04
+        },
+        "confidence": 0.7625000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f4bbf3cf254ad78810014b816f061e1956d76af15e27f9023a99b865416f331d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "unclear_request",
+        "probabilities": {
+          "billing": 0.05,
+          "technical_issue": 0.05,
+          "account_access": 0.03,
+          "feature_request": 0.15,
+          "unclear_request": 0.72
+        },
+        "confidence": 0.65,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f718df9f9ce0490ba887977d14e2e1c87caa943b23ad0349c0229aaabb49cd22": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "billing",
+        "probabilities": {
+          "billing": 0.42,
+          "technical_issue": 0.05,
+          "account_access": 0.38,
+          "feature_request": 0.03,
+          "unclear_request": 0.12
+        },
+        "confidence": 0.27499999999999997,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
