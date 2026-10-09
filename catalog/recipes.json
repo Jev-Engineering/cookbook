@@ -99,6 +99,7 @@
       "use_case": "Classify a short customer review as positive, neutral, negative, or mixed using a fixed set of labels.",
       "sources": [
         "S02",
+        "S03",
         "S07"
       ],
       "issue": 1
@@ -116,6 +117,7 @@
       "use_case": "Judge whether a customer message explicitly requests a refund so Python can flag it for the appropriate workflow.",
       "sources": [
         "S02",
+        "S03",
         "S04"
       ],
       "issue": 2
@@ -133,6 +135,7 @@
       "use_case": "Score a support response against a clearly defined clarity rubric to identify examples that need editing.",
       "sources": [
         "S02",
+        "S03",
         "S07"
       ],
       "issue": 3
@@ -150,6 +153,7 @@
       "use_case": "Assign a support ticket to a fixed service category or an unclear-request outcome using its subject and description.",
       "sources": [
         "S02",
+        "S03",
         "S04"
       ],
       "issue": 4
@@ -167,6 +171,7 @@
       "use_case": "Classify a short document as an invoice, meeting note, policy, technical guide, or other document type from its text.",
       "sources": [
         "S02",
+        "S03",
         "S07"
       ],
       "issue": 5
@@ -184,6 +189,7 @@
       "use_case": "Tag customer feedback with every applicable topic by asking an independent yes-or-no question for each predefined label.",
       "sources": [
         "S02",
+        "S03",
         "S07"
       ],
       "issue": 6
@@ -201,6 +207,7 @@
       "use_case": "Select the intended meaning of an ambiguous word from a fixed sense inventory using its surrounding sentence.",
       "sources": [
         "S02",
+        "S03",
         "S07"
       ],
       "issue": 7
@@ -217,6 +224,7 @@
       ],
       "use_case": "Select the best matching FAQ from a short candidate list, including a no-match outcome when none addresses the question.",
       "sources": [
+        "S03",
         "S04",
         "S06"
       ],
@@ -235,6 +243,7 @@
       "use_case": "Recommend a destination folder from a fixed catalog using a file's name and text excerpt so Python can preview the proposed organization.",
       "sources": [
         "S02",
+        "S03",
         "S04"
       ],
       "issue": 9
@@ -251,6 +260,7 @@
       ],
       "use_case": "Judge whether a candidate response addresses the user's question so a notebook can separate relevant answers from off-topic replies.",
       "sources": [
+        "S03",
         "S04",
         "S06"
       ],
@@ -268,6 +278,7 @@
       ],
       "use_case": "Select a useful follow-up question from a predefined catalog when a task description omits information needed for the next step.",
       "sources": [
+        "S03",
         "S04",
         "S06"
       ],
@@ -286,6 +297,7 @@
       "use_case": "Choose a context-appropriate synonym from a supplied thesaurus list while retaining the original word when no alternative preserves its meaning.",
       "sources": [
         "S02",
+        "S03",
         "S07"
       ],
       "issue": 12
@@ -303,6 +315,7 @@
       "use_case": "Choose a supplied sentence rewrite that preserves the original meaning and requested tone, with a no-suitable-rewrite outcome when necessary.",
       "sources": [
         "S02",
+        "S03",
         "S07"
       ],
       "issue": 13
@@ -320,6 +333,7 @@
       "use_case": "Select the supplier name from text spans already extracted by Python, with a not-stated outcome when the document lacks that field.",
       "sources": [
         "S02",
+        "S03",
         "S06"
       ],
       "issue": 14
@@ -336,6 +350,7 @@
       ],
       "use_case": "Flag synthetic documents that may contain personal information so a simulated review queue can prioritize redaction checks.",
       "sources": [
+        "S03",
         "S04",
         "S07"
       ],
@@ -353,6 +368,7 @@
       ],
       "use_case": "Classify sample Discord messages as allowed, review-needed, or potentially violating a supplied community rule to populate a simulated moderator queue.",
       "sources": [
+        "S03",
         "S04",
         "S07"
       ],
@@ -370,6 +386,7 @@
       ],
       "use_case": "Score retrieved passages against a question so Python can rank candidate evidence and retain each passage's source reference.",
       "sources": [
+        "S03",
         "S04",
         "S06"
       ],
@@ -388,6 +405,7 @@
       "use_case": "Select a matching incident from a retrieved ticket shortlist, or no match, using descriptions of the symptoms and affected service.",
       "sources": [
         "S02",
+        "S03",
         "S04"
       ],
       "issue": 18
@@ -404,6 +422,7 @@
       ],
       "use_case": "Classify recorded continuous-integration failures as test regressions, dependency problems, infrastructure failures, or unknown to select the next diagnostic workflow.",
       "sources": [
+        "S03",
         "S04",
         "S05"
       ],
@@ -421,6 +440,7 @@
       ],
       "use_case": "Classify whether a provided passage supports, contradicts, or leaves unresolved a specific claim while preserving the passage identifier.",
       "sources": [
+        "S03",
         "S04",
         "S06"
       ],
@@ -438,6 +458,7 @@
       ],
       "use_case": "Judge whether a typed quiz response matches an accepted answer by meaning, with partial-match and review outcomes for ambiguous responses.",
       "sources": [
+        "S03",
         "S04",
         "S07"
       ],
@@ -456,6 +477,7 @@
       "use_case": "Link differently worded software asset descriptions to a canonical configuration-management record from a bounded candidate list or a no-match outcome.",
       "sources": [
         "S02",
+        "S03",
         "S06"
       ],
       "issue": 22
@@ -490,6 +512,7 @@
       "use_case": "Score reported business impact and urgency against separate rubrics so Python can map the scores to defined categories and apply a fixed service-priority matrix.",
       "sources": [
         "S02",
+        "S03",
         "S04"
       ],
       "issue": 24
@@ -507,6 +530,7 @@
       "use_case": "Check whether a proposed change includes sufficient implementation, validation, and rollback evidence so a deterministic checklist can identify review gaps.",
       "sources": [
         "S02",
+        "S03",
         "S04"
       ],
       "issue": 25
@@ -523,6 +547,7 @@
       ],
       "use_case": "Flag instruction-redirection attempts in retrieved text using adversarial and benign quotation fixtures to measure false positives and missed attacks.",
       "sources": [
+        "S03",
         "S04",
         "S07"
       ],
@@ -540,6 +565,7 @@
       ],
       "use_case": "Select a function from a preapproved catalog for a request while Python validates supplied arguments before simulated execution.",
       "sources": [
+        "S03",
         "S04",
         "S06"
       ],
@@ -557,6 +583,7 @@
       ],
       "use_case": "Score retrieved skill descriptions for relevance to a task so Python can select a suitable skill or request clarification.",
       "sources": [
+        "S03",
         "S04",
         "S06"
       ],
@@ -574,6 +601,7 @@
       ],
       "use_case": "Classify recorded tool outcomes as complete, partial, failed, or unverifiable using the original request and observed evidence.",
       "sources": [
+        "S03",
         "S04",
         "S06"
       ],
@@ -591,6 +619,7 @@
       ],
       "use_case": "Check each answer claim against its cited passage and flag unsupported or contradicted claims while Python verifies citation identifiers.",
       "sources": [
+        "S03",
         "S04",
         "S06"
       ],
@@ -608,6 +637,7 @@
       ],
       "use_case": "Assess a small patch for separate authentication, input-validation, and data-loss concerns to prioritize human review using explicit rules.",
       "sources": [
+        "S03",
         "S04",
         "S05"
       ],
@@ -625,6 +655,7 @@
       ],
       "use_case": "Score candidate tests against the behavior changed by a patch so Python can propose a focused regression suite.",
       "sources": [
+        "S03",
         "S04",
         "S05"
       ],
@@ -643,6 +674,7 @@
       "use_case": "Map source field descriptions to a bounded target schema with ambiguous and unmapped outcomes before Python validates the proposed mappings.",
       "sources": [
         "S02",
+        "S03",
         "S06"
       ],
       "issue": 33
@@ -660,6 +692,7 @@
       "use_case": "Label candidate entity pairs with an allowed relationship type or no-supported-relation using provided evidence passages.",
       "sources": [
         "S02",
+        "S03",
         "S06"
       ],
       "issue": 34
@@ -693,6 +726,7 @@
       ],
       "use_case": "Select a legal action in a turn-based card-game simulator using structured state and fixed action descriptions while Python enforces game rules.",
       "sources": [
+        "S03",
         "S04",
         "S07"
       ],
@@ -711,6 +745,7 @@
       "use_case": "Assign independently judged research-domain labels to evidence passages while Python preserves provenance and enforces access controls.",
       "sources": [
         "S02",
+        "S03",
         "S06"
       ],
       "issue": 37
@@ -746,6 +781,7 @@
       "use_case": "Select candidate values for document fields, verify each selection against its source span, and route uncertain or inconsistent records to review.",
       "sources": [
         "S02",
+        "S03",
         "S06"
       ],
       "issue": 39
@@ -763,6 +799,7 @@
       "use_case": "Route documents through a taxonomy in stages while Python carries competing branches forward when early judgments are uncertain.",
       "sources": [
         "S02",
+        "S03",
         "S06"
       ],
       "issue": 40
@@ -779,6 +816,7 @@
       ],
       "use_case": "Flag semantic mismatches between an approved task and a proposed tool action while Python enforces exact permissions and approval bindings.",
       "sources": [
+        "S03",
         "S04",
         "S07"
       ],
@@ -796,6 +834,7 @@
       ],
       "use_case": "Screen proposed outbound messages for disclosure concerns against supplied sharing rules while deterministic controls hold flagged or uncertain samples for review.",
       "sources": [
+        "S03",
         "S04",
         "S07"
       ],
@@ -813,6 +852,7 @@
       ],
       "use_case": "Select retry, alternative method, or escalation from a bounded recovery catalog using execution history while Python enforces retry budgets and stop conditions.",
       "sources": [
+        "S03",
         "S04",
         "S06"
       ],
@@ -830,6 +870,7 @@
       ],
       "use_case": "Evaluate each candidate plan against individual user constraints so deterministic policy can reject ineligible plans and route unresolved judgments to review.",
       "sources": [
+        "S03",
         "S04",
         "S06"
       ],
@@ -848,6 +889,7 @@
       "use_case": "Classify a new memory statement as corroborating, superseding, contradicting, or unrelated to existing evidence so a versioned store can preserve provenance and unresolved conflicts.",
       "sources": [
         "S01",
+        "S03",
         "S04"
       ],
       "issue": 45
@@ -865,6 +907,7 @@
       "use_case": "Judge stored context chunks for relevance to the current task so Python can retain, page out, or rehydrate them while preserving original content and source links.",
       "sources": [
         "S01",
+        "S03",
         "S04"
       ],
       "issue": 46
@@ -882,6 +925,7 @@
       "use_case": "Classify apparent claim conflicts by factual disagreement, time, entity, or scope using source excerpts and temporal relationships already computed by Python.",
       "sources": [
         "S02",
+        "S03",
         "S06"
       ],
       "issue": 47
@@ -900,6 +944,7 @@
       "use_case": "Select among externally supplied sentence revisions and check their consistency with paragraph context as Python assembles a versioned document.",
       "sources": [
         "S02",
+        "S03",
         "S07"
       ],
       "issue": 48
@@ -916,6 +961,7 @@
       ],
       "use_case": "Score each agent's suitability for a subtask so a deterministic scheduler can assign work under capability, dependency, and budget constraints.",
       "sources": [
+        "S03",
         "S04",
         "S06"
       ],
@@ -953,6 +999,7 @@
       ],
       "use_case": "Classify progress across recorded agent turns as advancing, repeating, regressing, or complete so Python can apply a continue, change-strategy, or stop policy.",
       "sources": [
+        "S03",
         "S04",
         "S06"
       ],
@@ -971,6 +1018,7 @@
       ],
       "use_case": "Combine passage filtering, reranking, and claim verification in a retrieval pipeline and measure each stage's effect on answer support using a fixed labeled corpus.",
       "sources": [
+        "S03",
         "S04",
         "S06"
       ],
@@ -1045,6 +1093,7 @@
       ],
       "use_case": "Evaluate Jev screening at input, retrieved-context, proposed-action, and output boundaries using adversarial replay while measuring attack success, false positives, and task completion.",
       "sources": [
+        "S03",
         "S04",
         "S07"
       ],
@@ -1064,6 +1113,7 @@
       "use_case": "Combine entity, relationship, and evidence judgments into a proposed graph update that Python validates and applies transactionally in a simulated store with replayable provenance.",
       "sources": [
         "S02",
+        "S03",
         "S06"
       ],
       "issue": 57
@@ -1081,6 +1131,7 @@
       ],
       "use_case": "Select supervisory responses to simulated PLC fault descriptions and telemetry while Python enforces interlocks and a separate controller handles timing and actuation.",
       "sources": [
+        "S03",
         "S04",
         "S07"
       ],
@@ -1098,6 +1149,7 @@
       ],
       "use_case": "Choose the next permitted observation and subsequent legal action in a partially observed game, then compare complete trajectories with a rule-based baseline.",
       "sources": [
+        "S03",
         "S04",
         "S07"
       ],
@@ -1117,6 +1169,7 @@
       ],
       "use_case": "Select bounded production goals and recovery actions from structured factory state while a Factorio-style simulator executes predefined action templates and measures throughput, stalls, and resource use.",
       "sources": [
+        "S03",
         "S04",
         "S07"
       ],

@@ -24,10 +24,11 @@ and by design never appears on a commit of `main` — a commit lands on `main` o
 pull request, and `pull_request_target` does not fire for a push. Treat it as required on the pull
 request head only: pass `Notebooks (execute)` and `Fixtures (validate)` to
 `tools/check_merge_readiness.py --require-check` (see [merge-readiness.md](merge-readiness.md)),
-and never `Scope (recipe pull requests)`, because the helper demands presence on current `main` as
-well as on the head and would fail forever otherwise. The helper cannot currently express "required
-on the head, not on `main`"; until it can, `Scope` is verified by reading the pull request head's
-own `statusCheckRollup` directly, not through `--require-check`. The other check names (`Lint
+and pass `Scope (recipe pull requests)` to `--require-head-check "Scope (recipe pull requests)"`
+instead — repeatable, judged on the PR head only, and fail-closed on anything other than a single
+successful result there. Never pass `Scope` to `--require-check`, which also judges current `main`
+and would fail forever. Reading the pull request head's own `statusCheckRollup` directly remains a
+useful cross-check, not the only way to verify `Scope`. The other check names (`Lint
 (ruff)`, `Catalog (README is current)`, `Tests (py3.10)`, `Tests (py3.14)`, `Hygiene (secrets and
 notebook outputs)`) are unchanged.
 
