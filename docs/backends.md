@@ -101,7 +101,7 @@ options or levels.
 | - | - | - |
 | probabilities sum to 1 | `0.005 * n` | each of n probabilities is off by up to 0.005 |
 | Score `score` equals `sum(i * p_i)` | `0.005 * n(n-1)/2 + 0.005` | each `p_i` moves the sum by up to `0.005 * i`; `score` itself is off by 0.005 |
-| Choice `confidence` equals `(p_max - 1/n) / (1 - 1/n)` | `0.005 / (1 - 1/n) + 0.005` | the largest probability is off by up to 0.005 (rounding keeps order), the formula scales that by `1 / (1 - 1/n)`, and `confidence` is off by 0.005; one option gives 1 whatever `p` is, so the bound is 0.005 |
+| Choice `confidence` equals `(p_max - 1/n) / (1 - 1/n)` | `0.005 / (1 - 1/n) + 0.005` | the largest probability is off by up to 0.005 (rounding keeps order), the formula scales that by `1 / (1 - 1/n)`, and `confidence` is off by 0.005. A one-option Choice is rejected at construction (see "Single-option Choice"), so `n` is always at least 2 wherever this bound applies |
 | Score `confidence` equals `1 - spread / even` | `0.005 * sum(abs(i - peak)) / even + 0.005` | see below |
 
 Score confidence. On `https://docs.typesafe.ai/confidence` the formula is

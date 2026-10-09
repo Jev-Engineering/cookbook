@@ -48,7 +48,7 @@ pattern must match the whole value, so an id with a trailing newline is refused.
 | `split` | `validation`, `test`, `train` or `demo` (below). |
 | `state` | Exactly one of `state` and `fields`. `state` is the value passed to `backend.decide`: text, a JSON object, or a list of strings. |
 | `fields` | The values the recipe's Python builds the state from (a JSON object), when the notebook assembles the state itself. |
-| `replay_keys` | `replay_key(state, questions)` of every request the notebook replays for this example: 64 lowercase hex characters. May be empty (see "Replay and scripted recipes"). More than one when a later request depends on an earlier answer, in the order the notebook makes the requests. A `demo` example may list keys (list them if the notebook replays it); if it does, the responses must exist like any other. |
+| `replay_keys` | `replay_key(state, questions)` of every request the notebook replays for this example: 64 lowercase hex characters. May be empty (see "Replay and scripted recipes"). More than one when a later request depends on an earlier answer, in the order the notebook makes the requests, or when an example simply makes more than one independent request of its own (recipe 23 asks the same comparison twice, with the two candidates in each order, and lists both keys in the order it makes the requests). A `demo` example may list keys (list them if the notebook replays it); if it does, the responses must exist like any other. |
 
 The validator cannot rebuild a request, because the questions live in the notebook. So the link
 from an example to its responses is written down: `replay_keys`. Compute the keys in the script
@@ -80,14 +80,17 @@ allowed, but double counts that example.
 which the validator never runs, so two examples with different `fields` can still ask Jev the
 identical request without the content check above noticing (recipe 14's `v17` and `t15` did
 exactly this: different `fields`, but the same `replay_keys` entry, caught only once replay
-itself was inspected). `replay_keys` is the hash of what Jev actually sees, so for an example
-whose entire request is one key, the validator compares that key directly: the same key listed
-by an example of a different split among `train`, `validation` and `test` is an error, naming
-both ids. This is narrower than the content rule on purpose: an example with more than one key
-may legitimately share its *later* key with another example on purpose (the same quoted
-sentence above, "so do examples whose later request is the same"), and the validator cannot
-tell that apart from a leak by the key alone, so only a one-key example's sole key is compared.
-`demo` is exempt here too.
+itself was inspected). `replay_keys` is the hash of what Jev actually sees, so the validator
+compares it directly: the same *complete* list of keys (order ignored, so listing them out of
+order does not escape comparison) listed by an example of a different split among `train`,
+`validation` and `test` is an error, naming both ids. Comparing the whole list, not one key in
+isolation, is what keeps a legitimately shared *later* key legitimate (the same quoted sentence
+above, "so do examples whose later request is the same"): such an example keeps a distinguishing
+earlier key of its own, so its complete list still differs from every other example's, and
+nothing is flagged; only two examples whose entire set of requests matches, key for key, are a
+leak. That covers a one-key example's sole key (recipe 14's case) and a multi-key example's
+whole set alike (recipe 23's two independent, mirrored requests per example). `demo` is exempt
+here too.
 
 ## Labels
 

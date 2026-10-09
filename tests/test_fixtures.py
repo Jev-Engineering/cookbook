@@ -846,14 +846,76 @@ def test_a_shared_replay_key_in_one_split_is_not_a_leak(recipe):
 
 def test_a_legitimately_shared_later_request_across_splits_is_not_a_leak(recipe):
     """docs/fixtures.md: "examples whose later request is the same" may share a key -- this
-    holds across splits too, so the new check only looks at an example whose *entire* request
-    is one key (the same restriction the existing key-copy check above uses), never at one key
-    among several."""
+    holds across splits too. The new check compares each example's *complete* sorted list of
+    keys, not one key in isolation: every example here keeps its own distinguishing first key
+    in addition to the shared later one, so no two examples' complete lists match and nothing
+    is flagged, even though a key is genuinely shared by all four."""
     data = good_set()
     policy = request_key("the policy request, identical for every example")
     for row in data["inputs"]:
         row["replay_keys"].append(policy)
     data["responses"][policy] = result()
+    write(recipe, data)
+    assert messages(recipe) == []
+
+
+def test_a_shared_replay_key_across_splits_is_a_leak_for_fields_examples(recipe):
+    """``fields`` examples are the motivating case: the existing key-copy check below (and the
+    content-based leak rule above) cannot see a ``fields`` example's actual request, since
+    ``build_state`` runs only in the notebook -- only comparing ``replay_keys`` catches two
+    ``fields`` examples, on both sides, that happen to ask the identical request. A mutation
+    that restricted this block to ``e.state is not None``, mirroring the key-copy check's own
+    restriction, would miss this case and this test would fail."""
+    data = good_set()
+    for row in data["inputs"]:
+        row["fields"] = {"text": row.pop("state")["text"]}
+    own = data["inputs"][2]["replay_keys"][0]
+    data["inputs"][2]["replay_keys"] = list(data["inputs"][0]["replay_keys"])
+    del data["responses"][own]
+    write(recipe, data)
+    expect(
+        recipe,
+        "(id 't2'): replay key",
+        "is also listed by 't0' (validation), a different split (test)",
+    )
+
+
+def test_a_shared_complete_multi_key_set_across_splits_is_a_leak(recipe):
+    """Recipe 23's pattern: every example makes two independent, mirrored requests, so a check
+    that only ever compared the first key (the previous implementation's restriction to
+    one-key examples) never compared a multi-key example at all. Here t0 (validation) gets a
+    second key, and t2 (test) is given the identical pair -- a genuine full duplicate -- listed
+    in the opposite order, which the sort must still catch. t1 gets its own distinct second key
+    and is not flagged; t3 stays single-key throughout and is unaffected."""
+    data = good_set()
+    own_t0 = data["inputs"][0]["replay_keys"][0]
+    own_t2 = data["inputs"][2]["replay_keys"][0]
+    second_a = request_key("the second half of t0's pair")
+    second_b = request_key("the second half of t1's pair")
+    data["responses"][second_a] = result()
+    data["responses"][second_b] = result()
+    data["inputs"][0]["replay_keys"].append(second_a)  # t0 (validation): [own_t0, second_a]
+    data["inputs"][1]["replay_keys"].append(second_b)  # t1 (validation): its own pair
+    data["inputs"][2]["replay_keys"] = [second_a, own_t0]  # t2 (test): t0's pair, reversed
+    del data["responses"][own_t2]
+    write(recipe, data)
+    found = messages(recipe)
+    assert not any("'t1'" in m for m in found if "replay key" in m)
+    expect(
+        recipe,
+        "(id 't2'): replay keys",
+        "are also listed, as the same complete set, by 't0' (validation), a different split (test)",
+    )
+
+
+def test_a_partial_multi_key_overlap_across_splits_is_not_a_leak(recipe):
+    """Sharing *one* of two keys is the legitimate shared-later-request pattern, not a leak
+    (see above): only an identical complete set is compared."""
+    data = good_set()
+    shared = request_key("a request every example happens to share")
+    data["responses"][shared] = result()
+    data["inputs"][0]["replay_keys"].append(shared)  # validation
+    data["inputs"][2]["replay_keys"].append(shared)  # test, but keeps its own distinct first key
     write(recipe, data)
     assert messages(recipe) == []
 

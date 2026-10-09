@@ -496,26 +496,36 @@ def _check_examples(
     # can transform (dropping a Python-owned value) -- and never even looks at a `fields`
     # example's actual request -- so two examples can ask Jev the identical request without it
     # being noticed there. replay_keys is the hash of what Jev actually sees, so comparing it
-    # directly catches that case too, for an example whose entire request is one key (the same
-    # restriction `owners` below applies, and for the same reason: with more than one key, a
-    # later key may legitimately be shared on purpose -- "examples whose later request is the
-    # same" above -- and the validator cannot tell that apart from a leak by the key alone). The
-    # same one-key request listed by an example of a different split among train/validation/test
-    # is the identical request asked once where it can be tuned on and once where it is supposed
-    # to be held out. demo is exempt, as it is above: it is never scored or tuned on.
-    by_key: dict[str, list[Example]] = defaultdict(list)
+    # directly catches that case too: the same *complete* set of keys (sorted, so listing them
+    # out of order does not escape comparison) listed by an example of a different split among
+    # train/validation/test is the identical set of requests asked once where it can be tuned on
+    # and once where it is supposed to be held out -- whether that set is one key (recipe 14's
+    # v17/t15: different fields, one byte-identical request) or several (recipe 23's two
+    # independent, mirrored requests per example). Comparing the whole set, not one key alone,
+    # is what keeps a legitimately shared *later* key legitimate ("examples whose later request
+    # is the same" above): such an example keeps a distinguishing earlier key of its own, so its
+    # complete set still differs from every other example's. demo is exempt, as it is above: it
+    # is never scored or tuned on.
+    by_keys: dict[tuple[str, ...], list[Example]] = defaultdict(list)
     for e in examples:
-        if e.split in LABELED_SPLITS and len(e.replay_keys) == 1:
-            by_key[e.replay_keys[0]].append(e)
-    for key, who in by_key.items():
+        if e.split in LABELED_SPLITS and e.replay_keys:
+            by_keys[tuple(sorted(e.replay_keys))].append(e)
+    for keys, who in by_keys.items():
         first = who[0]
         for other in who[1:]:
             if other.split != first.split:
-                msg = (
-                    f"replay key {key} is also listed by {first.id!r} ({first.split}), a "
-                    f"different split ({other.split}): the same request would be asked (and "
-                    "scored) in both"
-                )
+                if len(keys) == 1:
+                    msg = (
+                        f"replay key {keys[0]} is also listed by {first.id!r} ({first.split}), "
+                        f"a different split ({other.split}): the same request would be asked "
+                        "(and scored) in both"
+                    )
+                else:
+                    msg = (
+                        f"replay keys {', '.join(keys)} are also listed, as the same complete "
+                        f"set, by {first.id!r} ({first.split}), a different split "
+                        f"({other.split}): the same requests would be asked (and scored) in both"
+                    )
                 problems.append(Problem(inputs_name, msg, ident=other.id))
     # Catches a key copied from another example. The key is the hash of what Jev sees, so only
     # an example with `state` and exactly one key makes a request the validator can see:
