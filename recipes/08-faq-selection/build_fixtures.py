@@ -4,16 +4,22 @@
     python build_fixtures.py --force  # also overwrite a responses.json holding a recorded answer
 
 Every response is synthetic (written by hand as probabilities, not produced by a model) and
-deliberately imperfect in two different ways, on purpose: one question is answered by a real,
-wrong FAQ at a confidence (0.5333) above the threshold this recipe's notebook freezes on
-validation (0.3000), so the confidence gate lets a wrong answer through (``t07-ambiguous``);
-another is answered ``no_match`` -- wrongly -- at a confidence (0.3900) the rule never checks at
-all, because ``no_match`` bypasses the gate entirely (``t12-no-match-wrong``). A third
-(``t19-no-match-wrong``) is wrong but not confident, so it is sent to review instead of being
-reported. The hard cases the issue names are included and tagged in their id: a question no FAQ
-addresses (``-no-match``) and a question two FAQs nearly address (``-ambiguous``). The replay
-keys come from the same ``build_state`` and ``build_questions`` the notebook uses, via
-``helpers.py``.
+deliberately imperfect in four different ways, on purpose. One wrong answer is in
+``validation`` itself (``v06-ambiguous-wrong``, confidence 0.3350): without it, all 14 real-FAQ
+``validation`` answers would be correct and ``select_confidence_threshold`` could only return
+the lowest observed confidence, whatever the target accuracy -- the gate would never actually be
+chosen by anything. With it, the lowest threshold whose answered ``validation`` subset is still
+perfectly accurate is 0.3467 (``v17-ambiguous``'s confidence, the next value up), which is what
+this recipe's notebook freezes; under that frozen threshold, ``v06-ambiguous-wrong`` itself ends
+up reviewed, not reported. The other three are in ``test``, each wrong in a different way: one
+question is answered by a real, wrong FAQ at a confidence (0.5333) above the frozen threshold,
+so the confidence gate lets a wrong answer through (``t07-ambiguous``); another is answered
+``no_match`` -- wrongly -- at a confidence (0.4167) the rule never checks at all, because
+``no_match`` bypasses the gate entirely (``t12-no-match-wrong``); a third (``t19-no-match-wrong``)
+is wrong but not confident (0.2183), so it is sent to review instead of being reported. The hard
+cases the issue names are included and tagged in their id: a question no FAQ addresses
+(``-no-match``) and a question two FAQs nearly address (``-ambiguous``). The replay keys come
+from the same ``build_state`` and ``build_questions`` the notebook uses, via ``helpers.py``.
 
 Generating inputs and labels is kept separate from generating responses, on purpose (the pattern
 ``recipes/_template/build_fixtures.py`` sets): once responses.json holds even one recorded answer
@@ -64,8 +70,13 @@ ROWS = [
      "change_email", dist(change_email=0.80)),
     ("v05-cancel-subscription", "validation", _fields("Q1005", "Please cancel my plan, I don't want to be charged again."),
      "cancel_subscription", dist(cancel_subscription=0.83)),
-    ("v06-cancel-subscription", "validation", _fields("Q1006", "How do I end my subscription?"),
-     "cancel_subscription", dist(cancel_subscription=0.80)),
+    # cancel_subscription vs. billing_cycle; gold is cancel_subscription (an explicit "I want
+    # this to end"), but the stored answer confidently (0.3350) names billing_cycle instead --
+    # a plausible, wrong answer, deliberately placed in validation itself (see the module
+    # docstring: this is the error that gives select_confidence_threshold something real to cut
+    # on, instead of returning the lowest observed confidence for any target accuracy).
+    ("v06-ambiguous-wrong", "validation", _fields("Q1006", "I want this to end before my card gets charged again."),
+     "cancel_subscription", dist(billing_cycle=0.43, cancel_subscription=0.30)),
     ("v07-billing-cycle", "validation", _fields("Q1007", "When is my card going to be charged next?"),
      "billing_cycle", dist(billing_cycle=0.82)),
     ("v08-export-data", "validation", _fields("Q1008", "Is there a way to download everything I've stored in my account?"),
@@ -87,11 +98,15 @@ ROWS = [
     ("v16-no-match", "validation", _fields("Q1016", "Will you add a feature to schedule posts in advance?"),
      "no_match", dist(no_match=0.76)),
     # Two FAQs nearly address this one (password_reset vs. change_email); the real ask is
-    # regaining access, so the gold label is password_reset.
+    # regaining access, so the gold label is password_reset. Correct, at confidence 0.3467 --
+    # once v06-ambiguous-wrong above is excluded, this is the lowest-confidence correct answer
+    # left in validation, which is exactly what fixes the threshold the notebook freezes.
     ("v17-ambiguous", "validation", _fields("Q1017", "I can't log in -- is it because my old email bounced? How do I get back into my account?"),
      "password_reset", dist(password_reset=0.44, change_email=0.33)),
-    # billing_cycle vs. cancel_subscription; this is the lowest-confidence correct answer in
-    # validation (0.3000), so it is what fixes the threshold the notebook freezes.
+    # billing_cycle vs. cancel_subscription; correct, but at confidence 0.3000 -- below the
+    # frozen threshold (0.3467), so the rule sends this one to review too, despite it being
+    # right: the gate trades some correct, low-confidence coverage for excluding
+    # v06-ambiguous-wrong above.
     ("v18-ambiguous", "validation", _fields("Q1018", "Just checking -- how many more times will I be billed before this is over?"),
      "billing_cycle", dist(billing_cycle=0.40, cancel_subscription=0.34)),
     # cancel_subscription vs. delete_account; the question only asks to stop paying, not to
@@ -114,7 +129,7 @@ ROWS = [
     ("t06-cancel-subscription", "test", _fields("Q2006", "I'd like to cancel my plan before the next renewal."),
      "cancel_subscription", dist(cancel_subscription=0.84)),
     # cancel_subscription vs. billing_cycle; gold is cancel_subscription (an explicit request to
-    # stop being charged), but the stored answer confidently (0.5333, above the 0.3000
+    # stop being charged), but the stored answer confidently (0.5333, above the 0.3467
     # threshold) names billing_cycle instead -- a real, wrong FAQ the confidence gate lets
     # through.
     ("t07-ambiguous", "test", _fields("Q2007", "I want to know how to stop being charged every single month."),
@@ -127,7 +142,7 @@ ROWS = [
      "billing_cycle", dist(billing_cycle=0.83)),
     ("t11-export-data", "test", _fields("Q2011", "How can I export all of my saved information?"),
      "export_data", dist(export_data=0.79)),
-    # Gold is export_data, but the stored answer names no_match at 0.3900 -- no_match is never
+    # Gold is export_data, but the stored answer names no_match at 0.4167 -- no_match is never
     # run past the confidence gate (it has none), so this wrong answer is delivered as a final
     # "no FAQ fits" result, not caught by any threshold.
     ("t12-no-match-wrong", "test", _fields("Q2012", "Can I get a full archive of everything tied to my profile before I leave?"),
@@ -146,7 +161,7 @@ ROWS = [
      "no_match", dist(no_match=0.81)),
     ("t18-no-match", "test", _fields("Q2018", "Is the mobile app available in French?"),
      "no_match", dist(no_match=0.70)),
-    # Gold is no_match, but the stored answer names billing_cycle at 0.2217 confidence, below
+    # Gold is no_match, but the stored answer names billing_cycle at 0.2183 confidence, below
     # the threshold, so it is sent to review -- wrong, but caught, unlike t07 above.
     ("t19-no-match-wrong", "test", _fields("Q2019", "Will my free trial convert to a paid plan automatically?"),
      "no_match", dist(billing_cycle=0.33, no_match=0.28)),

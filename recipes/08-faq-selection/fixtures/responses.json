@@ -587,34 +587,6 @@
       }
     }
   },
-  "5f8862c073a7826dfe16e40010915500385b6d7561fe219cfc0079252be5a14a": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "faq": {
-        "type": "choice",
-        "choice": "cancel_subscription",
-        "probabilities": {
-          "password_reset": 0.033333333333333326,
-          "change_email": 0.033333333333333326,
-          "billing_cycle": 0.033333333333333326,
-          "export_data": 0.033333333333333326,
-          "delete_account": 0.033333333333333326,
-          "no_match": 0.033333333333333326,
-          "cancel_subscription": 0.8
-        },
-        "confidence": 0.7666666666666667,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
   "60d4f9606280558f24b4d3a280cdb12b1572014c104bcad93db44893537a8cff": {
     "model": "synthetic",
     "usage": {
@@ -859,6 +831,34 @@
           "billing_cycle": 0.83
         },
         "confidence": 0.8016666666666665,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "99da8341ede8722c88e7c26a0715ec5e265564984d6408152a63c2d72321d157": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "faq": {
+        "type": "choice",
+        "choice": "billing_cycle",
+        "probabilities": {
+          "password_reset": 0.054000000000000006,
+          "change_email": 0.054000000000000006,
+          "export_data": 0.054000000000000006,
+          "delete_account": 0.054000000000000006,
+          "no_match": 0.054000000000000006,
+          "billing_cycle": 0.43,
+          "cancel_subscription": 0.3
+        },
+        "confidence": 0.33499999999999996,
         "provenance": {
           "source": "synthetic",
           "model": null,

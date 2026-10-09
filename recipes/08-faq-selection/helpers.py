@@ -14,8 +14,8 @@ from jev_cookbook import Choice
 
 # The fixed FAQ catalog this recipe answers from. Each id is a Choice option; Python, not Jev,
 # holds the stored answer text for it, and returns that text unchanged when a question matches
-# it with enough confidence (CONTRIBUTING.md section 4: "Python returns the stored FAQ answer
-# by identifier. The model never writes the answer.").
+# it with enough confidence (issue #8's build note: "Python returns the stored FAQ answer by
+# identifier. The model never writes the answer.").
 PASSWORD_RESET = "password_reset"
 CHANGE_EMAIL = "change_email"
 CANCEL_SUBSCRIPTION = "cancel_subscription"
