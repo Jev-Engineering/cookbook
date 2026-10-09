@@ -119,8 +119,8 @@ the task, so a recipe chooses it from labelled `validation` examples with
 `jev_cookbook.evaluation.select_threshold`, freezes it, and reports with `evaluate_threshold` on
 `test` ([evaluation.md](evaluation.md), [recipe-template.md](recipe-template.md)). It answers
 "what does the model's judgment mean for the business", which is a separate question from "how
-much do we trust this particular answer" — that second question is the [confidence
-gate](#confidence-gate).
+much do we trust this particular answer" — that second question is the
+[confidence gate](#confidence-gate).
 
 ## confidence gate
 
@@ -204,8 +204,8 @@ answered subset, never computed over examples sent to [review](#review). Reporte
 
 ## selective prediction
 
-The pattern of answering automatically only when an answer clears a [confidence
-gate](#confidence-gate) and sending everything else to [review](#review), trading
+The pattern of answering automatically only when an answer clears a
+[confidence gate](#confidence-gate) and sending everything else to [review](#review), trading
 [coverage](#coverage) for lower [risk](#risk). `jev_cookbook.evaluation`'s `selective_curve`,
 `select_confidence_threshold`, `evaluate_selective` and `evaluate_outcomes` implement it
 ([evaluation.md](evaluation.md)); abstaining (sending to review) is never scored as an error.
