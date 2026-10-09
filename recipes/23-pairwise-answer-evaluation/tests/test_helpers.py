@@ -119,14 +119,16 @@ def test_relabel_tie_and_insufficient_evidence_never_change(a_first):
 
 def test_assign_first_shown_is_deterministic():
     ids = [f"c{i:03d}" for i in range(200)]
-    first = helpers.assign_first_shown(ids, seed=23)
-    second = helpers.assign_first_shown(ids, seed=23)
+    first = helpers.assign_first_shown(ids, recipe="23-pairwise-answer-evaluation")
+    second = helpers.assign_first_shown(ids, recipe="23-pairwise-answer-evaluation")
     assert first == second
 
 
-def test_assign_first_shown_depends_on_the_seed():
+def test_assign_first_shown_depends_on_the_recipe():
     ids = [f"c{i:03d}" for i in range(200)]
-    assert helpers.assign_first_shown(ids, seed=1) != helpers.assign_first_shown(ids, seed=2)
+    assert helpers.assign_first_shown(ids, recipe="recipe-a") != helpers.assign_first_shown(
+        ids, recipe="recipe-b"
+    )
 
 
 def test_assign_first_shown_is_roughly_balanced():
