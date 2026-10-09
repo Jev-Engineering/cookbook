@@ -110,28 +110,14 @@ def test_every_replay_key_in_the_fixtures_matches_the_current_question():
 
 
 def test_stored_answers_are_not_all_right():
-    backend = get_backend(fixtures=responses_path(RECIPE))
-    questions = helpers.build_questions()
-    labels = load_labels(RECIPE)
-    wrong = [
-        e.id
-        for e in load_inputs(RECIPE)
-        if e.id in labels
-        and backend.decide(helpers.build_state(e.fields), questions)["relation"].choice
-        != labels[e.id]
-    ]
-    assert wrong, "the fixtures should contain some wrong answers"
-
-
-def test_a_wrong_answer_survives_the_frozen_threshold():
-    """The lesson this recipe teaches (a frozen confidence threshold is not a guarantee) depends
-    on at least one wrong stored answer clearing the gate. This test re-derives the threshold
-    exactly as the notebook does, from the ``validation`` split, and then checks every scored
-    example against it: a future fixture edit that accidentally made every wrong answer
-    low-confidence would silently remove the lesson, and this test exists to catch that (proven
-    by mutation: making ``t16-confident-wrong``'s stored answer right makes this test fail, while
-    the weaker ``test_stored_answers_are_not_all_right`` above would still pass, because
-    ``v16-numeric-missed`` stays wrong at a confidence below the threshold)."""
+    """A wrong answer anywhere is a weak guard: it would still pass even if the confidence gate
+    caught every mistake, which would hide the exact lesson this fixture set exists to teach
+    (a frozen confidence threshold is not a guarantee). This test re-derives the threshold the
+    way the notebook does, from the ``validation`` split, and then requires a wrong ``test``
+    answer at or above it: a mistake the gate would still let through (proven by mutation: making
+    ``t16-confident-wrong``'s stored answer right makes this test fail, while a bare "some wrong
+    answer exists" assertion would still pass, because ``v16-numeric-missed`` stays wrong at a
+    confidence below the threshold)."""
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
     labels = load_labels(RECIPE)

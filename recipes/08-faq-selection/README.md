@@ -24,10 +24,10 @@ risk computed from what the rule itself did -- not from reapplying a threshold t
 ## Run it offline
 
 From the repository root, in an environment with
-`pip install -e ".[dev,ml]" -c .github/constraints-notebooks.txt` (Python 3.14; this is the install
-that reproduces the committed notebook outputs byte for byte, see
-[docs/recipe-template.md](../../docs/recipe-template.md) step 6; `".[dev]"` alone is enough for the
-fixture and test commands below):
+`pip install -e ".[ml]" -c .github/constraints-notebooks.txt` (Python 3.14; this is the install
+the `Notebook (<recipe>)` CI job uses, and the one that reproduces the committed notebook outputs
+byte for byte, see [docs/recipe-template.md](../../docs/recipe-template.md) step 6; `".[dev]"`
+alone is enough for the fixture and test commands below, which do not re-execute the notebook):
 
 ```bash
 python -m jev_cookbook.fixtures validate recipes/08-faq-selection
@@ -69,8 +69,8 @@ confidence gate (a different cancellation question read as a billing-date questi
 and confident through the un-gated `no_match` branch (an export question read as having no match
 at all), and one wrong but caught by the gate (a question about automatic trial conversion read
 as a billing-date question, at too low a confidence to be reported). Its top-1 accuracy, confusion
-matrix, `no_match` precision and recall, and the coverage, accuracy and risk of the frozen
-threshold check that the pipeline works; they say nothing about how Jev performs, how fast it is,
+matrix, `no_match` precision and recall, and the coverage, accuracy and risk of `select_faq`'s own
+outcomes check that the pipeline works; they say nothing about how Jev performs, how fast it is,
 or what it costs. This recipe has no recorded fixtures.
 
 ## Pull request rules

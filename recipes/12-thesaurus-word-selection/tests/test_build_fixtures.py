@@ -1,7 +1,6 @@
-"""build_fixtures.py: inputs and labels generation is separate from responses generation, a
-recorded responses.json is never silently overwritten, and the committed file matches
-jev_cookbook.live's writer exactly. Copied from recipes/_template/tests/test_build_fixtures.py
-(docs/recipe-template.md)."""
+"""build_fixtures.py follows the recipes/_template/build_fixtures.py pattern: inputs and
+labels generation is separate from responses generation, a recorded responses.json is never
+silently overwritten, and the committed file matches jev_cookbook.live's writer exactly."""
 
 import importlib.util
 import json

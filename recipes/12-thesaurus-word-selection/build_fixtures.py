@@ -17,13 +17,15 @@ preserve the meaning: `keep_original` is the only acceptable answer) and two `*-
 correct choice, named at low confidence, with a genuine second acceptable candidate in its gold
 set, so the gold set is never narrower than the sentence actually supports).
 
-`SEED` and `shuffled_candidates` decouple a sentence's authored candidate order (gold first, for
-readability below) from the order Jev is actually asked in: each sentence's three candidates are
-permuted by a deterministic, seeded shuffle, independent across sentences. Without this, every
-sentence in an earlier draft of these fixtures happened to list its best-fitting candidate first,
-which let "always answer option 1" score as well as the frozen rule -- exactly the option-order
-lean S07 item 8 documents in Jev 1.13. `notebook.ipynb` prints the resulting distribution of gold
-positions (`gold_positions`, below) so the reader can see candidate 1 is not privileged.
+`jev_cookbook.fixtures.stable_shuffle` decouples a sentence's authored candidate order (gold
+first, for readability below) from the order Jev is actually asked in: each sentence's three
+candidates are permuted by a deterministic, documented-stable shuffle, keyed on this recipe's
+slug together with the sentence's own id, independent across sentences (`docs/fixtures.md`,
+"Per-item option order"). Without this, every sentence in an earlier draft of these fixtures
+happened to list its best-fitting candidate first, which let "always answer option 1" score as
+well as the frozen rule -- exactly the option-order lean S07 item 8 documents in Jev 1.13.
+`notebook.ipynb` prints the resulting distribution of gold positions (`gold-positions`, below) so
+the reader can see candidate 1 is not privileged.
 
 Two sentences test the fallback's other failure direction: a stored answer that confidently (or
 unconfidently) says `keep_original` even though a real candidate fits -- `v05-happy-fp` (low
@@ -41,34 +43,24 @@ sentence's candidates changes only that sentence's key.
 """
 
 import argparse
-import hashlib
 import json
-import random
 from pathlib import Path
 
 from jev_cookbook import ChoiceAnswer, DecisionResult, Provenance, load_helpers, replay_key
+from jev_cookbook.fixtures import stable_shuffle
 
 HERE = Path(__file__).resolve().parent
 helpers = load_helpers(HERE)
-
-SEED = 12  # this recipe's number; see shuffled_candidates
+RECIPE_SLUG = HERE.name
 
 
 def shuffled_candidates(item_id: str, candidates: list[str]) -> list[str]:
-    """``candidates``, permuted by a deterministic shuffle seeded from ``(SEED, item_id)`` --
-    the same seeding convention `ScriptedBackend.rng_for` uses (`src/jev_cookbook/backends.py`,
-    `docs/backends.md` "Scripted backend"): hash ``f"{SEED}:{item_id}"`` and seed
-    ``random.Random`` from the digest, rather than passing the tuple directly (`random.Random`
-    only accepts ``None``, ``int``, ``float``, ``str``, ``bytes`` or ``bytearray``, and a bare
-    string seed would depend on Python's randomized string hash across processes). The same item
-    id always gives the same order, on every platform, independent of every other sentence's
-    shuffle. This is what decouples the position a candidate is offered in from whether it
-    belongs in the sentence's gold set (see the module docstring)."""
-    digest = hashlib.sha256(f"{SEED}:{item_id}".encode()).hexdigest()
-    rng = random.Random(int(digest[:16], 16))
-    order = list(range(len(candidates)))
-    rng.shuffle(order)
-    return [candidates[i] for i in order]
+    """``candidates``, permuted by ``jev_cookbook.fixtures.stable_shuffle``, keyed on this
+    recipe's slug together with the sentence's own id (`docs/fixtures.md`, "Per-item option
+    order"): the same item id always gives the same order, on every platform, independent of
+    every other sentence's shuffle. This is what decouples the position a candidate is offered
+    in from whether it belongs in the sentence's gold set (see the module docstring)."""
+    return list(stable_shuffle(f"{RECIPE_SLUG}:{item_id}", candidates))
 
 
 # (id, split, word, sentence, candidates (authored order: gold first, for readability -- the
