@@ -157,10 +157,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "no_issue_citations",
     ): '"the issue" in build_fixtures.py (R10); see #163',
     (
-        "18-duplicate-incident-matching",
-        "no_issue_citations",
-    ): '"the issue" in build_fixtures.py (R10); see #163',
-    (
         "19-ci-failure-classification",
         "no_issue_citations",
     ): '"the issue" in build_fixtures.py (R10); see #163',
@@ -243,10 +239,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "08-faq-selection",
         "validation_lines_carry_selection_and_check",
     ): "a validation metric line prints {selection} without {check}; see #163",
-    (
-        "18-duplicate-incident-matching",
-        "validation_lines_carry_selection_and_check",
-    ): "validation metric lines print {selection} without {check} (R1, 14 lines across 5 cells); see #163",
     # --- check 4b: every printed metric line carries at least {check} (G1(d) clause 2) -------
     # R3 and more besides: a coverage/accuracy/risk/precision/recall/F1/nDCG line with no
     # {check} token (traced through bound variables), beyond what Wave 2 reviewed.
@@ -286,10 +278,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "10-answer-relevance-check",
         "metric_lines_carry_check",
     ): "validation sweep lines carry no {check} at all (R3-shaped, G1(d) clause 2); see #163",
-    (
-        "18-duplicate-incident-matching",
-        "metric_lines_carry_check",
-    ): "validation sweep and outcome lines carry {selection} but no {check} (G1(d) clause 2); see #163",
     # --- check 4c: a plot_confusion_matrix / plot_threshold_sweep / plot_risk_coverage title -
     #              carries {check} and not {selection} ---------------------------------------
     # R2: four different conventions across the thirteen; only {check}-only is compliant.
@@ -317,10 +305,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "15-sensitive-text-triage",
         "figure_titles_check_only",
     ): "validation figure titles carry {selection} without {check} (R2); see #163",
-    (
-        "18-duplicate-incident-matching",
-        "figure_titles_check_only",
-    ): "validation figure title carries {selection} without {check} (R2); see #163",
     # --- check 5: every plot_confusion_matrix / plot_risk_coverage / plot_threshold_sweep ----
     #              call prints the plotted object itself, in the same cell -------------------
     # R4 and more besides: a figure plotted with nothing of its own data printed (an aggregate
