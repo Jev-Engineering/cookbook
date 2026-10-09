@@ -71,10 +71,11 @@ refund-refusal rewrite read as acceptably sympathetic when it is actually flat a
 confidently enough that it is what drives the frozen confidence gate up to exclude it (two
 genuinely correct but low-confidence items are swept up with it, the coverage cost of that
 choice). The other three are in `test`: one wrong and confident through the gate (a late-fee
-refusal read the same flat way), one wrong and confident through the un-gated
-`no_suitable_rewrite` branch (a courtesy-credit item read as having no suitable rewrite at all),
-and one wrong but caught by the gate (a setup-fee waiver with a quietly added restriction, at too
-low a confidence to be reported). Its top-1 accuracy, confusion matrix, `no_suitable_rewrite`
+refusal read the same flat way), one wrong and not confident through the un-gated
+`no_suitable_rewrite` branch (a courtesy-credit item read as having no suitable rewrite at all,
+below the gate but delivered anyway because that branch is never gated), and one wrong but caught
+by the gate (a setup-fee waiver with a quietly added restriction, at too low a confidence to be
+reported). Its top-1 accuracy, confusion matrix, `no_suitable_rewrite`
 precision and recall, and the coverage, accuracy and risk of the frozen confidence gate check
 that the pipeline works; they say nothing about how Jev performs, how fast it is, or what it
 costs. This recipe has no recorded fixtures.
