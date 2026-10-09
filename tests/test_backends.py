@@ -39,6 +39,7 @@ from jev_cookbook.answers import (
     score_confidence_bound,
     sum_bound,
 )
+from jev_cookbook.questions import SINGLE_OPTION_MESSAGE
 
 STATE = {"document": "I was charged twice.\nPlease fix this."}
 K1 = "0" * 64
@@ -420,7 +421,9 @@ def test_scripted_rejects_bad_scripts():
         {"billing": 2, "tone": "calm", "urgency": [1, 1, 1]},
         {"billing": 0.5, "tone": "calm", "urgency": [0, 0, 0]},
         {
-            "billing": ChoiceAnswer("a", {"a": 1.0}, 1.0, Provenance.synthetic()),
+            "billing": ChoiceAnswer.from_probabilities(
+                {"a": 0.9, "b": 0.1}, Provenance.synthetic()
+            ),
             "tone": "calm",
             "urgency": [1, 1, 1],
         },
@@ -570,7 +573,6 @@ def test_choice_validation():
             bad()
     ok = ChoiceAnswer("angry", {"calm": 0.1, "angry": 0.9}, 0.8, PROV)
     assert ok.confidence == pytest.approx(0.8)
-    assert ChoiceAnswer("a", {"a": 1.0}, 1.0, PROV).confidence == 1.0
 
 
 def test_score_validation():
@@ -750,8 +752,8 @@ def test_question_values_are_text_object_array_or_none():
     for bad in (7, 1.5, True):
         for build in (
             lambda b: Noul(instructions=b),
-            lambda b: Choice(criteria={"a": b}),
-            lambda b: Choice(criteria={"a": None}, instructions=b),
+            lambda b: Choice(criteria={"a": b, "ok": None}),
+            lambda b: Choice(criteria={"a": None, "ok": None}, instructions=b),
             lambda b: Score(criteria=["a", "b"], instructions=b),
             lambda b: Noul(instructions="x", criteria={"true": b}),
         ):
@@ -1191,3 +1193,68 @@ def test_from_dict_rejects_non_object_usage_but_accepts_absent_usage():
     absent = {k: v for k, v in good.items() if k != "usage"}
     assert DecisionResult.from_dict(absent).usage == Usage()
     assert DecisionResult.from_dict({**good, "usage": {}}).usage == Usage()
+
+
+# --------------------------------------------------- single-option Choice (#175)
+
+
+def test_single_option_choice_is_rejected_at_construction():
+    """A Choice needs at least two options: with one there is nothing to weigh, so the
+    decision belongs to Python and never becomes a request (docs/backends.md, "Single-option
+    Choice"; recipes 14 and 22 short-circuit this case instead of building the question)."""
+    with pytest.raises(ValueError, match="at least two options") as err:
+        Choice(criteria={"only": None})
+    assert str(err.value) == SINGLE_OPTION_MESSAGE
+    # The pre-existing empty-mapping and max-options checks are unaffected.
+    with pytest.raises(ValueError, match="non-empty mapping"):
+        Choice(criteria={})
+    Choice(criteria={"a": None, "b": None})  # two options remain fine
+
+
+def test_choice_confidence_raises_for_a_single_option_instead_of_returning_one():
+    """Before #175 this returned 1.0 for n = 1 (the formula's own 0/0 case); now it raises,
+    whatever the single probability is, because a one-option Choice should never be built."""
+    for probs in ([1.0], [0.3], [0.0], []):
+        with pytest.raises(ValueError) as err:
+            choice_confidence(probs)
+        assert str(err.value) == SINGLE_OPTION_MESSAGE
+    assert choice_confidence([0.5, 0.5]) == 0.0  # n >= 2 is unaffected
+
+
+def _single_option_stored_response() -> dict:
+    """A hand-built stored response (bypassing ``ChoiceAnswer``, which now refuses to build
+    this) with a Choice answer that offers only one option, as an old or hand-edited fixture
+    file might still contain."""
+    return {
+        "model": "synthetic",
+        "usage": {"input_tokens": None, "output_tokens": None},
+        "answers": {
+            "t": {
+                "type": "choice",
+                "choice": "only",
+                "probabilities": {"only": 1.0},
+                "confidence": 1.0,
+                "provenance": {"source": "synthetic", "model": None, "date": None},
+            }
+        },
+    }
+
+
+def test_replay_rejects_a_stored_single_option_choice_with_the_same_message():
+    stored = _single_option_stored_response()
+    with pytest.raises(FixtureError, match="at least two options") as err:
+        ReplayBackend({K1: stored})
+    assert SINGLE_OPTION_MESSAGE in str(err.value)
+
+
+def test_single_option_rejection_message_is_identical_everywhere():
+    """The constructor, ``choice_confidence`` and the replay backend all name the same reason."""
+    with pytest.raises(ValueError) as from_choice:
+        Choice(criteria={"only": None})
+    with pytest.raises(ValueError) as from_confidence:
+        choice_confidence([1.0])
+    with pytest.raises(FixtureError) as from_backend:
+        ReplayBackend({K1: _single_option_stored_response()})
+    assert str(from_choice.value) == SINGLE_OPTION_MESSAGE
+    assert str(from_confidence.value) == SINGLE_OPTION_MESSAGE
+    assert SINGLE_OPTION_MESSAGE in str(from_backend.value)

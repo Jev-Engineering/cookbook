@@ -18,6 +18,7 @@ from types import MappingProxyType
 from typing import Any, ClassVar
 
 from ._canonical import plain_json
+from .questions import SINGLE_OPTION_MESSAGE
 
 __all__ = [
     "Answer",
@@ -60,7 +61,10 @@ def choice_confidence_bound(n: int) -> float:
     """Choice confidence is (p_max - 1/n) / (1 - 1/n). The reported p_max is within ROUND_ERR
     of the true one (rounding is monotone, so the maximum moves by at most that), the formula
     scales the error by 1 / (1 - 1/n), and ``confidence`` itself is off by ROUND_ERR. The
-    clamp to [0, 1] never increases a gap. A single option has confidence 1 whatever p is."""
+    clamp to [0, 1] never increases a gap. ``n`` reaches this function only through a direct
+    call: a one-option ``Choice`` is rejected at construction, and ``choice_confidence`` raises
+    for ``n < 2`` before any ``ChoiceAnswer`` reaches its own bound check, so this formula's
+    ``n = 1`` case (0.0 scale, bound ROUND_ERR) is never exercised from that path."""
     scale = 1 / (1 - 1 / n) if n > 1 else 0.0
     return ROUND_ERR * scale + ROUND_ERR + FLOAT_MARGIN
 
@@ -119,10 +123,15 @@ def _expected_level(probs: Sequence[float]) -> float:
 
 
 def choice_confidence(probs: Sequence[float]) -> float:
-    """Published Choice confidence: (p_max - 1/n) / (1 - 1/n); 1.0 for a single option."""
+    """Published Choice confidence: (p_max - 1/n) / (1 - 1/n).
+
+    Raises ``ValueError`` for ``n < 2``: a one-option ``Choice`` is a forced answer, not a
+    request (``jev_cookbook.questions.Choice`` rejects it at construction for the same
+    reason), so there is no value to derive from the formula's 0/0 at ``n = 1``.
+    """
     n = len(probs)
-    if n == 1:
-        return 1.0
+    if n < 2:
+        raise ValueError(SINGLE_OPTION_MESSAGE)
     return min(1.0, max(0.0, (max(probs) - 1 / n) / (1 - 1 / n)))
 
 

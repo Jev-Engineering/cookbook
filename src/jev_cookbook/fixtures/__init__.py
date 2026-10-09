@@ -492,6 +492,41 @@ def _check_examples(
                     f"({other.split})"
                 )
                 problems.append(Problem(inputs_name, msg, ident=other.id))
+    # The content check above compares `state`/`fields`, which a `fields` example's build_state
+    # can transform (dropping a Python-owned value) -- and never even looks at a `fields`
+    # example's actual request -- so two examples can ask Jev the identical request without it
+    # being noticed there. replay_keys is the hash of what Jev actually sees, so comparing it
+    # directly catches that case too: the same *complete* set of keys (sorted, so listing them
+    # out of order does not escape comparison) listed by an example of a different split among
+    # train/validation/test is the identical set of requests asked once where it can be tuned on
+    # and once where it is supposed to be held out -- whether that set is one key (recipe 14's
+    # v17/t15: different fields, one byte-identical request) or several (recipe 23's two
+    # independent, mirrored requests per example). Comparing the whole set, not one key alone,
+    # is what keeps a legitimately shared *later* key legitimate ("examples whose later request
+    # is the same" above): such an example keeps a distinguishing earlier key of its own, so its
+    # complete set still differs from every other example's. demo is exempt, as it is above: it
+    # is never scored or tuned on.
+    by_keys: dict[tuple[str, ...], list[Example]] = defaultdict(list)
+    for e in examples:
+        if e.split in LABELED_SPLITS and e.replay_keys:
+            by_keys[tuple(sorted(e.replay_keys))].append(e)
+    for keys, who in by_keys.items():
+        first = who[0]
+        for other in who[1:]:
+            if other.split != first.split:
+                if len(keys) == 1:
+                    msg = (
+                        f"replay key {keys[0]} is also listed by {first.id!r} ({first.split}), "
+                        f"a different split ({other.split}): the same request would be asked "
+                        "(and scored) in both"
+                    )
+                else:
+                    msg = (
+                        f"replay keys {', '.join(keys)} are also listed, as the same complete "
+                        f"set, by {first.id!r} ({first.split}), a different split "
+                        f"({other.split}): the same requests would be asked (and scored) in both"
+                    )
+                problems.append(Problem(inputs_name, msg, ident=other.id))
     # Catches a key copied from another example. The key is the hash of what Jev sees, so only
     # an example with `state` and exactly one key makes a request the validator can see:
     # `fields` go through the recipe's build_state (it may drop Python-owned values), and a

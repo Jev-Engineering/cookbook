@@ -561,7 +561,14 @@ def test_docs_example_runs_end_to_end(capsys: pytest.CaptureFixture[str]) -> Non
         namespace["tx"],
     )
     assert sim.done and printed.startswith("{")
-    assert budget.used("calls") <= 40 and budget.used("calls") == len(queue) + len(actions)
+    # A step with only one legal move is decided by Python directly (no Choice, no call: a
+    # Choice needs at least two options), so it is recorded with no answer and spends no
+    # budget; every other acted-on step asks the backend and carries a typed answer.
+    free_moves = [a for a in actions.to_dicts() if a["answer"] is None]
+    assert free_moves, "the example should exercise its own single-legal-move short-circuit"
+    assert budget.used("calls") <= 40
+    assert budget.used("calls") == len(queue) + len(actions) - len(free_moves)
+    assert all(a["rule"] == "only legal move" for a in free_moves)
     assert len(actions) == sim.steps and all(not a["executed"] for a in actions.to_dicts())
     # The review path is taken: unsure answers are queued, with their reason and typed answer.
     assert len(queue) > 0 and len(queue.pending()) == len(queue)

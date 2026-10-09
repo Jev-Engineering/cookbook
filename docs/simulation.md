@@ -153,7 +153,10 @@ nothing about Jev. When a recipe needs real answers it records them separately (
 `docs/backends.md`).
 
 The example below runs `ToyGrid` for up to 40 model calls. Each step asks one `Choice` question
-whose options Python built from `legal_actions()`. The script stands in for the model: it prefers
+whose options Python built from `legal_actions()` -- except when there is only one legal move
+(the agent's starting cell, or either end of the line): a `Choice` needs at least two options
+(see "Single-option Choice" in [docs/backends.md](backends.md)), so Python takes that one move
+directly and spends no call. The script stands in for the model: it prefers
 the move toward the target but is unsure about a third of the time. Python enforces the rules:
 the call budget and the done condition stop the loop, an unsure answer goes to the review queue
 and the step is skipped rather than acted on, the chosen action is only recorded and then
@@ -192,18 +195,26 @@ def run(sim_seed, backend_seed):
     queue, actions, tx = ReviewQueue(), ActionLog(), Transactor(Store())
     while not sim.done and budget.can_spend("calls"):
         legal = sim.legal_actions()
-        question = Choice(
-            instructions="Which move gets the agent closer to the target?",
-            criteria={name: None for name in legal},
-        )
-        request = {"observation": sim.observe(), "attempt": budget.used("calls")}
-        budget.spend("calls")
-        answer = backend.decide(request, {"move": question})["move"]
-        if answer.confidence < 0.3:
-            queue.submit(sim.observe(), "unsure which move", answer=answer, step=sim.steps)
-            continue
-        actions.record(answer.choice, step=sim.steps, answer=answer, rule="chosen from legal")
-        sim.step(answer.choice)
+        if len(legal) == 1:
+            # A Choice needs at least two options (docs/backends.md, "Single-option Choice"):
+            # with only one legal move, Python already has the answer, so it takes the move
+            # directly and never builds the question or spends a call.
+            move = legal[0]
+            actions.record(move, step=sim.steps, rule="only legal move")
+        else:
+            question = Choice(
+                instructions="Which move gets the agent closer to the target?",
+                criteria={name: None for name in legal},
+            )
+            request = {"observation": sim.observe(), "attempt": budget.used("calls")}
+            budget.spend("calls")
+            answer = backend.decide(request, {"move": question})["move"]
+            if answer.confidence < 0.3:
+                queue.submit(sim.observe(), "unsure which move", answer=answer, step=sim.steps)
+                continue
+            move = answer.choice
+            actions.record(move, step=sim.steps, answer=answer, rule="chosen from legal")
+        sim.step(move)
         cell = sim.observe()["position"]
         params = {"cell": cell, "step": sim.steps}
         tx.run(
