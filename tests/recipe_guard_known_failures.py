@@ -269,7 +269,7 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "18-duplicate-incident-matching",
         "validation_lines_carry_selection_and_check",
     ): "validation metric lines print {selection} without {check} (R1, 14 lines across 5 cells); see #163",
-    # --- check 4b: a plot_confusion_matrix/plot_threshold_sweep/plot_risk_coverage title -----
+    # --- check 4b: a plot_confusion_matrix / plot_threshold_sweep / plot_risk_coverage title -
     #              carries {check} and not {selection} ---------------------------------------
     # R2: four different conventions across the thirteen; only {check}-only is compliant.
     (
@@ -300,7 +300,7 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "18-duplicate-incident-matching",
         "figure_titles_check_only",
     ): "validation figure title carries {selection} without {check} (R2); see #163",
-    # --- check 5: every plot_confusion_matrix/plot_risk_coverage call has a printed table ----
+    # --- check 5: every plot_confusion_matrix / plot_risk_coverage call has a printed table --
     # R4: a confusion-matrix figure plotted with no printed table in the same or preceding cell.
     (
         "09-file-organization",
