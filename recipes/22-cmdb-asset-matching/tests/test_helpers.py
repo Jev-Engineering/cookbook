@@ -108,7 +108,7 @@ def test_a_lexical_lookalike_is_retrieved_but_is_not_the_canonical_products_own_
     # InkPress Reader is a different, free product from the paid InkPress the catalog holds, but
     # shares enough wording with it to be retrieved as a candidate -- the trap this recipe's
     # fixtures use.
-    result = helpers.shortlist("Candlewood", "InkPress Reader DC")
+    result = helpers.shortlist("Candlewood", "InkPress Reader IC")
     assert "CMDB-04" in result
 
 
@@ -454,10 +454,26 @@ def test_baseline_overlap_cutoff_links_a_clean_self_match():
 
 
 def test_baseline_overlap_cutoff_reports_no_match_below_the_cutoff():
-    assert helpers.baseline_overlap_cutoff("Chorus Collective", "Chorus Meet") == (helpers.NO_MATCH)
+    assert helpers.baseline_overlap_cutoff("Chorus Collective", "Chorus Meet") == helpers.NO_MATCH
 
 
 def test_baseline_overlap_cutoff_also_cannot_tell_the_version_family_apart():
     # Version plays no part in either baseline's input, so this one is exactly as unable to
     # distinguish CMDB-01/02/03 as baseline_always_top is.
     assert helpers.baseline_overlap_cutoff("Northcastle", "LedgerStack Server") == "CMDB-01"
+
+
+@pytest.mark.parametrize(
+    ("vendor", "product", "expected"),
+    [("NSTL", "LedgerStack Server", "CMDB-01"), ("MRDN", "Pipeline Cloud", "CMDB-10")],
+)
+def test_the_nstl_and_mrdn_aliases_are_load_bearing_for_the_overlap_baseline(
+    vendor, product, expected
+):
+    # Unlike shortlist (which ties a whole family regardless of the exact score), this baseline
+    # only answers when the single best overlap clears OVERLAP_CUTOFF (0.6): without its alias,
+    # "NSTL"/"LedgerStack Server" and "MRDN"/"Pipeline Cloud" each score only 0.5 (an abbreviated
+    # vendor word against the full canonical spelling), below the cutoff, so the baseline would
+    # report no_match instead of the right record. A mutation that deleted either alias entry
+    # would fail this test by returning helpers.NO_MATCH here.
+    assert helpers.baseline_overlap_cutoff(vendor, product) == expected

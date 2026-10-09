@@ -39,12 +39,12 @@ CMDB_RECORDS: dict[str, dict[str, str]] = {
     "CMDB-07": {"vendor": "Ashgrove", "product": "Processwell Core", "major_version": "7.0", "edition": "Enterprise"},
     "CMDB-08": {"vendor": "Redfern", "product": "Enterprise OS", "major_version": "9", "edition": "Server"},
     "CMDB-09": {"vendor": "Bluequill", "product": "TicketForge", "major_version": "11", "edition": "Data Center"},
-    "CMDB-10": {"vendor": "Harbor", "product": "Pipeline Cloud", "major_version": "2026", "edition": "Enterprise"},
+    "CMDB-10": {"vendor": "Meridian", "product": "Pipeline Cloud", "major_version": "2026", "edition": "Enterprise"},
     "CMDB-11": {"vendor": "Thornfield", "product": "CoreRun SE", "major_version": "19", "edition": "Enterprise"},
     "CMDB-12": {"vendor": "Ashgrove", "product": "N4VISTA", "major_version": "2025", "edition": "Enterprise"},
     "CMDB-13": {"vendor": "Redfern", "product": "Containerflow", "major_version": "6", "edition": "Server"},
     "CMDB-14": {"vendor": "Bluequill", "product": "WikiSpring", "major_version": "10", "edition": "Data Center"},
-    "CMDB-15": {"vendor": "Harbor", "product": "Support Cloud", "major_version": "2026", "edition": "Enterprise"},
+    "CMDB-15": {"vendor": "Meridian", "product": "Support Cloud", "major_version": "2026", "edition": "Enterprise"},
     "CMDB-16": {"vendor": "Redfern", "product": "Enterprise OS", "major_version": "9", "edition": "Workstation"},
 }  # fmt: skip
 
@@ -103,11 +103,18 @@ _PHRASE_ALIASES = {
     "ashgrove se": "ashgrove",
     "ashgrove ag": "ashgrove",
     "pwcr": "processwell core",
-    "harborcloud.com, inc.": "harbor",
-    "harborcloud.com": "harbor",
-    "hbcl": "harbor",
+    "meridiancloud.com, inc.": "meridian",
+    "meridiancloud.com": "meridian",
+    "mrdn": "meridian",
     "bluequill corporation": "bluequill",
 }
+# "nstl" and "mrdn" look like they could be dropped (the family they resolve into always ties
+# its own siblings regardless of the exact score, so `shortlist`'s result does not depend on
+# them): but `baseline_overlap_cutoff` (below) picks a record only when its *absolute* overlap
+# clears `OVERLAP_CUTOFF`, and without either alias "NSTL"/"LedgerStack Server" and
+# "MRDN"/"Pipeline Cloud" score only 0.5 -- below the 0.6 cutoff -- so the baseline would report
+# `no_match` instead of the right record, moving a published evaluation number. Both aliases are
+# load-bearing for that reason, and `tests/test_helpers.py` pins it directly.
 # Corporate-suffix and filler tokens dropped after splitting into words, so they never count as
 # shared vocabulary between two otherwise unrelated vendors or products.
 _STOPWORDS = {"inc", "incorporated", "corp", "corporation", "ltd", "llc", "co"}
@@ -233,7 +240,7 @@ def build_questions(candidates: list[str]) -> dict[str, Choice]:
     ``no_candidate_resolution``): a forced answer belongs to Python, not a request. Every observed asset shares one question
     shape (which canonical record, if any, is this the same software as), but the option list is
     built fresh per asset from its own shortlist, so a Candlewood asset is never asked to choose a
-    Harbor candidate's identifier, and the replay key changes with the shortlist as a result.
+    Meridian candidate's identifier, and the replay key changes with the shortlist as a result.
     """
     if not candidates:
         raise ValueError(

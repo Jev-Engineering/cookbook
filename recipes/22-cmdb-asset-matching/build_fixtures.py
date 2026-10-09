@@ -92,10 +92,10 @@ ROWS = [
         "AST-1002", "Candlewood Inc.", "PixelForge", "27.1", "Standard"),
      "CMDB-05", {"CMDB-05": 0.84}),
     ("v03-vaultdb", "validation", _fields(
-        "AST-1003", "Thornfield Corp", "VaultDB", "21.4.0.0.0 (21q)", "Enterprise Edition"),
+        "AST-1003", "Thornfield Corp", "VaultDB", "21.9.2 Patch 6 (21q)", "Enterprise Edition"),
      "CMDB-06", {"CMDB-06": 0.86}),
     ("v04-processwell", "validation", _fields(
-        "AST-1004", "Ashgrove SE", "PWCR", "7.0 EHP8", "Enterprise"),
+        "AST-1004", "Ashgrove SE", "PWCR", "7.0 PK8", "Enterprise"),
      "CMDB-07", {"CMDB-07": 0.84}),
     ("v05-entos", "validation", _fields(
         "AST-1005", "Redfern, Inc.", "RFOS", "9.6", "Server"),
@@ -104,7 +104,7 @@ ROWS = [
         "AST-1006", "Bluequill", "TicketForge Platform", "11.4.1", "Data Center"),
      "CMDB-09", {"CMDB-09": 0.83}),
     ("v07-pipeline-cloud", "validation", _fields(
-        "AST-1007", "harborcloud.com, inc.", "Pipeline Cloud", "Equinox '26", "Enterprise"),
+        "AST-1007", "meridiancloud.com, inc.", "Pipeline Cloud", "Equinox '26", "Enterprise"),
      "CMDB-10", {"CMDB-10": 0.85}),
     ("v08-corerun", "validation", _fields(
         "AST-1008", "Thornfield", "CoreRun SE", "19.0.7", "Enterprise"),
@@ -131,7 +131,7 @@ ROWS = [
     # candidate because the wording overlaps; the stored answer confidently (but wrongly) links
     # it there anyway, at a confidence below the gate the next section freezes.
     ("v13-lookalike-wrong", "validation", _fields(
-        "AST-1013", "Candlewood", "InkPress Reader DC", "2023.011.30550", "Standard"),
+        "AST-1013", "Candlewood", "InkPress Reader IC", "2023.011.30550", "Standard"),
      "no_match", {"CMDB-04": 0.40}),
     ("v14-zero-candidate", "validation", _fields(
         "AST-1014", "Chorus Collective", "Chorus Meet", "7.2.0", "Business"),
@@ -151,7 +151,7 @@ ROWS = [
         "AST-1018", "Bluequill", "WikiSpring", "10.5.4", "Data Center"),
      "CMDB-14", {"CMDB-14": 0.85}),
     ("v19-support-cloud", "validation", _fields(
-        "AST-1019", "Harbor", "Support Cloud", "2026", "Enterprise"),
+        "AST-1019", "Meridian", "Support Cloud", "2026", "Enterprise"),
      "CMDB-15", {"CMDB-15": 0.83}),
     # CMDB-08 and CMDB-16 are the same vendor, product and major version, differing only by
     # edition (Server vs. Workstation); gold is CMDB-16, the shortlist's second entry (tied with
@@ -163,7 +163,7 @@ ROWS = [
      "CMDB-16", {"CMDB-16": 0.85}),
     # --- test: 20 examples, three wrong in three different ways ------------------------------
     ("t01-inkpress", "test", _fields(
-        "AST-2001", "Candlewood", "InkPress", "v12.0.09 Continuous", "Pro (2025 release)"),
+        "AST-2001", "Candlewood", "InkPress", "v12.0.09 Flow", "Pro (2025 release)"),
      "CMDB-04", {"CMDB-04": 0.87}),
     ("t02-pixelforge", "test", _fields(
         "AST-2002", "Candlewood", "PixelForge", "27.9.1", "Std"),
@@ -172,22 +172,22 @@ ROWS = [
         "AST-2003", "Thornfield Corporation", "VaultDB", "21q Release 14", "Enterprise"),
      "CMDB-06", {"CMDB-06": 0.84}),
     ("t04-processwell", "test", _fields(
-        "AST-2004", "Ashgrove", "Processwell Core", "7.0 EHP7", "Enterprise Edition"),
+        "AST-2004", "Ashgrove", "Processwell Core", "7.0 PK7", "Enterprise Edition"),
      "CMDB-07", {"CMDB-07": 0.85}),
     ("t05-entos", "test", _fields(
         "AST-2005", "Redfern Inc", "Enterprise OS", "9.4", "Server Edition"),
      "CMDB-08", {"CMDB-08": 0.84}),
     ("t06-pipeline-cloud", "test", _fields(
-        "AST-2006", "HBCL", "Pipeline Cloud", "Monsoon '25", "Enterprise Edition"),
+        "AST-2006", "MRDN", "Pipeline Cloud", "Monsoon '25", "Enterprise Edition"),
      "CMDB-10", {"CMDB-10": 0.86}),
     ("t07-n4vista", "test", _fields(
-        "AST-2007", "Ashgrove SE", "N4VISTA", "2025 FPS01", "Enterprise"),
+        "AST-2007", "Ashgrove SE", "N4VISTA", "2025 RW01", "Enterprise"),
      "CMDB-12", {"CMDB-12": 0.85}),
     ("t08-ledger-2023", "test", _fields(
-        "AST-2008", "Northcastle", "LedgerStack Server", "17.0.1000.6, LGS 2023", "Standard"),
+        "AST-2008", "Northcastle", "LedgerStack Server", "120.0.7734.9, LGS 2023", "Standard"),
      "CMDB-03", {"CMDB-03": 0.88}),
     ("t09-ledger-2020", "test", _fields(
-        "AST-2009", "NCS Corp", "LedgerStack Server", "LGS2020 CU18 (16.0.4261.1)", "Standard"),
+        "AST-2009", "NCS Corp", "LedgerStack Server", "LGS2020 CU22 (119.0.8847.4)", "Standard"),
      "CMDB-02", {"CMDB-02": 0.85}),
     # The one false link this recipe's fixtures contain (see the module docstring): no version
     # is reported, so the gold label is no_match under this recipe's policy, but the stored
@@ -198,7 +198,7 @@ ROWS = [
     # The same look-alike trap as v13, worded differently, read correctly this time: the
     # contrast shows the same trap landing both ways.
     ("t11-lookalike-correct", "test", _fields(
-        "AST-2011", "Candlewood Inc.", "InkPress Reader", "2026.001.00000", "Reader"),
+        "AST-2011", "Candlewood Inc.", "InkPress Reader", "9.14.003", "Reader"),
      "no_match", {"no_match": 0.75}),
     ("t12-zero-candidate", "test", _fields(
         "AST-2012", "Craterframe Inc", "Craterframe Desktop", "6.32", "Business"),
@@ -218,7 +218,7 @@ ROWS = [
     # A real match (CMDB-01, 2017), but the stored answer names the wrong sibling (CMDB-02,
     # 2020) at a low confidence: wrong, and caught (sent to review).
     ("t15-ledger-2017-lowconf", "test", _fields(
-        "AST-2015", "Northcastle", "LedgerStack Server", "14.0.6300.2 (2017 SP3)", "Standard"),
+        "AST-2015", "Northcastle", "LedgerStack Server", "118.0.9512.7 (2017 SP3)", "Standard"),
      "CMDB-01", {"CMDB-02": 0.30}),
     ("t16-entos-lowconf", "test", _fields(
         "AST-2016", "Redfern", "Enterprise OS", "9.9", "Server"),
@@ -230,7 +230,7 @@ ROWS = [
         "AST-2018", "Driftnote Labs", "Driftnote", "4.0.44", "Team"),
      "no_match", None),
     ("t19-n4vista", "test", _fields(
-        "AST-2019", "Ashgrove", "N4VISTA", "2025 FPS02", "Enterprise Edition"),
+        "AST-2019", "Ashgrove", "N4VISTA", "2025 RW02", "Enterprise Edition"),
      "CMDB-12", {"CMDB-12": 0.86}),
     # The test-split twin of v20: CMDB-16 again, worded differently, exercising the same
     # edition-disqualifying clause.
@@ -239,7 +239,7 @@ ROWS = [
      "CMDB-16", {"CMDB-16": 0.86}),
     # --- demo: 3 examples, shown but never scored -----------------------------------------------
     ("d01-lookalike", "demo", _fields(
-        "AST-3001", "Candlewood", "InkPress Reader", "2024.003.20282", "Standard"),
+        "AST-3001", "Candlewood", "InkPress Reader", "9.12.447", "Standard"),
      None, {"no_match": 0.70}),
     ("d02-zero-candidate", "demo", _fields(
         "AST-3002", "Panelcraft", "Panelcraft Design", "2026.10", "Organization"),
