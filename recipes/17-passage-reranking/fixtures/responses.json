@@ -1,0 +1,1335 @@
+{
+  "00a28d861c94c41c446a97f8b3a9dfc9268df7b6f09f8486cce73bbf726e519d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.46,
+        "probabilities": {
+          "0": 0.24,
+          "1": 0.28,
+          "2": 0.26,
+          "3": 0.22
+        },
+        "confidence": 0.06000000000000005,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0d797bf4dff7c4683a02058f99e29560da32403ff952504ff62b3ac9b509dec6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.99,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.1,
+          "2": 0.72,
+          "3": 0.15
+        },
+        "confidence": 0.69,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "13c2d914ea05a722a884cb6275183399133e0ee05bb58c8193140c707705074f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.99,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.1,
+          "2": 0.72,
+          "3": 0.15
+        },
+        "confidence": 0.69,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "13cd7533d25d6914fa09f1ac8e0df396f707b30c23af86c3c795c452c3f12ddf": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.44,
+        "probabilities": {
+          "0": 0.72,
+          "1": 0.16,
+          "2": 0.08,
+          "3": 0.04
+        },
+        "confidence": 0.56,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "15cb1ea2c14b8d4f066a6d85958502d9fe45d0cd2af2aad38224fcd6ad91ec19": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.99,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.1,
+          "2": 0.72,
+          "3": 0.15
+        },
+        "confidence": 0.69,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1bb3986873d89949c1e7a5a0b0472e1083d439ded27630cd51e32f55a2683082": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.99,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.1,
+          "2": 0.72,
+          "3": 0.15
+        },
+        "confidence": 0.69,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "273dafe99f2e1795cc25708aabce106aa15a5abc8ce0a83da786b3bfd8ebb2ec": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.22,
+        "probabilities": {
+          "0": 0.08,
+          "1": 0.68,
+          "2": 0.18,
+          "3": 0.06
+        },
+        "confidence": 0.62,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2f38b05e37080b470121ba1d4b57151d65be63619f54fb4cbad347887377fa55": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.44,
+        "probabilities": {
+          "0": 0.72,
+          "1": 0.16,
+          "2": 0.08,
+          "3": 0.04
+        },
+        "confidence": 0.56,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3911ab3e58185b8530ff49241cc71c8d4278168c2fb8da8f0ddd0385e5133f9d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.99,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.1,
+          "2": 0.72,
+          "3": 0.15
+        },
+        "confidence": 0.69,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3a912fe88f0c618aadb5a599b4a21786e42ab8130c6e38a6b9050cd18a3c8fb4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.44,
+        "probabilities": {
+          "0": 0.72,
+          "1": 0.16,
+          "2": 0.08,
+          "3": 0.04
+        },
+        "confidence": 0.56,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3e9eae2f6d45c71e7c399bc98f7272775309dc5ee75f60682f618b795592fe97": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.9000000000000001,
+        "probabilities": {
+          "0": 0.46,
+          "1": 0.28,
+          "2": 0.16,
+          "3": 0.1
+        },
+        "confidence": 0.09999999999999987,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "444b002dc8eb73817cfd8ca70f17f7181a8f4cc11186a77388ad39ce12848f10": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.78,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.03,
+          "2": 0.1,
+          "3": 0.85
+        },
+        "confidence": 0.78,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "48a732922447225102a68085af760b6b1858a6beff14633cdda604d5d95a09d5": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.78,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.03,
+          "2": 0.1,
+          "3": 0.85
+        },
+        "confidence": 0.78,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4b032e777b4f0d49c0808fc482c468786ae1fe5f170aa5e0f67657d7745e217a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.22,
+        "probabilities": {
+          "0": 0.1,
+          "1": 0.65,
+          "2": 0.18,
+          "3": 0.07
+        },
+        "confidence": 0.58,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "52ee62c4629b84ff7cc9e18a119f27b7975370e7a3d1ebde2aab527111edbda0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.46,
+        "probabilities": {
+          "0": 0.24,
+          "1": 0.28,
+          "2": 0.26,
+          "3": 0.22
+        },
+        "confidence": 0.06000000000000005,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5ba2b690174e0e5dae3b57cc9b321f1227b585a7fe48d738aca9bc00874c054b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.6799999999999997,
+        "probabilities": {
+          "0": 0.05,
+          "1": 0.05,
+          "2": 0.07,
+          "3": 0.83
+        },
+        "confidence": 0.6799999999999999,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "643dd649cefc84d490667f1af442e6e11930fa11a88376fa16a17ff82f6f7fb5": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.78,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.03,
+          "2": 0.1,
+          "3": 0.85
+        },
+        "confidence": 0.78,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "65fc1ca2b34c47bce1e9d094f72121ebb6dbcb04a1a32e798f524fa2a4ebe13f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.22,
+        "probabilities": {
+          "0": 0.08,
+          "1": 0.68,
+          "2": 0.18,
+          "3": 0.06
+        },
+        "confidence": 0.62,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6a82fa595c547d0bf675e03d703d4f8e68e77f78540443faf3a77f990dcf8a66": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.44,
+        "probabilities": {
+          "0": 0.72,
+          "1": 0.16,
+          "2": 0.08,
+          "3": 0.04
+        },
+        "confidence": 0.56,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "749ef5d48b96b52475cd8ab2d5037705df012ad2f197045260f7f1cd81c7b637": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.44,
+        "probabilities": {
+          "0": 0.72,
+          "1": 0.16,
+          "2": 0.08,
+          "3": 0.04
+        },
+        "confidence": 0.56,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "74b186a54468604baa6a824200751c4bb4d0a8c81604f95c09fd53e1b141778a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.99,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.1,
+          "2": 0.72,
+          "3": 0.15
+        },
+        "confidence": 0.69,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "77cdc4c1d278c58a4be24698cd2723d7d457d5b23453b31e0e7c2a4c1c7b7880": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.78,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.03,
+          "2": 0.1,
+          "3": 0.85
+        },
+        "confidence": 0.78,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7b1c4534abca41bfbe507c2b4c9f6375fb8d5c4d6b5d39ad32adafefdea049f2": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.78,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.03,
+          "2": 0.1,
+          "3": 0.85
+        },
+        "confidence": 0.78,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7b7d46c21e5031a8ca65cd02851272b638ebb56af5b6b5d74551ebe4dc12fb19": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.44,
+        "probabilities": {
+          "0": 0.72,
+          "1": 0.16,
+          "2": 0.08,
+          "3": 0.04
+        },
+        "confidence": 0.56,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "80c8967dde686a51f282b305021bb4bff09ccd4088697cf8b2724b8492990ab0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.22,
+        "probabilities": {
+          "0": 0.08,
+          "1": 0.68,
+          "2": 0.18,
+          "3": 0.06
+        },
+        "confidence": 0.62,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "835021092d0c07dd4df481df4c63cf9cb728bfd146945c8e8157a6b195044daf": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.78,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.03,
+          "2": 0.1,
+          "3": 0.85
+        },
+        "confidence": 0.78,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9ca3ff8676de296e95bbad88ff385b131607fb9c8af05479f5c9a4a054daeddb": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.99,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.1,
+          "2": 0.72,
+          "3": 0.15
+        },
+        "confidence": 0.69,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9d30ac43e5223c03e694ec2eb958d8b4d0c46af3eb50a356de85396b35dbb500": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.78,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.03,
+          "2": 0.1,
+          "3": 0.85
+        },
+        "confidence": 0.78,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ad940e511cbff443ecbc1fedd38650eb480d0b478465cc19d8d70d9a649e3e6c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.46,
+        "probabilities": {
+          "0": 0.24,
+          "1": 0.28,
+          "2": 0.26,
+          "3": 0.22
+        },
+        "confidence": 0.06000000000000005,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "af7fabe1e17713824ae3969569ab1e0be97fbc95cf05783a6891343c7e1e83b0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.78,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.03,
+          "2": 0.1,
+          "3": 0.85
+        },
+        "confidence": 0.78,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b8a47dd5cf4cadbc8e41f924b5123f1024f3f7f6cb4c51c41b1d29b657a3788d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.22,
+        "probabilities": {
+          "0": 0.08,
+          "1": 0.68,
+          "2": 0.18,
+          "3": 0.06
+        },
+        "confidence": 0.62,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bbd4fe389374f788c9f0a4f375fe6d062d32dd8340c3fdd234f7f36ddcf35abe": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.99,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.1,
+          "2": 0.72,
+          "3": 0.15
+        },
+        "confidence": 0.69,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bbf7cc6aa2b281538a2e8a59f58b4f1863a4a4158bc96e0f360efc517da3282b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.78,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.03,
+          "2": 0.1,
+          "3": 0.85
+        },
+        "confidence": 0.78,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bfa0f373caddfe08a22c33fc1a411ba3c5b89c644e73d9f68ba426df49e12ea6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.22,
+        "probabilities": {
+          "0": 0.08,
+          "1": 0.68,
+          "2": 0.18,
+          "3": 0.06
+        },
+        "confidence": 0.62,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c8176d01040f33a4e9ec9ea730212c0afdb4b1e8ec539e3ba6d30bc833656784": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.99,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.1,
+          "2": 0.72,
+          "3": 0.15
+        },
+        "confidence": 0.69,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d0e4acd72983e4ad1f32e6fb93f521d1825601ca645bf854841bd21fbed830cd": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.44,
+        "probabilities": {
+          "0": 0.72,
+          "1": 0.16,
+          "2": 0.08,
+          "3": 0.04
+        },
+        "confidence": 0.56,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d9bceb067d389b94f4f4a01cedd6c036460321b95c2981d87e9740cf4bad86e1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.44,
+        "probabilities": {
+          "0": 0.72,
+          "1": 0.16,
+          "2": 0.08,
+          "3": 0.04
+        },
+        "confidence": 0.56,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e2e6c392e7743f84761df6e2ba7d2e43bb0298aeae8e7d02837e6d087a9ad383": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.78,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.03,
+          "2": 0.1,
+          "3": 0.85
+        },
+        "confidence": 0.78,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e667ed290505d5884883516f57f86edf96232d7e22096516b9248de0ef459ce8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.99,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.1,
+          "2": 0.72,
+          "3": 0.15
+        },
+        "confidence": 0.69,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ee3aefcab09dedfc213931cf7bbd6d578bf51bef1fc7cbaf3164dec0c97f4c54": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.73,
+        "probabilities": {
+          "0": 0.55,
+          "1": 0.25,
+          "2": 0.12,
+          "3": 0.08
+        },
+        "confidence": 0.27,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f894ddf84fa7bc99533a7ea2204588da7123318f3db3de68f03a7727d1ec4dd0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.44,
+        "probabilities": {
+          "0": 0.72,
+          "1": 0.16,
+          "2": 0.08,
+          "3": 0.04
+        },
+        "confidence": 0.56,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f9fa19605d6dd0b8a76d55382da2e44f461c29078a4ce09eab0feed13a91dc52": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.78,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.03,
+          "2": 0.1,
+          "3": 0.85
+        },
+        "confidence": 0.78,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "faa208ec053b007e8813eeccbf29f5ebb7ef5be3ca8a9bb795ada620836f5ebf": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.46,
+        "probabilities": {
+          "0": 0.24,
+          "1": 0.28,
+          "2": 0.26,
+          "3": 0.22
+        },
+        "confidence": 0.06000000000000005,
+        "legend": {
+          "0": "The passage is about a different topic, entity, time, or place than the query asks about. Nothing in it bears on the query at all.",
+          "1": "The passage is about the same general topic as the query, but it does not state the specific fact, number, or step the query asks for.",
+          "2": "The passage states the fact, number, or step the query asks for, but the reader has to connect it with something else stated elsewhere in the same passage to see that it answers the query.",
+          "3": "The passage states the exact answer to the query in a single, self-contained sentence, with nothing else needed to understand it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
