@@ -132,6 +132,39 @@ coalescing into one. This was a property of floating-point arithmetic, not a bug
 candidate — never a rounded stand-in — and a caller's own `value >= threshold` comparison on raw
 data stays an exact tie (#172).
 
+**Five recipes carry a twin pair on their real fixtures (02, 03, 06, 10 and 15; 15's `test` split
+carries two more, never printed or plotted), and the fix regenerates three of them.** Collapsing a
+pair always keeps the smaller raw member as the candidate, so the surviving row reports the
+*union* of the two rows' coverage (the larger of the two) and the accuracy of that union. Whether
+anything a reader sees moves turns on one question: does the kept row have *worse* accuracy than
+the row that was dropped?
+
+- 02, 10 and 15's pairs are both-correct **and** the two rows already read the same accuracy (the
+  curve is flat across that segment), so nothing is lost but a genuinely redundant row: 10 and 15
+  each drop one `gate >= 0.86` sweep row (two coverages, one accuracy — `0.200`'s row is dropped,
+  `0.240`'s survives, both `1.000`), and 02's pair is never printed as a row at all, only plotted,
+  where the dropped point is collinear, so even its figure does not move.
+- 03's pair (`v07-filler`/`v14-injection`, both nominal `0.40`) also agrees on correctness, but the
+  two rows do **not** read the same accuracy: the dropped row (`0.4`) reads `0.937500`, the kept
+  row (`0.3999999999999999`) reads `0.941176` — *better*, because its union coverage includes one
+  more correct answer than the dropped row's. An accuracy value genuinely moves here even though
+  nothing is wrong, which is exactly why "both correct" is not by itself a guarantee that nothing
+  changes. 03 never prints or plots its validation curve, though (only the frozen threshold,
+  `0.65`, unaffected either way), so its committed notebook does not change.
+- 06's pooled pair disagrees on correctness (one right, one wrong), so the kept row's accuracy is
+  *worse* than the dropped row's: `1.000000` at coverage `0.905263` drops to `0.988506` at coverage
+  `0.915789`. 06's own frozen gate (`target_accuracy=0.97`, `0.1200000000000001`) sits elsewhere
+  and is unaffected, but its pooled validation curve genuinely loses a distinguishable operating
+  point — a real change to the plotted line, not merely different bytes — that
+  `tools/check_notebook_fresh.py`'s figure comparison is too coarse to see. 06's notebook is
+  regenerated for this reason even though CI's own check could not have required it.
+
+Every published recipe's own frozen gate — the value its `helpers.py` actually reuses — is
+unchanged by the fix (02's `0.10000000000000009`; 10's and 15's `0.30000000000000004`; 06's
+`0.1200000000000001`; 03's `0.65`), because none of their `target_accuracy`/`min_coverage`
+searches lands on a candidate a twin pair touches. 02's and 03's committed notebooks are verified
+unchanged; 10's, 15's and 06's are regenerated.
+
 ### Multi-label
 
 `multilabel_from_noul(noul_by_label, thresholds)` builds predicted label sets from one Noul per
