@@ -75,8 +75,8 @@ no receipt.
    for one name is ambiguous and fails closed, **except** that several CheckRuns from the one same
    app, with that app's slug readable, all `success`, for a non-baseline name, collapse into a
    single `success` result (see "Required checks" below for the exact rule, the `results`/`runs`
-   receipt shape, and why); a
-   baseline name, any mix that is not all-`success`, or results from more than one source (a
+   receipt shape, and why); a baseline name, any mix that is not all-`success`, or results from
+   more than one source (a
    StatusContext mixed with a CheckRun, two StatusContexts, or CheckRuns from different apps) stay
    ambiguous and fail closed exactly as before.
 4. After collecting evidence it re-reads the default branch and the PR. If `main` or the head
@@ -182,13 +182,14 @@ later edit's successful rerun adds a `success` row alongside the earlier `failur
 replacing it, which is `"conflicting"`, not a collapse. Both cases need a new head — a
 `synchronize` event, which runs its own `Scope` check suite from scratch — not another edit of the
 same head's description. Re-running the *original* `Scope` workflow run instead does not help,
-even though this document's own "filter=latest shows what currently counts" (below, in "Required
-checks") and its post-merge remedy of "rerun the workflow on that exact commit" (below, in
-"Where it fits in the serial merge") might suggest otherwise for a push-triggered check: the real
-reason is that `scope.yml` runs on `pull_request_target`, so re-running it replays the *original*
-event payload, and `github.event.pull_request.body` in that payload is the pre-edit body —
-exactly the staleness the `edited` trigger exists to catch — which makes a rerun's verdict
-untrustworthy, not merely unhelpful. This is why the rule in `CONTRIBUTING.md` — never edit a
+even though "[Where it fits in the serial merge](#where-it-fits-in-the-serial-merge)" below might
+suggest otherwise for a push-triggered check ("filter=latest shows what currently counts" and its
+post-merge remedy "rerun the workflow on that exact commit"). The real reason is narrower:
+`scope.yml` runs on `pull_request_target`, so re-running an *existing* run replays that run's
+*original* event payload, not a fresh one. `github.event.pull_request.body` in that stale payload
+is the pre-edit body — exactly the staleness a *new* `edited` event (unlike a rerun of an old one)
+exists to catch — so a rerun's verdict is untrustworthy, not merely unhelpful. This is why the
+rule in `CONTRIBUTING.md` — never edit a
 pull request's description after the final push of a head that goes to the merge gate — stays in
 force: an edit is the only way `Scope` reruns at all, and every rerun after the first either
 leaves a `cancelled` row behind (if it overlaps a run still in progress) or, if the head already
@@ -412,8 +413,9 @@ orchestrator session. Whether the review accepted the ruling differs by case, as
 No history is rewritten here, and what a source claims is recorded as a claim.
 
 **PR #96** did not meet requirements 1 and 2. The review of head `f843a7c` (comment 6031008513,
-header: orchestrator session `37d430e7`, model `claude-opus-5`) came before the ruling and did
-not accept it. It approved that exact head. It
+header: orchestrator session `37d430e7`, model recorded in that header as `claude-opus-5-5`; the
+reviewer model is `claude-opus-5` per the owner decision on #80 (comment 6070170893)) came before
+the ruling and did not accept it. It approved that exact head. It
 also stated that after #91 advanced `main` the helper returned `NOT READY` with `behind_by` 1,
 and that a signed integration and a fresh review were needed before merging. The orchestrator
 then ruled the advance immaterial in its merge note (comment 6031022258) and merged without that
