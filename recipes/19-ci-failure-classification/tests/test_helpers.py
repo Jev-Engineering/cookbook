@@ -105,6 +105,28 @@ def test_low_confidence_goes_to_review_whatever_the_outcome(outcome):
     assert queue.to_dicts()[0]["reason"] == "confidence below the threshold"
 
 
+def test_accepted_and_correct_excludes_a_confident_unknown_from_coverage():
+    """CONTRIBUTING.md section 4 part (a): naming `unknown` is itself a deferral, so it never
+    counts toward coverage, however confidently it was reached -- unlike a confidence-gated
+    `review`, which is excluded for a different reason (low confidence, not a deferral)."""
+    actions, queue = ActionLog(), ReviewQueue()
+    confident_unknown = helpers.classify(
+        "build-1", answer(_dist("unknown", 0.9)), 0.5, actions=actions, queue=queue
+    )
+    low_confidence = helpers.classify(
+        "build-2", answer(_dist("test_regression", 0.3)), 0.5, actions=actions, queue=queue
+    )
+    confident_remedy = helpers.classify(
+        "build-3", answer(_dist("test_regression", 0.9)), 0.5, actions=actions, queue=queue
+    )
+    gold = {"build-1": "unknown", "build-2": "test_regression", "build-3": "test_regression"}
+    accepted, correct = helpers.accepted_and_correct(
+        [confident_unknown, low_confidence, confident_remedy], gold
+    )
+    assert accepted == [False, False, True]
+    assert correct[2] is True
+
+
 def test_the_threshold_is_inclusive():
     confident = answer(_dist("test_regression", 0.85))
     at = helpers.classify(
@@ -179,6 +201,15 @@ def test_trimming_on_every_committed_fixture_keeps_the_matching_decisive_line():
                 assert match.group(0) in excerpt, (example.id, match.group(0))
 
 
+def test_the_scattered_regression_excerpt_carries_both_failures():
+    """The hedge `t-tr-05-wrong`'s stored answer makes has to be visible in the excerpt Jev
+    actually sees, not only in the full log: `--tb=line` keeps both failure lines adjacent with
+    no separating header, so both survive `trim_log`'s one window around the first failure."""
+    example = next(e for e in load_inputs(RECIPE) if e.id == "t-tr-05-wrong")
+    excerpt = helpers.trim_log(example.fields["full_log"])
+    assert excerpt.count("AssertionError") == 2
+
+
 DEPENDENCY_ALTERNATIVES = (
     r"ModuleNotFoundError",
     r"ImportError: cannot import",
@@ -223,17 +254,32 @@ def test_every_replay_key_in_the_fixtures_matches_the_current_question():
 
 
 def test_stored_answers_are_not_all_right():
+    """A wrong answer anywhere is a weak guard: it would still pass even if the confidence gate
+    caught every mistake, which would hide the exact lesson this fixture set exists to teach.
+    Re-derive the gate the way the notebook does -- the lowest confidence whose answered
+    `validation` subset is perfectly accurate -- and require a wrong `test` answer at or above
+    it: a mistake the gate would still let through."""
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
     labels = load_labels(RECIPE)
-    wrong = [
-        e.id
-        for e in load_inputs(RECIPE)
-        if e.id in labels
-        and backend.decide(helpers.build_state(e.fields), questions)["outcome"].choice
-        != labels[e.id]
+    examples = load_inputs(RECIPE)
+
+    def decide(example):
+        return backend.decide(helpers.build_state(example.fields), questions)["outcome"]
+
+    validation = [e for e in examples if e.split == "validation" and e.id in labels]
+    val_decided = [(decide(e), labels[e.id]) for e in validation]
+    threshold = select_confidence_threshold(
+        [answer.choice == gold for answer, gold in val_decided],
+        [answer.confidence for answer, _ in val_decided],
+        target_accuracy=1.0,
+    )
+
+    test = [e for e in examples if e.split == "test" and e.id in labels]
+    wrong_and_confident = [
+        e.id for e in test if decide(e).choice != labels[e.id] and decide(e).confidence >= threshold
     ]
-    assert wrong, "the fixtures should contain some wrong answers"
+    assert wrong_and_confident, "expected at least one confidently wrong test answer"
 
 
 def test_a_wrong_test_answer_survives_the_frozen_gate():

@@ -108,10 +108,9 @@ def route_ticket(ticket_id: str, answer: Any, min_confidence: float) -> Routing:
 
     ``unclear_request`` is never routed to a queue, whatever its confidence: the option itself
     already says the ticket does not resolve to one category, so Python lists it separately
-    instead of running it past the confidence gate (the issue's build note: "Tickets routed to
-    unclear_request are listed separately."). Any other answer that is not confident enough
-    goes to an explicit ``review`` outcome instead of being reported as a routed result. The
-    rule is code, so it holds whatever the model answers.
+    instead of running it past the confidence gate meant for a queue it will never enter. Any
+    other answer that is not confident enough goes to an explicit ``review`` outcome instead of
+    being reported as a routed result. The rule is code, so it holds whatever the model answers.
     """
     if not 0.0 <= min_confidence <= 1.0:
         raise ValueError(f"min_confidence must be between 0 and 1, got {min_confidence!r}")
