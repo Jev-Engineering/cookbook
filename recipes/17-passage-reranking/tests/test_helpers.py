@@ -44,11 +44,13 @@ def test_questions_are_built_by_python():
 def test_a_confident_answer_at_or_above_the_cutoff_is_a_match():
     result = helpers.classify("KB-1", CONFIDENT_DIRECT, 0.3)
     assert (result.passage_id, result.level, result.outcome) == ("KB-1", 3, helpers.MATCH)
+    assert result.reason == "modal level clears the business cutoff"
 
 
 def test_a_confident_answer_below_the_cutoff_is_no_match():
     result = helpers.classify("KB-1", CONFIDENT_NOT_RELEVANT, 0.3)
     assert (result.passage_id, result.level, result.outcome) == ("KB-1", 0, helpers.NO_MATCH)
+    assert result.reason == "modal level below the business cutoff"
 
 
 @pytest.mark.parametrize("level", [0, 1, 2, 3])
