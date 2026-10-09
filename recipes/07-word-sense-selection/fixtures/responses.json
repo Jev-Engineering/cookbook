@@ -1,0 +1,1010 @@
+{
+  "1304eb83180071bbaeb456b5a2bbab01c97e73115a69b95e0b316bbe774f1d6b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "equipment",
+        "probabilities": {
+          "animal": 0.1,
+          "equipment": 0.85,
+          "unclear": 0.05
+        },
+        "confidence": 0.7749999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1382dc46609c5d950180b686711c5a0add7da07eaf41e36d2d5d74838a8e942b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "season",
+        "probabilities": {
+          "season": 0.8,
+          "coil": 0.1,
+          "unclear": 0.1
+        },
+        "confidence": 0.7000000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1bdf9523ae73c066c52b11ccac4e6fe7850c90180959299c5d21ae4b9116d69d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "river_edge",
+        "probabilities": {
+          "financial_institution": 0.05,
+          "river_edge": 0.9,
+          "unclear": 0.05
+        },
+        "confidence": 0.8499999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1dfc74ecf801c71dace70674b320f3cf1f86335677fd5c65613e76bfed9ef915": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "season",
+        "probabilities": {
+          "season": 0.9,
+          "coil": 0.05,
+          "unclear": 0.05
+        },
+        "confidence": 0.8499999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1e2b70beeec896d0fbec681ec7ea76ec0a2b0b609d1c5a76a37f62882f003c18": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "bird",
+        "probabilities": {
+          "machine": 0.15,
+          "bird": 0.75,
+          "unclear": 0.1
+        },
+        "confidence": 0.625,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "21bb1f66ed52fc9e1d793ce8de0935e2d2d0407ebedc14080c1f407d5c33517a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "equipment",
+        "probabilities": {
+          "animal": 0.07,
+          "equipment": 0.87,
+          "unclear": 0.06
+        },
+        "confidence": 0.8049999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "293dec86b0aaa4c3235e24834427d07b726edfce4e5d1deb4209e40b9839444b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "bird",
+        "probabilities": {
+          "machine": 0.3,
+          "bird": 0.6,
+          "unclear": 0.1
+        },
+        "confidence": 0.39999999999999997,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "30c52dbcf89900e0252dcc9e673a6fad83d308ac0e203dee874ba248cefbf4e0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "financial_institution",
+        "probabilities": {
+          "financial_institution": 0.9,
+          "river_edge": 0.05,
+          "unclear": 0.05
+        },
+        "confidence": 0.8499999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "352c235231c0b969bc1ccb570a388c39ffa89d71612057aea9eccfed0f8c737a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "river_edge",
+        "probabilities": {
+          "financial_institution": 0.06,
+          "river_edge": 0.88,
+          "unclear": 0.06
+        },
+        "confidence": 0.8199999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "376cae52a8667fd2d8823a264b4ec0b23abcc43c501377e1e504f75025461b87": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "season",
+        "probabilities": {
+          "season": 0.89,
+          "coil": 0.05,
+          "unclear": 0.06
+        },
+        "confidence": 0.8349999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "37921b5f18abbfaba2a5151dbfd0154abe4061eb4bab4f3c85b029414cdc52c0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "animal",
+        "probabilities": {
+          "animal": 0.84,
+          "equipment": 0.08,
+          "unclear": 0.08
+        },
+        "confidence": 0.7599999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3ee8f80d8b74d513b180bbf80251f892bd39eda87cac07cc6f600ed2e68dc463": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "coil",
+        "probabilities": {
+          "season": 0.38,
+          "coil": 0.44,
+          "unclear": 0.18
+        },
+        "confidence": 0.16,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "444122b83eb258f8954a497b633b4723ea5a400c73c2024e91594c658bd832a4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "animal",
+        "probabilities": {
+          "animal": 0.45,
+          "equipment": 0.4,
+          "unclear": 0.15
+        },
+        "confidence": 0.17500000000000002,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "46db865050620819e6c3c2499f2683f2b1ee699c3d0880c8e86f301d74909f67": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "unclear",
+        "probabilities": {
+          "machine": 0.3,
+          "bird": 0.32,
+          "unclear": 0.38
+        },
+        "confidence": 0.07000000000000002,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4a8d3e01f770698d1f9ddf30c46302d86910f9371f68febb901aec5e821e7bcf": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "coil",
+        "probabilities": {
+          "season": 0.07,
+          "coil": 0.87,
+          "unclear": 0.06
+        },
+        "confidence": 0.8049999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4eb35ebb68b65f691ec03cedab3c970fedf1bb433a58bd94e089e0e59288785c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "animal",
+        "probabilities": {
+          "animal": 0.88,
+          "equipment": 0.06,
+          "unclear": 0.06
+        },
+        "confidence": 0.8199999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4ed91a5b2cc404d1f7900f302cb3dd212af8cf4844c12c9f00ba6abab866c245": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "animal",
+        "probabilities": {
+          "animal": 0.85,
+          "equipment": 0.08,
+          "unclear": 0.07
+        },
+        "confidence": 0.7749999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4fc2ce35d64a377cfe39db8271dac73f52563868e70194cb891d09037619ec32": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "unclear",
+        "probabilities": {
+          "financial_institution": 0.33,
+          "river_edge": 0.3,
+          "unclear": 0.37
+        },
+        "confidence": 0.055000000000000014,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5ca1103c7f07842dc00ebe34e74f442a79d60d6fa35bf0827822b27bebc30e2b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "financial_institution",
+        "probabilities": {
+          "financial_institution": 0.87,
+          "river_edge": 0.06,
+          "unclear": 0.07
+        },
+        "confidence": 0.8049999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5e9bdaa4afd5787fed9b07d6fd0de0fbeef279d930137f5e8e588fcd0879ae85": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "season",
+        "probabilities": {
+          "season": 0.4,
+          "coil": 0.36,
+          "unclear": 0.24
+        },
+        "confidence": 0.10000000000000005,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "768409b1a75c41b60ce72c6a91af03fa71ebe578e9497b97ad254ecadec2c5ab": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "bird",
+        "probabilities": {
+          "machine": 0.06,
+          "bird": 0.89,
+          "unclear": 0.05
+        },
+        "confidence": 0.8349999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "80a6d7edf208b35f98cb766c50500c1c5b5dd551a7b00ffe8bc90a523b3e2f02": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "machine",
+        "probabilities": {
+          "machine": 0.9,
+          "bird": 0.05,
+          "unclear": 0.05
+        },
+        "confidence": 0.8499999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "882c7cb01d0573c4ed9ac9b9c2580d4377d84a2cf7a14118bd0d73eb94198458": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "river_edge",
+        "probabilities": {
+          "financial_institution": 0.1,
+          "river_edge": 0.83,
+          "unclear": 0.07
+        },
+        "confidence": 0.7449999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8a7fda29d4cc38f09b33709b9eac5d0fc11248268b703aa0e46fc17c97595bcb": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "financial_institution",
+        "probabilities": {
+          "financial_institution": 0.89,
+          "river_edge": 0.05,
+          "unclear": 0.06
+        },
+        "confidence": 0.8349999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8f3220becd259f04638c059d6b78e270d0c2a0b59ee990bc5b3d4ce038b0558c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "season",
+        "probabilities": {
+          "season": 0.55,
+          "coil": 0.35,
+          "unclear": 0.1
+        },
+        "confidence": 0.32500000000000007,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9173f73a00dcb1e26977636438159b8c587e1ba0f646153da482a4a07fbe6955": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "season",
+        "probabilities": {
+          "season": 0.88,
+          "coil": 0.06,
+          "unclear": 0.06
+        },
+        "confidence": 0.8199999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9241443a4048498c0105402d2024d14327fd06f76ee300e84693e0de40723ba9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "machine",
+        "probabilities": {
+          "machine": 0.8,
+          "bird": 0.15,
+          "unclear": 0.05
+        },
+        "confidence": 0.7000000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9988621c49212b76c173315931363badf1935f89d204cd7d560b7effc26b2f35": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "financial_institution",
+        "probabilities": {
+          "financial_institution": 0.42,
+          "river_edge": 0.38,
+          "unclear": 0.2
+        },
+        "confidence": 0.12999999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a4d4eb37b31434df949e703763e4a2c4e510e4505d2b3ff6cfbdd840400009a5": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "machine",
+        "probabilities": {
+          "machine": 0.88,
+          "bird": 0.06,
+          "unclear": 0.06
+        },
+        "confidence": 0.8199999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a7a5a453b5a40752f450491bea2751c8fcc1e18e75c527701d3c12c7c37b6559": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "animal",
+        "probabilities": {
+          "animal": 0.6,
+          "equipment": 0.3,
+          "unclear": 0.1
+        },
+        "confidence": 0.39999999999999997,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ac7e19ba03d5e4cfcfa8978a783a844ac167c3464e10234df9f322709c41e470": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "machine",
+        "probabilities": {
+          "machine": 0.91,
+          "bird": 0.04,
+          "unclear": 0.05
+        },
+        "confidence": 0.8649999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "af254c76f6793e1144013762763fde9231ebf1f0e753c7c0cf68cb284376a3b5": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "coil",
+        "probabilities": {
+          "season": 0.15,
+          "coil": 0.75,
+          "unclear": 0.1
+        },
+        "confidence": 0.625,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bcbc3dde7dfe2985b8b316477d9e7c2ae5c8a149058ebb60087f26fc495924bc": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "financial_institution",
+        "probabilities": {
+          "financial_institution": 0.88,
+          "river_edge": 0.06,
+          "unclear": 0.06
+        },
+        "confidence": 0.8199999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c799af5dbff682d8cf2eacd8f26274b19feba6ea24762d7f99f9af41b2d510c9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "machine",
+        "probabilities": {
+          "machine": 0.92,
+          "bird": 0.04,
+          "unclear": 0.04
+        },
+        "confidence": 0.8799999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d35cde18226b98676fbac3c88f343b05be6d55d7f68f2b42945943230fdac914": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "equipment",
+        "probabilities": {
+          "animal": 0.06,
+          "equipment": 0.89,
+          "unclear": 0.05
+        },
+        "confidence": 0.8349999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d931f03c385749af051d18aaf86acffce484f2dd7f5536ed177712a94f6d659e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "bird",
+        "probabilities": {
+          "machine": 0.07,
+          "bird": 0.88,
+          "unclear": 0.05
+        },
+        "confidence": 0.8199999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d932fc236b1385210ad1c91410048a44b80acc7b58921d3e6a413c1e393d51ca": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "animal",
+        "probabilities": {
+          "animal": 0.9,
+          "equipment": 0.05,
+          "unclear": 0.05
+        },
+        "confidence": 0.8499999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e11cc9b9b3e8cf422b696ef9476d8aa836015ee09ae15daef5d4a73dfc65efb9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "coil",
+        "probabilities": {
+          "season": 0.07,
+          "coil": 0.88,
+          "unclear": 0.05
+        },
+        "confidence": 0.8199999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e7a1fbf534772c2fc37dbfb46c41a1e681d52eaa747c53e83ba1627e18dc2559": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "river_edge",
+        "probabilities": {
+          "financial_institution": 0.08,
+          "river_edge": 0.85,
+          "unclear": 0.07
+        },
+        "confidence": 0.7749999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f050cbc828928f40a4ced02c2f1fdb47b9696bb6f7f70e91589cd254828c3348": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "season",
+        "probabilities": {
+          "season": 0.86,
+          "coil": 0.07,
+          "unclear": 0.07
+        },
+        "confidence": 0.7899999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f600566e72ca8eb487411f596622a250530eb839d9e88e8bb63bdf56ffd25c3e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "machine",
+        "probabilities": {
+          "machine": 0.87,
+          "bird": 0.06,
+          "unclear": 0.07
+        },
+        "confidence": 0.8049999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f695e72161afb0aaba82bf3c29c4680f16b7d039f1da4e8f3173124c8889d662": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "river_edge",
+        "probabilities": {
+          "financial_institution": 0.35,
+          "river_edge": 0.55,
+          "unclear": 0.1
+        },
+        "confidence": 0.32500000000000007,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
