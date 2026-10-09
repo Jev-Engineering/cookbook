@@ -624,6 +624,25 @@ keeps an ordinary merge to `main` at 4 new billed minutes rather than 63. These 
 the runs named above, not an estimate from job counts; check the repository's usage report for
 totals over time.
 
+## The recipe guard allowlist
+
+`tests/test_recipe_guard.py` (#165) parametrises nine contract checks — the current scaffold
+shape, no private issue citations, the strong-form `test_stored_answers_are_not_all_right`,
+validation and figure disclosure labels, print-what-you-plot, Next-steps links, the review
+outcome value and reason string, the README sources and live budget note, and the README install
+line — over every published recipe at once, so each is enforced by `Tests (py3.10)`/`Tests
+(py3.14)` on every pull request rather than re-derived by a reviewer by hand. Running it the day
+it landed found real, pre-existing drift in recipes merged before the guard existed; that drift
+is recorded once, in `tests/recipe_guard_known_failures.py`, as a `(recipe slug, check id)`
+allowlist that marks the pair `xfail(strict=True)` with a reason naming `#163`, the sweep issue
+that owns fixing it. The protocol: a recipe pull request never adds an entry (fixing a check it
+newly fails belongs in the recipe itself, not in the allowlist, and the path is outside its scope
+check allowlist in any case); only a `#163` sweep pull request removes one, by making the
+underlying recipe pass the check for real — `strict=True` turns a sweep that fixes the recipe but
+forgets to remove the entry into a hard failure, so the allowlist cannot go stale in that
+direction either; and a foundation pull request that adds a stricter guard check may add the
+entries that check newly reveals, never one for a check that already existed and already passed.
+
 ## Local commands
 
 The commands that reproduce a job on one recipe, including the network guard and the scope check,
