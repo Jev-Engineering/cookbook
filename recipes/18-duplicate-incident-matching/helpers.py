@@ -86,6 +86,17 @@ def _similarity(a: set[str], b: set[str]) -> float:
     return len(a & b) / len(a | b)
 
 
+def similarity_scores(symptoms: str) -> dict[str, float]:
+    """The Jaccard similarity between ``symptoms`` and every open incident's own symptoms --
+    the raw numbers ``shortlist`` ranks by, exposed so a reader can see the retrieval step work
+    rather than only its result."""
+    new_tokens = _tokens(symptoms)
+    return {
+        incident_id: _similarity(new_tokens, _tokens(incident["symptoms"]))
+        for incident_id, incident in OPEN_INCIDENTS.items()
+    }
+
+
 def shortlist(symptoms: str, k: int = SHORTLIST_SIZE) -> list[str]:
     """Python's retrieval step: the ``k`` open incidents whose symptom text most overlaps the new
     ticket's, by plain word overlap -- no model call, no learned embedding. Ties (including every
@@ -97,11 +108,11 @@ def shortlist(symptoms: str, k: int = SHORTLIST_SIZE) -> list[str]:
     the question below asks Jev to make -- not something Python's retrieval should pre-filter away
     before Jev ever sees it.
     """
-    new_tokens = _tokens(symptoms)
+    scores = similarity_scores(symptoms)
     ranked = sorted(
         OPEN_INCIDENTS,
         key=lambda incident_id: (
-            -_similarity(new_tokens, _tokens(OPEN_INCIDENTS[incident_id]["symptoms"])),
+            -scores[incident_id],
             incident_id,
         ),
     )
@@ -232,70 +243,37 @@ def record_resolution(resolution: Resolution, answer: Any, actions: Any, queue: 
         )
 
 
-@dataclass(frozen=True)
-class OutcomeSummary:
-    """Coverage, accuracy and risk computed from ``match_incident``'s own outcomes over one
-    split, plus the false-merge rate scoped to the ``linked`` outcome alone.
-
-    This is deliberately not ``jev_cookbook.evaluation.evaluate_selective`` reapplied to every
-    example: that helper gates every example on one confidence gate, but ``match_incident`` never
-    gates ``no_match`` on confidence at all, so reapplying a gate there would score a cut-off the
-    rule does not have. A rule with a review branch beyond the confidence gate needs its
-    selective numbers computed from the rule's own outcomes instead -- the convention this
-    cookbook names ``evaluate_outcomes``. A shared helper of that name is planned in
-    ``jev_cookbook.evaluation`` but has not merged as of this recipe, so the summary below is
-    computed directly from ``match_incident``'s outcomes here, by hand. ``linked`` and
-    ``no_duplicate`` both count as answered (the rule returned a result: a link or an explicit
-    "this is a new incident"), and ``review`` counts as not answered. Undefined is NaN, never
-    0.0, matching ``jev_cookbook.evaluation``'s convention.
-
-    ``false_merge_rate`` is narrower than ``risk``: it is the share of ``linked`` resolutions
-    whose chosen incident is not the gold match -- the only way this recipe's simulated side
-    effect (linking two incidents together) can be wrong. A wrong ``no_duplicate`` call (missing
-    a real duplicate) lowers ``accuracy``/``risk`` above, but it is not a false merge, because it
-    triggers no side effect at all.
+def accepted_and_correct(
+    results: list[Resolution], gold: dict[str, Any]
+) -> tuple[list[bool], list[bool]]:
+    """``(accepted, correct)`` for ``jev_cookbook.evaluation.evaluate_outcomes``: ``accepted[i]``
+    is whether ``match_incident`` answered (``linked`` or ``no_duplicate``) rather than sent to
+    ``review``, and ``correct[i]`` is whether that result's label is the gold match (ignored,
+    but still computed, where ``accepted[i]`` is False, exactly as ``evaluate_outcomes``
+    documents). ``evaluate_outcomes`` is the shared helper for a rule like this one, whose review
+    branch is more than a single confidence gate (see "Selective prediction" in
+    ``docs/evaluation.md``); it reports coverage, accuracy and risk. It has no notion of a
+    second, narrower outcome inside "accepted" (``linked`` versus ``no_duplicate``), which is
+    what :func:`false_merge_rate` below computes instead.
     """
-
-    n_total: int
-    n_linked: int
-    n_reviewed: int
-    n_no_duplicate: int
-    coverage: float
-    accuracy: float
-    risk: float
-    false_merge_rate: float
+    accepted = [r.outcome != REVIEW for r in results]
+    correct = [r.label == gold[r.ticket_id] for r in results]
+    return accepted, correct
 
 
-def summarize_outcomes(results: list[Resolution], gold: dict[str, Any]) -> OutcomeSummary:
-    """Summarize a list of ``Resolution`` results against ``gold`` (``{ticket_id: label}``)."""
+def false_merge_rate(results: list[Resolution], gold: dict[str, Any]) -> float:
+    """The share of ``linked`` resolutions whose chosen incident is not the gold match -- the
+    only way this recipe's simulated side effect (linking two incidents together) can be wrong.
+
+    This is narrower than the risk ``jev_cookbook.evaluation.evaluate_outcomes`` reports: a wrong
+    ``no_duplicate`` call (missing a real duplicate) lowers that risk too, but it is not a false
+    merge, because ``no_duplicate`` triggers no side effect at all. NaN when nothing was linked,
+    matching ``jev_cookbook.evaluation``'s own convention (undefined is NaN, never 0.0).
+    """
     if not results:
-        raise ValueError("summarize_outcomes needs at least one result")
-    n_total = len(results)
+        raise ValueError("false_merge_rate needs at least one result")
     linked = [r for r in results if r.outcome == LINKED]
-    no_duplicate = [r for r in results if r.outcome == NO_DUPLICATE]
-    reviewed = [r for r in results if r.outcome == REVIEW]
-    answered = linked + no_duplicate
-    n_answered = len(answered)
-    coverage = n_answered / n_total
-    if n_answered == 0:
-        accuracy = float("nan")
-        risk = float("nan")
-    else:
-        correct = sum(1 for r in answered if r.label == gold[r.ticket_id])
-        accuracy = correct / n_answered
-        risk = 1.0 - accuracy
     if not linked:
-        false_merge_rate = float("nan")
-    else:
-        wrong_links = sum(1 for r in linked if r.label != gold[r.ticket_id])
-        false_merge_rate = wrong_links / len(linked)
-    return OutcomeSummary(
-        n_total,
-        len(linked),
-        len(reviewed),
-        len(no_duplicate),
-        coverage,
-        accuracy,
-        risk,
-        false_merge_rate,
-    )
+        return float("nan")
+    wrong = sum(1 for r in linked if r.label != gold[r.ticket_id])
+    return wrong / len(linked)

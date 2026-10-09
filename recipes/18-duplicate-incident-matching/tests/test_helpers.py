@@ -97,6 +97,18 @@ def test_shortlist_ties_break_on_incident_id():
     ]
 
 
+def test_similarity_scores_covers_every_open_incident_and_agrees_with_shortlist():
+    symptoms = (
+        "Checkout fails with a 500 error when a promo code is applied at payment confirmation."
+    )
+    scores = helpers.similarity_scores(symptoms)
+    assert set(scores) == set(helpers.OPEN_INCIDENTS)
+    assert all(0.0 <= v <= 1.0 for v in scores.values())
+    assert scores["INC-101"] == 1.0  # identical wording to INC-101's own symptoms
+    ranked = sorted(scores, key=lambda i: (-scores[i], i))[: helpers.SHORTLIST_SIZE]
+    assert ranked == helpers.shortlist(symptoms)
+
+
 # --- build_questions / build_state --------------------------------------------------------
 
 
@@ -245,9 +257,8 @@ def test_a_no_duplicate_resolution_records_nothing():
 def test_stored_answers_are_not_all_right():
     """At least one stored test answer is wrong, and at least one wrong answer sits at or above
     the confidence gate this recipe's own notebook freezes from validation -- the false merge the
-    evaluation section reports (``OutcomeSummary.false_merge_rate``). A fixture set where the
-    gate always happens to catch every mistake would overstate what a confidence-only gate can
-    do."""
+    evaluation section reports (``false_merge_rate``). A fixture set where the gate always
+    happens to catch every mistake would overstate what a confidence-only gate can do."""
     backend = get_backend(fixtures=responses_path(RECIPE))
     labels = load_labels(RECIPE)
     inputs = load_inputs(RECIPE)
@@ -289,78 +300,74 @@ def test_stored_answers_are_not_all_right():
     )
 
 
-# --- summarize_outcomes ------------------------------------------------------------------------
+# --- accepted_and_correct / false_merge_rate -------------------------------------------------
 
 
 def _resolution(ticket_id, label, outcome):
     return helpers.Resolution(ticket_id, tuple(CANDIDATES), label, outcome, "test fixture")
 
 
-def test_summarize_outcomes_counts_linked_and_no_duplicate_as_answered():
+def test_accepted_and_correct_marks_review_as_not_accepted():
     results = [
         _resolution("a", "INC-101", helpers.LINKED),
         _resolution("b", helpers.NO_MATCH, helpers.NO_DUPLICATE),
         _resolution("c", "INC-102", helpers.REVIEW),
     ]
     gold = {"a": "INC-101", "b": "no_match", "c": "INC-102"}
-    summary = helpers.summarize_outcomes(results, gold)
-    assert summary.n_total == 3
-    assert summary.n_linked == 1
-    assert summary.n_reviewed == 1
-    assert summary.n_no_duplicate == 1
-    assert summary.coverage == pytest.approx(2 / 3)
-    assert summary.accuracy == pytest.approx(1.0)
-    assert summary.risk == pytest.approx(0.0)
-    assert summary.false_merge_rate == pytest.approx(0.0)
+    accepted, correct = helpers.accepted_and_correct(results, gold)
+    assert accepted == [True, True, False]
+    assert correct == [True, True, True]
 
 
-def test_summarize_outcomes_counts_a_wrong_link_as_a_false_merge():
+def test_accepted_and_correct_feeds_evaluate_outcomes():
+    # The shared jev_cookbook.evaluation.evaluate_outcomes helper is the one this recipe's
+    # notebook uses for coverage/accuracy/risk; this pins that the two functions still agree.
+    from jev_cookbook.evaluation import evaluate_outcomes
+
+    results = [
+        _resolution("a", "INC-101", helpers.LINKED),
+        _resolution("b", "INC-102", helpers.LINKED),  # wrong link, gold is INC-101
+        _resolution("c", helpers.NO_MATCH, helpers.NO_DUPLICATE),
+        _resolution("d", "INC-103", helpers.REVIEW),
+    ]
+    gold = {"a": "INC-101", "b": "INC-101", "c": "no_match", "d": "INC-103"}
+    accepted, correct = helpers.accepted_and_correct(results, gold)
+    outcomes = evaluate_outcomes(accepted, correct)
+    assert outcomes.n_total == 4
+    assert outcomes.n_answered == 3
+    assert outcomes.coverage == pytest.approx(0.75)
+    assert outcomes.accuracy == pytest.approx(2 / 3)
+    assert outcomes.risk == pytest.approx(1 / 3)
+
+
+def test_false_merge_rate_counts_a_wrong_link():
     # "a" is linked to INC-101, but the gold match is INC-102: a real, wrong link -- the one way
-    # this recipe's simulated side effect can be wrong, so it counts against false_merge_rate,
-    # not only against the general risk.
+    # this recipe's simulated side effect can be wrong.
     results = [
         _resolution("a", "INC-101", helpers.LINKED),
         _resolution("b", "INC-102", helpers.LINKED),
     ]
     gold = {"a": "INC-102", "b": "INC-102"}
-    summary = helpers.summarize_outcomes(results, gold)
-    assert summary.n_linked == 2
-    assert summary.accuracy == pytest.approx(0.5)
-    assert summary.risk == pytest.approx(0.5)
-    assert summary.false_merge_rate == pytest.approx(0.5)
+    assert helpers.false_merge_rate(results, gold) == pytest.approx(0.5)
 
 
-def test_summarize_outcomes_does_not_count_a_wrong_no_duplicate_as_a_false_merge():
+def test_false_merge_rate_does_not_count_a_wrong_no_duplicate():
     # "a" is wrongly called no_match (a missed duplicate), but no_match never links anything, so
-    # it costs accuracy/risk above but leaves false_merge_rate at 0: nothing was actually merged.
+    # it costs accuracy/risk (via evaluate_outcomes) but leaves false_merge_rate at 0: nothing
+    # was actually merged.
     results = [
         _resolution("a", helpers.NO_MATCH, helpers.NO_DUPLICATE),
         _resolution("b", "INC-101", helpers.LINKED),
     ]
     gold = {"a": "INC-102", "b": "INC-101"}
-    summary = helpers.summarize_outcomes(results, gold)
-    assert summary.accuracy == pytest.approx(0.5)
-    assert summary.risk == pytest.approx(0.5)
-    assert summary.false_merge_rate == pytest.approx(0.0)
+    assert helpers.false_merge_rate(results, gold) == pytest.approx(0.0)
 
 
-def test_summarize_outcomes_false_merge_rate_is_nan_with_nothing_linked():
+def test_false_merge_rate_is_nan_with_nothing_linked():
     results = [_resolution("a", helpers.NO_MATCH, helpers.NO_DUPLICATE)]
-    summary = helpers.summarize_outcomes(results, {"a": "no_match"})
-    assert summary.n_linked == 0
-    assert math.isnan(summary.false_merge_rate)
+    assert math.isnan(helpers.false_merge_rate(results, {"a": "no_match"}))
 
 
-def test_summarize_outcomes_is_nan_when_nothing_was_answered():
-    results = [_resolution("a", "INC-101", helpers.REVIEW)]
-    summary = helpers.summarize_outcomes(results, {"a": "INC-101"})
-    assert summary.n_linked == 0 and summary.n_no_duplicate == 0
-    assert summary.coverage == 0.0
-    assert math.isnan(summary.accuracy)
-    assert math.isnan(summary.risk)
-    assert math.isnan(summary.false_merge_rate)
-
-
-def test_summarize_outcomes_rejects_empty_input():
+def test_false_merge_rate_rejects_empty_input():
     with pytest.raises(ValueError, match="at least one"):
-        helpers.summarize_outcomes([], {})
+        helpers.false_merge_rate([], {})

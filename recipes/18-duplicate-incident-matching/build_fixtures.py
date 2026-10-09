@@ -30,6 +30,15 @@ but held back by the same low confidence. The replay keys come from the same ``b
 shortlist Python retrieves for that ticket's own symptoms, each row's key is computed from that
 ticket's own question.
 
+`t15-dup-email-ranked-second` is not wrong, but it fixes something a Wave 1 review noted: every
+other real-incident gold label in this recipe happens to land on `shortlist(...)[0]`, so a rule
+that always answered "the first candidate" would score perfectly without ever discriminating
+among options. This ticket's gold match, `INC-104`, is the shortlist's *second* entry
+(`['INC-105', 'INC-104', 'INC-101']`): its wording borrows enough of `INC-105`'s own phrasing to
+rank first by word overlap, so getting it right needs the same service check (`email-
+notifications`, not `INC-105`'s `billing-gateway`) the wrong-service traps elsewhere in this
+recipe exercise, just aimed at the top-ranked option this time instead of a lower one.
+
 Generating inputs and labels is kept separate from generating responses, on purpose (the pattern
 ``recipes/_template/build_fixtures.py`` sets): once responses.json holds even one recorded answer
 (provenance "recorded", captured from a real Jev call), running this script again must not
@@ -210,6 +219,22 @@ ROWS = [
         "TCK-2014", "wishlist-service",
         "After a second item is added to the wishlist, the item count shown on screen does not update."),
      "no_match", {"no_match": 0.76}),
+    # A true duplicate of INC-104 (email-notifications), but worded with enough of INC-105's own
+    # phrasing (declined card payments) that INC-105 is retrieved first and INC-104 only second:
+    # shortlist(...) == ['INC-105', 'INC-104', 'INC-101']. The gold match is the shortlist's
+    # *second* candidate, not its first -- every other real-incident gold label in this recipe's
+    # fixtures happens to be the top-ranked candidate, which would let a rule that always picks
+    # option 1 score perfectly without ever discriminating among candidates. This ticket breaks
+    # that: the affected service is email-notifications, matching INC-104's own service and not
+    # INC-105's (billing-gateway), so getting this one right needs the same service check the
+    # near-duplicate traps elsewhere in this recipe exercise, just pointed at the top-ranked
+    # option instead of a lower one. Correct and confident, so it only adds a fifth confirmed
+    # link, changing no other wrong answer's story.
+    ("t15-dup-email-ranked-second", "test", _fields(
+        "TCK-2015", "email-notifications",
+        "Confirmation emails about card payments declined intermittently, even though the card "
+        "is valid and has funds, now arrive more than two hours after checkout."),
+     "INC-104", {"INC-104": 0.90}),
     # --- demo: 2 examples, shown but never scored --------------------------------------------
     ("d01-near-billing-wrongservice", "demo", _fields(
         "TCK-3001", "wallet-service",

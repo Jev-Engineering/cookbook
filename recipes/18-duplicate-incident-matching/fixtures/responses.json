@@ -199,6 +199,31 @@
       }
     }
   },
+  "5ae194239e12b6cf18a6e2e08ed7a79e366097d870a4d300a24134803c4845a9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "match": {
+        "type": "choice",
+        "choice": "INC-104",
+        "probabilities": {
+          "INC-105": 0.033333333333333326,
+          "INC-101": 0.033333333333333326,
+          "no_match": 0.033333333333333326,
+          "INC-104": 0.9
+        },
+        "confidence": 0.8666666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
   "6c95ac9d6a82861ef607311c69c60d9c3145a15748d3afb81eaaf30fbc132a6b": {
     "model": "synthetic",
     "usage": {
