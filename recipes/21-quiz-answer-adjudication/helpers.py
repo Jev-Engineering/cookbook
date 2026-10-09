@@ -33,6 +33,17 @@ NO_MATCH = "no_match"
 NEEDS_REVIEW = "needs_review"
 OUTCOMES = (MATCH, PARTIAL_MATCH, NO_MATCH, NEEDS_REVIEW)
 
+# `NEEDS_REVIEW` is this recipe's own domain-specific name for the outcome
+# docs/glossary.md#review names generically "review" -- it is both one of Jev's own `Choice`
+# options (see `_CRITERIA` and `build_questions` below) and the tag `adjudicate` gives any
+# response it defers rather than grades, whatever sent it there (the model naming
+# `needs_review` itself, or a confidence below the threshold). The glossary allows a recipe to
+# keep its own domain-specific sub-reason name for this outcome; REVIEW documents that mapping
+# for anything that reads this file looking for the canonical value, without renaming
+# `NEEDS_REVIEW`, which is also the literal option name baked into every stored response,
+# gold label and replay key in `fixtures/`.
+REVIEW = "review"
+
 _CRITERIA = {
     MATCH: (
         "The response names the accepted answer itself, or adds wording before or after it "
