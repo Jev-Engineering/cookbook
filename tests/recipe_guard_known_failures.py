@@ -17,9 +17,10 @@ The protocol, so later readers do not have to reconstruct it from a diff:
 * **Only a #163 sweep pull request removes an entry**, by fixing the recipe so the check passes
   for real, never by deleting the entry while the underlying file is unchanged.
 * **A new foundation pull request that adds a stricter check here may add entries** for the
-  failures that check newly reveals (this file's own first population, below, is exactly that:
-  #165 landing the guard). It may not add an entry for a check that already existed and already
-  passed.
+  failures that check newly reveals (this file's first population, when #165 landed the guard,
+  and its fix round 1, which tightened four checks and added two more -- `metric_lines_carry_check`
+  and `next_steps_inbound_links` -- are both exactly that). It may not add an entry for a check
+  that already existed and already passed.
 * Every entry's reason string names the check's own rule in one clause and ends with
   ``see #163``, so `gh issue list` or a grep for ``#163`` in CI logs finds the work list.
 
@@ -33,8 +34,8 @@ from __future__ import annotations
 
 KNOWN_FAILURES: dict[tuple[str, str], str] = {
     # --- check 1: tests/test_build_fixtures.py matches the current scaffold -------------------
-    # recipes/_template/tests/test_build_fixtures.py (R8): these ship the pre-#162 file (no
-    # inputs/labels regeneration assertion) or an older docstring; see #163.
+    # R8: these ship the pre-#162 test_build_fixtures.py (no inputs/labels regeneration
+    # assertion, or an older docstring), or (02) no such file at all.
     (
         "01-sentiment-classification",
         "build_fixtures_scaffold",
@@ -126,6 +127,10 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "no_issue_citations",
     ): '"the issue" in helpers.py, build_fixtures.py and notebook:python-md, issue numbers in tests/test_build_fixtures.py (R9/R10); see #163',
     (
+        "05-document-classification",
+        "no_issue_citations",
+    ): '"#124"/"#129" in tests/test_build_fixtures.py (R9, pre-#162 copy); see #163',
+    (
         "06-multiple-topic-labels",
         "no_issue_citations",
     ): '"the issue" in build_fixtures.py, issue numbers in tests/test_build_fixtures.py (R9/R10); see #163',
@@ -158,6 +163,10 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "no_issue_citations",
     ): '"the issue" in build_fixtures.py (R10); see #163',
     (
+        "15-sensitive-text-triage",
+        "no_issue_citations",
+    ): '"the issue" in build_fixtures.py (R10); see #163',
+    (
         "16-discord-moderation-triage",
         "no_issue_citations",
     ): '"The issue"/"the issue" in helpers.py, build_fixtures.py, README.md and notebook (R9/R10); see #163',
@@ -185,20 +194,11 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "23-pairwise-answer-evaluation",
         "no_issue_citations",
     ): '"the issue" in build_fixtures.py and notebook:by-label-md (R10); see #163',
-    (
-        "05-document-classification",
-        "no_issue_citations",
-    ): '"#124"/"#129" in tests/test_build_fixtures.py (R9, pre-#162 copy); see #163',
-    (
-        "15-sensitive-text-triage",
-        "no_issue_citations",
-    ): '"the issue" in build_fixtures.py (R10); see #163',
     # --- check 3: test_stored_answers_are_not_all_right is the strong form -------------------
     # R7, extended to the six Level 1 recipes Wave 2 never reviewed (01-10 are outside its
-    # "Level 2 recipes 11-23" scope): 01, 02, 03, 04, 06, 08, 09 and 10 have no
-    # test_stored_answers_are_not_all_right at all, replay recipe or not; 07, 12, 13, 16, 19 and
-    # 20 ship only the weak "assert wrong" form, which passes even when the confidence gate
-    # catches every mistake.
+    # "Level 2 recipes 11-23" scope): 01-06, 08-10 have no test_stored_answers_are_not_all_right
+    # at all; 07, 12, 13, 16, 19 and 20 ship only the weak "assert wrong" form, which passes
+    # even when the confidence gate catches every mistake.
     (
         "01-sentiment-classification",
         "stored_answers_strong_form",
@@ -260,7 +260,7 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "stored_answers_strong_form",
     ): "weak assert-wrong form, not re-derived from the frozen threshold (R7); see #163",
     # --- check 4a: a validation metric line carries both {selection} and {check} -------------
-    # R1/R3: a validation metric line disclosed with {check} alone, or with neither label.
+    # R1/R3: a validation metric line disclosed with {selection} alone.
     (
         "08-faq-selection",
         "validation_lines_carry_selection_and_check",
@@ -269,7 +269,54 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "18-duplicate-incident-matching",
         "validation_lines_carry_selection_and_check",
     ): "validation metric lines print {selection} without {check} (R1, 14 lines across 5 cells); see #163",
-    # --- check 4b: a plot_confusion_matrix / plot_threshold_sweep / plot_risk_coverage title -
+    # --- check 4b: every printed metric line carries at least {check} (G1(d) clause 2) -------
+    # R3 and more besides: a coverage/accuracy/risk/precision/recall/F1/nDCG line with no
+    # {check} token (traced through bound variables), beyond what Wave 2 reviewed.
+    (
+        "01-sentiment-classification",
+        "metric_lines_carry_check",
+    ): "a validation accuracy line carries {selection} but no {check} (G1(d) clause 2); see #163",
+    (
+        "02-refund-intent-detection",
+        "metric_lines_carry_check",
+    ): "validation risk-coverage sweep lines carry no {check} (G1(d) clause 2); see #163",
+    (
+        "04-support-ticket-routing",
+        "metric_lines_carry_check",
+    ): "a validation accuracy line carries {selection} but no {check} (G1(d) clause 2); see #163",
+    (
+        "05-document-classification",
+        "metric_lines_carry_check",
+    ): "a validation accuracy line carries {selection} but no {check} (G1(d) clause 2); see #163",
+    (
+        "06-multiple-topic-labels",
+        "metric_lines_carry_check",
+    ): "validation selective-prediction lines carry {selection} but no {check} (G1(d) clause 2); see #163",
+    (
+        "07-word-sense-selection",
+        "metric_lines_carry_check",
+    ): "a validation accuracy line carries {selection} but no {check} (G1(d) clause 2); see #163",
+    (
+        "08-faq-selection",
+        "metric_lines_carry_check",
+    ): "validation accuracy/coverage lines carry {selection} but no {check} (G1(d) clause 2); see #163",
+    (
+        "09-file-organization",
+        "metric_lines_carry_check",
+    ): "a validation accuracy line carries {selection} but no {check} (G1(d) clause 2); see #163",
+    (
+        "10-answer-relevance-check",
+        "metric_lines_carry_check",
+    ): "validation sweep lines carry no {check} at all (R3-shaped, G1(d) clause 2); see #163",
+    (
+        "17-passage-reranking",
+        "metric_lines_carry_check",
+    ): "the risk-coverage sweep rows in `selective` carry no disclosure label at all (R3, the six lines the spec names); see #163",
+    (
+        "18-duplicate-incident-matching",
+        "metric_lines_carry_check",
+    ): "validation sweep and outcome lines carry {selection} but no {check} (G1(d) clause 2); see #163",
+    # --- check 4c: a plot_confusion_matrix / plot_threshold_sweep / plot_risk_coverage title -
     #              carries {check} and not {selection} ---------------------------------------
     # R2: four different conventions across the thirteen; only {check}-only is compliant.
     (
@@ -300,26 +347,101 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "18-duplicate-incident-matching",
         "figure_titles_check_only",
     ): "validation figure title carries {selection} without {check} (R2); see #163",
-    # --- check 5: every plot_confusion_matrix / plot_risk_coverage call has a printed table --
-    # R4: a confusion-matrix figure plotted with no printed table in the same or preceding cell.
+    # --- check 5: every plot_confusion_matrix / plot_risk_coverage / plot_threshold_sweep ----
+    #              call prints the plotted object itself, in the same cell -------------------
+    # R4 and more besides: a figure plotted with nothing of its own data printed (an aggregate
+    # accuracy or a cosmetic line does not count), beyond what Wave 2 reviewed.
+    (
+        "01-sentiment-classification",
+        "print_what_you_plot",
+    ): "plot_confusion_matrix in eval-test-code prints only aggregate accuracy, not the matrix's own counts; see #163",
+    (
+        "02-refund-intent-detection",
+        "print_what_you_plot",
+    ): "plot_threshold_sweep in sweep-chart prints no swept rows (MC1: sweep helpers are named in docs/recipe-template.md alongside the matrix); see #163",
+    (
+        "03-response-clarity-scoring",
+        "print_what_you_plot",
+    ): "plot_risk_coverage in selective-code prints only an aggregate selective summary, not the curve's own rows; see #163",
+    (
+        "04-support-ticket-routing",
+        "print_what_you_plot",
+    ): "plot_confusion_matrix in evaluation-test prints only aggregate accuracy, not the matrix's own counts; see #163",
+    (
+        "05-document-classification",
+        "print_what_you_plot",
+    ): "plot_confusion_matrix prints only aggregate accuracy, not the matrix's own counts; see #163",
+    (
+        "06-multiple-topic-labels",
+        "print_what_you_plot",
+    ): "plot_threshold_sweep (python-sweep) and plot_risk_coverage (python-cutoff) print no swept rows; see #163",
+    (
+        "08-faq-selection",
+        "print_what_you_plot",
+    ): "plot_confusion_matrix in evaluation-code-test prints only aggregate accuracy, not the matrix's own counts; see #163",
     (
         "09-file-organization",
         "print_what_you_plot",
     ): "plot_confusion_matrix in test-matrix prints nothing; see #163",
     (
+        "10-answer-relevance-check",
+        "print_what_you_plot",
+    ): "plot_threshold_sweep in sweep-chart prints no swept rows; see #163",
+    (
+        "13-candidate-rewrite-selection",
+        "print_what_you_plot",
+    ): "plot_confusion_matrix in evaluation-test prints only a list of wrong ids, not the matrix's own counts; see #163",
+    (
+        "20-claim-support-classification",
+        "print_what_you_plot",
+    ): "plot_confusion_matrix in eval-test prints only aggregate accuracy, not the matrix's own counts; see #163",
+    (
         "23-pairwise-answer-evaluation",
         "print_what_you_plot",
     ): "plot_confusion_matrix in eval-confusion prints nothing (R4); see #163",
-    # --- check 6: every Next-steps link target exists on disk -------------------------------
+    # --- check 6a: every Next-steps link target exists on disk -------------------------------
     # R20: a forward link to a recipe not yet published, which docs/recipe-template.md forbids.
     (
         "21-quiz-answer-adjudication",
         "next_steps_links_exist",
     ): "next-md links ../36-card-game-action-selection/, not published on main (R20); see #163",
+    # --- check 6b: every recipe is the target of some other recipe's Next steps -------------
+    # R21: a published recipe no other recipe's Next steps links to.
+    (
+        "09-file-organization",
+        "next_steps_inbound_links",
+    ): "no other published recipe's Next steps links ../09-file-organization/ (R21); see #163",
+    (
+        "12-thesaurus-word-selection",
+        "next_steps_inbound_links",
+    ): "no other published recipe's Next steps links ../12-thesaurus-word-selection/ (R21); see #163",
+    (
+        "14-source-span-selection",
+        "next_steps_inbound_links",
+    ): "no other published recipe's Next steps links ../14-source-span-selection/ (R21); see #163",
+    (
+        "17-passage-reranking",
+        "next_steps_inbound_links",
+    ): "no other published recipe's Next steps links ../17-passage-reranking/ (R21); see #163",
+    (
+        "19-ci-failure-classification",
+        "next_steps_inbound_links",
+    ): "no other published recipe's Next steps links ../19-ci-failure-classification/ (R21); see #163",
+    (
+        "21-quiz-answer-adjudication",
+        "next_steps_inbound_links",
+    ): "no other published recipe's Next steps links ../21-quiz-answer-adjudication/ (R21); see #163",
+    (
+        "22-cmdb-asset-matching",
+        "next_steps_inbound_links",
+    ): "no other published recipe's Next steps links ../22-cmdb-asset-matching/ (R21); see #163",
+    (
+        "23-pairwise-answer-evaluation",
+        "next_steps_inbound_links",
+    ): "no other published recipe's Next steps links ../23-pairwise-answer-evaluation/ (R21); see #163",
     # --- check 7a: helpers.REVIEW == "review" where a REVIEW constant exists ----------------
-    # PR #186 review MC3: 09 ships a different review-outcome value. (21 names its outcome
-    # NEEDS_REVIEW, not REVIEW, so it has no module-level REVIEW constant for this check to
-    # compare -- the check is correctly a no-op there, not a pass or a failure.)
+    # PR #186 review MC3: 09 ships a different review-outcome value. (16 and 21 are discussed,
+    # not allowlisted, in that check's own docstring.)
     (
         "09-file-organization",
         "review_value_is_review",

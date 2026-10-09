@@ -32,22 +32,33 @@ check id                              rule -> detection
                                        comments in ``.py`` files, full text of ``README.md``
                                        and notebook markdown cells).
 ``stored_answers_strong_form``        G1(c): ``test_stored_answers_are_not_all_right``
-                                       re-derives the frozen threshold and asserts a wrong
-                                       answer at or above it, not merely "some wrong answer".
+                                       re-derives the frozen threshold (preferring the
+                                       confidence gate over a plain business threshold when
+                                       a recipe has both) and binds an ``assert`` to a
+                                       wrong-answer-at-or-above-it comparison, not merely
+                                       "some wrong answer somewhere".
 ``validation_lines_carry_selection_and_check``
-                                       G1(d), CONTRIBUTING.md section 2: a printed
+                                       G1(d) clause 1, CONTRIBUTING.md section 2: a printed
                                        validation metric line carries both ``{selection}``
                                        and ``{check}``.
+``metric_lines_carry_check``          G1(d) clause 2: every printed metric line (a
+                                       coverage/accuracy/risk/precision/recall/F1/nDCG
+                                       keyword with a rounded-float format) carries at
+                                       least ``{check}``, traced through simple bindings.
 ``figure_titles_check_only``          docs/notebook-style.md "Title convention": a
                                        ``plot_confusion_matrix``/``plot_threshold_sweep``/
                                        ``plot_risk_coverage`` title carries ``{check}`` and
                                        not ``{selection}``.
 ``print_what_you_plot``               G1(e), docs/notebook-style.md "Print what you plot":
-                                       every ``plot_confusion_matrix``/``plot_risk_coverage``
-                                       call has a matching ``print`` in the same or the
-                                       preceding code cell.
-``next_steps_links_exist``            G1(f), docs/recipe-template.md: every ``../NN-slug/``
-                                       link in the notebook resolves to a published recipe.
+                                       every ``plot_confusion_matrix``/``plot_threshold_sweep``/
+                                       ``plot_risk_coverage`` call has, in the same code
+                                       cell, a ``print`` of the plotted object itself or of
+                                       something a loop over it prints.
+``next_steps_links_exist``            G1(f) clause 1, docs/recipe-template.md: every
+                                       ``../NN-slug/`` link in the notebook resolves to a
+                                       published recipe.
+``next_steps_inbound_links``          G1(f) clause 2: every published recipe is the target
+                                       of at least one other published recipe's Next steps.
 ``review_value_is_review``            docs/glossary.md#review: ``helpers.REVIEW == "review"``
                                        where a ``REVIEW`` constant exists.
 ``review_reason_string``              docs/glossary.md#review: the exact reason string
@@ -71,10 +82,12 @@ Scope decisions (see the pull request body for the full reasoning):
   against ``recipes/_template``, never xfailed there: the template already has its own dedicated
   pins in ``tests/test_template.py``, and including it here gives this module's own detection
   logic a sanity check -- the template is the thing every one of these rules is written to match.
-* ``next_steps_links_exist`` checks only that a forward link resolves (R20). It does not also
-  check that every published recipe is the *target* of some other recipe's Next steps (R21):
-  that is a property of the whole set, not of one recipe against one rule, and belongs to a
-  different kind of test; #165's brief scopes this module to per-recipe, per-check cases.
+* ``next_steps_inbound_links`` is still a per-recipe, per-check case (the fix round that added it
+  found the distinction drawn in an earlier revision of this docstring -- that inbound coverage is
+  "a property of the whole set, not of one recipe" -- did not actually hold: the check below reads
+  every *other* recipe's notebook the same way ``next_steps_links_exist`` reads every neighbour's
+  folder, and ``readme_sources_match_catalog`` already reads the catalog, so there was no real
+  distinction between what a per-recipe check can and cannot look at).
 * A recipe with no ``fixtures/responses.json`` (a scripted recipe; none are published yet) is
   skipped, not failed, by every check that reads stored responses
   (``build_fixtures_scaffold``, ``stored_answers_strong_form``,
@@ -330,17 +343,18 @@ def test_no_issue_numbers_or_the_issue_in_recipe_files(recipe):
 # --------------------------------------------------------------------------------------------
 
 STRONG_FORM_DEF = "def test_stored_answers_are_not_all_right"
-# Captures the name the recomputed cutoff is assigned to: every recipe names it differently
-# (threshold, gate, ...), so the "wrong answer at or above it" comparison below must use
-# whatever name this capture finds, not a hardcoded "threshold".
-RERIVES_THRESHOLD = re.compile(r"(\w+)\s*=\s*select_(?:confidence_)?threshold\(")
+# The confidence gate is preferred over a plain business threshold when a recipe's test
+# re-derives both (recipe 15: a Noul business threshold by F1, then a separate confidence gate):
+# G1(c) is about the *confidence* gate specifically, and re.search returns the leftmost match, so
+# naming the gate pattern first keeps a recipe's earlier, unrelated "threshold = select_threshold(
+# ...)" business-threshold line from being picked up as if it were the gate.
+CONFIDENCE_GATE_ASSIGN = re.compile(r"(\w+)\s*=\s*select_confidence_threshold\(")
+PLAIN_THRESHOLD_ASSIGN = re.compile(r"(\w+)\s*=\s*select_threshold\(")
 
 
 def _find_function_body(source: str, def_line: str) -> str | None:
     """``source`` from ``def_line`` to the next top-level ``def``/``class``, or EOF. ``None`` if
-    ``def_line`` is not in ``source``. A plain substring slice, not an AST visit: the strong-form
-    signature below is itself textual (two literal markers), so this keeps the whole check at one
-    level of mechanism."""
+    ``def_line`` is not in ``source``."""
     idx = source.find(def_line)
     if idx == -1:
         return None
@@ -350,16 +364,78 @@ def _find_function_body(source: str, def_line: str) -> str | None:
     return def_line + (body[: next_def.start()] if next_def else body)
 
 
+def _derives_threshold_name(body: str) -> str | None:
+    match = CONFIDENCE_GATE_ASSIGN.search(body) or PLAIN_THRESHOLD_ASSIGN.search(body)
+    return match.group(1) if match else None
+
+
+def _ast_names(node: ast.AST) -> set[str]:
+    return {n.id for n in ast.walk(node) if isinstance(n, ast.Name)}
+
+
+def _has_gte_against(node: ast.AST, target: str) -> bool:
+    """True if ``node``'s subtree contains a ``>=`` comparison with ``target`` on either side."""
+    for compare in ast.walk(node):
+        if isinstance(compare, ast.Compare):
+            for op, comparator in zip(compare.ops, compare.comparators, strict=True):
+                if isinstance(op, ast.GtE) and (
+                    target in _ast_names(compare.left) or target in _ast_names(comparator)
+                ):
+                    return True
+    return False
+
+
+def _calls_in(stmts: list[ast.stmt]) -> list[ast.Call]:
+    """``ast.Call`` nodes under ``stmts`` only -- an ``ast.If``'s ``body``, never its ``orelse``,
+    so an ``.append`` in an unrelated ``else`` branch is never credited to the ``if``'s own test."""
+    return [n for s in stmts for n in ast.walk(s) if isinstance(n, ast.Call)]
+
+
+def _vars_bound_to_the_gte_comparison(tree: ast.AST, target: str) -> set[str]:
+    """Names whose value structurally depends on a ``>= target`` comparison: an assignment whose
+    right-hand side contains one (a list comprehension's filter or its element expression, a
+    ``for``-loop accumulator initialised to a boolean/number), or a ``name.append(...)`` call
+    inside the body of an ``if`` whose test contains one (the loop-and-flag shape 14, 18 and 22
+    use: ``if a.confidence >= gate: wrong_above_gate.append(e.id)``)."""
+    confirmed: set[str] = set()
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and _has_gte_against(node.value, target)
+        ):
+            confirmed.add(node.targets[0].id)
+        if isinstance(node, ast.If) and _has_gte_against(node.test, target):
+            for call in _calls_in(node.body):
+                if isinstance(call.func, ast.Attribute) and call.func.attr == "append":
+                    if isinstance(call.func.value, ast.Name):
+                        confirmed.add(call.func.value.id)
+    return confirmed
+
+
+def _an_assert_depends_on(tree: ast.AST, names: set[str]) -> bool:
+    return any(
+        isinstance(node, ast.Assert) and _ast_names(node.test) & names for node in ast.walk(tree)
+    )
+
+
 @pytest.mark.parametrize("recipe", guarded_with_template("stored_answers_strong_form")())
 def test_stored_answers_are_not_all_right_is_the_strong_form(recipe):
     """G1(c): the strong form re-derives the frozen confidence threshold from ``validation``
-    (an assignment from ``select_confidence_threshold(`` or ``select_threshold(``) and requires a
-    wrong ``test`` answer *at or above* that same name (a ``>= <name>`` comparison in the same
-    function body, whatever the recipe calls it -- ``threshold``, ``gate``, and both are used by
-    real merged recipes). The weak form, ``assert wrong, "the fixtures should contain some wrong
-    answers"``, passes even when the confidence gate catches every mistake (R7) and has no such
-    assignment to find; a recipe that keeps the old weak assertion *alongside* a working strong
-    one (18, 22) still passes here, because the strong assertion is what actually binds."""
+    (an assignment from ``select_confidence_threshold(`` or, lacking that, ``select_threshold(``)
+    and binds an ``assert`` to a wrong-answer-at-or-above-it comparison -- not merely performs
+    the comparison somewhere dead, and not merely asserts "some wrong answer exists" (the weak
+    form, R7, which has no such assignment to find at all).
+
+    "Binds" is checked with ``ast``, not text: find every name whose value structurally depends
+    on a ``>= <derived name>`` comparison (a list/generator comprehension's filter or element
+    expression, or a ``name.append(...)`` call inside an ``if`` gated on that comparison -- the
+    two shapes the eight currently-passing recipes and the template use between them), then
+    require at least one ``assert`` whose own test expression names one of those. A recipe that
+    keeps an old weak assertion *alongside* a working strong one (18, 22) still passes, because
+    the strong assertion is what actually binds; deleting only the strong assertion and leaving
+    the weak one (proven on recipe 14 in scratch) correctly fails this check."""
     path = recipe_dir(recipe) / "fixtures" / "responses.json"
     if recipe["slug"] != "_template" and not path.is_file():
         pytest.skip(
@@ -373,13 +449,16 @@ def test_stored_answers_are_not_all_right_is_the_strong_form(recipe):
     ]
     assert bodies, f"{recipe['slug']}: no {STRONG_FORM_DEF} in tests/"
     body = bodies[0]
-    match = RERIVES_THRESHOLD.search(body)
-    assert match, (
-        f"{recipe['slug']}: does not re-derive the threshold (no 'x = select_confidence_threshold(...)')"
+    target = _derives_threshold_name(body)
+    assert target, (
+        f"{recipe['slug']}: does not re-derive the threshold "
+        "(no 'x = select_confidence_threshold(...)' or 'x = select_threshold(...)')"
     )
-    name = match.group(1)
-    assert re.search(rf">=\s*{re.escape(name)}\b", body), (
-        f"{recipe['slug']}: no '>= {name}' comparison selecting a wrong answer at or above it"
+    tree = ast.parse(body)
+    confirmed = _vars_bound_to_the_gte_comparison(tree, target)
+    assert confirmed, f"{recipe['slug']}: nothing is derived from a '>= {target}' comparison"
+    assert _an_assert_depends_on(tree, confirmed), (
+        f"{recipe['slug']}: no assert's own test expression names {sorted(confirmed)}"
     )
 
 
@@ -421,7 +500,136 @@ def test_validation_metric_lines_carry_selection_and_check(recipe):
 
 
 # --------------------------------------------------------------------------------------------
-# check 4b: a plot_*'s title carries {check} and not {selection}
+# check 4b (of G1(d)): every printed metric line carries at least {check}
+# --------------------------------------------------------------------------------------------
+
+METRIC_KEYWORD = re.compile(r"\b(coverage|accuracy|risk|precision|recall|f1|ndcg)\b", re.IGNORECASE)
+
+
+def _assigned_names(tree: ast.AST) -> dict[str, ast.AST]:
+    return {
+        node.targets[0].id: node.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assign)
+        and len(node.targets) == 1
+        and isinstance(node.targets[0], ast.Name)
+    }
+
+
+def _labelled_names(tree: ast.AST, label: str) -> set[str]:
+    """Names anywhere in ``tree`` transitively carrying the disclosure label ``"check"`` (or
+    ``"selection"``): the bare name itself; a simple assignment whose value references one; a
+    ``for``-loop's unpacked target at the position where every element of a literal tuple/list
+    ``iter`` references one (recipe 17's ``for ..., label in (("validation", ..., selection +
+    check), ("test", ..., check)):``); or a function parameter whose argument references one at
+    every call site of that function (recipe 21's ``def f(..., suffix): ... f(..., f"{selection}
+    {check}")``). Fixed-point over the three, so a label can pass through more than one hop."""
+    derived = {label}
+    assigns = list(ast.walk(tree))
+    functions = {n.name: n for n in assigns if isinstance(n, ast.FunctionDef)}
+    calls_by_func = {
+        name: [
+            n
+            for n in ast.walk(tree)
+            if isinstance(n, ast.Call) and getattr(n.func, "id", None) == name
+        ]
+        for name in functions
+    }
+    changed = True
+    while changed:
+        changed = False
+        for node in assigns:
+            if (
+                isinstance(node, ast.Assign)
+                and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)
+            ):
+                target_name = node.targets[0].id
+                if target_name not in derived and derived & _ast_names(node.value):
+                    derived.add(target_name)
+                    changed = True
+            if isinstance(node, ast.For) and isinstance(node.target, ast.Tuple):
+                elements = node.iter.elts if isinstance(node.iter, ast.Tuple | ast.List) else None
+                if not elements:
+                    continue
+                arity = len(node.target.elts)
+                for position, slot in enumerate(node.target.elts):
+                    if not isinstance(slot, ast.Name) or slot.id in derived:
+                        continue
+                    if any(
+                        isinstance(elt, ast.Tuple | ast.List)
+                        and len(elt.elts) == arity
+                        and derived & _ast_names(elt.elts[position])
+                        for elt in elements
+                    ):
+                        derived.add(slot.id)
+                        changed = True
+        for name, fdef in functions.items():
+            for position, arg in enumerate(fdef.args.args):
+                if arg.arg in derived:
+                    continue
+                for call in calls_by_func[name]:
+                    supplied = (
+                        call.args[position]
+                        if position < len(call.args)
+                        else next((kw.value for kw in call.keywords if kw.arg == arg.arg), None)
+                    )
+                    if supplied is not None and derived & _ast_names(supplied):
+                        derived.add(arg.arg)
+                        changed = True
+                        break
+    return derived
+
+
+@pytest.mark.parametrize("recipe", guarded_with_template("metric_lines_carry_check")())
+def test_every_printed_metric_line_carries_at_least_check(recipe):
+    """G1(d) clause 2 (issue #76 comment 6079429778): "every printed metric line carries at
+    least {check}" -- the direct generalisation of
+    tests/test_template.py::test_every_metric_line_of_the_evaluation_carries_the_pipeline_check_label,
+    over every recipe instead of only the template. Catches R3 (recipe 17's six unlabelled sweep
+    rows) and more besides, since Wave 2 only read recipes 11-23.
+
+    Narrow, mechanical definition: a *metric line* is a ``print(`` call whose text contains both
+    a coverage/accuracy/risk/precision/recall/F1/nDCG keyword and a rounded-float format spec
+    (``{x:.4f}``) -- a plain "any print with a rounded float" proxy is not usable, since it also
+    flags the template's own per-example confidence lines, which carry no metric keyword and
+    correctly need no label. Such a line's formatted values must include a name transitively
+    carrying ``{check}`` (``_labelled_names``): checking only for the literal substring
+    ``"{check}"`` wrongly flags recipes 17, 21 and 22, which disclose through a bound ``suffix``/
+    ``label``/``split_label`` variable instead of the literal token."""
+    nb = recipe_dir(recipe) / "notebook.ipynb"
+    violations = []
+    for cell in notebook_cells(recipe_dir(recipe)) if nb.is_file() else []:
+        if cell["cell_type"] != "code":
+            continue
+        source = cell_source(cell)
+        candidates = [
+            c
+            for c in extract_calls(source, "print")
+            if METRIC_KEYWORD.search(c) and FLOAT_FORMAT.search(c)
+        ]
+        if not candidates:
+            continue
+        tree = ast.parse(source)
+        check_derived = _labelled_names(tree, "check")
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Call) and getattr(node.func, "id", None) == "print"):
+                continue
+            text = ast.get_source_segment(source, node) or ""
+            if not (METRIC_KEYWORD.search(text) and FLOAT_FORMAT.search(text)):
+                continue
+            used = {
+                name
+                for arg in (*node.args, *(kw.value for kw in node.keywords))
+                for name in _ast_names(arg)
+            }
+            if not used & check_derived:
+                violations.append(f"cell {cell.get('id', '?')}: {text[:90]!r} carries no {{check}}")
+    assert not violations, "; ".join(violations)
+
+
+# --------------------------------------------------------------------------------------------
+# check 4c (of G1(d)): a plot_*'s title carries {check} and not {selection}
 # --------------------------------------------------------------------------------------------
 
 METRIC_PLOTS = ("plot_confusion_matrix", "plot_threshold_sweep", "plot_risk_coverage")
@@ -468,34 +676,94 @@ def test_metric_figure_titles_carry_check_and_not_selection(recipe):
 # check 5: print what you plot
 # --------------------------------------------------------------------------------------------
 
-PRINTED_TABLE_PLOTS = ("plot_confusion_matrix", "plot_risk_coverage")
+PRINTED_TABLE_PLOTS = ("plot_confusion_matrix", "plot_risk_coverage", "plot_threshold_sweep")
 FIRST_ARG = re.compile(r"\(\s*([A-Za-z_][A-Za-z0-9_.]*)")
 
 
-def _mentions_in_a_print(source: str, name: str) -> bool:
-    return bool(re.search(rf"print\(.*?\b{re.escape(name)}\b", source, re.DOTALL))
+def _derived_from(tree: ast.AST, seed: str) -> set[str]:
+    """Names whose value is assigned, directly or transitively, from an expression mentioning
+    ``seed`` -- the fixed-point simple-assignment half of ``_labelled_names``, reused here for
+    one name instead of a disclosure label (recipe 18's ``zipped = zip(curve.thresholds, ...)``,
+    read from ``curve``)."""
+    derived = {seed}
+    changed = True
+    while changed:
+        changed = False
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Assign)
+                and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)
+                and node.targets[0].id not in derived
+                and derived & _ast_names(node.value)
+            ):
+                derived.add(node.targets[0].id)
+                changed = True
+    return derived
+
+
+def _body_calls_print(stmts: list[ast.stmt]) -> bool:
+    return any(
+        isinstance(call.func, ast.Name) and call.func.id == "print" for call in _calls_in(stmts)
+    )
+
+
+def _cell_prints_the_plotted_object(source: str, name: str) -> bool:
+    """True if ``source`` prints ``name`` (or a plain-assignment descendant of it) either
+    directly -- a ``print(...)`` call whose argument subtree references such a name -- or
+    indirectly, via a ``for`` loop whose iterable references one and whose body calls ``print``
+    (the template's ``for gold_label, row in zip(matrix.labels, matrix.matrix.tolist(), ...):
+    ... print(...)``, recipe 21's identical shape, and recipe 18's one-hop ``zipped = zip(curve.
+    ...)`` then ``for ... in zipped: print(...)``, covered by ``_derived_from`` first)."""
+    tree = ast.parse(source)
+    derived = _derived_from(tree, name)
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "print"
+        ):
+            if derived & {
+                nm
+                for arg in (*node.args, *(kw.value for kw in node.keywords))
+                for nm in _ast_names(arg)
+            }:
+                return True
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.For)
+            and derived & _ast_names(node.iter)
+            and _body_calls_print(node.body)
+        ):
+            return True
+    return False
 
 
 @pytest.mark.parametrize("recipe", guarded_with_template("print_what_you_plot")())
 def test_every_plot_call_has_a_printed_table(recipe):
-    """G1(e), docs/notebook-style.md "Print what you plot": CI's figure comparison is loose, so
-    the printed numbers are what actually pins the plotted data byte for byte.
+    """G1(e), docs/recipe-template.md and docs/notebook-style.md "Print what you plot" ("Pair
+    every plot_* call with a print of the same data, rounded, in the same cell"; sweep helpers
+    are named explicitly alongside the confusion matrix in recipe-template.md). CI's figure
+    comparison is loose, so the printed numbers are what actually pins the plotted data byte for
+    byte -- a cell that only prints a different, aggregate number (an overall accuracy, say) does
+    not satisfy this, however many print statements it has.
 
-    Narrow, mechanical definition: for every ``plot_confusion_matrix(`` or ``plot_risk_coverage(``
-    call, take its first positional argument's base name (``matrix`` in
-    ``plot_confusion_matrix(matrix, title=...)``, ``curve`` in ``plot_risk_coverage(curve)``, the
-    part before any ``.`` attribute access). A ``print(`` call that mentions that same name,
-    anywhere in the same code cell or the immediately preceding code cell, counts as printing the
-    plotted table. This is deliberately about the *plotted object*, not "any print nearby": an
-    unrelated print in the preceding cell (a baseline accuracy line, say) does not satisfy it,
-    which is exactly the gap this check exists to catch (recipe 23's confusion matrix has such a
-    preceding cell and still fails this check)."""
+    For every ``plot_confusion_matrix(``, ``plot_risk_coverage(`` or ``plot_threshold_sweep(``
+    call, in the *same* cell only (the contract names the same cell, and a preceding-cell
+    allowance was checked and found to add nothing real: it only ever let an unrelated print
+    satisfy this), take its first positional argument's base name (``matrix``, ``curve``, the
+    part before any ``.`` attribute access) and require
+    ``_cell_prints_the_plotted_object``. A plain, unbounded "this name appears somewhere after a
+    ``print(`` in the cell" proxy is not usable here: it is satisfied by a single cosmetic
+    ``print("unrelated")`` anywhere before the plotted name appears in the plot call's own
+    argument list, which is not printing the plotted data at all."""
     nb = recipe_dir(recipe) / "notebook.ipynb"
     if not nb.is_file():
         pytest.skip("no notebook")
-    code_cells = [c for c in notebook_cells(recipe_dir(recipe)) if c["cell_type"] == "code"]
     violations = []
-    for i, cell in enumerate(code_cells):
+    for cell in notebook_cells(recipe_dir(recipe)):
+        if cell["cell_type"] != "code":
+            continue
         source = cell_source(cell)
         for fn in PRINTED_TABLE_PLOTS:
             for call in extract_calls(source, fn):
@@ -506,10 +774,9 @@ def test_every_plot_call_has_a_printed_table(recipe):
                     )
                     continue
                 name = match.group(1).split(".")[0]
-                previous = cell_source(code_cells[i - 1]) if i > 0 else ""
-                if not (_mentions_in_a_print(source, name) or _mentions_in_a_print(previous, name)):
+                if not _cell_prints_the_plotted_object(source, name):
                     violations.append(
-                        f"cell {cell.get('id', '?')} {fn}({name}, ...) prints nothing"
+                        f"cell {cell.get('id', '?')} {fn}({name}, ...) prints nothing of {name}"
                     )
     assert not violations, "; ".join(violations)
 
@@ -541,6 +808,36 @@ def test_next_steps_links_resolve_to_a_published_recipe(recipe):
     assert not missing, "; ".join(missing)
 
 
+def _inbound_next_steps_links() -> dict[str, set[str]]:
+    """``{slug: {slugs of published recipes whose own notebook links ../slug/}}``, over every
+    published recipe (never ``_template``, which is not a catalog slug and is not a valid link
+    target either)."""
+    inbound: dict[str, set[str]] = {r["slug"]: set() for r in PUBLISHED}
+    for recipe in PUBLISHED:
+        for cell in notebook_cells(recipe_dir(recipe)):
+            if cell["cell_type"] != "markdown":
+                continue
+            for slug in NEIGHBOUR_LINK.findall(cell_source(cell)):
+                if slug in inbound and slug != recipe["slug"]:
+                    inbound[slug].add(recipe["slug"])
+    return inbound
+
+
+INBOUND_NEXT_STEPS_LINKS = _inbound_next_steps_links()
+
+
+@pytest.mark.parametrize("recipe", guarded("next_steps_inbound_links")())
+def test_every_recipe_is_linked_from_some_other_recipes_next_steps(recipe):
+    """G1(f) clause 2 (issue #76 comment 6079429778): "every published recipe is the target of
+    at least one other recipe's Next steps" (R21) -- a per-recipe, per-check case exactly like
+    ``next_steps_links_exist`` (see the module docstring's scope decisions), computed once over
+    the whole published set (``_inbound_next_steps_links``, built from the same
+    ``](../NN-slug/)`` pattern that check reads) and looked up per recipe here."""
+    assert INBOUND_NEXT_STEPS_LINKS[recipe["slug"]], (
+        f"{recipe['slug']}: no other published recipe's Next steps links ../{recipe['slug']}/"
+    )
+
+
 # --------------------------------------------------------------------------------------------
 # check 7a/7b: helpers.REVIEW == "review"; the exact reason string in helpers.py
 # --------------------------------------------------------------------------------------------
@@ -553,8 +850,27 @@ def test_review_outcome_value_is_review_where_it_exists(recipe):
     """docs/glossary.md#review: "the outcome value itself is the string 'review' (not, say,
     'human_review'; a recipe may still name its own domain-specific sub-reasons)." Only checked
     where ``helpers.py`` actually defines a module-level ``REVIEW`` constant: a recipe whose rule
-    names its review outcome some other way (``REVIEW_NEEDED`` in recipe 16, say) has nothing for
-    this particular check to compare, and is not asserted to be wrong by its absence."""
+    names its review outcome some other way has nothing for this particular check to compare, and
+    is not asserted to be wrong by its absence.
+
+    This skips three recipes today (06, 16, 21), and they are not all the same kind of skip.
+    16's constant is ``REVIEW_NEEDED``, but that names one of the rule's own *question* options
+    (something the model can answer), not the review outcome a wrong or unconfident answer is
+    routed to -- 16's actual review outcome value is ``ESCALATE``, a legitimate domain-specific
+    name for "an escalation queue", the way the glossary's own "a recipe may still name its own
+    domain-specific sub-reasons" clause anticipates (even though that clause's example is about
+    the *reason string*, not the outcome value, the same latitude is the only reading under which
+    16's ``ESCALATE`` is not simply ``"review"`` wearing a disguise). 06 (``UNCERTAIN``) and 21
+    (``NEEDS_REVIEW``, whose value is literally ``"needs_review"``) are a weaker case: both read
+    as a plain rename of the same review-queue outcome the glossary names, which is exactly the
+    drift this sentence exists to stop. A sharper check would trace the outcome value through to
+    wherever the reason string ``"confidence below the threshold"`` is actually returned (a
+    regex over ``helpers.py`` for the identifier immediately preceding that string, resolved via
+    ``load_helpers``) rather than only via the constant name ``REVIEW`` -- but that same trace
+    would also catch 16's ``ESCALATE``, which this docstring has just argued is not drift, so it
+    is not implemented here: a heuristic that cannot tell 16 apart from 06 and 21 would convert
+    one justified skip into a false failure to catch two real ones. 06 and 21's values are left
+    for the #163 sweep to fix at the source."""
     helpers = load_helpers(recipe_dir(recipe))
     if not hasattr(helpers, "REVIEW"):
         pytest.skip("helpers.py defines no module-level REVIEW constant")
