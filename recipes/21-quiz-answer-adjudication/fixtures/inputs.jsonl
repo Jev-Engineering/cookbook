@@ -1,0 +1,40 @@
+{"id": "v01-tower-canon", "split": "validation", "fields": {"quiz_id": "tower", "response": "Petra Lindqvist."}, "replay_keys": []}
+{"id": "v02-tower-partial", "split": "validation", "fields": {"quiz_id": "tower", "response": "one of Lindqvist's apprentices"}, "replay_keys": ["0eb8662639794471278bb2f8c38a32b97151933b92212c3b4140910fa54c04b8"]}
+{"id": "v03-capital-article", "split": "validation", "fields": {"quiz_id": "capital", "response": "The mirrowgate"}, "replay_keys": []}
+{"id": "v04-capital-hedge", "split": "validation", "fields": {"quiz_id": "capital", "response": "Either Mirrowgate or Veyla"}, "replay_keys": ["ef510311a92456499fb2b9964e2c63a399072fec25e6b6298511c186bf3a9b62"]}
+{"id": "v05-guild-canon", "split": "validation", "fields": {"quiz_id": "guild", "response": "Doran Hale"}, "replay_keys": []}
+{"id": "v06-guild-overspecific", "split": "validation", "fields": {"quiz_id": "guild", "response": "Doran Hale, the glassblower who founded it"}, "replay_keys": ["4d067de853a8254420e2582bbc7ec749bb3a67e28df1c8719d70f2f97175488b"]}
+{"id": "v07-guild-hedge", "split": "validation", "fields": {"quiz_id": "guild", "response": "Hale, or maybe his daughter"}, "replay_keys": ["32f2e1149760c256261846a58a4ec28323753e037ec663701885bb101b7fee8b"]}
+{"id": "v08-sonata-alt", "split": "validation", "fields": {"quiz_id": "sonata", "response": "Costas"}, "replay_keys": []}
+{"id": "v09-sonata-wrong", "split": "validation", "fields": {"quiz_id": "sonata", "response": "Petra Lindqvist"}, "replay_keys": ["eab0c6b900a9c03b1c8cc7c28ebbac46e4a7dc65baf79901df4d0402c1ec4858"]}
+{"id": "v10-reef-canon", "split": "validation", "fields": {"quiz_id": "reef", "response": "Nia Brack"}, "replay_keys": []}
+{"id": "v11-reef-overspecific", "split": "validation", "fields": {"quiz_id": "reef", "response": "Nia Brack, the marine surveyor"}, "replay_keys": ["512a7ccf624493b7cbd9e57af41f6ea83b2899bfded04f54f1c3012346219e34"]}
+{"id": "v12-reef-misspell", "split": "validation", "fields": {"quiz_id": "reef", "response": "Nia Brak"}, "replay_keys": ["26e7bc425ff76e6d1ee5027561364a8b2a9f2f43e64db6e87d2d8b39598d03ee"]}
+{"id": "v13-tower-misspell", "split": "validation", "fields": {"quiz_id": "tower", "response": "Petra Lindqvest"}, "replay_keys": ["b04240fd6025692b4347ebaba3a56e8914c206fd3abc9ae2ba89237e1e236895"]}
+{"id": "v14-moons-digit", "split": "validation", "fields": {"quiz_id": "moons", "response": "3"}, "replay_keys": []}
+{"id": "v15-moons-wrong", "split": "validation", "fields": {"quiz_id": "moons", "response": "4"}, "replay_keys": []}
+{"id": "v16-siege-word", "split": "validation", "fields": {"quiz_id": "siege", "response": "seven years"}, "replay_keys": []}
+{"id": "v17-siege-gibberish", "split": "validation", "fields": {"quiz_id": "siege", "response": "a long time"}, "replay_keys": []}
+{"id": "v18-council-digit", "split": "validation", "fields": {"quiz_id": "council", "response": "5 members"}, "replay_keys": []}
+{"id": "v19-council-wrong", "split": "validation", "fields": {"quiz_id": "council", "response": "6"}, "replay_keys": []}
+{"id": "t01-tower-alt", "split": "test", "fields": {"quiz_id": "tower", "response": "lindqvist"}, "replay_keys": []}
+{"id": "t02-tower-wrong", "split": "test", "fields": {"quiz_id": "tower", "response": "Doran Hale"}, "replay_keys": ["8dbc887602359731b022f75e40fb7c6a796b265413d803f2f23b728b531a11a8"]}
+{"id": "t03-capital-canon", "split": "test", "fields": {"quiz_id": "capital", "response": "Mirrowgate"}, "replay_keys": []}
+{"id": "t04-capital-wrong-confident", "split": "test", "fields": {"quiz_id": "capital", "response": "Caldenhall"}, "replay_keys": ["1d4cb603da7e1be225361051c339405bde7480ec6db06cd543227ae41a190f69"]}
+{"id": "t05-capital-wrong2", "split": "test", "fields": {"quiz_id": "capital", "response": "Ashcombe"}, "replay_keys": ["82653b5bf88322c76302d0b771b22244d801567e2cb2b4553a18d7f7e8f11ca1"]}
+{"id": "t06-guild-alt", "split": "test", "fields": {"quiz_id": "guild", "response": "Hale"}, "replay_keys": []}
+{"id": "t07-guild-partial", "split": "test", "fields": {"quiz_id": "guild", "response": "the Hale family"}, "replay_keys": ["af052022f1c88f7c94cb1687a748e6095406356a58447ae3f24b58f5967d684b"]}
+{"id": "t08-sonata-canon", "split": "test", "fields": {"quiz_id": "sonata", "response": "Imra Costas"}, "replay_keys": []}
+{"id": "t09-sonata-misspell", "split": "test", "fields": {"quiz_id": "sonata", "response": "Imra Costass"}, "replay_keys": ["6442848fe7426d774dcca2e6c97f1d2e00bf4b528289b186737664a5331114f3"]}
+{"id": "t10-sonata-partial", "split": "test", "fields": {"quiz_id": "sonata", "response": "Costas's apprentice"}, "replay_keys": ["ad91ab36dbbdce2f18450abc0008883897efb5df0ab724029aed9bd76b0467f4"]}
+{"id": "t11-reef-alt", "split": "test", "fields": {"quiz_id": "reef", "response": "brack"}, "replay_keys": []}
+{"id": "t12-reef-hedge", "split": "test", "fields": {"quiz_id": "reef", "response": "Brack, or maybe Hale"}, "replay_keys": ["e1bfeb5dbf0b4d11532c92bd3b01ed8d4a7a48d76369549d96cc385fe3f220af"]}
+{"id": "t13-tower-overspecific", "split": "test", "fields": {"quiz_id": "tower", "response": "Petra Lindqvist, who lit it during the founding festival"}, "replay_keys": ["8b4ddd30dee5374c17349b521667a85f563770cf2c4e3b6b75573d75f8f567dd"]}
+{"id": "t14-moons-word", "split": "test", "fields": {"quiz_id": "moons", "response": "three"}, "replay_keys": []}
+{"id": "t15-moons-gibberish", "split": "test", "fields": {"quiz_id": "moons", "response": "several"}, "replay_keys": []}
+{"id": "t16-siege-digit", "split": "test", "fields": {"quiz_id": "siege", "response": "7"}, "replay_keys": []}
+{"id": "t17-siege-wrong", "split": "test", "fields": {"quiz_id": "siege", "response": "10 years"}, "replay_keys": []}
+{"id": "t18-council-word", "split": "test", "fields": {"quiz_id": "council", "response": "five"}, "replay_keys": []}
+{"id": "t19-council-wrong", "split": "test", "fields": {"quiz_id": "council", "response": "a handful"}, "replay_keys": []}
+{"id": "d01-settled", "split": "demo", "fields": {"quiz_id": "capital", "response": "Mirrowgate!"}, "replay_keys": []}
+{"id": "d02-review", "split": "demo", "fields": {"quiz_id": "tower", "response": "Maybe Lindqvist, or possibly someone else entirely"}, "replay_keys": ["cb6531740019a79bdd95dc3d54fd7631690715066a161e5e4d8d338435bade38"]}
