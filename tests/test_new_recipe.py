@@ -786,6 +786,57 @@ def test_the_scaffold_tests_include_the_replay_key_test(catalog, recipes):
     assert "replay_keys" in tests and "replay_key(" in tests
 
 
+def test_the_scaffold_emits_a_stored_answers_guard_for_replay(catalog, recipes):
+    _, recipe = entry(catalog, 1)
+    run(1, catalog, recipes)
+    tests = (recipes / recipe["slug"] / "tests" / "test_helpers.py").read_text("utf-8")
+    assert "def test_stored_answers_are_not_all_right" in tests
+    assert "select_confidence_threshold" in tests
+    assert (
+        "TODO"
+        not in tests.split("def test_stored_answers_are_not_all_right")[1].split("\ndef ", 1)[0]
+    )
+
+
+def test_the_scripted_scaffold_has_no_stored_answers_guard(catalog, recipes):
+    # A scripted recipe has no responses.json, so there is nothing for this guard to check.
+    _, recipe = entry(catalog, 36)
+    new_recipe.main(
+        ["36", "--mode", "scripted", "--catalog", str(catalog), "--recipes-dir", str(recipes)]
+    )
+    tests = (recipes / recipe["slug"] / "tests" / "test_helpers.py").read_text("utf-8")
+    assert "test_stored_answers_are_not_all_right" not in tests
+
+
+def test_the_scaffolded_stored_answers_guard_passes_against_a_filled_in_recipe(catalog, recipes):
+    """The emitted test_stored_answers_are_not_all_right must not just exist: once a builder has
+    filled in helpers.py, build_fixtures.py and run it, the emitted test actually passes against
+    MINIMAL_REPLAY_ROWS (t1 is wrong and, at the frozen threshold, confidently so)."""
+    folder = scaffold_replay_with_build_script(catalog, recipes, number=9)
+    subprocess.run([sys.executable, str(folder / "build_fixtures.py")], check=True, cwd=recipes)
+    result = run_generated_tests(folder)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_the_scaffolded_stored_answers_guard_fails_when_no_wrong_answer_is_confident(
+    catalog, recipes
+):
+    """The guard must actually discriminate, not pass regardless of the fixtures: lower t1's
+    spec so it is still wrong but below the frozen threshold, and confirm the generated test
+    fails rather than passing vacuously."""
+    folder = scaffold_replay_with_build_script(catalog, recipes, number=10)
+    build = (folder / "build_fixtures.py").read_text("utf-8")
+    weakened = build.replace(
+        MINIMAL_REPLAY_ROWS, MINIMAL_REPLAY_ROWS.replace('"b", 0.95)', '"b", 0.6)')
+    )
+    assert weakened != build, "MINIMAL_REPLAY_ROWS no longer matches; update the replacement above"
+    (folder / "build_fixtures.py").write_text(weakened, encoding="utf-8", newline="\n")
+    subprocess.run([sys.executable, str(folder / "build_fixtures.py")], check=True, cwd=recipes)
+    failed = run_generated_tests(folder)
+    assert failed.returncode != 0
+    assert "test_stored_answers_are_not_all_right" in failed.stdout
+
+
 def test_the_replay_scaffold_tests_have_no_scripted_machinery(catalog, recipes):
     """A replay recipe never defines helpers.script or helpers.SEED; the scaffolder knows the
     mode up front, so the generated test file for --mode replay (the default) must not carry
@@ -832,7 +883,8 @@ def build_questions():
 
 MINIMAL_REPLAY_ROWS = (
     'ROWS = [("v1", "validation", {"text": "x"}, "a", 0.9), '
-    '("t1", "test", {"text": "y"}, "b", 0.8), '
+    '("v2", "validation", {"text": "x2"}, "b", 0.1), '
+    '("t1", "test", {"text": "y"}, "b", 0.95), '
     '("d1", "demo", {"text": "z"}, None, 0.5)]'
 )
 

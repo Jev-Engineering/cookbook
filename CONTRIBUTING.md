@@ -54,13 +54,14 @@ A recipe pull request touches only `recipes/NN-slug/`, with one bounded exceptio
 - The notebook states near the top which mode it ran in. In a synthetic run, any metric is a check that the pipeline works, and the notebook says so next to the number.
 - The disclosure is the same in every recipe, and the template implements it with `run_header` and its "What was and was not measured" cell (see [docs/offline-and-live.md](docs/offline-and-live.md)): the run mode (`synthetic`, `scripted`, `recorded` or `live`), and for `recorded` and `live` the model string, for `recorded` the capture date, and N, the number of examples a reported number covers. In a live run the header, printed before the first call, names the model requested, and the measured cell names the model the API returned; a recorded run names the model the API returned. A synthetic or scripted run states N as the size of the fixture sample it checked the pipeline on.
 - A live run over a recipe's fixture inputs measures those N small, written-for-the-recipe inputs with that model and nothing else. A recipe reports such a number only from recorded fixtures (provenance `recorded`), on the held-out `test` split, as exactly that: the model string the API returned, the capture date and N. It is not generalized: it says nothing about Jev's quality on other data, and nothing about latency or cost unless those were themselves measured and recorded. A live run that was not recorded yields nothing reportable, and a number from the `validation` split is a selection step, not a result.
-- No sentence about Jev's quality, latency, or cost appears unless it comes from recorded live inference on a held-out set, with the model version stated. If no live run was made, the recipe README says "not measured live".
+- No sentence about Jev's quality, latency, or cost appears unless it comes from recorded live inference on a held-out set, with the model version stated. This holds even when the figure is attributed to someone else: quoting a third-party or TypeSafe number about Jev's quality, latency, or cost (a published benchmark, a cookbook, a case study) is still a statement about Jev, and it needs the same recorded, held-out evidence this recipe would need to state the number itself, or it does not appear. If no live run was made, the recipe README says "not measured live".
 - Recipes that compare backends or optimize anything keep a test split that is used once, after choices are frozen.
 
 ### 3. Questions are narrow and typed
 
 - Each question asks one specific thing. Decompose anything that weighs several factors and combine the answers in Python.
 - `Choice` options are a fixed, supplied set. Include `none`, `other`, `no_match`, or `uncertain` outcomes when the use case calls for them.
+- A `Choice` needs at least two options: with one, Jev has nothing to weigh. When a recipe's own candidate-gathering step leaves a document with only one option (or none), the decision belongs to Python, not to a request — resolve it directly in code and never build the question or spend a call. `jev_cookbook` enforces this at construction (see [docs/backends.md](docs/backends.md), "Single-option Choice").
 - `Noul` propositions are written as statements that can be true or false. One independent question per label for multi-label tasks. Noul has no confidence field in the API; `jev_cookbook.evaluation.noul_confidence` derives a certainty `|2p - 1|` from its probability, and thresholds are chosen from examples and evaluated.
 - `Score` rubrics define every level in words. Exact measurement and arithmetic stay in code.
 - Independent questions go in one request. A question that depends on an earlier answer goes in a later request.
@@ -70,7 +71,7 @@ A recipe pull request touches only `recipes/NN-slug/`, with one bounded exceptio
 
 - Actions are simulated. Nothing sends a message, moves a file, changes a ticket, or calls an external system.
 - Permissions, budgets, retry limits, interlocks, and stop conditions are enforced in code and hold whatever the model answers. Where it makes sense, prove it with a test rather than a sentence.
-- Uncertain or inconsistent results go to an explicit review outcome; a low-confidence fallback option (`none`, `unclear_request`, `no_match`) may be delivered as a final result instead of going to review, but only when choosing it triggers no side effect, and the notebook says so.
+- Uncertain or inconsistent results go to an explicit review outcome. A low-confidence fallback option (`none`, `unclear_request`, `no_match`) may be delivered as a final result at any confidence, with no further gate, but only when it passes both parts of this test: choosing it writes nothing to any container (`ActionLog`, `ReviewQueue`, or any other record a later step reads), **and** leaves no harm standing — nothing a person would otherwise have caught goes uncaught because the rule said nothing happened. Every option other than such a no-op fallback is gated on confidence like any other result. A fallback that itself selects an outcome such as "manual triage" or "escalate" is a review outcome, not a final one, however confident the answer that led to it, and belongs in the `ReviewQueue`; it does not qualify for this exemption. A recipe that claims the exemption shows it: it prints the gated counterfactual (the coverage, accuracy and risk the rule would report if the fallback were gated too) beside the numbers it actually reports, so a reader can see what the exemption costs or buys. Gating the fallback anyway, with no exemption claimed, is also compliant.
 
 ### 5. Fixtures are synthetic and small
 
@@ -82,10 +83,11 @@ A recipe pull request touches only `recipes/NN-slug/`, with one bounded exceptio
 
 ### 6. It teaches
 
-- Open with what the reader will build, the decision type, and the level. Close with what to try next and links to neighbouring recipes.
+- Open with what the reader will build, the decision type, and the level. Close with what to try next and links to neighbouring recipes. A "Next steps" link names a neighbour that already exists on `main`: link only a recipe whose `notebook.ipynb` is already committed, never one not yet published (a forward link), and never the recipe's own issue.
 - Show the typed answer itself before any aggregate: the choice with its probabilities, the noul value, the score with its distribution.
 - Evaluate against the gold labels with the helpers in `jev_cookbook`, and compare with the baseline the issue names when there is one.
-- Explain each design choice in a sentence where it happens. Prose in markdown cells, not in code comments.
+- Explain each design choice in a sentence where it happens. Prose in markdown cells, not in code comments. Define a cookbook term the first time a recipe uses it, in prose, and link the matching [glossary](docs/glossary.md) entry there.
+- Cite only reader-visible sources: the catalog's `S`-numbered references, this repository's own docs and files, or a neighbouring recipe by slug. A recipe file never cites a private issue number or "the issue" — a reader cannot see either, so name the use case or the rule instead of the ticket that asked for it.
 - Charts use the cookbook plotting style. The palette is TypeSafe's: pink `#F386A1`, ink `#1E1E1E`, magenta `#E551BA`, panel grey `#DEDEDE`, paper `#FEFEFE`.
 
 ### 7. It passes
@@ -101,6 +103,7 @@ A recipe pull request touches only `recipes/NN-slug/`, with one bounded exceptio
 - One issue per pull request. The description says `Closes #N` and fills in the checklist from the pull request template.
 - Squash merge once every current check has succeeded on the exact head and an Opus review of that head has approved it. A red, missing, cancelled or pending check is not mergeable, and any new commit voids earlier approval.
 - A recipe pull request that adds a notebook includes the regenerated README regions (see the exception above) and says so in its description.
+- A fix made in response to review is written for a first-time reader of the shipped notebook or doc, not for the reviewer: no "previously", "used to be", "no longer", "was once", or any other comparison with a revision the reader never saw. Re-read the whole file after a fix, not only the changed cells or lines.
 
 ## Sources
 

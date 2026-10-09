@@ -79,7 +79,8 @@ _template/
 │   ├── labels.jsonl      gold labels for the 20 scored examples
 │   └── responses.json    synthetic answers, keyed by request
 └── tests/
-    ├── test_helpers.py        tests for the rule, and that the fixture keys match the question
+    ├── test_helpers.py        tests for the rule, that the fixture keys match the question, and
+    │                          that a wrong test answer survives the confidence gate
     └── test_build_fixtures.py refusal without --force, inputs/labels regenerated even on a
                                 refused run, and the writer matching jev_cookbook.live's recorder
 ```
@@ -212,9 +213,14 @@ The full contract is [CONTRIBUTING.md](../../CONTRIBUTING.md); in short:
   [the confidence page](https://docs.typesafe.ai/confidence)); it is not the raw top probability.
 - A fixture miss is an error (`ReplayMiss`); nothing invents an answer to keep a notebook running.
 - **Python's part:** a low-confidence fallback option (`none` here; `unclear_request` or
-  `no_match` elsewhere) may be delivered as a final result only when choosing it has no side
-  effect — nothing is routed, answered or moved, so there is nothing left for a confidence gate
-  to protect. This template instead sends `none` to `human_review` like every other unconfident
-  case, but a recipe whose fallback itself triggers a side effect must still put it through the
-  same confidence gate as any other option before that side effect runs; the option's name is
-  not an exemption. [docs/recipe-template.md](../../docs/recipe-template.md) states the rule.
+  `no_match` elsewhere) may be delivered as a final result at any confidence only when it passes
+  a two-part test: choosing it writes nothing to any container (`ActionLog`, `ReviewQueue`, or
+  any other record a later step reads), **and** leaves no harm standing — nothing a person would
+  otherwise have caught goes uncaught. `none` here passes that test, but this template still
+  sends it to `human_review` like every other unconfident case rather than claim the exemption;
+  gating a qualifying fallback anyway is compliant too. A fallback that itself selects a
+  review-like outcome ("manual triage", "escalate") never qualifies, whatever its confidence, and
+  a fallback that triggers a side effect fails part one outright and must go through the same
+  confidence gate as any other option before that effect runs. A recipe that does claim the
+  exemption prints the gated counterfactual beside the numbers it actually reports.
+  [docs/recipe-template.md](../../docs/recipe-template.md) states the rule in full.

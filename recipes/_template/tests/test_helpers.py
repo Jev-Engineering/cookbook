@@ -72,13 +72,29 @@ def test_every_replay_key_in_the_fixtures_matches_the_current_question():
 
 
 def test_stored_answers_are_not_all_right():
+    """A wrong answer anywhere is a weak guard: it would still pass even if the confidence gate
+    caught every mistake, which would hide the exact lesson this fixture set exists to teach.
+    Re-derive the threshold the way the notebook does (the lowest confidence at which every
+    validation answer naming a queue is correct) and require a wrong `test` answer at or above
+    it: a mistake the gate would still let through."""
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
     labels = load_labels(RECIPE)
-    wrong = [
-        e.id
-        for e in load_inputs(RECIPE)
-        if e.id in labels
-        and backend.decide(helpers.build_state(e.fields), questions)["route"].choice != labels[e.id]
+    examples = load_inputs(RECIPE)
+
+    def decide(example):
+        return backend.decide(helpers.build_state(example.fields), questions)["route"]
+
+    validation = [e for e in examples if e.split == "validation" and e.id in labels]
+    named = [
+        (decide(e).confidence, decide(e).choice == labels[e.id])
+        for e in validation
+        if decide(e).choice in helpers.QUEUES
     ]
-    assert wrong, "the fixtures should contain some wrong answers"
+    threshold = min(c for c, _ in named if all(ok for c2, ok in named if c2 >= c))
+
+    test = [e for e in examples if e.split == "test" and e.id in labels]
+    wrong_and_confident = [
+        e.id for e in test if decide(e).choice != labels[e.id] and decide(e).confidence >= threshold
+    ]
+    assert wrong_and_confident, "expected at least one confidently wrong test answer"

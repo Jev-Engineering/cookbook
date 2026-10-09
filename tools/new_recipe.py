@@ -252,10 +252,11 @@ else:
         md(
             "next-md",
             f"## {SECTIONS[8]}\n\n"
-            f"{TODO_MARK}: what to try next, and links to neighbouring recipes by slug, for "
-            "example [`NN-slug`](../NN-slug/). A folder link like that 404s on GitHub until "
-            "the neighbour's notebook.ipynb is committed; that is the expected, documented "
-            "convention (docs/recipe-template.md), not something to work around.",
+            f"{TODO_MARK}: what to try next, and links to neighbouring recipes that already "
+            "exist on `main`, by slug, for example [`NN-slug`](../NN-slug/). Link only a "
+            "recipe whose notebook.ipynb is already committed: a folder link to one that is "
+            "not yet published would 404 on GitHub, and a forward link like that is not "
+            "allowed (docs/recipe-template.md).",
         ),
     ]
 
@@ -654,8 +655,9 @@ def test_every_replay_key_in_the_fixtures_matches_the_current_question():
 
 from pathlib import Path
 
-from jev_cookbook import load_helpers, replay_key
-from jev_cookbook.fixtures import load_inputs
+from jev_cookbook import get_backend, load_helpers, replay_key
+from jev_cookbook.evaluation import select_confidence_threshold
+from jev_cookbook.fixtures import load_inputs, load_labels, responses_path
 
 RECIPE = Path(__file__).resolve().parent.parent
 helpers = load_helpers(RECIPE)
@@ -676,6 +678,41 @@ def test_every_replay_key_in_the_fixtures_matches_the_current_question():
     questions = helpers.build_questions()
     for example in load_inputs(RECIPE):
         assert example.replay_keys == (replay_key(helpers.build_state(example.fields), questions),)
+
+
+def test_stored_answers_are_not_all_right():
+    # A wrong answer anywhere is a weak guard: it would still pass even if a confidence gate
+    # caught every mistake. Re-derive the threshold the way the notebook does (the lowest
+    # confidence at which every validation answer is right) and require a wrong `test` answer at
+    # or above it: a mistake the gate would still let through, which is what evaluating on
+    # `test` exists to catch. Adapt `predicted`/`confidence` below for a question with no native
+    # confidence (a Noul: use jev_cookbook.evaluation.noul_confidence(answer.noul) in place of
+    # answer.confidence), or repeat this per question when more than one needs the check.
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    name = next(iter(questions))
+    labels = load_labels(RECIPE)
+    examples = load_inputs(RECIPE)
+
+    def decide(example):
+        return backend.decide(helpers.build_state(example.fields), questions)[name]
+
+    def predicted(answer):
+        return answer.choice if hasattr(answer, "choice") else answer.score
+
+    validation = [e for e in examples if e.split == "validation" and e.id in labels]
+    val_answers = {{e.id: decide(e) for e in validation}}
+    correct = [predicted(val_answers[e.id]) == labels[e.id] for e in validation]
+    confidence = [val_answers[e.id].confidence for e in validation]
+    threshold = select_confidence_threshold(correct, confidence, target_accuracy=1.0)
+
+    test = [e for e in examples if e.split == "test" and e.id in labels]
+    wrong_and_confident = [
+        e.id
+        for e in test
+        if predicted(decide(e)) != labels[e.id] and decide(e).confidence >= threshold
+    ]
+    assert wrong_and_confident, "expected at least one confidently wrong test answer"
 '''
 
 

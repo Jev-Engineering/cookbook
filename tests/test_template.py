@@ -313,13 +313,15 @@ def test_the_first_next_step_names_the_tools_that_show_key_drift():
 
 
 def test_the_next_steps_settle_the_neighbour_link_convention():
-    """Issue #124, item 8: a neighbour link 404s until that recipe exists. The template keeps
-    the folder-link convention and says so, because the renderer gives no per-recipe anchor to
-    link to instead (tools/render_catalog.py builds the catalog table from bare titles)."""
+    """A neighbour link is a folder link (the renderer gives no per-recipe anchor to link to
+    instead: tools/render_catalog.py builds the catalog table from bare titles), and it must
+    point to a recipe that already exists on `main`: a forward link to one that is not yet
+    published is not allowed."""
     cell = next(c for c in NOTEBOOK["cells"] if c.get("id") == "next-md")
     text = source(cell)
     assert "](../" in text  # the neighbour links themselves are unchanged
-    assert "404s on GitHub" in text and "no per-row anchor" in text
+    assert "no per-row anchor" in text
+    assert "already committed on `main`" in text and "not allowed" in text
 
 
 def test_the_rule_demo_uses_the_threshold_chosen_on_validation_not_a_hardcoded_value():
@@ -358,6 +360,47 @@ def test_the_measured_markdown_does_not_hardcode_a_mode_specific_claim():
     for stale in ("written by hand", "invented messages", "hand-written"):
         assert stale not in measured_md.lower()
     assert "demo" in measured_md
+
+
+def test_the_confusion_matrix_cell_prints_what_it_plots():
+    """ "Print what you plot": the figure comparison in CI is loose, so the printed numbers are
+    what actually pins the matrix byte for byte. Every printed line is a `test` number in an
+    offline run, so it carries `check` like every other metric line in this cell."""
+    cell = next(c for c in NOTEBOOK["cells"] if c.get("id") == "evaluation-matrix")
+    text = source(cell)
+    assert "print(" in text and "matrix.matrix.tolist()" in text
+    lines = stream_lines("evaluation-matrix")
+    assert len(lines) >= 1 + len(["billing", "bug", "account", "none"])
+    for line in lines:
+        assert "(a pipeline check, not a Jev result)" in line, line
+
+
+def test_the_measured_cell_prints_n_in_every_mode_the_markdown_promises_it():
+    """docs/recipe-template.md: the "What was and was not measured" markdown must not promise an
+    N its code does not print, in any mode. The offline branch prints N too, not only the
+    recorded/live branch."""
+    cell = source(next(c for c in NOTEBOOK["cells"] if c.get("id") == "measured"))
+    offline_branch = cell.split("else:")[0]
+    assert "N:" in offline_branch
+    lines = stream_lines("measured")
+    assert any(line.startswith("N:") for line in lines)
+
+
+def test_gold_label_is_defined_in_prose_not_in_a_code_comment_and_links_the_glossary():
+    """CONTRIBUTING.md section 6: prose in markdown cells, not in code comments. The setup cell
+    may still point at the term (so a reader of the code alone is not left wondering why `scored`
+    excludes the demo examples), but the definition itself lives in markdown."""
+    setup = source(next(c for c in NOTEBOOK["cells"] if c.get("id") == "setup"))
+    assert "recorded correct answer" not in setup
+    evaluation_md = source(next(c for c in NOTEBOOK["cells"] if c.get("id") == "evaluation-md"))
+    assert "gold label" in evaluation_md.lower()
+    assert "recorded correct answer" in evaluation_md
+    assert "../../docs/glossary.md#gold-label" in evaluation_md
+
+
+def test_the_fallback_exemption_states_the_two_part_test():
+    python_md = source(next(c for c in NOTEBOOK["cells"] if c.get("id") == "python-md"))
+    assert "writes nothing anywhere" in python_md and "leaves no harm standing" in python_md
 
 
 def test_a_simulated_recording_produces_a_minimal_diff():

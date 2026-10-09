@@ -180,9 +180,16 @@ class Simulator(abc.ABC):
     * ``_snapshot()`` the full hidden state (plain JSON), used to compare replays,
 
     and optionally ``_is_done()``. Draw randomness only from the ``rng`` passed in, and prefer
-    ``rng.random()`` and ``rng.randrange(n)``, whose streams are stable across platforms and
-    Python 3.10 to 3.14. The legal actions are enumerated by Python, never by the model, so a
-    recipe can offer them as the fixed options of a ``Choice`` question.
+    ``rng.random()``: it is the one call the ``random`` module's own docs commit to producing the
+    same sequence for the same seed across platforms and Python 3.10 to 3.14 (see
+    ``docs/backends.md``, "Scripted backend"). ``ToyGrid._reset`` calls ``rng.randrange(n)`` for
+    its target cell; that call's output is pinned, byte for byte, by
+    ``test_golden_values_pin_cross_platform_streams`` in ``tests/test_simulation.py`` rather than
+    assumed stable, and a *new* ``_reset``/``_apply`` should derive a discrete choice from
+    ``rng.random()`` instead of adding another call to ``rng.randrange``, ``rng.choice`` or
+    ``rng.shuffle``, none of which carry the same documented guarantee. The legal actions are
+    enumerated by Python, never by the model, so a recipe can offer them as the fixed options of
+    a ``Choice`` question.
     """
 
     def __init__(self, seed: int = 0) -> None:
