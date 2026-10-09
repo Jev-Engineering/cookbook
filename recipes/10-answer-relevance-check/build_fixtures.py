@@ -143,8 +143,8 @@ ROWS = [
      True, 0.55),
     ("v20-error", "validation", "AR1020",
      "Can I downgrade from the premium plan to the free plan?",
-     "If you're looking to change your plan, you can do that any time from the Billing tab "
-     "under 'Plan'.",
+     "The Billing tab under 'Plan' shows your current plan, its price, and the date it next "
+     "renews.",
      False, 0.60),
     ("v21-partial", "validation", "AR1021",
      "What happens to my saved files if I close my account?",
