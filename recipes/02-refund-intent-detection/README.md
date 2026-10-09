@@ -68,8 +68,9 @@ probabilities, five of them wrong on purpose: one on each split (`v19`, `t19`) r
 only to decline it, stored far enough from an even split that the confidence gate does not catch
 it; three more (`v22` on validation, `t18` and `t22` on test) sit inside the ambiguous cluster the
 gate does catch. The wrong examples are not symmetric between splits, so `test`'s reported
-precision, recall, coverage and risk genuinely differ from `validation`'s rather than echoing
-them. Every number checks that the pipeline works; none says anything about how Jev performs, how
+precision, coverage and risk genuinely differ from `validation`'s rather than echoing them (both
+splits have perfect recall: every gold-true message sits above the business threshold). Every
+number checks that the pipeline works; none says anything about how Jev performs, how
 fast it is, or what it costs. This recipe has no recorded fixtures.
 
 ## Sources
