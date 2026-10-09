@@ -56,8 +56,9 @@ _DESCRIPTIONS = {
         "belongs to policy instead."
     ),
     OTHER: (
-        "Does not satisfy any of the above: anything else, including a document too short or "
-        "too generic to place in one of the four categories with any confidence."
+        "Does not satisfy any of the above: a personal message, a marketing or informational "
+        "blurb, or any other text, including one too short to contain the signals the first "
+        "four look for."
     ),
 }
 
