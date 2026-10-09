@@ -52,10 +52,12 @@ put a key in a notebook, a fixture, or any other committed file.
   per split.
 
 The committed run replays 40 invented feedback messages with hand-written (synthetic) answers,
-several wrong on purpose: two literal-reading lookalikes (a feedback message that uses a word
-associated with a label, `price` or `feature`, without actually raising that topic), one of which
-is wrong *and* confident on `test`, plus five low-confidence crossover pairs on `validation` that
-the shared confidence cutoff is chosen to catch. Its per-label precision and recall, the micro and
+several wrong on purpose: two benign look-alikes (a feedback message that uses a word associated
+with a label, `price` or `feature`, without actually raising that topic); `t16-lookalike-wrong`'s
+is wrong *and* confident on `test`, and the same `feature_request` threshold that keeps it out
+also costs a real feature request, `t18`, a confident false negative two hundredths below it;
+plus six low-confidence crossover pairs on `validation` that the shared confidence cutoff is
+chosen to catch. Its per-label precision and recall, the micro and
 macro F1, the exact-set match, and the coverage, accuracy and risk of the confidence gate check
 that the pipeline works; they say nothing about how Jev performs, how fast it is, or what it costs.
 This recipe has no recorded fixtures.

@@ -52,11 +52,10 @@ def build_questions() -> dict[str, Noul]:
     Each proposition is a statement that can be true or false ("The feedback is about ..."),
     not a question, as CONTRIBUTING.md requires. All of them describe the same state, so
     ``backend.decide`` sends them together in a single request: TypeSafe's primitives page
-    (S02) says independent questions over the same state belong in one request, and that a
-    System One model evaluates every question in a request in parallel, so asking five
-    instead of one barely changes the response time. They stay independent questions, not one
-    five-way Choice, because the five outcomes are not exclusive: a single piece of feedback
-    can be about pricing and reliability at once, or about neither.
+    (S02) says independent questions over the same state belong in one request. They stay
+    independent questions, not one five-way Choice, because the five outcomes are not
+    exclusive: a single piece of feedback can be about pricing and reliability at once, or
+    about neither.
     """
     return {
         label: Noul(
@@ -105,19 +104,25 @@ def decide_tags(
     checks it for every label and every outcome.
 
     Args:
-        answers: ``{label: NoulAnswer-like}``, one per label in ``thresholds``.
-        thresholds: The frozen per-label business thresholds (chosen on ``validation``).
+        answers: ``{label: NoulAnswer-like}``, one per label in ``LABELS``.
+        thresholds: The frozen per-label business thresholds (chosen on ``validation``); must
+            name exactly the labels in ``LABELS``, no more and no fewer.
         confidence_cutoff: The frozen shared confidence gate (chosen on ``validation``, pooled
             across labels; see the notebook's "Python's part" section for why one shared value
             is used rather than a second per-label parameter).
 
     Returns:
-        ``{label: LabelDecision}``, one entry per label in ``thresholds``.
+        ``{label: LabelDecision}``, one entry per label in ``LABELS``.
     """
     if not 0.0 <= float(confidence_cutoff) <= 1.0:
         raise ValueError(f"confidence_cutoff must be between 0 and 1, got {confidence_cutoff!r}")
+    if set(thresholds) != set(LABELS):
+        raise ValueError(
+            f"thresholds must name exactly LABELS {sorted(LABELS)}, got {sorted(thresholds)}"
+        )
     decisions: dict[str, LabelDecision] = {}
-    for label, threshold in thresholds.items():
+    for label in LABELS:
+        threshold = thresholds[label]
         if not 0.0 <= float(threshold) <= 1.0:
             raise ValueError(f"threshold for {label!r} must be between 0 and 1, got {threshold!r}")
         noul = float(answers[label].noul)

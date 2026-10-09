@@ -9,13 +9,14 @@ each example is the *set* of topics it actually raises: some examples raise none
 one or two, and a few raise three or four at once (the hard cases the issue names: "items with
 no label and items with three or more").
 
-Two pairs of examples are literal-reading hard cases (S07 "Jev 1.13 jaggedness", item 1): the
-feedback uses a word associated with a label ("price", "feature") without actually raising that
-topic. One member of each pair is also wrong *and* confident on purpose, so the evaluation has
-a real, non-zero risk to find rather than a threshold that happens to catch everything:
-``v16-lookalike-wrong`` (validation) and ``t16-lookalike-wrong`` (test) both store a confident
-``feature_request`` probability (0.80 and 0.82) for feedback that only mentions a *past*
-feature, never a request.
+Several examples use a word associated with a label ("price", "feature") without the feedback
+actually raising that topic: a benign look-alike (CONTRIBUTING.md section 5), not S07's
+"literal reading" (item 1), which is about the model reading a question's *instructions*
+literally, not a surface word in the state. ``v16-lookalike-wrong`` (validation) and
+``t16-lookalike-wrong`` (test) both store a confident ``feature_request`` probability (0.80 and
+0.82) for feedback that only mentions a *past* feature, never a request; ``t16``'s is wrong
+*and* confident on purpose, so the evaluation has a real, non-zero risk to find rather than a
+threshold that happens to catch everything.
 
 The replay keys come from the same ``build_state`` and ``build_questions`` the notebook uses,
 via ``helpers.py``. Generating inputs and labels is kept separate from generating responses, on

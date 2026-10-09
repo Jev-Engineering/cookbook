@@ -81,8 +81,21 @@ def test_the_confidence_cutoff_is_inclusive():
 
 @pytest.mark.parametrize("bad", [-0.1, 1.1])
 def test_a_business_threshold_outside_zero_to_one_is_an_error(bad):
+    bad_thresholds = {**THRESHOLDS, "pricing": bad}
     with pytest.raises(ValueError, match="between 0 and 1"):
-        helpers.decide_tags(answers(), {"pricing": bad}, confidence_cutoff=0.3)
+        helpers.decide_tags(answers(), bad_thresholds, confidence_cutoff=0.3)
+
+
+def test_thresholds_missing_a_label_is_an_error():
+    incomplete = {label: 0.5 for label in LABELS[:-1]}
+    with pytest.raises(ValueError, match="exactly LABELS"):
+        helpers.decide_tags(answers(), incomplete, confidence_cutoff=0.3)
+
+
+def test_thresholds_with_an_unknown_label_is_an_error():
+    extra = {**THRESHOLDS, "not_a_label": 0.5}
+    with pytest.raises(ValueError, match="exactly LABELS"):
+        helpers.decide_tags(answers(), extra, confidence_cutoff=0.3)
 
 
 @pytest.mark.parametrize("bad", [-0.1, 1.1])
@@ -98,6 +111,22 @@ def test_tag_set_can_be_empty_or_hold_several_labels():
         answers(**{label: 0.9 for label in LABELS}), THRESHOLDS, confidence_cutoff=0.3
     )
     assert helpers.tag_set(all_yes) == frozenset(LABELS)
+
+
+def test_tag_before_the_confidence_gate_matches_multilabel_from_noul():
+    # decide_tags's .tag field (the business rule alone, before the confidence gate) must agree
+    # with jev_cookbook.evaluation.multilabel_from_noul, since the notebook's "Evaluation" section
+    # uses that shared helper to build the business-rule tag set and nothing here should drift
+    # from it. confidence_cutoff=0.0 means nothing is marked uncertain, so .tag and .outcome
+    # agree, which keeps this test's assertion about .tag directly checkable against tag_set too.
+    from jev_cookbook.evaluation import multilabel_from_noul
+
+    sample = answers(pricing=0.9, reliability=0.3, usability=0.6, support=0.1, feature_request=0.5)
+    decisions = helpers.decide_tags(sample, THRESHOLDS, confidence_cutoff=0.0)
+    noul_by_label = {label: [sample[label].noul] for label in LABELS}
+    predicted = multilabel_from_noul(noul_by_label, THRESHOLDS)[0]
+    assert {label for label in LABELS if decisions[label].tag} == set(predicted)
+    assert helpers.tag_set(decisions) == set(predicted)
 
 
 def test_the_state_hides_the_feedback_id():
