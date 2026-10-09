@@ -83,4 +83,5 @@ check. The full contract is [CONTRIBUTING.md](../../CONTRIBUTING.md).
 ## Sources
 
 - S02: [TypeSafe AI: Primitives (Questions)](https://docs.typesafe.ai/primitives)
+- S03: [TypeSafe AI: Confidence](https://docs.typesafe.ai/confidence)
 - S07: [TypeSafe AI: Jev 1.13 jaggedness](https://docs.typesafe.ai/model-jaggedness/jev-1.13)
