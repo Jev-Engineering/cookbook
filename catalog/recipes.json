@@ -224,6 +224,7 @@
       ],
       "use_case": "Select the best matching FAQ from a short candidate list, including a no-match outcome when none addresses the question.",
       "sources": [
+        "S02",
         "S03",
         "S04",
         "S06"
@@ -260,6 +261,7 @@
       ],
       "use_case": "Judge whether a candidate response addresses the user's question so a notebook can separate relevant answers from off-topic replies.",
       "sources": [
+        "S02",
         "S03",
         "S04",
         "S06"
@@ -278,6 +280,7 @@
       ],
       "use_case": "Select a useful follow-up question from a predefined catalog when a task description omits information needed for the next step.",
       "sources": [
+        "S02",
         "S03",
         "S04",
         "S06"
@@ -350,6 +353,7 @@
       ],
       "use_case": "Flag synthetic documents that may contain personal information so a simulated review queue can prioritize redaction checks.",
       "sources": [
+        "S02",
         "S03",
         "S04",
         "S07"
@@ -368,6 +372,7 @@
       ],
       "use_case": "Classify sample Discord messages as allowed, review-needed, or potentially violating a supplied community rule to populate a simulated moderator queue.",
       "sources": [
+        "S02",
         "S03",
         "S04",
         "S07"
@@ -386,6 +391,7 @@
       ],
       "use_case": "Score retrieved passages against a question so Python can rank candidate evidence and retain each passage's source reference.",
       "sources": [
+        "S02",
         "S03",
         "S04",
         "S06"
@@ -422,6 +428,7 @@
       ],
       "use_case": "Classify recorded continuous-integration failures as test regressions, dependency problems, infrastructure failures, or unknown to select the next diagnostic workflow.",
       "sources": [
+        "S02",
         "S03",
         "S04",
         "S05"
@@ -440,6 +447,7 @@
       ],
       "use_case": "Classify whether a provided passage supports, contradicts, or leaves unresolved a specific claim while preserving the passage identifier.",
       "sources": [
+        "S02",
         "S03",
         "S04",
         "S06"
@@ -458,6 +466,7 @@
       ],
       "use_case": "Judge whether a typed quiz response matches an accepted answer by meaning, with partial-match and review outcomes for ambiguous responses.",
       "sources": [
+        "S02",
         "S03",
         "S04",
         "S07"
@@ -547,6 +556,7 @@
       ],
       "use_case": "Flag instruction-redirection attempts in retrieved text using adversarial and benign quotation fixtures to measure false positives and missed attacks.",
       "sources": [
+        "S02",
         "S03",
         "S04",
         "S07"
@@ -565,6 +575,7 @@
       ],
       "use_case": "Select a function from a preapproved catalog for a request while Python validates supplied arguments before simulated execution.",
       "sources": [
+        "S02",
         "S03",
         "S04",
         "S06"
@@ -583,6 +594,7 @@
       ],
       "use_case": "Score retrieved skill descriptions for relevance to a task so Python can select a suitable skill or request clarification.",
       "sources": [
+        "S02",
         "S03",
         "S04",
         "S06"
@@ -601,6 +613,7 @@
       ],
       "use_case": "Classify recorded tool outcomes as complete, partial, failed, or unverifiable using the original request and observed evidence.",
       "sources": [
+        "S02",
         "S03",
         "S04",
         "S06"
@@ -619,6 +632,7 @@
       ],
       "use_case": "Check each answer claim against its cited passage and flag unsupported or contradicted claims while Python verifies citation identifiers.",
       "sources": [
+        "S02",
         "S03",
         "S04",
         "S06"
@@ -637,6 +651,7 @@
       ],
       "use_case": "Assess a small patch for separate authentication, input-validation, and data-loss concerns to prioritize human review using explicit rules.",
       "sources": [
+        "S02",
         "S03",
         "S04",
         "S05"
@@ -655,6 +670,7 @@
       ],
       "use_case": "Score candidate tests against the behavior changed by a patch so Python can propose a focused regression suite.",
       "sources": [
+        "S02",
         "S03",
         "S04",
         "S05"
@@ -726,6 +742,7 @@
       ],
       "use_case": "Select a legal action in a turn-based card-game simulator using structured state and fixed action descriptions while Python enforces game rules.",
       "sources": [
+        "S02",
         "S03",
         "S04",
         "S07"
@@ -816,6 +833,7 @@
       ],
       "use_case": "Flag semantic mismatches between an approved task and a proposed tool action while Python enforces exact permissions and approval bindings.",
       "sources": [
+        "S02",
         "S03",
         "S04",
         "S07"
@@ -834,6 +852,7 @@
       ],
       "use_case": "Screen proposed outbound messages for disclosure concerns against supplied sharing rules while deterministic controls hold flagged or uncertain samples for review.",
       "sources": [
+        "S02",
         "S03",
         "S04",
         "S07"
@@ -852,6 +871,7 @@
       ],
       "use_case": "Select retry, alternative method, or escalation from a bounded recovery catalog using execution history while Python enforces retry budgets and stop conditions.",
       "sources": [
+        "S02",
         "S03",
         "S04",
         "S06"
@@ -870,6 +890,7 @@
       ],
       "use_case": "Evaluate each candidate plan against individual user constraints so deterministic policy can reject ineligible plans and route unresolved judgments to review.",
       "sources": [
+        "S02",
         "S03",
         "S04",
         "S06"
@@ -889,6 +910,7 @@
       "use_case": "Classify a new memory statement as corroborating, superseding, contradicting, or unrelated to existing evidence so a versioned store can preserve provenance and unresolved conflicts.",
       "sources": [
         "S01",
+        "S02",
         "S03",
         "S04"
       ],
@@ -907,6 +929,7 @@
       "use_case": "Judge stored context chunks for relevance to the current task so Python can retain, page out, or rehydrate them while preserving original content and source links.",
       "sources": [
         "S01",
+        "S02",
         "S03",
         "S04"
       ],
@@ -961,6 +984,7 @@
       ],
       "use_case": "Score each agent's suitability for a subtask so a deterministic scheduler can assign work under capability, dependency, and budget constraints.",
       "sources": [
+        "S02",
         "S03",
         "S04",
         "S06"
@@ -999,6 +1023,7 @@
       ],
       "use_case": "Classify progress across recorded agent turns as advancing, repeating, regressing, or complete so Python can apply a continue, change-strategy, or stop policy.",
       "sources": [
+        "S02",
         "S03",
         "S04",
         "S06"
@@ -1018,6 +1043,7 @@
       ],
       "use_case": "Combine passage filtering, reranking, and claim verification in a retrieval pipeline and measure each stage's effect on answer support using a fixed labeled corpus.",
       "sources": [
+        "S02",
         "S03",
         "S04",
         "S06"
@@ -1093,6 +1119,7 @@
       ],
       "use_case": "Evaluate Jev screening at input, retrieved-context, proposed-action, and output boundaries using adversarial replay while measuring attack success, false positives, and task completion.",
       "sources": [
+        "S02",
         "S03",
         "S04",
         "S07"
@@ -1131,6 +1158,7 @@
       ],
       "use_case": "Select supervisory responses to simulated PLC fault descriptions and telemetry while Python enforces interlocks and a separate controller handles timing and actuation.",
       "sources": [
+        "S02",
         "S03",
         "S04",
         "S07"
@@ -1149,6 +1177,7 @@
       ],
       "use_case": "Choose the next permitted observation and subsequent legal action in a partially observed game, then compare complete trajectories with a rule-based baseline.",
       "sources": [
+        "S02",
         "S03",
         "S04",
         "S07"
@@ -1169,6 +1198,7 @@
       ],
       "use_case": "Select bounded production goals and recovery actions from structured factory state while a Factorio-style simulator executes predefined action templates and measures throughput, stalls, and resource use.",
       "sources": [
+        "S02",
         "S03",
         "S04",
         "S07"
