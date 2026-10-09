@@ -117,31 +117,30 @@ it, including `outcome_curve` below): its candidate thresholds are `numpy.unique
 confidences, so two fixture rows hand-written as separate mirror-pair literals can land as two
 *adjacent* threshold candidates ("`gate >= 0.86`" printed twice, at a few-ULPs-apart value) instead
 of coalescing into one. This is a property of floating-point decimal literals, not a bug in
-`noul_confidence` to fix by changing it here: #172 rounds the confidence to 12 decimal places
-inside `_conf_inputs` — the shared input boundary of `selective_curve`, `select_confidence_threshold`,
-`evaluate_selective` and `outcome_curve` — so every one of those functions sees the same, already-
-deduplicated confidences (not "candidates": `evaluate_selective` derives no candidate grid of its
-own, it only reapplies an already-frozen threshold), rather than rounding inside `noul_confidence`
-itself (which other, non-selective callers also use) or re-deduping separately inside each curve
-function.
+`noul_confidence` to fix by changing it here: #172's fix, not yet landed, will round the
+confidence to 12 decimal places inside `_conf_inputs` — the shared input boundary of
+`selective_curve`, `select_confidence_threshold`, `evaluate_selective` and `outcome_curve` — so
+every one of those functions will see the same, already-deduplicated confidences (not
+"candidates": `evaluate_selective` derives no candidate grid of its own, it only reapplies an
+already-frozen threshold) once it merges, rather than rounding inside `noul_confidence` itself
+(which other, non-selective callers also use) or re-deduping separately inside each curve
+function. `_conf_inputs` on `main` today does none of this — it validates `[0, 1]` and matches
+lengths, nothing more — which is exactly why the duplicate row above is still printed.
 
-Landing this requires regenerating two recipes' committed notebook output, not three. Recipes
-**10** and **15** carry the colliding pair (nominal `0.86`) on validation examples their sweep
-cell prints as text, so rounding collapses their duplicate `gate >= 0.86` row into one (the
-surviving row keeps the higher-coverage half, `coverage 0.240`; every other row, the frozen-gate
-line and its `0.30` threshold are unchanged), and their committed output has to be refreshed to
-match. Recipe **02** carries the same colliding pair in its fixtures but needs **no**
-regeneration: its sweep cell prints only three derived numbers (`curve.accuracy[-1]` /
-`curve.risk[-1]`, the frozen-gate line, the argmin row), every one identical before and after
-rounding, and the dropped point is collinear with its neighbour on the plotted line, so the
-figure compares equal too. Because CI's notebook matrix (`tools/notebook_ci.py`) re-executes
-every recipe notebook once a change touches anything outside `recipes/` and `README.md`, the
-rounding change and 10/15's regenerated output have to ship in the **same** foundation pull
-request: a regeneration run on `main` before the rounding lands would only reproduce today's
-(duplicated) output byte for byte, so "regenerate first, then round" cannot work — only "round,
-and refresh 10 and 15 in the same pull request" keeps every `Notebook (<slug>)` check green.
-(CONTRIBUTING.md's scope allowlist applies only to recipe pull requests, not foundation ones, so
-a foundation pull request carrying a `recipes/` output refresh is in scope.)
+Landing the fix requires regenerating two recipes' committed notebook output, not three, and
+both in the same pull request as the code change. Recipes **10** and **15** carry the colliding
+pair (nominal `0.86`) on validation examples their sweep cell prints as text, so rounding will
+collapse their duplicate `gate >= 0.86` row into one (the surviving row keeps the higher-coverage
+half, `coverage 0.240`; every other row and the `0.30` frozen-gate threshold are unchanged), and
+their committed output will need refreshing to match. Recipe **02** carries the same colliding
+pair in its fixtures but will need **no** regeneration: its sweep cell prints only three derived
+numbers, all identical before and after rounding, and the dropped point is collinear with its
+neighbour on the plotted line. Because CI's notebook matrix re-executes every recipe notebook
+once a change touches anything outside `recipes/` and `README.md`, a #163-style regeneration run
+on `main` ahead of the fix would only reproduce today's duplicated output byte for byte — the
+rounding and 10/15's refreshed output have to ship together, or the `Notebook (<slug>)` checks
+for 10 and 15 go red. (CONTRIBUTING.md's scope allowlist binds recipe pull requests only, so a
+foundation pull request may carry this `recipes/` output refresh.)
 
 ### Multi-label
 
@@ -288,14 +287,16 @@ container received the result. (Orchestrator ruling 4, tracked from #164.)
 **Recipe 19 is the case this ruling changes, not one that already complies.** As merged, it
 reports `test` coverage with `evaluate_selective(test_correct, test_confidence, threshold)`,
 which counts every build whose raw choice clears the confidence gate toward the answered set —
-`unknown` included: three of the nineteen `test` builds name `unknown`, clear the `0.4400` gate,
-and are queued in the `ReviewQueue` for a person to find the real cause (`reason: "no option
-fits"`), and the printed figure, `coverage 0.7895` (15 of 19), counts those three as answered.
-`unknown` is a deferral under part (a) — it says "ask a person", not "here is the cause" — so
-those three examples' `accepted` must be `False`; recomputing with `evaluate_outcomes` and that
-correction gives `coverage 0.6316` (12 of 19) instead. Recipe 19's own correction is tracked
-under #163, not made here; this paragraph names the gap between the shipped number and the rule
-rather than presenting `0.7895` as the compliant figure.
+`unknown` included: five of the nineteen `test` builds name `unknown`; three of those five clear
+the `0.4400` gate and are queued in the `ReviewQueue` for a person to find the real cause
+(`reason: "no option fits"`), and the printed figure, `coverage 0.7895` (15 of 19), counts those
+three as answered. `unknown` is a deferral under part (a) — it says "ask a person", not "here is
+the cause" — so those three examples' `accepted` must be `False` whatever their confidence;
+recomputing with `evaluate_outcomes` and that correction gives `coverage 0.6316` (12 of 19)
+instead. Recipe 19's own correction is tracked by the recipe-side sweep (#163, which names this
+exact figure — 0.7895 → 0.6316 — among its routed findings), not made here; this paragraph names
+the gap between the shipped number and the rule rather than presenting `0.7895` as the compliant
+figure.
 
 **Note the argument order.** Every other function in this family leads with `correct`
 (`selective_curve(correct, confidence)`, `select_confidence_threshold(correct, confidence, ...)`,
@@ -378,7 +379,7 @@ committed fixtures:
 | 14 | `not_stated` (×7) | membership check, fires on 0 examples | yes — but see the next paragraph for its 2 `no_candidates` short-circuits |
 | 16 | none (every category gated) | none | yes, `exempt=None` |
 | 18 | `no_match` (×12) | membership check, fires on 0 examples | yes |
-| 19 | none (gate first) | none | yes, `exempt=None` |
+| 19 | — | the model choosing `unknown` outright (×3 on `test`, ×2 on `validation`) | **no** |
 | 21 | — | the model choosing `needs_review` outright (×3); 22 of 38 scored examples are also settled with no model call at all | **no** |
 | 22 | `no_match` (×5) | membership check, fires on 0 examples | yes — but see the next paragraph for its 4 `no_candidate_resolution` short-circuits |
 | 23 | agreed `insufficient_evidence` (×8) | `judge_pair`'s "orders disagree" branch (×9) | **no** |
@@ -386,12 +387,13 @@ committed fixtures:
 For 11, 13, 14, 18 and 22, the single mask is exact *because* each rule's defensive membership
 check never actually fires on its committed fixtures — not because `exempt` can express a
 membership check in general; a future fixture that does trip one would need its own accounting.
-Recipes **21** and **23** unconditionally *reject* some examples regardless of confidence (the
-model naming `needs_review` outright in 21; `judge_pair`'s disagreement check in 23, which runs
-before any confidence is read) — there is no single `exempt`-shaped argument for "always sent to
-review no matter how confident", so neither recipe's curve is expressible here yet. Recipe 21 is
-one of the three recipes whose review asked for this function in the first place; it still cannot
-use it.
+Recipes **19**, **21** and **23** unconditionally *reject* some examples regardless of confidence
+(the model naming `unknown` outright in 19 — a deferral under CONTRIBUTING.md section 4 part (a),
+"Coverage counts delivered answers" above — `needs_review` outright in 21; `judge_pair`'s
+disagreement check in 23, which runs before any confidence is read) — there is no single
+`exempt`-shaped argument for "always sent to review no matter how confident", so none of the
+three recipes' curves is expressible here yet. Recipe 21 is one of the three recipes whose review
+asked for this function in the first place; it still cannot use it.
 
 **Examples with no confidence to report.** `confidences` is required for every example passed in,
 `exempt` included, and every value is validated to `[0, 1]` — but some examples never go through a
@@ -414,9 +416,11 @@ reapplies an already-frozen threshold rather than deriving one, so a disclosed s
 example that never had a confidence to report may be handed to it. Recipe 14 is the shipped case:
 `t17` never reaches a question (no candidate span), so `confidence_only = [1.0 if a is None else
 a.confidence for a in test_answers]` stands in `1.0`, the top of the scale, specifically so that
-it reads as a sure thing and is never the reason anything is excluded from `evaluate_selective`'s
-gate — the opposite choice, `0.0`, would instead make the stand-in itself decide whether the
-example clears the gate, exactly the sentinel behaviour this rule forbids. Disclosure alone is
+it reads as a sure thing and matches what `select_span` itself did with `t17` (accepted): the
+stand-in is never the reason anything is excluded from `evaluate_selective`'s gate. The opposite
+choice, `0.0`, would instead make the counterfactual abstain on an example the rule actually
+answered — deciding the outcome rather than standing in for a missing input, the sentinel
+behaviour this rule forbids. Disclosure alone is
 not enough: the notebook also quantifies what the stand-in costs, printing the gated view's
 coverage over all 21 test documents (9 of them, `0.4286`) beside the narrower, 20-document
 denominator a confidence gate could actually have applied to — the documents really asked a
