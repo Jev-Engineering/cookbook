@@ -75,6 +75,7 @@ def test_it_creates_the_folder_named_by_the_catalog(catalog, recipes):
         "helpers.py",
         "build_fixtures.py",
         "tests/test_helpers.py",
+        "tests/test_build_fixtures.py",
     }
 
 
@@ -114,7 +115,11 @@ def test_the_example_wording_is_replaced_by_marked_placeholders(catalog, recipes
     for path in folder.rglob("*"):
         if path.is_file():
             text = path.read_text("utf-8")
-            assert "TODO" in text, path.name
+            # tests/test_build_fixtures.py is emitted complete: it already works against a
+            # correct build_fixtures.py, with nothing left for the builder to fill in, so unlike
+            # every other scaffolded file it carries no TODO.
+            if path.name != "test_build_fixtures.py":
+                assert "TODO" in text, path.name
             for example_word in ("support message", "billing-team", "human_review", "T-1001"):
                 assert example_word not in text, (path.name, example_word)
 
@@ -292,6 +297,9 @@ def test_a_scripted_scaffold_runs_from_the_scaffold_to_a_byte_identical_notebook
     folder = scaffold_scripted(catalog, recipes)
     scaffold_only = {p.name for p in folder.iterdir()}
     assert "fixtures" not in scaffold_only or not any((folder / "fixtures").iterdir())
+    # A scripted recipe has no responses.json and no --force/refusal logic for the guard tests
+    # to exercise, so the scaffolder does not emit tests/test_build_fixtures.py for it.
+    assert {p.name for p in (folder / "tests").iterdir()} == {"test_helpers.py"}
     subprocess.run([sys.executable, str(folder / "build_fixtures.py")], check=True, cwd=recipes)
     fixtures = folder / "fixtures"
     assert {p.name for p in fixtures.iterdir()} == {"inputs.jsonl", "labels.jsonl"}
@@ -979,3 +987,63 @@ def test_build_fixtures_writes_responses_byte_identical_to_the_recorders_writer(
     module = load_module_at(script, "scaffolded_build_fixtures_for_test")
     assert len(module.ROWS) > 1
     assert raw == _dump(module.build_responses(module.ROWS))
+
+
+# The install command the `Notebook (<recipe>)` job in .github/workflows/notebooks.yml runs, and
+# the one docs/recipe-template.md step 6 documents as reproducing committed outputs byte for
+# byte: one wording everywhere (issue #137). ".[dev,ml]" is the old, no longer accurate wording.
+INSTALL_LINE = 'pip install -e ".[ml]" -c .github/constraints-notebooks.txt'
+
+
+def test_the_scaffold_install_line_matches_ci_and_the_docs(catalog, recipes):
+    workflow = (REPO / ".github" / "workflows" / "notebooks.yml").read_text("utf-8")
+    assert INSTALL_LINE in workflow, "the Notebook job's install line moved; update INSTALL_LINE"
+    docs = (REPO / "docs" / "recipe-template.md").read_text("utf-8")
+    assert INSTALL_LINE in docs
+    _, recipe = entry(catalog, 1)
+    run(1, catalog, recipes)
+    readme = (recipes / recipe["slug"] / "README.md").read_text("utf-8")
+    assert INSTALL_LINE in readme
+    assert '".[dev,ml]"' not in readme
+
+
+def test_the_scaffold_readme_has_pull_request_rules_matching_contributing(catalog, recipes):
+    _, recipe = entry(catalog, 1)
+    run(1, catalog, recipes)
+    readme = (recipes / recipe["slug"] / "README.md").read_text("utf-8")
+    assert "## Pull request rules" in readme
+    section = readme.split("## Pull request rules")[1].split("## Sources")[0]
+    # The generated-README exception (CONTRIBUTING.md): the integration worker regenerates the
+    # root README inside the same recipe pull request, not in a separate one and not "never".
+    assert "inside this same pull request" in section
+    assert "never by this recipe's own pull request" not in section
+    assert f"recipes/{recipe['slug']}/" in section
+    assert "CONTRIBUTING.md" in section
+
+
+def test_the_scaffold_emits_the_build_fixtures_guard_tests_for_replay(catalog, recipes):
+    _, recipe = entry(catalog, 1)
+    run(1, catalog, recipes)
+    tests = (recipes / recipe["slug"] / "tests" / "test_build_fixtures.py").read_text("utf-8")
+    for name in (
+        "def test_the_committed_responses_are_byte_identical_to_the_recorders_writer",
+        "def test_build_fixtures_separates_inputs_labels_from_responses",
+        "def test_the_generator_reproduces_the_committed_fixtures",
+    ):
+        assert name in tests
+    # The refusal test also proves inputs.jsonl/labels.jsonl are regenerated from ROWS during a
+    # refused run, not merely left untouched (#137 comment 6071431315).
+    assert 'inputs_path.write_bytes(b"corrupted")' in tests
+    assert "build_inputs_and_labels(module.ROWS)" in tests
+
+
+def test_the_scaffolded_build_fixtures_test_file_passes_against_a_filled_in_recipe(
+    catalog, recipes
+):
+    """The emitted tests/test_build_fixtures.py must not just exist: once a builder has filled
+    in helpers.py and build_fixtures.py and run it, the emitted file actually passes."""
+    folder = scaffold_replay_with_build_script(catalog, recipes, number=8)
+    subprocess.run([sys.executable, str(folder / "build_fixtures.py")], check=True, cwd=recipes)
+    result = run_generated_tests(folder)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "passed" in result.stdout and "failed" not in result.stdout
