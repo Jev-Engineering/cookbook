@@ -115,8 +115,11 @@ examples, freezes it, and reports on `test` ([evaluation.md](evaluation.md),
 The fraction of scored examples whose answer exactly matches its [gold label](#gold-label): for a
 `Choice`, `choice == gold`; for a rule's own outcome, whatever the rule treats as a match.
 Computed by `accuracy(gold, predicted)` in `jev_cookbook.evaluation`
-([evaluation.md](evaluation.md)). Reported after a threshold is chosen and frozen, never used to
-choose one.
+([evaluation.md](evaluation.md)). Accuracy on `validation` is a selection step, not a reported
+result: it is exactly how `select_confidence_threshold` chooses a [threshold](#threshold)
+(`target_accuracy` and `min_coverage` are both accuracy-based), so a `validation` accuracy prints
+under the selection label alongside any other `validation` number. Accuracy on `test`, with the
+threshold already frozen, is the reported result, and is never itself used to choose anything.
 
 ## replay key
 

@@ -369,8 +369,8 @@ updating against current `main` and running `tools/render_catalog.py`; it is nev
 a separate pull request, and this recipe's own builder never runs the renderer. Until that
 integration step has run, `Catalog (README is current)` is expected to be red on this pull
 request, which is not a defect to fix here. No sentence anywhere in this folder states or implies
-Jev's real quality, latency, or cost unless it comes from recorded live inference, stated with
-the model, the capture date and N (see the {TODO_MARK} markers above). The full contract is
+Jev's real quality, latency, or cost: every number above is a synthetic pipeline check (see the
+{TODO_MARK} markers above). The full contract is
 [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ## Sources

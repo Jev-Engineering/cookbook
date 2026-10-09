@@ -211,3 +211,10 @@ The full contract is [CONTRIBUTING.md](../../CONTRIBUTING.md); in short:
   probability rescaled by the number of options, `(p_max - 1/n) / (1 - 1/n)` (see
   [the confidence page](https://docs.typesafe.ai/confidence)); it is not the raw top probability.
 - A fixture miss is an error (`ReplayMiss`); nothing invents an answer to keep a notebook running.
+- **Python's part:** a low-confidence fallback option (`none` here; `unclear_request` or
+  `no_match` elsewhere) may be delivered as a final result only when choosing it has no side
+  effect — nothing is routed, answered or moved, so there is nothing left for a confidence gate
+  to protect. This template instead sends `none` to `human_review` like every other unconfident
+  case, but a recipe whose fallback itself triggers a side effect must still put it through the
+  same confidence gate as any other option before that side effect runs; the option's name is
+  not an exemption. [docs/recipe-template.md](../../docs/recipe-template.md) states the rule.

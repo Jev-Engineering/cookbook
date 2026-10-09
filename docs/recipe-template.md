@@ -56,6 +56,31 @@ measured**, **Next steps**. A recipe keeps these headings.
   there is no more stable target in the generated README to link to instead. A folder link 404s
   on GitHub until that recipe's `notebook.ipynb` is committed; that is expected, not a defect to
   fix by removing the link or waiting to add it.
+- **Every validation number in an offline run carries both labels, `{selection}{check}`.**
+  CONTRIBUTING.md section 2 requires the pipeline-check disclosure beside every synthetic or
+  scripted number, and separately requires the selection-step label on every `validation` number
+  in every run mode; in a synthetic or scripted run a `validation` number needs both, so it
+  prints `{selection}{check}`, never `{selection}` alone.
+  `tests/test_template.py::test_every_metric_line_of_the_evaluation_carries_the_pipeline_check_label`
+  enforces this for the template. Recipes 01, 03, 04, 05 and 07 print `{selection}` only on their
+  validation lines, which under-states the pipeline-check disclosure on a synthetic run; bringing
+  them in line with this convention is a recipe-side follow-up, not done by any foundation issue.
+- **The foreign-option membership check is defensive, not required.** A backend's `_check_fits`
+  already rejects an answer whose `choice` is outside the question's own option set at the
+  boundary, before any rule sees it (see [backends.md](backends.md)). The template's `route`
+  keeps an explicit `not in QUEUES` branch anyway, with its own review reason, because naming the
+  boundary for a reader is worth the one extra branch; a rule that instead indexes a dict of
+  known options directly (`QUEUES[answer.choice]`) and lets an impossible case raise `KeyError`
+  is relying on the same backend guarantee, not skipping a required step. Either layer owning the
+  check is acceptable.
+- **A low-confidence fallback option may be a final result only when it has no side effect.**
+  CONTRIBUTING.md section 4 requires an uncertain or inconsistent result to go to an explicit
+  review outcome. A fallback option such as `none`, `unclear_request` or `no_match` can satisfy
+  that requirement by itself, with no further confidence gate, exactly when choosing it routes
+  nothing, answers nothing and moves nothing: the "result" is that nothing happened, which needs
+  no gate because there is nothing left to protect. A fallback that itself triggers a side effect
+  (sends a message, closes a ticket, writes a record) is not exempt on the strength of its name:
+  it goes through the same confidence gate as every other option before that side effect runs.
 
 ## How `load_helpers` works
 

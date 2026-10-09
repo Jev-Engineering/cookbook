@@ -76,6 +76,34 @@ def test_the_notebook_sections_are_the_scaffolders_sections():
     assert headings == scaffolder.SECTIONS
 
 
+def test_the_scaffolded_build_fixtures_test_stays_in_step_with_the_template(tmp_path):
+    """recipes/_template/tests/test_build_fixtures.py's own docstring promises that every
+    scaffolded replay recipe gets a copy of it, kept in step with
+    tools/new_recipe.py's build_fixtures_test_text. Prove it rather than assert it: substitute
+    the template's own placeholders ("_template" the folder name, "template_build_fixtures_for_
+    test" the module name) for a recipe's slug and module name, and the result must equal what
+    the scaffolder actually emits for that recipe byte for byte, with the one intentional
+    difference (the module docstring: the template's talks about every recipe getting a copy of
+    it, which a scaffolded copy does not need to say about itself) substituted out first."""
+    new_recipe = load_tool("new_recipe.py")
+    catalog = json.loads((REPO / "catalog" / "recipes.json").read_text("utf-8"))
+    recipe = next(r for r in catalog["recipes"] if r["rank"] == 9)
+    template_text = (TEMPLATE / "tests" / "test_build_fixtures.py").read_text("utf-8")
+    scaffolded = new_recipe.build_fixtures_test_text(recipe)
+
+    template_docstring = template_text.split('"""', 2)[1]
+    scaffolded_docstring = scaffolded.split('"""', 2)[1]
+    assert template_docstring != scaffolded_docstring  # the one difference this test allows
+
+    module_name = f"recipe{recipe['rank']:02d}_build_fixtures_for_test"
+    expected = (
+        template_text.replace("_template", recipe["slug"])
+        .replace("template_build_fixtures_for_test", module_name)
+        .replace(template_docstring, scaffolded_docstring)
+    )
+    assert scaffolded == expected
+
+
 def test_the_notebook_is_executed_and_has_no_error_output():
     code = [c for c in NOTEBOOK["cells"] if c["cell_type"] == "code"]
     assert code and all(c["execution_count"] for c in code)
