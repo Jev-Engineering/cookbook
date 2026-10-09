@@ -1,4 +1,28 @@
 {
+  "1304eb83180071bbaeb456b5a2bbab01c97e73115a69b95e0b316bbe774f1d6b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "equipment",
+        "probabilities": {
+          "animal": 0.1,
+          "equipment": 0.85,
+          "unclear": 0.05
+        },
+        "confidence": 0.7749999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
   "1382dc46609c5d950180b686711c5a0add7da07eaf41e36d2d5d74838a8e942b": {
     "model": "synthetic",
     "usage": {
@@ -423,6 +447,30 @@
           "unclear": 0.07
         },
         "confidence": 0.8049999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5e9bdaa4afd5787fed9b07d6fd0de0fbeef279d930137f5e8e588fcd0879ae85": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sense": {
+        "type": "choice",
+        "choice": "season",
+        "probabilities": {
+          "season": 0.4,
+          "coil": 0.36,
+          "unclear": 0.24
+        },
+        "confidence": 0.10000000000000005,
         "provenance": {
           "source": "synthetic",
           "model": null,

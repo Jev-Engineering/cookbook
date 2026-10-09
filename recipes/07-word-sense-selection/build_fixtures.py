@@ -4,20 +4,25 @@
     python build_fixtures.py --force  # also overwrite a responses.json holding a recorded answer
 
 Every response is synthetic (written by hand as probabilities, not produced by a model) and
-deliberately imperfect: for each of the four target words, one `validation` example is wrong at
-a moderate confidence (the stored answer leans toward the other sense), and one `test` example is
-wrong at a LOW confidence so it is caught by the frozen threshold, while `t05-crane-wrong` (the
-crane wading through a marsh) is wrong *and* confident, well above the threshold this recipe's
-notebook freezes on validation -- so the notebook's selective-prediction numbers show a real,
-non-zero risk on test rather than a guarantee that happens to hold. Several `test` examples are
-also right but at low confidence, so a correct answer can still be sent to review. The hard case
-the issue names, a sentence whose context is too thin to tell two senses apart, appears twice:
-once as a `demo` example (`d01-bank-thin`) and once scored (`t04-crane-thin`); both are close to
-an even split across the word's two senses and `unclear`, and `unclear` is the top option in both,
-so the rule sends them to review for that reason rather than for low confidence alone. The replay
-keys come from the same `build_state` and `build_questions` the notebook uses, via `helpers.py`;
-because the option list depends on the target word, each row's key is computed from that word's
-own question.
+deliberately imperfect. For each of the four target words, one `validation` example is wrong at
+a moderate confidence (the stored answer leans toward the other sense). On `test`, only `crane`
+carries a wrong stored answer, and it carries two: `t04-crane-thin` answers `unclear` at a low
+confidence (so `resolve` sends it to review for choosing `unclear`, not for its confidence, and
+it is caught regardless of where the threshold ends up), and `t05-crane-wrong` is wrong *and*
+confident, well above the threshold this recipe's notebook freezes on validation -- so the
+notebook's selective-prediction numbers show a real, non-zero risk on test rather than a
+guarantee that happens to hold. `bank`, `spring` and `bat` each carry one `test` example that is
+right but at a low confidence, so a correct answer can still be sent to review (for its
+confidence, this time). The hard case the issue names, a sentence whose context is too thin to
+tell two senses apart, appears twice, close to an even split across the word's two senses and
+`unclear` with `unclear` on top: as a `demo` example (`d01-bank-thin`) and once scored
+(`t04-crane-thin`). Two more `demo` examples exist only so the notebook's up-close section never
+has to reach into a scored split: `d03-spring-low` names a real sense at a low confidence
+(correct, like the three `test` examples above, demonstrating the "confidence below the
+threshold" review reason on its own, without also choosing `unclear`), and `d04-bat-wrong` is
+wrong and confident, the same shape as `t05-crane-wrong`. The replay keys come from the same
+`build_state` and `build_questions` the notebook uses, via `helpers.py`; because the option list
+depends on the target word, each row's key is computed from that word's own question.
 """
 
 import argparse
@@ -152,13 +157,20 @@ ROWS = [
     ("t04-bat-low", "test", "S138", "bat",
      "There was a bat near the old barn at dusk.",
      "animal", (0.45, 0.40, 0.15)),
-    # --- demo: 2 examples, shown but never scored ---------------------------------------------
+    # --- demo: 4 examples, shown but never scored ----------------------------------------------
     ("d01-bank-thin", "demo", "S139", "bank",
      "Everyone was talking about the bank this week.",
      None, (0.33, 0.30, 0.37)),
     ("d02-crane-machine", "demo", "S140", "crane",
      "The crane lifted the steel beam onto the fifth floor without a sound.",
      None, (0.92, 0.04, 0.04)),
+    ("d03-spring-low", "demo", "S141", "spring",
+     "Something about the spring felt different this time.",
+     None, (0.40, 0.36, 0.24)),
+    ("d04-bat-wrong", "demo", "S142", "bat",
+     "The bat glided silently between the trees, swooping low to snatch an insect before "
+     "vanishing into the dark.",
+     None, (0.10, 0.85, 0.05)),
 ]  # fmt: skip
 
 

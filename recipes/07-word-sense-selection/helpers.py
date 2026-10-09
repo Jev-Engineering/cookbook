@@ -108,16 +108,20 @@ class Resolution:
 def resolve(sentence_id: str, word: str, answer: Any, min_confidence: float) -> Resolution:
     """Accept the chosen sense only when it is a real sense of ``word`` and confident enough.
 
-    Two things send a sentence to an explicit ``review`` outcome instead of a reported result:
+    Three things send a sentence to an explicit ``review`` outcome instead of a reported result:
     choosing ``unclear`` (whatever its confidence: a model that says "I can't tell" should never
-    be overridden into picking a side because it happened to sound sure of "unclear" itself), and
-    confidence below ``min_confidence`` for an answer that did name a real sense. The rule is
-    code, so it holds whatever the model answers.
+    be overridden into picking a side because it happened to sound sure of "unclear" itself),
+    choosing anything else that is not one of ``word``'s own senses (defensive: the criteria
+    ``build_questions`` asks with never offer such an option, but the rule does not trust that
+    silently), and confidence below ``min_confidence`` for an answer that did name a real sense.
+    The rule is code, so it holds whatever the model answers.
     """
     if not 0.0 <= min_confidence <= 1.0:
         raise ValueError(f"min_confidence must be between 0 and 1, got {min_confidence!r}")
     if answer.choice == UNCLEAR:
         return Resolution(sentence_id, word, answer.choice, REVIEW, "chose unclear")
+    if answer.choice not in SENSE_INVENTORY[word]:
+        return Resolution(sentence_id, word, answer.choice, REVIEW, "not a sense of this word")
     if answer.confidence < min_confidence:
         return Resolution(
             sentence_id, word, answer.choice, REVIEW, "confidence below the threshold"

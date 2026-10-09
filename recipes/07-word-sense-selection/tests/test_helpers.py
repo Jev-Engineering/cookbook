@@ -45,6 +45,14 @@ def confident_unclear(word):
     return answer(word, probabilities)
 
 
+def confident_foreign(word):
+    """A confident answer naming an option that is not one of ``word``'s own senses and is not
+    ``unclear`` either -- a sense `resolve` must still reject, even though the criteria
+    `build_questions` actually asks with never offer such an option (see `resolve`'s docstring:
+    the check is defensive, not reachable through replay or live)."""
+    return answer(word, {"not_a_real_sense_of_this_word": 0.90, "also_not_one": 0.10})
+
+
 def test_each_words_options_are_its_senses_plus_unclear():
     for word in WORDS:
         questions = helpers.build_questions(word)
@@ -92,6 +100,17 @@ def test_choosing_unclear_goes_to_review_even_when_confident(word):
     result = helpers.resolve("E1", word, a, 0.0)
     assert result.outcome == helpers.REVIEW
     assert result.reason == "chose unclear"
+
+
+@pytest.mark.parametrize("word", WORDS)
+def test_choosing_a_sense_outside_the_word_goes_to_review_even_when_confident(word):
+    a = confident_foreign(word)
+    assert a.choice not in helpers.SENSE_INVENTORY[word]
+    assert a.choice != helpers.UNCLEAR
+    assert a.confidence >= 0.8
+    result = helpers.resolve("E1", word, a, 0.0)
+    assert result.outcome == helpers.REVIEW
+    assert result.reason == "not a sense of this word"
 
 
 def test_the_threshold_is_inclusive():

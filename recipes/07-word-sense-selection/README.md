@@ -11,11 +11,13 @@ each of four ambiguous words (`bank`, `crane`, `spring`, `bat`): one of that wor
 a shared `unclear` fallback for a sentence whose context does not decide between them. Python owns
 everything else: the state Jev sees, the identifier that never reaches the model, and the rule that
 accepts a sense only when it is a real sense of that word *and* its `confidence` clears a threshold
-chosen on `validation` and then frozen. Choosing `unclear`, whatever its confidence, always goes to
-an explicit `review` outcome instead of being reported as a result. The notebook shows three typed
-answers up close (a sentence too thin to decide a sense, a clear one, and one the stored answer
-gets wrong and confident), then the rule, then an evaluation that reports accuracy overall and per
-target word, and the coverage, accuracy and risk the frozen threshold buys on `test`.
+chosen on `validation` and then frozen. Choosing `unclear`, or anything that is not one of the
+word's own senses, always goes to an explicit `review` outcome instead of being reported as a
+result, whatever its confidence. The notebook shows three typed answers up close, all `demo`
+examples never reached into by the evaluation (a sentence too thin to decide a sense, a clear one,
+and one the stored answer gets wrong and confident), then the rule, then an evaluation that reports
+accuracy overall and per target word, and the coverage, accuracy and risk the frozen rule buys on
+`test`.
 
 ## Run it offline
 
@@ -43,9 +45,9 @@ of this repository), or record answers with the recorder described in
 and always runs offline. The live backend's default request budget is 25
 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)); every attempt counts
 against that budget, including each retry. In live mode this notebook makes exactly one call for
-each of the 40 examples in `fixtures/`, and no other (each sentence is decided once and the stored
+each of the 42 examples in `fixtures/`, and no other (each sentence is decided once and the stored
 answer is reused wherever it is shown again). That is more than the live backend's default request
-budget of 25, so set `JEV_COOKBOOK_LIVE_MAX_REQUESTS=40` or higher before running this notebook
+budget of 25, so set `JEV_COOKBOOK_LIVE_MAX_REQUESTS=42` or higher before running this notebook
 live, or it stops partway through with `BudgetExceeded`. Never put a key in a notebook, a fixture,
 or any other committed file.
 
@@ -54,16 +56,19 @@ or any other committed file.
 - **Mode:** synthetic (offline replay of hand-written answers). Not measured live.
 - **Model, capture date:** not applicable; no answer came from a model. A recorded recipe names the
   model the API returned and the date or dates the answers were captured.
-- **N:** 19 `validation` and 19 `test` examples are scored (40 in the fixtures; the 2 `demo`
+- **N:** 19 `validation` and 19 `test` examples are scored (42 in the fixtures; the 4 `demo`
   examples are shown in the notebook but never scored).
 
-The committed run replays 40 invented sentences about four ambiguous words with hand-written
+The committed run replays 42 invented sentences about four ambiguous words with hand-written
 (synthetic) answers, some wrong on purpose: one per word is wrong at a moderate confidence on
-`validation`, and on `test` one sentence about `crane` is wrong at a low confidence (caught by the
-frozen threshold) and another, `t05-crane-wrong`, is wrong *and* confident (not caught). Its
-accuracy, overall and per target word, and the coverage, accuracy and risk of the frozen confidence
-threshold check that the pipeline works; they say nothing about how Jev performs, how fast it is,
-or what it costs. This recipe has no recorded fixtures.
+`validation`. On `test`, only `crane` carries a wrong stored answer, and it carries two:
+`t04-crane-thin` answers `unclear` at a low confidence (caught because it chose `unclear`, not
+because of its confidence) and `t05-crane-wrong` is wrong *and* confident (not caught by the
+threshold at all). `bank`, `spring` and `bat` each carry one `test` example that is right but at a
+low confidence, caught by the threshold despite being correct. Its accuracy, overall and per target
+word, and the coverage, accuracy and risk of the frozen rule check that the pipeline works; they
+say nothing about how Jev performs, how fast it is, or what it costs. This recipe has no recorded
+fixtures.
 
 ## Pull request rules
 
