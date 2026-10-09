@@ -39,15 +39,15 @@ _CRITERIA = {
 }
 
 # Three outcomes, not two. CONTRIBUTING.md section 4: "Uncertain or inconsistent results go to
-# an explicit review outcome." A Noul has no `confidence` field, but TypeSafe's confidence page
-# (S03) gives the certainty reading for one anyway: distance from an even split, |2p - 1| (the
-# Choice confidence formula applied to a yes/no Choice), which `jev_cookbook.evaluation.noul_confidence`
-# computes. A message whose certainty does not clear `min_confidence` goes to REVIEW regardless
-# of which side of `threshold` its probability sits on, matching the three-path pattern
-# (TypeSafe's own Noul documentation: act above a high cut-off, act below a low one, and route
-# the mid-range to human review). Only a message that clears both the certainty gate and the
-# business threshold is FLAGGED for the refund workflow; one that clears the certainty gate but
-# not the threshold is NOT_FLAGGED, confidently.
+# an explicit review outcome." A Noul has no `confidence` field in the API response, but
+# `jev_cookbook.evaluation.noul_confidence` computes one anyway: the Choice confidence formula
+# applied to a yes/no Choice, `|2p - 1|`, on the same 0-1 scale as Choice and Score confidence
+# (docs/evaluation.md, "Noul three-path pattern", S03). A message whose confidence does not
+# clear `min_confidence` goes to REVIEW regardless of which side of `threshold` its probability
+# sits on, matching that three-path pattern (TypeSafe's own Noul documentation: act above a high
+# cut-off, act below a low one, and route the mid-range to human review). Only a message that
+# clears both the confidence gate and the business threshold is FLAGGED for the refund workflow;
+# one that clears the confidence gate but not the threshold is NOT_FLAGGED, confidently.
 FLAGGED = "flagged"
 REVIEW = "review"
 NOT_FLAGGED = "not_flagged"
@@ -86,7 +86,7 @@ class RefundRoute:
 def route(ticket_id: str, answer: Any, threshold: float, min_confidence: float) -> RefundRoute:
     """Decide one of three outcomes for a message, in this order: review, then flag, then nothing.
 
-    ``min_confidence`` gates on certainty (``noul_confidence``, distance from an even split),
+    ``min_confidence`` gates on confidence (``noul_confidence``, distance from an even split),
     independently of which way the probability leans: a message too close to 0.5 to trust either
     way goes to ``REVIEW``, whatever its probability is. Only once a message clears that gate
     does ``threshold`` decide the business action: ``FLAGGED`` when the probability is at or
@@ -99,8 +99,8 @@ def route(ticket_id: str, answer: Any, threshold: float, min_confidence: float) 
     if not 0.0 <= min_confidence <= 1.0:
         raise ValueError(f"min_confidence must be between 0 and 1, got {min_confidence!r}")
     would_flag = answer.noul >= threshold
-    certainty = noul_confidence([answer.noul])[0]
-    if certainty < min_confidence:
+    confidence = noul_confidence([answer.noul])[0]
+    if confidence < min_confidence:
         return RefundRoute(
             ticket_id,
             REVIEW,

@@ -1,11 +1,12 @@
 """Tests for recipe 02's helpers. They load the helpers by file path.
 
-A Noul's certainty (``jev_cookbook.evaluation.noul_confidence``) is being corrected under
-foundation issue #140 (``max(p, 1-p)`` today; ``|2p - 1|`` once it lands), so these tests never
-hardcode a certainty value for a probability near 0.5: they call ``noul_confidence`` themselves
-and set ``min_confidence`` relative to what it returns, so they hold under either formula. Tests
-that only need a *far-from-0.5* probability (certainty close to 1 under both formulas) use plain
-numbers instead, since the two formulas agree there.
+A Noul's confidence (``jev_cookbook.evaluation.noul_confidence``) is ``|2p - 1|``, the same
+Choice confidence formula applied to a yes/no Choice (docs/evaluation.md, "Noul three-path
+pattern", S03). Tests that need a value near 0.5 still call ``noul_confidence`` themselves and
+set ``min_confidence`` relative to what it returns, rather than hardcoding the number, so they
+stay correct if the formula's exact value is ever revisited again. Tests that only need a
+*far-from-0.5* probability (confidence close to 1) use plain numbers instead, since no
+plausible formula revision would move those.
 """
 
 from pathlib import Path
@@ -24,7 +25,7 @@ def answer(noul):
     return NoulAnswer(noul, Provenance.synthetic())
 
 
-def certainty_of(noul):
+def confidence_of(noul):
     return noul_confidence([noul])[0]
 
 
@@ -38,8 +39,7 @@ def test_questions_are_built_by_python():
 
 
 # min_confidence=0.1 is low enough that a far-from-0.5 noul (0.0, 0.1, 0.9, 1.0) clears the
-# certainty gate under either the current or the corrected formula, so these two tests exercise
-# only the business threshold, not the certainty gate.
+# confidence gate, so these two tests exercise only the business threshold, not the gate.
 
 
 @pytest.mark.parametrize("noul", [0.80, 0.85, 0.93, 1.0])
@@ -70,29 +70,28 @@ def test_the_business_threshold_is_inclusive():
 
 
 @pytest.mark.parametrize("noul", [0.48, 0.5, 0.52])
-def test_low_certainty_goes_to_review_whichever_side_it_leans(noul):
-    # Set min_confidence just above this noul's own certainty, under whichever formula is
-    # active, so the gate fires regardless of #140's status.
+def test_low_confidence_goes_to_review_whichever_side_it_leans(noul):
+    # Set min_confidence just above this noul's own confidence, computed rather than hardcoded.
     result = helpers.route(
-        "RF1", answer(noul), threshold=0.80, min_confidence=certainty_of(noul) + 0.01
+        "RF1", answer(noul), threshold=0.80, min_confidence=confidence_of(noul) + 0.01
     )
     assert result.outcome == helpers.REVIEW
     # would_flag still reports what the business threshold alone would have decided.
     assert result.would_flag == (noul >= 0.80)
 
 
-def test_the_certainty_gate_is_inclusive():
+def test_the_confidence_gate_is_inclusive():
     noul = 0.9
-    exact = helpers.route("RF1", answer(noul), threshold=0.80, min_confidence=certainty_of(noul))
+    exact = helpers.route("RF1", answer(noul), threshold=0.80, min_confidence=confidence_of(noul))
     just_above = helpers.route(
-        "RF1", answer(noul), threshold=0.80, min_confidence=certainty_of(noul) + 1e-9
+        "RF1", answer(noul), threshold=0.80, min_confidence=confidence_of(noul) + 1e-9
     )
-    assert exact.outcome == helpers.FLAGGED  # certainty == min_confidence clears the gate
+    assert exact.outcome == helpers.FLAGGED  # confidence == min_confidence clears the gate
     assert just_above.outcome == helpers.REVIEW
 
 
-def test_a_high_certainty_wrong_leaning_message_is_still_flagged_not_reviewed():
-    # The certainty gate protects against genuine ambiguity (noul near 0.5), not against a
+def test_a_high_confidence_wrong_leaning_message_is_still_flagged_not_reviewed():
+    # The confidence gate protects against genuine ambiguity (noul near 0.5), not against a
     # confidently wrong answer (noul far from 0.5 on the "wrong" side of the gold label): it has
     # no way to tell the two apart, which is the point this test pins.
     noul = 0.95

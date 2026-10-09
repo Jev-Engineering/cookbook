@@ -8,17 +8,17 @@ Judge whether a customer message explicitly requests a refund so Python can flag
 
 Jev answers one narrow `Noul` proposition over a customer message: does it explicitly ask for a
 refund? A `Noul` answer is a bare probability with no separate confidence field in the API
-response, but a Noul's certainty is still defined (distance from an even split, `|2p - 1|`) and
+response, but a Noul's confidence is still defined (distance from an even split, `|2p - 1|`) and
 the shared toolkit computes it. Python uses two things chosen on `validation` and then frozen:
-a business threshold on the probability (`select_threshold`) and a certainty threshold on that
+a business threshold on the probability (`select_threshold`) and a confidence threshold on that
 distance (`select_confidence_threshold`). A message too close to an even split goes to an
 explicit review outcome, whichever way it leans; a message clear enough is flagged (and queued,
 with `jev_cookbook.simulation.ReviewQueue`, for the refund workflow) or left alone, by the
-business threshold alone. The notebook shows three typed answers up close (a clear request, a
-policy question that only mentions refunds, and a message the thresholds get wrong on purpose),
-then the rule and the queue it builds, then an evaluation that reports precision and recall
-across the full threshold sweep and the real, non-zero coverage, accuracy and risk the frozen
-certainty gate carries on `test`.
+business threshold alone. The notebook shows four typed answers up close (a clear request, a
+policy question that only mentions refunds, a message the thresholds get wrong on purpose, and
+one genuinely ambiguous enough to land in review), then the rule and the queue it builds, then
+an evaluation that reports precision and recall across the full threshold sweep and the real,
+non-zero coverage, accuracy and risk the frozen confidence gate carries on `test`.
 
 ## Run it offline
 
@@ -65,9 +65,9 @@ it reports, here and in the notebook.
 
 The committed run replays 48 invented customer messages with hand-written (synthetic)
 probabilities, two of them wrong on purpose (one on each split): a message that raises a refund
-only to decline it, stored far enough from an even split that the certainty gate does not catch
+only to decline it, stored far enough from an even split that the confidence gate does not catch
 it, and above the frozen business threshold. Its precision, recall, and the coverage and risk the
-frozen certainty gate buys check that the pipeline works; they say nothing about how Jev
+frozen confidence gate buys check that the pipeline works; they say nothing about how Jev
 performs, how fast it is, or what it costs. This recipe has no recorded fixtures.
 
 ## Sources

@@ -11,16 +11,16 @@ passing (``-mention``). Two more near misses are included because they come up c
 refund workflows even though the issue does not name them: asking for store credit instead of a
 refund (``-credit``) and a vague future possibility (``-conditional``). Both validation and test
 also carry one message that is wrong *and* confident (``-hard-wrong``): declining a refund in the
-same breath as raising it, stored at a noul far enough from an even split that the certainty gate
+same breath as raising it, stored at a noul far enough from an even split that the confidence gate
 (`helpers.route`'s ``min_confidence``) does not catch it, even though the gold label is false --
 so the frozen rule's numbers show a real, non-zero risk of a wrongly queued message on both
-splits, not a guarantee that happens to hold. The certainty gate exists for a different shape of
+splits, not a guarantee that happens to hold. The confidence gate exists for a different shape of
 case: both splits also carry four genuinely ambiguous messages (``-borderline``), stored within
 0.06 of an even split (0.44-0.59), with gold labels deliberately mixed -- two true, two false, in
 no fixed order relative to noul -- so that a message's probability alone does not reliably say
-which way it should go. Low certainty genuinely correlates with error here (most of the business
+which way it should go. Low confidence genuinely correlates with error here (most of the business
 rule's mistakes other than the confident one above happen inside this cluster), which is what
-lets the certainty gate earn its coverage/accuracy/risk numbers rather than measuring something
+lets the confidence gate earn its coverage/accuracy/risk numbers rather than measuring something
 that never fires. The replay keys come from the same ``build_state`` and ``build_questions`` the
 notebook uses, via ``helpers.py``.
 """
