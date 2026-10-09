@@ -246,7 +246,13 @@ _GENERIC_USERNAMES = frozenset(
     "root runner user users admin administrator ubuntu debian vscode jovyan codespace colab "
     "docker default guest system work build github node pi ec2-user sagemaker "
     # Ordinary words that are also account names: flagging them would reject plain prose.
-    "hello will mark page grant data test demo dev main home public temp owner info mail".split()
+    # "agent" is this container's own account name (the word that motivated this list in the
+    # first place: an agent's own printed output, e.g. "the agent will retry", tripped the
+    # local-username rule on ordinary prose). "task", "worker", "sandbox" and "service" are
+    # the same shape of word in the same family of containers (CI runners, agent sandboxes,
+    # cloud notebook hosts) and are added alongside it for the same reason.
+    "hello will mark page grant data test demo dev main home public temp owner info mail "
+    "agent task worker sandbox service".split()
 )
 _MIN_USERNAME_LENGTH = 4
 

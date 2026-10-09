@@ -323,6 +323,230 @@ def test_multilabel_from_noul():
         ev.multilabel_from_noul(noul, {"x": 0.5})
 
 
+# ---------------------------------------------------------------- Multi-label pooling
+#
+# The reference functions below are copied verbatim (behaviourally) from a multi-label Noul
+# recipe's hand-rolled notebook helpers, so this file imports nothing from a recipe folder.
+# ``pooled_correct_and_confidence`` pools (example, label) decisions into flat correct and
+# confidence arrays; ``tally_outcomes`` tallies the rule's own three-path outcomes. These tests
+# check jev_cookbook.evaluation's shared replacements give identical numbers on the same data.
+
+_POOL_LABELS = ("pricing", "reliability")
+
+
+def _pooled_correct_and_confidence(gold_by_label, noul_by_label, thresholds):
+    correct, confidence = [], []
+    for label in _POOL_LABELS:
+        gold = gold_by_label[label]
+        noul = noul_by_label[label]
+        threshold = thresholds[label]
+        correct.extend((v >= threshold) == g for v, g in zip(noul, gold, strict=True))
+        confidence.extend(ev.noul_confidence(noul))
+    return correct, confidence
+
+
+@dataclass
+class _LabelDecision:
+    tag: bool
+    outcome: str  # "yes", "no", or "uncertain"
+
+
+def _tally_outcomes(example_ids, results, gold_by_id):
+    total = answered = right = 0
+    for e in example_ids:
+        decisions = results[e]
+        gold = gold_by_id[e]
+        for label in _POOL_LABELS:
+            total += 1
+            decision = decisions[label]
+            if decision.outcome == "uncertain":
+                continue
+            answered += 1
+            right += decision.tag == (label in gold)
+    coverage = answered / total
+    accuracy = right / answered if answered else float("nan")
+    return total, answered, coverage, accuracy, 1.0 - accuracy
+
+
+_POOL_IDS = ["e1", "e2", "e3", "e4"]
+_POOL_GOLD_BY_LABEL = {"pricing": [1, 0, 1, 0], "reliability": [0, 1, 1, 0]}
+_POOL_NOUL_BY_LABEL = {
+    "pricing": [0.9, 0.3, 0.6, 0.2],
+    "reliability": [0.4, 0.8, 0.95, 0.1],
+}
+_POOL_THRESHOLDS = {"pricing": 0.5, "reliability": 0.5}
+
+
+def test_pool_label_decisions_matches_the_hand_rolled_pooling_reference():
+    ref_correct, ref_confidence = _pooled_correct_and_confidence(
+        _POOL_GOLD_BY_LABEL, _POOL_NOUL_BY_LABEL, _POOL_THRESHOLDS
+    )
+    correct, confidence, keys = ev.pool_label_decisions(
+        _POOL_IDS, _POOL_LABELS, _POOL_GOLD_BY_LABEL, _POOL_NOUL_BY_LABEL, _POOL_THRESHOLDS
+    )
+    assert correct == ref_correct
+    assert confidence == pytest.approx(ref_confidence)
+    assert len(keys) == len(correct) == len(_POOL_IDS) * len(_POOL_LABELS)
+    # pooled label-major, example-minor: the first len(ids) keys are all the first label
+    assert keys[: len(_POOL_IDS)] == [(i, "pricing") for i in _POOL_IDS]
+    assert keys[len(_POOL_IDS) :] == [(i, "reliability") for i in _POOL_IDS]
+
+
+def test_pool_label_decisions_single_threshold_for_every_label():
+    correct, confidence, _ = ev.pool_label_decisions(
+        _POOL_IDS, _POOL_LABELS, _POOL_GOLD_BY_LABEL, _POOL_NOUL_BY_LABEL, 0.5
+    )
+    ref_correct, ref_confidence = _pooled_correct_and_confidence(
+        _POOL_GOLD_BY_LABEL, _POOL_NOUL_BY_LABEL, _POOL_THRESHOLDS
+    )
+    assert correct == ref_correct
+    assert confidence == pytest.approx(ref_confidence)
+
+
+def test_pool_label_decisions_errors():
+    with pytest.raises(ValueError):
+        ev.pool_label_decisions([], _POOL_LABELS, _POOL_GOLD_BY_LABEL, _POOL_NOUL_BY_LABEL, 0.5)
+    with pytest.raises(ValueError):  # missing label
+        ev.pool_label_decisions(
+            _POOL_IDS, ("pricing", "missing"), _POOL_GOLD_BY_LABEL, _POOL_NOUL_BY_LABEL, 0.5
+        )
+    with pytest.raises(ValueError):  # missing threshold
+        ev.pool_label_decisions(
+            _POOL_IDS, _POOL_LABELS, _POOL_GOLD_BY_LABEL, _POOL_NOUL_BY_LABEL, {"pricing": 0.5}
+        )
+    with pytest.raises(ValueError):  # threshold out of range
+        ev.pool_label_decisions(
+            _POOL_IDS, _POOL_LABELS, _POOL_GOLD_BY_LABEL, _POOL_NOUL_BY_LABEL, 1.5
+        )
+    with pytest.raises(ValueError):  # length mismatch
+        ev.pool_label_decisions(
+            _POOL_IDS[:-1], _POOL_LABELS, _POOL_GOLD_BY_LABEL, _POOL_NOUL_BY_LABEL, 0.5
+        )
+
+
+def _confidence_cutoff_decisions(confidence_cutoff):
+    """The decide_tags-style three-path decisions a confidence-only multi-label rule makes,
+    for every example and label, at a given confidence cutoff."""
+    results = {}
+    for i, e in enumerate(_POOL_IDS):
+        decisions = {}
+        for label in _POOL_LABELS:
+            noul = _POOL_NOUL_BY_LABEL[label][i]
+            tag = noul >= _POOL_THRESHOLDS[label]
+            confidence = ev.noul_confidence([noul])[0]
+            outcome = "uncertain" if confidence < confidence_cutoff else ("yes" if tag else "no")
+            decisions[label] = _LabelDecision(tag, outcome)
+        results[e] = decisions
+    return results
+
+
+_POOL_GOLD_BY_ID = {
+    e: {label for label in _POOL_LABELS if _POOL_GOLD_BY_LABEL[label][i]}
+    for i, e in enumerate(_POOL_IDS)
+}
+
+
+def test_pool_label_outcomes_matches_the_hand_rolled_tally_reference():
+    results = _confidence_cutoff_decisions(confidence_cutoff=0.5)
+    ref = _tally_outcomes(_POOL_IDS, results, _POOL_GOLD_BY_ID)
+
+    accepted_by_label = {
+        label: [results[e][label].outcome != "uncertain" for e in _POOL_IDS]
+        for label in _POOL_LABELS
+    }
+    tag_by_label = {label: [results[e][label].tag for e in _POOL_IDS] for label in _POOL_LABELS}
+    accepted, correct, keys = ev.pool_label_outcomes(
+        _POOL_IDS, _POOL_LABELS, _POOL_GOLD_BY_LABEL, accepted_by_label, tag_by_label
+    )
+    result = ev.evaluate_outcomes(accepted, correct)
+    assert (result.n_total, result.n_answered) == (ref[0], ref[1])
+    assert result.coverage == pytest.approx(ref[2])
+    assert result.accuracy == pytest.approx(ref[3])
+    assert result.risk == pytest.approx(ref[4])
+    assert len(keys) == len(accepted) == len(_POOL_IDS) * len(_POOL_LABELS)
+
+
+def test_pool_label_outcomes_matches_at_a_second_cutoff_with_some_uncertain():
+    # A stricter cutoff sends more (example, label) pairs to "uncertain": re-run the identity
+    # check so the agreement is not a coincidence of one confidence_cutoff.
+    results = _confidence_cutoff_decisions(confidence_cutoff=0.8)
+    ref = _tally_outcomes(_POOL_IDS, results, _POOL_GOLD_BY_ID)
+    assert ref[1] < len(_POOL_IDS) * len(_POOL_LABELS)  # at least one pair is uncertain
+
+    accepted_by_label = {
+        label: [results[e][label].outcome != "uncertain" for e in _POOL_IDS]
+        for label in _POOL_LABELS
+    }
+    tag_by_label = {label: [results[e][label].tag for e in _POOL_IDS] for label in _POOL_LABELS}
+    accepted, correct, _ = ev.pool_label_outcomes(
+        _POOL_IDS, _POOL_LABELS, _POOL_GOLD_BY_LABEL, accepted_by_label, tag_by_label
+    )
+    result = ev.evaluate_outcomes(accepted, correct)
+    assert (result.n_total, result.n_answered) == (ref[0], ref[1])
+    assert result.coverage == pytest.approx(ref[2])
+    assert result.accuracy == pytest.approx(ref[3])
+
+
+def test_pool_label_outcomes_errors():
+    by_label = {label: [True, False] for label in _POOL_LABELS}
+    with pytest.raises(ValueError):
+        ev.pool_label_outcomes([], _POOL_LABELS, by_label, by_label, by_label)
+    with pytest.raises(ValueError):  # missing from one of the three mappings
+        ev.pool_label_outcomes(
+            ["a", "b"], _POOL_LABELS, by_label, {"pricing": [True, False]}, by_label
+        )
+    with pytest.raises(ValueError):  # length mismatch
+        ev.pool_label_outcomes(["a", "b", "c"], _POOL_LABELS, by_label, by_label, by_label)
+
+
+# ---------------------------------------------------------------- Choice with an acceptable set
+_FB_GOLD_SETS = [{"keep"}, {"x"}, {"keep"}, {"x", "keep"}, {"y"}]
+_FB_CHOICES = ["keep", "x", "x", "keep", "y"]
+
+
+def test_set_agreement():
+    # position 0: keep in {keep} yes; 1: x in {x} yes; 2: x in {keep} no; 3: keep in {x,keep}
+    # yes; 4: y in {y} yes -> 4/5
+    assert ev.set_agreement(_FB_GOLD_SETS, _FB_CHOICES) == pytest.approx(4 / 5)
+    assert ev.set_agreement([{"a"}], [ChoiceStub("a")]) == 1.0
+    with pytest.raises(ValueError):
+        ev.set_agreement(["ab"], ["a"])  # a bare string is not a label collection
+    with pytest.raises(ValueError):
+        ev.set_agreement([{"a"}], [])
+
+
+def test_fallback_metrics():
+    # gold-is-fallback (gold set exactly {"keep"}): positions 0, 2 -> support 2
+    # predicted-is-fallback (choice == "keep"): positions 0, 3
+    # tp: position 0 (both) -> 1 ; fp: position 3 (predicted, not gold-exact) -> 1
+    # fn: position 2 (gold-exact, not predicted) -> 1
+    r = ev.fallback_metrics(_FB_GOLD_SETS, _FB_CHOICES, "keep")
+    assert (r.tp, r.fp, r.fn, r.support) == (1, 1, 1, 2)
+    assert (r.precision, r.recall, r.f1) == pytest.approx((0.5, 0.5, 0.5))
+
+
+def test_fallback_metrics_accepts_choice_answers():
+    r = ev.fallback_metrics([{"keep"}], [ChoiceStub("keep")], "keep")
+    assert (r.tp, r.fp, r.fn) == (1, 0, 0)
+
+
+def test_fallback_metrics_degenerate_cases():
+    # the fallback is never the gold-exact answer: recall is undefined (no support)
+    r = ev.fallback_metrics([{"x"}, {"y"}], ["x", "y"], "keep")
+    assert r.support == 0 and nan(r.recall)
+    assert r.fp == 0 and r.tp == 0  # never chosen either, so precision is also undefined
+    assert nan(r.precision)
+    # the fallback is never chosen, but is sometimes the gold-exact answer: precision undefined
+    r = ev.fallback_metrics([{"keep"}, {"x"}], ["x", "x"], "keep")
+    assert nan(r.precision)
+    assert r.recall == 0.0 and r.support == 1
+    # a gold set containing the fallback alongside a real option is not a gold-exact fallback
+    # case: contrast with set_agreement, where that same example counts "keep" as acceptable
+    r = ev.fallback_metrics([{"x", "keep"}], ["keep"], "keep")
+    assert r.support == 0  # {"x", "keep"} != {"keep"}
+    assert r.fp == 1  # predicted "keep" but gold-exact says no
+
+
 # ---------------------------------------------------------------- Score and ranking
 SGOLD = [1, 2, 3, 4]
 SPRED = [
@@ -447,6 +671,82 @@ def test_recall_at_budget():
     assert ev.recall_at_budget([1, 0], [NoulStub(0.9), NoulStub(0.1)], 1) == 1.0
     with pytest.raises(ValueError):
         ev.recall_at_budget(rel, [0.5] * 5, 0)
+
+
+def test_mean_recall_at_budget_is_the_thin_mean():
+    queries = [([1, 0, 1], [0.9, 0.8, 0.7]), ([0, 1], [0.1, 0.9])]
+    expected = (ev.recall_at_budget(*queries[0], 2) + ev.recall_at_budget(*queries[1], 2)) / 2
+    assert ev.mean_recall_at_budget(queries, 2) == pytest.approx(expected)
+
+
+def test_mean_recall_at_budget_skips_undefined_queries():
+    q_zero = ([0, 0], [0.1, 0.2])  # no relevant item: undefined, skipped
+    q_one = ([1, 0], [0.9, 0.1])  # recall@1 = 1.0
+    assert ev.mean_recall_at_budget([q_zero, q_one], 1) == pytest.approx(1.0)
+    assert nan(ev.mean_recall_at_budget([q_zero], 1))
+
+
+def test_top_k_query_accuracy_credits_a_clear_winner():
+    assert ev.top_k_query_accuracy([([0, 1, 0], [0.1, 0.9, 0.2])]) == 1.0
+    assert ev.top_k_query_accuracy([([0, 1, 0], [0.9, 0.1, 0.2])]) == 0.0
+
+
+def test_top_k_query_accuracy_averages_over_queries():
+    queries = [([0, 1], [0.1, 0.9]), ([1, 0], [0.1, 0.9])]
+    assert ev.top_k_query_accuracy(queries) == pytest.approx(0.5)
+
+
+def test_top_k_query_accuracy_gives_fractional_credit_on_a_tie_at_the_top():
+    # the same expectation-over-tie-orders rule recall_at_budget uses: one of two tied for
+    # the top score is relevant -> half credit.
+    assert ev.top_k_query_accuracy([([1, 0], [0.5, 0.5])]) == pytest.approx(0.5)
+
+
+def test_top_k_query_accuracy_diverges_from_mean_recall_at_budget_with_two_relevant_items():
+    # Two of three items are gold-relevant and the top-scored item is one of them: the top
+    # item IS relevant, so top-k query accuracy at k=1 is 1.0. But a review budget of 1 only
+    # finds one of the two relevant items, so mean recall at a budget of 1 is 0.5. This is
+    # exactly the gap a recipe-local "top1_accuracy" helper was written to fix: an earlier,
+    # mistaken version computed it as the mean of recall_at_budget(..., budget=1), which
+    # silently agrees with true top-1 accuracy only when every query has one relevant item
+    # (see test_top_k_query_accuracy_agrees_with_mean_recall_at_budget_for_single_relevant_item).
+    relevant, scores = [1, 1, 0], [0.9, 0.1, 0.2]
+    assert ev.top_k_query_accuracy([(relevant, scores)], k=1) == pytest.approx(1.0)
+    assert ev.mean_recall_at_budget([(relevant, scores)], budget=1) == pytest.approx(0.5)
+
+
+def test_top_k_query_accuracy_agrees_with_mean_recall_at_budget_for_single_relevant_item():
+    # When every query has exactly one relevant item, "is the relevant item in the top k" and
+    # "what share of the (one) relevant item was found in the top k" are the same event, so
+    # the two helpers must agree, ties included.
+    queries = [
+        ([0, 1, 0], [0.1, 0.9, 0.2]),  # clear winner, relevant
+        ([1, 0, 0], [0.9, 0.1, 0.2]),  # clear winner, not relevant
+        ([1, 0], [0.5, 0.5]),  # tie at the top, half the tie is relevant
+    ]
+    for k in (1, 2):
+        assert ev.top_k_query_accuracy(queries, k=k) == pytest.approx(
+            ev.mean_recall_at_budget(queries, k)
+        )
+
+
+def test_top_k_query_accuracy_is_one_when_every_item_is_relevant():
+    assert ev.top_k_query_accuracy([([1, 1, 1], [0.9, 0.1, 0.2])]) == 1.0
+
+
+def test_top_k_query_accuracy_undefined_when_no_query_has_a_relevant_item():
+    # NaN, not a raise: the same undefined-is-NaN convention as mean_ndcg and
+    # mean_recall_at_budget, unlike the recipe-local helper this generalizes, which raised.
+    assert nan(ev.top_k_query_accuracy([([0, 0], [0.1, 0.9])]))
+
+
+def test_top_k_query_accuracy_errors():
+    with pytest.raises(ValueError):
+        ev.top_k_query_accuracy([])
+    with pytest.raises(ValueError):
+        ev.top_k_query_accuracy([([1], [0.1, 0.2])])  # length mismatch within one query
+    with pytest.raises(ValueError):
+        ev.top_k_query_accuracy([([1, 0], [0.1, 0.9])], k=0)
 
 
 # ---------------------------------------------------------------- Selective prediction
@@ -619,6 +919,59 @@ def test_evaluate_outcomes_errors():
         ev.evaluate_outcomes([True, 2], [True, False])  # not boolean/0/1
 
 
+def test_outcome_curve_equals_selective_curve_when_accepted_is_all_true():
+    accepted = [True] * len(SC)
+    oc = ev.outcome_curve(SF, accepted, SC)
+    sc = ev.selective_curve(SC, SF)
+    assert oc.thresholds.tolist() == sc.thresholds.tolist()
+    assert oc.coverage == pytest.approx(sc.coverage)
+    assert oc.accuracy == pytest.approx(sc.accuracy)
+    assert oc.risk == pytest.approx(sc.risk)
+
+
+def test_outcome_curve_uses_accepted_and_confidence_together():
+    # accepted True at 0, 1, 3 only (index 2 and 4 are an unconditional review branch, never
+    # answered whatever their confidence). correct True at 0, 1, 3.
+    confidence = [0.9, 0.8, 0.7, 0.6, 0.5]
+    accepted = [True, True, False, True, False]
+    correct = [True, False, True, True, True]
+    c = ev.outcome_curve(confidence, accepted, correct)
+    assert c.thresholds.tolist() == [0.9, 0.8, 0.7, 0.6, 0.5]
+    # t=0.9: sel {0} -> cov 1/5, acc 1/1=1.0 ; t=0.8: sel {0,1} -> cov 2/5, acc 1/2=0.5
+    # t=0.7: sel {0,1} (2 rejected) -> cov 2/5, acc 0.5 ; t=0.6: sel {0,1,3} -> cov 3/5, acc 2/3
+    # t=0.5: sel {0,1,3} (4 rejected) -> cov 3/5, acc 2/3
+    assert c.coverage == pytest.approx([1 / 5, 2 / 5, 2 / 5, 3 / 5, 3 / 5])
+    assert c.accuracy == pytest.approx([1.0, 0.5, 0.5, 2 / 3, 2 / 3])
+    assert c.risk == pytest.approx((1 - c.accuracy).tolist())
+
+
+def test_outcome_curve_is_nan_where_the_accepted_mask_selects_nothing():
+    # every example above the threshold happens to be one the rule itself rejected: a
+    # threshold can therefore answer nothing here, unlike selective_curve, where every
+    # threshold answers at least one example by construction.
+    confidence = [0.9, 0.8, 0.7]
+    accepted = [False, True, True]
+    correct = [True, True, False]
+    c = ev.outcome_curve(confidence, accepted, correct)
+    assert c.thresholds.tolist() == [0.9, 0.8, 0.7]
+    assert c.coverage == pytest.approx([0.0, 1 / 3, 2 / 3])
+    assert nan(c.accuracy[0]) and nan(c.risk[0])
+    assert c.accuracy[1] == pytest.approx(1.0)
+    assert c.accuracy[2] == pytest.approx(0.5)
+
+
+def test_outcome_curve_rejects_out_of_range_confidence():
+    with pytest.raises(ValueError, match=r"\[0, 1\]"):
+        ev.outcome_curve([0.9, -1.0, 0.5], [True, True, True], [True, True, True])
+
+
+def test_outcome_curve_errors():
+    with pytest.raises(ValueError):
+        ev.outcome_curve([], [], [])
+    with pytest.raises(ValueError):
+        ev.outcome_curve([0.9, 0.8], [True], [True, False])
+
+
 # ---------------------------------------------------------------- Calibration
 CP = [0.1, 0.3, 0.35, 0.8, 0.95, 1.0]
 CO = [0, 0, 1, 1, 1, 0]
@@ -766,6 +1119,12 @@ EMPTY_CALLS = {
     "multilabel_from_noul_values": lambda: ev.multilabel_from_noul({"x": []}, 0.5),
     "multilabel_metrics": lambda: ev.multilabel_metrics([], []),
     "exact_set_match": lambda: ev.exact_set_match([], []),
+    "pool_label_decisions": lambda: ev.pool_label_decisions([], ["l"], {"l": []}, {"l": []}, 0.5),
+    "pool_label_outcomes": lambda: ev.pool_label_outcomes(
+        [], ["l"], {"l": []}, {"l": []}, {"l": []}
+    ),
+    "set_agreement": lambda: ev.set_agreement([], []),
+    "fallback_metrics": lambda: ev.fallback_metrics([], [], "fallback"),
     "score_level": lambda: ev.score_level(ScoreStub(1.0, {})),
     "exact_agreement": lambda: ev.exact_agreement([], []),
     "mean_absolute_error": lambda: ev.mean_absolute_error([], []),
@@ -773,13 +1132,16 @@ EMPTY_CALLS = {
     "mean_ndcg": lambda: ev.mean_ndcg([]),
     "top_probabilities": lambda: ev.top_probabilities([]),
     "top_k_accuracy": lambda: ev.top_k_accuracy([], [], 1),
+    "top_k_query_accuracy": lambda: ev.top_k_query_accuracy([]),
     "recall_at_budget": lambda: ev.recall_at_budget([], [], 1),
+    "mean_recall_at_budget": lambda: ev.mean_recall_at_budget([], 1),
     "selective_curve": lambda: ev.selective_curve([], []),
     "select_confidence_threshold": lambda: ev.select_confidence_threshold(
         [], [], target_accuracy=0.5
     ),
     "evaluate_selective": lambda: ev.evaluate_selective([], [], 0.5),
     "evaluate_outcomes": lambda: ev.evaluate_outcomes([], []),
+    "outcome_curve": lambda: ev.outcome_curve([], [], []),
     "reliability_table": lambda: ev.reliability_table([], []),
     "expected_calibration_error": lambda: ev.expected_calibration_error([], []),
     "paired_bootstrap_difference": lambda: ev.paired_bootstrap_difference([], [], seed=0),
@@ -813,15 +1175,25 @@ MISMATCH_CALLS = {
     "evaluate_threshold": lambda: ev.evaluate_threshold([1], [0.5, 0.5], 0.5),
     "brier_score": lambda: ev.brier_score([1], [0.5, 0.5]),
     "exact_set_match": lambda: ev.exact_set_match([{1}], [{1}, {2}]),
+    "set_agreement": lambda: ev.set_agreement([{1}], [1, 2]),
+    "fallback_metrics": lambda: ev.fallback_metrics([{1}], [1, 2], 1),
     "exact_agreement": lambda: ev.exact_agreement([1], [1, 2]),
     "mean_absolute_error": lambda: ev.mean_absolute_error([1], [1, 2]),
     "ndcg": lambda: ev.ndcg([1], [1, 2]),
     "top_k_accuracy": lambda: ev.top_k_accuracy([1], [{1: 1.0}, {1: 1.0}], 1),
+    "top_k_query_accuracy": lambda: ev.top_k_query_accuracy([([1], [0.1, 0.2])]),
     "recall_at_budget": lambda: ev.recall_at_budget([1], [1, 2], 1),
     "selective_curve": lambda: ev.selective_curve([1], [0.5, 0.5]),
     "evaluate_outcomes": lambda: ev.evaluate_outcomes([True], [True, False]),
+    "outcome_curve": lambda: ev.outcome_curve([0.5], [True, True], [True, True]),
     "reliability_table": lambda: ev.reliability_table([0.5], [1, 0]),
     "paired_bootstrap_difference": lambda: ev.paired_bootstrap_difference([1], [1, 2], seed=0),
+    "pool_label_decisions": lambda: ev.pool_label_decisions(
+        ["a"], ["l"], {"l": [True, False]}, {"l": [0.5]}, 0.5
+    ),
+    "pool_label_outcomes": lambda: ev.pool_label_outcomes(
+        ["a"], ["l"], {"l": [True, False]}, {"l": [True]}, {"l": [True]}
+    ),
 }
 
 
