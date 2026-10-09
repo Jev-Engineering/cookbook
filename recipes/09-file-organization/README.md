@@ -22,10 +22,10 @@ frozen threshold produces.
 ## Run it offline
 
 From the repository root, in an environment with
-`pip install -e ".[dev,ml]" -c .github/constraints-notebooks.txt` (Python 3.14; this is the install
-that reproduces the committed notebook outputs byte for byte, see
-[docs/recipe-template.md](../../docs/recipe-template.md) step 6; `".[dev]"` alone is enough for the
-fixture and test commands below):
+`pip install -e ".[ml]" -c .github/constraints-notebooks.txt` (Python 3.14; this is the install
+the `Notebook (<recipe>)` CI job uses, and the one that reproduces the committed notebook outputs
+byte for byte, see [docs/recipe-template.md](../../docs/recipe-template.md) step 6; `".[dev]"`
+alone is enough for the fixture and test commands below, which do not re-execute the notebook):
 
 ```bash
 python -m jev_cookbook.fixtures validate recipes/09-file-organization

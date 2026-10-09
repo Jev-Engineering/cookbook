@@ -6,7 +6,7 @@ Judge whether a candidate response addresses the user's question so a notebook c
 
 ## What it teaches
 
-Jev supplies one narrow judgment, a typed `Noul` over a single proposition Python writes: "this response addresses the question the user actually asked." Python owns everything else: the question and response text, an identifier that never reaches the model, the business threshold that turns a probability into a relevant/not-relevant decision (chosen on `validation` with `select_threshold`, then frozen), and a separate certainty gate (`noul_confidence`, distance from an even split, chosen on `validation` with a coverage floor) that sends a pair to an explicit `review` outcome instead of a forced guess. The notebook shows four typed answers up close -- a clearly relevant pair, a clearly off-topic pair, a pair that only partly addresses its question, and a pair where a fluent, confident-sounding response answers a different question from the one asked -- then the rule, a simulated `ReviewQueue` for the pairs it is not confident enough to decide, and an evaluation that reports precision and recall across the full threshold sweep plus the certainty gate's own coverage-versus-accuracy curve: on this fixture set the gate genuinely raises accuracy on the pairs it still decides, by catching one kind of near-even mistake, while still missing a fluent, confidently-wrong response the certainty formula cannot tell apart from a confidently-right one.
+Jev supplies one narrow judgment, a typed `Noul` over a single proposition Python writes: "this response addresses the question the user actually asked." Python owns everything else: the question and response text, an identifier that never reaches the model, the business threshold that turns a probability into a relevant/not-relevant decision (chosen on `validation` with `select_threshold`, then frozen), and a separate confidence gate (`noul_confidence`, distance from an even split, chosen on `validation` with a coverage floor) that sends a pair to an explicit `review` outcome instead of a forced guess. The notebook shows four typed answers up close -- a clearly relevant pair, a clearly off-topic pair, a pair that only partly addresses its question, and a pair where a fluent, confident-sounding response answers a different question from the one asked -- then the rule, a simulated `ReviewQueue` for the pairs it is not confident enough to decide, and an evaluation that reports precision and recall across the full threshold sweep plus the confidence gate's own coverage-versus-accuracy curve: on this fixture set the gate genuinely raises accuracy on the pairs it still decides, by catching one kind of near-even mistake, while still missing a fluent, confidently-wrong response the confidence formula cannot tell apart from a confidently-right one.
 
 ## Run it offline
 
@@ -49,11 +49,11 @@ through with `BudgetExceeded`. Never put a key in a notebook, a fixture, or any 
 
 The committed run replays 52 invented (question, response) pairs with hand-written (synthetic)
 answers, some wrong on purpose: a fluent response that confidently answers a different question
-from the one asked (one per split, stored well clear of the certainty gate, so the gate cannot
+from the one asked (one per split, stored well clear of the confidence gate, so the gate cannot
 catch it), a raw-decision mistake near the business threshold (one per split, stored close enough
 to an even split that the gate does catch it), and three pairs per split held close to an even
 split with gold labels not all one way. Its precision, recall, the threshold sweep, and the
-certainty gate's own coverage-versus-accuracy curve check that the pipeline works; they say
+confidence gate's own coverage-versus-accuracy curve check that the pipeline works; they say
 nothing about how Jev performs, how fast it is, or what it costs. This recipe has no recorded
 fixtures.
 
