@@ -403,10 +403,40 @@ def test_long_legend_wraps_at_the_default_width_with_no_line_over_it():
     assert "0.60" in level_0_lines[-1]  # only the last piece carries them
 
 
+def test_width_none_keeps_a_long_legend_on_one_line():
+    """width=None must return the previous, unwrapped behaviour exactly: one line per level,
+    however long, with no continuation line -- even for the 241-character level-0 legend that
+    the default width wraps into three lines (the test above)."""
+    body = style.format_answer(LONG_SCORE, width=None).splitlines()[1:-1]
+    assert len(body) == 3  # one line per level: none of the three is wrapped
+    assert body[0] == f"  0 {LONG_LEGEND['0']}  0.60  ############"
+    assert body[1] == f"  1 {LONG_LEGEND['1']}  0.25  #####"
+    assert body[2] == f"  2 {LONG_LEGEND['2']}  0.15  ###"
+
+
 def test_long_legend_wraps_at_word_boundaries_never_mid_word():
     text = style.format_answer(LONG_SCORE, width=60)
     for word in ("The", "response", "acronym", "contradict"):
         assert f" {word} " in text or text.startswith(word)  # intact, not split mid-word
+
+
+def test_wrap_never_splits_a_token_longer_than_the_budget():
+    """A single token longer than the wrap budget (break_long_words=False) is left whole, on
+    its own line, rather than split mid-word. LONG_LEGEND's longest word is far under every
+    budget used above, so this needs its own, deliberately over-long, token."""
+    token = "Y" * 50
+    answer = FakeScore(0.0, {"0": 1.0}, 0.0, {"0": f"aa {token} bb"})
+    text = style.format_answer(answer, width=30)
+    assert token in text  # fails if break_long_words becomes True
+
+
+def test_wrap_never_splits_a_hyphenated_token_at_its_hyphens():
+    """A hyphenated compound long enough to straddle the wrap boundary
+    (break_on_hyphens=False) is kept whole on one line rather than split at a hyphen."""
+    token = "well-documented-and-very-long-token"
+    answer = FakeScore(0.0, {"0": 1.0}, 0.0, {"0": f"a {token} here"})
+    text = style.format_answer(answer, width=30)
+    assert token in text  # fails if break_on_hyphens becomes True
 
 
 def test_wrap_boundary_exact_width_moves_one_word_at_a_time():

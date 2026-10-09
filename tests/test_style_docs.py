@@ -18,6 +18,17 @@ def _blocks(language):
     return re.findall(pattern, DOC.read_text(encoding="utf-8"), flags=re.S)
 
 
+def _text_block_after(marker):
+    """The ```text``` fenced block that immediately follows ``marker`` in the doc, with its
+    trailing newline stripped. Unlike `_blocks`, which returns every ```text``` block pooled
+    together, this isolates one specific block by the heading that introduces it, so a check
+    against it cannot be satisfied by a different block elsewhere in the file."""
+    pattern = re.escape(marker) + r".*?" + FENCE + r"text\n(.*?)" + FENCE
+    match = re.search(pattern, DOC.read_text(encoding="utf-8"), flags=re.S)
+    assert match, f"no text block found after {marker!r} in {DOC.name}"
+    return match.group(1).rstrip("\n")
+
+
 def test_documented_header_texts_match_the_code():
     text = "\n".join(_blocks("text"))
     expected = [
@@ -68,11 +79,14 @@ def test_documented_legend_wrap_before_and_after_match_the_code():
         )
     }
     answer = Score(0.60, {"0": 0.60}, 0.40, legend)
-    text = "\n".join(_blocks("text"))
     before = style.format_answer(answer, width=None).splitlines()[1]
     after = "\n".join(style.format_answer(answer, width=style.LEGEND_WIDTH).splitlines()[1:-1])
-    assert before in text
-    assert after in text
+    # Equality against each block in isolation, not containment against every ```text``` block
+    # pooled together: the unwrapped `before` line is itself a substring of the wrapped `after`
+    # block (its first wrapped line), so a containment check against the pooled text cannot
+    # tell the Before rendering from the After rendering apart.
+    assert _text_block_after("Before (one line, 300 columns and more") == before
+    assert _text_block_after("After (the same level, default") == after
 
 
 def test_the_documented_snippet_regenerates_every_linked_image(tmp_path, monkeypatch):
