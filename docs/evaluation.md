@@ -384,7 +384,14 @@ moves the curve's x-axis, despite never changing which examples the mask selects
 blanket ban on ever showing a stand-in number — #164 ruling 9 allows a disclosed, in-range,
 quantified one printed beside the figure it stands in for (e.g. "confidence: 0.00, no call made")
 — only on letting it reach `select_confidence_threshold`, `selective_curve` or `outcome_curve` as
-an input, exactly the answered-examples-only rule just above.
+an input, exactly the answered-examples-only rule just above. The ban bites only on those three
+functions, the ones that derive their threshold candidates from the confidence array itself
+(`numpy.unique` of it); it does not reach `evaluate_selective`, which never derives a candidate
+from `confidence` at all — it only reapplies a threshold that was already chosen elsewhere. A
+disclosed, in-range stand-in for a short-circuited example (the same "confidence: 0.00, no call
+made" ruling 9 allows) may be handed to `evaluate_selective` once a threshold is already frozen:
+at `confidence 0.00`, such an example reads as not meeting the gate (as it should, since no
+question was ever asked), and it cannot shift a threshold grid `evaluate_selective` never builds.
 
 **Print both Ns when a recipe short-circuits examples.** `outcome_curve`'s own denominator at
 every threshold is `len(confidences)` — the answered subset actually passed in — never the
@@ -453,24 +460,31 @@ less informative: it can be the more flattering number, because it has no way to
 the rule's design lets through unchecked (an example below the confidence gate that the rule
 nonetheless answered through its other branch, or vice versa).
 
-**Showing the counterfactual for an exempted option.** CONTRIBUTING.md section 4's confidence-gate
-exemption is written narrowly: "a low-confidence fallback option ... *may* be delivered as a final
-result instead of going to review, but only when choosing it triggers no side effect" — a
-fallback option specifically, not any option that happens to have no side effect. A permissive
-option that is a real, confident category (an `allowed`/`ignore`-shaped outcome, say, as opposed to
-a `no_match`/`unclear`-shaped one) is not the case section 4 exempts, even when it too has no side
-effect: exempting it from the gate would let a confidently *wrong* permissive answer through with
-no check at all, which is exactly the failure mode an explicit review outcome exists to catch. A
-recipe that does legitimately exempt a true fallback option from its gate should still show the
-reader what gating it too would have cost or bought, as a reported counterfactual, not a silent
+**Showing the counterfactual for an exempted option.** CONTRIBUTING.md section 4's exemption is a
+three-part test, not a side-effect check alone — see section 4 for the full wording, summarised
+here: (a) the option is a complete answer to the question, not a deferral; (b) choosing it
+records no action in the `ActionLog` (a printed, explicitly-labelled "noted, no action" backlog
+entry is allowed; an actual action, however named, is not); (c) being wrong leaves nothing
+standing beyond the missed item itself, measured against having sent it to review instead. All
+three must pass before an option may be delivered at any confidence with no further gate. A
+permissive option that is a real, confident category — recipe 16's `allowed`, say, as opposed to
+a `no_match`/`unclear`-shaped one — does not pass this test even though choosing it has no side
+effect of its own in the sense of touching anything outside the simulation: `allowed` resolves to
+`ignore`, itself logged to the `ActionLog`, which fails (b); and a message that is really
+violating, wrongly let through as `allowed`, stays live with nobody warned at all — something
+standing beyond the missed item itself, which fails (c) — exactly the "exposure left open" part
+(c) itself names, and exactly the failure mode an explicit review outcome exists to catch. Recipe
+16 gates `allowed` like every other category for this reason. A recipe that does legitimately
+exempt an option passing all three parts should still show the reader what gating it too would
+have cost or bought, as a reported counterfactual, not a silent
 choice: build a second `accepted` that routes the exempted option through the same confidence
 check as everything else, and report both `evaluate_outcomes` results side by side (or, for the
 curve, two `outcome_curve` calls on the same `confidences`/`correct`: the real one with `exempt`
 set, the counterfactual with `exempt=None`), so "we chose to exempt this option" and "here is
-what gating it would have looked like" are both on the page. (A recipe that decided
-*not* to exempt a permissive option at all, gating it like everything else, needs none of this:
-its own `evaluate_outcomes` and `evaluate_selective` already agree, exactly as in "when the
-single numbers coincide" above.)
+what gating it would have looked like" are both on the page. (A recipe that decided *not* to
+exempt a qualifying option at all, gating it like everything else, needs none of this: its own
+`evaluate_outcomes` and `evaluate_selective` already agree, exactly as in "when the single numbers
+coincide" above.)
 
 ### Noul three-path pattern
 
