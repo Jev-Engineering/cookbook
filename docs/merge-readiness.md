@@ -66,13 +66,18 @@ no receipt.
    check named with `--require-head-check` is present and `success` on the **PR head only** and
    is never looked for on `main`. Both read CheckRuns and StatusContexts, with every page fetched
    and the reported total matching what was seen. Missing, pending, failure, cancelled, timed
-   out, neutral, skipped, error, duplicate, conflicting, or ambiguous results all fail, for either
-   option. One green workflow is not the gate: each named check is judged on its own. A name that
-   is a baseline check, or that is also given with `--require-check`, keeps its `main` requirement
-   even if it is also given with `--require-head-check`: the head-and-main requirement always
-   wins, and spelling a baseline as head-only never weakens it. Repeating a name only deduplicates
-   the requirement; it does not deduplicate actual results — more than one result for one name is
-   still ambiguous and fails closed.
+   out, neutral, skipped, or error results all fail, for either option, as does a result from the
+   wrong app for a baseline name. One green workflow is not the gate: each named check is judged on
+   its own. A name that is a baseline check, or that is also given with `--require-check`, keeps
+   its `main` requirement even if it is also given with `--require-head-check`: the head-and-main
+   requirement always wins, and spelling a baseline as head-only never weakens it. Repeating a name
+   only deduplicates the requirement; it does not deduplicate actual results. More than one result
+   for one name is ambiguous and fails closed, **except** that several CheckRuns from the one same
+   app, all `success`, for a non-baseline name, collapse into a single `success` result (see
+   "Required checks" below for the exact rule, the `results`/`runs` receipt shape, and why); a
+   baseline name, any mix that is not all-`success`, or results from more than one source (a
+   StatusContext mixed with a CheckRun, two StatusContexts, or CheckRuns from different apps) stay
+   ambiguous and fail closed exactly as before.
 4. After collecting evidence it re-reads the default branch and the PR. If `main` or the head
    moved, or the PR is no longer open, it fails.
 
@@ -106,19 +111,41 @@ CheckRun from another app posted under the same name cannot stand in for a missi
 and is reported as a failure, whether the name reached the helper as a baseline, a
 `--require-check` or a `--require-head-check` name. Checks you add with `--require-check` or
 `--require-head-check` may be a CheckRun from any app or a StatusContext, since that is how
-external checks report; the receipt shows each one's `kind` and, for CheckRuns, the `app`. A name
-that appears more than once (for example as both a CheckRun and a StatusContext) is ambiguous and
-fails closed, unless it is a `--require-check` or `--require-head-check` name (never one of the
-five baseline checks) and every one of its completed results concluded `success`: several such
-CheckRuns for the same name on one commit then collapse into a single `success` result, and the
-receipt records every merged run's id and conclusion under that check's evidence, so the merge
-stays auditable. Any other mix for such a name -- a failure, neutral, cancelled, timed out,
-skipped, pending/in-progress row, or differing conclusions -- is still ambiguous and fails closed
-exactly as before (#138). This exists because `scope.yml` runs `Scope (recipe pull requests)` on
-`pull_request_target` for `opened`, `synchronize`, `reopened` and `edited`, so a description edit
-after the last push leaves two successful CheckRuns for that name on the same head; without this
-collapse the helper would fail closed forever on an otherwise fully green head. CheckRuns are
-read with `filter=latest`, so a rerun replaces an earlier cancelled run of the same job.
+external checks report; the receipt shows each one's `kind` and, for CheckRuns, the `app`.
+
+**A name that appears more than once is ambiguous and fails closed, with one narrow exception
+(#138).** The exception: a `--require-check` or `--require-head-check` name (never one of the
+five baseline checks) whose every completed result is a **CheckRun from the same app** and
+concluded `success` collapses into a single `success` result, and the receipt's evidence for that
+check carries `"state": "success"`, `"results"` (the true count), and `"runs"` — a list of every
+merged run's `id` and `state` (and `app`), capped at 10 entries with a `"runs_omitted"` count added
+when there were more, so the receipt stays bounded and auditable. This exists because `scope.yml`
+runs `Scope (recipe pull requests)` on `pull_request_target` for `opened`, `synchronize`,
+`reopened` and `edited`, so a description edit after the last push leaves two successful `Scope`
+CheckRuns, both from `github-actions`, on the same head; without the collapse the helper would
+fail closed forever on an otherwise fully green head.
+
+Every other multi-result case for such a name still fails closed exactly as before: a failure,
+neutral, cancelled, timed out, skipped, pending/in-progress row, or differing conclusions (the
+pre-#138 state-ambiguity case), **and, deliberately unchanged by #138, a result from more than one
+source under the same name** — a StatusContext mixed with a CheckRun, two StatusContexts (which
+carry no `app` to compare at all), or two CheckRuns from different apps. That source-ambiguity
+guarantee predates #138 (the docs above already use a CheckRun/StatusContext pair as the textbook
+example of an ambiguous name) and stays exactly as strict even when every one of those differently
+sourced results happens to be `success`: a spurious same-named result from a different actor must
+never be absorbed into a genuine check's evidence. A baseline name is *never* eligible for the
+collapse, regardless of its results, because nothing that reruns on `edited` publishes a baseline
+check, and the stricter app rule two paragraphs up already governs it. CheckRuns are read with
+`filter=latest`, so a rerun replaces an earlier cancelled run of the same job (this is also why the
+#138 scenario needs the collapse at all: `synchronize` and `edited` start two different check
+suites, so the second run adds a row rather than replacing one).
+
+A transient `success` + `pending`/`in_progress` pair for the same name — the instant between an
+`edited` rerun starting and finishing, with the first run's `success` still visible — reports as
+ambiguous (`NOT READY`) exactly like any other not-yet-all-success mix, and clears itself as soon
+as the second run completes. It belongs on the transient-wait list in
+["Where it fits in the serial merge"](#where-it-fits-in-the-serial-merge) below, not among the
+substantive failures: wait and rerun, the same as a still-computing `mergeable` state.
 
 The helper does not read workflow files. Checks added by later workflows (for example notebook
 execution or fixture validation) are **the caller's responsibility**: read the current workflows
@@ -162,8 +189,15 @@ added a job silently under-checks, which is why the list is explicit and the rec
      happens lazily, for example right after `main` advances.
    - A required check is still pending (queued or in progress), for example on a freshly merged
      `main`.
+   - A `--require-check`/`--require-head-check` name reports `success` + `pending`/`in_progress`
+     (not yet `conflicting results`, which is the same ambiguous evidence but with the second run
+     already completed and not `success`): the instant between an `edited` rerun of a check such
+     as `Scope (recipe pull requests)` starting and finishing, with the first run's `success` still
+     on the commit (#138). It clears on its own as soon as the second run completes, collapsing to
+     `success` if that run also succeeds; if it does not, the result becomes a substantive failure
+     (ambiguous `conflicting results`), not a wait.
 
-   Wait until the state settles and rerun; never merge while either one holds. Every other
+   Wait until the state settles and rerun; never merge while any of these hold. Every other
    failure is substantive (a stale base, a failed, cancelled or missing check, a moved head, a
    draft or closed pull request): fix the cause rather than rerunning until green. A check that
    stays missing is not a wait and is never waived.

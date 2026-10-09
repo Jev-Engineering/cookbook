@@ -417,6 +417,58 @@ def test_head_only_success_and_pending_fails_closed(gh):
     assert not assess_head(gh, extra_head=[HEAD_ONLY])["ready"]
 
 
+def test_head_only_two_cancelled_results_is_duplicate_not_conflicting(gh):
+    """Review round 1 suggestion 3: the literal 'duplicate' wording, for a non-baseline name, is
+    still covered -- two results sharing one non-success state is 'duplicate', not 'conflicting'.
+    """
+    gh.runs[HEAD].append(run(HEAD_ONLY, "cancelled", sha=HEAD, id_=200))
+    gh.runs[HEAD].append(run(HEAD_ONLY, "cancelled", sha=HEAD, id_=201))
+    failures = assess_head(gh, extra_head=[HEAD_ONLY])["failures"]
+    assert any(f"duplicate results (2) for check: {HEAD_ONLY}" in f for f in failures)
+
+
+# --- review round 1, must-change 1: the collapse is scoped to ONE source (same kind and app) --
+#
+# #118 guaranteed a StatusContext/CheckRun mix, two StatusContexts, or CheckRuns from different
+# apps under one required name would fail closed as ambiguous; #138 never decided to relax that.
+# Each case below is all-`success` so the only question is whether the source differs.
+
+
+def test_head_only_success_check_run_and_success_status_context_still_ambiguous(gh):
+    """A CheckRun and a StatusContext, both success, are two different sources: still ambiguous."""
+    gh.runs[HEAD].append(run(HEAD_ONLY, "success", sha=HEAD, id_=200))
+    gh.statuses[HEAD] = [{"id": 900, "context": HEAD_ONLY, "state": "success"}]
+    receipt = assess_head(gh, extra_head=[HEAD_ONLY])
+    assert not receipt["ready"]
+    assert any(f"results (2) for check: {HEAD_ONLY}" in f for f in receipt["failures"])
+    evidence = next(c for c in receipt["checks"]["head"] if c["name"] == HEAD_ONLY)
+    assert evidence["state"] == "ambiguous" and evidence["results"] == 2
+
+
+def test_head_only_two_success_status_contexts_still_ambiguous(gh):
+    """Two StatusContexts, both success, have no app to compare: never eligible for the collapse."""
+    gh.statuses[HEAD] = [
+        {"id": 900, "context": HEAD_ONLY, "state": "success"},
+        {"id": 901, "context": HEAD_ONLY, "state": "success"},
+    ]
+    receipt = assess_head(gh, extra_head=[HEAD_ONLY])
+    assert not receipt["ready"]
+    assert any(f"results (2) for check: {HEAD_ONLY}" in f for f in receipt["failures"])
+    evidence = next(c for c in receipt["checks"]["head"] if c["name"] == HEAD_ONLY)
+    assert evidence["state"] == "ambiguous" and evidence["results"] == 2
+
+
+def test_head_only_two_success_check_runs_different_apps_still_ambiguous(gh):
+    """Two CheckRuns, both success, from different apps: a different source, still ambiguous."""
+    gh.runs[HEAD].append(run(HEAD_ONLY, "success", sha=HEAD, id_=200, app="github-actions"))
+    gh.runs[HEAD].append(run(HEAD_ONLY, "success", sha=HEAD, id_=201, app="some-ci-app"))
+    receipt = assess_head(gh, extra_head=[HEAD_ONLY])
+    assert not receipt["ready"]
+    assert any(f"results (2) for check: {HEAD_ONLY}" in f for f in receipt["failures"])
+    evidence = next(c for c in receipt["checks"]["head"] if c["name"] == HEAD_ONLY)
+    assert evidence["state"] == "ambiguous" and evidence["results"] == 2
+
+
 def test_head_only_check_run_and_status_context_conflict(gh):
     """Brief case 4c: a CheckRun and a StatusContext with the same head-only name conflict."""
     gh.runs[HEAD].append(run(HEAD_ONLY, "success", sha=HEAD, id_=200))
