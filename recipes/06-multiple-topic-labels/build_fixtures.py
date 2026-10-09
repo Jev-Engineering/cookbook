@@ -6,8 +6,8 @@
 Every response is synthetic (written by hand as five probabilities, one per label in
 ``helpers.LABELS``, not produced by a model) and deliberately imperfect. The gold label for
 each example is the *set* of topics it actually raises: some examples raise none, most raise
-one or two, and a few raise three or four at once (the hard cases the issue names: "items with
-no label and items with three or more").
+one or two, and a few raise three or four at once (the hard cases this use case calls for: items
+with no label and items with three or more).
 
 Several examples use a word associated with a label ("price", "feature") without the feedback
 actually raising that topic: a benign look-alike (CONTRIBUTING.md section 5), not S07's

@@ -9,9 +9,9 @@ deliberately imperfect: most are right, several are right but at low confidence,
 recipe's notebook later freezes, while one (``t17-hybrid-wrong-confident``) is wrong *and*
 confident on ``test`` at 0.7500, comfortably above that frozen threshold (0.5000) -- so the
 notebook's selective-prediction numbers show a real, non-zero risk on test rather than a
-guarantee that happens to hold. The hard cases named in the issue's build notes (a fixed folder
-catalog, low-confidence proposals left unsorted) and the ones CONTRIBUTING.md asks every recipe
-to cover are included and tagged in their id: a file with no good match at all
+guarantee that happens to hold. The hard cases this use case calls for (a fixed folder catalog,
+low-confidence proposals left unsorted) and the ones CONTRIBUTING.md asks every recipe to cover
+are included and tagged in their id: a file with no good match at all
 (``-no-match``), a file whose name and content point to two different folders at once
 (``-ambiguous``), a file whose name suggests one folder while its excerpt says another
 (``-lookalike``), and a file whose excerpt is too short to carry any signal (``-short``). The

@@ -4,33 +4,33 @@
     python build_fixtures.py --force  # also overwrite a responses.json holding a recorded answer
 
 Every response is synthetic (written by hand as a probability, not produced by a model) and
-deliberately imperfect. The hard cases the issue names are included and tagged in their id: a
-response that is clearly relevant (``-relevant``), one that is clearly off-topic (``-offtopic``,
+deliberately imperfect. The hard cases this use case calls for are included and tagged in their
+id: a response that is clearly relevant (``-relevant``), one that is clearly off-topic (``-offtopic``,
 including a generic boilerplate reply, a reply that only repeats the question, one that deflects
 without answering, and one about an unrelated subject), and three harder shapes.
 
 ``-hard-wrong`` is a fluent, well-formed response that confidently answers a *different* question
 from the one asked. Both splits carry one, stored at a noul (0.78 on `validation`, 0.83 on
-`test`) and a certainty (0.56, 0.66) well clear of the gate the notebook freezes (0.30): the
-certainty gate measures how far a probability leans, not whether it leans the right way, and a
+`test`) and a confidence (0.56, 0.66) well clear of the gate the notebook freezes (0.30): the
+confidence gate measures how far a probability leans, not whether it leans the right way, and a
 response engineered to read as fluent and on-topic leans hard. Both are deliberately stored above
-the gate on purpose -- the lesson is that certainty cannot catch this shape of error, on either
+the gate on purpose -- the lesson is that confidence cannot catch this shape of error, on either
 split, not that it happens to catch it on one and miss it on the other.
 
 ``-partial`` (three per split, stored within 0.08 of an even split, 0.46-0.58, gold labels not
 all one way -- two true, one false, in no fixed order relative to noul) is the opposite shape: a
 response whose probability alone does not reliably say which way it should go, which is exactly
-what the certainty gate is for and exactly what it catches here, alongside ``-error`` below.
+what the confidence gate is for and exactly what it catches here, alongside ``-error`` below.
 
 One pair per split (``-error``, 0.60 on `validation`, 0.61 on `test`, gold false) is a genuine
 raw-decision mistake sitting just past the business threshold (0.55): close enough to an even
-split that the certainty gate catches it too, but on the wrong side of 0.55, unlike the
+split that the confidence gate catches it too, but on the wrong side of 0.55, unlike the
 ``-partial`` pairs. Excluding it from the decisions `check_relevance` acts on alone is what lets
 the frozen gate raise accuracy on the answered subset above the ungated rule's own accuracy on
 both splits -- the gate is shown earning its coverage/accuracy trade-off, not asserted to.
 
 Finally, one ``-moderate`` pair of each gold value per split (0.65 true, 0.35 false) is confident
-enough to clear the gate (certainty 0.30, exactly the frozen cut-off) while sitting close enough
+enough to clear the gate (confidence 0.30, exactly the frozen cut-off) while sitting close enough
 to the business threshold that moving it changes their outcome: without these two pairs, every
 pair that clears the gate would sit at or past 0.78, so the business threshold, frozen separately
 at 0.55, would never actually decide anything a looser or tighter gate could not already decide on
