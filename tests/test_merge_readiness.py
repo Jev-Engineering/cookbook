@@ -310,6 +310,39 @@ def test_extra_check_missing_on_main_fails(gh):
     assert any("main: required check missing" in f for f in failures)
 
 
+# --- #138: duplicate completed results for a required name collapse iff all succeeded ---------
+
+
+def test_require_check_two_success_results_on_head_merge_to_ready(gh):
+    """Two successful CheckRuns for a --require-check name on the head, one on main, is READY."""
+    name = "Notebooks (execute)"
+    gh.runs[MAIN].append(run(name, "success", sha=MAIN, id_=99))
+    gh.runs[HEAD].append(run(name, "success", sha=HEAD, id_=99))
+    gh.runs[HEAD].append(run(name, "success", sha=HEAD, id_=100))
+    receipt = assess(gh, [name])
+    assert receipt["ready"] and receipt["failures"] == []
+    evidence = next(c for c in receipt["checks"]["head"] if c["name"] == name)
+    assert evidence["state"] == "success" and evidence["results"] == 2
+    assert {r["id"] for r in evidence["runs"]} == {99, 100}
+    assert all(r["state"] == "success" for r in evidence["runs"])
+    json.dumps(receipt)
+
+
+def test_require_check_two_success_results_on_main_ready_only_if_both_success(gh):
+    """The same collapse applies on main: two rows there is READY only because both succeeded."""
+    name = "Notebooks (execute)"
+    gh.runs[MAIN].append(run(name, "success", sha=MAIN, id_=99))
+    gh.runs[MAIN].append(run(name, "success", sha=MAIN, id_=100))
+    gh.runs[HEAD].append(run(name, "success", sha=HEAD, id_=99))
+    receipt = assess(gh, [name])
+    assert receipt["ready"]
+    evidence = next(c for c in receipt["checks"]["main"] if c["name"] == name)
+    assert evidence["state"] == "success" and evidence["results"] == 2
+
+    gh.runs[MAIN][-1] = run(name, "failure", sha=MAIN, id_=100)
+    assert not assess(gh, [name])["ready"]
+
+
 # --- --require-head-check: required on the PR head only, never on main ------------------------
 
 HEAD_ONLY = "Scope (recipe pull requests)"
@@ -355,12 +388,85 @@ def test_head_only_status_context_success_passes(gh):
     assert evidence["kind"] == "status_context"
 
 
-def test_head_only_duplicate_results_fail_closed(gh):
-    """Brief case 4b: duplicate head-only results are ambiguous and fail closed."""
-    gh.runs[HEAD].append(run(HEAD_ONLY, sha=HEAD, id_=200))
-    gh.runs[HEAD].append(run(HEAD_ONLY, sha=HEAD, id_=201))
+def test_head_only_two_success_results_merge_to_one_ready_result(gh):
+    """#138: two successful head-only CheckRuns (synchronize then edited) collapse to READY; the
+    receipt lists both runs' ids and conclusions so the merged evidence stays visible."""
+    gh.runs[HEAD].append(run(HEAD_ONLY, "success", sha=HEAD, id_=200))
+    gh.runs[HEAD].append(run(HEAD_ONLY, "success", sha=HEAD, id_=201))
+    receipt = assess_head(gh, extra_head=[HEAD_ONLY])
+    assert receipt["ready"] and receipt["failures"] == []
+    evidence = next(c for c in receipt["checks"]["head"] if c["name"] == HEAD_ONLY)
+    assert evidence["state"] == "success" and evidence["results"] == 2
+    assert {r["id"] for r in evidence["runs"]} == {200, 201}
+    assert all(r["state"] == "success" for r in evidence["runs"])
+    json.dumps(receipt)
+
+
+def test_head_only_success_and_cancelled_fails_closed(gh):
+    """#138: not every result succeeded, so the duplicate guard still fails closed."""
+    gh.runs[HEAD].append(run(HEAD_ONLY, "success", sha=HEAD, id_=200))
+    gh.runs[HEAD].append(run(HEAD_ONLY, "cancelled", sha=HEAD, id_=201))
     failures = assess_head(gh, extra_head=[HEAD_ONLY])["failures"]
-    assert any("duplicate results (2)" in f and HEAD_ONLY in f for f in failures)
+    assert any(f"results (2) for check: {HEAD_ONLY}" in f for f in failures)
+
+
+def test_head_only_success_and_pending_fails_closed(gh):
+    """#138: one result still pending is not an all-success mix, so it fails closed."""
+    gh.runs[HEAD].append(run(HEAD_ONLY, "success", sha=HEAD, id_=200))
+    gh.runs[HEAD].append(run(HEAD_ONLY, "in_progress", sha=HEAD, id_=201))
+    assert not assess_head(gh, extra_head=[HEAD_ONLY])["ready"]
+
+
+def test_head_only_two_cancelled_results_is_duplicate_not_conflicting(gh):
+    """Review round 1 suggestion 3: the literal 'duplicate' wording, for a non-baseline name, is
+    still covered -- two results sharing one non-success state is 'duplicate', not 'conflicting'.
+    """
+    gh.runs[HEAD].append(run(HEAD_ONLY, "cancelled", sha=HEAD, id_=200))
+    gh.runs[HEAD].append(run(HEAD_ONLY, "cancelled", sha=HEAD, id_=201))
+    failures = assess_head(gh, extra_head=[HEAD_ONLY])["failures"]
+    assert any(f"duplicate results (2) for check: {HEAD_ONLY}" in f for f in failures)
+
+
+# --- review round 1, must-change 1: the collapse is scoped to ONE source (same kind and app) --
+#
+# #118 guaranteed a StatusContext/CheckRun mix, two StatusContexts, or CheckRuns from different
+# apps under one required name would fail closed as ambiguous; #138 never decided to relax that.
+# Each case below is all-`success` so the only question is whether the source differs.
+
+
+def test_head_only_success_check_run_and_success_status_context_still_ambiguous(gh):
+    """A CheckRun and a StatusContext, both success, are two different sources: still ambiguous."""
+    gh.runs[HEAD].append(run(HEAD_ONLY, "success", sha=HEAD, id_=200))
+    gh.statuses[HEAD] = [{"id": 900, "context": HEAD_ONLY, "state": "success"}]
+    receipt = assess_head(gh, extra_head=[HEAD_ONLY])
+    assert not receipt["ready"]
+    assert any(f"results (2) for check: {HEAD_ONLY}" in f for f in receipt["failures"])
+    evidence = next(c for c in receipt["checks"]["head"] if c["name"] == HEAD_ONLY)
+    assert evidence["state"] == "ambiguous" and evidence["results"] == 2
+
+
+def test_head_only_two_success_status_contexts_still_ambiguous(gh):
+    """Two StatusContexts, both success, have no app to compare: never eligible for the collapse."""
+    gh.statuses[HEAD] = [
+        {"id": 900, "context": HEAD_ONLY, "state": "success"},
+        {"id": 901, "context": HEAD_ONLY, "state": "success"},
+    ]
+    receipt = assess_head(gh, extra_head=[HEAD_ONLY])
+    assert not receipt["ready"]
+    assert any(f"results (2) for check: {HEAD_ONLY}" in f for f in receipt["failures"])
+    evidence = next(c for c in receipt["checks"]["head"] if c["name"] == HEAD_ONLY)
+    assert evidence["state"] == "ambiguous" and evidence["results"] == 2
+
+
+def test_head_only_two_success_check_runs_different_apps_still_ambiguous(gh):
+    """Two CheckRuns, both success, from different apps: a different source, still ambiguous."""
+    gh.runs[HEAD].append(run(HEAD_ONLY, "success", sha=HEAD, id_=200, app="github-actions"))
+    gh.runs[HEAD].append(run(HEAD_ONLY, "success", sha=HEAD, id_=201, app="some-ci-app"))
+    receipt = assess_head(gh, extra_head=[HEAD_ONLY])
+    assert not receipt["ready"]
+    assert any(f"results (2) for check: {HEAD_ONLY}" in f for f in receipt["failures"])
+    evidence = next(c for c in receipt["checks"]["head"] if c["name"] == HEAD_ONLY)
+    assert evidence["state"] == "ambiguous" and evidence["results"] == 2
 
 
 def test_head_only_check_run_and_status_context_conflict(gh):
@@ -410,12 +516,14 @@ def test_head_only_name_also_given_with_require_check_still_requires_main(gh):
 
 
 def test_repeated_head_check_flag_dedupes_requirement_only(gh):
-    """Brief case 6: repeated flags dedupe the requirement, not genuine duplicate results."""
+    """Brief case 6: repeated flags dedupe the requirement, not genuine ambiguous results. A
+    second, non-success result is still a real duplicate and fails closed (#138: only an
+    all-success mix collapses, which is covered separately)."""
     gh.runs[HEAD].append(run(HEAD_ONLY, sha=HEAD, id_=200))
     receipt = assess_head(gh, extra_head=[HEAD_ONLY, HEAD_ONLY])
     assert receipt["required_head_checks"] == [HEAD_ONLY]
     assert receipt["ready"]
-    gh.runs[HEAD].append(run(HEAD_ONLY, sha=HEAD, id_=201))
+    gh.runs[HEAD].append(run(HEAD_ONLY, "cancelled", sha=HEAD, id_=201))
     assert not assess_head(gh, extra_head=[HEAD_ONLY, HEAD_ONLY])["ready"]
 
 
