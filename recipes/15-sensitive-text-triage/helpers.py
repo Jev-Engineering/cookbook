@@ -173,7 +173,7 @@ class QueueItem:
     doc_id: str
     text: str
     result: TriageResult
-    candidate_spans: list[str]
+    candidate_spans: tuple[str, ...]
     answer: Any
 
 
@@ -197,5 +197,5 @@ def queue_candidates(
     for doc_id, text, answer in entries:
         result = triage(doc_id, answer, threshold, min_confidence)
         if result.outcome != CLEARED:
-            items.append(QueueItem(doc_id, text, result, find_candidate_spans(text), answer))
+            items.append(QueueItem(doc_id, text, result, tuple(find_candidate_spans(text)), answer))
     return sorted(items, key=lambda item: -item.answer.noul)
