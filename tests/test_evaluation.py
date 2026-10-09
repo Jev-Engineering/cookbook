@@ -1011,6 +1011,29 @@ def test_outcome_curve_accepts_choice_and_noul_answers():
     assert ok_curve.coverage.tolist() == [0.5, 1.0]
 
 
+def test_outcome_curve_placeholder_confidence_for_an_unanswered_example_moves_the_grid():
+    # The docs warn against inventing a confidence for an example that was never answered at
+    # all (a rule's own short-circuit before any question was asked, e.g. recipe 14's
+    # no_candidates or recipe 22's no_candidate_resolution): outcome_curve sweeps answered
+    # examples only. This pins why a placeholder is not inert even for an exempt example --
+    # it adds a row to the threshold grid (thresholds = numpy.unique of every confidence
+    # passed in) and so moves the curve's x-axis, even though an exempt example is selected
+    # at every threshold either way.
+    confidence = [0.9, 0.8, 0.7]
+    correct = [True, False, True]
+    exempt = [False, False, True]  # index 2 is a genuine, answered exempt example
+    answered_only = ev.outcome_curve(confidence, correct, exempt=exempt)
+    assert answered_only.thresholds.tolist() == [0.9, 0.8, 0.7]
+
+    # Adding an unanswered example as if it had confidence 0.0 (still exempt, so it would
+    # never change which examples are selected) nonetheless inserts a new threshold row.
+    with_placeholder = ev.outcome_curve(
+        confidence + [0.0], correct + [True], exempt=exempt + [True]
+    )
+    assert with_placeholder.thresholds.tolist() == [0.9, 0.8, 0.7, 0.0]
+    assert len(with_placeholder.thresholds) != len(answered_only.thresholds)
+
+
 def test_outcome_curve_rejects_out_of_range_confidence():
     with pytest.raises(ValueError, match=r"\[0, 1\]"):
         ev.outcome_curve([0.9, -1.0, 0.5], [True, True, True])

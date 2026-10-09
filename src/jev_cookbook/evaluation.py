@@ -1567,14 +1567,30 @@ def outcome_curve(
     ``accuracy`` (and ``risk``) is never NaN here, unlike some other curves in this module.
 
     This models only an unconditionally *accepted* branch (CONTRIBUTING.md section 4's
-    exemption). A rule that instead unconditionally *rejects* some examples regardless of
-    confidence (recipe 14's shape) has no single-``exempt`` encoding here; its curve is a later
-    extension, not this one.
+    exemption): recipes 11, 13, 14, 18 and 22 all have exactly this shape and ``exempt`` is exact
+    for each of them (see "Outcomes versus the confidence-only view" in ``docs/evaluation.md`` for
+    the full inventory). A rule that instead unconditionally *rejects* some examples regardless of
+    confidence has no single-``exempt`` encoding here: recipe 23 (``judge_pair``'s "orders
+    disagree" branch) and recipe 21 (the model choosing ``needs_review`` outright) both reject some
+    examples whatever their confidence, and neither is expressible by one boolean mask that only
+    ever *adds* always-accepted examples. Such a rule's curve is a later extension, not this one.
+
+    Pass a confidence for every example that received one, exempt included — never a placeholder
+    for one that did not. An example a rule short-circuits before any question is asked (recipe
+    14's ``no_candidates``, recipe 22's ``no_candidate_resolution``) has no confidence to report:
+    leave such examples out of ``confidences``/``correct``/``exempt`` entirely (``outcome_curve``
+    sweeps the *answered* examples only) and report them separately with
+    :func:`evaluate_outcomes`-style accounting instead. An invented number such as ``0.0`` is not
+    inert here even though the example would be exempt either way: ``thresholds`` is
+    ``numpy.unique`` of every confidence passed in, so a placeholder adds a row to that grid and
+    shifts the curve's x-axis, even though it can never change which examples are selected.
 
     Args:
-        confidences: Per-example confidence, in [0, 1], for every example (exempt included):
-            numbers, or Choice/Score answers (``.confidence``). For Noul see
-            :func:`noul_confidence`.
+        confidences: Per-example confidence, in [0, 1], for every *answered* example (exempt
+            included): numbers, or Choice/Score answers (``.confidence``). For Noul see
+            :func:`noul_confidence`. Omit an example that never received a confidence (a rule's
+            own short-circuit before any question was asked) rather than inventing one: it would
+            still enter the threshold grid.
         correct: Whether each example's answer was right (bool or 0/1); read for every example,
             exempt ones included, since an exempt example is accepted at every threshold.
         exempt: Whether each example is accepted by the rule regardless of confidence (bool or

@@ -319,10 +319,44 @@ narrower condition" below for a worked example). Because an `exempt` example is 
 never NaN here: every threshold answers at least one example, unlike some other curves in this
 module where a threshold can select nothing.
 
-This function has no counterpart for a rule that *unconditionally rejects* some examples
-regardless of confidence (recipe 14's shape, as opposed to recipe 11's and 13's unconditional
-*accept*): there is no single `exempt`-shaped argument for "always sent to review no matter how
-confident", so such a rule's curve is not yet expressible here.
+**Which shipped rules can use this, and which cannot.** `exempt` models only an unconditionally
+*accepted* branch (CONTRIBUTING.md section 4's exemption). Checked against each recipe's own
+committed fixtures:
+
+| recipe | exempt-accept branch | reject-regardless branch | `exempt` suffices? |
+| --- | --- | --- | --- |
+| 11 | `no_clarification_needed` | membership check, fires on 0 examples | yes |
+| 13 | `no_suitable_rewrite` | membership check, fires on 0 examples | yes |
+| 14 | `not_stated` (×7) | membership check, fires on 0 examples | yes — but see the next paragraph for its 2 `no_candidates` short-circuits |
+| 16 | none (every category gated) | none | yes, `exempt=None` |
+| 18 | `no_match` (×12) | membership check, fires on 0 examples | yes |
+| 19 | none (gate first) | none | yes, `exempt=None` |
+| 21 | — | the model choosing `needs_review` outright (×3); 22 of 38 scored examples are also settled with no model call at all | **no** |
+| 22 | `no_match` (×5) | membership check, fires on 0 examples | yes — but see the next paragraph for its 4 `no_candidate_resolution` short-circuits |
+| 23 | agreed `insufficient_evidence` (×8) | `judge_pair`'s "orders disagree" branch (×9) | **no** |
+
+For 11, 13, 14, 18 and 22, the single mask is exact *because* each rule's defensive membership
+check never actually fires on its committed fixtures — not because `exempt` can express a
+membership check in general; a future fixture that does trip one would need its own accounting.
+Recipes **21** and **23** unconditionally *reject* some examples regardless of confidence (the
+model naming `needs_review` outright in 21; `judge_pair`'s disagreement check in 23, which runs
+before any confidence is read) — there is no single `exempt`-shaped argument for "always sent to
+review no matter how confident", so neither recipe's curve is expressible here yet. Recipe 21 is
+one of the three recipes whose review asked for this function in the first place; it still cannot
+use it.
+
+**Examples with no confidence to report.** `confidences` is required for every example passed in,
+`exempt` included, and every value is validated to `[0, 1]` — but some examples never go through a
+question at all. Recipe 14 short-circuits 2 of its 41 scored documents through `no_candidates`
+(accepted as `not_stated`, no question built, so no `Noul`/`Choice` answer exists to read a
+confidence from); recipe 22 short-circuits 4 of its 40 through `no_candidate_resolution` the same
+way. Do not invent a placeholder confidence (`0.0` or otherwise) for such an example to keep its
+row in the arrays: leave it out of `confidences`/`correct`/`exempt` entirely —
+`outcome_curve` sweeps the *answered* examples only — and report it separately with its own
+`evaluate_outcomes`-style accounting (it is still accepted, unconditionally, for that purpose). A
+placeholder is not inert even though the example would stay exempt either way: `thresholds` is
+`numpy.unique` of every confidence passed in, so one placeholder value adds a row to that grid and
+moves the curve's x-axis, despite never changing which examples the mask selects.
 
 ### Outcomes versus the confidence-only view
 
