@@ -29,6 +29,14 @@ def confidence_of(noul):
     return noul_confidence([noul])[0]
 
 
+def test_noul_confidence_is_pinned_to_the_published_formula():
+    # A literal, not derived from noul_confidence itself: pins |2p - 1| (equivalently
+    # 2 * max(p, 1 - p) - 1) rather than only pinning that helpers and evaluation agree with
+    # each other. 0.65 and 0.35 are this recipe's own "-moderate" fixtures.
+    assert noul_confidence([0.65])[0] == pytest.approx(0.30)
+    assert noul_confidence([0.35])[0] == pytest.approx(0.30)
+
+
 def test_questions_are_built_by_python():
     questions = helpers.build_questions()
     assert list(questions) == ["relevant"]

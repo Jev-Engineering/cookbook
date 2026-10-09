@@ -22,10 +22,10 @@ STATEMENT = "This response addresses the question the user actually asked."
 
 _CRITERIA = {
     "true": (
-        "The response engages with what the user is actually asking, and gives information a "
-        "reader could use to answer their question -- even if the answer is brief, incomplete, "
-        "or only partly covers what was asked. A response that confirms, explains, or resolves "
-        "the real ask counts as addressing it, however it is phrased."
+        "The response gives information a reader could use to answer what the user is "
+        "actually asking -- even if it is brief, incomplete, or only partly covers what was "
+        "asked. A response that confirms, explains, or resolves the real ask counts as "
+        "addressing it, however it is phrased."
     ),
     "false": (
         "The response does not engage with what the user is actually asking. This covers a "

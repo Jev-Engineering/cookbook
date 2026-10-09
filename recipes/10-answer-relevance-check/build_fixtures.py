@@ -7,18 +7,35 @@ Every response is synthetic (written by hand as a probability, not produced by a
 deliberately imperfect. The hard cases the issue names are included and tagged in their id: a
 response that is clearly relevant (``-relevant``), one that is clearly off-topic (``-offtopic``,
 including a generic boilerplate reply, a reply that only repeats the question, one that deflects
-without answering, and one about an unrelated subject), and the two hardest shapes: a response
-that is only partly relevant (``-partial``, gold labels deliberately mixed between true and
-false) and a fluent, well-formed response that confidently answers a *different* question from
-the one asked (``-hard-wrong``). Both splits carry one ``-hard-wrong`` pair stored at a noul far
-enough from an even split that the confidence gate (``helpers.check_relevance``'s
-``min_confidence``) does not catch it, so the frozen rule's numbers on `test` show a real,
-non-zero risk of a wrongly accepted response, not a guarantee that happens to hold. The confidence
-gate exists for a different shape of case: both splits also carry four genuinely ambiguous
-``-partial`` pairs, stored within 0.09 of an even split (0.46-0.58), with gold labels mixed -- two
-true, two false, in no fixed order relative to noul -- so that a pair's probability alone does not
-reliably say which way it should go. The replay keys come from the same ``build_state`` and
-``build_questions`` the notebook uses, via ``helpers.py``.
+without answering, and one about an unrelated subject), and three harder shapes.
+
+``-hard-wrong`` is a fluent, well-formed response that confidently answers a *different* question
+from the one asked. Both splits carry one, stored at a noul (0.78 on `validation`, 0.83 on
+`test`) and a certainty (0.56, 0.66) well clear of the gate the notebook freezes (0.30): the
+certainty gate measures how far a probability leans, not whether it leans the right way, and a
+response engineered to read as fluent and on-topic leans hard. Both are deliberately stored above
+the gate on purpose -- the lesson is that certainty cannot catch this shape of error, on either
+split, not that it happens to catch it on one and miss it on the other.
+
+``-partial`` (three per split, stored within 0.08 of an even split, 0.46-0.58, gold labels not
+all one way -- two true, one false, in no fixed order relative to noul) is the opposite shape: a
+response whose probability alone does not reliably say which way it should go, which is exactly
+what the certainty gate is for and exactly what it catches here, alongside ``-error`` below.
+
+One pair per split (``-error``, 0.60 on `validation`, 0.61 on `test`, gold false) is a genuine
+raw-decision mistake sitting just past the business threshold (0.55): close enough to an even
+split that the certainty gate catches it too, but on the wrong side of 0.55, unlike the
+``-partial`` pairs. Excluding it from the decisions `check_relevance` acts on alone is what lets
+the frozen gate raise accuracy on the answered subset above the ungated rule's own accuracy on
+both splits -- the gate is shown earning its coverage/accuracy trade-off, not asserted to.
+
+Finally, one ``-moderate`` pair of each gold value per split (0.65 true, 0.35 false) is confident
+enough to clear the gate (certainty 0.30, exactly the frozen cut-off) while sitting close enough
+to the business threshold that moving it changes their outcome: without these two pairs, every
+pair that clears the gate would sit at or past 0.78, so the business threshold, frozen separately
+at 0.55, would never actually decide anything a looser or tighter gate could not already decide on
+its own. The replay keys come from the same ``build_state`` and ``build_questions`` the notebook
+uses, via ``helpers.py``.
 """
 
 import argparse
@@ -34,7 +51,7 @@ QUESTIONS = helpers.build_questions()
 # (id, split, pair_id, question, response, gold label (bool) or None for demo, stored noul
 # probability that the response addresses the question)
 ROWS = [
-    # --- validation: 23 pairs ---------------------------------------------------------------
+    # --- validation: 25 pairs ---------------------------------------------------------------
     ("v01-relevant", "validation", "AR1001",
      "How long does standard shipping take?",
      "Standard shipping takes 5 to 7 business days from the date your order ships.",
@@ -124,11 +141,11 @@ ROWS = [
      "You can upload CSV and JSON files to the dashboard; larger exports are best split into "
      "multiple files.",
      True, 0.55),
-    ("v20-partial", "validation", "AR1020",
+    ("v20-error", "validation", "AR1020",
      "Can I downgrade from the premium plan to the free plan?",
      "If you're looking to change your plan, you can do that any time from the Billing tab "
      "under 'Plan'.",
-     False, 0.50),
+     False, 0.60),
     ("v21-partial", "validation", "AR1021",
      "What happens to my saved files if I close my account?",
      "Closing your account removes access to the dashboard immediately; you can export your "
@@ -144,7 +161,16 @@ ROWS = [
      "Yes -- cancel any time from the Billing tab; you'll still have access through the end "
      "of the period you already paid for.",
      True, 0.84),
-    # --- test: 23 pairs ----------------------------------------------------------------------
+    ("v24-moderate", "validation", "AR1024",
+     "Does the mobile app support offline access to my files?",
+     "Yes, you can mark files for offline access from the file list, and they will sync again "
+     "the next time you have a connection.",
+     True, 0.65),
+    ("v25-moderate", "validation", "AR1025",
+     "Can I get a discount for paying annually instead of monthly?",
+     "Annual and monthly plans include the same features and support options.",
+     False, 0.35),
+    # --- test: 25 pairs ----------------------------------------------------------------------
     ("t01-relevant", "test", "AR2001",
      "How long does express shipping take?",
      "Express shipping arrives within 1 to 2 business days after your order ships.",
@@ -232,11 +258,11 @@ ROWS = [
      "You can upload JPEG and PNG images to the gallery; very large files may take longer to "
      "process.",
      True, 0.56),
-    ("t20-partial", "test", "AR2020",
+    ("t20-error", "test", "AR2020",
      "Can I switch from the free plan to the premium plan mid-month?",
      "Plan changes are billed on a prorated basis, so you only pay for the days remaining in "
      "the cycle.",
-     False, 0.49),
+     False, 0.61),
     ("t21-partial", "test", "AR2021",
      "What happens to my draft documents if my trial expires?",
      "When your trial expires, editing is disabled, but your drafts stay saved and become "
@@ -252,6 +278,16 @@ ROWS = [
      "Yes -- basic plan customers can reach email support any time, and most replies arrive "
      "within one business day.",
      True, 0.86),
+    ("t24-moderate", "test", "AR2024",
+     "Does the desktop app support offline access to my files?",
+     "Yes, mark files for offline access from the file list and they will sync again the next "
+     "time you have a connection.",
+     True, 0.65),
+    ("t25-moderate", "test", "AR2025",
+     "Is there a discount for paying for the year upfront instead of monthly?",
+     "The annual and monthly plans offer the same set of features and the same support "
+     "options.",
+     False, 0.35),
     # --- demo: 2 pairs, shown but never scored ------------------------------------------------
     ("d01-relevant", "demo", "AR3001",
      "What is your return policy for opened items?",
