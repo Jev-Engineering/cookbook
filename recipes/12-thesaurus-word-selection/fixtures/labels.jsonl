@@ -1,40 +1,40 @@
 {"id": "v01-happy-high", "label": ["joyful"]}
 {"id": "v02-happy-multi", "label": ["pleased", "glad"]}
 {"id": "v03-happy-nomatch", "label": ["keep_original"]}
-{"id": "v04-happy-low", "label": ["content"]}
-{"id": "v05-happy-wrong", "label": ["cheerful", "pleased"]}
-{"id": "t01-happy-high", "label": ["joyful"]}
-{"id": "t02-happy-multi", "label": ["content", "pleased"]}
+{"id": "v04-happy-low", "label": ["content", "pleased"]}
+{"id": "v05-happy-fp", "label": ["content", "glad"]}
+{"id": "t01-happy-high", "label": ["joyful", "glad"]}
+{"id": "t02-happy-multi", "label": ["pleased", "content"]}
 {"id": "t03-happy-nomatch", "label": ["keep_original"]}
-{"id": "t04-happy-low", "label": ["content"]}
+{"id": "t04-happy-low", "label": ["content", "pleased"]}
 {"id": "t05-happy-high", "label": ["glad", "joyful"]}
 {"id": "v01-big-multi", "label": ["large", "sizable"]}
-{"id": "v02-big-multi", "label": ["huge", "enormous", "massive"]}
+{"id": "v02-big-triple", "label": ["huge", "enormous", "massive"]}
 {"id": "v03-big-nomatch", "label": ["keep_original"]}
-{"id": "v04-big-low", "label": ["large"]}
+{"id": "v04-big-low", "label": ["large", "huge"]}
 {"id": "v05-big-multi", "label": ["sizable", "large"]}
 {"id": "t01-big-multi", "label": ["large", "sizable"]}
 {"id": "t02-big-multi", "label": ["huge", "enormous"]}
 {"id": "t03-big-nomatch", "label": ["keep_original"]}
-{"id": "t04-big-low", "label": ["large"]}
-{"id": "t05-big-multi", "label": ["sizable", "large"]}
-{"id": "v01-quick-multi", "label": ["fast", "swift", "speedy"]}
+{"id": "t04-big-low", "label": ["large", "sizable"]}
+{"id": "t05-big-fp", "label": ["sizable", "large"]}
+{"id": "v01-quick-high", "label": ["fast"]}
 {"id": "v02-quick-multi", "label": ["swift", "speedy"]}
 {"id": "v03-quick-nomatch", "label": ["keep_original"]}
-{"id": "v04-quick-low", "label": ["fast"]}
+{"id": "v04-quick-low", "label": ["fast", "speedy"]}
 {"id": "v05-quick-high", "label": ["brisk"]}
 {"id": "t01-quick-multi", "label": ["fast", "swift"]}
 {"id": "t02-quick-high", "label": ["brisk"]}
 {"id": "t03-quick-nomatch", "label": ["keep_original"]}
-{"id": "t04-quick-low", "label": ["fast"]}
+{"id": "t04-quick-low", "label": ["fast", "speedy"]}
 {"id": "t05-quick-wrong", "label": ["fast", "swift"]}
 {"id": "v01-angry-multi", "label": ["furious", "livid"]}
 {"id": "v02-angry-multi", "label": ["annoyed", "irritated"]}
 {"id": "v03-angry-nomatch", "label": ["keep_original"]}
-{"id": "v04-angry-low", "label": ["annoyed"]}
-{"id": "v05-angry-high", "label": ["cross"]}
+{"id": "v04-angry-low", "label": ["annoyed", "cross"]}
+{"id": "v05-angry-wrong", "label": ["cross", "irritated"]}
 {"id": "t01-angry-multi", "label": ["furious", "livid"]}
-{"id": "t02-angry-multi", "label": ["annoyed", "irritated"]}
+{"id": "t02-angry-high", "label": ["cross"]}
 {"id": "t03-angry-nomatch", "label": ["keep_original"]}
-{"id": "t04-angry-low", "label": ["annoyed"]}
+{"id": "t04-angry-low", "label": ["annoyed", "irritated"]}
 {"id": "t05-angry-multi", "label": ["livid", "furious"]}

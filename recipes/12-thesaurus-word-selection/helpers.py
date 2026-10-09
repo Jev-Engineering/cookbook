@@ -121,8 +121,9 @@ def resolve(item_id: str, answer: Any, candidates: list[str], min_confidence: fl
     enough; otherwise send it to an explicit ``review`` outcome instead of a reported result.
 
     Two things send a sentence to review: choosing something that is not one of ``candidates`` or
-    ``keep_original`` -- defensive, since the criteria `build_questions` asks with never offer
-    such an option, but the rule does not trust that silently -- and confidence below
+    ``keep_original`` -- defensive: the backend already restricts an answer to the question's own
+    options (`docs/backends.md`), so this branch cannot fire through replay or live, but the rule
+    does not trust that silently -- and confidence below
     ``min_confidence``, whatever option was named, ``keep_original`` included: a confident
     ``keep_original`` is accepted exactly like a confident candidate, because it is as final an
     answer as any of them. The rule is code, so it holds whatever the model answers.

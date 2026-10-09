@@ -5,37 +5,45 @@
 
 Every response is synthetic (written by hand as probabilities, not produced by a model) and
 deliberately imperfect. Four target words (`happy`, `big`, `quick`, `angry`) each get five
-`validation` and five `test` sentences. Every sentence carries its own candidate synonym list,
-assembled by Python per sentence rather than shared across every sentence that happens to use the
-same word (see `helpers.candidate_options`); changing one sentence's candidates in `ROWS` changes
-only that sentence's replay key, because the option list -- and so the key -- follows the
-sentence, never the word.
+`validation` and five `test` sentences. Every sentence contains its target word literally, and
+none of its own three candidates appears anywhere in the sentence text, so the task is genuinely
+"judge which supplied word fits here", never "copy the word already in the sentence" or "spot the
+candidate that is already written out".
 
 Gold labels are a list of every option the sentence accepts (one of the word's own candidates,
 `keep_original`, or several at once), because the use case allows more than one synonym to fit.
-One sentence per word (`*-nomatch`) is a hard case the issue names: none of the supplied
-candidates preserve the word's meaning here (an idiom, or personification), so `keep_original` is
-the only acceptable answer. One sentence per word (`*-low`) names the right option at a low
-confidence, so it is right but still sent to review once the confidence gate is frozen. On
-`validation`, `v05-happy-wrong` is wrong at a moderate confidence (0.55, between the low and high
-tiers below); excluding it from the accepted set is what the frozen threshold actually has to do,
-rather than landing on a threshold nothing on `validation` would have crossed anyway. On `test`,
-two sentences are wrong: `t05-quick-wrong` is wrong at a high confidence (0.85, the same tier as
-every confident, correct answer), so it clears the frozen threshold anyway, and the
-selective-prediction numbers the notebook reports on `test` show a real, non-zero risk rather than
-a guarantee that happens to hold; `t03-angry-nomatch` is also wrong (the stored answer misses a
-personified, no-match sentence and names a literal candidate instead of `keep_original`), but only
-at a low confidence (0.42), so the confidence gate does catch this one -- it lowers the raw
-choice's recall of `keep_original` without adding to the accepted-and-wrong risk count. Three
-`demo` examples are shown in the notebook but never scored: a confident,
-correct pick, a confident, correct `keep_original`, and a confident answer that is wrong (the same
-shape as `t05-quick-wrong`, shown before any aggregate so a wrong-but-confident answer is on the
-page before the evaluation gets to it). The replay keys come from the same `build_state` and
-`build_questions` the notebook uses, via `helpers.py`.
+Each word gets two `*-nomatch` sentences (an idiom or a fixed name, where none of the candidates
+preserve the meaning: `keep_original` is the only acceptable answer) and two `*-low` sentences (a
+correct choice, named at low confidence, with a genuine second acceptable candidate in its gold
+set, so the gold set is never narrower than the sentence actually supports).
+
+`SEED` and `shuffled_candidates` decouple a sentence's authored candidate order (gold first, for
+readability below) from the order Jev is actually asked in: each sentence's three candidates are
+permuted by a deterministic, seeded shuffle, independent across sentences. Without this, every
+sentence in an earlier draft of these fixtures happened to list its best-fitting candidate first,
+which let "always answer option 1" score as well as the frozen rule -- exactly the option-order
+lean S07 item 8 documents in Jev 1.13. `notebook.ipynb` prints the resulting distribution of gold
+positions (`gold_positions`, below) so the reader can see candidate 1 is not privileged.
+
+Two sentences test the fallback's other failure direction: a stored answer that confidently (or
+unconfidently) says `keep_original` even though a real candidate fits -- `v05-happy-fp` (low
+confidence, caught by the gate) and `t05-big-fp` (confident, not caught, counted in `risk`).
+`v05-angry-wrong` is the sole deliberately wrong validation answer (`livid`, at a moderate
+confidence the threshold search must exclude): the sentence itself says "a little angry ...
+shrugged it off", which contradicts `livid`'s own gloss ("extremely angry") directly, so the
+designated-wrong answer is wrong by the glosses, not by a judgment call. `t05-quick-wrong`
+(`hasty` for a sentence about a fast ferry crossing) is the sole wrong-and-confident test answer,
+clear of the frozen threshold, so the risk the notebook reports on `test` is real.
+
+The replay keys come from the same `build_state` and `build_questions` the notebook uses, via
+`helpers.py`; because the option order is shuffled per sentence, editing or reordering one
+sentence's candidates changes only that sentence's key.
 """
 
 import argparse
+import hashlib
 import json
+import random
 from pathlib import Path
 
 from jev_cookbook import ChoiceAnswer, DecisionResult, Provenance, load_helpers, replay_key
@@ -43,158 +51,233 @@ from jev_cookbook import ChoiceAnswer, DecisionResult, Provenance, load_helpers,
 HERE = Path(__file__).resolve().parent
 helpers = load_helpers(HERE)
 
-# (id, split, word, sentence, candidates, gold list or None for demo, probabilities)
-# Probabilities are in the order (candidate_1, candidate_2, candidate_3, keep_original) and sum
-# to 1; "candidates" is this sentence's own list, in that same order.
+SEED = 12  # this recipe's number; see shuffled_candidates
+
+
+def shuffled_candidates(item_id: str, candidates: list[str]) -> list[str]:
+    """``candidates``, permuted by a deterministic shuffle seeded from ``(SEED, item_id)`` --
+    the same seeding convention `ScriptedBackend.rng_for` uses (`src/jev_cookbook/backends.py`,
+    `docs/backends.md` "Scripted backend"): hash ``f"{SEED}:{item_id}"`` and seed
+    ``random.Random`` from the digest, rather than passing the tuple directly (`random.Random`
+    only accepts ``None``, ``int``, ``float``, ``str``, ``bytes`` or ``bytearray``, and a bare
+    string seed would depend on Python's randomized string hash across processes). The same item
+    id always gives the same order, on every platform, independent of every other sentence's
+    shuffle. This is what decouples the position a candidate is offered in from whether it
+    belongs in the sentence's gold set (see the module docstring)."""
+    digest = hashlib.sha256(f"{SEED}:{item_id}".encode()).hexdigest()
+    rng = random.Random(int(digest[:16], 16))
+    order = list(range(len(candidates)))
+    rng.shuffle(order)
+    return [candidates[i] for i in order]
+
+
+# (id, split, word, sentence, candidates (authored order: gold first, for readability -- the
+# order Jev is actually asked in is shuffled_candidates(id, candidates)), gold list or None for
+# demo, {candidate name (or "keep_original"): probability}). Each probability dict sums to 1.
 ROWS = [
     # --- happy ---------------------------------------------------------------------------------
     ("v01-happy-high", "validation", "happy",
-     "She was joyful and couldn't stop smiling after hearing the good news.",
-     ["joyful", "cheerful", "pleased"], ["joyful"], (0.88, 0.06, 0.04, 0.02)),
+     "Maria looked incredibly happy as she opened the acceptance letter, tears of joy in her eyes.",
+     ["joyful", "cheerful", "pleased"], ["joyful"],
+     {"joyful": 0.88, "cheerful": 0.06, "pleased": 0.04, "keep_original": 0.02}),
     ("v02-happy-multi", "validation", "happy",
-     "He was pleased, and quietly glad, that the meeting had gone so well.",
-     ["pleased", "glad", "content"], ["pleased", "glad"], (0.80, 0.12, 0.05, 0.03)),
+     "After the long negotiation finally ended in a fair deal, both sides were happy with the outcome.",
+     ["pleased", "glad", "content"], ["pleased", "glad"],
+     {"pleased": 0.80, "glad": 0.12, "content": 0.05, "keep_original": 0.03}),
     ("v03-happy-nomatch", "validation", "happy",
-     "After months of negotiation, they finally reached a happy medium on the budget.",
-     ["content", "pleased", "glad"], ["keep_original"], (0.08, 0.06, 0.04, 0.82)),
+     "After weeks of back-and-forth, the two departments settled on a happy medium for the shared budget.",
+     ["content", "pleased", "glad"], ["keep_original"],
+     {"content": 0.08, "pleased": 0.06, "glad": 0.04, "keep_original": 0.82}),
     ("v04-happy-low", "validation", "happy",
-     "He said he was happy with how the garden had turned out, though he barely looked up.",
-     ["content", "pleased", "cheerful"], ["content"], (0.40, 0.32, 0.18, 0.10)),
-    ("v05-happy-wrong", "validation", "happy",
-     "The whole office seemed happy about the new coffee machine.",
-     ["cheerful", "pleased", "glad"], ["cheerful", "pleased"], (0.30, 0.10, 0.55, 0.05)),
+     "He mentioned he felt happy with how the garden had turned out, though he barely glanced up "
+     "from his phone the whole time he said it.",
+     ["content", "pleased", "cheerful"], ["content", "pleased"],
+     {"content": 0.40, "pleased": 0.32, "cheerful": 0.18, "keep_original": 0.10}),
+    ("v05-happy-fp", "validation", "happy",
+     "The two old friends seemed happy just sitting together on the porch, not saying much at all.",
+     ["content", "glad", "pleased"], ["content", "glad"],
+     {"content": 0.30, "glad": 0.10, "pleased": 0.22, "keep_original": 0.38}),
     ("t01-happy-high", "test", "happy",
-     "The puppy bounded over, joyful to see its owner again.",
-     ["joyful", "cheerful", "glad"], ["joyful"], (0.90, 0.05, 0.03, 0.02)),
+     "The whole team looked happy when the client finally approved the final design after months "
+     "of revisions.",
+     ["joyful", "glad", "cheerful"], ["joyful", "glad"],
+     {"joyful": 0.80, "glad": 0.12, "cheerful": 0.05, "keep_original": 0.03}),
     ("t02-happy-multi", "test", "happy",
-     "She was content, and pleased besides, with the quiet evening at home.",
-     ["content", "pleased", "glad"], ["content", "pleased"], (0.80, 0.12, 0.05, 0.03)),
+     "She was happy to finally relax on the porch after a long week, with nothing on her mind and "
+     "nowhere to be.",
+     ["pleased", "content", "cheerful"], ["pleased", "content"],
+     {"pleased": 0.80, "content": 0.12, "cheerful": 0.05, "keep_original": 0.03}),
     ("t03-happy-nomatch", "test", "happy",
-     "Choosing a happy medium between the two designs took most of the afternoon.",
-     ["content", "pleased", "cheerful"], ["keep_original"], (0.07, 0.05, 0.04, 0.84)),
+     "The committee eventually agreed on a happy medium between the two competing proposals.",
+     ["pleased", "glad", "cheerful"], ["keep_original"],
+     {"pleased": 0.07, "glad": 0.05, "cheerful": 0.04, "keep_original": 0.84}),
     ("t04-happy-low", "test", "happy",
-     "He mentioned he was happy with the new schedule, almost in passing.",
-     ["content", "pleased", "glad"], ["content"], (0.42, 0.33, 0.15, 0.10)),
+     "He said he was happy with the new schedule, though he said it so flatly it was hard to tell "
+     "if he meant it.",
+     ["content", "pleased", "glad"], ["content", "pleased"],
+     {"content": 0.42, "pleased": 0.33, "glad": 0.15, "keep_original": 0.10}),
     ("t05-happy-high", "test", "happy",
-     "Everyone at the party was glad to see the band back together.",
-     ["glad", "joyful", "cheerful"], ["glad", "joyful"], (0.85, 0.09, 0.04, 0.02)),
+     "Everyone at the reunion was happy to see faces they hadn't seen in years.",
+     ["glad", "joyful", "cheerful"], ["glad", "joyful"],
+     {"glad": 0.85, "joyful": 0.09, "cheerful": 0.04, "keep_original": 0.02}),
     # --- big -----------------------------------------------------------------------------------
     ("v01-big-multi", "validation", "big",
-     "The company announced a big expansion into three new countries.",
-     ["large", "sizable", "massive"], ["large", "sizable"], (0.82, 0.11, 0.04, 0.03)),
-    ("v02-big-multi", "validation", "big",
-     "The whale was so big that the boat looked tiny beside it.",
-     ["huge", "enormous", "massive"], ["huge", "enormous", "massive"], (0.85, 0.08, 0.05, 0.02)),
+     "The city approved a big expansion of the downtown transit line this year.",
+     ["large", "sizable", "massive"], ["large", "sizable"],
+     {"large": 0.82, "sizable": 0.11, "massive": 0.04, "keep_original": 0.03}),
+    ("v02-big-triple", "validation", "big",
+     "The whale drifting past the boat was so big that everyone on deck fell silent.",
+     ["huge", "enormous", "massive"], ["huge", "enormous", "massive"],
+     {"huge": 0.85, "enormous": 0.08, "massive": 0.05, "keep_original": 0.02}),
     ("v03-big-nomatch", "validation", "big",
-     "Today is a big day for her: the final round of interviews.",
-     ["large", "sizable", "massive"], ["keep_original"], (0.09, 0.07, 0.04, 0.80)),
+     "Getting the promotion was a big deal for her, even though nothing about her daily tasks "
+     "changed yet.",
+     ["large", "sizable", "massive"], ["keep_original"],
+     {"large": 0.09, "sizable": 0.07, "massive": 0.04, "keep_original": 0.80}),
     ("v04-big-low", "validation", "big",
-     "The warehouse felt big and oddly empty in the evening light.",
-     ["large", "sizable", "huge"], ["large"], (0.42, 0.31, 0.17, 0.10)),
+     "The warehouse felt big and strangely empty in the dim evening light, with only a few crates "
+     "stacked near the door.",
+     ["large", "huge", "sizable"], ["large", "huge"],
+     {"large": 0.42, "huge": 0.31, "sizable": 0.17, "keep_original": 0.10}),
     ("v05-big-multi", "validation", "big",
-     "The festival drew a big crowd from across the region.",
-     ["sizable", "large", "massive"], ["sizable", "large"], (0.86, 0.08, 0.04, 0.02)),
+     "The festival drew a big crowd from every town in the county this year.",
+     ["sizable", "large", "massive"], ["sizable", "large"],
+     {"sizable": 0.86, "large": 0.08, "massive": 0.04, "keep_original": 0.02}),
     ("t01-big-multi", "test", "big",
-     "The new stadium has a big seating capacity for a city this size.",
-     ["large", "sizable", "massive"], ["large", "sizable"], (0.84, 0.09, 0.04, 0.03)),
+     "The new stadium has a big seating capacity, more than any other arena in the state.",
+     ["large", "sizable", "massive"], ["large", "sizable"],
+     {"large": 0.84, "sizable": 0.09, "massive": 0.04, "keep_original": 0.03}),
     ("t02-big-multi", "test", "big",
-     "The iceberg was big enough to be seen from the passing ship.",
-     ["huge", "enormous", "massive"], ["huge", "enormous"], (0.80, 0.13, 0.04, 0.03)),
+     "The iceberg drifting near the ship was big enough that the captain ordered a wide detour.",
+     ["huge", "enormous", "massive"], ["huge", "enormous"],
+     {"huge": 0.80, "enormous": 0.13, "massive": 0.04, "keep_original": 0.03}),
     ("t03-big-nomatch", "test", "big",
-     "It was a big decision, one she had been putting off for a year.",
-     ["large", "sizable", "massive"], ["keep_original"], (0.08, 0.06, 0.03, 0.83)),
+     "It was a big decision, one she had been putting off making for almost a year.",
+     ["large", "sizable", "massive"], ["keep_original"],
+     {"large": 0.08, "sizable": 0.06, "massive": 0.03, "keep_original": 0.83}),
     ("t04-big-low", "test", "big",
-     "The garage looked big compared to the cramped one next door.",
-     ["large", "sizable", "huge"], ["large"], (0.40, 0.33, 0.17, 0.10)),
-    ("t05-big-multi", "test", "big",
-     "The orchard produced a big harvest of apples this autumn.",
-     ["sizable", "large", "massive"], ["sizable", "large"], (0.87, 0.07, 0.04, 0.02)),
+     "The garage looked big compared to the cramped one next door, though it still only fit one "
+     "car comfortably.",
+     ["large", "sizable", "huge"], ["large", "sizable"],
+     {"large": 0.40, "sizable": 0.33, "huge": 0.17, "keep_original": 0.10}),
+    ("t05-big-fp", "test", "big",
+     "The orchard produced a big harvest of apples this autumn, far more than the bins could hold.",
+     ["sizable", "large", "massive"], ["sizable", "large"],
+     {"sizable": 0.07, "large": 0.05, "massive": 0.03, "keep_original": 0.85}),
     # --- quick ---------------------------------------------------------------------------------
-    ("v01-quick-multi", "validation", "quick",
-     "The courier was quick, delivering the package within the hour.",
-     ["fast", "swift", "speedy"], ["fast", "swift", "speedy"], (0.85, 0.08, 0.05, 0.02)),
+    ("v01-quick-high", "validation", "quick",
+     "The mechanic's diagnosis was quick, barely two minutes before he knew exactly what was wrong.",
+     ["fast", "swift", "speedy"], ["fast"],
+     {"fast": 0.85, "swift": 0.08, "speedy": 0.05, "keep_original": 0.02}),
     ("v02-quick-multi", "validation", "quick",
-     "She gave a quick, decisive answer the moment the question was asked.",
-     ["swift", "speedy", "brisk"], ["swift", "speedy"], (0.80, 0.12, 0.05, 0.03)),
+     "She gave a quick, decisive answer the moment the interviewer asked the hardest question.",
+     ["swift", "speedy", "brisk"], ["swift", "speedy"],
+     {"swift": 0.80, "speedy": 0.12, "brisk": 0.05, "keep_original": 0.03}),
     ("v03-quick-nomatch", "validation", "quick",
-     "He has a quick wit that keeps the whole table laughing.",
-     ["fast", "swift", "speedy"], ["keep_original"], (0.09, 0.06, 0.04, 0.81)),
+     "Her quick wit kept the whole dinner table laughing until dessert arrived.",
+     ["fast", "swift", "speedy"], ["keep_original"],
+     {"fast": 0.09, "swift": 0.06, "speedy": 0.04, "keep_original": 0.81}),
     ("v04-quick-low", "validation", "quick",
-     "The repair was quick, finished before the delivery truck even left.",
-     ["fast", "speedy", "brisk"], ["fast"], (0.41, 0.32, 0.17, 0.10)),
+     "The repair was quick, done before the delivery truck even finished unloading next door.",
+     ["fast", "speedy", "brisk"], ["fast", "speedy"],
+     {"fast": 0.41, "speedy": 0.32, "brisk": 0.17, "keep_original": 0.10}),
     ("v05-quick-high", "validation", "quick",
-     "They took a quick walk around the block before dinner.",
-     ["brisk", "fast", "swift"], ["brisk"], (0.86, 0.08, 0.04, 0.02)),
+     "They took a quick walk around the block before dinner, back in under ten minutes.",
+     ["brisk", "fast", "swift"], ["brisk"],
+     {"brisk": 0.86, "fast": 0.08, "swift": 0.04, "keep_original": 0.02}),
     ("t01-quick-multi", "test", "quick",
-     "The reply came back quick, faster than she expected.",
-     ["fast", "swift", "speedy"], ["fast", "swift"], (0.83, 0.10, 0.04, 0.03)),
+     "The reply came back quick, much sooner than she had expected given the time difference.",
+     ["fast", "swift", "speedy"], ["fast", "swift"],
+     {"fast": 0.83, "swift": 0.10, "speedy": 0.04, "keep_original": 0.03}),
     ("t02-quick-high", "test", "quick",
-     "He made a quick, brisk circuit of the factory floor before the inspection.",
-     ["brisk", "fast", "swift"], ["brisk"], (0.84, 0.09, 0.04, 0.03)),
+     "He made a quick circuit of the factory floor before the inspection began, pausing only a "
+     "few seconds at each station.",
+     ["brisk", "fast", "swift"], ["brisk"],
+     {"brisk": 0.84, "fast": 0.09, "swift": 0.04, "keep_original": 0.03}),
     ("t03-quick-nomatch", "test", "quick",
-     "She's always had a quick mind for numbers, even as a child.",
-     ["fast", "swift", "speedy"], ["keep_original"], (0.08, 0.06, 0.04, 0.82)),
+     "Her quick thinking under pressure impressed everyone on the response team.",
+     ["fast", "swift", "speedy"], ["keep_original"],
+     {"fast": 0.08, "swift": 0.06, "speedy": 0.04, "keep_original": 0.82}),
     ("t04-quick-low", "test", "quick",
-     "The fix was quick, though nobody was sure it would hold.",
-     ["fast", "speedy", "hasty"], ["fast"], (0.44, 0.31, 0.15, 0.10)),
+     "The fix was quick, though nobody on the crew was fully confident it would hold through the "
+     "winter.",
+     ["fast", "speedy", "hasty"], ["fast", "speedy"],
+     {"fast": 0.44, "speedy": 0.31, "hasty": 0.15, "keep_original": 0.10}),
     ("t05-quick-wrong", "test", "quick",
      "The ferry crossing was quick, barely twenty minutes across the strait.",
-     ["fast", "swift", "hasty"], ["fast", "swift"], (0.09, 0.04, 0.85, 0.02)),
+     ["fast", "swift", "hasty"], ["fast", "swift"],
+     {"fast": 0.09, "swift": 0.04, "hasty": 0.85, "keep_original": 0.02}),
     # --- angry ---------------------------------------------------------------------------------
     ("v01-angry-multi", "validation", "angry",
-     "She was furious when she found out the flight had been cancelled without notice.",
-     ["furious", "livid", "irritated"], ["furious", "livid"], (0.87, 0.07, 0.04, 0.02)),
+     "She was angry when she discovered the airline had cancelled her flight without any warning.",
+     ["furious", "livid", "irritated"], ["furious", "livid"],
+     {"furious": 0.87, "livid": 0.07, "irritated": 0.04, "keep_original": 0.02}),
     ("v02-angry-multi", "validation", "angry",
-     "He grew increasingly annoyed as the meeting ran an hour past schedule.",
-     ["annoyed", "irritated", "cross"], ["annoyed", "irritated"], (0.81, 0.11, 0.05, 0.03)),
+     "He grew angry as the meeting dragged an extra hour past its scheduled end with no end in "
+     "sight.",
+     ["annoyed", "irritated", "cross"], ["annoyed", "irritated"],
+     {"annoyed": 0.81, "irritated": 0.11, "cross": 0.05, "keep_original": 0.03}),
     ("v03-angry-nomatch", "validation", "angry",
-     "The old door hinge let out an angry creak every time it swung open.",
-     ["furious", "irritated", "annoyed"], ["keep_original"], (0.09, 0.07, 0.04, 0.80)),
+     "She always orders the Angry Bird smoothie before her morning workout at the new juice bar.",
+     ["furious", "irritated", "annoyed"], ["keep_original"],
+     {"furious": 0.09, "irritated": 0.07, "annoyed": 0.04, "keep_original": 0.80}),
     ("v04-angry-low", "validation", "angry",
-     "She seemed a little angry about the change in plans, but didn't say much.",
-     ["annoyed", "irritated", "cross"], ["annoyed"], (0.43, 0.30, 0.17, 0.10)),
-    ("v05-angry-high", "validation", "angry",
-     "He was cross with himself for forgetting the tickets at home.",
-     ["cross", "irritated", "annoyed"], ["cross"], (0.85, 0.08, 0.05, 0.02)),
+     "She seemed a little angry about the last-minute change in plans, but she didn't say much "
+     "about it.",
+     ["annoyed", "cross", "irritated"], ["annoyed", "cross"],
+     {"annoyed": 0.43, "cross": 0.30, "irritated": 0.17, "keep_original": 0.10}),
+    ("v05-angry-wrong", "validation", "angry",
+     "He was a little angry that the bus was two minutes late, but he just shrugged and went back "
+     "to reading his book.",
+     ["cross", "irritated", "livid"], ["cross", "irritated"],
+     {"cross": 0.30, "irritated": 0.10, "livid": 0.55, "keep_original": 0.05}),
     ("t01-angry-multi", "test", "angry",
-     "The customer was furious about the duplicate charge on the invoice.",
-     ["furious", "livid", "irritated"], ["furious", "livid"], (0.86, 0.08, 0.04, 0.02)),
-    ("t02-angry-multi", "test", "angry",
-     "The staff grew annoyed with the constant interruptions during the training.",
-     ["annoyed", "irritated", "cross"], ["annoyed", "irritated"], (0.82, 0.10, 0.05, 0.03)),
+     "The customer was angry about being charged twice for the same order and demanded a refund "
+     "on the spot.",
+     ["furious", "livid", "irritated"], ["furious", "livid"],
+     {"furious": 0.86, "livid": 0.08, "irritated": 0.04, "keep_original": 0.02}),
+    ("t02-angry-high", "test", "angry",
+     "He was a bit angry with himself, mostly just amused at his own forgetfulness, for leaving "
+     "the tickets on the kitchen counter at home.",
+     ["cross", "irritated", "annoyed"], ["cross"],
+     {"cross": 0.82, "irritated": 0.10, "annoyed": 0.05, "keep_original": 0.03}),
     ("t03-angry-nomatch", "test", "angry",
-     "The sky looked angry just before the storm broke over the hills.",
-     ["furious", "irritated", "annoyed"], ["keep_original"], (0.42, 0.33, 0.15, 0.10)),
+     "The diner's lunch special today is the Angry Trucker burger, their spiciest one yet.",
+     ["livid", "irritated", "annoyed"], ["keep_original"],
+     {"livid": 0.08, "irritated": 0.06, "annoyed": 0.03, "keep_original": 0.83}),
     ("t04-angry-low", "test", "angry",
-     "He was mildly angry about the delay but let it go quickly.",
-     ["annoyed", "irritated", "cross"], ["annoyed"], (0.42, 0.31, 0.17, 0.10)),
+     "He was mildly angry about the delay at the gate, but he let it go after a minute or two.",
+     ["annoyed", "irritated", "cross"], ["annoyed", "irritated"],
+     {"annoyed": 0.42, "irritated": 0.31, "cross": 0.17, "keep_original": 0.10}),
     ("t05-angry-multi", "test", "angry",
-     "She was livid about the mistake and demanded an explanation on the spot.",
-     ["livid", "furious", "irritated"], ["livid", "furious"], (0.88, 0.07, 0.03, 0.02)),
+     "She was angry about the mistake on the invoice and asked to speak with a manager right away.",
+     ["livid", "furious", "irritated"], ["livid", "furious"],
+     {"livid": 0.88, "furious": 0.07, "irritated": 0.03, "keep_original": 0.02}),
     # --- demo: shown in the notebook, never scored ----------------------------------------------
     ("d01-happy-clear", "demo", "happy",
-     "She was happy and couldn't stop smiling all evening after the reunion.",
-     ["joyful", "cheerful", "glad"], None, (0.90, 0.06, 0.03, 0.01)),
+     "She felt happy and kept smiling through the whole afternoon after hearing the good news.",
+     ["joyful", "cheerful", "glad"], None,
+     {"joyful": 0.90, "cheerful": 0.06, "glad": 0.03, "keep_original": 0.01}),
     ("d02-big-nomatch", "demo", "big",
-     "It's a big ask, but I think the team can pull it off.",
-     ["large", "sizable", "massive"], None, (0.08, 0.06, 0.03, 0.83)),
+     "It's a big ask, but I think the team can pull it off before the deadline.",
+     ["large", "sizable", "massive"], None,
+     {"large": 0.08, "sizable": 0.06, "massive": 0.03, "keep_original": 0.83}),
     ("d03-angry-wrong", "demo", "angry",
-     "The wind grew angry as the storm rolled in off the coast.",
-     ["furious", "irritated", "annoyed"], None, (0.80, 0.12, 0.05, 0.03)),
+     "The negotiations turned angry fast once the topic of layoffs came up, and voices started "
+     "rising around the table.",
+     ["furious", "irritated", "annoyed"], None,
+     {"furious": 0.05, "irritated": 0.90, "annoyed": 0.03, "keep_original": 0.02}),
 ]  # fmt: skip
 
 
 def answers_for(
-    candidates: list[str], probabilities: tuple[float, ...], provenance: Provenance
+    item_id: str, candidates: list[str], probabilities: dict, provenance: Provenance
 ) -> dict:
     """{question name: answer} for one row: a single Choice answer over this sentence's own
-    candidates plus ``keep_original``, in that order."""
-    options = [*candidates, helpers.KEEP_ORIGINAL]
-    return {
-        "synonym": ChoiceAnswer.from_probabilities(
-            dict(zip(options, probabilities, strict=True)), provenance
-        )
-    }
+    candidates (in the shuffled order Jev is actually asked) plus ``keep_original``."""
+    options = [*shuffled_candidates(item_id, candidates), helpers.KEEP_ORIGINAL]
+    ordered = {name: probabilities[name] for name in options}
+    return {"synonym": ChoiceAnswer.from_probabilities(ordered, provenance)}
 
 
 def build_inputs_and_labels(rows):
@@ -202,8 +285,9 @@ def build_inputs_and_labels(rows):
     always safe to regenerate, even after ``responses.json`` has been recorded."""
     inputs, labels = [], []
     for ident, split, word, sentence, candidates, gold, _probs in rows:
-        fields = {"item_id": ident, "word": word, "sentence": sentence, "candidates": candidates}
-        questions = helpers.build_questions(word, candidates)
+        shuffled = shuffled_candidates(ident, candidates)
+        fields = {"item_id": ident, "word": word, "sentence": sentence, "candidates": shuffled}
+        questions = helpers.build_questions(word, shuffled)
         key = replay_key(helpers.build_state(fields), questions)
         inputs.append({"id": ident, "split": split, "fields": fields, "replay_keys": [key]})
         if gold is not None:
@@ -215,11 +299,12 @@ def build_responses(rows):
     """``{replay_key: stored response}`` from ``rows``. Always synthetic: this script never
     calls Jev, so it can never produce a recorded response."""
     responses = {}
-    for _ident, _split, word, sentence, candidates, _gold, probs in rows:
-        fields = {"item_id": _ident, "word": word, "sentence": sentence, "candidates": candidates}
-        questions = helpers.build_questions(word, candidates)
+    for ident, _split, word, sentence, candidates, _gold, probs in rows:
+        shuffled = shuffled_candidates(ident, candidates)
+        fields = {"item_id": ident, "word": word, "sentence": sentence, "candidates": shuffled}
+        questions = helpers.build_questions(word, shuffled)
         key = replay_key(helpers.build_state(fields), questions)
-        answers = answers_for(candidates, probs, Provenance.synthetic())
+        answers = answers_for(ident, candidates, probs, Provenance.synthetic())
         responses[key] = DecisionResult(answers, "synthetic").to_dict()
     return responses
 

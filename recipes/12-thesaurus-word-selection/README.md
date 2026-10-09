@@ -7,17 +7,20 @@ Choose a context-appropriate synonym from a supplied thesaurus list while retain
 ## What it teaches
 
 Jev supplies one narrow judgment, a typed `Choice` over a small set of candidate synonyms that
-Python assembles fresh for each sentence, plus a shared fallback, `keep_original`, for a sentence
-where none of the candidates preserve the target word's meaning. Python owns everything else: the
-state Jev sees, the identifier that never reaches the model, and the rule that accepts the chosen
-option only when it was actually offered *and* its `confidence` clears a threshold chosen on
-`validation` and then frozen. Unlike a Choice option that only ever means "the model could not
-decide," `keep_original` is a real, final answer here — it is the correct, scorable outcome
-whenever no candidate fits, and it is held to the same confidence gate as every other option
-rather than an automatic review. The notebook shows three typed answers up close (a clear pick, a
-correct `keep_original`, and a wrong, confident pick), then the rule, then an evaluation that
-reports the share of selections inside each sentence's own acceptable set, how correctly the rule
-uses `keep_original`, and the coverage, accuracy and risk the frozen threshold buys on `test`.
+Python assembles fresh for each sentence and offers in a shuffled order (so the candidate that
+fits is not always listed first, the option-order lean TypeSafe documents for Jev 1.13), plus a
+shared fallback, `keep_original`, for a sentence where none of the candidates preserve the target
+word's meaning. Python owns everything else: the state Jev sees, the identifier that never
+reaches the model, and the rule that accepts the chosen option only when it was actually offered
+*and* its `confidence` clears a threshold chosen on `validation` and then frozen. Unlike a Choice
+option that only ever means "the model could not decide," `keep_original` is a real, final answer
+here — it is the correct, scorable outcome whenever no candidate fits, and it is held to the same
+confidence gate as every other option rather than an automatic review, including when it is
+itself the wrong choice. The notebook shows three typed answers up close (a clear pick, a correct
+`keep_original`, and a wrong, confident pick), then the rule and the confidence sweep behind its
+threshold, then an evaluation that reports the share of selections inside each sentence's own
+acceptable set, how correctly the rule uses `keep_original`, and the coverage, accuracy and risk
+the frozen threshold buys on `test`.
 
 ## Run it offline
 
@@ -64,14 +67,16 @@ or any other committed file.
   examples are shown in the notebook but never scored).
 
 The committed run replays 43 invented sentences about four target words with hand-written
-(synthetic) answers, some wrong on purpose: one `validation` sentence is wrong at a moderate
-confidence, which is what the threshold search on `validation` actually has to exclude. On `test`,
-one sentence is wrong at a high confidence (the threshold does not catch it, so the reported risk
-is non-zero) and one more is wrong at a low confidence (the threshold does catch that one). The
-share of selections inside each sentence's acceptable set, the precision and recall of
-`keep_original`, and the coverage, accuracy and risk of the frozen rule all check that the
-pipeline works; they say nothing about how Jev performs, how fast it is, or what it costs. This
-recipe has no recorded fixtures.
+(synthetic) answers, some wrong on purpose. Two `validation` sentences are wrong: one at a
+moderate confidence (the threshold search on `validation` has to exclude it) and one a confident
+`keep_original` named at a low confidence (correctly caught by the gate). On `test`, two
+sentences are wrong at a confidence the frozen threshold does not catch, so the reported risk is
+non-zero: one names the wrong candidate, and one confidently answers `keep_original` when a real
+candidate fit — the fallback's own false-positive direction, which the `keep_original`
+precision/recall figures also report on. The share of selections inside each sentence's
+acceptable set, the precision and recall of `keep_original`, and the coverage, accuracy and risk
+of the frozen rule all check that the pipeline works; they say nothing about how Jev performs, how
+fast it is, or what it costs. This recipe has no recorded fixtures.
 
 ## Pull request rules
 
