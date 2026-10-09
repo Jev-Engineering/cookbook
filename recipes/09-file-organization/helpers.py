@@ -26,7 +26,11 @@ FOLDERS = (INVOICES, CONTRACTS, REPORTS, CORRESPONDENCE)
 OPTIONS = (*FOLDERS, UNSORTED)
 
 PLACED = "placed"
-REVIEW = "unsorted"
+# The outcome value is the lexicon's own "review" (docs/glossary.md#review), not the
+# "unsorted" row name: a file that is not placed still ends up in the preview's unsorted row,
+# but the outcome itself is the same review outcome every other recipe's confidence gate uses,
+# not a renamed one.
+REVIEW = "review"
 
 # Descriptions that say what each folder covers and, for the pair most often confused
 # (an invoice that also carries contract language, or the reverse), what belongs to the

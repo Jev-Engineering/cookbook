@@ -17,7 +17,7 @@ so the confidence gate lets a wrong answer through (``t07-ambiguous``); another 
 ``no_match`` -- wrongly -- at a confidence (0.4167) the rule never checks at all, because
 ``no_match`` bypasses the gate entirely (``t12-no-match-wrong``); a third (``t19-no-match-wrong``)
 is wrong but not confident (0.2183), so it is sent to review instead of being reported. The hard
-cases the issue names are included and tagged in their id: a question no FAQ addresses
+cases this use case calls for are included and tagged in their id: a question no FAQ addresses
 (``-no-match``) and a question two FAQs nearly address (``-ambiguous``). The replay keys come
 from the same ``build_state`` and ``build_questions`` the notebook uses, via ``helpers.py``.
 

@@ -13,8 +13,8 @@ confident, well above the threshold this recipe's notebook freezes on validation
 notebook's selective-prediction numbers show a real, non-zero risk on test rather than a
 guarantee that happens to hold. `bank`, `spring` and `bat` each carry one `test` example that is
 right but at a low confidence, so a correct answer can still be sent to review (for its
-confidence, this time). The hard case the issue names, a sentence whose context is too thin to
-tell two senses apart, appears twice, close to an even split across the word's two senses and
+confidence, this time). The hard case this use case calls for, a sentence whose context is too
+thin to tell two senses apart, appears twice, close to an even split across the word's two senses and
 `unclear` with `unclear` on top: as a `demo` example (`d01-bank-thin`) and once scored
 (`t04-crane-thin`). Two more `demo` examples exist only so the notebook's up-close section never
 has to reach into a scored split: `d03-spring-low` names a real sense at a low confidence
