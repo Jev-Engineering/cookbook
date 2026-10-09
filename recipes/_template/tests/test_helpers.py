@@ -58,8 +58,11 @@ def test_the_state_hides_the_ticket_reference():
 
 
 def test_the_options_come_from_the_queues():
+    # Against literal expected values, not helpers.QUEUES itself: comparing against the
+    # module's own data would still pass if QUEUES and the options it feeds drifted together
+    # (for example, two entries swapped), which is exactly the drift this test exists to catch.
     options = list(helpers.build_questions()["route"].criteria)
-    assert options == [*helpers.QUEUES, helpers.NONE]
+    assert options == ["billing", "bug", "account", "none"]
 
 
 def test_every_replay_key_in_the_fixtures_matches_the_current_question():
