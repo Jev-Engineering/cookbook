@@ -131,9 +131,9 @@ def test_the_option_list_changes_with_the_candidates():
 
 
 def test_build_questions_refuses_an_empty_candidate_list():
-    # A Choice with zero real candidates would offer exactly one option (the fallback alone);
-    # issue #175's convention is that a forced answer belongs to Python, not a request, so this
-    # is refused rather than silently building a single-option Choice.
+    # A Choice with zero real candidates would offer exactly one option (the fallback alone):
+    # a forced answer belongs to Python, not a request, so this is refused rather than silently
+    # building a single-option Choice.
     with pytest.raises(ValueError, match="at least one"):
         helpers.build_questions([])
 
@@ -163,6 +163,9 @@ def test_no_candidate_resolution_is_a_final_no_match_with_no_candidates():
     assert result.candidates == ()
     assert result.label == helpers.NO_MATCH
     assert result.outcome == helpers.NO_MATCH_OUTCOME
+    assert (
+        result.reason == "no candidate record shares any vendor or product wording with this asset"
+    )
 
 
 # --- match_record --------------------------------------------------------------------------
@@ -173,6 +176,7 @@ def test_a_confident_real_candidate_is_linked_whatever_the_label(label):
     a = _confident(label)
     result = helpers.match_record("A1", CANDIDATES, a, 0.3)
     assert (result.asset_id, result.label, result.outcome) == ("A1", label, helpers.LINKED)
+    assert result.reason == "confident match"
 
 
 @pytest.mark.parametrize("label", CANDIDATES)
@@ -236,9 +240,8 @@ def test_every_replay_key_in_the_fixtures_matches_the_current_question():
 
 def test_no_replay_key_repeats_across_validation_and_test():
     # Because the option list is built fresh per asset, two assets sharing a replay key would
-    # mean they asked Jev the literal same question -- the fixture validator's leak rule
-    # compares state/fields, not replay keys directly (issue #175 point 2), so this checks it
-    # here instead.
+    # mean they asked Jev the literal same question -- the fixture validator's own leak rule
+    # compares state/fields, not replay keys directly, so this checks it here instead.
     by_split = {"validation": [], "test": []}
     for example in load_inputs(RECIPE):
         if example.split in by_split:

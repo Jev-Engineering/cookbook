@@ -4,37 +4,41 @@
     python build_fixtures.py --force  # also overwrite a responses.json holding a recorded answer
 
 Every response is synthetic (written by hand as probabilities, not produced by a model) and
-deliberately imperfect in several different ways, on purpose. Four assets (``v14-zero-candidate``,
-``v15-zero-candidate``, ``t12-zero-candidate``, ``t18-zero-candidate``) retrieve no candidate at
-all: ``helpers.shortlist`` returns an empty list for them, so ``helpers.build_questions`` is never
-called and no request is ever sent (issue #175's "a forced answer belongs to Python, not a
-request" -- a single-option Choice, offering only the fallback, is never built). Those four rows
-carry no ``replay_keys`` and no entry in ``responses.json``.
+deliberately imperfect in several different ways, on purpose. Five fixtures retrieve no candidate
+at all -- four scored (``v14-zero-candidate``, ``v15-zero-candidate``, ``t12-zero-candidate``,
+``t18-zero-candidate``) and one ``demo`` (``d02-zero-candidate``): ``helpers.shortlist`` returns an
+empty list for each of them, so ``helpers.build_questions`` is never called and no request is ever
+sent (a forced answer belongs to Python, not a request -- a single-option Choice, offering only
+the fallback, is never built). Those five rows carry no ``replay_keys`` and no entry in
+``responses.json``.
 
-Two assets share the same major-version family (CMDB-01/02/03, Microsoft SQL Server 2016/2019/
-2022) but differ in their observed version string; because retrieval ranks on vendor/product
-wording alone, all three always tie in similarity and so always appear together, tie-broken by
-id -- this is also why the gold match for this family is sometimes the shortlist's second or
-third entry rather than its first (``v10-sql-2019``, ``t09-sql-2019``, ``v11-sql-2022``,
-``t08-sql-2022``), the opposite of every other real match in this recipe, whose shortlist always
-ranks the true match first because nothing else in the catalog shares its vendor and product as
-closely. ``t10-sql-missing-version`` has no version reported at all: this recipe's policy is that
-Python never asks Jev to guess a major version it cannot see, so the gold label is ``no_match``
--- but the stored answer confidently names CMDB-03 anyway, which is this recipe's one false link
-(an accepted link to the wrong record): a real, wrong candidate at a confidence that clears the
-gate chosen below. ``v13-lookalike-wrong`` is the validation set's own wrong answer, placed there
-on purpose: a lexical look-alike (Acrobat Reader is a different, free product from the paid
-Acrobat the catalog holds, but shares enough wording to be retrieved as a candidate) that the
-stored answer confidently names anyway, at a confidence low enough to still be excluded by the
-gate ``select_confidence_threshold`` picks -- without a wrong answer inside validation itself,
-that selection would have nothing real to cut on (docs/fixtures.md). ``t14-jira-missed`` is a
-real match (CMDB-09) the stored answer reports as ``no_match`` instead, confidently: wrong, and
-never checked by any confidence gate at all, because ``no_match`` bypasses it entirely (the same
-shape as recipe 18's ``t11-dup-auth-missed``). ``t15-sql-2016-lowconf`` is a real match (CMDB-01)
-the stored answer names as the wrong sibling (CMDB-02) at a low confidence: wrong, and caught
-(sent to review). ``v11-sql-2022-lowconf``, ``t16-rhel-lowconf`` and ``t17-photoshop-lowconf`` are
-each correct but held back by a confidence below the gate -- the coverage cost of excluding the
-two wrong-but-confident answers above.
+Several assets exercise the Microsoft SQL Server major-version family (CMDB-01/02/03, 2016/2019/
+2022): because retrieval ranks on vendor/product wording alone, all three always tie in similarity
+and so always appear together, tie-broken by id -- this is also why the gold match for this family
+is sometimes the shortlist's second or third entry rather than its first (``v10-sql-2019``,
+``t09-sql-2019``: second; ``v11-sql-2022-lowconf``, ``t08-sql-2022``: third), the opposite of every
+other real match in this recipe, whose shortlist always ranks the true match first because nothing
+else in the catalog shares its vendor and product as closely. ``t10-sql-missing-version-wrong`` has
+no version reported at all: this recipe's policy is that Python never asks Jev to guess a major
+version it cannot see, so the gold label is ``no_match`` -- but the stored answer confidently names
+CMDB-03 anyway, which is this recipe's one false link (an accepted link to the wrong record): a
+real, wrong candidate at a confidence that clears the gate chosen below. ``v13-lookalike-wrong`` is
+the validation set's own wrong answer, placed there on purpose: a lexical look-alike (Acrobat
+Reader is a different, free product from the paid Acrobat the catalog holds, but shares enough
+wording to be retrieved as a candidate) that the stored answer confidently names anyway, at a
+confidence low enough to still be excluded by the gate ``select_confidence_threshold`` picks --
+without a wrong answer inside validation itself, that selection would have nothing real to cut on
+(docs/fixtures.md). ``t14-jira-missed`` is a real match (CMDB-09) the stored answer reports as
+``no_match`` instead, at a confidence (0.58) *below* the gate chosen below -- wrong, and accepted
+anyway, because ``no_match`` bypasses the confidence gate entirely regardless of its own confidence
+(the same shape as recipe 18's ``t11-dup-auth-missed``). ``t15-sql-2016-lowconf`` is a real match
+(CMDB-01) the stored answer names as the wrong sibling (CMDB-02) at a low confidence: wrong, and
+caught (sent to review). ``v11-sql-2022-lowconf``, ``t16-rhel-lowconf`` and ``t17-photoshop-lowconf``
+are each correct but held back by a confidence below the gate -- the coverage cost of excluding the
+two wrong-but-confident answers above. ``v20-rhel-workstation`` and ``t20-rhel-workstation`` exercise
+the instructions' "a different edition ... is not a match" clause directly: CMDB-08 and CMDB-16
+are the same vendor, product and major version, differing only by edition (Server vs. Workstation),
+so getting either of these two right needs an edition read, not just a version or product read.
 
 Generating inputs and labels is kept separate from generating responses, on purpose (the pattern
 ``recipes/_template/build_fixtures.py`` sets): once responses.json holds even one recorded answer
@@ -148,7 +152,15 @@ ROWS = [
     ("v19-service-cloud", "validation", _fields(
         "AST-1019", "Salesforce", "Service Cloud", "2024", "Enterprise"),
      "CMDB-15", {"CMDB-15": 0.83}),
-    # --- test: 19 examples, four wrong in four different ways ---------------------------------
+    # CMDB-08 and CMDB-16 are the same vendor, product and major version, differing only by
+    # edition (Server vs. Workstation); gold is CMDB-16, the shortlist's second entry (tied with
+    # CMDB-08 in retrieval, tie-broken by id) -- getting this right needs an edition read, the
+    # instructions' "a different edition ... is not a match" clause, which no other fixture in
+    # this recipe exercises.
+    ("v20-rhel-workstation", "validation", _fields(
+        "AST-1020", "Red Hat", "Enterprise Linux", "8.6", "Workstation"),
+     "CMDB-16", {"CMDB-16": 0.85}),
+    # --- test: 20 examples, three wrong in three different ways ------------------------------
     ("t01-acrobat", "test", _fields(
         "AST-2001", "Adobe", "Acrobat", "v11.0.09 Continuous", "Pro (2023 release)"),
      "CMDB-04", {"CMDB-04": 0.87}),
@@ -190,8 +202,9 @@ ROWS = [
     ("t12-zero-candidate", "test", _fields(
         "AST-2012", "Docker Inc", "Docker Desktop", "4.32", "Business"),
      "no_match", None),
-    # A near duplicate of all three SQL Server records plus CMDB-08's own wording ("enterprise",
-    # "server"): retrieved alongside four real candidates, correctly read as no_match.
+    # A near duplicate of all three SQL Server records plus CMDB-08 and CMDB-16's own wording
+    # ("enterprise", "server"): retrieved alongside several real candidates (candidates_for
+    # below reports exactly how many), correctly read as no_match.
     ("t13-github-decoy", "test", _fields(
         "AST-2013", "GitHub", "GitHub Enterprise Server", "3.11.0", "Enterprise"),
      "no_match", {"no_match": 0.78}),
@@ -218,13 +231,25 @@ ROWS = [
     ("t19-s4hana", "test", _fields(
         "AST-2019", "SAP", "S4HANA", "2023 FPS02", "Enterprise Edition"),
      "CMDB-12", {"CMDB-12": 0.86}),
-    # --- demo: 2 examples, shown but never scored ----------------------------------------------
+    # The test-split twin of v20: CMDB-16 again, worded differently, exercising the same
+    # edition-disqualifying clause.
+    ("t20-rhel-workstation", "test", _fields(
+        "AST-2020", "Red Hat Inc", "Enterprise Linux", "8.7", "Workstation Edition"),
+     "CMDB-16", {"CMDB-16": 0.86}),
+    # --- demo: 3 examples, shown but never scored -----------------------------------------------
     ("d01-lookalike", "demo", _fields(
         "AST-3001", "Adobe", "Acrobat Reader", "2022.003.20282", "Standard"),
      None, {"no_match": 0.70}),
     ("d02-zero-candidate", "demo", _fields(
         "AST-3002", "Figma", "Figma Design", "2024.10", "Organization"),
      None, None),
+    # Shown up close in the notebook as the asset whose candidate list is longest: a near
+    # duplicate of all three SQL Server records plus CMDB-08 and CMDB-16's own wording, worded
+    # differently from t13 above. Kept out of validation/test on purpose, so "test is reported
+    # once, not peeked at here" stays literally true in the up-close section.
+    ("d03-decoy-many", "demo", _fields(
+        "AST-3003", "GitLab", "GitLab Enterprise Server", "16.5", "Enterprise"),
+     None, {"no_match": 0.56}),
 ]  # fmt: skip
 
 

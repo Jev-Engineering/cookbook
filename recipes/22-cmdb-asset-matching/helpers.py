@@ -24,7 +24,9 @@ from jev_cookbook import Choice
 # five also retrieves a real second candidate instead of standing alone against no_match --
 # without them, half this catalog would always offer exactly one real candidate, which does not
 # exercise genuine discrimination between options the way the use case's "bounded candidate
-# list" build note intends.
+# list" build note intends. CMDB-16 is a second sibling of CMDB-08: same vendor, product and
+# major version, differing only by edition (Workstation, not Server) -- the instructions'
+# "a different edition ... is not a match" clause has no fixture to exercise it otherwise.
 # --------------------------------------------------------------------------------------------
 
 CMDB_RECORDS: dict[str, dict[str, str]] = {
@@ -43,6 +45,7 @@ CMDB_RECORDS: dict[str, dict[str, str]] = {
     "CMDB-13": {"vendor": "Red Hat", "product": "OpenShift", "major_version": "4", "edition": "Server"},
     "CMDB-14": {"vendor": "Atlassian", "product": "Confluence", "major_version": "8", "edition": "Data Center"},
     "CMDB-15": {"vendor": "Salesforce", "product": "Service Cloud", "major_version": "2024", "edition": "Enterprise"},
+    "CMDB-16": {"vendor": "Red Hat", "product": "Enterprise Linux", "major_version": "8", "edition": "Workstation"},
 }  # fmt: skip
 
 # The explicit fallback the use case names, for an observed asset that matches none of the
@@ -62,16 +65,16 @@ MAX_CANDIDATES = 5
 _CANDIDATE_FLOOR = 0.0
 
 # The fixed cut-off `baseline_overlap_cutoff` uses: a record is proposed only when its
-# normalized vendor/product overlap with the observed asset is at least this. Chosen by
-# inspection of this recipe's own fixtures (build_fixtures.py prints the similarity matrix): an
-# asset whose vendor and product literally name a canonical record always scores a clean 1.0
-# against it (this recipe keeps vendor aliasing and version/edition wording as the only sources
-# of textual noise, never a product-name abbreviation that would dilute the token overlap of a
-# genuine match), while every decoy and lexical look-alike this recipe's fixtures use scores at
-# most 0.5 (shared vendor or a shared generic word, never the whole product). 0.6 sits cleanly
-# between the two, so this baseline links every genuine self-named match and reports no_match
-# for every decoy -- it is still beaten by the rule below only on the one thing pure word
-# overlap cannot do at all: telling CMDB-01/02/03 apart by version.
+# normalized vendor/product overlap with the observed asset is at least this. A plausible,
+# hand-picked word-overlap threshold, not a value that happens to separate every genuine match
+# from every decoy in this recipe's own fixtures: it does not. An asset whose vendor and product
+# abbreviate or drop a word from the canonical spelling (for example "Jira Software" against
+# "Jira", or "MS Corp" against "Microsoft") can score as low as 0.5, the same as this recipe's
+# own lexical look-alike (the notebook derives and prints the actual overlap for every asset,
+# rather than this comment asserting one). The point this baseline makes does not depend on 0.6
+# being a clean separator: whatever cut-off is chosen, it still reads only vendor and product,
+# so it is exactly as unable to tell CMDB-01/02/03 (or CMDB-08/CMDB-16) apart by version or
+# edition as `baseline_always_top` is.
 OVERLAP_CUTOFF = 0.6
 
 # Outcomes the rule below can produce.
@@ -228,8 +231,7 @@ def build_questions(candidates: list[str]) -> dict[str, Choice]:
 
     ``candidates`` must be non-empty: a Choice with zero real candidates would offer exactly one
     option (the fallback alone), and a single-option Choice is never sent (see
-    ``no_candidate_resolution``) -- issue #175's preferred convention for this shape of question,
-    "a forced answer belongs to Python, not a request". Every observed asset shares one question
+    ``no_candidate_resolution``): a forced answer belongs to Python, not a request. Every observed asset shares one question
     shape (which canonical record, if any, is this the same software as), but the option list is
     built fresh per asset from its own shortlist, so an Adobe asset is never asked to choose a
     Salesforce candidate's identifier, and the replay key changes with the shortlist as a result.
@@ -404,8 +406,9 @@ def false_link_rate(results: list[Resolution], gold: dict[str, Any]) -> float:
     linked), even though it does cost accuracy via ``evaluate_outcomes``.
 
     This is narrower than the risk ``jev_cookbook.evaluation.evaluate_outcomes`` reports: a wrong
-    ``no_match`` call (missing a real match) lowers that risk too, but it is not a false link,
-    because ``no_match`` triggers no side effect at all. NaN when nothing was linked, matching
+    ``no_match`` call (missing a real match) is accepted and wrong, so it raises that risk too,
+    but it is not a false link, because ``no_match`` triggers no side effect at all -- nothing
+    was ever linked to anything. NaN when nothing was linked, matching
     ``jev_cookbook.evaluation``'s own convention (undefined is NaN, never 0.0).
     """
     if not results:
