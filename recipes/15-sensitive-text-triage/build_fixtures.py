@@ -9,35 +9,39 @@ document that clearly contains personal information (``-pii``), one that clearly
 (``-clean``), and four harder shapes.
 
 ``-adversarial`` is a document that embeds an instruction trying to steer the triage into
-clearing it, immediately followed by a real name, phone number and address. Both splits carry
-one, stored at a noul of 0.12 (`validation`) and 0.13 (`test`) and a confidence of 0.76 and 0.74
-respectively -- well clear of the confidence gate the notebook freezes (0.30): the confidence
-gate measures how far a probability leans, not whether it leans the right way, and a document
-engineered to read as low-risk leans hard in that direction. Both are stored confidently wrong on
-purpose, below the business threshold -- the gold label is true on both splits, so each split
-also carries a document the business rule alone misses (a false negative), which is what exercises
-recall at the chosen threshold.
+clearing it, immediately followed by a fabricated name, phone number and address -- every one of
+them invented for this fixture, exactly as fabricated as any other document here. Both splits
+carry one, stored at a noul of 0.12 (`validation`) and 0.13 (`test`) and a confidence of 0.76 and
+0.74 respectively -- well clear of the confidence gate the notebook freezes (0.30): the confidence
+gate measures how far a probability leans, not whether it leans the right way, and this document's
+hand-written probability leans hard in the direction the embedded instruction asks for. Both are
+stored confidently wrong on purpose, below the business threshold -- the gold label is true on
+both splits, so each split also carries a document the business rule alone misses (a false
+negative), which is what exercises recall at the chosen threshold.
 
-``-partial`` (three on `validation`, two on `test`, stored within 0.10 of an even split, gold
-labels not all one way) is the opposite shape: a document whose probability alone does not
-reliably say which way it should go, which is exactly what the confidence gate is for.
+``-partial`` (three on `validation` -- `v18`, `v19`, `v20` -- one on `test` -- `t18` -- stored
+within 0.10 of an even split, gold labels not all one way) is the opposite shape: a document whose
+probability alone does not reliably say which way it should go, which is exactly what the
+confidence gate is for. `test` carries two further near-even documents tagged for what they do
+rather than for their shape: ``-miss`` (`t19`, gold true, a business-rule-alone false negative
+just under the threshold) and ``-lookalike`` (`t20`, see below).
 
-One pair per split (``-lookalike``, gold false) is a tracking or order reference formatted like a
-phone number: Python's own candidate-span scan (`helpers.find_candidate_spans`) matches it as
-though it were a personal contact number, and the stored probability repeats that mistake just
+One document per split (``-lookalike``, gold false) is a tracking or order reference formatted
+like a phone number: Python's own candidate-span scan (`helpers.find_candidate_spans`) matches it
+as though it were a personal contact number, and the stored probability repeats that mistake just
 past the business threshold (0.60 `validation`, 0.62 `test`) -- close enough to an even split that
-the confidence gate catches it too. ``-miss`` (`test` only, gold true) is the same shape in the
-opposite direction: a document the business rule alone gets wrong just below the threshold (0.46),
-also caught by the gate.
+the confidence gate catches it too.
 
-Finally, one ``-moderate`` document of each gold value per split (noul 0.65 true, 0.35 false,
-confidence exactly 0.30 on `validation`) is confident enough to clear the confidence gate while
-sitting close enough to the business threshold that moving it changes their outcome: without
-these two documents, every document on `validation` that clears the confidence gate sits at
-noul 0.12 or below, or 0.82 or above (confidence 0.76 or higher), so the business threshold,
-frozen separately at 0.55, would never actually decide anything a looser or tighter confidence
-gate could not already decide on its own. The replay keys come from the same ``build_state`` and
-``build_questions`` the notebook uses, via ``helpers.py``.
+Finally, one ``-moderate`` document of each gold value per split is confident enough to clear the
+confidence gate while sitting close enough to the business threshold that moving it changes their
+outcome. On `validation` this is noul 0.65 (true) and 0.35 (false), confidence exactly 0.30 --
+precisely the frozen gate -- for both; on `test` it is noul 0.66 (true) and 0.34 (false),
+confidence 0.32 for both, comfortably clear of the gate rather than sitting on it. Without these
+two documents, every document on `validation` that clears the confidence gate sits at noul 0.12
+or below, or 0.82 or above (confidence 0.64 or higher, the minimum over `v08-pii`'s 0.82), so the
+business threshold, frozen separately at 0.55, would never actually decide anything a looser or
+tighter confidence gate could not already decide on its own. The replay keys come from the same
+``build_state`` and ``build_questions`` the notebook uses, via ``helpers.py``.
 """
 
 import argparse
@@ -115,8 +119,8 @@ ROWS = [
      "data was affected.",
      False, 0.06),
     ("v16-clean", "validation", "DT1016",
-     "Terms of service excerpt: by using the service, the customer agrees to the dispute "
-     "process described in section four.",
+     "General inquiries can be sent to support@examplecorp.test; the shared mailbox is "
+     "monitored by the whole team, not one person.",
      False, 0.09),
     ("v17-clean", "validation", "DT1017",
      "Inventory update: warehouse stock of the winter jacket line increased by four hundred "
@@ -212,8 +216,8 @@ ROWS = [
      "affected.",
      False, 0.07),
     ("t15-clean", "test", "DT2015",
-     "Terms of service excerpt: the dispute process in section five governs any billing "
-     "disagreement.",
+     "Questions about this policy can be sent to billing@examplecorp.test; the shared mailbox "
+     "is monitored by the whole team, not one person.",
      False, 0.10),
     ("t16-clean", "test", "DT2016",
      "Inventory update: warehouse stock of the rain jacket line increased by three hundred "

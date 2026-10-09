@@ -61,10 +61,11 @@ CLEARED = "cleared"
 # patterns that *resemble* a personal identifier, never a judgment about whether one is really
 # present. It is shown to the reader next to the document (CONTRIBUTING.md section 3: "Option
 # lists, candidates, spans, and identifiers are built by Python and carried through to the
-# output unchanged"), and it is deliberately imperfect: a tracking reference formatted like a
-# phone number matches the phone pattern without being personal information, and a narrative
-# detail specific enough to identify someone (recipe fixtures tagged "-narrative") matches
-# nothing at all. Neither case is resolved by Python; both are left for the one Noul proposition
+# output unchanged"), and it is deliberately imperfect in both directions: a tracking reference
+# formatted like a phone number (this recipe's "-lookalike" fixtures) matches the phone pattern
+# without being personal information, and a narrative detail specific enough to identify someone
+# with no email, phone, or street address in it at all (this recipe's "v05-pii" and "t05-pii")
+# matches nothing. Neither case is resolved by Python; both are left for the one Noul proposition
 # to judge. None of these patterns are sent to Jev -- only `build_state`'s document text is.
 _EMAIL_RE = re.compile(r"[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}")
 _PHONE_RE = re.compile(r"\b\d{3}-\d{3,4}\b")
@@ -160,3 +161,41 @@ def triage(doc_id: str, answer: Any, threshold: float, min_confidence: float) ->
         False,
         "noul below the business threshold: unlikely to contain personal information",
     )
+
+
+@dataclass(frozen=True)
+class QueueItem:
+    """One document queued for a redaction check: the identifier and text a reviewer needs,
+    the ``TriageResult`` that sent it there, the candidate spans Python already found in it
+    (carried through unchanged, CONTRIBUTING.md section 3), and the typed answer the queue is
+    ordered by (``answer.noul``)."""
+
+    doc_id: str
+    text: str
+    result: TriageResult
+    candidate_spans: list[str]
+    answer: Any
+
+
+def queue_candidates(
+    entries: list[tuple[str, str, Any]], threshold: float, min_confidence: float
+) -> list[QueueItem]:
+    """The documents ``triage`` does not clear -- ``flagged`` or ``review`` -- as a list of
+    ``QueueItem``, sorted by ``noul`` descending.
+
+    ``entries`` is ``(doc_id, text, answer)`` for every document to consider, from every split
+    at once: a redaction queue ordered by risk has to be sorted once, over its whole contents,
+    because ``jev_cookbook.simulation.ReviewQueue`` has no reordering of its own and keeps
+    submissions in the order they arrive (``to_dicts()``/``pending()``: "oldest first"). Calling
+    this once with every candidate, in one list, and submitting in the order it returns, is the
+    only way the queue ends up actually sorted; sorting and submitting separate batches (the
+    up-close documents, then validation, then test) leaves three independently-sorted runs
+    concatenated, not one sorted queue. Ties in ``noul`` keep their relative order from
+    ``entries`` (Python's ``sorted`` is stable).
+    """
+    items = []
+    for doc_id, text, answer in entries:
+        result = triage(doc_id, answer, threshold, min_confidence)
+        if result.outcome != CLEARED:
+            items.append(QueueItem(doc_id, text, result, find_candidate_spans(text), answer))
+    return sorted(items, key=lambda item: -item.answer.noul)

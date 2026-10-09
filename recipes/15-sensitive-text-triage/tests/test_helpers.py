@@ -77,9 +77,13 @@ def test_the_business_threshold_is_inclusive():
     assert (just_below.outcome, just_below.may_contain_pii) == (helpers.CLEARED, False)
 
 
-@pytest.mark.parametrize("noul", [0.48, 0.5, 0.52])
+@pytest.mark.parametrize("noul", [0.48, 0.5, 0.52, 0.56, 0.58, 0.60])
 def test_low_confidence_goes_to_review_whichever_side_it_leans(noul):
-    # Set min_confidence just above this noul's own confidence, computed rather than hardcoded.
+    # Three of these (0.48, 0.5, 0.52) are below the business threshold (0.55) and three
+    # (0.56, 0.58, 0.60) are above it: the gate has to win over the business decision on BOTH
+    # sides, or this test would pass even if the threshold branch ran first and the gate were
+    # never consulted for a document that would have been flagged. Set min_confidence just
+    # above this noul's own confidence, computed rather than hardcoded.
     result = helpers.triage(
         "D1", answer(noul), threshold=0.55, min_confidence=confidence_of(noul) + 0.01
     )
@@ -103,7 +107,7 @@ def test_a_high_confidence_wrong_leaning_document_is_still_decided_not_reviewed(
     # confidently wrong answer (noul far from 0.5 on the "wrong" side of the gold label): it has
     # no way to tell the two apart, which is the point this test pins. This recipe's
     # "-adversarial" fixtures (a document that tries to instruct the triage to clear it despite
-    # containing real personal information) are exactly this shape.
+    # containing fabricated personal information) are exactly this shape.
     noul = 0.12
     result = helpers.triage("D1", answer(noul), threshold=0.55, min_confidence=0.5)
     assert result.outcome == helpers.CLEARED
@@ -150,6 +154,44 @@ def test_candidate_spans_do_not_match_a_bare_order_number_differently_from_a_pho
 def test_candidate_spans_are_empty_for_a_narrative_detail_with_no_matching_token():
     text = "The caller mentioned she is the only tenant on the top floor of the old mill."
     assert helpers.find_candidate_spans(text) == []
+
+
+def test_queue_candidates_is_sorted_by_noul_descending_not_by_entry_order():
+    # Entries are deliberately in an order that disagrees with noul, with a tie at the top
+    # (D1 and D3) and a mix of flagged and review outcomes, so a bug that only sorted within
+    # one batch (or not at all) would leave an inversion: jev_cookbook.simulation.ReviewQueue
+    # keeps submissions in the order they arrive, so queue_candidates -- not the queue -- is
+    # where the ordering has to hold.
+    entries = [
+        ("D5", "low", answer(0.20)),  # noul 0.20, confidence 0.60 -> decided -> cleared
+        ("D1", "high-a", answer(0.90)),  # noul 0.90 -> flagged
+        ("D4", "cleared", answer(0.03)),  # noul 0.03, confidence 0.94 -> decided -> cleared
+        ("D2", "mid", answer(0.60)),  # noul 0.60, confidence 0.20 < 0.30 -> review
+        ("D3", "high-b", answer(0.90)),  # ties D1; stability keeps D1 before D3
+        ("D6", "near-even", answer(0.50)),  # noul 0.50, confidence 0.00 < 0.30 -> review
+    ]
+    items = helpers.queue_candidates(entries, threshold=0.55, min_confidence=0.30)
+    nouls = [item.answer.noul for item in items]
+    assert nouls == sorted(nouls, reverse=True)
+    assert all(a >= b for a, b in zip(nouls, nouls[1:], strict=False))
+    assert [item.doc_id for item in items] == ["D1", "D3", "D2", "D6"]  # D4, D5 cleared, excluded
+    assert all(item.result.outcome != helpers.CLEARED for item in items)
+    assert {items[0].result.outcome, items[2].result.outcome, items[3].result.outcome} == {
+        helpers.FLAGGED,
+        helpers.REVIEW,
+    }
+
+
+def test_queue_candidates_excludes_cleared_documents():
+    entries = [("D1", "no pii here", answer(0.02)), ("D2", "pii here", answer(0.95))]
+    items = helpers.queue_candidates(entries, threshold=0.55, min_confidence=0.0)
+    assert [item.doc_id for item in items] == ["D2"]
+
+
+def test_queue_candidates_carries_the_candidate_spans():
+    entries = [("D1", "Call 555-0199 about the delivery.", answer(0.60))]
+    items = helpers.queue_candidates(entries, threshold=0.55, min_confidence=0.0)
+    assert items[0].candidate_spans == ["555-0199"]
 
 
 def test_every_replay_key_in_the_fixtures_matches_the_current_question():
