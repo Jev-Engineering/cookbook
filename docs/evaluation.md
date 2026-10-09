@@ -356,7 +356,11 @@ row in the arrays: leave it out of `confidences`/`correct`/`exempt` entirely —
 `evaluate_outcomes`-style accounting (it is still accepted, unconditionally, for that purpose). A
 placeholder is not inert even though the example would stay exempt either way: `thresholds` is
 `numpy.unique` of every confidence passed in, so one placeholder value adds a row to that grid and
-moves the curve's x-axis, despite never changing which examples the mask selects.
+moves the curve's x-axis, despite never changing which examples the mask selects. This is not a
+blanket ban on ever showing a stand-in number — #164 ruling 9 allows a disclosed, in-range,
+quantified one printed beside the figure it stands in for (e.g. "confidence: 0.00, no call made")
+— only on letting it reach `select_confidence_threshold`, `selective_curve` or `outcome_curve` as
+an input, exactly the answered-examples-only rule just above.
 
 ### Outcomes versus the confidence-only view
 
