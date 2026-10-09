@@ -48,6 +48,33 @@ def test_documented_answer_view_matches_the_code():
     assert shown in "\n".join(_blocks("text"))
 
 
+def test_documented_legend_wrap_before_and_after_match_the_code():
+    from dataclasses import dataclass
+
+    @dataclass
+    class Score:
+        score: float
+        probabilities: dict
+        confidence: float
+        legend: dict
+        provenance: str = "synthetic"
+
+    legend = {
+        "0": (
+            "The reader cannot tell what happened to their request or what to do next, "
+            "because the response omits the key fact, hides it behind an internal term or "
+            "acronym the reader has no way to resolve, or states two things that contradict "
+            "each other."
+        )
+    }
+    answer = Score(0.60, {"0": 0.60}, 0.40, legend)
+    text = "\n".join(_blocks("text"))
+    before = style.format_answer(answer, width=None).splitlines()[1]
+    after = "\n".join(style.format_answer(answer, width=style.LEGEND_WIDTH).splitlines()[1:-1])
+    assert before in text
+    assert after in text
+
+
 def test_the_documented_snippet_regenerates_every_linked_image(tmp_path, monkeypatch):
     snippet = _blocks("python")[-1]
     links = re.findall(r"\]\((assets/notebook-style/[^)]+\.png)\)", DOC.read_text(encoding="utf-8"))

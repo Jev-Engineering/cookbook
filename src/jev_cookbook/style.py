@@ -25,6 +25,7 @@ from __future__ import annotations
 import io
 import json
 import math
+import textwrap
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -42,6 +43,7 @@ from matplotlib.figure import Figure
 __all__ = [
     "CATEGORICAL",
     "INK",
+    "LEGEND_WIDTH",
     "MAGENTA",
     "PANEL",
     "PAPER",
@@ -394,6 +396,13 @@ def run_header(
 
 _BAR_WIDTH = 20
 
+# The default console wrap width for a Score level's legend text (see format_answer and
+# show_answer), matching this repository's ruff line-length (pyproject.toml) so printed
+# notebook output lines up with the width the rest of the codebase is formatted to. It is a
+# fixed column count, never a terminal width: output is identical on every platform and in
+# every terminal size, including a notebook's saved HTML/plain-text output.
+LEGEND_WIDTH = 100
+
 
 def _bar(p: float) -> str:
     return "#" * round(max(0.0, min(1.0, float(p))) * _BAR_WIDTH)
@@ -453,32 +462,82 @@ def _level_label(answer: Any, level: Any) -> str:
     return f"{level} {name}".strip()
 
 
-def format_answer(answer: Any) -> str:
-    """One typed answer as readable text (the string :func:`show_answer` prints)."""
+def _wrap_level_line(label: str, suffix: str, width: int | None) -> str:
+    """One Score level's printed line: ``label`` ("LEVEL name"), then ``suffix`` (the two
+    spaces, probability and bar), wrapped to ``width`` columns.
+
+    Only the legend name wraps, never the level number: continuation lines are indented to
+    line up under where the name starts, not under the two-space margin. ``suffix`` is never
+    split and always ends the last line, so the probability and bar stay readable at a glance.
+    Wrapping is at word boundaries only (``textwrap``, with long words and hyphenated words
+    kept whole), so a legend written as full sentences wraps the way a reader would wrap it
+    by hand; a single word longer than ``width`` is left on its own, unbroken, line.
+
+    ``width=None`` disables wrapping: the label prints on one line, however long, exactly as
+    this module did before ``width`` existed. A label that already fits in ``width`` columns
+    (the common case for a short legend) also prints as exactly one line, byte-identical to
+    the unwrapped form, so a short legend's output does not change.
+    """
+    indent = "  "
+    level_part, _, name = label.partition(" ")
+    if not name:
+        return f"{indent}{level_part}{suffix}"
+    prefix = f"{indent}{level_part} "
+    if width is None:
+        return f"{prefix}{name}{suffix}"
+    hang = " " * len(prefix)
+    wrapped = textwrap.wrap(
+        name,
+        width=max(width - len(prefix), 1),
+        break_long_words=False,
+        break_on_hyphens=False,
+    ) or [""]
+    lines = [prefix + wrapped[0]]
+    lines.extend(hang + piece for piece in wrapped[1:])
+    lines[-1] += suffix
+    return "\n".join(lines)
+
+
+def format_answer(answer: Any, *, width: int | None = LEGEND_WIDTH) -> str:
+    """One typed answer as readable text (the string :func:`show_answer` prints).
+
+    ``width`` wraps a Score level's legend text in the printed line; it has no effect on a
+    Choice or a Noul, neither of which has a legend. The default, :data:`LEGEND_WIDTH`, wraps
+    a legend written as full sentences (as ``score.md`` encourages) onto several lines rather
+    than printing one very long line; pass ``width=None`` for the full legend on one line
+    however long, or any other column count. Wrapping only changes how this function prints
+    ``answer.legend``; the legend itself, what is sent to Jev, and what a replay key compares
+    are never touched. A legend that already fits in ``width`` columns, and every Choice and
+    Noul answer, prints exactly as :func:`format_answer` printed it before ``width`` existed.
+    """
     kind = _kind(answer)
     lines: list[str] = []
     if kind == "choice":
         lines.append(f"Choice: {answer.choice} (confidence {float(answer.confidence):.2f})")
         probs = dict(answer.probabilities)
-        width = max((len(str(k)) for k in probs), default=0)
+        label_width = max((len(str(k)) for k in probs), default=0)
         for option, p in sorted(probs.items(), key=lambda kv: -float(kv[1])):
-            lines.append(f"  {str(option):<{width}}  {float(p):.2f}  {_bar(p)}")
+            lines.append(f"  {str(option):<{label_width}}  {float(p):.2f}  {_bar(p)}")
     elif kind == "score":
         score, conf = float(answer.score), float(answer.confidence)
         lines.append(f"Score: {score:.2f} (confidence {conf:.2f})")
         probs = dict(answer.probabilities)
         for level in _ordered_levels(probs):
             p = probs[level]
-            lines.append(f"  {_level_label(answer, level)}  {float(p):.2f}  {_bar(p)}")
+            suffix = f"  {float(p):.2f}  {_bar(p)}"
+            lines.append(_wrap_level_line(_level_label(answer, level), suffix, width))
     else:
         lines.append(f"Noul: {float(answer.noul):.2f} probability of yes (0 is no, 1 is yes)")
     lines.append(f"Provenance: {_provenance(answer)}")
     return "\n".join(lines)
 
 
-def show_answer(answer: Any) -> None:
-    """Print one typed answer readably (returns ``None``; :func:`format_answer` gives the text)."""
-    print(format_answer(answer))
+def show_answer(answer: Any, *, width: int | None = LEGEND_WIDTH) -> None:
+    """Print one typed answer readably (returns ``None``; :func:`format_answer` gives the text).
+
+    ``width`` is forwarded to :func:`format_answer`; see there for what it wraps.
+    """
+    print(format_answer(answer, width=width))
 
 
 # --- charts --------------------------------------------------------------------------------
