@@ -14,9 +14,9 @@ from jev_cookbook import Choice
 
 # The fixed clarification catalog: each entry is one follow-up question Python may ask before a
 # task moves to its next step, and the one piece of information that question is for. Jev never
-# writes the question text; it only picks which entry, if any, applies (the issue's build note:
-# "Options come from a predefined catalog of follow-up questions plus no_clarification_needed
-# ... Python decides between asking and proceeding. The model does not write the question.").
+# writes the question text; it only picks which entry, if any, applies. Options come from this
+# predefined catalog of follow-up questions plus no_clarification_needed: Python decides between
+# asking and proceeding, and the model never writes the question.
 ASK_DEADLINE = "ask_deadline"
 ASK_RECIPIENT = "ask_recipient"
 ASK_SCOPE = "ask_scope"

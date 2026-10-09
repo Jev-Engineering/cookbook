@@ -79,23 +79,7 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "build_fixtures_scaffold",
     ): "pre-#162 test_build_fixtures.py (R8); see #163",
     (
-        "11-clarification-selection",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
         "12-thesaurus-word-selection",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
-        "13-candidate-rewrite-selection",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
-        "14-source-span-selection",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
-        "15-sensitive-text-triage",
         "build_fixtures_scaffold",
     ): "pre-#162 test_build_fixtures.py (R8); see #163",
     (
@@ -153,21 +137,9 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "no_issue_citations",
     ): '"the issue" in build_fixtures.py, issue numbers in tests/test_build_fixtures.py (R9/R10); see #163',
     (
-        "11-clarification-selection",
-        "no_issue_citations",
-    ): '"the issue" in helpers.py, build_fixtures.py and notebook:python-md (R10); see #163',
-    (
         "12-thesaurus-word-selection",
         "no_issue_citations",
     ): '"the issue"/"The issue" in notebook:evaluation-md and notebook:keep-original-md (R10); see #163',
-    (
-        "13-candidate-rewrite-selection",
-        "no_issue_citations",
-    ): '"the issue" in build_fixtures.py (R10); see #163',
-    (
-        "15-sensitive-text-triage",
-        "no_issue_citations",
-    ): '"the issue" in build_fixtures.py (R10); see #163',
     (
         "16-discord-moderation-triage",
         "no_issue_citations",
@@ -243,10 +215,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     ): "no test_stored_answers_are_not_all_right in tests/ at all; see #163",
     (
         "12-thesaurus-word-selection",
-        "stored_answers_strong_form",
-    ): "weak assert-wrong form, not re-derived from the frozen threshold (R7); see #163",
-    (
-        "13-candidate-rewrite-selection",
         "stored_answers_strong_form",
     ): "weak assert-wrong form, not re-derived from the frozen threshold (R7); see #163",
     (
@@ -338,14 +306,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "figure_titles_check_only",
     ): 'validation figure title has no disclosure label at all, "Validation confidence sweep" (R2); see #163',
     (
-        "14-source-span-selection",
-        "figure_titles_check_only",
-    ): "validation figure title carries {selection}{check} rather than {check} alone (R2); see #163",
-    (
-        "15-sensitive-text-triage",
-        "figure_titles_check_only",
-    ): "validation figure titles carry {selection} without {check} (R2); see #163",
-    (
         "18-duplicate-incident-matching",
         "figure_titles_check_only",
     ): "validation figure title carries {selection} without {check} (R2); see #163",
@@ -389,10 +349,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "10-answer-relevance-check",
         "print_what_you_plot",
     ): "plot_threshold_sweep in sweep-chart prints no swept rows; see #163",
-    (
-        "13-candidate-rewrite-selection",
-        "print_what_you_plot",
-    ): "plot_confusion_matrix in evaluation-test prints only a list of wrong ids, not the matrix's own counts; see #163",
     (
         "20-claim-support-classification",
         "print_what_you_plot",
