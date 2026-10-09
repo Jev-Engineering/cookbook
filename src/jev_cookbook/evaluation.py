@@ -580,20 +580,29 @@ def brier_score(gold: Iterable[Any], noul: Iterable[Any]) -> float:
 
 
 def noul_confidence(noul: Iterable[Any]) -> list[float]:
-    """Certainty of each Noul answer in its own decision: ``max(noul, 1 - noul)``.
+    """Confidence of each Noul answer: ``2 * max(p, 1 - p) - 1`` (equal to ``|2p - 1|``).
 
-    A Noul answer has no ``confidence`` field. This helper turns it into a number in
-    [0.5, 1] usable as the ``confidence`` argument of the selective-prediction functions
-    (together with correctness of the thresholded answer). It is a convention of this
-    toolkit, not a value the API returns.
+    A Noul answer has no ``confidence`` field. Per the TypeSafe confidence page
+    (https://docs.typesafe.ai/confidence, S03), a Noul's confidence is the Choice
+    confidence formula, ``(p_max - 1/n) / (1 - 1/n)``, applied to a yes-or-no Choice:
+    with ``n = 2`` and ``p_max = max(p, 1 - p)`` that formula is ``2 * p_max - 1``,
+    mathematically ``|2p - 1|``. The ``max`` form is used rather than ``abs(2p - 1)``
+    because it is exactly mirror-symmetric in floating point (``f(p) == f(1 - p)``) and
+    bit-for-bit equal to :func:`jev_cookbook.answers.choice_confidence` ``([p, 1 - p])``,
+    which ``abs(2p - 1)`` is not (it differs from its mirror by up to 1 ULP). It therefore
+    sits on the *same* 0-1 scale as Choice (and Score) confidence: 0 at ``p = 0.5``
+    (uniform), 1 at ``p = 0`` or ``p = 1``. Use the result as the ``confidence`` argument
+    of the selective-prediction functions, together with correctness of the thresholded
+    answer.
 
     Args:
         noul: Noul answers or plain probabilities in [0, 1].
 
     Returns:
-        A list of floats. Empty or out-of-range input raises ``ValueError``.
+        A list of floats in [0, 1]. Empty, out-of-range, NaN or infinite input raises
+        ``ValueError``.
     """
-    return [float(max(v, 1.0 - v)) for v in _noul_array(_as_list(noul, "noul"), "noul")]
+    return [float(2.0 * max(v, 1.0 - v) - 1.0) for v in _noul_array(_as_list(noul, "noul"), "noul")]
 
 
 # --------------------------------------------------------------------------- Multi-label
