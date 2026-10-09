@@ -12,15 +12,16 @@ response the normaliser cannot settle is sent to Jev. A question whose accepted 
 number is never sent to Jev at all, settled or not, because TypeSafe's own notes on Jev 1.13
 (S07) say arithmetic belongs in code. Jev supplies one narrow judgment, a typed `Choice` over
 four options the use case names: `match`, `partial_match`, `no_match`, `needs_review`. Python
-decides what a model-chosen outcome is allowed to do: `needs_review`, whether Jev chose it
-outright or a confidence gate put a response there, is never reported as a final grade, because
-awarding or withholding a point is a side effect CONTRIBUTING.md section 4 keeps in Python's
-hands; every such response goes into a simulated `ReviewQueue` for a human adjudicator instead.
-The notebook shows both the settled and the model-assisted path on one pair of examples, then
-the rule, then an evaluation that reports how many responses never needed a call, agreement
-with the gold label, a confusion matrix and per-class metrics, the `needs_review` outcome broken
-down by which of its two causes fired, and, among only the responses actually sent to Jev,
-selective coverage, accuracy and risk for the confidence gate.
+decides what a model-chosen answer is allowed to do: a `review` outcome -- whether Jev named
+the `needs_review` option outright or a confidence gate put a response there -- is never
+reported as a final grade, because awarding or withholding a point is a side effect
+CONTRIBUTING.md section 4 keeps in Python's hands; every such response goes into a simulated
+`ReviewQueue` for a human adjudicator instead. The notebook shows both the settled and the
+model-assisted path on one pair of examples, then the rule, then an evaluation that reports how
+many responses never needed a call, agreement with the gold label, a confusion matrix and
+per-class metrics, the `review` outcome broken down by which of its two causes fired, and,
+among only the responses actually sent to Jev, selective coverage, accuracy and risk for the
+confidence gate.
 
 ## Run it offline
 
