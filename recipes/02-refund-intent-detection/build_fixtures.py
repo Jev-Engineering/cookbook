@@ -4,11 +4,11 @@
     python build_fixtures.py --force  # also overwrite a responses.json holding a recorded answer
 
 Every response is synthetic (written by hand as a probability, not produced by a model) and
-deliberately imperfect. The hard cases the issue names are included and tagged in their id: a
+deliberately imperfect. The use case's hard cases are included and tagged in their id: a
 complaint with no request (``-complaint``), a question about refund policy (``-policy``), a
 request for a replacement instead of a refund (``-replacement``), and a refund mentioned only in
 passing (``-mention``). Two more near misses are included because they come up constantly in real
-refund workflows even though the issue does not name them: asking for store credit instead of a
+refund workflows even though the use case does not name them: asking for store credit instead of a
 refund (``-credit``) and a vague future possibility (``-conditional``). Both validation and test
 also carry one message that is wrong *and* confident (``-hard-wrong``): declining a refund in the
 same breath as raising it, stored at a noul far enough from an even split that the confidence gate

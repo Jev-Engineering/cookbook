@@ -105,7 +105,7 @@ def route(ticket_id: str, answer: Any, threshold: float, min_confidence: float) 
             ticket_id,
             REVIEW,
             would_flag,
-            "too close to an even split to trust either way: needs a person",
+            "confidence below the threshold",
         )
     if would_flag:
         return RefundRoute(

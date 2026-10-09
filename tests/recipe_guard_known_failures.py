@@ -39,26 +39,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     # R8: these ship the pre-#162 test_build_fixtures.py (no inputs/labels regeneration
     # assertion, or an older docstring), or (02) no such file at all.
     (
-        "01-sentiment-classification",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
-        "02-refund-intent-detection",
-        "build_fixtures_scaffold",
-    ): "no tests/test_build_fixtures.py at all, despite a replay fixtures/responses.json; see #163",
-    (
-        "03-response-clarity-scoring",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
-        "04-support-ticket-routing",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
-        "05-document-classification",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
         "06-multiple-topic-labels",
         "build_fixtures_scaffold",
     ): "pre-#162 test_build_fixtures.py (R8); see #163",
@@ -112,26 +92,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     ): "pre-#162 test_build_fixtures.py (R8); see #163",
     # --- check 2: no "#NNN" issue numbers or "the issue" in a recipe file --------------------
     # R9/R10: a private issue cited by number or by "the issue" in a recipe file.
-    (
-        "01-sentiment-classification",
-        "no_issue_citations",
-    ): 'issue numbers/"the issue" in build_fixtures.py and tests/test_build_fixtures.py (R9/R10); see #163',
-    (
-        "02-refund-intent-detection",
-        "no_issue_citations",
-    ): '"Issue #2" cited in notebook:queue-md, "the issue" in build_fixtures.py (R10); see #163',
-    (
-        "03-response-clarity-scoring",
-        "no_issue_citations",
-    ): '"the issue" in helpers.py and notebook prose, issue numbers in tests/test_build_fixtures.py (R9/R10); see #163',
-    (
-        "04-support-ticket-routing",
-        "no_issue_citations",
-    ): '"the issue" in helpers.py, build_fixtures.py and notebook:python-md, issue numbers in tests/test_build_fixtures.py (R9/R10); see #163',
-    (
-        "05-document-classification",
-        "no_issue_citations",
-    ): '"#124"/"#129" in tests/test_build_fixtures.py (R9, pre-#162 copy); see #163',
     (
         "06-multiple-topic-labels",
         "no_issue_citations",
@@ -190,26 +150,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     # at all; 07, 12, 13, 16, 19 and 20 ship only the weak "assert wrong" form, which passes
     # even when the confidence gate catches every mistake.
     (
-        "01-sentiment-classification",
-        "stored_answers_strong_form",
-    ): "no test_stored_answers_are_not_all_right in tests/ at all; see #163",
-    (
-        "02-refund-intent-detection",
-        "stored_answers_strong_form",
-    ): "no test_stored_answers_are_not_all_right in tests/ at all; see #163",
-    (
-        "03-response-clarity-scoring",
-        "stored_answers_strong_form",
-    ): "no test_stored_answers_are_not_all_right in tests/ at all; see #163",
-    (
-        "04-support-ticket-routing",
-        "stored_answers_strong_form",
-    ): "no test_stored_answers_are_not_all_right in tests/ at all; see #163",
-    (
-        "05-document-classification",
-        "stored_answers_strong_form",
-    ): "no test_stored_answers_are_not_all_right in tests/ at all; see #163",
-    (
         "06-multiple-topic-labels",
         "stored_answers_strong_form",
     ): "no test_stored_answers_are_not_all_right in tests/ at all; see #163",
@@ -259,22 +199,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     # R3 and more besides: a coverage/accuracy/risk/precision/recall/F1/nDCG line with no
     # {check} token (traced through bound variables), beyond what Wave 2 reviewed.
     (
-        "01-sentiment-classification",
-        "metric_lines_carry_check",
-    ): "a validation accuracy line carries {selection} but no {check} (G1(d) clause 2); see #163",
-    (
-        "02-refund-intent-detection",
-        "metric_lines_carry_check",
-    ): "validation risk-coverage sweep lines carry no {check} (G1(d) clause 2); see #163",
-    (
-        "04-support-ticket-routing",
-        "metric_lines_carry_check",
-    ): "a validation accuracy line carries {selection} but no {check} (G1(d) clause 2); see #163",
-    (
-        "05-document-classification",
-        "metric_lines_carry_check",
-    ): "a validation accuracy line carries {selection} but no {check} (G1(d) clause 2); see #163",
-    (
         "06-multiple-topic-labels",
         "metric_lines_carry_check",
     ): "validation selective-prediction lines carry {selection} but no {check} (G1(d) clause 2); see #163",
@@ -306,10 +230,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     #              carries {check} and not {selection} ---------------------------------------
     # R2: four different conventions across the thirteen; only {check}-only is compliant.
     (
-        "02-refund-intent-detection",
-        "figure_titles_check_only",
-    ): "validation figure titles carry {selection} without {check} (R2); see #163",
-    (
         "06-multiple-topic-labels",
         "figure_titles_check_only",
     ): "validation figure titles carry {selection} without {check} (R2); see #163",
@@ -337,26 +257,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     #              call prints the plotted object itself, in the same cell -------------------
     # R4 and more besides: a figure plotted with nothing of its own data printed (an aggregate
     # accuracy or a cosmetic line does not count), beyond what Wave 2 reviewed.
-    (
-        "01-sentiment-classification",
-        "print_what_you_plot",
-    ): "plot_confusion_matrix in eval-test-code prints only aggregate accuracy, not the matrix's own counts; see #163",
-    (
-        "02-refund-intent-detection",
-        "print_what_you_plot",
-    ): "plot_threshold_sweep in sweep-chart prints no swept rows (MC1: sweep helpers are named in docs/recipe-template.md alongside the matrix); see #163",
-    (
-        "03-response-clarity-scoring",
-        "print_what_you_plot",
-    ): "plot_risk_coverage in selective-code prints only an aggregate selective summary, not the curve's own rows; see #163",
-    (
-        "04-support-ticket-routing",
-        "print_what_you_plot",
-    ): "plot_confusion_matrix in evaluation-test prints only aggregate accuracy, not the matrix's own counts; see #163",
-    (
-        "05-document-classification",
-        "print_what_you_plot",
-    ): "plot_confusion_matrix prints only aggregate accuracy, not the matrix's own counts; see #163",
     (
         "06-multiple-topic-labels",
         "print_what_you_plot",
@@ -414,10 +314,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     ): 'REVIEW = "unsorted", not "review" (PR #186 review MC3); see #163',
     # --- check 7b: the exact reason string "confidence below the threshold" in helpers.py ----
     (
-        "02-refund-intent-detection",
-        "review_reason_string",
-    ): '"too close to an even split to trust either way: needs a person" instead of the lexicon reason string; see #163',
-    (
         "06-multiple-topic-labels",
         "review_reason_string",
     ): '"confidence below the review cutoff" instead of the lexicon reason string; see #163',
@@ -427,18 +323,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     ): "helpers.py does not use the lexicon's exact reason string; see #163",
     # --- check 9: no ".[dev,ml]" install line in the README ---------------------------------
     # R15: the pre-#162 README install paragraph combined the two extras into one line.
-    (
-        "02-refund-intent-detection",
-        "readme_no_dev_ml_install",
-    ): 'README quotes `pip install -e ".[dev,ml]"` for reproducing outputs (R15); see #163',
-    (
-        "03-response-clarity-scoring",
-        "readme_no_dev_ml_install",
-    ): 'README quotes `pip install -e ".[dev,ml]"` for reproducing outputs (R15); see #163',
-    (
-        "04-support-ticket-routing",
-        "readme_no_dev_ml_install",
-    ): 'README quotes `pip install -e ".[dev,ml]"` for reproducing outputs (R15); see #163',
     (
         "06-multiple-topic-labels",
         "readme_no_dev_ml_install",
