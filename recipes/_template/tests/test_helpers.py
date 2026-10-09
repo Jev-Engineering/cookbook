@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from jev_cookbook import ChoiceAnswer, Provenance, get_backend, load_helpers, replay_key
+from jev_cookbook.evaluation import select_confidence_threshold
 from jev_cookbook.fixtures import load_inputs, load_labels, responses_path
 
 RECIPE = Path(__file__).resolve().parent.parent
@@ -91,7 +92,9 @@ def test_stored_answers_are_not_all_right():
         for e in validation
         if decide(e).choice in helpers.QUEUES
     ]
-    threshold = min(c for c, _ in named if all(ok for c2, ok in named if c2 >= c))
+    threshold = select_confidence_threshold(
+        [ok for _, ok in named], [c for c, _ in named], target_accuracy=1.0
+    )
 
     test = [e for e in examples if e.split == "test" and e.id in labels]
     wrong_and_confident = [

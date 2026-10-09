@@ -115,6 +115,18 @@ def test_the_scaffolded_build_fixtures_test_stays_in_step_with_the_template(tmp_
     assert scaffolded == expected
 
 
+def test_the_stored_answers_guard_is_the_strong_form_not_the_weak_one():
+    """The weak form, ``assert wrong, "the fixtures should contain some wrong answers"``, passes
+    even when the confidence gate catches every mistake, hiding the lesson this guard exists to
+    teach, and no other test's result changes if `recipes/_template/tests/test_helpers.py` is
+    reverted to it. Pin the strong form's own markers here instead."""
+    text = (TEMPLATE / "tests" / "test_helpers.py").read_text("utf-8")
+    assert 'assert wrong, "the fixtures should contain some wrong answers"' not in text
+    body = text.split("def test_stored_answers_are_not_all_right")[1]
+    assert "select_confidence_threshold" in body
+    assert "confidently wrong test answer" in body
+
+
 def test_the_notebook_is_executed_and_has_no_error_output():
     code = [c for c in NOTEBOOK["cells"] if c["cell_type"] == "code"]
     assert code and all(c["execution_count"] for c in code)
@@ -296,7 +308,7 @@ def test_the_header_counts_the_scored_examples_not_the_demo_ones():
     assert "%matplotlib" not in setup
     assert "n_examples=len(scored)" in setup and "None if offline" not in setup
     assert "header = " not in setup and "sample size" not in setup
-    assert 'scored = [e for e in examples if e.split != "demo"]' in setup
+    assert 'scored = [e for e in examples if e.split not in ("train", "demo")]' in setup
     assert "len(scored)" in setup and "len(examples)" not in setup
 
 
@@ -398,9 +410,11 @@ def test_gold_label_is_defined_in_prose_not_in_a_code_comment_and_links_the_glos
     assert "../../docs/glossary.md#gold-label" in evaluation_md
 
 
-def test_the_fallback_exemption_states_the_two_part_test():
+def test_the_fallback_exemption_states_the_three_part_test():
     python_md = source(next(c for c in NOTEBOOK["cells"] if c.get("id") == "python-md"))
-    assert "writes nothing anywhere" in python_md and "leaves no harm standing" in python_md
+    assert "complete answer, not a deferral" in python_md
+    assert "writes nothing anywhere" in python_md
+    assert "leaves nothing standing beyond the missed ticket itself" in python_md
 
 
 def test_a_simulated_recording_produces_a_minimal_diff():

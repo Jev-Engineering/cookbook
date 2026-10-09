@@ -32,7 +32,7 @@ properties `done` and `steps`. A subclass fills in `_reset(rng)`, `_observe()`,
 - Randomness comes only from the `random.Random(seed)` the base class passes in. Prefer
   `rng.random()`: the `random` module's own docs commit only `random.Random.random()` to
   producing the same sequence for the same seed across Python versions ([backends.md](backends.md),
-  "Scripted backend"). `ToyGrid._reset` already calls `rng.randrange(n)` for its target cell, and
+  "Scripted backend"). `ToyGrid._reset` already calls `rng.randrange(1, n)` for its target cell, and
   that call stays — its output is pinned byte for byte by
   `test_golden_values_pin_cross_platform_streams` in `tests/test_simulation.py`, so a change to
   CPython's generator would be caught here, not merely assumed away — but a *new* `_reset` or

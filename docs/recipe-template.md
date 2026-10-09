@@ -76,7 +76,7 @@ own first use the same way.
   `validation` with `select_confidence_threshold` and frozen before `test` is touched.
 - **`evaluate_selective` reports the same split as the rule only when the rule's only review
   branch is that confidence gate — `route` here has three, so it is not that rule.**
-  `helpers.py::route` sends a ticket to `human_review` for any of three reasons, in this order:
+  `helpers.py::route` sends a ticket to `review` for any of three reasons, in this order:
   `answer.choice == NONE` ("no option fits"), `answer.choice not in QUEUES` ("not a queue Python
   may use"), or `answer.confidence < min_confidence` ("confidence below the threshold"). Only
   the third is a confidence gate; the first two are unconditional, so `evaluate_selective`
@@ -119,13 +119,19 @@ own first use the same way.
   actually have applied to (the examples that really were asked). An undisclosed or out-of-range
   stand-in is still forbidden, whatever the reason for using one.
 
-  **An "answered" outcome that still goes to a person is review, not coverage.** A rule can accept
-  an answer into one of its outcomes and still route that outcome to the `ReviewQueue` for a
-  person to confirm (an `unknown` result that is nonetheless logged for someone to check, say).
-  That example counts toward [review](glossary.md#review), never toward
-  [coverage](glossary.md#coverage): coverage means answered **and** not sent to anyone, so a rule
-  with any branch like this is not confidence-only and needs `evaluate_outcomes`, built from
-  `accepted[i]` that is `True` only when the rule neither reviewed nor queued example `i`.
+  **A deferral counts toward review; a complete-answer fallback counts toward coverage, even one
+  that is also noted in a backlog.** The distinction is not "did this write anywhere", it is
+  "did the rule answer the question it was asked, or ask a person to answer it instead". An
+  `unknown` result routed to the `ReviewQueue` for a person to pick the real answer is a
+  deferral — it asks the same question again — so it counts toward
+  [review](glossary.md#review), never toward [coverage](glossary.md#coverage), however
+  confident the answer that produced it. A rule that resolves an example to a genuine final
+  answer and *separately* notes it in a backlog for an unrelated follow-up (an unmatched asset
+  backlogged so someone can decide later whether a new canonical record is needed — a different
+  question from "was this a match") still counts that example toward coverage: the rule already
+  answered the question that was asked, and the backlog entry is not a review of that answer.
+  Build `accepted[i]` from which of these the rule actually did, never from a confidence alone,
+  for a rule with any branch that does not depend on `min_confidence`.
 - **Figures** are the last expression of a cell. They draw after `apply_style()`; the notebook
   needs no `%matplotlib inline` line.
 - **Print what you plot.** Every `plot_*` call is paired with a `print` of the same numbers,
@@ -176,25 +182,32 @@ own first use the same way.
   known options directly (`QUEUES[answer.choice]`) and lets an impossible case raise `KeyError`
   is relying on the same backend guarantee, not skipping a required step. Either layer owning the
   check is acceptable.
-- **A low-confidence fallback option may be a final result at any confidence only when it passes
-  a two-part test.** CONTRIBUTING.md section 4 requires an uncertain or inconsistent result to go
-  to an explicit review outcome, and states the test for the one exception: a fallback option
-  such as `none`, `unclear_request` or `no_match` may skip the confidence gate and still stand as
-  a final result, but only when choosing it (1) writes nothing to any container (`ActionLog`,
-  `ReviewQueue`, or any other record a later step reads) **and** (2) leaves no harm standing —
-  nothing a person would otherwise have caught goes uncaught because the rule said nothing
-  happened. `route`'s fallback, `none`, passes the first part (choosing it writes nothing) but the
-  template does not claim the exemption: `route` sends `none` to `human_review` like every other
-  unconfident or unrecognized case, which is also compliant — the two-part test names when the
-  exemption is *available*, not when it is required. A fallback that instead names a review-like
-  action ("manual triage", "escalate") is a review outcome, not a final one, and never qualifies.
-  A recipe that does claim the exemption prints the gated counterfactual (what `evaluate_outcomes`
-  would report with the fallback gated too) beside the numbers it actually reports, so a reader
-  can see what the exemption costs or buys — see the `evaluate_selective`/`evaluate_outcomes`
-  bullet above for where that counterfactual comes from. A fallback that itself triggers a side
-  effect (sends a message, closes a ticket, writes a record) fails part (1) outright and is never
-  exempt on the strength of its name: it goes through the same confidence gate as every other
-  option before that side effect runs.
+- **A fallback option may be a final result at any confidence only when it passes a three-part
+  test.** CONTRIBUTING.md section 4 states it; this is the worked contrast between the two shapes
+  that split the cookbook's fallback-exempting recipes, so a reader can apply the test without
+  re-deriving it.
+
+  | | `route`'s `none` (this template) | a wrong `allowed` → `ignore` | a wrong `no_match` backlogged, not acted on |
+  | - | - | - | - |
+  | (a) complete answer, not a deferral? | yes — `none` is a real judgment ("no option fits") | yes — `allowed` is a real judgment | yes — `no_match` is a real judgment |
+  | (b) records no action? | yes — this template simulates no container at all | **no** — recorded to the `ActionLog` | yes — printed to a backlog, labelled a note, no action taken |
+  | (c) wrong leaves nothing beyond the missed item? | yes — nothing is simulated either way | **no** — a published violating message is harm beyond the missed item | yes — one item left unlinked, exactly what review would also have left pending |
+  | passes all three? | yes — exemptable (gated anyway here, also compliant) | **no — must be gated** | yes — exemptable |
+
+  `unknown` → "manual triage" and `needs_review` fail part (a) outright: each asks a person to
+  decide the same question again, so each is a deferral, always a review outcome in the
+  `ReviewQueue`, never final at any confidence, and each counts toward review rather than
+  coverage. A fallback with no simulated container at all (`no_suitable_rewrite`, `not_stated`,
+  `insufficient_evidence`, `no_clarification_needed` → `proceed`) passes (b) trivially, the same
+  as `none` here. `route`'s own fallback, `none`, passes all three parts, but this template still
+  sends it to `review` like every other unconfident or unrecognized case rather than claim the
+  exemption — the test names when the exemption is *available*, not when it is required; gating a
+  qualifying fallback anyway is always compliant. A fallback that fails any part goes through the
+  same confidence gate as every other option before whatever it does runs. A recipe that does
+  claim the exemption prints the gated counterfactual — what `evaluate_outcomes` would report, on
+  the split it is reporting (`test`), with the fallback gated too — beside the numbers it actually
+  reports, so a reader can see what the exemption costs or buys; see the
+  `evaluate_selective`/`evaluate_outcomes` bullet above for where that counterfactual comes from.
 
 ## How `load_helpers` works
 

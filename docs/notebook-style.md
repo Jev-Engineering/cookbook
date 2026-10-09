@@ -20,6 +20,12 @@ Importing the module changes nothing global (no rcParams, no colormap registrati
 pyplot import). `apply_style()` does that on purpose. The chart helpers apply the theme
 themselves, so they look right even if `apply_style()` was not called.
 
+**Dashes.** A notebook's markdown cells and this cookbook's own docs use the Unicode em dash,
+`—`, for a parenthetical or appositive aside in prose. Code — comments, docstrings, shell
+snippets inside a fenced block — uses the ASCII double-hyphen, ` -- `, instead, because source
+files stay ASCII-only; a notebook's code cells follow that rule, and its markdown cells, being
+prose, use `—`.
+
 ## Run header
 
 `run_header(recipe, title, mode, *, model=None, recorded_on=None, n_examples=None)` prints
@@ -126,10 +132,12 @@ reader (and a diff) can see the numbers a figure draws without reading pixels. S
 example.
 
 **Title convention.** A figure's `title=` carries the pipeline-check disclosure, `{check}`, when
-it is plotted in a synthetic or scripted run, and nothing else: a figure is read once, as a
-pipeline check or as a result, never additionally re-labelled as a selection step the way a
-printed number is. A figure plotted from `validation` still carries only `{check}` in its title,
-even though a *printed* `validation` line carries both `{selection}{check}`
+it is plotted in a synthetic or scripted run, and no other disclosure label: a figure is read
+once, as a pipeline check or as a result, never additionally re-labelled as a selection step the
+way a printed number is. The rest of the title is free text (the template's own
+`f"Test split, {len(test_examples)} examples{check}"` names the split and its size); `{check}` is
+the only *label* it carries. A figure plotted from `validation` still carries only `{check}` in
+its title, even though a *printed* `validation` line carries both `{selection}{check}`
 ([recipe-template.md](recipe-template.md)).
 
 ### Showing a figure in a notebook

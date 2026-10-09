@@ -139,14 +139,18 @@ chosen as a gate ([CONTRIBUTING.md](../CONTRIBUTING.md), section 4).
 ## review
 
 The outcome a recipe gives an answer it does not act on automatically: an unconfident or
-inconsistent result below a [confidence gate](#confidence-gate), or anything an explicit rule
-routes to a person regardless of confidence. Simulated with
+inconsistent result below a [confidence gate](#confidence-gate), or a deferral — an outcome that
+asks a person to decide the same question again (`unknown` routed for someone to pick the real
+answer, `needs_review`) — whatever its confidence. By convention the outcome value itself is the
+string `"review"` (not, say, `"human_review"`; a recipe may still name its own domain-specific
+sub-reasons), and the reason string for a confidence-gated review is exactly `"confidence below
+the threshold"`, so two recipes' readers see the same words for the same cause. Simulated with
 `jev_cookbook.simulation.ReviewQueue`; a recipe that simulates no queue still names the outcome in
-its own rule's result type. A low-confidence fallback option delivered as a final result with no
-gate is the narrow exception [CONTRIBUTING.md](../CONTRIBUTING.md) section 4 states the test for;
-a fallback that itself names a review-like action ("manual triage", "escalate") is a review
-outcome, not a final one, whatever its confidence. An example a rule accepts into an outcome but
-still sends to a person to confirm counts toward review, not toward [coverage](#coverage).
+its own rule's result type. A fallback option that is itself a complete answer — not a deferral —
+may be delivered as a final result with no gate instead, but only when it passes every part of
+the test [CONTRIBUTING.md](../CONTRIBUTING.md) section 4 states (worked through in
+[recipe-template.md](recipe-template.md)); a deferral never qualifies, whatever its confidence,
+and always counts toward review, not toward [coverage](#coverage).
 
 ## accuracy
 
@@ -189,9 +193,12 @@ The number of scored examples whose [gold label](#gold-label) is a given class �
 ## coverage
 
 The fraction of scored examples a rule actually answered itself, rather than sending to
-[review](#review): `n_answered / n_total`. An example the rule's own logic accepts into an outcome
-but still routes to a person for confirmation counts toward review, not toward coverage — coverage
-means answered **and** not reviewed, never merely accepted. Computed by `evaluate_selective` (a
+[review](#review): `n_answered / n_total`. A deferral — an outcome that asks a person to decide
+the same question again — counts toward review, not coverage, whatever its confidence. A
+complete-answer fallback that passes the test in [CONTRIBUTING.md](../CONTRIBUTING.md) section 4
+counts toward coverage like any other answered example, even when it is also noted in a backlog
+for an unrelated follow-up: the rule already answered the question that was asked, and a note
+about something else is not a review of that answer. Computed by `evaluate_selective` (a
 confidence-only rule) or `evaluate_outcomes` (any rule with an unconditional review branch) in
 `jev_cookbook.evaluation` ([evaluation.md](evaluation.md), "Selective prediction").
 

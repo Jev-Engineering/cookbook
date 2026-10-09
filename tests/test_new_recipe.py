@@ -726,7 +726,7 @@ def test_the_scaffold_setup_cell_counts_the_scored_examples_in_every_mode(catalo
     assert "%matplotlib" not in setup
     assert "n_examples=len(scored)" in setup and "None if offline" not in setup
     assert "header = " not in setup and "sample size" not in setup
-    assert 'scored = [e for e in examples if e.split != "demo"]' in setup
+    assert 'scored = [e for e in examples if e.split not in ("train", "demo")]' in setup
     assert "len(scored)" in setup
     assert "len(examples)" not in setup
 

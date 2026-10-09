@@ -182,8 +182,8 @@ class Simulator(abc.ABC):
     and optionally ``_is_done()``. Draw randomness only from the ``rng`` passed in, and prefer
     ``rng.random()``: it is the one call the ``random`` module's own docs commit to producing the
     same sequence for the same seed across platforms and Python 3.10 to 3.14 (see
-    ``docs/backends.md``, "Scripted backend"). ``ToyGrid._reset`` calls ``rng.randrange(n)`` for
-    its target cell; that call's output is pinned, byte for byte, by
+    ``docs/backends.md``, "Scripted backend"). ``ToyGrid._reset`` calls ``rng.randrange(1, n)``
+    for its target cell; that call's output is pinned, byte for byte, by
     ``test_golden_values_pin_cross_platform_streams`` in ``tests/test_simulation.py`` rather than
     assumed stable, and a *new* ``_reset``/``_apply`` should derive a discrete choice from
     ``rng.random()`` instead of adding another call to ``rng.randrange``, ``rng.choice`` or
