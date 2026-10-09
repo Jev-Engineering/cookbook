@@ -234,10 +234,14 @@ writes) is accepted.
   `TODO` in each markdown cell;
 - `README.md`: the recipe README with the same fields, the run commands for this slug, and a `TODO`
   where you write what it teaches;
-- `helpers.py`, `build_fixtures.py`, `tests/test_helpers.py`: skeletons that raise
-  `NotImplementedError("TODO ...")` until you write them. The test file's replay-key test assumes
-  one request per example (`example.replay_keys` holds a single key); adapt it when an example
-  needs a dependent second request, which is a later request with its own key.
+- `helpers.py`, `build_fixtures.py`: skeletons that raise `NotImplementedError("TODO ...")` until
+  you write them.
+- `tests/test_helpers.py`: a `TODO` skeleton for the rule's own test, plus two guards that already
+  work once `helpers.py`, `build_fixtures.py` and the fixtures exist, with no `TODO` of their own:
+  the replay-key test (which assumes one request per example — `example.replay_keys` holds a
+  single key — adapt it when an example needs a dependent second request, a later request with
+  its own key) and, for a replay recipe, `test_stored_answers_are_not_all_right` (re-derives the
+  frozen threshold and requires a wrong `test` answer at or above it).
 - `tests/test_build_fixtures.py`, for a replay recipe only: the three guard tests already working
   against your `build_fixtures.py` once you have filled in `ROWS` and `answers_for` (step 4);
   nothing here is a `TODO`. A `--mode scripted` scaffold does not get this file.
