@@ -71,9 +71,15 @@ def _dependency_install_log(package, detail):
 
 
 def _dependency_collection_log(package, detail, collected_items=0):
-    """A dependency problem caught at collection: pytest never gets to run anything."""
+    """A dependency problem caught at collection: pytest never gets to run anything. The
+    resolver note before the install is a second, independent place the "version solving
+    failed" pattern can fire, in the shape a real resolver retry message takes (version solving
+    failed once, a looser constraint was tried, and the package that landed is not the one the
+    import expects)."""
     return "\n".join(
         [
+            "$ pip install -r requirements.txt",
+            f"WARNING: version solving failed for {package}; retrying with a looser constraint",
             "$ pytest -q",
             "============================= test session starts ==============================",
             f"collected {collected_items} items / 1 error",
@@ -209,17 +215,17 @@ def _conflicting_log(warning, test_path, old, new, rerun=1):
     )
 
 
-def _inconclusive_log(detail):
-    """A build that failed, with nothing in the log pointing at a cause: no dependency,
-    infrastructure, or test-failure pattern, so helpers.trim_log falls back to the first lines
-    of the log. The build genuinely failed (so "why did the build fail" is a fair question);
-    there is just no decisive signal to answer it with."""
+def _inconclusive_log(collected=140):
+    """A build that genuinely failed (so "why did the build fail" is a fair question), with
+    nothing in the log pointing at a cause: no dependency, infrastructure, or test-failure
+    pattern, no prose explaining the absence either -- just what a real tool prints when a
+    worker dies before it writes any test result, so helpers.trim_log falls back to the first
+    lines of the log."""
     return "\n".join(
         [
             "$ pytest -q",
             "============================= test session starts ==============================",
-            "collected 140 items",
-            f"{detail}",
+            f"collected {collected} items",
             "##[error]Process completed with exit code 1.",
         ]
     )
@@ -229,24 +235,23 @@ def _regression_log_scattered(path_a, old_a, new_a, path_b, old_b, new_b, collec
     """A genuine behaviour change again, but spread across two files with no visibly shared
     cause: both failures are real assertions (no dependency or infrastructure signal at all),
     but a reader seeing two different tests fail with two unrelated-looking numbers, instead of
-    one clean failure, might plausibly hedge rather than call it a confident test_regression."""
+    one clean failure, might plausibly hedge rather than call it a confident test_regression.
+
+    `--tb=line` is a real pytest flag: one line per failure, `path:lineno: Exception message`,
+    with no separating header. That keeps both lines adjacent in the log, so the second failure
+    sits inside the window `trim_log` keeps around the first -- the hedge the stored answer
+    makes has to be visible in the excerpt Jev actually sees, not only in the full log."""
     return "\n".join(
         [
-            "$ pytest -q",
+            "$ pytest -q --tb=line",
             "============================= test session starts ==============================",
             f"collected {collected} items",
             "tests/ .........F..........F.......................",
             "",
-            "=================================== FAILURES ====================================",
-            f"____________________________ {path_a} ____________________________",
-            f"    assert total == {old_a}",
-            f"E   AssertionError: assert {new_a} == {old_a}",
+            f"{path_a}:42: AssertionError: assert {new_a} == {old_a}",
+            f"{path_b}:17: AssertionError: assert {new_b} == {old_b}",
+            "=========================== short test summary info ============================",
             f"FAILED {path_a} - AssertionError: assert {new_a} == {old_a}",
-            "",
-            "=================================== FAILURES ====================================",
-            f"____________________________ {path_b} ____________________________",
-            f"    assert total == {old_b}",
-            f"E   AssertionError: assert {new_b} == {old_b}",
             f"FAILED {path_b} - AssertionError: assert {new_b} == {old_b}",
             f"2 failed, {collected - 2} passed in 24.88s",
         ]
@@ -280,28 +285,28 @@ ROWS = [
         "validation",
         _fields("CI-10102", _regression_log("tests/test_checkout.py::test_shipping_fee", 5.99, 7.99)),
         TEST_REGRESSION,
-        _dist(TEST_REGRESSION, 0.65),
+        _dist(TEST_REGRESSION, 0.68),
     ),
     (
         "v-tr-03",
         "validation",
         _fields("CI-10103", _regression_log("tests/test_inventory.py::test_stock_decrement", 10, 9)),
         TEST_REGRESSION,
-        _dist(TEST_REGRESSION, 0.65),
+        _dist(TEST_REGRESSION, 0.62),
     ),
     (
         "v-tr-04",
         "validation",
         _fields("CI-10104", _regression_log("tests/test_auth.py::test_session_expiry_minutes", 30, 15)),
         TEST_REGRESSION,
-        _dist(TEST_REGRESSION, 0.85),
+        _dist(TEST_REGRESSION, 0.80),
     ),
     (
         "v-tr-05",
         "validation",
         _fields("CI-10105", _regression_log("tests/test_reporting.py::test_monthly_total", 1200.00, 1150.00)),
         TEST_REGRESSION,
-        _dist(TEST_REGRESSION, 0.40),
+        _dist(TEST_REGRESSION, 0.42),
     ),
     # -- dependency_problem: install failures, a collection error, the hard cases. --------
     (
@@ -312,7 +317,7 @@ ROWS = [
             _dependency_install_log("acme-sdk", "No matching distribution found for acme-sdk==4.2.0"),
         ),
         DEPENDENCY_PROBLEM,
-        _dist(DEPENDENCY_PROBLEM, 0.85),
+        _dist(DEPENDENCY_PROBLEM, 0.83),
     ),
     (
         "v-dep-02",
@@ -325,7 +330,7 @@ ROWS = [
             ),
         ),
         DEPENDENCY_PROBLEM,
-        _dist(DEPENDENCY_PROBLEM, 0.65),
+        _dist(DEPENDENCY_PROBLEM, 0.60),
     ),
     (
         "v-dep-03-surfaces",
@@ -353,12 +358,12 @@ ROWS = [
                 3.14,
                 3.15,
                 "geo_sdk",
-                "No module named 'geo_sdk.regions' (version solving failed while installing geo_sdk)",
+                "No module named 'geo_sdk.regions'",
                 "tests/test_region_lookup.py::test_resolve_region_code",
             ),
         ),
         DEPENDENCY_PROBLEM,
-        _dist(DEPENDENCY_PROBLEM, 0.65),
+        _dist(DEPENDENCY_PROBLEM, 0.58),
     ),
     (
         "v-dep-05",
@@ -370,7 +375,7 @@ ROWS = [
             ),
         ),
         DEPENDENCY_PROBLEM,
-        _dist(DEPENDENCY_PROBLEM, 0.85),
+        _dist(DEPENDENCY_PROBLEM, 0.88),
     ),
     # -- infrastructure_failure: the runner itself, and the hard case that looks like a test. --
     (
@@ -378,7 +383,7 @@ ROWS = [
         "validation",
         _fields("CI-10301", _infra_log("The job was OOMKilled after exceeding its memory limit (exit code 137).")),
         INFRASTRUCTURE_FAILURE,
-        _dist(INFRASTRUCTURE_FAILURE, 0.85),
+        _dist(INFRASTRUCTURE_FAILURE, 0.86),
     ),
     (
         "v-infra-02",
@@ -388,14 +393,14 @@ ROWS = [
             _infra_log("The runner has received a shutdown signal and will be terminated."),
         ),
         INFRASTRUCTURE_FAILURE,
-        _dist(INFRASTRUCTURE_FAILURE, 0.65),
+        _dist(INFRASTRUCTURE_FAILURE, 0.63),
     ),
     (
         "v-infra-03",
         "validation",
         _fields("CI-10303", _infra_log("This step has timed out after 45 minutes.")),
         INFRASTRUCTURE_FAILURE,
-        _dist(INFRASTRUCTURE_FAILURE, 0.65),
+        _dist(INFRASTRUCTURE_FAILURE, 0.70),
     ),
     (
         "v-infra-04-looks-like-test",
@@ -409,7 +414,7 @@ ROWS = [
             ),
         ),
         INFRASTRUCTURE_FAILURE,
-        _dist(INFRASTRUCTURE_FAILURE, 0.65),
+        _dist(INFRASTRUCTURE_FAILURE, 0.66),
     ),
     (
         "v-infra-05",
@@ -427,17 +432,17 @@ ROWS = [
         "validation",
         _fields("CI-10401", _flaky_log("tests/test_webhook_delivery.py::test_retry_on_timeout", True, False)),
         UNKNOWN,
-        _dist(UNKNOWN, 0.85),
+        _dist(UNKNOWN, 0.82),
     ),
     (
         "v-unknown-02",
         "validation",
         _fields(
             "CI-10402",
-            _inconclusive_log("The build failed before producing a test report; the log has no further detail."),
+            _inconclusive_log(collected=140),
         ),
         UNKNOWN,
-        _dist(UNKNOWN, 0.65),
+        _dist(UNKNOWN, 0.61),
     ),
     (
         "v-unknown-03",
@@ -452,7 +457,7 @@ ROWS = [
             ),
         ),
         UNKNOWN,
-        _dist(UNKNOWN, 0.40),
+        _dist(UNKNOWN, 0.37),
     ),
     (
         "v-unknown-04",
@@ -462,7 +467,7 @@ ROWS = [
             _flaky_log("tests/test_session_cache.py::test_cache_hit_rate_within_bounds", 0.95, 0.91, rerun=2),
         ),
         UNKNOWN,
-        _dist(UNKNOWN, 0.40),
+        _dist(UNKNOWN, 0.44),
     ),
     # ======================================================================================
     # test
@@ -575,7 +580,7 @@ ROWS = [
             _dependency_install_log(
                 "data_connector",
                 "pip's resolver found conflicting dependencies: data-connector 2.4.0 depends "
-                "on urllib3<2.0, but installed urllib3 is 2.1.0",
+                "on query-shim<2.0, but installed query-shim is 2.1.0",
             ),
         ),
         DEPENDENCY_PROBLEM,
@@ -637,7 +642,7 @@ ROWS = [
         "test",
         _fields(
             "CI-20402",
-            _inconclusive_log("The build failed partway through; no test report and no further detail were logged."),
+            _inconclusive_log(collected=96),
         ),
         UNKNOWN,
         _dist(UNKNOWN, 0.65),

@@ -35,7 +35,9 @@ _DESCRIPTIONS = {
         "A package could not be installed, imported, or resolved to a compatible version. "
         "This also covers a failing test whose traceback ends in an import or module error: "
         "the test did not find a real behaviour change, it could not even load the package "
-        "under test."
+        "under test. When an excerpt shows both an import or module error and an unrelated "
+        "assertion failure elsewhere, the import or module error governs: nothing the other "
+        "test asserted can be trusted once a dependency the run needs is missing."
     ),
     INFRASTRUCTURE_FAILURE: (
         "The build or test runner itself failed, independent of the code under test: it lost "
