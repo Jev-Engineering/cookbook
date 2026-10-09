@@ -1,0 +1,1002 @@
+{
+  "08f1f86c9cafb2fcb50d5e2df1c2f2af68800bd3f9cf5d95b1495b091690e12f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "unverifiable": 0.08333333333333333,
+          "failed": 0.08333333333333333,
+          "partial": 0.08333333333333333,
+          "complete": 0.75
+        },
+        "confidence": 0.6666666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1073fb23fae49dba8cb12f5a9bbc0fee55edf7747d78a3ce295387f9c9d8b501": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "unverifiable",
+        "probabilities": {
+          "unverifiable": 0.68,
+          "failed": 0.10666666666666665,
+          "partial": 0.10666666666666665,
+          "complete": 0.10666666666666665
+        },
+        "confidence": 0.5733333333333334,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1389795a837fdb2d21ec2004deda643be5ff5a01b7e1f5b03934c8815ce31db2": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "partial",
+        "probabilities": {
+          "unverifiable": 0.10000000000000002,
+          "failed": 0.10000000000000002,
+          "partial": 0.7,
+          "complete": 0.10000000000000002
+        },
+        "confidence": 0.6,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1d87eece13bfa8a23d452c903b060a3ba31a25d52ed48bd5c7e8948930a31106": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "unverifiable": 0.15,
+          "failed": 0.15,
+          "partial": 0.15,
+          "complete": 0.55
+        },
+        "confidence": 0.4000000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1e2bebbf969971728ff33f2e08a3bc53e8dd4a08c5ca4ea4a5ffa50311c68c90": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "failed",
+        "probabilities": {
+          "unverifiable": 0.09333333333333334,
+          "failed": 0.72,
+          "partial": 0.09333333333333334,
+          "complete": 0.09333333333333334
+        },
+        "confidence": 0.6266666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3dec6fc58456a5fdce9dcbdce00bfa1a8a253249b3116ad0fd2b3745d2adcdac": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "failed",
+        "probabilities": {
+          "unverifiable": 0.16666666666666666,
+          "failed": 0.5,
+          "partial": 0.16666666666666666,
+          "complete": 0.16666666666666666
+        },
+        "confidence": 0.3333333333333333,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "41cc230693ae3af0c6b239ccb75c9fd37898451623b63af70a1c2468e47c5c3d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "unverifiable",
+        "probabilities": {
+          "unverifiable": 0.35,
+          "failed": 0.21666666666666667,
+          "partial": 0.21666666666666667,
+          "complete": 0.21666666666666667
+        },
+        "confidence": 0.1333333333333333,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "43d63a2238b9c686a85e68b6d4bc81e8fc106fa60d12ab1c4b778b974447e111": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "unverifiable",
+        "probabilities": {
+          "unverifiable": 0.38,
+          "failed": 0.20666666666666667,
+          "partial": 0.20666666666666667,
+          "complete": 0.20666666666666667
+        },
+        "confidence": 0.17333333333333334,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "478d37818c16d10957a1ab47f7a2485e6cc7bea8cec284dfd81d8d660c4bbba3": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "failed",
+        "probabilities": {
+          "unverifiable": 0.06000000000000002,
+          "failed": 0.82,
+          "partial": 0.06000000000000002,
+          "complete": 0.06000000000000002
+        },
+        "confidence": 0.7599999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4859a9a625cbed5c4f31e16ea4946e00b0d13a70a577d387e89fed0b23271f48": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "unverifiable": 0.16,
+          "failed": 0.16,
+          "partial": 0.16,
+          "complete": 0.52
+        },
+        "confidence": 0.36000000000000004,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "48ac57cd5f8047a37c53ee551dab6e74e9dcc0db8139bd056e0c19f96cab618c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "failed",
+        "probabilities": {
+          "unverifiable": 0.10000000000000002,
+          "failed": 0.7,
+          "partial": 0.10000000000000002,
+          "complete": 0.10000000000000002
+        },
+        "confidence": 0.6,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5103932c1e7822e299d7b26aa9e6445599e93dfa8cd0d8c5b675b3137f24559b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "unverifiable": 0.14,
+          "failed": 0.14,
+          "partial": 0.14,
+          "complete": 0.58
+        },
+        "confidence": 0.43999999999999995,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5110393d50ba6def7e4a695074798d27ce82ed9195cd28770323c65af4621eb9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "unverifiable": 0.05000000000000001,
+          "failed": 0.05000000000000001,
+          "partial": 0.05000000000000001,
+          "complete": 0.85
+        },
+        "confidence": 0.7999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "53be712e14bfd4f5070f9f8b4f061773c0b0b89909d4714b598702c5b3af5ce1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "unverifiable": 0.12666666666666668,
+          "failed": 0.12666666666666668,
+          "partial": 0.12666666666666668,
+          "complete": 0.62
+        },
+        "confidence": 0.49333333333333335,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "56b19c0b3ebb9b1cc87bc353d447d476ac6583dbedd0b01270accf38f5591fc0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "unverifiable": 0.06666666666666665,
+          "failed": 0.06666666666666665,
+          "partial": 0.06666666666666665,
+          "complete": 0.8
+        },
+        "confidence": 0.7333333333333334,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "646e55394599611d9efa0c8fb773dfa7ccd36ec55c215a1cd9ea24f141b79878": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "failed",
+        "probabilities": {
+          "unverifiable": 0.033333333333333326,
+          "failed": 0.9,
+          "partial": 0.033333333333333326,
+          "complete": 0.033333333333333326
+        },
+        "confidence": 0.8666666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6b835bfa1b8695eb45d9721a88d1aa3c4907fca5ab858c37e56df0532c6d9bee": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "partial",
+        "probabilities": {
+          "unverifiable": 0.06666666666666665,
+          "failed": 0.06666666666666665,
+          "partial": 0.8,
+          "complete": 0.06666666666666665
+        },
+        "confidence": 0.7333333333333334,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7f408adb017185b80292a7285b75ba0c9f9582f6a39930d2eab8b4631631cda8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "unverifiable",
+        "probabilities": {
+          "unverifiable": 0.44,
+          "failed": 0.18666666666666668,
+          "partial": 0.18666666666666668,
+          "complete": 0.18666666666666668
+        },
+        "confidence": 0.25333333333333335,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8007e3bcfca1e242d52ed4a06228b35f5b2f290e2b99396a710245aa032848ad": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "unverifiable",
+        "probabilities": {
+          "unverifiable": 0.3,
+          "failed": 0.2333333333333333,
+          "partial": 0.2333333333333333,
+          "complete": 0.2333333333333333
+        },
+        "confidence": 0.06666666666666665,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "87aacad328f49408249f1fb686479376414992e8007763dbffa7ad4bcc92f7c8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "unverifiable",
+        "probabilities": {
+          "unverifiable": 0.63,
+          "failed": 0.12333333333333334,
+          "partial": 0.12333333333333334,
+          "complete": 0.12333333333333334
+        },
+        "confidence": 0.5066666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "888013adf26bb664e9ca8a7cc59acbb9a5fe4a1f56b10d06a0e5d3dd6e45f34b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "partial",
+        "probabilities": {
+          "unverifiable": 0.14,
+          "failed": 0.14,
+          "partial": 0.58,
+          "complete": 0.14
+        },
+        "confidence": 0.43999999999999995,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8b595d7ff7ac4b76f0209b885a569262afe3ec3874f264197ae1b96a383df93d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "partial",
+        "probabilities": {
+          "unverifiable": 0.11666666666666665,
+          "failed": 0.11666666666666665,
+          "partial": 0.65,
+          "complete": 0.11666666666666665
+        },
+        "confidence": 0.5333333333333333,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "947291fe4adf09ecdde5340ea52cb8328ea73aeffc4c2e53bdab53babc48828c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "partial",
+        "probabilities": {
+          "unverifiable": 0.15,
+          "failed": 0.15,
+          "partial": 0.55,
+          "complete": 0.15
+        },
+        "confidence": 0.4000000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9acd49d99996fda21d7320615aba61953077166861b6486b782fe426b68d1c73": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "unverifiable",
+        "probabilities": {
+          "unverifiable": 0.35,
+          "failed": 0.21666666666666667,
+          "partial": 0.21666666666666667,
+          "complete": 0.21666666666666667
+        },
+        "confidence": 0.1333333333333333,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9eca91b039d87a5457868ccc347fc29d9255cb15e788e9fd0752774565fa783d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "unverifiable": 0.10000000000000002,
+          "failed": 0.10000000000000002,
+          "partial": 0.10000000000000002,
+          "complete": 0.7
+        },
+        "confidence": 0.6,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9eded1ed9c61cd3d7ca1a60e539a71d4cc42949f57a0c7f4139575958fa4509d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "partial",
+        "probabilities": {
+          "unverifiable": 0.07333333333333332,
+          "failed": 0.07333333333333332,
+          "partial": 0.78,
+          "complete": 0.07333333333333332
+        },
+        "confidence": 0.7066666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "aab6a5b706d5898a62621a67feb9effbfde8231ac75b1213a8e64b550e4d610a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "unverifiable": 0.08333333333333333,
+          "failed": 0.08333333333333333,
+          "partial": 0.08333333333333333,
+          "complete": 0.75
+        },
+        "confidence": 0.6666666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ac76d4f8f9bdc2f0b5d5fa5e7fb673013b8954d7329866a42914f0af2a500228": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "partial",
+        "probabilities": {
+          "unverifiable": 0.11333333333333333,
+          "failed": 0.11333333333333333,
+          "partial": 0.66,
+          "complete": 0.11333333333333333
+        },
+        "confidence": 0.5466666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b73acd911dcb50408ac83db2533ecc88aea03e440274a297b11cb3f664e831b1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "failed",
+        "probabilities": {
+          "unverifiable": 0.053333333333333344,
+          "failed": 0.84,
+          "partial": 0.053333333333333344,
+          "complete": 0.053333333333333344
+        },
+        "confidence": 0.7866666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b9269b497f2c67e7d4388f2b9f7d65e861b90c33c16c703846b20c6044bbf32b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "failed",
+        "probabilities": {
+          "unverifiable": 0.033333333333333326,
+          "failed": 0.9,
+          "partial": 0.033333333333333326,
+          "complete": 0.033333333333333326
+        },
+        "confidence": 0.8666666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c41d64552d4ec645238242cd48cfc8e3142b0bc0320b9247f9334bb83e1a5894": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "failed",
+        "probabilities": {
+          "unverifiable": 0.17333333333333334,
+          "failed": 0.48,
+          "partial": 0.17333333333333334,
+          "complete": 0.17333333333333334
+        },
+        "confidence": 0.30666666666666664,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c49e4169124f0f85786f9a1fb6b9e16851a08ccfefb8a123b017ab910ec91b09": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "unverifiable",
+        "probabilities": {
+          "unverifiable": 0.7,
+          "failed": 0.10000000000000002,
+          "partial": 0.10000000000000002,
+          "complete": 0.10000000000000002
+        },
+        "confidence": 0.6,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c86d43bdd94ee79f9d1a5ce677998c192a687140f50ede28e63bbfa61c31870a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "unverifiable": 0.04,
+          "failed": 0.04,
+          "partial": 0.04,
+          "complete": 0.88
+        },
+        "confidence": 0.84,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d35fab1c72b1bb251472b698126b564aae7eba1f7409520eabb5ead0d542aaa8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "unverifiable": 0.033333333333333326,
+          "failed": 0.033333333333333326,
+          "partial": 0.033333333333333326,
+          "complete": 0.9
+        },
+        "confidence": 0.8666666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d8b02d37b1c60deaa1340494c09553d2c884c04b8e7f7a8718dcafb1fb16bea4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "unverifiable": 0.11666666666666665,
+          "failed": 0.11666666666666665,
+          "partial": 0.11666666666666665,
+          "complete": 0.65
+        },
+        "confidence": 0.5333333333333333,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e32ccec589dcff2c74a329cd09462d696d964699bb9d58686bd9f70075645f4c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "unverifiable",
+        "probabilities": {
+          "unverifiable": 0.47,
+          "failed": 0.17666666666666667,
+          "partial": 0.17666666666666667,
+          "complete": 0.17666666666666667
+        },
+        "confidence": 0.2933333333333333,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e38b4d7dfac444072c5ed5e82e0874986a00dc4ce58e2e4375fed685f3532295": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "unverifiable",
+        "probabilities": {
+          "unverifiable": 0.41,
+          "failed": 0.19666666666666668,
+          "partial": 0.19666666666666668,
+          "complete": 0.19666666666666668
+        },
+        "confidence": 0.2133333333333333,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ebe36caca6515a19beb2c80c087fa548b77fc0d8ed7db3a435f560af7ba37f5e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "unverifiable": 0.10000000000000002,
+          "failed": 0.10000000000000002,
+          "partial": 0.10000000000000002,
+          "complete": 0.7
+        },
+        "confidence": 0.6,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ed0a7d682b63d880f4977f712622b3c49d65b1a622fe7355931f8974007163d3": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "unverifiable",
+        "probabilities": {
+          "unverifiable": 0.72,
+          "failed": 0.09333333333333334,
+          "partial": 0.09333333333333334,
+          "complete": 0.09333333333333334
+        },
+        "confidence": 0.6266666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ef7073ede44b860f2402accdb7fde5e0b0d0ba1fd923e3787bd079edf874c1b0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "outcome": {
+        "type": "choice",
+        "choice": "unverifiable",
+        "probabilities": {
+          "unverifiable": 0.6,
+          "failed": 0.13333333333333333,
+          "partial": 0.13333333333333333,
+          "complete": 0.13333333333333333
+        },
+        "confidence": 0.4666666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
