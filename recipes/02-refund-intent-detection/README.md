@@ -64,11 +64,13 @@ A recorded recipe states the model version the API returned, the capture date an
 it reports, here and in the notebook.
 
 The committed run replays 48 invented customer messages with hand-written (synthetic)
-probabilities, two of them wrong on purpose (one on each split): a message that raises a refund
+probabilities, five of them wrong on purpose: one on each split (`v19`, `t19`) raises a refund
 only to decline it, stored far enough from an even split that the confidence gate does not catch
-it, and above the frozen business threshold. Its precision, recall, and the coverage and risk the
-frozen confidence gate buys check that the pipeline works; they say nothing about how Jev
-performs, how fast it is, or what it costs. This recipe has no recorded fixtures.
+it; three more (`v22` on validation, `t18` and `t22` on test) sit inside the ambiguous cluster the
+gate does catch. The wrong examples are not symmetric between splits, so `test`'s reported
+precision, recall, coverage and risk genuinely differ from `validation`'s rather than echoing
+them. Every number checks that the pipeline works; none says anything about how Jev performs, how
+fast it is, or what it costs. This recipe has no recorded fixtures.
 
 ## Sources
 

@@ -15,14 +15,17 @@ same breath as raising it, stored at a noul far enough from an even split that t
 (`helpers.route`'s ``min_confidence``) does not catch it, even though the gold label is false --
 so the frozen rule's numbers show a real, non-zero risk of a wrongly queued message on both
 splits, not a guarantee that happens to hold. The confidence gate exists for a different shape of
-case: both splits also carry four genuinely ambiguous messages (``-borderline``), stored within
-0.06 of an even split (0.44-0.59), with gold labels deliberately mixed -- two true, two false, in
-no fixed order relative to noul -- so that a message's probability alone does not reliably say
-which way it should go. Low confidence genuinely correlates with error here (most of the business
-rule's mistakes other than the confident one above happen inside this cluster), which is what
-lets the confidence gate earn its coverage/accuracy/risk numbers rather than measuring something
-that never fires. The replay keys come from the same ``build_state`` and ``build_questions`` the
-notebook uses, via ``helpers.py``.
+case: both splits also carry four genuinely ambiguous messages each (``-borderline``, eight in
+total), stored within 0.09 of an even split (0.44-0.59), with gold labels deliberately mixed --
+two true, two false, in no fixed order relative to noul -- so that a message's probability alone
+does not reliably say which way it should go. Low confidence genuinely correlates with error
+here (most of the business rule's mistakes other than the confident one above happen inside this
+cluster), which is what lets the confidence gate earn its coverage/accuracy/risk numbers rather
+than measuring something that never fires. ``test`` is not a paraphrase of ``validation`` at
+matching probabilities throughout: ``t18-conditional`` is stored above the business threshold
+(unlike its rough validation counterpart), so the two splits' reported numbers differ, the way
+two different samples should. The replay keys come from the same ``build_state`` and
+``build_questions`` the notebook uses, via ``helpers.py``.
 """
 
 import argparse
@@ -37,7 +40,7 @@ QUESTIONS = helpers.build_questions()
 
 # (id, split, ticket_id, text, gold label (bool) or None for demo, stored noul probability)
 ROWS = [
-    # --- validation: 19 examples --------------------------------------------------------------
+    # --- validation: 23 examples --------------------------------------------------------------
     ("v01-explicit", "validation", "RF1001",
      "I'd like a refund for this order, it arrived broken.",
      True, 0.93),
@@ -110,7 +113,7 @@ ROWS = [
     ("v23-borderline", "validation", "RF1023",
      "This isn't sitting right with me, and I think you should make it up to me somehow.",
      True, 0.58),
-    # --- test: 19 examples -----------------------------------------------------------------
+    # --- test: 23 examples -----------------------------------------------------------------
     ("t01-explicit", "test", "RF2001",
      "I need a refund for this order, it showed up damaged.",
      True, 0.92),
@@ -164,7 +167,7 @@ ROWS = [
      False, 0.04),
     ("t18-conditional", "test", "RF2018",
      "If this keeps happening I might ask for a refund, but let's see if it gets fixed.",
-     False, 0.31),
+     False, 0.50),
     ("t19-hard-wrong", "test", "RF2019",
      "I considered asking for a refund, but I've decided to keep it and just get it repaired "
      "instead.",
