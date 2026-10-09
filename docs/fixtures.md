@@ -239,6 +239,49 @@ returns the problems (empty when valid) and the mode. Loaders raise `FixtureFile
 message names the file and the line or id, for example
 `recipes/03-x/fixtures/inputs.jsonl:5 (id 't02'): duplicate id (first used on line 2)`.
 
+## Per-item option order
+
+Whenever a recipe needs a per-example order it does not want to come from the data itself --
+which candidate a `Choice` lists first, which of two answers is shown first in a pairwise
+comparison -- derive it from
+`jev_cookbook.fixtures.stable_permutation(f"{recipe}:{example_id}", n)` (or
+`stable_shuffle(seed_key, items)` to get the items themselves back in that order), never from
+`random.shuffle` and never from the position an item already has in the authored list or in
+`ROWS`.
+
+Two different things go wrong otherwise:
+
+- **`random.shuffle` is not a documented-stable algorithm across CPython versions.** The
+  `random` module's docs promise only that `random.Random.random()` keeps producing the same
+  sequence for the same seed; they make no such promise about `shuffle()`. A replay key is a
+  hash of exactly what Jev is asked, options included, so the moment a generator's shuffled
+  option order depends on a Python version's `shuffle()` output, the committed fixtures and the
+  notebook that replays them become byte-reproducible only by accident, on whichever
+  interpreters happen to agree. `stable_permutation` instead builds the permutation itself
+  (Durstenfeld's Fisher-Yates) calling nothing but `random()`, so it is pinned forever (see
+  `src/jev_cookbook/fixtures/permutation.py` for the full construction, and issue #181).
+- **List position proxies grouped gold.** Fixtures are usually authored gold-candidate-first,
+  for readability, and often written a whole target word or topic at a time -- so the authored
+  order is correlated with the label, and a frozen rule that always picks "option 1" can look
+  right for the wrong reason (recipe 12 hit exactly this: an earlier draft that asked Jev in
+  authored order let "always answer option 1" score as well as the real rule). Deriving the
+  order from a hash of the example's own id, independent of every other example and of the
+  authored order, breaks that correlation without touching which candidates are offered or what
+  the gold label is.
+
+```python
+from jev_cookbook.fixtures import stable_permutation, stable_shuffle
+
+order = stable_permutation(f"{recipe}:{example_id}", len(candidates))  # a permutation of indices
+shown = stable_shuffle(f"{recipe}:{example_id}", candidates)  # the candidates, in that order
+```
+
+For a binary choice such as which of two candidates is shown first, use `n = 2`:
+`stable_permutation(seed_key, 2)[0] == 0` says the first candidate keeps its place.
+`stable_permutation`/`stable_shuffle` live in the shared package precisely so every recipe's
+per-item order is derived the same documented-stable way; recipe 12's `shuffled_candidates` and
+recipe 23's `assign_first_shown` predate this helper and migrate onto it separately (issue #163).
+
 ## Writing fixtures
 
 The fixtures are data written by a script, so the keys cannot drift from the questions. Keep

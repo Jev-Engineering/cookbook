@@ -23,6 +23,10 @@ directory, which is where a recipe's notebook runs::
 
 Check a recipe from the command line with
 ``python -m jev_cookbook.fixtures validate recipes/NN-slug``.
+
+``stable_permutation`` and ``stable_shuffle`` (``.permutation``) give a deterministic,
+documented-stable per-item order for things like option order and first-shown sides; see
+``docs/fixtures.md``, "Per-item option order".
 """
 
 from __future__ import annotations
@@ -41,6 +45,7 @@ from .._canonical import MAX_DEPTH
 from ..answers import RECORDED_SOURCE, SYNTHETIC_SOURCE, DecisionResult
 from ._scan import scan_text
 from ._schema import check, load_schema
+from .permutation import stable_permutation, stable_shuffle
 
 __all__ = [
     "FIXTURES_DIR",
@@ -62,6 +67,8 @@ __all__ = [
     "load_schema",
     "responses_path",
     "select_split",
+    "stable_permutation",
+    "stable_shuffle",
     "validate_all",
     "validate_recipe",
 ]

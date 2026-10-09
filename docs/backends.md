@@ -266,6 +266,24 @@ the same request gives the same answers on every platform, whatever the call ord
 `synthetic`, model `"synthetic"`, empty usage. These
 numbers say nothing about how Jev performs.
 
+Use only `rng.random()`, never `rng.shuffle()` or anything else that draws from
+`_randbelow()`/`getrandbits()` (`choice()`, `sample()`, `randint()`, ...): the `random` module's
+own docs commit only `random.Random.random()` to producing the same sequence for the same seed
+across Python versions, and name no such guarantee for the rest of the API, `shuffle()`
+included. A script that calls `rng.random()` is reproducible on every supported Python for
+exactly that reason; a script that called `rng.shuffle()` would not be.
+
+A script that needs a per-item order -- which candidate to list first, say -- should reach for
+`jev_cookbook.fixtures.stable_permutation`/`stable_shuffle` (`docs/fixtures.md`, "Per-item
+option order") instead of `rng.shuffle()`: build the index or value order from a seed key of
+your own (not from `rng`, which is already committed to `(seed, replay_key)` for the answers
+themselves), the same way a fixture generator does for a replay-mode recipe. Issue #181
+reviewed every caller of `rng_for`/`script` in this repository for exactly this risk: none
+currently calls `rng.shuffle()` or any other non-`random()` method on `rng` (the existing
+`test_scripted_is_deterministic_and_seeded` in `tests/test_backends.py` already pins
+`random.Random(12345).random() == 0.41661987254534116` as the byte-reproduction check for the
+one method this relies on), so nothing here needed to change.
+
 ## `get_backend`
 
 `get_backend(*, fixtures=None, script=None, seed=0)` returns a `ScriptedBackend` (script) or a
