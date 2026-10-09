@@ -7,9 +7,12 @@ Every comparison makes two requests: the candidates in one order, then the same 
 with the order swapped (``helpers.build_state(fields, swap=True)``), so every row below
 contributes two entries to ``responses.json`` and two replay keys, listed in request order, to
 its row in ``inputs.jsonl``. Which candidate is shown first in the *first* request
-(``fields["a_shown_first"]``) is decided once by ``helpers.assign_first_shown``, seeded and
-deterministic, from nothing but each row's id and its position in ``ROWS`` -- never from the
-gold label or the candidate text, so it cannot end up correlated with which candidate is right.
+(``fields["a_shown_first"]``) is decided once by ``helpers.assign_first_shown``, which hashes
+each row's id on its own (never its position in ``ROWS``, which is grouped by gold label here,
+and never the gold label or the candidate text itself). That rules out the one correlation a
+sequential random draw over this list could otherwise have smuggled in; it does not by itself
+prove the result is balanced -- see the printed table in "The questions" and the comment next to
+``helpers.ORDER_SEED``.
 
 Every response here is synthetic, authored directly in the comparison's own vocabulary
 (``a``, ``b``, ``tie``, ``insufficient_evidence``) rather than as positional probabilities:
@@ -23,16 +26,25 @@ Several rows are deliberately imperfect on purpose, and fall into the shapes CON
 the issue's build notes ask for:
 
 - most rows: both requests agree with each other and with the gold label (the ordinary case);
-- ``v04``/``t04``: both requests agree with each other but *not* with the gold label (the
-  rubric criterion status quo a wrong-but-consistent synthetic judge would show). ``t04``'s
-  confidence is well above the threshold this recipe freezes on ``validation``, so it is the
-  fixture responsible for this recipe's non-zero risk on ``test``; ``v04``'s own confidence is
-  deliberately just below that frozen threshold, so the same kind of mistake is instead the
-  fixture that sets the threshold in the first place;
-- ``v05``, ``v10``, ``v15``, ``v19`` and ``t05``, ``t09``, ``t10``, ``t14``, ``t19``: the two
+- ``v04``/``t04``: both requests agree with each other but *not* with the gold label. Both use
+  the ``honest`` criterion, and in both the losing candidate makes a flat, unqualified claim
+  ("generally fine", "it will definitely arrive by Friday") where the winning candidate names a
+  concrete, specific reason for its own uncertainty -- that is the shape CONTRIBUTING.md's
+  "unearned confidence" language is pointing at, not a hedge-versus-confidence judgment call that
+  a reasonable reader could take either way. ``t04``'s confidence is well above the threshold
+  this recipe freezes on ``validation``, so it is the fixture responsible for this recipe's
+  non-zero risk on ``test``; ``v04``'s own confidence is deliberately just below that frozen
+  threshold, so the same kind of mistake is instead the fixture that sets the threshold in the
+  first place;
+- ``v19``, ``t19`` and ``v05``, ``v10``, ``v15``, ``t05``, ``t09``, ``t10``, ``t14``: the two
   requests disagree with each other (position bias), split between cases where the *first*
   request happens to be the one that agrees with gold and cases where the *second* one does, so
-  neither request is the reliable one to trust alone.
+  neither request is the reliable one to trust alone;
+- ``t20``: both requests agree with each other, confidently, on ``insufficient_evidence`` --
+  while the gold label is a plainly judgeable ``a``. CONTRIBUTING.md section 4 lets
+  ``judge_pair`` accept an agreed ``insufficient_evidence`` with no confidence gate, because
+  choosing it has no side effect; this row shows that exemption is not free: it costs exactly
+  this comparison in ``test``'s risk, the same way an ungated wrong answer would anywhere else.
 
 Generating inputs and labels is kept separate from generating responses, on purpose: once
 responses.json holds even one recorded answer (provenance "recorded", captured from a real Jev
@@ -161,27 +173,27 @@ ROWS = [  # fmt: skip
      "Both the north and south trails run along the ridge and have clear lake views for most of the route.",
      "Both trails stay close to the ridge line, so the lake is visible for the majority of each hike.",
      "tie", "tie", 0.72, "a", 0.50),
-    ("v16", "validation", "direct",
-     "Which of these two laptops has better battery life, the one I'm asking about by model number only?",
-     "Laptops in this category generally last anywhere from 6 to 15 hours depending on usage.",
-     "Battery life really depends on the screen brightness and what programs you're running.",
+    ("v16", "validation", "precise",
+     "What's a thoughtful gift for a coworker who's moving to a new city?",
+     "A local coffee shop gift card is a nice way to help them explore their new neighborhood.",
+     "A subscription box tailored to their hobbies can be a fun surprise in a new place.",
      "insufficient_evidence", "insufficient_evidence", 0.60, "insufficient_evidence", 0.55),
-    ("v17", "validation", "precise",
-     "What was the exact attendance at last year's local fall festival?",
-     "The fall festival is a popular yearly event that draws a large crowd from the surrounding area.",
-     "Attendance at local festivals like this one can vary quite a bit from year to year.",
+    ("v17", "validation", "actionable",
+     "Which color scheme feels more calming for a home office, blue tones or green tones?",
+     "Blue tones are often associated with focus and calm in color psychology.",
+     "Green tones tend to feel more natural and less sterile than blue in a work space.",
      "insufficient_evidence", "insufficient_evidence", 0.75, "insufficient_evidence", 0.70),
     ("v18", "validation", "honest",
-     "Is this specific used car's transmission still under the original manufacturer warranty?",
-     "Most manufacturer warranties on transmissions last between 5 and 10 years or a mileage limit.",
-     "Warranty coverage depends heavily on the original purchase date and the car's mileage.",
+     "What does the abbreviation 'FYI' stand for?",
+     "It stands for 'for your information.'",
+     "It's used to share something the recipient might find useful or relevant.",
      "insufficient_evidence", "insufficient_evidence", 0.58, "insufficient_evidence", 0.56),
-    ("v19", "validation", "ontopic",
-     "Which of these two job candidates has stronger references, based only on their resumes?",
-     "Resumes alone don't usually include reference feedback, only a list of names and titles.",
-     "This candidate lists three references from their most recent employer.",
+    ("v19", "validation", "precise",
+     "What should I keep in mind when choosing a houseplant for a shaded room?",
+     "Look for plants labeled as low-light tolerant, like a pothos or a snake plant.",
+     "Avoid plants that need direct sun, and check how often the specific variety needs watering.",
      "insufficient_evidence", "insufficient_evidence", 0.55, "b", 0.60),
-    # ---------------------------------------------------------------- test: 19 examples
+    # ---------------------------------------------------------------- test: 20 examples
     ("t01", "test", "direct",
      "What's the Wi-Fi password for the guest network at this cafe?",
      "The guest network password is posted on a sign near the register: 'coffeebeans2024'.",
@@ -198,9 +210,9 @@ ROWS = [  # fmt: skip
      "Slow drains are usually caused by a buildup of hair, soap, and grime over time.",
      "a", "a", 0.58, "a", 0.56),
     ("t04", "test", "honest",
-     "Is the store definitely open right now?",
-     "Yes, based on the posted hours, the store should be open until 9pm tonight.",
-     "I can't be fully sure without checking live, since holiday hours sometimes differ from what's posted.",
+     "Will my package definitely arrive by Friday?",
+     "It should arrive by Friday based on the current tracking estimate, but carriers occasionally run a day behind during holiday weeks.",
+     "Yes, it will definitely arrive by Friday.",
      "a", "b", 0.88, "b", 0.84),
     ("t05", "test", "ontopic",
      "What's the fastest way to thaw frozen ground beef for dinner tonight?",
@@ -252,31 +264,36 @@ ROWS = [  # fmt: skip
      "Both are rated for around 9 hours of battery life under typical office use.",
      "Each one is rated at roughly 9 hours of use, which should cover most of a workday.",
      "tie", "b", 0.60, "tie", 0.55),
-    ("t15", "test", "direct",
-     "Which of these two job offers pays more, based only on the job titles given?",
-     "Job titles alone don't reliably indicate pay; the same title can pay very differently across companies.",
-     "Senior-sounding titles sometimes come with higher pay, but it's not guaranteed.",
+    ("t15", "test", "actionable",
+     "Is it better to name a startup after its product or after its founder?",
+     "A product name can make the brand easier to search for online.",
+     "A founder's name can build personal trust, especially in service businesses.",
      "insufficient_evidence", "insufficient_evidence", 0.55, "insufficient_evidence", 0.50),
     ("t16", "test", "precise",
-     "What was the exact final score of last night's amateur league game?",
-     "Amateur league games are usually lower-scoring than professional matches.",
-     "Local league scores can vary a lot depending on the two teams playing.",
+     "What's a good conversation starter at a networking event?",
+     "Ask what brought them to the event; it usually leads somewhere interesting.",
+     "Compliment something specific about the event itself, like the venue or the speaker lineup.",
      "insufficient_evidence", "insufficient_evidence", 0.70, "insufficient_evidence", 0.65),
     ("t17", "test", "honest",
-     "Is this specific secondhand bike frame structurally sound enough to ride long distances?",
-     "Bike frames can last many years if properly maintained and not visibly damaged.",
-     "It really depends on the frame material and how it's been stored and used.",
+     "What's the difference between 'affect' and 'effect'?",
+     "'Affect' is usually a verb meaning to influence something.",
+     "'Effect' is usually a noun meaning the result of something.",
      "insufficient_evidence", "insufficient_evidence", 0.60, "insufficient_evidence", 0.58),
-    ("t18", "test", "ontopic",
-     "Which of these two job candidates interviewed better, based only on their written cover letters?",
-     "A cover letter mainly shows writing ability, not how someone performs in an interview.",
-     "Interview performance depends on things a cover letter can't show, like how someone handles questions live.",
+    ("t18", "test", "actionable",
+     "What does the term 'bandwidth' mean when someone says they don't have the bandwidth for a project?",
+     "It means they don't have enough available time or mental capacity right now.",
+     "It's a borrowed term from networking, used here to mean capacity to take on more work.",
      "insufficient_evidence", "insufficient_evidence", 0.80, "insufficient_evidence", 0.75),
-    ("t19", "test", "actionable",
-     "Which of these two recipes is quicker to make, based only on their ingredient lists?",
-     "This list has fewer ingredients overall, which sometimes but not always means a simpler recipe.",
-     "An ingredient list alone doesn't show the number of steps or how long each one takes.",
-     "insufficient_evidence", "a", 0.58, "insufficient_evidence", 0.62),
+    ("t19", "test", "honest",
+     "What does it mean when a recipe says to 'fold' an ingredient into a batter?",
+     "It means gently combining it with a spatula to keep the mixture light.",
+     "It's a mixing technique used to avoid deflating whipped or airy ingredients.",
+     "insufficient_evidence", "insufficient_evidence", 0.58, "a", 0.62),
+    ("t20", "test", "precise",
+     "What is the capital of France?",
+     "The capital of France is Paris.",
+     "France's capital city has a rich architectural history dating back centuries.",
+     "a", "insufficient_evidence", 0.75, "insufficient_evidence", 0.78),
     # ---------------------------------------------------------------- demo: 2 examples, shown but never scored
     ("d01", "demo", "direct",
      "What's the return window for items bought during the holiday sale?",

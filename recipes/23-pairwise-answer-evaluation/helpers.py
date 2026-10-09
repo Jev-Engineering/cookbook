@@ -4,7 +4,7 @@ The fixture generator, the notebook and the tests all load this file with
 ``jev_cookbook.load_helpers``, so the questions and the state cannot disagree.
 """
 
-import random
+import hashlib
 from dataclasses import dataclass
 from typing import Any
 
@@ -44,19 +44,22 @@ _DESCRIPTIONS = {
         "the first."
     ),
     TIE: (
-        "The two candidate answers satisfy the criterion equally well, or fail it equally: "
-        "neither one is a clearer fit than the other."
+        "Both candidate answers can be judged against the criterion, and they come out equal: "
+        "either both clearly satisfy it, or both clearly fail it, to the same degree."
     ),
     INSUFFICIENT: (
-        "Neither candidate answer gives enough information to judge the criterion either way "
-        "(both dodge the question, or the question needs a fact that is missing from both)."
+        "The criterion cannot be judged at all from what is here: the question and the two "
+        "candidate answers do not contain the fact, number, name, or kind of claim the criterion "
+        "is about, in either candidate, so there is nothing to compare them on."
     ),
 }
 
 # The seed for Python's own randomisation of which candidate is shown first. It has nothing to
-# do with any model: it only decides, once and deterministically, how build_fixtures.py lays out
-# the two requests this recipe makes for every comparison.
-ORDER_SEED = 40
+# do with any model: it only sets the inputs to the hash below, which decides, once and
+# deterministically, how build_fixtures.py lays out the two requests this recipe makes for every
+# comparison. Picked once as a plain constant (the recipe number), not searched for a balanced
+# table: "The questions" below reports the table this draw happens to give, not a guarantee.
+ORDER_SEED = 23
 
 
 def assign_first_shown(comparison_ids: list[str], seed: int = ORDER_SEED) -> dict[str, bool]:
@@ -64,14 +67,22 @@ def assign_first_shown(comparison_ids: list[str], seed: int = ORDER_SEED) -> dic
     the one shown first in that comparison's first request (``True``) or candidate ``b`` is
     (``False``).
 
-    Seeded and deterministic: the same ids in the same order always get the same assignment, so
-    the fixtures this produces are reproducible. It looks at nothing but the id and its position
-    in the list -- never the gold label or the candidate text -- so the assignment cannot end up
-    correlated with which candidate is actually right; "The questions" in the notebook checks
-    that directly on the fixtures this produces.
+    Each id's bit comes from hashing ``seed`` and that id alone (SHA-256, first byte even or
+    odd), not from the id's position in ``comparison_ids`` or from any other id: shuffling the
+    list, or reading one id's bit, changes nothing about any other id's bit. That is a stronger
+    property than "looks at nothing but the id" alone would be -- a per-id hash cannot be made to
+    track an id's *position* in a list the way a sequential random-number stream can, which
+    matters here because ``ROWS`` in ``build_fixtures.py`` happens to be grouped by gold label, so
+    a position-based draw would have been a label proxy even without reading the label directly.
+    The function still never reads the gold label or the candidate text, but that is necessary,
+    not sufficient, for the realised assignment to come out balanced across gold labels: it is a
+    fact about one draw, checked by printing it, not a property the function proves on its own.
     """
-    rng = random.Random(seed)
-    return {comparison_id: rng.random() < 0.5 for comparison_id in comparison_ids}
+    assignment = {}
+    for comparison_id in comparison_ids:
+        digest = hashlib.sha256(f"{seed}:{comparison_id}".encode()).digest()
+        assignment[comparison_id] = digest[0] % 2 == 0
+    return assignment
 
 
 def first_is_a(fields: dict[str, Any], swap: bool) -> bool:
@@ -101,18 +112,20 @@ def build_state(fields: dict[str, Any], swap: bool = False) -> dict[str, str]:
 
 
 def build_questions() -> dict[str, Choice]:
-    """The one question asked about every comparison. The options come from ``OPTIONS``."""
+    """The one question asked about every comparison. The options, in order, are ``OPTIONS``;
+    ``criteria`` is built from that tuple, not from ``_DESCRIPTIONS`` directly, so reordering
+    ``OPTIONS`` reorders the question Jev is actually asked (and its replay key) rather than
+    silently doing nothing."""
     return {
         "verdict": Choice(
             instructions=(
                 "A question, one rubric criterion, and two candidate answers to the question, "
                 "shown as 'first_answer' and 'second_answer'. Judging only by the stated "
                 "criterion (ignore anything else that might make one answer seem better), does "
-                "the first candidate answer satisfy it better, does the second, do the two "
-                "satisfy it equally, or is there not enough information in either one to judge "
-                "the criterion at all?"
+                "the first candidate answer satisfy it better, does the second, do the two come "
+                "out equal, or does the criterion have nothing to go on in either one?"
             ),
-            criteria=dict(_DESCRIPTIONS),
+            criteria={name: _DESCRIPTIONS[name] for name in OPTIONS},
         )
     }
 

@@ -4,8 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from jev_cookbook import load_helpers, replay_key
-from jev_cookbook.fixtures import load_inputs
+from jev_cookbook import get_backend, load_helpers, replay_key
+from jev_cookbook.evaluation import select_confidence_threshold
+from jev_cookbook.fixtures import load_inputs, load_labels, responses_path
 
 RECIPE = Path(__file__).resolve().parent.parent
 helpers = load_helpers(RECIPE)
@@ -23,6 +24,19 @@ def test_the_options_are_the_four_positional_outcomes():
 
 def test_the_labels_are_a_b_tie_and_insufficient_evidence():
     assert helpers.LABELS == EXPECTED_LABELS
+
+
+def test_build_questions_criteria_order_follows_the_options_tuple():
+    # build_questions must actually depend on OPTIONS, not merely agree with it by coincidence:
+    # reorder OPTIONS and the question's criteria order must reorder with it.
+    assert list(helpers.build_questions()["verdict"].criteria) == list(helpers.OPTIONS)
+    reordered = (helpers.TIE, helpers.INSUFFICIENT, helpers.FIRST, helpers.SECOND)
+    original = helpers.OPTIONS
+    try:
+        helpers.OPTIONS = reordered
+        assert list(helpers.build_questions()["verdict"].criteria) == list(reordered)
+    finally:
+        helpers.OPTIONS = original
 
 
 # --------------------------------------------------------------------------- build_state
@@ -124,11 +138,24 @@ def test_assign_first_shown_is_roughly_balanced():
     assert 0.35 < share_a_first < 0.65
 
 
-def test_assign_first_shown_looks_only_at_ids_and_their_order():
-    # Same ids, same order, decided by assign_first_shown alone: nothing about a gold label or
+def test_assign_first_shown_looks_only_at_ids():
+    # Decided by assign_first_shown alone from the id string: nothing about a gold label or
     # candidate text can reach it, because it is never passed any.
     ids = ["x1", "x2", "x3"]
     assert helpers.assign_first_shown(ids) == helpers.assign_first_shown(list(ids))
+
+
+def test_assign_first_shown_does_not_depend_on_an_ids_position_in_the_list():
+    # Each id's bit comes from hashing the id alone, not its position: shuffling the list, or
+    # dropping unrelated ids, must never change the bit any id already had. A sequential
+    # random-number stream (one rng.random() call per id, in list order) would fail this,
+    # because then an id's bit would depend on how many ids came before it.
+    ids = [f"c{i:03d}" for i in range(50)]
+    whole = helpers.assign_first_shown(ids)
+    shuffled = helpers.assign_first_shown(list(reversed(ids)))
+    assert whole == shuffled
+    subset = helpers.assign_first_shown(ids[::2])
+    assert all(subset[i] == whole[i] for i in subset)
 
 
 # --------------------------------------------------------------------------- read_verdict_answer
@@ -240,3 +267,46 @@ def test_every_example_lists_two_replay_keys_in_request_order():
             replay_key(helpers.build_state(example.fields, swap=True), questions),
         )
         assert example.replay_keys == expected
+
+
+def test_stored_answers_are_not_all_right():
+    # Mirrors the notebook's own threshold-selection and rule application exactly, so this test
+    # fails the moment the fixtures stop exercising a real, non-zero risk on test: flipping t04
+    # (or t20) to agree with its gold label makes this assertion fail while every other test in
+    # this file keeps passing, which is exactly the gap this test exists to close.
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    inputs = {e.id: e for e in load_inputs(RECIPE)}
+    labels = load_labels(RECIPE)
+
+    def both_orders(example):
+        a1 = backend.decide(helpers.build_state(example.fields, swap=False), questions)["verdict"]
+        a2 = backend.decide(helpers.build_state(example.fields, swap=True), questions)["verdict"]
+        label1, conf1 = helpers.read_verdict_answer(a1, example.fields, swap=False)
+        label2, conf2 = helpers.read_verdict_answer(a2, example.fields, swap=True)
+        return label1, conf1, label2, conf2
+
+    val = [e for e in inputs.values() if e.split == "validation"]
+    test = [e for e in inputs.values() if e.split == "test"]
+    pairs = {e.id: both_orders(e) for e in val + test}
+
+    eligible = [
+        (pairs[e.id][0] == labels[e.id], min(pairs[e.id][1], pairs[e.id][3]))
+        for e in val
+        if pairs[e.id][0] == pairs[e.id][2] and pairs[e.id][0] != helpers.INSUFFICIENT
+    ]
+    threshold = select_confidence_threshold(
+        [ok for ok, _ in eligible], [c for _, c in eligible], target_accuracy=1.0
+    )
+
+    wrong_but_accepted = [
+        e.id
+        for e in test
+        if pairs[e.id][0] == pairs[e.id][2]
+        and min(pairs[e.id][1], pairs[e.id][3]) >= threshold
+        and pairs[e.id][0] != labels[e.id]
+    ]
+    assert wrong_but_accepted, (
+        "test should contain at least one comparison whose two orders agree, confidently "
+        "enough to clear the validation-chosen gate, on a label that is not the gold one"
+    )
