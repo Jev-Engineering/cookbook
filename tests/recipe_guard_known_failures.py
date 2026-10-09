@@ -79,10 +79,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "build_fixtures_scaffold",
     ): "pre-#162 test_build_fixtures.py (R8); see #163",
     (
-        "12-thesaurus-word-selection",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
         "16-discord-moderation-triage",
         "build_fixtures_scaffold",
     ): "pre-#162 test_build_fixtures.py (R8); see #163",
@@ -136,10 +132,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "10-answer-relevance-check",
         "no_issue_citations",
     ): '"the issue" in build_fixtures.py, issue numbers in tests/test_build_fixtures.py (R9/R10); see #163',
-    (
-        "12-thesaurus-word-selection",
-        "no_issue_citations",
-    ): '"the issue"/"The issue" in notebook:evaluation-md and notebook:keep-original-md (R10); see #163',
     (
         "16-discord-moderation-triage",
         "no_issue_citations",
@@ -213,10 +205,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "10-answer-relevance-check",
         "stored_answers_strong_form",
     ): "no test_stored_answers_are_not_all_right in tests/ at all; see #163",
-    (
-        "12-thesaurus-word-selection",
-        "stored_answers_strong_form",
-    ): "weak assert-wrong form, not re-derived from the frozen threshold (R7); see #163",
     (
         "16-discord-moderation-triage",
         "stored_answers_strong_form",
@@ -302,10 +290,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "figure_titles_check_only",
     ): "validation figure titles carry {selection} without {check} (R2); see #163",
     (
-        "12-thesaurus-word-selection",
-        "figure_titles_check_only",
-    ): 'validation figure title has no disclosure label at all, "Validation confidence sweep" (R2); see #163',
-    (
         "18-duplicate-incident-matching",
         "figure_titles_check_only",
     ): "validation figure title carries {selection} without {check} (R2); see #163",
@@ -369,14 +353,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "09-file-organization",
         "next_steps_inbound_links",
     ): "no other published recipe's Next steps links ../09-file-organization/ (R21); see #163",
-    (
-        "12-thesaurus-word-selection",
-        "next_steps_inbound_links",
-    ): "no other published recipe's Next steps links ../12-thesaurus-word-selection/ (R21); see #163",
-    (
-        "14-source-span-selection",
-        "next_steps_inbound_links",
-    ): "no other published recipe's Next steps links ../14-source-span-selection/ (R21); see #163",
     (
         "17-passage-reranking",
         "next_steps_inbound_links",
