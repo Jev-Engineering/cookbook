@@ -11,6 +11,7 @@ from typing import Any
 import numpy as np
 import pytest
 
+from jev_cookbook import answers as ans
 from jev_cookbook import evaluation as ev
 
 
@@ -247,8 +248,36 @@ def test_brier():
 
 
 def test_noul_confidence():
-    # max(p, 1 - p): 0.9, 0.8, 0.5
-    assert ev.noul_confidence([0.9, 0.2, NoulStub(0.5)]) == pytest.approx([0.9, 0.8, 0.5])
+    # |2p - 1|, pinned at p in {0, 0.25, 0.5, 0.75, 1}
+    assert ev.noul_confidence([0.0, 0.25, 0.5, 0.75, 1.0]) == pytest.approx(
+        [1.0, 0.5, 0.0, 0.5, 1.0]
+    )
+    # |2p - 1|: 0.8, 0.6, 0.0
+    assert ev.noul_confidence([0.9, 0.2, NoulStub(0.5)]) == pytest.approx([0.8, 0.6, 0.0])
+
+
+def test_noul_confidence_is_the_choice_formula_at_n_equals_2():
+    # https://docs.typesafe.ai/confidence (S03): a Noul's confidence is the Choice formula
+    # (p_max - 1/n) / (1 - 1/n) applied to a yes-or-no Choice (n = 2), so noul_confidence(p)
+    # must equal jev_cookbook.answers.choice_confidence([p, 1 - p]) for every p.
+    for p in (0.0, 0.25, 0.5, 0.75, 1.0):
+        assert ev.noul_confidence([p])[0] == pytest.approx(ans.choice_confidence([p, 1.0 - p]))
+
+
+def test_noul_confidence_is_mirror_symmetric_and_bit_exact_with_choice():
+    # 2 * max(p, 1 - p) - 1 must be exactly mirror-symmetric (f(p) == f(1 - p), where
+    # "1 - p" is computed, not a separately-rounded decimal literal that only looks like
+    # the mirror) and bit-for-bit equal to choice_confidence([p, 1 - p]) at n = 2, over
+    # every two-decimal probability 0.00..1.00. abs(2p - 1) fails both: it differs from
+    # its computed mirror by up to 1 ULP (e.g. p = 0.2 vs computed 1 - 0.2), which this
+    # test is designed to catch.
+    grid = [round(i * 0.01, 2) for i in range(101)]
+    mirror_grid = [1.0 - p for p in grid]  # computed complement, not a grid literal
+    values = ev.noul_confidence(grid)
+    mirror_values = ev.noul_confidence(mirror_grid)
+    assert values == mirror_values, "not exactly mirror-symmetric about p = 0.5"
+    for p, v in zip(grid, values, strict=True):
+        assert v == ans.choice_confidence([p, 1.0 - p]), f"not bit-exact at p={p}"
 
 
 # ---------------------------------------------------------------- Multi-label
@@ -483,7 +512,7 @@ def test_selective_rejects_noul_answers_with_a_pointer_to_noul_confidence():
         ev.selective_curve([1, 0], [NoulStub(0.9), NoulStub(0.4)])
     with pytest.raises(ValueError, match="noul_confidence"):
         ev.evaluate_selective([1, 0], [NoulStub(0.9), NoulStub(0.4)], 0.5)
-    # the documented path works: confidence max(p, 1 - p) = 0.9, 0.6
+    # the documented path works: confidence |2p - 1| = 0.8, 0.2
     assert ev.selective_curve(
         [1, 0], ev.noul_confidence([NoulStub(0.9), NoulStub(0.4)])
     ).coverage.tolist() == [0.5, 1.0]

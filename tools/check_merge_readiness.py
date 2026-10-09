@@ -53,6 +53,7 @@ PAGE_SIZE = 100
 MAX_PAGES = 10
 MAX_FAILURES = 25
 MAX_TEXT = 200
+MAX_MERGED_RUNS = 10
 GH_TIMEOUT_SECONDS = 60
 
 _SHA = re.compile(r"[0-9a-f]{40}")
@@ -245,6 +246,12 @@ def _app_slug(run: dict) -> str | None:
     return slug if isinstance(slug, str) else None
 
 
+def _app_evidence(app: str | None) -> str | None:
+    """A CheckRun's app slug for receipt evidence, or ``None`` (JSON ``null``) when it could not
+    be read (#150). Never the string ``"None"``: an unreadable slug is not an app name."""
+    return _clip(app, 60) if app is not None else None
+
+
 def _run_state(status: str, conclusion: str | None) -> str:
     """Collapse a CheckRun to one word: 'success', 'pending', or its failing conclusion."""
     if status != "completed":
@@ -260,7 +267,31 @@ def _run_state(status: str, conclusion: str | None) -> str:
 def judge_checks(
     found: list[dict], required: list[str], label: str
 ) -> tuple[list[dict], list[str]]:
-    """Return (evidence for the required checks, failures). Only exact 'success' passes."""
+    """Return (evidence for the required checks, failures). Only exact 'success' passes.
+
+    A ``--require-check`` or ``--require-head-check`` name (never one of the five
+    BASELINE_CHECKS, which stay the stricter layer #118 accepted) can legitimately get more than
+    one completed result on the same commit -- for example "Scope (recipe pull requests)", which
+    runs on ``pull_request_target`` and so reruns on a description `edited` after an earlier
+    `synchronize` already succeeded. Several such results collapse into one ``success`` result
+    if and only if every one of them is a CheckRun from the SAME app, that app's slug is actually
+    readable (an unreadable slug -- absent, non-dict ``app``, or a non-string ``slug`` -- never
+    counts as "the same app", #150), and every result concluded `success`; the merged evidence
+    then lists every run's id and conclusion, capped at MAX_MERGED_RUNS (#138), with a
+    ``runs_omitted`` count when there were more. Any other mix still fails closed exactly as
+    before, ambiguous with the pre-#138 duplicate/conflicting message, and its evidence now also
+    carries ``states``, the sorted list of distinct results, so a transient wait (for example
+    `success` + `pending`) can be told apart from a genuine conflict without a second API call
+    (#150): a differing conclusion, a StatusContext mixed with a CheckRun, two StatusContexts, or
+    CheckRuns from different apps (or from apps that cannot be told apart because one or both are
+    unreadable) -- that source-ambiguity case is #118's, deliberately untouched, so a spurious
+    same-named result from a different actor cannot be absorbed into a genuine check's evidence.
+    A baseline name is never collapsed regardless of its results, because nothing that reruns on
+    `edited` publishes a baseline check, and the baseline app rule below is already the stricter
+    layer. The same-app test reads every entry's app with ``.get`` rather than indexing, so it
+    never raises on a StatusContext (which carries no ``app`` key) regardless of the order the
+    entries arrive in (#150).
+    """
     by_name: dict[str, list[dict]] = {}
     for entry in found:
         by_name.setdefault(entry["name"], []).append(entry)
@@ -274,16 +305,35 @@ def judge_checks(
             evidence.append({"name": name, "state": "missing"})
         elif len(entries) > 1:
             states = sorted({e["state"] for e in entries})
+            apps = {e.get("app") for e in entries}
+            one_source = (
+                all(e["kind"] == "check_run" for e in entries)
+                and len(apps) == 1
+                and None not in apps
+            )
+            if name not in BASELINE_CHECKS and states == ["success"] and one_source:
+                merged = {
+                    "name": name,
+                    "state": "success",
+                    "results": len(entries),
+                    "runs": [_run_evidence(e) for e in entries[:MAX_MERGED_RUNS]],
+                }
+                if len(entries) > MAX_MERGED_RUNS:
+                    merged["runs_omitted"] = len(entries) - MAX_MERGED_RUNS
+                evidence.append(merged)
+                continue
             kind = "conflicting" if len(states) > 1 else "duplicate"
             failures.append(f"{label}: {kind} results ({len(entries)}) for check: {_clip(name)}")
-            evidence.append({"name": name, "state": "ambiguous", "results": len(entries)})
+            evidence.append(
+                {"name": name, "state": "ambiguous", "results": len(entries), "states": states}
+            )
         else:
             entry = entries[0]
             evidence.append(
                 {"name": name, "kind": entry["kind"], "id": entry["id"], "state": entry["state"]}
             )
             if entry["kind"] == "check_run":
-                evidence[-1]["app"] = _clip(entry["app"], 60)
+                evidence[-1]["app"] = _app_evidence(entry["app"])
             if name in BASELINE_CHECKS and (
                 entry["kind"] != "check_run" or entry["app"] != BASELINE_APP
             ):
@@ -293,6 +343,14 @@ def judge_checks(
             elif entry["state"] != "success":
                 failures.append(f"{label}: check {_clip(name)} is {_clip(entry['state'])}")
     return evidence, failures
+
+
+def _run_evidence(entry: dict) -> dict:
+    """One merged duplicate-success row's id and conclusion, kept small (#138 receipt evidence)."""
+    row = {"kind": entry["kind"], "id": entry["id"], "state": entry["state"]}
+    if entry["kind"] == "check_run":
+        row["app"] = _app_evidence(entry["app"])
+    return row
 
 
 def judge_pr(pr: dict, default_branch: str, expected_head: str) -> list[str]:
