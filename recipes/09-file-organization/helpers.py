@@ -129,5 +129,35 @@ def placement_confidence(answer: Any) -> float:
     answer type has (``noul_confidence(noul) = max(p, 1 - p)``, docs/evaluation.md): ``-1.0``
     sits below every real confidence (which is always in ``[0, 1]``), so an ``unsorted`` answer
     is never selected by any non-negative threshold, exactly like ``propose_destination``.
+
+    This is safe to *report* with at a threshold already frozen to a real number, but not to
+    *select a threshold from*: ``-1.0`` is itself one of the distinct values a selector such as
+    ``select_confidence_threshold`` can choose between, and a target loose enough to tolerate it
+    would freeze ``-1.0`` as "the" threshold, which ``propose_destination`` then rejects as
+    outside ``[0, 1]``. Use :func:`selection_signal`, not this function, to build the inputs to a
+    selector.
     """
     return -1.0 if answer.choice == UNSORTED else answer.confidence
+
+
+def selection_signal(answers: Any, gold: Any) -> tuple[list[bool], list[float]]:
+    """``(correct, confidence)`` for choosing a threshold with ``select_confidence_threshold``,
+    built only from answers that name a real folder.
+
+    ``placement_confidence``'s ``-1.0`` sentinel is exactly what keeps an ``unsorted`` answer
+    from ever being selected once a threshold is frozen, but it is also a candidate the selector
+    itself could return: a validation target loose enough that the best accuracy is bought by
+    throwing away everything, including the sentinel, would freeze ``-1.0``, and
+    ``propose_destination`` raises on that. Excluding every ``unsorted`` answer here removes the
+    sentinel from the search entirely, so the result is always a real confidence. This changes no
+    accuracy or coverage number at or above a real threshold: an ``unsorted`` answer is already
+    never selected at any non-negative threshold, so leaving it out of the search changes only
+    which numbers the search is allowed to propose, not what a real threshold would select.
+
+    Report with the full example set and :func:`placement_confidence` as usual; only the
+    threshold *selection* step needs this narrower signal.
+    """
+    pairs = [(a, g) for a, g in zip(answers, gold, strict=True) if a.choice != UNSORTED]
+    correct = [a.choice == g for a, g in pairs]
+    confidence = [a.confidence for a, _g in pairs]
+    return correct, confidence

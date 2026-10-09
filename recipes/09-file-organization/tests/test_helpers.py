@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from jev_cookbook import ChoiceAnswer, Provenance, load_helpers, replay_key
+from jev_cookbook.evaluation import select_confidence_threshold
 from jev_cookbook.fixtures import load_inputs, validate_recipe
 
 RECIPE = Path(__file__).resolve().parent.parent
@@ -122,6 +123,26 @@ def test_placement_confidence_matches_propose_destination():
 
 def test_placement_confidence_is_unchanged_for_a_real_folder():
     assert helpers.placement_confidence(CLEAR_INVOICE) == CLEAR_INVOICE.confidence
+
+
+def test_selection_signal_excludes_unsorted_so_the_threshold_is_never_the_sentinel():
+    # Mutation check: feeding select_confidence_threshold placement_confidence's full signal
+    # (sentinel included) lets a loose enough target freeze -1.0, which propose_destination then
+    # rejects. With the unsorted answer excluded by selection_signal, even the loosest possible
+    # target (0.0: accept any accuracy) can only select a real confidence.
+    answers = [CLEAR_INVOICE, CLEAR_UNSORTED, *LOW_CONFIDENCE_BY_FOLDER.values()]
+    gold = ["invoices", "unsorted", *LOW_CONFIDENCE_BY_FOLDER.keys()]
+
+    full_confidence = [helpers.placement_confidence(a) for a in answers]
+    assert min(full_confidence) < 0.0  # the sentinel is present and would be a candidate
+
+    correct, confidence = helpers.selection_signal(answers, gold)
+    assert len(confidence) == len(answers) - 1  # the unsorted answer is excluded
+    assert all(c >= 0.0 for c in confidence)
+
+    threshold = select_confidence_threshold(correct, confidence, target_accuracy=0.0)
+    assert 0.0 <= threshold <= 1.0
+    helpers.propose_destination("F1", CLEAR_INVOICE, threshold)  # must not raise
 
 
 @pytest.mark.parametrize("bad", [-0.1, 1.1])
