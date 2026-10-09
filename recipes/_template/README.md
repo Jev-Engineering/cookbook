@@ -17,11 +17,7 @@ evaluation that picks its one setting (a confidence threshold) on `validation` a
 
 ## Run it offline
 
-From the repository root, in an environment with
-`pip install -e ".[dev,ml]" -c .github/constraints-notebooks.txt` (Python 3.14; this is the
-install that reproduces the committed notebook outputs byte for byte, see
-[docs/recipe-template.md](../../docs/recipe-template.md) step 6; `".[dev]"` alone is enough just
-to run the two commands below that do not re-execute the notebook):
+From the repository root, in an environment with `pip install -e ".[dev]"`:
 
 ```bash
 python -m jev_cookbook.fixtures validate recipes/_template   # the fixtures are valid
@@ -32,6 +28,12 @@ python tools/execute_notebook.py recipes/_template            # run notebook.ipy
 The notebook needs no network and no API key. It runs with this folder as its working directory,
 replays the stored answers in `fixtures/responses.json`, and imports only the standard library and
 `jev_cookbook`. Its first output says which mode ran.
+
+Reproducing the committed notebook outputs byte for byte needs the exact stack CI installs for the
+`Notebook (<recipe>)` job: `pip install -e ".[ml]" -c .github/constraints-notebooks.txt` (Python
+3.14; `nbclient` and `ipykernel` are core dependencies, so this alone is enough to execute the
+notebook — `.[dev]` above is for `ruff` and `pytest`, which that job does not run; see
+[docs/recipe-template.md](../../docs/recipe-template.md) step 6).
 
 ## Switch to live
 
@@ -76,7 +78,10 @@ _template/
 │   ├── inputs.jsonl      22 examples: 10 validation, 10 test, 2 demo
 │   ├── labels.jsonl      gold labels for the 20 scored examples
 │   └── responses.json    synthetic answers, keyed by request
-└── tests/test_helpers.py tests for the rule, and that the fixture keys match the question
+└── tests/
+    ├── test_helpers.py        tests for the rule, and that the fixture keys match the question
+    └── test_build_fixtures.py refusal without --force, inputs/labels regenerated even on a
+                                refused run, and the writer matching jev_cookbook.live's recorder
 ```
 
 The notebook's sections, in the order every recipe follows: What you will build, Setup and run mode, The
@@ -130,7 +135,7 @@ Needs only this page and the repository. Recipe `NN` is issue `NN` and its slug 
    from the same library versions (Python 3.14):
 
    ```bash
-   pip install -e ".[dev,ml]" -c .github/constraints-notebooks.txt
+   pip install -e ".[ml]" -c .github/constraints-notebooks.txt
    python tools/execute_notebook.py recipes/NN-slug
    ```
 
@@ -200,7 +205,16 @@ The full contract is [CONTRIBUTING.md](../../CONTRIBUTING.md); in short:
 - A `Noul` proposition is a statement that can be true or false ("The message is about a refund."), not a
   question. The cookbook is deliberately stricter here than TypeSafe's documentation, which also shows
   questions. This template has no `Noul`, but a recipe that uses one follows the cookbook rule.
-- A `Noul` has no confidence field, so a threshold on it is chosen on `validation` from examples. A
-  `Choice` has one: the top probability rescaled by the number of options, `(p_max - 1/n) / (1 - 1/n)`
-  (see [the confidence page](https://docs.typesafe.ai/confidence)); it is not the raw top probability.
+- A `Noul` has no confidence field in the API; `jev_cookbook.evaluation.noul_confidence` derives a
+  certainty `|2p - 1|` from its probability ([glossary.md](../../docs/glossary.md#confidence)), so a
+  threshold on it is chosen on `validation` from examples. A `Choice` has a confidence field: the top
+  probability rescaled by the number of options, `(p_max - 1/n) / (1 - 1/n)` (see
+  [the confidence page](https://docs.typesafe.ai/confidence)); it is not the raw top probability.
 - A fixture miss is an error (`ReplayMiss`); nothing invents an answer to keep a notebook running.
+- **Python's part:** a low-confidence fallback option (`none` here; `unclear_request` or
+  `no_match` elsewhere) may be delivered as a final result only when choosing it has no side
+  effect — nothing is routed, answered or moved, so there is nothing left for a confidence gate
+  to protect. This template instead sends `none` to `human_review` like every other unconfident
+  case, but a recipe whose fallback itself triggers a side effect must still put it through the
+  same confidence gate as any other option before that side effect runs; the option's name is
+  not an exemption. [docs/recipe-template.md](../../docs/recipe-template.md) states the rule.

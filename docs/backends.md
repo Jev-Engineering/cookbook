@@ -88,7 +88,7 @@ options or levels.
 | Choice `confidence` equals `(p_max - 1/n) / (1 - 1/n)` | `0.005 / (1 - 1/n) + 0.005` | the largest probability is off by up to 0.005 (rounding keeps order), the formula scales that by `1 / (1 - 1/n)`, and `confidence` is off by 0.005; one option gives 1 whatever `p` is, so the bound is 0.005 |
 | Score `confidence` equals `1 - spread / even` | `0.005 * sum(abs(i - peak)) / even + 0.005` | see below |
 
-Score confidence. On `https://docs.typesafe.ai/confidence.md` the formula is
+Score confidence. On `https://docs.typesafe.ai/confidence` the formula is
 `1 - spread / even` with `spread = sum(p_i * abs(i - peak))` and `even = mean(abs(i - (n-1)/2))`,
 the same quantity for a uniform distribution, clamped to 0 to 1. For a fixed peak, each `p_i`
 off by 0.005 moves the spread by up to `0.005 * sum(abs(i - peak))`, so the quotient moves by up to
