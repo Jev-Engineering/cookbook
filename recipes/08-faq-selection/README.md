@@ -15,8 +15,8 @@ never writes it, only picks the identifier), and the rule that returns a confide
 stored answer, reports `no_match` as a final result whatever its confidence (there is no stored
 answer a confidence check could protect there), and sends anything else uncertain to an explicit
 `review` outcome. The notebook shows three typed answers up close (a question that could be
-`change_email` or `password_reset`, a question no FAQ addresses, and the validation question
-whose confidence becomes the frozen threshold), then the rule, then an evaluation that reports
+`change_email` or `password_reset`, a question no FAQ addresses, and a validation question whose
+stored answer is simply wrong), then the rule, then an evaluation that reports
 top-1 accuracy, `no_match`'s own precision and recall, and a selective accuracy, coverage and
 risk computed from what the rule itself did -- not from reapplying a threshold the rule's
 `no_match` branch never uses.
@@ -62,11 +62,13 @@ through with `BudgetExceeded`. Never put a key in a notebook, a fixture, or any 
   examples are shown in the notebook but never scored).
 
 The committed run replays 40 invented customer questions with hand-written (synthetic) answers,
-three wrong on purpose and in three different ways: one wrong and confident through the
-confidence gate (a cancellation question read as a billing-date question), one wrong and
-confident through the un-gated `no_match` branch (an export question read as having no match at
-all), and one wrong but caught by the gate (a question about automatic trial conversion read as a
-billing-date question, at too low a confidence to be reported). Its top-1 accuracy, confusion
+four wrong on purpose and in different ways. One is in `validation` itself: a cancellation
+question read as a billing-date question, confidently enough that it is what drives the frozen
+threshold up to exclude it. The other three are in `test`: one wrong and confident through the
+confidence gate (a different cancellation question read as a billing-date question), one wrong
+and confident through the un-gated `no_match` branch (an export question read as having no match
+at all), and one wrong but caught by the gate (a question about automatic trial conversion read
+as a billing-date question, at too low a confidence to be reported). Its top-1 accuracy, confusion
 matrix, `no_match` precision and recall, and the coverage, accuracy and risk of the frozen
 threshold check that the pipeline works; they say nothing about how Jev performs, how fast it is,
 or what it costs. This recipe has no recorded fixtures.
