@@ -4,8 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from jev_cookbook import ChoiceAnswer, Provenance, load_helpers, replay_key
-from jev_cookbook.fixtures import load_inputs
+from jev_cookbook import ChoiceAnswer, Provenance, get_backend, load_helpers, replay_key
+from jev_cookbook.evaluation import select_confidence_threshold
+from jev_cookbook.fixtures import load_inputs, load_labels, responses_path
 
 RECIPE = Path(__file__).resolve().parent.parent
 helpers = load_helpers(RECIPE)
@@ -133,3 +134,29 @@ def test_every_replay_key_in_the_fixtures_matches_the_current_question():
     questions = helpers.build_questions()
     for example in load_inputs(RECIPE):
         assert example.replay_keys == (replay_key(helpers.build_state(example.fields), questions),)
+
+
+def test_stored_answers_are_not_all_right():
+    """A wrong answer anywhere is a weak guard: it would still pass even if the confidence gate
+    caught every mistake, which would hide the exact lesson this fixture set exists to teach.
+    Re-derive the threshold the way the notebook does (the lowest confidence whose accepted
+    subset reaches at least 90% accuracy on validation) and require a wrong `test` answer at or
+    above it: a mistake the gate would still let through."""
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    labels = load_labels(RECIPE)
+    examples = load_inputs(RECIPE)
+
+    def decide(example):
+        return backend.decide(helpers.build_state(example.fields), questions)["doc_type"]
+
+    validation = [e for e in examples if e.split == "validation" and e.id in labels]
+    val_correct = [decide(e).choice == labels[e.id] for e in validation]
+    val_confidence = [decide(e).confidence for e in validation]
+    threshold = select_confidence_threshold(val_correct, val_confidence, target_accuracy=0.90)
+
+    test = [e for e in examples if e.split == "test" and e.id in labels]
+    wrong_and_confident = [
+        e.id for e in test if decide(e).choice != labels[e.id] and decide(e).confidence >= threshold
+    ]
+    assert wrong_and_confident, "expected at least one confidently wrong test answer"
