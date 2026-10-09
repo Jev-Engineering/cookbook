@@ -70,7 +70,7 @@ def test_a_low_confidence_candidate_goes_to_review_whatever_the_position(label):
     result = helpers.select_rewrite("R1", a, "original sentence", CANDIDATES, 0.5)
     assert result.outcome == helpers.REVIEW
     assert result.text is None
-    assert "threshold" in result.reason
+    assert result.reason == "confidence below the threshold"
 
 
 @pytest.mark.parametrize("top_probability", [0.95, 0.30])
