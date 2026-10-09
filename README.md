@@ -9,7 +9,7 @@
 **Sixty notebook recipes for typed decisions with Jev, ordered from a first `Choice` question to closed-loop factory control.**
 
 <!-- catalog:progress:start -->
-![Recipes: 13 of 60 published](https://img.shields.io/badge/Recipes-13%20of%2060%20published-F386A1?style=flat-square&labelColor=1E1E1E) ![Status: in progress](https://img.shields.io/badge/Status-in%20progress-E551BA?style=flat-square&labelColor=1E1E1E) ![Categories: 10](https://img.shields.io/badge/Categories-10-F386A1?style=flat-square&labelColor=1E1E1E) ![Levels: 5](https://img.shields.io/badge/Levels-5-F386A1?style=flat-square&labelColor=1E1E1E)
+![Recipes: 14 of 60 published](https://img.shields.io/badge/Recipes-14%20of%2060%20published-F386A1?style=flat-square&labelColor=1E1E1E) ![Status: in progress](https://img.shields.io/badge/Status-in%20progress-E551BA?style=flat-square&labelColor=1E1E1E) ![Categories: 10](https://img.shields.io/badge/Categories-10-F386A1?style=flat-square&labelColor=1E1E1E) ![Levels: 5](https://img.shields.io/badge/Levels-5-F386A1?style=flat-square&labelColor=1E1E1E)
 <!-- catalog:progress:end -->
 ![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-F386A1?style=flat-square&labelColor=1E1E1E) [![License: MIT](https://img.shields.io/badge/License-MIT-DEDEDE?style=flat-square&labelColor=1E1E1E)](LICENSE)
 
@@ -165,7 +165,7 @@ Context-sensitive matching, scoring, or verification with candidate sets and exp
 | :---: | --- | --- | --- | --- |
 | 11 | **Clarification selection**<br>Select a useful follow-up question from a predefined catalog when a task description omits information needed for the next step. | Agent orchestration | `Choice` | [Open notebook](recipes/11-clarification-selection/notebook.ipynb) |
 | 12 | **Thesaurus word selection**<br>Choose a context-appropriate synonym from a supplied thesaurus list while retaining the original word when no alternative preserves its meaning. | Language & content | `Choice` | Coming soon · [#12](https://github.com/Jev-Engineering/cookbook/issues/12) |
-| 13 | **Candidate rewrite selection**<br>Choose a supplied sentence rewrite that preserves the original meaning and requested tone, with a no-suitable-rewrite outcome when necessary. | Language & content | `Choice` | Coming soon · [#13](https://github.com/Jev-Engineering/cookbook/issues/13) |
+| 13 | **Candidate rewrite selection**<br>Choose a supplied sentence rewrite that preserves the original meaning and requested tone, with a no-suitable-rewrite outcome when necessary. | Language & content | `Choice` | [Open notebook](recipes/13-candidate-rewrite-selection/notebook.ipynb) |
 | 14 | **Source span selection**<br>Select the supplier name from text spans already extracted by Python, with a not-stated outcome when the document lacks that field. | Data quality & knowledge graphs | `Choice` | Coming soon · [#14](https://github.com/Jev-Engineering/cookbook/issues/14) |
 | 15 | **Sensitive text triage**<br>Flag synthetic documents that may contain personal information so a simulated review queue can prioritize redaction checks. | Trust & security | `Noul` | [Open notebook](recipes/15-sensitive-text-triage/notebook.ipynb) |
 | 16 | **Discord moderation triage**<br>Classify sample Discord messages as allowed, review-needed, or potentially violating a supplied community rule to populate a simulated moderator queue. | Trust & security | `Choice` | Coming soon · [#16](https://github.com/Jev-Engineering/cookbook/issues/16) |
