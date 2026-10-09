@@ -4,11 +4,11 @@
     python build_fixtures.py --force  # also overwrite a responses.json holding a recorded answer
 
 Every response here is synthetic: written by hand as probabilities, not produced by a model.
-Some are deliberately wrong, including one in ``validation`` and two in ``test`` (one confident,
-one not), so the evaluation in the notebook has something to find. The replay keys come from the
-same ``build_state`` and ``build_questions`` the notebook uses, and the span offsets come from
-locating each candidate sentence inside its document, so a typo in ``ROWS`` cannot silently
-produce the wrong slice.
+Some are deliberately wrong, spread across different span positions (never only the first
+candidate), so the evaluation in the notebook has something to find. The replay keys come
+from the same ``build_state`` and ``build_questions`` the notebook uses; the candidate spans
+themselves come from ``helpers.extract_spans`` run on each document's real text below, never
+from a hand-written list of spans.
 
 Generating inputs and labels is kept separate from generating responses, on purpose: once
 responses.json holds even one recorded answer (provenance "recorded", captured from a real Jev
@@ -16,6 +16,10 @@ call), running this script again must not silently replace it with a synthetic p
 inputs.jsonl and labels.jsonl are always rewritten from ROWS, because neither ever holds a
 model's answer; responses.json is rewritten only when it does not yet exist, holds only
 synthetic answers, or --force is given.
+
+A document with no candidate spans at all gets no replay key and no response: Python decides
+``not_stated`` for it (``helpers.no_candidates``) without ever building a question, so there is
+nothing to replay (docs/fixtures.md: "replay_keys may be empty for an example").
 """
 
 import argparse
@@ -28,643 +32,625 @@ HERE = Path(__file__).resolve().parent
 helpers = load_helpers(HERE)
 NOT_STATED = helpers.NOT_STATED
 
-# Each row is one fabricated document: an id, its split, a bookkeeping doc_id, the full document
-# text, the candidate sentences Python "extracts" from it (in the order they appear -- the first
-# becomes option s1, the second s2, and so on), the gold label (the exact supplier name as it
-# appears in the document, or NOT_STATED for a document that does not name one; None for a demo
-# row, which carries no label at all), and the stored probabilities over every option Python
-# built for this document (its span ids plus "not_stated"), written by hand.
-#
-# Hard cases this recipe's build notes and issue name: a document with two plausible
-# organisations (v06-v08, t05-t07, t17, v19 -- a shipping carrier, a bank, or a decoy the stored
-# answer sometimes picks over the real vendor); a near-miss span naming an organisation in a
-# clearly superseded role (v09-v11, t08-t09, t18, d02 -- "the previous supplier", same topic,
-# does not support the current claim); a document where the supplier's name appears in two
-# different spans (v12-v13, t10-t11); and a document with no supporting span at all, with or
-# without an organisation mentioned for some other reason (v14-v17, t12-t15).
+# --------------------------------------------------------------------------------------------
+# Clause sentences. Each one is a single sentence that either names an organisation (a
+# candidate span, once helpers.extract_spans runs on the finished document) or does not. The
+# supplier-naming clauses vary in whether they use an explicit disclosure word ("Supplier:",
+# "Vendor on file:", "supplied by", "remit payment to") or state the supplier bare, with no
+# such word at all -- that split is what breaks a lexical-cue baseline below.
+# --------------------------------------------------------------------------------------------
+
+BUYER = "Keystone Retail Group"
+
+
+def buyer(addr="400 Commerce Ave"):
+    return f"Bill To: {BUYER}, {addr}."
+
+
+def ship_via(name, hub="overnight"):
+    return f"Shipped via {name} {hub}."
+
+
+def ship_from(name, place):
+    return f"Goods ship from the {name} warehouse near {place}."
+
+
+def bank_proc(name):
+    return f"Payment processing handled by {name} on behalf of the account."
+
+
+def remit_shipping(name):
+    """A decoy that also contains the word "remit" -- same cue word a real supplier
+    disclosure uses, so a naive cue-regex baseline can be fooled by it."""
+    return f"Remit any shipping inquiries to {name}, our courier partner."
+
+
+def prior_vendor(name):
+    """A near-miss: an organisation named in the same breath as the real supplier, but
+    explicitly describing a superseded arrangement, not this document's supplier."""
+    return f"{name} handled this account before the contract was reassigned."
+
+
+def labeled_supplier(name, addr, label="Supplier"):
+    return f"{label}: {name}, {addr}."
+
+
+def vendor_on_file(name, addr):
+    return f"Vendor on file: {name}, {addr}."
+
+
+def remit_supplier(name, addr):
+    return f"Please remit payment to {name}, Accounts Receivable, {addr}."
+
+
+def bare_supplier(name, addr):
+    """Names the supplier with no disclosure word at all: a cue-regex baseline has nothing
+    to match here."""
+    return f"{name} shipped this order from {addr}."
+
+
+def prepared_by(name, service):
+    return f"This delivery was prepared by {name}, our supplier of {service}."
+
+
+def supplied_by(name, addr):
+    return f"This shipment was supplied by {name}, {addr}."
+
+
+def items(desc):
+    return f"Items: {desc}."
+
+
+CLOSING = "Thank you for your order."
+
+
+def _doc(header, clauses, items_desc, closing=True):
+    """Join a header, the candidate-bearing clauses (in reading order) and a closing items
+    line into one document string."""
+    parts = [header, *clauses, items(items_desc)]
+    if closing:
+        parts.append(CLOSING)
+    return " ".join(parts)
+
+
+# --------------------------------------------------------------------------------------------
+# ROWS: (id, split, doc_id, document, gold, probs). ``probs`` is a plain list of
+# probabilities in the SAME order ``helpers.extract_spans`` will find the candidates in that
+# document, with the final entry for ``not_stated``; build_responses zips it against the real
+# extracted span ids, so there is no hand-written span list anywhere here -- only the document
+# text and which position(s), if any, the chosen probabilities favour. A document with no
+# candidate spans at all carries ``probs=None`` (nothing to answer).
+# --------------------------------------------------------------------------------------------
+
 ROWS = [
-    # -- straightforward: one clear "Supplier:" span, one harmless "Bill To:" decoy --
+    # === gold at position 1 of 2 (breaks "always take the last span") ===
     dict(
         id="v01", split="validation", doc_id="D01",
-        document=(
-            "Purchase Confirmation #4410. Bill To: Keystone Retail Group, 400 Commerce Ave. "
-            "Supplier: Meridian Office Supplies Inc., 18 Birch Lane. Items: 12 cartons of copy "
-            "paper, 6 boxes of binder clips. Thank you for your order."
+        document=_doc(
+            "Purchase Confirmation #4410.",
+            [labeled_supplier("Meridian Office Supplies Inc.", "18 Birch Lane"), buyer()],
+            "12 cartons of copy paper",
         ),
-        span_texts=[
-            "Bill To: Keystone Retail Group, 400 Commerce Ave.",
-            "Supplier: Meridian Office Supplies Inc., 18 Birch Lane.",
-        ],
-        gold="Meridian Office Supplies Inc.",
-        probs={"s1": 0.05, "s2": 0.85, "not_stated": 0.10},
+        gold="Meridian Office Supplies Inc.", probs=[0.85, 0.05, 0.10],
     ),
     dict(
         id="v02", split="validation", doc_id="D02",
-        document=(
-            "Purchase Confirmation #4411. Bill To: Keystone Retail Group, 400 Commerce Ave. "
-            "Supplier: Northwind Trading LLC, 92 Elm Street. Items: 4 reams of cardstock. "
-            "Thank you for your order."
+        document=_doc(
+            "Purchase Confirmation #4411.",
+            [labeled_supplier("Northwind Trading LLC", "92 Elm Street"), buyer()],
+            "4 reams of cardstock",
         ),
-        span_texts=[
-            "Bill To: Keystone Retail Group, 400 Commerce Ave.",
-            "Supplier: Northwind Trading LLC, 92 Elm Street.",
-        ],
-        gold="Northwind Trading LLC",
-        probs={"s1": 0.04, "s2": 0.88, "not_stated": 0.08},
+        gold="Northwind Trading LLC", probs=[0.88, 0.04, 0.08],
     ),
     dict(
         id="v03", split="validation", doc_id="D03",
-        document=(
-            "Purchase Confirmation #4412. Bill To: Keystone Retail Group, 400 Commerce Ave. "
-            "Supplier: Acme Industrial Partners, 7 Foundry Road. Items: 2 pallets of steel "
-            "brackets. Thank you for your order."
+        document=_doc(
+            "Purchase Confirmation #4412.",
+            [bare_supplier("Ashgrove Fixtures Co.", "9 Lattice Row"), buyer()],
+            "4 display shelving units",
         ),
-        span_texts=[
-            "Bill To: Keystone Retail Group, 400 Commerce Ave.",
-            "Supplier: Acme Industrial Partners, 7 Foundry Road.",
-        ],
-        gold="Acme Industrial Partners",
-        probs={"s1": 0.06, "s2": 0.80, "not_stated": 0.14},
+        gold="Ashgrove Fixtures Co.", probs=[0.80, 0.06, 0.14],
     ),
     dict(
-        id="v04", split="validation", doc_id="D04",
-        document=(
-            "Order Summary #5120. Bill To: Keystone Retail Group, Finance Department. "
-            "Supplier: Oakridge Software Solutions, Suite 220, Riverside Plaza. Items: Annual "
-            "license renewal for inventory software. Thank you for your business."
+        id="t01", split="test", doc_id="D04",
+        document=_doc(
+            "Purchase Confirmation #4413.",
+            [labeled_supplier("Meadowbrook Textiles Group", "61 Mill Road"), buyer()],
+            "30 yards of canvas fabric",
         ),
-        span_texts=[
-            "Bill To: Keystone Retail Group, Finance Department.",
-            "Supplier: Oakridge Software Solutions, Suite 220, Riverside Plaza.",
-        ],
-        gold="Oakridge Software Solutions",
-        probs={"s1": 0.03, "s2": 0.91, "not_stated": 0.06},
+        gold="Meadowbrook Textiles Group", probs=[0.84, 0.05, 0.11],
     ),
     dict(
-        id="v05", split="validation", doc_id="D05",
-        document=(
-            "Order Summary #5121. Bill To: Keystone Retail Group, Finance Department. "
-            "Supplier: Cobalt Analytics LLC, 14 Meridian Court. Items: Quarterly reporting "
-            "dashboard subscription. Thank you for your business."
+        id="t02", split="test", doc_id="D05",
+        document=_doc(
+            "Purchase Confirmation #4414.",
+            [bare_supplier("Stonebridge Electronics", "200 Circuit Drive"), buyer()],
+            "15 surge protectors",
         ),
-        span_texts=[
-            "Bill To: Keystone Retail Group, Finance Department.",
-            "Supplier: Cobalt Analytics LLC, 14 Meridian Court.",
-        ],
-        gold="Cobalt Analytics LLC",
-        probs={"s1": 0.05, "s2": 0.83, "not_stated": 0.12},
+        gold="Stonebridge Electronics", probs=[0.78, 0.07, 0.15],
     ),
-    # -- hard case: two plausible organisations (a shipper or a bank, against the real vendor) --
+    # gold at s1, a cue-bearing decoy follows -- fools last-span AND cue-regex baselines
     dict(
-        id="v06", split="validation", doc_id="D12",
-        document=(
-            "Order Summary #5125. Remit any billing questions to Harbor Point Bank, our "
-            "processing partner. Vendor on file: Copperfield Supplies LLC, 9 Lantern Street. "
-            "Items: 100 reams of letterhead."
+        id="v04", split="validation", doc_id="D06",
+        document=_doc(
+            "Order Summary #5120.",
+            [
+                labeled_supplier("Cobalt Analytics LLC", "14 Meridian Court"),
+                remit_shipping("Starling Courier Services"),
+            ],
+            "Quarterly reporting dashboard subscription",
         ),
-        span_texts=[
-            "Remit any billing questions to Harbor Point Bank, our processing partner.",
-            "Vendor on file: Copperfield Supplies LLC, 9 Lantern Street.",
-        ],
-        gold="Copperfield Supplies LLC",
-        probs={"s1": 0.14, "s2": 0.76, "not_stated": 0.10},
+        gold="Cobalt Analytics LLC", probs=[0.82, 0.08, 0.10],
     ),
     dict(
-        id="v07", split="validation", doc_id="D13",
-        document=(
-            "Delivery Note #2201. Delivered by Starling Courier Services from the regional "
-            "hub. Vendor on file: Bluepeak Packaging Co., 44 Kiln Street. Items: 200 "
-            "corrugated boxes."
+        id="t03", split="test", doc_id="D07",
+        document=_doc(
+            "Order Summary #5121.",
+            [
+                prepared_by("Oakridge Software Solutions", "inventory software"),
+                remit_shipping("Silverline Freight Services"),
+            ],
+            "Annual license renewal for inventory software",
         ),
-        span_texts=[
-            "Delivered by Starling Courier Services from the regional hub.",
-            "Vendor on file: Bluepeak Packaging Co., 44 Kiln Street.",
-        ],
-        gold="Bluepeak Packaging Co.",
-        probs={"s1": 0.20, "s2": 0.70, "not_stated": 0.10},
+        gold="Oakridge Software Solutions", probs=[0.80, 0.09, 0.11],
+    ),
+    # === gold at position 2 of 2 (the "easy" layout, kept but no longer the only one) ===
+    dict(
+        id="v05", split="validation", doc_id="D08",
+        document=_doc(
+            "Purchase Confirmation #4415.",
+            [buyer(), labeled_supplier("Granite Hardware Supply", "3 Anvil Row")],
+            "50 boxes of wood screws",
+        ),
+        gold="Granite Hardware Supply", probs=[0.04, 0.87, 0.09],
     ),
     dict(
-        id="v08", split="validation", doc_id="D14",
-        document=(
-            "Order Summary #5126. Payment processing handled by Union Crest Bank on behalf "
-            "of the account. Vendor on file: Falcon Ridge Chemicals Inc., 3 Foundry Court. "
-            "Items: 40 liters of degreaser solution."
+        id="v06", split="validation", doc_id="D09",
+        document=_doc(
+            "Purchase Confirmation #4416.",
+            [buyer(), bare_supplier("Pinehollow Office Supply", "31 Birch Lane")],
+            "6 boxes of sticky notes",
         ),
-        span_texts=[
-            "Payment processing handled by Union Crest Bank on behalf of the account.",
-            "Vendor on file: Falcon Ridge Chemicals Inc., 3 Foundry Court.",
-        ],
-        gold="Falcon Ridge Chemicals Inc.",
-        probs={"s1": 0.22, "s2": 0.68, "not_stated": 0.10},
-    ),
-    # -- hard case: near-miss, a superseded vendor named in the same breath as the real one --
-    dict(
-        id="v09", split="validation", doc_id="D18",
-        document=(
-            "Order Summary #5129. We previously ordered packaging from Driftlane Supplies "
-            "Co., but switched vendors last quarter. This shipment was supplied by Vellum & "
-            "Co. Printing, Unit 4, Brookfield Business Park. Items: 500 printed brochures."
-        ),
-        span_texts=[
-            "We previously ordered packaging from Driftlane Supplies Co., but switched "
-            "vendors last quarter.",
-            "This shipment was supplied by Vellum & Co. Printing, Unit 4, Brookfield "
-            "Business Park.",
-        ],
-        gold="Vellum & Co. Printing",
-        probs={"s1": 0.10, "s2": 0.81, "not_stated": 0.09},
+        gold="Pinehollow Office Supply", probs=[0.06, 0.80, 0.14],
     ),
     dict(
-        id="v10", split="validation", doc_id="D19",
-        document=(
-            "Order Summary #5130. Oldfield Industrial Partners handled this account until "
-            "last year, when the contract moved elsewhere. Clearwater Analytics now supplies "
-            "the reporting platform under the new agreement, based at 9 Meridian Row. Items: "
-            "Annual platform subscription."
+        id="t04", split="test", doc_id="D10",
+        document=_doc(
+            "Purchase Confirmation #4417.",
+            [buyer(), labeled_supplier("Pinecrest Electronics Inc.", "200 Circuit Drive")],
+            "10 network switches",
         ),
-        span_texts=[
-            "Oldfield Industrial Partners handled this account until last year, when the "
-            "contract moved elsewhere.",
-            "Clearwater Analytics now supplies the reporting platform under the new "
-            "agreement, based at 9 Meridian Row.",
-        ],
-        gold="Clearwater Analytics",
-        probs={"s1": 0.13, "s2": 0.77, "not_stated": 0.10},
+        gold="Pinecrest Electronics Inc.", probs=[0.04, 0.89, 0.07],
+    ),
+    # === gold at position 1 of 3 ===
+    dict(
+        id="v07", split="validation", doc_id="D11",
+        document=_doc(
+            "Order Summary #5122.",
+            [
+                labeled_supplier("Larkspur Consulting LLC", "5 Crown Court"),
+                buyer("Operations"),
+                bank_proc("Union Crest Bank"),
+            ],
+            "Process audit engagement",
+        ),
+        gold="Larkspur Consulting LLC", probs=[0.80, 0.08, 0.05, 0.07],
     ),
     dict(
-        id="v11", split="validation", doc_id="D20",
-        document=(
-            "Order Summary #5131. Riverside Packaging Co. was our packaging vendor through "
-            "the end of last year. Timberline Office Goods has supplied all packaging "
-            "materials since the switch, from 15 Crestwood Lane. Items: 300 shipping cartons."
+        id="v08", split="validation", doc_id="D12",
+        document=_doc(
+            "Order Summary #5123.",
+            [
+                bare_supplier("Clearwater Analytics", "9 Meridian Row"),
+                buyer("Finance Department"),
+                prior_vendor("Oldfield Industrial Partners"),
+            ],
+            "Annual platform subscription",
         ),
-        span_texts=[
-            "Riverside Packaging Co. was our packaging vendor through the end of last year.",
-            "Timberline Office Goods has supplied all packaging materials since the switch, "
-            "from 15 Crestwood Lane.",
-        ],
-        gold="Timberline Office Goods",
-        probs={"s1": 0.18, "s2": 0.72, "not_stated": 0.10},
-    ),
-    # -- hard case: the supplier's name appears in two different spans --
-    dict(
-        id="v12", split="validation", doc_id="D23",
-        document=(
-            "This delivery was prepared by Brightwell Hardware Inc., our supplier of "
-            "fasteners and tools. Please remit payment to Brightwell Hardware Inc., Accounts "
-            "Receivable, 55 Industrial Way. Items: 12 boxes of wood screws."
-        ),
-        span_texts=[
-            "This delivery was prepared by Brightwell Hardware Inc., our supplier of "
-            "fasteners and tools.",
-            "Please remit payment to Brightwell Hardware Inc., Accounts Receivable, 55 "
-            "Industrial Way.",
-        ],
-        gold="Brightwell Hardware Inc.",
-        probs={"s1": 0.20, "s2": 0.70, "not_stated": 0.10},
+        gold="Clearwater Analytics", probs=[0.78, 0.07, 0.06, 0.09],
     ),
     dict(
-        id="v13", split="validation", doc_id="D24",
-        document=(
-            "This project was produced by Driftwood Media Group, our supplier of video "
-            "content. Please remit payment to Driftwood Media Group, Billing Department, 70 "
-            "Studio Way. Items: Quarterly promotional video package."
+        id="t05", split="test", doc_id="D13",
+        document=_doc(
+            "Order Summary #5124.",
+            [
+                supplied_by("BrightPath Consulting Group", "5 Summit Plaza"),
+                buyer("Finance Office"),
+                remit_shipping("Crestline Overnight Shipping"),
+            ],
+            "Strategic planning workshop",
         ),
-        span_texts=[
-            "This project was produced by Driftwood Media Group, our supplier of video "
-            "content.",
-            "Please remit payment to Driftwood Media Group, Billing Department, 70 Studio "
-            "Way.",
-        ],
-        gold="Driftwood Media Group",
-        probs={"s1": 0.68, "s2": 0.22, "not_stated": 0.10},
-    ),
-    # -- hard case: no supporting span, with an organisation mentioned for some other reason --
-    dict(
-        id="v14", split="validation", doc_id="D27",
-        document=(
-            "Delivery Note #2204. Bill To: Keystone Retail Group, 400 Commerce Ave. Shipped "
-            "via Silverline Freight Services overnight. Contents: 10 boxes of printer paper."
-        ),
-        span_texts=[
-            "Bill To: Keystone Retail Group, 400 Commerce Ave.",
-            "Shipped via Silverline Freight Services overnight.",
-        ],
-        gold=NOT_STATED,
-        probs={"s1": 0.14, "s2": 0.14, "not_stated": 0.72},
+        gold="BrightPath Consulting Group", probs=[0.76, 0.08, 0.06, 0.10],
     ),
     dict(
-        id="v15", split="validation", doc_id="D28",
-        document=(
-            "Delivery Note #2205. Bill To: Keystone Retail Group, Finance Department. "
-            "Payment processing handled by Harbor Point Bank. Contents: 6 replacement toner "
-            "cartridges."
+        id="t06", split="test", doc_id="D14",
+        document=_doc(
+            "Order Summary #5125.",
+            [
+                remit_supplier("Fernwood Paper Mills", "88 Pulp Street"),
+                buyer("Accounts Payable"),
+                remit_shipping("Bluewave Logistics"),
+            ],
+            "25 reams of glossy paper",
         ),
-        span_texts=[
-            "Bill To: Keystone Retail Group, Finance Department.",
-            "Payment processing handled by Harbor Point Bank.",
-        ],
-        gold=NOT_STATED,
-        probs={"s1": 0.15, "s2": 0.20, "not_stated": 0.65},
+        gold="Fernwood Paper Mills", probs=[0.74, 0.09, 0.06, 0.11],
+    ),
+    # === gold in the middle: position 2 of 3 (both "first" and "last" baselines wrong) ===
+    dict(
+        id="v09", split="validation", doc_id="D15",
+        document=_doc(
+            "Order Summary #5126.",
+            [
+                bank_proc("Harbor Point Bank"),
+                vendor_on_file("Copperfield Supplies LLC", "9 Lantern Street"),
+                ship_via("Starling Courier Services"),
+            ],
+            "100 reams of letterhead",
+        ),
+        gold="Copperfield Supplies LLC", probs=[0.08, 0.76, 0.06, 0.10],
     ),
     dict(
-        id="v16", split="validation", doc_id="D29",
-        document=(
-            "Delivery Note #2206. Bill To: Keystone Retail Group, 400 Commerce Ave. "
-            "Delivered by Starling Courier Services from the regional hub. Contents: 3 "
-            "replacement keyboards."
+        id="v10", split="validation", doc_id="D16",
+        document=_doc(
+            "Delivery Note #2201.",
+            [
+                ship_via("Starling Courier Services"),
+                vendor_on_file("Bluepeak Packaging Co.", "44 Kiln Street"),
+                buyer(),
+            ],
+            "200 corrugated boxes",
         ),
-        span_texts=[
-            "Bill To: Keystone Retail Group, 400 Commerce Ave.",
-            "Delivered by Starling Courier Services from the regional hub.",
-        ],
-        gold=NOT_STATED,
-        probs={"s1": 0.12, "s2": 0.18, "not_stated": 0.70},
+        gold="Bluepeak Packaging Co.", probs=[0.10, 0.74, 0.06, 0.10],
     ),
-    # -- hard case: no organisation mentioned at all, so there is nothing to extract --
-    dict(
-        id="v17", split="validation", doc_id="D33",
-        document=(
-            "Delivery Note #2209. Contents: 4 reams of copy paper and a box of binder clips. "
-            "No further details were provided with this shipment."
-        ),
-        span_texts=[],
-        gold=NOT_STATED,
-        probs={"not_stated": 1.0},
-    ),
-    dict(
-        id="v18", split="validation", doc_id="D10",
-        document=(
-            "Order Summary #5123. Bill To: Keystone Retail Group, Operations. Supplier: "
-            "Larkspur Consulting LLC, 5 Crown Court. Items: Process audit engagement. Thank "
-            "you for your business."
-        ),
-        span_texts=[
-            "Bill To: Keystone Retail Group, Operations.",
-            "Supplier: Larkspur Consulting LLC, 5 Crown Court.",
-        ],
-        gold="Larkspur Consulting LLC",
-        probs={"s1": 0.04, "s2": 0.87, "not_stated": 0.09},
-    ),
-    # -- the one wrong, confident answer validation's threshold is chosen to exclude --
-    dict(
-        id="v19", split="validation", doc_id="D11",
-        document=(
-            "Order Summary #5124. Goods ship from the Silverline Freight Services depot in "
-            "Reno. Vendor on file: Ember & Co. Stationery, Unit 12, Fairview Industrial Park. "
-            "Items: 20 boxes of printer paper."
-        ),
-        span_texts=[
-            "Goods ship from the Silverline Freight Services depot in Reno.",
-            "Vendor on file: Ember & Co. Stationery, Unit 12, Fairview Industrial Park.",
-        ],
-        gold="Ember & Co. Stationery",
-        probs={"s1": 0.74, "s2": 0.18, "not_stated": 0.08},
-    ),
-    # ================================ test ================================
-    dict(
-        id="t01", split="test", doc_id="D06",
-        document=(
-            "Purchase Confirmation #4413. Bill To: Keystone Retail Group, 400 Commerce Ave. "
-            "Supplier: Meadowbrook Textiles Ltd., 61 Mill Road. Items: 30 yards of canvas "
-            "fabric. Thank you for your order."
-        ),
-        span_texts=[
-            "Bill To: Keystone Retail Group, 400 Commerce Ave.",
-            "Supplier: Meadowbrook Textiles Ltd., 61 Mill Road.",
-        ],
-        gold="Meadowbrook Textiles Ltd.",
-        probs={"s1": 0.05, "s2": 0.84, "not_stated": 0.11},
-    ),
-    dict(
-        id="t02", split="test", doc_id="D07",
-        document=(
-            "Purchase Confirmation #4414. Bill To: Keystone Retail Group, 400 Commerce Ave. "
-            "Supplier: Pinecrest Electronics Inc., 200 Circuit Drive. Items: 15 surge "
-            "protectors. Thank you for your order."
-        ),
-        span_texts=[
-            "Bill To: Keystone Retail Group, 400 Commerce Ave.",
-            "Supplier: Pinecrest Electronics Inc., 200 Circuit Drive.",
-        ],
-        gold="Pinecrest Electronics Inc.",
-        probs={"s1": 0.03, "s2": 0.90, "not_stated": 0.07},
-    ),
-    dict(
-        id="t03", split="test", doc_id="D08",
-        document=(
-            "Order Summary #5122. Bill To: Keystone Retail Group, Risk Management. Supplier: "
-            "Thornfield Insurance Group, 8 Harbor Square. Items: Annual liability policy "
-            "renewal. Thank you for your business."
-        ),
-        span_texts=[
-            "Bill To: Keystone Retail Group, Risk Management.",
-            "Supplier: Thornfield Insurance Group, 8 Harbor Square.",
-        ],
-        gold="Thornfield Insurance Group",
-        probs={"s1": 0.06, "s2": 0.78, "not_stated": 0.16},
-    ),
-    dict(
-        id="t04", split="test", doc_id="D09",
-        document=(
-            "Purchase Confirmation #4415. Bill To: Keystone Retail Group, 400 Commerce Ave. "
-            "Supplier: Westgate Manufacturing Co., 19 Foundry Lane. Items: 8 steel shelving "
-            "units. Thank you for your order."
-        ),
-        span_texts=[
-            "Bill To: Keystone Retail Group, 400 Commerce Ave.",
-            "Supplier: Westgate Manufacturing Co., 19 Foundry Lane.",
-        ],
-        gold="Westgate Manufacturing Co.",
-        probs={"s1": 0.10, "s2": 0.62, "not_stated": 0.28},
-    ),
-    dict(
-        id="t05", split="test", doc_id="D15",
-        document=(
-            "Delivery Note #2202. Shipped overnight via Crestline Overnight Shipping from "
-            "the Denver hub. Vendor on file: Ironwood Fasteners Inc., 12 Anvil Lane. Items: "
-            "500 steel bolts."
-        ),
-        span_texts=[
-            "Shipped overnight via Crestline Overnight Shipping from the Denver hub.",
-            "Vendor on file: Ironwood Fasteners Inc., 12 Anvil Lane.",
-        ],
-        gold="Ironwood Fasteners Inc.",
-        probs={"s1": 0.18, "s2": 0.72, "not_stated": 0.10},
-    ),
-    dict(
-        id="t06", split="test", doc_id="D16",
-        document=(
-            "Order Summary #5127. Goods ship from the Bluewave Logistics regional "
-            "warehouse. Vendor on file: Maplewood Office Interiors, 6 Cedar Row. Items: 3 "
-            "reception desks."
-        ),
-        span_texts=[
-            "Goods ship from the Bluewave Logistics regional warehouse.",
-            "Vendor on file: Maplewood Office Interiors, 6 Cedar Row.",
-        ],
-        gold="Maplewood Office Interiors",
-        probs={"s1": 0.21, "s2": 0.69, "not_stated": 0.10},
-    ),
-    # -- wrong, but not confident enough to clear the frozen threshold: the gate catches it --
     dict(
         id="t07", split="test", doc_id="D17",
-        document=(
-            "Order Summary #5128. Payment processing handled by Harbor Point Bank on behalf "
-            "of the account. Vendor on file: Redstone Analytics Inc., 2 Meridian Court. "
-            "Items: Data pipeline consulting retainer."
+        document=_doc(
+            "Order Summary #5127.",
+            [
+                ship_from("Bluewave Logistics", "Reno"),
+                bare_supplier("Marrow Creek Chemicals Inc.", "14 Foundry Row"),
+                bank_proc("Union Crest Bank"),
+            ],
+            "30 liters of solvent",
         ),
-        span_texts=[
-            "Payment processing handled by Harbor Point Bank on behalf of the account.",
-            "Vendor on file: Redstone Analytics Inc., 2 Meridian Court.",
-        ],
-        gold="Redstone Analytics Inc.",
-        probs={"s1": 0.42, "s2": 0.38, "not_stated": 0.20},
+        gold="Marrow Creek Chemicals Inc.", probs=[0.08, 0.72, 0.09, 0.11],
     ),
     dict(
-        id="t08", split="test", doc_id="D21",
-        document=(
-            "Delivery Note #2203. Elmwood Paper Co. filled this kind of order before the "
-            "account was reassigned. Cinderwood Paper Mills has been the supplier of record "
-            "since the reassignment, located at 21 Millrace Road. Items: 40 reams of "
-            "cardstock."
+        id="t08", split="test", doc_id="D18",
+        document=_doc(
+            "Order Summary #5128.",
+            [
+                prior_vendor("Driftlane Supplies Co."),
+                prepared_by("Vellum Printing Co.", "stationery"),
+                remit_shipping("Crestline Overnight Shipping"),
+            ],
+            "500 printed brochures",
         ),
-        span_texts=[
-            "Elmwood Paper Co. filled this kind of order before the account was reassigned.",
-            "Cinderwood Paper Mills has been the supplier of record since the reassignment, "
-            "located at 21 Millrace Road.",
-        ],
-        gold="Cinderwood Paper Mills",
-        probs={"s1": 0.17, "s2": 0.73, "not_stated": 0.10},
+        gold="Vellum Printing Co.", probs=[0.09, 0.73, 0.08, 0.10],
     ),
-    # -- wrong, and confident enough to clear the frozen threshold anyway --
+    # === gold at the last of 3 (position 3) ===
     dict(
-        id="t09", split="test", doc_id="D22",
-        document=(
-            "Order Summary #5132. Brookstone Textiles supplied this fabric line until the "
-            "switch earlier this year. Amberline Textiles Co. has been the vendor of record "
-            "since then, based at 18 Spindle Street. Items: 60 yards of upholstery fabric."
+        id="v11", split="validation", doc_id="D19",
+        document=_doc(
+            "Order Summary #5129.",
+            [
+                buyer("Risk Management"),
+                bank_proc("Harbor Point Bank"),
+                labeled_supplier("Thornfield Insurance Group", "8 Harbor Square"),
+            ],
+            "Annual liability policy renewal",
         ),
-        span_texts=[
-            "Brookstone Textiles supplied this fabric line until the switch earlier this "
-            "year.",
-            "Amberline Textiles Co. has been the vendor of record since then, based at 18 "
-            "Spindle Street.",
-        ],
-        gold="Amberline Textiles Co.",
-        probs={"s1": 0.80, "s2": 0.14, "not_stated": 0.06},
+        gold="Thornfield Insurance Group", probs=[0.06, 0.08, 0.76, 0.10],
     ),
     dict(
-        id="t10", split="test", doc_id="D25",
-        document=(
-            "This shipment was prepared by Fernwood Paper Mills, our supplier of printing "
-            "stock. Please remit payment to Fernwood Paper Mills, Accounts Receivable, 88 "
-            "Pulp Street. Items: 25 reams of glossy paper."
+        id="t09", split="test", doc_id="D20",
+        document=_doc(
+            "Order Summary #5130.",
+            [
+                buyer(),
+                prior_vendor("Elmwood Paper Mills"),
+                bare_supplier("Cinderwood Paper Mills", "21 Millrace Road"),
+            ],
+            "40 reams of cardstock",
         ),
-        span_texts=[
-            "This shipment was prepared by Fernwood Paper Mills, our supplier of printing "
-            "stock.",
-            "Please remit payment to Fernwood Paper Mills, Accounts Receivable, 88 Pulp "
-            "Street.",
-        ],
-        gold="Fernwood Paper Mills",
-        probs={"s1": 0.15, "s2": 0.75, "not_stated": 0.10},
+        gold="Cinderwood Paper Mills", probs=[0.05, 0.14, 0.71, 0.10],
+    ),
+    # === gold at position 1 of 4 ===
+    dict(
+        id="v12", split="validation", doc_id="D21",
+        document=_doc(
+            "Order Summary #5131.",
+            [
+                remit_supplier("Falcon Ridge Chemicals Inc.", "3 Foundry Court"),
+                buyer(),
+                bank_proc("Union Crest Bank"),
+                remit_shipping("Silverline Freight Services"),
+            ],
+            "40 liters of degreaser solution",
+        ),
+        gold="Falcon Ridge Chemicals Inc.", probs=[0.74, 0.05, 0.05, 0.07, 0.09],
     ),
     dict(
-        id="t11", split="test", doc_id="D26",
-        document=(
-            "This engagement was staffed by BrightPath Consulting Group, our supplier of "
-            "advisory services. Please remit payment to BrightPath Consulting Group, Finance "
-            "Office, 5 Summit Plaza. Items: Strategic planning workshop."
+        id="t10", split="test", doc_id="D22",
+        document=_doc(
+            "Order Summary #5132.",
+            [
+                labeled_supplier("Ironwood Fasteners Inc.", "12 Anvil Lane"),
+                buyer(),
+                ship_via("Crestline Overnight Shipping"),
+                prior_vendor("Spruceview Supplies Group"),
+            ],
+            "500 steel bolts",
         ),
-        span_texts=[
-            "This engagement was staffed by BrightPath Consulting Group, our supplier of "
-            "advisory services.",
-            "Please remit payment to BrightPath Consulting Group, Finance Office, 5 Summit "
-            "Plaza.",
-        ],
-        gold="BrightPath Consulting Group",
-        probs={"s1": 0.66, "s2": 0.24, "not_stated": 0.10},
+        gold="Ironwood Fasteners Inc.", probs=[0.72, 0.06, 0.07, 0.06, 0.09],
+    ),
+    # === gold at the last of 4-5 ===
+    dict(
+        id="v13", split="validation", doc_id="D23",
+        document=_doc(
+            "Order Summary #5133.",
+            [
+                buyer("Facilities"),
+                ship_from("Bluewave Logistics", "Tulsa"),
+                bank_proc("Harbor Point Bank"),
+                vendor_on_file("Maplewood Office Interiors", "6 Cedar Row"),
+            ],
+            "3 reception desks",
+        ),
+        gold="Maplewood Office Interiors", probs=[0.04, 0.06, 0.07, 0.73, 0.10],
     ),
     dict(
-        id="t12", split="test", doc_id="D30",
-        document=(
-            "Delivery Note #2207. Bill To: Keystone Retail Group, Operations. Shipped via "
-            "Crestline Overnight Shipping. Contents: 2 external monitors."
+        id="t11", split="test", doc_id="D24",
+        document=_doc(
+            "Order Summary #5134.",
+            [
+                buyer("Operations"),
+                prior_vendor("Brookstone Textiles"),
+                ship_from("Silverline Freight Services", "Tulsa"),
+                remit_supplier("Hazelwood Fixtures Inc.", "7 Birchwood Lane"),
+            ],
+            "10 cabinet handle sets",
         ),
-        span_texts=[
-            "Bill To: Keystone Retail Group, Operations.",
-            "Shipped via Crestline Overnight Shipping.",
-        ],
-        gold=NOT_STATED,
-        probs={"s1": 0.16, "s2": 0.16, "not_stated": 0.68},
+        gold="Hazelwood Fixtures Inc.", probs=[0.03, 0.06, 0.08, 0.73, 0.10],
+    ),
+    # === the supplier's name appears in two different spans ===
+    dict(
+        id="v14", split="validation", doc_id="D25",
+        document=_doc(
+            "Delivery Note #2202.",
+            [
+                prepared_by("Brightwell Hardware Inc.", "fasteners and tools"),
+                remit_supplier("Brightwell Hardware Inc.", "55 Industrial Way"),
+            ],
+            "12 boxes of wood screws",
+        ),
+        gold="Brightwell Hardware Inc.", probs=[0.22, 0.68, 0.10],
     ),
     dict(
-        id="t13", split="test", doc_id="D31",
-        document=(
-            "Delivery Note #2208. Bill To: Keystone Retail Group, 400 Commerce Ave. Goods "
-            "ship from the Bluewave Logistics regional warehouse. Contents: 15 reams of copy "
-            "paper."
+        id="v15", split="validation", doc_id="D26",
+        document=_doc(
+            "Delivery Note #2203.",
+            [
+                prepared_by("Driftwood Media Group", "video content"),
+                remit_supplier("Driftwood Media Group", "70 Studio Way"),
+            ],
+            "Quarterly promotional video package",
         ),
-        span_texts=[
-            "Bill To: Keystone Retail Group, 400 Commerce Ave.",
-            "Goods ship from the Bluewave Logistics regional warehouse.",
-        ],
-        gold=NOT_STATED,
-        probs={"s1": 0.17, "s2": 0.17, "not_stated": 0.66},
+        gold="Driftwood Media Group", probs=[0.68, 0.22, 0.10],
     ),
-    # -- wrong the other way: a real supplier is named, but the stored answer says not_stated
-    # anyway; not_stated is never gated on confidence, so nothing catches this one --
+    dict(
+        id="t12", split="test", doc_id="D27",
+        document=_doc(
+            "Delivery Note #2204.",
+            [
+                buyer(),
+                prepared_by("Dawnridge Hardware Supply", "shelving hardware"),
+                remit_supplier("Dawnridge Hardware Supply", "19 Rivet Row"),
+            ],
+            "8 steel shelving units",
+        ),
+        gold="Dawnridge Hardware Supply", probs=[0.05, 0.20, 0.65, 0.10],
+    ),
+    dict(
+        id="t13", split="test", doc_id="D28",
+        document=_doc(
+            "Delivery Note #2205.",
+            [
+                remit_supplier("Amberline Textiles Co.", "18 Spindle Street"),
+                buyer(),
+                prepared_by("Amberline Textiles Co.", "upholstery fabric"),
+            ],
+            "60 yards of upholstery fabric",
+        ),
+        gold="Amberline Textiles Co.", probs=[0.64, 0.05, 0.21, 0.10],
+    ),
+    # === no supporting span, with an organisation mentioned for some other reason ===
+    dict(
+        id="v16", split="validation", doc_id="D29",
+        document=_doc(
+            "Delivery Note #2206.",
+            [buyer(), ship_via("Silverline Freight Services")],
+            "10 boxes of printer paper",
+        ),
+        gold=NOT_STATED, probs=[0.14, 0.14, 0.72],
+    ),
+    dict(
+        id="v17", split="validation", doc_id="D30",
+        document=_doc(
+            "Delivery Note #2207.",
+            [buyer("Finance Department"), bank_proc("Harbor Point Bank")],
+            "6 replacement toner cartridges",
+        ),
+        gold=NOT_STATED, probs=[0.15, 0.20, 0.65],
+    ),
+    dict(
+        id="v18", split="validation", doc_id="D31",
+        document=_doc(
+            "Delivery Note #2208.",
+            [
+                buyer(),
+                ship_from("Bluewave Logistics", "the regional hub"),
+                prior_vendor("Oldfield Industrial Partners"),
+            ],
+            "15 reams of copy paper",
+        ),
+        gold=NOT_STATED, probs=[0.12, 0.13, 0.11, 0.64],
+    ),
     dict(
         id="t14", split="test", doc_id="D32",
-        document=(
-            "Order Summary #5133. Bill To: Keystone Retail Group, Facilities. This order was "
-            "fulfilled by Ashgrove Fixtures Co. of 9 Lattice Row. Items: 4 display shelving "
-            "units."
+        document=_doc(
+            "Delivery Note #2209.",
+            [buyer("Operations"), ship_via("Crestline Overnight Shipping")],
+            "2 external monitors",
         ),
-        span_texts=[
-            "Bill To: Keystone Retail Group, Facilities.",
-            "This order was fulfilled by Ashgrove Fixtures Co. of 9 Lattice Row.",
-        ],
-        gold="Ashgrove Fixtures Co.",
-        probs={"s1": 0.12, "s2": 0.20, "not_stated": 0.68},
+        gold=NOT_STATED, probs=[0.16, 0.16, 0.68],
     ),
     dict(
-        id="t15", split="test", doc_id="D34",
-        document=(
-            "Delivery Note #2210. Contents: 2 staplers and a box of highlighters. The "
-            "packing slip included no vendor information."
+        id="t15", split="test", doc_id="D33",
+        document=_doc(
+            "Delivery Note #2210.",
+            [buyer(), bank_proc("Union Crest Bank")],
+            "2 staplers and a box of highlighters",
         ),
-        span_texts=[],
-        gold=NOT_STATED,
-        probs={"not_stated": 1.0},
+        gold=NOT_STATED, probs=[0.17, 0.17, 0.66],
     ),
     dict(
-        id="t16", split="test", doc_id="D35",
-        document=(
-            "Purchase Confirmation #4421. Bill To: Keystone Retail Group, 400 Commerce Ave. "
-            "Supplier: Pinehollow Office Supply, 31 Birch Lane. Items: 6 boxes of sticky "
-            "notes. Thank you for your order."
+        id="t16", split="test", doc_id="D34",
+        document=_doc(
+            "Delivery Note #2211.",
+            [
+                buyer(),
+                ship_via("Starling Courier Services"),
+                prior_vendor("Spruceview Supplies Group"),
+            ],
+            "4 reams of copy paper and a box of binder clips",
         ),
-        span_texts=[
-            "Bill To: Keystone Retail Group, 400 Commerce Ave.",
-            "Supplier: Pinehollow Office Supply, 31 Birch Lane.",
-        ],
-        gold="Pinehollow Office Supply",
-        probs={"s1": 0.05, "s2": 0.85, "not_stated": 0.10},
+        gold=NOT_STATED, probs=[0.13, 0.12, 0.11, 0.64],
+    ),
+    # === no organisation mentioned at all: Python short-circuits, no request at all ===
+    dict(
+        id="v19", split="validation", doc_id="D35",
+        document="Delivery Note #2212. Contents: 4 reams of copy paper and a box of binder "
+        "clips. No further details were provided with this shipment.",
+        gold=NOT_STATED, probs=None,
     ),
     dict(
         id="t17", split="test", doc_id="D36",
-        document=(
-            "Order Summary #5134. Goods ship from the Silverline Freight Services depot in "
-            "Tulsa. Vendor on file: Marrow Creek Chemicals Inc., 14 Foundry Row. Items: 30 "
-            "liters of solvent."
-        ),
-        span_texts=[
-            "Goods ship from the Silverline Freight Services depot in Tulsa.",
-            "Vendor on file: Marrow Creek Chemicals Inc., 14 Foundry Row.",
-        ],
-        gold="Marrow Creek Chemicals Inc.",
-        probs={"s1": 0.19, "s2": 0.71, "not_stated": 0.10},
+        document="Delivery Note #2213. Contents: 2 staplers and a box of highlighters. The "
+        "packing slip included no vendor information.",
+        gold=NOT_STATED, probs=None,
     ),
+    # === the wrong, confident answers: spread across different positions, not only s1 ===
+    # v20: two plausible organisations, gold at s2 (vendor on file), the stored answer wrongly
+    # and confidently names the s1 decoy -- this is validation's one wrong, named, confident
+    # answer, which the frozen threshold is chosen to exclude.
     dict(
-        id="t18", split="test", doc_id="D37",
-        document=(
-            "Delivery Note #2211. Spruceview Supplies Co. handled this account before the "
-            "contract was reassigned. Hazelwood Fixtures Inc. has supplied these fixtures "
-            "since the reassignment, located at 7 Birchwood Lane. Items: 10 cabinet handle "
-            "sets."
+        id="v20", split="validation", doc_id="D37",
+        document=_doc(
+            "Order Summary #5135.",
+            [
+                ship_from("Silverline Freight Services", "Reno"),
+                vendor_on_file("Ember Stationery Co.", "Unit 12, Fairview Industrial Park"),
+            ],
+            "20 boxes of printer paper",
         ),
-        span_texts=[
-            "Spruceview Supplies Co. handled this account before the contract was "
-            "reassigned.",
-            "Hazelwood Fixtures Inc. has supplied these fixtures since the reassignment, "
-            "located at 7 Birchwood Lane.",
-        ],
-        gold="Hazelwood Fixtures Inc.",
-        probs={"s1": 0.15, "s2": 0.75, "not_stated": 0.10},
+        gold="Ember Stationery Co.", probs=[0.74, 0.18, 0.08],
     ),
+    # t18: a near-miss superseded vendor at s1, the real supplier at s2 -- the stored answer
+    # wrongly and confidently names the superseded vendor (s1), comfortably above the frozen
+    # threshold, so this is the one the gate does not catch.
     dict(
-        id="t19", split="test", doc_id="D38",
-        document=(
-            "Purchase Confirmation #4422. Bill To: Keystone Retail Group, 400 Commerce Ave. "
-            "Supplier: Stonebridge Electronics, 77 Circuit Row. Items: 10 network switches. "
-            "Thank you for your order."
+        id="t18", split="test", doc_id="D38",
+        document=_doc(
+            "Order Summary #5136.",
+            [
+                prior_vendor("Brookstone Textiles"),
+                bare_supplier("Amberline Textiles Co.", "18 Spindle Street"),
+            ],
+            "60 yards of upholstery fabric",
         ),
-        span_texts=[
-            "Bill To: Keystone Retail Group, 400 Commerce Ave.",
-            "Supplier: Stonebridge Electronics, 77 Circuit Row.",
-        ],
-        gold="Stonebridge Electronics",
-        probs={"s1": 0.04, "s2": 0.89, "not_stated": 0.07},
+        gold="Amberline Textiles Co.", probs=[0.80, 0.14, 0.06],
     ),
-    # ================================ demo (never scored) ================================
+    # t19: three candidates, gold at s3 (last); the stored answer wrongly, confidently names
+    # the s2 decoy instead -- a wrong answer that does NOT pick the first span.
+    dict(
+        id="t19", split="test", doc_id="D39",
+        document=_doc(
+            "Order Summary #5137.",
+            [
+                buyer(),
+                bank_proc("Union Crest Bank"),
+                bare_supplier("Redstone Analytics Inc.", "2 Meridian Court"),
+            ],
+            "Data pipeline consulting retainer",
+        ),
+        gold="Redstone Analytics Inc.", probs=[0.06, 0.70, 0.14, 0.10],
+    ),
+    # t20: wrong and low-confidence (the gate catches this one): gold at s2 of 2, the stored
+    # answer barely prefers the s1 decoy.
+    dict(
+        id="t20", split="test", doc_id="D40",
+        document=_doc(
+            "Order Summary #5138.",
+            [
+                bank_proc("Harbor Point Bank"),
+                vendor_on_file("Westgate Manufacturing Co.", "19 Foundry Lane"),
+            ],
+            "8 steel shelving units",
+        ),
+        gold="Westgate Manufacturing Co.", probs=[0.42, 0.38, 0.20],
+    ),
+    # t21: a real supplier is named (bare, no cue), but the stored answer wrongly, confidently
+    # says not_stated anyway -- not_stated is never gated on confidence, so nothing catches it.
+    dict(
+        id="t21", split="test", doc_id="D41",
+        document=_doc(
+            "Order Summary #5139.",
+            [buyer("Facilities"), bare_supplier("Pinehollow Office Supply", "31 Birch Lane")],
+            "6 boxes of sticky notes",
+        ),
+        gold="Pinehollow Office Supply", probs=[0.12, 0.20, 0.68],
+    ),
+    # === demo (never scored) ===
     dict(
         id="d01-clear", split="demo", doc_id="D-DEMO1",
-        document=(
-            "Purchase Confirmation #9001. Bill To: Keystone Retail Group, 400 Commerce Ave. "
-            "Supplier: Granite Hardware Supply, 3 Anvil Row. Items: 50 boxes of wood screws. "
-            "Thank you for your order."
+        document=_doc(
+            "Purchase Confirmation #9001.",
+            [buyer(), labeled_supplier("Hollow Creek Builders Supply", "10 Timber Lane")],
+            "25 sheets of plywood",
         ),
-        span_texts=[
-            "Bill To: Keystone Retail Group, 400 Commerce Ave.",
-            "Supplier: Granite Hardware Supply, 3 Anvil Row.",
-        ],
-        gold=None,
-        probs={"s1": 0.05, "s2": 0.86, "not_stated": 0.09},
+        gold=None, probs=[0.05, 0.86, 0.09],
     ),
     dict(
-        id="d02-near-miss-wrong", split="demo", doc_id="D-DEMO2",
-        document=(
-            "Delivery Note #9002. Pinehurst Trading Co. handled this kind of delivery under "
-            "the previous contract. Hollow Creek Builders Supply has been the supplier since "
-            "the new agreement took effect, located at 10 Timber Lane. Items: 25 sheets of "
-            "plywood."
-        ),
-        span_texts=[
-            "Pinehurst Trading Co. handled this kind of delivery under the previous "
-            "contract.",
-            "Hollow Creek Builders Supply has been the supplier since the new agreement "
-            "took effect, located at 10 Timber Lane.",
-        ],
-        gold=None,
-        probs={"s1": 0.72, "s2": 0.20, "not_stated": 0.08},
+        id="d02-no-candidates", split="demo", doc_id="D-DEMO2",
+        document="Delivery Note #9002. Contents: 2 staplers and a box of highlighters. The "
+        "packing slip included no vendor information.",
+        gold=None, probs=None,
     ),
 ]  # fmt: skip
 
 
-def _spans(document: str, texts: list[str]) -> list[dict]:
-    """``[{"id": "s1", "start": ..., "end": ...}, ...]`` -- one entry per candidate sentence
-    in ``texts``, located inside ``document`` in order, so a typo in a span's text raises
-    ``ValueError`` here (from ``str.index``) instead of silently drifting from the document."""
-    spans = []
-    cursor = 0
-    for i, text in enumerate(texts, start=1):
-        start = document.index(text, cursor)
-        end = start + len(text)
-        spans.append({"id": f"s{i}", "start": start, "end": end})
-        cursor = end
-    return spans
-
-
 def _fields(row: dict) -> dict:
-    return {
-        "doc_id": row["doc_id"],
-        "document": row["document"],
-        "spans": _spans(row["document"], row["span_texts"]),
-    }
+    return {"doc_id": row["doc_id"], "document": row["document"]}
 
 
 def build_inputs_and_labels(rows):
     """``(inputs, labels)`` from ``rows``. Neither ever holds a model's answer, so both are
-    always safe to regenerate, even after ``responses.json`` has been recorded."""
+    always safe to regenerate, even after ``responses.json`` has been recorded. A document
+    with no candidate spans (``probs is None``) gets empty ``replay_keys``: Python decides
+    ``not_stated`` for it without ever asking a question."""
     inputs, labels = [], []
     for row in rows:
         fields = _fields(row)
-        questions = helpers.build_questions(fields)
-        key = replay_key(helpers.build_state(fields), questions)
+        spans = helpers.extract_spans(row["document"])
+        if spans:
+            questions = helpers.build_questions(fields)
+            key = replay_key(helpers.build_state(fields), questions)
+            replay_keys = [key]
+        else:
+            replay_keys = []
         inputs.append(
-            {"id": row["id"], "split": row["split"], "fields": fields, "replay_keys": [key]}
+            {"id": row["id"], "split": row["split"], "fields": fields, "replay_keys": replay_keys}
         )
         if row["gold"] is not None:
             labels.append({"id": row["id"], "label": row["gold"]})
@@ -673,14 +659,17 @@ def build_inputs_and_labels(rows):
 
 def build_responses(rows):
     """``{replay_key: stored response}`` from ``rows``. Always synthetic: this script never
-    calls Jev, so it can never produce a recorded response."""
+    calls Jev, so it can never produce a recorded response. A document with no candidate
+    spans contributes nothing here -- there is no question to answer."""
     responses = {}
     for row in rows:
+        if row["probs"] is None:
+            continue
         fields = _fields(row)
         questions = helpers.build_questions(fields)
         key = replay_key(helpers.build_state(fields), questions)
         options = list(questions["supplier_span"].criteria)
-        probs = {option: row["probs"][option] for option in options}
+        probs = dict(zip(options, row["probs"], strict=True))
         answer = ChoiceAnswer.from_probabilities(probs, Provenance.synthetic())
         responses[key] = DecisionResult({"supplier_span": answer}, "synthetic").to_dict()
     return responses
