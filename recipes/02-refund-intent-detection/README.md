@@ -46,9 +46,9 @@ of this repository), or record answers with the recorder described in
 and always runs offline. The live backend's default request budget is 25
 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)); every attempt counts
 against that budget, including each retry. In live mode this notebook makes exactly one call for
-each of the 46 examples in `fixtures/`, and no other (each example is decided once and the stored
+each of the 48 examples in `fixtures/`, and no other (each example is decided once and the stored
 answer is reused wherever it is shown again). That is more than the default budget of 25, so set
-`JEV_COOKBOOK_LIVE_MAX_REQUESTS=46` or higher before running this notebook live, or it stops
+`JEV_COOKBOOK_LIVE_MAX_REQUESTS=48` or higher before running this notebook live, or it stops
 partway through with `BudgetExceeded`. Never put a key in a notebook, a fixture, or any other
 committed file.
 
@@ -57,13 +57,13 @@ committed file.
 - **Mode:** synthetic (offline replay of hand-written answers). Not measured live.
 - **Model, capture date:** not applicable; no answer came from a model. A recorded recipe names
   the model the API returned and the date or dates the answers were captured.
-- **N:** 22 `validation` and 22 `test` examples are scored (46 in the fixtures; the 2 `demo`
+- **N:** 23 `validation` and 23 `test` examples are scored (48 in the fixtures; the 2 `demo`
   examples are shown in the notebook but never scored).
 
 A recorded recipe states the model version the API returned, the capture date and N for every number
 it reports, here and in the notebook.
 
-The committed run replays 46 invented customer messages with hand-written (synthetic)
+The committed run replays 48 invented customer messages with hand-written (synthetic)
 probabilities, two of them wrong on purpose (one on each split): a message that raises a refund
 only to decline it, stored far enough from an even split that the certainty gate does not catch
 it, and above the frozen business threshold. Its precision, recall, and the coverage and risk the

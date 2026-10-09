@@ -12,14 +12,17 @@ refund workflows even though the issue does not name them: asking for store cred
 refund (``-credit``) and a vague future possibility (``-conditional``). Both validation and test
 also carry one message that is wrong *and* confident (``-hard-wrong``): declining a refund in the
 same breath as raising it, stored at a noul far enough from an even split that the certainty gate
-(`helpers.route`'s ``min_confidence``) does not catch it, and high enough to clear the business
-threshold the notebook freezes (0.80), even though the gold label is false -- so the frozen
-rule's numbers show a real, non-zero risk of a wrongly queued message on both splits, not a
-guarantee that happens to hold. Both splits also carry three genuinely borderline messages
-(``-borderline``), with stored probabilities in the 0.42-0.62 range, neither strongly true nor
-strongly false: these are what the certainty gate is for, and they give the threshold sweep a
-real trade-off to show instead of a single isolated jump. The replay keys come from the same
-``build_state`` and ``build_questions`` the notebook uses, via ``helpers.py``.
+(`helpers.route`'s ``min_confidence``) does not catch it, even though the gold label is false --
+so the frozen rule's numbers show a real, non-zero risk of a wrongly queued message on both
+splits, not a guarantee that happens to hold. The certainty gate exists for a different shape of
+case: both splits also carry four genuinely ambiguous messages (``-borderline``), stored within
+0.06 of an even split (0.44-0.59), with gold labels deliberately mixed -- two true, two false, in
+no fixed order relative to noul -- so that a message's probability alone does not reliably say
+which way it should go. Low certainty genuinely correlates with error here (most of the business
+rule's mistakes other than the confident one above happen inside this cluster), which is what
+lets the certainty gate earn its coverage/accuracy/risk numbers rather than measuring something
+that never fires. The replay keys come from the same ``build_state`` and ``build_questions`` the
+notebook uses, via ``helpers.py``.
 """
 
 import argparse
@@ -96,14 +99,17 @@ ROWS = [
      False, 0.87),
     ("v20-borderline", "validation", "RF1020",
      "I'm really unhappy with this and I don't think I should have to keep paying for it.",
-     False, 0.52),
+     False, 0.45),
     ("v21-borderline", "validation", "RF1021",
      "Honestly, I'm not happy with this purchase at all and I'm hoping we can work something "
      "out, maybe getting reimbursed.",
-     True, 0.65),
+     True, 0.48),
     ("v22-borderline", "validation", "RF1022",
      "I'm fed up with this item breaking constantly, what are my options here?",
-     False, 0.72),
+     False, 0.52),
+    ("v23-borderline", "validation", "RF1023",
+     "This isn't sitting right with me, and I think you should make it up to me somehow.",
+     True, 0.58),
     # --- test: 19 examples -----------------------------------------------------------------
     ("t01-explicit", "test", "RF2001",
      "I need a refund for this order, it showed up damaged.",
@@ -165,14 +171,17 @@ ROWS = [
      False, 0.85),
     ("t20-borderline", "test", "RF2020",
      "I'm really frustrated with this and don't think I should have to keep paying for it.",
-     False, 0.50),
+     False, 0.44),
     ("t21-borderline", "test", "RF2021",
      "To be honest, I'm disappointed with this and was hoping there might be some way to get "
      "reimbursed.",
-     True, 0.60),
+     True, 0.49),
     ("t22-borderline", "test", "RF2022",
      "This has been such a hassle, I'm not sure what you can even do about it at this point.",
-     False, 0.70),
+     False, 0.53),
+    ("t23-borderline", "test", "RF2023",
+     "This really hasn't gone the way it should have, and I think you owe me something for it.",
+     True, 0.59),
     # --- demo: 2 examples, shown but never scored ----------------------------------------------
     ("d01-explicit", "demo", "RF3001",
      "The shoes I ordered arrived two sizes too small. I'd like a refund, please.",
