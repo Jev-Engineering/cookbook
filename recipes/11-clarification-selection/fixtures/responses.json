@@ -1,0 +1,1122 @@
+{
+  "180f3ecfd7b0a299c00befd76dc711b9982a87113005ade624ded49d3f5e1ad3": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "no_clarification_needed",
+        "probabilities": {
+          "ask_deadline": 0.03000000000000001,
+          "ask_recipient": 0.03000000000000001,
+          "ask_scope": 0.03000000000000001,
+          "ask_format": 0.03000000000000001,
+          "ask_budget": 0.03000000000000001,
+          "ask_access_level": 0.03000000000000001,
+          "no_clarification_needed": 0.82
+        },
+        "confidence": 0.7899999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1a3f1089bfb2fc8c1512dc33fa98e62097d047c484ed6be59db2f67e35d696a8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_deadline",
+        "probabilities": {
+          "ask_recipient": 0.03000000000000001,
+          "ask_scope": 0.03000000000000001,
+          "ask_format": 0.03000000000000001,
+          "ask_budget": 0.03000000000000001,
+          "ask_access_level": 0.03000000000000001,
+          "no_clarification_needed": 0.03000000000000001,
+          "ask_deadline": 0.82
+        },
+        "confidence": 0.7899999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1d85fbfb7f099a5c5f7118916889a22c9a78ea43121d878d9ff07410c349e451": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "no_clarification_needed",
+        "probabilities": {
+          "ask_deadline": 0.03833333333333333,
+          "ask_recipient": 0.03833333333333333,
+          "ask_scope": 0.03833333333333333,
+          "ask_format": 0.03833333333333333,
+          "ask_budget": 0.03833333333333333,
+          "ask_access_level": 0.03833333333333333,
+          "no_clarification_needed": 0.77
+        },
+        "confidence": 0.7316666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "20be505942e8f6c7fac241b3df8f86faa409cb1fc6d0894feeee6eb83901561c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_recipient",
+        "probabilities": {
+          "ask_deadline": 0.03000000000000001,
+          "ask_scope": 0.03000000000000001,
+          "ask_format": 0.03000000000000001,
+          "ask_budget": 0.03000000000000001,
+          "ask_access_level": 0.03000000000000001,
+          "no_clarification_needed": 0.03000000000000001,
+          "ask_recipient": 0.82
+        },
+        "confidence": 0.7899999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2d5ac0892e22c2373bd42ead5a95c1f632e6fc76368d141fac5c2fdc620e4c70": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_access_level",
+        "probabilities": {
+          "ask_deadline": 0.03000000000000001,
+          "ask_recipient": 0.03000000000000001,
+          "ask_scope": 0.03000000000000001,
+          "ask_format": 0.03000000000000001,
+          "ask_budget": 0.03000000000000001,
+          "no_clarification_needed": 0.03000000000000001,
+          "ask_access_level": 0.82
+        },
+        "confidence": 0.7899999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2ddce6e3e0a3b6c2b80c4bf04710f568d627834ffc69633d7a9b065fff1bd453": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_deadline",
+        "probabilities": {
+          "ask_recipient": 0.033333333333333326,
+          "ask_scope": 0.033333333333333326,
+          "ask_format": 0.033333333333333326,
+          "ask_budget": 0.033333333333333326,
+          "ask_access_level": 0.033333333333333326,
+          "no_clarification_needed": 0.033333333333333326,
+          "ask_deadline": 0.8
+        },
+        "confidence": 0.7666666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "31abf5060a8621483a7306f53fa8d098054bf9f643b65118272fb6f730205f87": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "no_clarification_needed",
+        "probabilities": {
+          "ask_deadline": 0.033333333333333326,
+          "ask_recipient": 0.033333333333333326,
+          "ask_scope": 0.033333333333333326,
+          "ask_format": 0.033333333333333326,
+          "ask_budget": 0.033333333333333326,
+          "ask_access_level": 0.033333333333333326,
+          "no_clarification_needed": 0.8
+        },
+        "confidence": 0.7666666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3a1198d16493304fdd7cd5be364f710d8176c0f6956c6ec3bf0a360561e80514": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_format",
+        "probabilities": {
+          "ask_deadline": 0.03833333333333333,
+          "ask_recipient": 0.03833333333333333,
+          "ask_scope": 0.03833333333333333,
+          "ask_budget": 0.03833333333333333,
+          "ask_access_level": 0.03833333333333333,
+          "no_clarification_needed": 0.03833333333333333,
+          "ask_format": 0.77
+        },
+        "confidence": 0.7316666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "433e16b6b139d99b9f7d6705628b40cb615fd55f032e0c68245b03719447f77c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_deadline",
+        "probabilities": {
+          "ask_recipient": 0.01833333333333333,
+          "ask_scope": 0.01833333333333333,
+          "ask_format": 0.01833333333333333,
+          "ask_budget": 0.01833333333333333,
+          "ask_access_level": 0.01833333333333333,
+          "no_clarification_needed": 0.01833333333333333,
+          "ask_deadline": 0.89
+        },
+        "confidence": 0.8716666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "535908bec3512f2fcd160a928c58501acf6e24b16586746fe1bf7b5f6a17efa2": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_scope",
+        "probabilities": {
+          "ask_deadline": 0.039999999999999994,
+          "ask_recipient": 0.039999999999999994,
+          "ask_budget": 0.039999999999999994,
+          "ask_access_level": 0.039999999999999994,
+          "no_clarification_needed": 0.039999999999999994,
+          "ask_scope": 0.55,
+          "ask_format": 0.25
+        },
+        "confidence": 0.47500000000000003,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "54b5ee1015d61b40c464a74904b2aeecf696efbc5cfb4fba6369d91433cf9ff5": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_deadline",
+        "probabilities": {
+          "ask_recipient": 0.025000000000000005,
+          "ask_scope": 0.025000000000000005,
+          "ask_format": 0.025000000000000005,
+          "ask_budget": 0.025000000000000005,
+          "ask_access_level": 0.025000000000000005,
+          "no_clarification_needed": 0.025000000000000005,
+          "ask_deadline": 0.85
+        },
+        "confidence": 0.8249999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "54d65d214c9da14492ac3c08cbea18b8f5a684f897b5385a0d9ee6eba14b66a6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_access_level",
+        "probabilities": {
+          "ask_deadline": 0.054000000000000006,
+          "ask_scope": 0.054000000000000006,
+          "ask_format": 0.054000000000000006,
+          "ask_budget": 0.054000000000000006,
+          "no_clarification_needed": 0.054000000000000006,
+          "ask_access_level": 0.43,
+          "ask_recipient": 0.3
+        },
+        "confidence": 0.33499999999999996,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "564c2bb237c63f29d540a4fdd90b83ed0db3413a7876412ebeeda180a27dfdc3": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "no_clarification_needed",
+        "probabilities": {
+          "ask_deadline": 0.041666666666666664,
+          "ask_recipient": 0.041666666666666664,
+          "ask_scope": 0.041666666666666664,
+          "ask_format": 0.041666666666666664,
+          "ask_budget": 0.041666666666666664,
+          "ask_access_level": 0.041666666666666664,
+          "no_clarification_needed": 0.75
+        },
+        "confidence": 0.7083333333333334,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "606b6ab47186dbd31d99bf449ccf9fe91aa02ede13f07f78dc54df3e011cf30c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_recipient",
+        "probabilities": {
+          "ask_deadline": 0.025000000000000005,
+          "ask_scope": 0.025000000000000005,
+          "ask_format": 0.025000000000000005,
+          "ask_budget": 0.025000000000000005,
+          "ask_access_level": 0.025000000000000005,
+          "no_clarification_needed": 0.025000000000000005,
+          "ask_recipient": 0.85
+        },
+        "confidence": 0.8249999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "65d2dd94be8dd074e1f93fe0e7aa3f50a0ee514f2ed6f39d35504823ee63d70e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "no_clarification_needed",
+        "probabilities": {
+          "ask_deadline": 0.04,
+          "ask_recipient": 0.04,
+          "ask_scope": 0.04,
+          "ask_format": 0.04,
+          "ask_budget": 0.04,
+          "ask_access_level": 0.04,
+          "no_clarification_needed": 0.76
+        },
+        "confidence": 0.7200000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6ae6b7eee10dbe5ebca924b6015f55dd9aafc0eb5a746d14fb8dfde0fe4b6add": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_scope",
+        "probabilities": {
+          "ask_deadline": 0.03666666666666666,
+          "ask_recipient": 0.03666666666666666,
+          "ask_format": 0.03666666666666666,
+          "ask_budget": 0.03666666666666666,
+          "ask_access_level": 0.03666666666666666,
+          "no_clarification_needed": 0.03666666666666666,
+          "ask_scope": 0.78
+        },
+        "confidence": 0.7433333333333334,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6dd5b6759efb5f8d0cc26d9757a1e5debb2dbe9cd2977730839156fa86a13b5c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_recipient",
+        "probabilities": {
+          "ask_deadline": 0.026666666666666672,
+          "ask_scope": 0.026666666666666672,
+          "ask_format": 0.026666666666666672,
+          "ask_budget": 0.026666666666666672,
+          "ask_access_level": 0.026666666666666672,
+          "no_clarification_needed": 0.026666666666666672,
+          "ask_recipient": 0.84
+        },
+        "confidence": 0.8133333333333331,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "72acb078392aae46dfcce142e2b8c33c6094ae8be44d3f7f809ef7582f8c3c19": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "no_clarification_needed",
+        "probabilities": {
+          "ask_deadline": 0.034999999999999996,
+          "ask_recipient": 0.034999999999999996,
+          "ask_scope": 0.034999999999999996,
+          "ask_format": 0.034999999999999996,
+          "ask_budget": 0.034999999999999996,
+          "ask_access_level": 0.034999999999999996,
+          "no_clarification_needed": 0.79
+        },
+        "confidence": 0.755,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7fd6e33b76e95e3f1bb554981eb0007642c3333f0bac44036a4caf78ba10c684": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "no_clarification_needed",
+        "probabilities": {
+          "ask_deadline": 0.02833333333333334,
+          "ask_recipient": 0.02833333333333334,
+          "ask_scope": 0.02833333333333334,
+          "ask_format": 0.02833333333333334,
+          "ask_budget": 0.02833333333333334,
+          "ask_access_level": 0.02833333333333334,
+          "no_clarification_needed": 0.83
+        },
+        "confidence": 0.8016666666666665,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7fde98fc33c71b7846eed183937199bb65c9d276493b32c4584420a976f7964b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_format",
+        "probabilities": {
+          "ask_deadline": 0.06000000000000001,
+          "ask_recipient": 0.06000000000000001,
+          "ask_budget": 0.06000000000000001,
+          "ask_access_level": 0.06000000000000001,
+          "no_clarification_needed": 0.06000000000000001,
+          "ask_format": 0.4,
+          "ask_scope": 0.3
+        },
+        "confidence": 0.3,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9793a0122ca6b1cd542e448d267ac32b70747076f0d7ceb861d8e52a0438a5b3": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_access_level",
+        "probabilities": {
+          "ask_deadline": 0.033333333333333326,
+          "ask_recipient": 0.033333333333333326,
+          "ask_scope": 0.033333333333333326,
+          "ask_format": 0.033333333333333326,
+          "ask_budget": 0.033333333333333326,
+          "no_clarification_needed": 0.033333333333333326,
+          "ask_access_level": 0.8
+        },
+        "confidence": 0.7666666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "981f7662b4e4838dcd6c197afe42a30cc6bc308fb9168112ebce76ec3fe47435": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_access_level",
+        "probabilities": {
+          "ask_recipient": 0.054000000000000006,
+          "ask_scope": 0.054000000000000006,
+          "ask_format": 0.054000000000000006,
+          "ask_budget": 0.054000000000000006,
+          "no_clarification_needed": 0.054000000000000006,
+          "ask_access_level": 0.4,
+          "ask_deadline": 0.33
+        },
+        "confidence": 0.3,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9a0d21e267d744a50394ec1253918fd3ce22bf16fc0d220417df6486a49cc85a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_access_level",
+        "probabilities": {
+          "ask_deadline": 0.031666666666666655,
+          "ask_recipient": 0.031666666666666655,
+          "ask_scope": 0.031666666666666655,
+          "ask_format": 0.031666666666666655,
+          "ask_budget": 0.031666666666666655,
+          "no_clarification_needed": 0.031666666666666655,
+          "ask_access_level": 0.81
+        },
+        "confidence": 0.7783333333333334,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9c74e1809a8200dff3e3fce5b3ad58e8fb81f4b3ef0e15b228eef3cda9c45190": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_format",
+        "probabilities": {
+          "ask_deadline": 0.033333333333333326,
+          "ask_recipient": 0.033333333333333326,
+          "ask_scope": 0.033333333333333326,
+          "ask_budget": 0.033333333333333326,
+          "ask_access_level": 0.033333333333333326,
+          "no_clarification_needed": 0.033333333333333326,
+          "ask_format": 0.8
+        },
+        "confidence": 0.7666666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9e9bad8d93daa66d76e2e9f770e8ad0b9a6c1d5724f7a621b1be9814d149370e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "no_clarification_needed",
+        "probabilities": {
+          "ask_deadline": 0.033333333333333326,
+          "ask_recipient": 0.033333333333333326,
+          "ask_scope": 0.033333333333333326,
+          "ask_format": 0.033333333333333326,
+          "ask_budget": 0.033333333333333326,
+          "ask_access_level": 0.033333333333333326,
+          "no_clarification_needed": 0.8
+        },
+        "confidence": 0.7666666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9f9886a95f314dd5968df20a69ea2233971a2bafe62d153c0c77ff7e5feae4ed": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_scope",
+        "probabilities": {
+          "ask_deadline": 0.02833333333333334,
+          "ask_recipient": 0.02833333333333334,
+          "ask_format": 0.02833333333333334,
+          "ask_budget": 0.02833333333333334,
+          "ask_access_level": 0.02833333333333334,
+          "no_clarification_needed": 0.02833333333333334,
+          "ask_scope": 0.83
+        },
+        "confidence": 0.8016666666666665,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ab8b2ab1599c0c59c168f28467a0eefaf3d2b92d8d22c5b8f32a38a2b22edf64": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_deadline",
+        "probabilities": {
+          "ask_recipient": 0.023333333333333334,
+          "ask_scope": 0.023333333333333334,
+          "ask_format": 0.023333333333333334,
+          "ask_budget": 0.023333333333333334,
+          "ask_access_level": 0.023333333333333334,
+          "no_clarification_needed": 0.023333333333333334,
+          "ask_deadline": 0.86
+        },
+        "confidence": 0.8366666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "abbcbcd8d4a87f15edb7fa708e5793787b9d4b06e653a59cee8581c641bc693d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_budget",
+        "probabilities": {
+          "ask_deadline": 0.034999999999999996,
+          "ask_recipient": 0.034999999999999996,
+          "ask_scope": 0.034999999999999996,
+          "ask_format": 0.034999999999999996,
+          "ask_access_level": 0.034999999999999996,
+          "no_clarification_needed": 0.034999999999999996,
+          "ask_budget": 0.79
+        },
+        "confidence": 0.755,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b62cbce50bc7858004eec1e41f309639e9ffe2d0408d12988f2a6bb522e5499d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_recipient",
+        "probabilities": {
+          "ask_deadline": 0.12,
+          "ask_scope": 0.12,
+          "ask_format": 0.12,
+          "ask_budget": 0.12,
+          "no_clarification_needed": 0.12,
+          "ask_recipient": 0.22,
+          "ask_access_level": 0.18
+        },
+        "confidence": 0.09000000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bd364fae56881bf0c9c6cf852d1efa437115454e073682b82ae2abe41f1cdacb": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_budget",
+        "probabilities": {
+          "ask_deadline": 0.026666666666666672,
+          "ask_recipient": 0.026666666666666672,
+          "ask_scope": 0.026666666666666672,
+          "ask_format": 0.026666666666666672,
+          "ask_access_level": 0.026666666666666672,
+          "no_clarification_needed": 0.026666666666666672,
+          "ask_budget": 0.84
+        },
+        "confidence": 0.8133333333333331,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bfad618c5e72b08c6f87356bb5afab8d6d980c5b1e611757efdf923cabae9bca": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_recipient",
+        "probabilities": {
+          "ask_deadline": 0.033333333333333326,
+          "ask_scope": 0.033333333333333326,
+          "ask_format": 0.033333333333333326,
+          "ask_budget": 0.033333333333333326,
+          "ask_access_level": 0.033333333333333326,
+          "no_clarification_needed": 0.033333333333333326,
+          "ask_recipient": 0.8
+        },
+        "confidence": 0.7666666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c0e6c279e6fceed40e6427b57b816d352d02b2bf722c728ffde40bcba9ec7373": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_deadline",
+        "probabilities": {
+          "ask_recipient": 0.02833333333333334,
+          "ask_scope": 0.02833333333333334,
+          "ask_format": 0.02833333333333334,
+          "ask_budget": 0.02833333333333334,
+          "ask_access_level": 0.02833333333333334,
+          "no_clarification_needed": 0.02833333333333334,
+          "ask_deadline": 0.83
+        },
+        "confidence": 0.8016666666666665,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c635b01cc454b41492d5db5790c1d6a1a85ce059c7df2bc28aa15a0429109886": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_recipient",
+        "probabilities": {
+          "ask_deadline": 0.03666666666666666,
+          "ask_scope": 0.03666666666666666,
+          "ask_format": 0.03666666666666666,
+          "ask_budget": 0.03666666666666666,
+          "ask_access_level": 0.03666666666666666,
+          "no_clarification_needed": 0.03666666666666666,
+          "ask_recipient": 0.78
+        },
+        "confidence": 0.7433333333333334,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "cdec2620bb0f2557a712c549cdc8f07a36bb95ad98f3bdc8939b1be9fd1b75b6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_format",
+        "probabilities": {
+          "ask_deadline": 0.04,
+          "ask_recipient": 0.04,
+          "ask_scope": 0.04,
+          "ask_budget": 0.04,
+          "ask_access_level": 0.04,
+          "no_clarification_needed": 0.04,
+          "ask_format": 0.76
+        },
+        "confidence": 0.7200000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d619ec3bc6d87bdf97a14ad1f2c284435a0c18896a381fadaf4768466055c0d1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_budget",
+        "probabilities": {
+          "ask_deadline": 0.03666666666666666,
+          "ask_recipient": 0.03666666666666666,
+          "ask_scope": 0.03666666666666666,
+          "ask_format": 0.03666666666666666,
+          "ask_access_level": 0.03666666666666666,
+          "no_clarification_needed": 0.03666666666666666,
+          "ask_budget": 0.78
+        },
+        "confidence": 0.7433333333333334,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d78300cb751c4cbc61859c8cdad5f1550ff27980cae64a0e61b10e7c243d2404": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_scope",
+        "probabilities": {
+          "ask_deadline": 0.031666666666666655,
+          "ask_recipient": 0.031666666666666655,
+          "ask_format": 0.031666666666666655,
+          "ask_budget": 0.031666666666666655,
+          "ask_access_level": 0.031666666666666655,
+          "no_clarification_needed": 0.031666666666666655,
+          "ask_scope": 0.81
+        },
+        "confidence": 0.7783333333333334,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e8068366a432735539733af3267a6d33b4a3537af84d0746de313bb1d936bf2a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_scope",
+        "probabilities": {
+          "ask_deadline": 0.034999999999999996,
+          "ask_recipient": 0.034999999999999996,
+          "ask_format": 0.034999999999999996,
+          "ask_budget": 0.034999999999999996,
+          "ask_access_level": 0.034999999999999996,
+          "no_clarification_needed": 0.034999999999999996,
+          "ask_scope": 0.79
+        },
+        "confidence": 0.755,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ea4e5365a8ea3a3f2c0ed4f499b23796ef0f9f20b5dc876ac119d64c2ca9da30": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "no_clarification_needed",
+        "probabilities": {
+          "ask_deadline": 0.096,
+          "ask_recipient": 0.096,
+          "ask_scope": 0.096,
+          "ask_format": 0.096,
+          "ask_access_level": 0.096,
+          "no_clarification_needed": 0.3,
+          "ask_budget": 0.22
+        },
+        "confidence": 0.18333333333333332,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "fa00170463ad31ca0122d09a73b027a94895698d82f6b96a21973baa0031bedc": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_recipient",
+        "probabilities": {
+          "ask_deadline": 0.031666666666666655,
+          "ask_scope": 0.031666666666666655,
+          "ask_format": 0.031666666666666655,
+          "ask_budget": 0.031666666666666655,
+          "ask_access_level": 0.031666666666666655,
+          "no_clarification_needed": 0.031666666666666655,
+          "ask_recipient": 0.81
+        },
+        "confidence": 0.7783333333333334,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "fb7b04d0069959040b78bbbbb4310f5e41ef1aea03c26ac6bfe5fdb469b0892f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "clarification": {
+        "type": "choice",
+        "choice": "ask_format",
+        "probabilities": {
+          "ask_deadline": 0.034999999999999996,
+          "ask_recipient": 0.034999999999999996,
+          "ask_scope": 0.034999999999999996,
+          "ask_budget": 0.034999999999999996,
+          "ask_access_level": 0.034999999999999996,
+          "no_clarification_needed": 0.034999999999999996,
+          "ask_format": 0.79
+        },
+        "confidence": 0.755,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
