@@ -12,6 +12,22 @@ helpers = load_helpers(RECIPE)
 
 REAL_CATEGORIES = ["billing", "technical_issue", "account_access", "feature_request"]
 
+# Literal expected values, independent of helpers.OPTIONS/helpers.QUEUES, so a test failure
+# means the rule's actual behaviour moved, not just that it still agrees with itself.
+EXPECTED_OPTIONS = [
+    "billing",
+    "technical_issue",
+    "account_access",
+    "feature_request",
+    "unclear_request",
+]
+EXPECTED_QUEUES = {
+    "billing": "billing-queue",
+    "technical_issue": "tech-support-queue",
+    "account_access": "account-queue",
+    "feature_request": "product-queue",
+}
+
 
 def answer(probabilities):
     return ChoiceAnswer.from_probabilities(probabilities, Provenance.synthetic())
@@ -35,7 +51,7 @@ def test_questions_are_built_by_python():
     questions = helpers.build_questions()
     assert list(questions) == ["category"]
     category = questions["category"]
-    assert list(category.criteria) == list(helpers.OPTIONS)
+    assert list(category.criteria) == EXPECTED_OPTIONS
     assert all(isinstance(d, str) and d for d in category.criteria.values())
     assert isinstance(category.instructions, str) and category.instructions
 
@@ -48,7 +64,7 @@ def test_a_confident_real_category_is_routed_to_its_queue_whatever_the_label(lab
         "T1",
         label,
         helpers.ROUTED,
-        helpers.QUEUES[label],
+        EXPECTED_QUEUES[label],
     )
 
 
