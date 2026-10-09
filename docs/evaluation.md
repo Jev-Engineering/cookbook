@@ -119,7 +119,8 @@ confidences, so two fixture rows hand-written as separate mirror-pair literals c
 of coalescing into one. This is a property of floating-point decimal literals, not a bug in
 `noul_confidence` to fix by changing it here: #172 tracks rounding the confidence before candidate
 thresholds are taken (inside `noul_confidence`/`_conf_inputs`, or a dedupe in `selective_curve`) as
-a separate, later change.
+a separate, later change. Candidate-threshold deduplication is documented alongside its
+implementation.
 
 ### Multi-label
 
@@ -249,6 +250,34 @@ as `evaluate_selective`, with `threshold` NaN (no single confidence cut-off deci
 so a threshold is undefined here, not merely unreported — the module's general NaN convention,
 above).
 
+**Coverage counts delivered answers, not every decision the rule reaches.** `coverage =
+n_answered / n_total` counts only examples where the rule delivered its own answer as the result
+for that example. A deferral — an `unknown` or `needs_review` tag, a "manual triage" result,
+anything else that asks a person to answer rather than answering itself — fails CONTRIBUTING.md
+section 4 part (a) outright ("a complete answer to the question, not a deferral"): a deferral is
+always a review outcome, in the `ReviewQueue`, however confidently it was reached, and
+`accepted[i]` must be `False` for it. This is not about where the decision ends up recorded: a
+complete-answer fallback that is *also* noted in a backlog still counts toward coverage, because
+it passes part (a) regardless (recipe 22's `no_match` is logged to a `ReviewQueue` reused as an
+unmatched-asset backlog and is still `accepted=True`, see
+[docs/glossary.md](glossary.md#coverage)).
+What decides `accepted` is whether the rule answered the question it was asked, not which
+container received the result. (Orchestrator ruling 4, tracked from #164.)
+
+**Recipe 19 is the case this ruling changes, not one that already complies.** As merged, it
+reports `test` coverage with `evaluate_selective(test_correct, test_confidence, threshold)`,
+which counts every build whose raw choice clears the confidence gate toward the answered set —
+`unknown` included: five of the nineteen `test` builds name `unknown`; three of those five clear
+the `0.4400` gate and are queued in the `ReviewQueue` for a person to find the real cause
+(`reason: "no option fits"`), and the printed figure, `coverage 0.7895` (15 of 19), counts those
+three as answered. `unknown` is a deferral under part (a) — it says "ask a person", not "here is
+the cause" — so those three examples' `accepted` must be `False` whatever their confidence;
+recomputing with `evaluate_outcomes` and that correction gives `coverage 0.6316` (12 of 19)
+instead. Recipe 19's own correction is tracked by the recipe-side sweep (#163, which names this
+exact figure — 0.7895 → 0.6316 — among its routed findings), not made here; this paragraph names
+the gap between the shipped number and the rule rather than presenting `0.7895` as the compliant
+figure.
+
 **Note the argument order.** Every other function in this family leads with `correct`
 (`selective_curve(correct, confidence)`, `select_confidence_threshold(correct, confidence, ...)`,
 `evaluate_selective(correct, confidence, threshold)`); `evaluate_outcomes(accepted, correct)`
@@ -330,7 +359,7 @@ committed fixtures:
 | 14 | `not_stated` (×7) | membership check, fires on 0 examples | yes — but see the next paragraph for its 2 `no_candidates` short-circuits |
 | 16 | none (every category gated) | none | yes, `exempt=None` |
 | 18 | `no_match` (×12) | membership check, fires on 0 examples | yes |
-| 19 | none (gate first) | none | yes, `exempt=None` |
+| 19 | — | the model choosing `unknown` outright (×3 on `test`, ×2 on `validation`) | **no** |
 | 21 | — | the model choosing `needs_review` outright (×3); 22 of 38 scored examples are also settled with no model call at all | **no** |
 | 22 | `no_match` (×5) | membership check, fires on 0 examples | yes — but see the next paragraph for its 4 `no_candidate_resolution` short-circuits |
 | 23 | agreed `insufficient_evidence` (×8) | `judge_pair`'s "orders disagree" branch (×9) | **no** |
@@ -338,12 +367,13 @@ committed fixtures:
 For 11, 13, 14, 18 and 22, the single mask is exact *because* each rule's defensive membership
 check never actually fires on its committed fixtures — not because `exempt` can express a
 membership check in general; a future fixture that does trip one would need its own accounting.
-Recipes **21** and **23** unconditionally *reject* some examples regardless of confidence (the
-model naming `needs_review` outright in 21; `judge_pair`'s disagreement check in 23, which runs
-before any confidence is read) — there is no single `exempt`-shaped argument for "always sent to
-review no matter how confident", so neither recipe's curve is expressible here yet. Recipe 21 is
-one of the three recipes whose review asked for this function in the first place; it still cannot
-use it.
+Recipes **19**, **21** and **23** unconditionally *reject* some examples regardless of confidence
+(the model naming `unknown` outright in 19 — a deferral under CONTRIBUTING.md section 4 part (a),
+"Coverage counts delivered answers" above — `needs_review` outright in 21; `judge_pair`'s
+disagreement check in 23, which runs before any confidence is read) — there is no single
+`exempt`-shaped argument for "always sent to review no matter how confident", so none of the
+three recipes' curves is expressible here yet. Recipe 21 is one of the three recipes whose review
+asked for this function in the first place; it still cannot use it.
 
 **Examples with no confidence to report.** `confidences` is required for every example passed in,
 `exempt` included, and every value is validated to `[0, 1]` — but some examples never go through a
@@ -357,10 +387,45 @@ row in the arrays: leave it out of `confidences`/`correct`/`exempt` entirely —
 placeholder is not inert even though the example would stay exempt either way: `thresholds` is
 `numpy.unique` of every confidence passed in, so one placeholder value adds a row to that grid and
 moves the curve's x-axis, despite never changing which examples the mask selects. This is not a
-blanket ban on ever showing a stand-in number — #164 ruling 9 allows a disclosed, in-range,
-quantified one printed beside the figure it stands in for (e.g. "confidence: 0.00, no call made")
-— only on letting it reach `select_confidence_threshold`, `selective_curve` or `outcome_curve` as
-an input, exactly the answered-examples-only rule just above.
+blanket ban on ever showing a stand-in number. `docs/recipe-template.md`'s "a sentinel is not the
+same thing as a disclosed stand-in" rule (and #164 ruling 9) allows a disclosed, in-range,
+quantified one, but only where it cannot reach a function that derives threshold candidates from
+the array — `select_confidence_threshold`, `selective_curve` and `outcome_curve`, the
+answered-examples-only rule just above. `evaluate_selective` is not one of those three: it
+reapplies an already-frozen threshold rather than deriving one, so a disclosed stand-in for an
+example that never had a confidence to report may be handed to it. Recipe 14 is the shipped case:
+`t17` never reaches a question (no candidate span), so `confidence_only = [1.0 if a is None else
+a.confidence for a in test_answers]` stands in `1.0`, the top of the scale, specifically so that
+it reads as a sure thing and matches what `select_span` itself did with `t17` (accepted): the
+stand-in is never the reason anything is excluded from `evaluate_selective`'s gate. The opposite
+choice, `0.0`, would instead make the counterfactual abstain on an example the rule actually
+answered — deciding the outcome rather than standing in for a missing input, the sentinel
+behaviour this rule forbids. Disclosure alone is
+not enough: the notebook also quantifies what the stand-in costs, printing the gated view's
+coverage over all 21 test documents (9 of them, `0.4286`) beside the narrower, 20-document
+denominator a confidence gate could actually have applied to — the documents really asked a
+question (8 of them, `0.4000`) — the same "disclose and quantify against the narrower
+denominator" requirement `docs/recipe-template.md` states.
+
+**Print both Ns when a recipe short-circuits examples.** `outcome_curve`'s own denominator at
+every threshold is `len(confidences)` — the answered subset actually passed in — never the
+recipe's whole scored split, because a short-circuited example was never in `confidences` to
+begin with: no question was built for it, so there is no `Noul`/`Choice` answer to read a
+confidence from, whatever its `accepted` value turns out to be. `evaluate_outcomes`'s
+denominator, by contrast, is `len(accepted)`: the whole split, short-circuited examples included.
+A short-circuited example's own `accepted` entry follows CONTRIBUTING.md section 4 like any other:
+`not_stated` is a complete answer, not a deferral (section 4 part (a) names it explicitly), so
+recipe 14's `no_candidates` short-circuit is `accepted=True` — present in `evaluate_outcomes`'s
+count of answered examples, absent from `confidences` only because it never produced a confidence
+to report, not because it is treated as unanswered. A recipe that short-circuits some examples
+and reports both views must print both Ns next to their coverage figures, not just one of them:
+on recipe 14's `test` split (21 documents, one of which `no_candidates` answers before any
+question is built) an `outcome_curve` over the 20 documents that reach `select_span` reports
+coverage as a fraction of 20, while `evaluate_outcomes(test_accepted, test_correct)` over the
+same split — the short-circuited document counted as accepted — reports coverage as a fraction of
+21. Both denominators are correct for what each function computes; a reader shown one coverage
+number from each without both Ns printed beside them would be comparing two fractions over two
+different totals without any way to tell.
 
 ### Outcomes versus the confidence-only view
 
@@ -414,24 +479,31 @@ less informative: it can be the more flattering number, because it has no way to
 the rule's design lets through unchecked (an example below the confidence gate that the rule
 nonetheless answered through its other branch, or vice versa).
 
-**Showing the counterfactual for an exempted option.** CONTRIBUTING.md section 4's confidence-gate
-exemption is written narrowly: "a low-confidence fallback option ... *may* be delivered as a final
-result instead of going to review, but only when choosing it triggers no side effect" — a
-fallback option specifically, not any option that happens to have no side effect. A permissive
-option that is a real, confident category (an `allowed`/`ignore`-shaped outcome, say, as opposed to
-a `no_match`/`unclear`-shaped one) is not the case section 4 exempts, even when it too has no side
-effect: exempting it from the gate would let a confidently *wrong* permissive answer through with
-no check at all, which is exactly the failure mode an explicit review outcome exists to catch. A
-recipe that does legitimately exempt a true fallback option from its gate should still show the
-reader what gating it too would have cost or bought, as a reported counterfactual, not a silent
+**Showing the counterfactual for an exempted option.** CONTRIBUTING.md section 4's exemption is a
+three-part test, not a side-effect check alone — see section 4 for the full wording, summarised
+here: (a) the option is a complete answer to the question, not a deferral; (b) choosing it
+records no action in the `ActionLog` (a printed, explicitly-labelled "noted, no action" backlog
+entry is allowed; an actual action, however named, is not); (c) being wrong leaves nothing
+standing beyond the missed item itself, measured against having sent it to review instead. All
+three must pass before an option may be delivered at any confidence with no further gate. A
+permissive option that is a real, confident category — recipe 16's `allowed`, say, as opposed to
+a `no_match`/`unclear`-shaped one — does not pass this test even though choosing it has no side
+effect of its own in the sense of touching anything outside the simulation: `allowed` resolves to
+`ignore`, itself logged to the `ActionLog`, which fails (b); and a message that is really
+violating, wrongly let through as `allowed`, stays live with nobody warned at all — something
+standing beyond the missed item itself, which fails (c) — exactly the "exposure left open" part
+(c) itself names, and exactly the failure mode an explicit review outcome exists to catch. Recipe
+16 gates `allowed` like every other category for this reason. A recipe that does legitimately
+exempt an option passing all three parts should still show the reader what gating it too would
+have cost or bought, as a reported counterfactual, not a silent
 choice: build a second `accepted` that routes the exempted option through the same confidence
 check as everything else, and report both `evaluate_outcomes` results side by side (or, for the
 curve, two `outcome_curve` calls on the same `confidences`/`correct`: the real one with `exempt`
 set, the counterfactual with `exempt=None`), so "we chose to exempt this option" and "here is
-what gating it would have looked like" are both on the page. (A recipe that decided
-*not* to exempt a permissive option at all, gating it like everything else, needs none of this:
-its own `evaluate_outcomes` and `evaluate_selective` already agree, exactly as in "when the
-single numbers coincide" above.)
+what gating it would have looked like" are both on the page. (A recipe that decided *not* to
+exempt a qualifying option at all, gating it like everything else, needs none of this: its own
+`evaluate_outcomes` and `evaluate_selective` already agree, exactly as in "when the single numbers
+coincide" above.)
 
 ### Noul three-path pattern
 
