@@ -43,7 +43,8 @@ python tools/check_merge_readiness.py --pr 95 --expected-head <full 40-character
 | `--pr N` | Pull request number (required). |
 | `--expected-head SHA` | The full lowercase head SHA that was reviewed and that you intend to merge (required). |
 | `--repo OWNER/NAME` | Defaults to `Jev-Engineering/cookbook`. |
-| `--require-check NAME` | An additional required check, exact name, repeatable. |
+| `--require-check NAME` | An additional required check, exact name, repeatable. Required on current `main` AND the PR head. |
+| `--require-head-check NAME` | An additional required check, exact name, repeatable. Required on the PR head ONLY; never judged on current `main`. For a check that runs on `pull_request_target` (for example `Scope (recipe pull requests)`), which therefore never appears on a commit of `main`. |
 
 Exit status: `0` ready, `1` not ready, `2` usage error, `3` GitHub could not be read or
 returned data that cannot be trusted, including any unexpected internal failure. Once the
@@ -60,20 +61,39 @@ no receipt.
    merge base to be `main` itself, with the head ahead of or identical to it and zero commits
    behind. A branch behind `main` fails with guidance: update it with a signed integration of
    current `main`, then get a fresh review and CI of the new head.
-3. Every required check is present and `success` on **current `main`** and then on the **PR
-   head**, reading both CheckRuns and StatusContexts, with every page fetched and the reported
-   total matching what was seen. Missing, pending, failure, cancelled, timed out, neutral,
-   skipped, error, duplicate, conflicting, or ambiguous results all fail. One green workflow is
-   not the gate: each named check is judged on its own.
+3. Every check named with `--require-check` (the five baseline names plus any added with that
+   option) is present and `success` on **current `main`** and then on the **PR head**; every
+   check named with `--require-head-check` is present and `success` on the **PR head only** and
+   is never looked for on `main`. Both read CheckRuns and StatusContexts, with every page fetched
+   and the reported total matching what was seen. Missing, pending, failure, cancelled, timed
+   out, neutral, skipped, or error results all fail, for either option, as does a result from the
+   wrong app for a baseline name. One green workflow is not the gate: each named check is judged on
+   its own. A name that is a baseline check, or that is also given with `--require-check`, keeps
+   its `main` requirement even if it is also given with `--require-head-check`: the head-and-main
+   requirement always wins, and spelling a baseline as head-only never weakens it. Repeating a name
+   only deduplicates the requirement; it does not deduplicate actual results. More than one result
+   for one name is ambiguous and fails closed, **except** that several CheckRuns from the one same
+   app, all `success`, for a non-baseline name, collapse into a single `success` result (see
+   "Required checks" below for the exact rule, the `results`/`runs` receipt shape, and why); a
+   baseline name, any mix that is not all-`success`, or results from more than one source (a
+   StatusContext mixed with a CheckRun, two StatusContexts, or CheckRuns from different apps) stay
+   ambiguous and fail closed exactly as before.
 4. After collecting evidence it re-reads the default branch and the PR. If `main` or the head
    moved, or the PR is no longer open, it fails.
 
 Authentication failure, rate limiting, missing visibility, malformed or untyped API data, and
 incomplete listings all fail closed (exit `3`). The receipt contains SHAs, check names, ids and
-states, a failure list capped at 25 entries, and bounded text. It carries no tokens, headers,
-or raw API output or error bodies: `gh` output is decoded as strict UTF-8 (never the Windows
-code page), and bytes that are not valid UTF-8, non-JSON output, or an unexpected exception
-produce exit `3` with a one-line, type-only reason.
+states, a failure list capped at 25 entries, and bounded text. `required_checks` lists the names
+required on current `main` AND the head (the five baseline names plus every `--require-check`
+name); `required_head_checks` lists the names required on the head only (every
+`--require-head-check` name, minus any that are also baseline or `--require-check` names, since
+those already carry the stronger requirement). `checks.main` is judged against `required_checks`
+only, never against `required_head_checks`, so it never reports a head-only name as having been
+checked on `main`; `checks.head` is judged against both sets together, since every required name
+is checked on the head. The receipt carries no tokens, headers, or raw API output or error
+bodies: `gh` output is decoded as strict UTF-8 (never the Windows code page), and bytes that are
+not valid UTF-8, non-JSON output, or an unexpected exception produce exit `3` with a one-line,
+type-only reason.
 
 ### Required checks
 
@@ -88,27 +108,66 @@ The five baseline checks are always required. They are the job names in
 
 Each baseline name must be a **CheckRun published by `github-actions`**: a commit status or a
 CheckRun from another app posted under the same name cannot stand in for a missing Actions job
-and is reported as a failure. Checks you add with `--require-check` may be a CheckRun from any
-app or a StatusContext, since that is how external checks report; the receipt shows each one's
-`kind` and, for CheckRuns, the `app`. A name that appears more than once (for example as both a
-CheckRun and a StatusContext) is ambiguous and fails. CheckRuns are read with `filter=latest`, so
-a rerun replaces an earlier cancelled run of the same job.
+and is reported as a failure, whether the name reached the helper as a baseline, a
+`--require-check` or a `--require-head-check` name. Checks you add with `--require-check` or
+`--require-head-check` may be a CheckRun from any app or a StatusContext, since that is how
+external checks report; the receipt shows each one's `kind` and, for CheckRuns, the `app`.
+
+**A name that appears more than once is ambiguous and fails closed, with one narrow exception
+(#138).** The exception: a `--require-check` or `--require-head-check` name (never one of the
+five baseline checks) whose every completed result is a **CheckRun from the same app** and
+concluded `success` collapses into a single `success` result, and the receipt's evidence for that
+check carries `"state": "success"`, `"results"` (the true count), and `"runs"` — a list of every
+merged run's `id` and `state` (and `app`), capped at 10 entries with a `"runs_omitted"` count added
+when there were more, so the receipt stays bounded and auditable. This exists because `scope.yml`
+runs `Scope (recipe pull requests)` on `pull_request_target` for `opened`, `synchronize`,
+`reopened` and `edited`, so a description edit after the last push leaves two successful `Scope`
+CheckRuns, both from `github-actions`, on the same head; without the collapse the helper would
+fail closed forever on an otherwise fully green head.
+
+Every other multi-result case for such a name still fails closed exactly as before: a failure,
+neutral, cancelled, timed out, skipped, pending/in-progress row, or differing conclusions (the
+pre-#138 state-ambiguity case), **and, deliberately unchanged by #138, a result from more than one
+source under the same name** — a StatusContext mixed with a CheckRun, two StatusContexts (which
+carry no `app` to compare at all), or two CheckRuns from different apps. That source-ambiguity
+guarantee predates #138 (the docs above already use a CheckRun/StatusContext pair as the textbook
+example of an ambiguous name) and stays exactly as strict even when every one of those differently
+sourced results happens to be `success`: a spurious same-named result from a different actor must
+never be absorbed into a genuine check's evidence. A baseline name is *never* eligible for the
+collapse, regardless of its results, because nothing that reruns on `edited` publishes a baseline
+check, and the stricter app rule two paragraphs up already governs it. CheckRuns are read with
+`filter=latest`, so a rerun replaces an earlier cancelled run of the same job (this is also why the
+#138 scenario needs the collapse at all: `synchronize` and `edited` start two different check
+suites, so the second run adds a row rather than replacing one).
+
+A transient `success` + `pending`/`in_progress` pair for the same name — the instant between an
+`edited` rerun starting and finishing, with the first run's `success` still visible — reports as
+ambiguous (`NOT READY`) exactly like any other not-yet-all-success mix, and clears itself as soon
+as the second run completes. It belongs on the transient-wait list in
+["Where it fits in the serial merge"](#where-it-fits-in-the-serial-merge) below, not among the
+substantive failures: wait and rerun, the same as a still-computing `mergeable` state.
 
 The helper does not read workflow files. Checks added by later workflows (for example notebook
 execution or fixture validation) are **the caller's responsibility**: read the current workflows
-before each merge and pass every new check explicitly.
+before each merge and pass every new check explicitly, with `--require-check` when the check also
+runs on a push to `main`, or `--require-head-check` when it does not (see below).
 
 ```bash
 python tools/check_merge_readiness.py --pr 123 --expected-head <sha> \
-  --require-check "Notebooks (execute)" --require-check "Fixtures (validate)"
+  --require-check "Notebooks (execute)" --require-check "Fixtures (validate)" \
+  --require-head-check "Scope (recipe pull requests)"
 ```
 
-**A check that only runs on a pull request is a different case, and does not go on this list.**
-`Scope (recipe pull requests)` runs on `pull_request_target` and therefore never appears on a
-commit of `main` (see [notebook-ci.md](notebook-ci.md)); since this helper requires every
-`--require-check` name to be present on current `main` as well as on the head, passing it here
-would make the helper return `NOT READY` forever. Verify such a check by reading the pull request
-head's own `statusCheckRollup` directly instead of adding it here.
+**A check that only runs on a pull request is a different case, and is never required with
+`--require-check`.** `Scope (recipe pull requests)` runs on `pull_request_target` and therefore
+never appears on a commit of `main` (see [notebook-ci.md](notebook-ci.md)); the same is true of a
+per-recipe notebook job such as `Notebook (01-sentiment-classification)` before that recipe has
+landed on `main`. Pass names like these with `--require-head-check`, which judges them on the PR
+head only and never looks for them on `main`; `--require-check` still requires every name it is
+given to be present on current `main` as well as on the head, so passing a pull-request-only check
+there would make the helper return `NOT READY` forever. **A head-only check is never verified on
+`main`**, by design — a check required with `--require-head-check` says nothing about whether that
+name exists, or is green, on any commit of `main`, past or future.
 
 Checks on a pull request run on the merge result as of the last push, not on a `main` that moves
 afterwards, and a green run on an older `main` says nothing about a later one. That is why the
@@ -117,7 +176,7 @@ post-merge run below stays necessary.
 
 Checks outside the required set are not judged. Using only the baseline when a workflow has
 added a job silently under-checks, which is why the list is explicit and the receipt echoes
-`required_checks`.
+`required_checks` and `required_head_checks`.
 
 ## Where it fits in the serial merge
 
@@ -130,8 +189,15 @@ added a job silently under-checks, which is why the list is explicit and the rec
      happens lazily, for example right after `main` advances.
    - A required check is still pending (queued or in progress), for example on a freshly merged
      `main`.
+   - A `--require-check`/`--require-head-check` name reports `success` + `pending`/`in_progress`
+     (not yet `conflicting results`, which is the same ambiguous evidence but with the second run
+     already completed and not `success`): the instant between an `edited` rerun of a check such
+     as `Scope (recipe pull requests)` starting and finishing, with the first run's `success` still
+     on the commit (#138). It clears on its own as soon as the second run completes, collapsing to
+     `success` if that run also succeeds; if it does not, the result becomes a substantive failure
+     (ambiguous `conflicting results`), not a wait.
 
-   Wait until the state settles and rerun; never merge while either one holds. Every other
+   Wait until the state settles and rerun; never merge while any of these hold. Every other
    failure is substantive (a stale base, a failed, cancelled or missing check, a moved head, a
    draft or closed pull request): fix the cause rather than rerunning until green. A check that
    stays missing is not a wait and is never waived.
@@ -169,10 +235,21 @@ added a job silently under-checks, which is why the list is explicit and the rec
    Every required check (the five baseline names plus each `--require-check` used) must appear
    exactly once, `completed` with conclusion `success` (or state `success` for a status), and the
    printed counts must match the rows listed. Missing, pending, cancelled or duplicate rows mean
-   the merge is not verified. Push CI on `main` cancels an older run when a newer merge lands, so
-   a cancelled push run on a superseded commit is a real gap, as with PR #83: record it, rerun the
-   workflow on that exact commit, and read the rows again. Do not treat a later commit's green
-   run as proof for this one. If the merge commit is red, stop merging.
+   the merge is not verified. `Scope (recipe pull requests)` is permanently PR-only (it runs on
+   `pull_request_target`, never on a push), so it is never part of this post-merge list and is
+   never expected on the merge commit: it was verified on the merged pull request's head, before
+   the merge, and nothing checks it again here. **A per-recipe `Notebook (<recipe>)` job used with
+   `--require-head-check` before that recipe landed is different**: once the merge lands, the push
+   to `main` selects and runs exactly that recipe's job (see [notebook-ci.md](notebook-ci.md),
+   "Which notebooks run"), so it **is** expected on the merge commit, and the flag used before the
+   merge does not decide the post-merge list. Re-derive the full set of checks expected on this
+   exact `main` commit (the five baseline names, every `--require-check` name, and, for a recipe
+   merge, that recipe's own `Notebook (<recipe>)` name) and require all of them here, not only the
+   names that were `--require-check` before the merge. Push CI on `main` cancels an older run when
+   a newer merge lands, so a cancelled push run on a superseded commit is a real gap, as with
+   PR #83: record it, rerun the workflow on that exact commit, and read the rows again. Do not
+   treat a later commit's green run as proof for this one. If the merge commit is red, stop
+   merging.
 
    Do the next merge only after this verification is complete for the previous merge commit,
    with every required check `completed` and `success`. A pending row is a wait, not a pass.

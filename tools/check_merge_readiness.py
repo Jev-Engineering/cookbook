@@ -6,6 +6,8 @@ Standard library plus the ``gh`` CLI (read-only ``gh api`` GET requests only).
     python tools/check_merge_readiness.py --pr 95 --expected-head <40-hex sha>
     python tools/check_merge_readiness.py --pr 95 --expected-head <sha> \
         --require-check "Notebooks (execute)"
+    python tools/check_merge_readiness.py --pr 95 --expected-head <sha> \
+        --require-head-check "Scope (recipe pull requests)"
 
 Exit status: 0 ready, 1 not ready, 2 usage error, 3 GitHub API failure, incomplete data, or any
 unexpected internal failure (all fail closed). With valid arguments a bounded ASCII JSON receipt
@@ -30,10 +32,14 @@ from typing import Any
 DEFAULT_REPO = "Jev-Engineering/cookbook"
 
 # The baseline gate: the job names in .github/workflows/ci.yml and hygiene.yml. Checks added
-# by later workflows are the caller's responsibility, passed with --require-check.
+# by later workflows are the caller's responsibility, passed with --require-check (required on
+# current main and on the head) or --require-head-check (required on the head only, for a check
+# such as "Scope (recipe pull requests)" that runs on pull_request_target and therefore never
+# appears on a commit of main).
 # The app that publishes the baseline jobs. A baseline name is only satisfied by a CheckRun from
 # it, so a commit status posted under the same name cannot stand in for a missing Actions job.
-# Checks named with --require-check may be a CheckRun from any app or a StatusContext.
+# Checks named with --require-check or --require-head-check may be a CheckRun from any app or a
+# StatusContext.
 BASELINE_APP = "github-actions"
 BASELINE_CHECKS = (
     "Lint (ruff)",
@@ -47,6 +53,7 @@ PAGE_SIZE = 100
 MAX_PAGES = 10
 MAX_FAILURES = 25
 MAX_TEXT = 200
+MAX_MERGED_RUNS = 10
 GH_TIMEOUT_SECONDS = 60
 
 _SHA = re.compile(r"[0-9a-f]{40}")
@@ -254,7 +261,23 @@ def _run_state(status: str, conclusion: str | None) -> str:
 def judge_checks(
     found: list[dict], required: list[str], label: str
 ) -> tuple[list[dict], list[str]]:
-    """Return (evidence for the required checks, failures). Only exact 'success' passes."""
+    """Return (evidence for the required checks, failures). Only exact 'success' passes.
+
+    A ``--require-check`` or ``--require-head-check`` name (never one of the five
+    BASELINE_CHECKS, which stay the stricter layer #118 accepted) can legitimately get more than
+    one completed result on the same commit -- for example "Scope (recipe pull requests)", which
+    runs on ``pull_request_target`` and so reruns on a description `edited` after an earlier
+    `synchronize` already succeeded. Several such results collapse into one ``success`` result
+    if and only if every one of them is a CheckRun from the SAME app and concluded `success`; the
+    merged evidence then lists every run's id and conclusion, capped at MAX_MERGED_RUNS (#138).
+    Any other mix still fails closed exactly as before, ambiguous with the pre-#138
+    duplicate/conflicting message: a differing conclusion, a StatusContext mixed with a CheckRun,
+    two StatusContexts, or CheckRuns from different apps -- that source-ambiguity case is #118's,
+    deliberately untouched, so a spurious same-named result from a different actor cannot be
+    absorbed into a genuine check's evidence. A baseline name is never collapsed regardless of
+    its results, because nothing that reruns on `edited` publishes a baseline check, and the
+    baseline app rule below is already the stricter layer.
+    """
     by_name: dict[str, list[dict]] = {}
     for entry in found:
         by_name.setdefault(entry["name"], []).append(entry)
@@ -268,6 +291,20 @@ def judge_checks(
             evidence.append({"name": name, "state": "missing"})
         elif len(entries) > 1:
             states = sorted({e["state"] for e in entries})
+            one_source = all(e["kind"] == "check_run" for e in entries) and (
+                len({e["app"] for e in entries}) == 1
+            )
+            if name not in BASELINE_CHECKS and states == ["success"] and one_source:
+                merged = {
+                    "name": name,
+                    "state": "success",
+                    "results": len(entries),
+                    "runs": [_run_evidence(e) for e in entries[:MAX_MERGED_RUNS]],
+                }
+                if len(entries) > MAX_MERGED_RUNS:
+                    merged["runs_omitted"] = len(entries) - MAX_MERGED_RUNS
+                evidence.append(merged)
+                continue
             kind = "conflicting" if len(states) > 1 else "duplicate"
             failures.append(f"{label}: {kind} results ({len(entries)}) for check: {_clip(name)}")
             evidence.append({"name": name, "state": "ambiguous", "results": len(entries)})
@@ -287,6 +324,14 @@ def judge_checks(
             elif entry["state"] != "success":
                 failures.append(f"{label}: check {_clip(name)} is {_clip(entry['state'])}")
     return evidence, failures
+
+
+def _run_evidence(entry: dict) -> dict:
+    """One merged duplicate-success row's id and conclusion, kept small (#138 receipt evidence)."""
+    row = {"kind": entry["kind"], "id": entry["id"], "state": entry["state"]}
+    if entry["kind"] == "check_run":
+        row["app"] = _clip(entry["app"], 60)
+    return row
 
 
 def judge_pr(pr: dict, default_branch: str, expected_head: str) -> list[str]:
@@ -332,8 +377,23 @@ def check_ancestry(gh: GhRunner, repo: str, main_sha: str, head_sha: str) -> tup
     ]
 
 
-def assess(gh: GhRunner, repo: str, number: int, expected_head: str, extra: list[str]) -> dict:
+def assess(
+    gh: GhRunner,
+    repo: str,
+    number: int,
+    expected_head: str,
+    extra: list[str],
+    extra_head: list[str] = (),
+) -> dict:
+    """``extra`` names are required on current main AND the head; ``extra_head`` names (for
+    example "Scope (recipe pull requests)", which runs on ``pull_request_target`` and so never
+    appears on a commit of main) are required on the head only and are never judged on main. A
+    name that is a baseline check, or that also appears in ``extra``, keeps its main requirement
+    regardless of being repeated here: the head-and-main requirement always wins.
+    """
     required = list(dict.fromkeys([*BASELINE_CHECKS, *extra]))
+    required_head_only = [name for name in dict.fromkeys(extra_head) if name not in required]
+    required_on_head = [*required, *required_head_only]
     failures: list[str] = []
 
     branch, main_sha = fetch_main(gh, repo)
@@ -345,7 +405,9 @@ def assess(gh: GhRunner, repo: str, number: int, expected_head: str, extra: list
 
     main_checks, problems = judge_checks(collect_checks(gh, repo, main_sha), required, "main")
     failures += problems
-    head_checks, problems = judge_checks(collect_checks(gh, repo, pr["head_sha"]), required, "head")
+    head_checks, problems = judge_checks(
+        collect_checks(gh, repo, pr["head_sha"]), required_on_head, "head"
+    )
     failures += problems
 
     # Evidence took time; confirm nothing moved while it was collected.
@@ -374,6 +436,7 @@ def assess(gh: GhRunner, repo: str, number: int, expected_head: str, extra: list
         "mergeable_state": pr["mergeable_state"],
         "ancestry": ancestry,
         "required_checks": required,
+        "required_head_checks": required_head_only,
         "checks": {"main": main_checks, "head": head_checks},
         "failures": failures,
     }
@@ -402,8 +465,19 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
         action="append",
         default=[],
         metavar="NAME",
-        help="an additional required check name, exactly as it appears (repeatable). The five "
-        "baseline checks are always required; checks added by later workflows must be named here",
+        help="an additional required check name, exactly as it appears (repeatable), required on "
+        "current main AND the PR head. The five baseline checks are always required; checks "
+        "added by later workflows must be named here",
+    )
+    p.add_argument(
+        "--require-head-check",
+        action="append",
+        default=[],
+        metavar="NAME",
+        help="an additional required check name (repeatable), required on the PR head ONLY and "
+        "never judged on main; for a check such as 'Scope (recipe pull requests)' that runs on "
+        "pull_request_target and so never appears on a commit of main. A name that is also a "
+        "baseline check or a --require-check name keeps its main requirement",
     )
     args = p.parse_args(argv)
     if args.pr < 1:
@@ -414,6 +488,8 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
         p.error("--expected-head must be a full lowercase 40-character SHA")
     if any(not name.strip() or len(name) > MAX_TEXT for name in args.require_check):
         p.error("--require-check names must be non-empty and at most 200 characters")
+    if any(not name.strip() or len(name) > MAX_TEXT for name in args.require_head_check):
+        p.error("--require-head-check names must be non-empty and at most 200 characters")
     return args
 
 
@@ -433,7 +509,16 @@ def _fail_closed(args: argparse.Namespace, message: str) -> int:
 def main(argv: list[str] | None = None, gh: GhRunner = run_gh) -> int:
     args = parse_args(argv)
     try:
-        receipt = bounded(assess(gh, args.repo, args.pr, args.expected_head, args.require_check))
+        receipt = bounded(
+            assess(
+                gh,
+                args.repo,
+                args.pr,
+                args.expected_head,
+                args.require_check,
+                args.require_head_check,
+            )
+        )
     except ApiFailure as exc:
         return _fail_closed(args, f"cannot verify (failing closed): {exc}")
     except Exception as exc:  # any surprise must still fail closed with a receipt
