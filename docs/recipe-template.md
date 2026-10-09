@@ -43,6 +43,23 @@ measured**, **Next steps**. A recipe keeps these headings.
   the mode, and the setup cell passes `n_examples=len(scored)` in every mode.
 - **Validation chooses, test reports.** The one setting (a confidence threshold) is selected on
   `validation` with `select_confidence_threshold` and frozen before `test` is touched.
+- **`evaluate_selective` reports the same split as the rule only when the rule's only review
+  branch is that confidence gate.** `route` here has exactly one: a ticket goes to
+  `human_review` only for `none` or a low-confidence answer, so `evaluate_selective(correct,
+  confidence, threshold)` would reapply the identical test and agree with `route`'s own counts
+  (the template's own evaluation section does not call it, but several merged recipes built on
+  this template say so in those words). A rule with any other unconditional review branch — an
+  explicit fallback option it never confidence-checks (`unsorted`, `no_match`, `unclear`), a
+  check that the chosen option is really a member of some set, or anything else that does not
+  depend on `min_confidence` — can send an example to review that `evaluate_selective` would
+  still count as answered, or the reverse, so the sentence is false for it. Do not make it true
+  by handing the rejected examples a sentinel confidence (`0.0`, `-1.0`, ...) so the two
+  "happen" to agree: that construction is one-directional (it cannot follow a later change to
+  the rule's own confidence comparison) and an out-of-range sentinel can be selected as a
+  threshold outright (#155). Build selective coverage/accuracy/risk from the rule's own
+  accept/review decisions instead, with `jev_cookbook.evaluation.evaluate_outcomes(accepted,
+  correct)` — see "Selective prediction" in [evaluation.md](evaluation.md), which also proves
+  the two agree exactly when the rule really is confidence-only.
 - **Figures** are the last expression of a cell. They draw after `apply_style()`; the notebook
   needs no `%matplotlib inline` line.
 - **Nothing path-like is printed.** The hygiene scan fails notebook outputs that contain absolute

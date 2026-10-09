@@ -51,6 +51,7 @@ __all__ = [
     "exact_agreement",
     "exact_set_match",
     "expected_calibration_error",
+    "evaluate_outcomes",
     "evaluate_selective",
     "evaluate_threshold",
     "macro_average",
@@ -1006,6 +1007,7 @@ def _conf_inputs(
     conf = _floats(
         (x.confidence if hasattr(x, "confidence") else x for x in items),
         "confidence",
+        unit_interval=True,
     )
     _same_length(ok, conf, "correct and confidence")
     return ok, conf
@@ -1035,12 +1037,13 @@ def selective_curve(correct: Iterable[Any], confidence: Iterable[Any]) -> Select
 
     Args:
         correct: Whether each prediction was right (bool or 0/1).
-        confidence: Per-example confidence: numbers, or Choice/Score answers
+        confidence: Per-example confidence, in [0, 1]: numbers, or Choice/Score answers
             (``.confidence``). For Noul see :func:`noul_confidence`.
 
     Returns:
         A :class:`SelectiveCurve`. Every entry answers at least one example, so accuracy
-        is always defined. Empty input or unequal lengths raise ``ValueError``.
+        is always defined. Empty input, unequal lengths, or a confidence outside [0, 1]
+        (a sentinel such as -1.0 included) raise ``ValueError``.
     """
     ok, conf = _conf_inputs(correct, confidence)
     thresholds = np.unique(conf)[::-1]
@@ -1069,19 +1072,31 @@ def select_confidence_threshold(
     * ``min_coverage``: among thresholds with coverage ``>= min_coverage``, the one with
       the highest accuracy (ties go to the lower threshold, i.e. more coverage).
 
-    Candidates are the distinct observed confidence values. Call this on validation data
-    only, then report with :func:`evaluate_selective` on test data using the returned
-    value unchanged.
+    Candidates are the distinct observed confidence values, so the result is always in
+    [0, 1] itself. Call this on validation data only, then report with
+    :func:`evaluate_selective` on test data using the returned value unchanged.
+
+    A rule whose review branch is more than a confidence gate (an explicit fallback
+    option, a foreign-option check, any other unconditional branch) has no real
+    confidence for the answers it rejects outright. Do not invent one by feeding a
+    sentinel such as ``-1.0`` or ``2.0`` into ``confidence`` to make this function (or
+    :func:`evaluate_selective`) reproduce the rule's split: an out-of-range sentinel now
+    raises here before it can be selected as a threshold and handed back to the rule's
+    own ``min_confidence`` check. Compute the rule's own coverage/accuracy/risk with
+    :func:`evaluate_outcomes` instead; see "Selective prediction" in
+    ``docs/evaluation.md``.
 
     Args:
         correct: Whether each validation prediction was right.
-        confidence: Per-example confidence (numbers or answers with ``.confidence``).
+        confidence: Per-example confidence, in [0, 1] (numbers or answers with
+            ``.confidence``).
         target_accuracy: Accuracy to guarantee on the answered subset, in [0, 1].
         min_coverage: Minimum answered fraction, in (0, 1].
 
     Returns:
-        The threshold as a float. Raises ``ValueError`` on empty input, when not exactly
-        one criterion is given, or when no threshold satisfies it.
+        The threshold as a float, itself in [0, 1]. Raises ``ValueError`` on empty input,
+        a confidence outside [0, 1], when not exactly one criterion is given, or when no
+        threshold satisfies it.
     """
     if (target_accuracy is None) == (min_coverage is None):
         raise ValueError("give exactly one of target_accuracy and min_coverage")
@@ -1100,9 +1115,14 @@ def select_confidence_threshold(
 
 @dataclass(frozen=True)
 class SelectiveResult:
-    """Outcome of answering only when confidence >= ``threshold``.
+    """Outcome of answering only some examples, out of a total of ``n_total``.
 
     ``accuracy`` and ``risk`` are NaN when nothing was answered (``n_answered == 0``).
+    ``threshold`` is the frozen confidence cut-off that produced ``n_answered`` when this
+    came from :func:`evaluate_selective`; it is NaN when this came from
+    :func:`evaluate_outcomes` instead, because no single confidence cut-off decided which
+    examples were answered there, so a threshold is not merely unknown but undefined
+    (the module's general NaN convention: see ``docs/evaluation.md``).
     """
 
     threshold: float
@@ -1122,19 +1142,79 @@ def evaluate_selective(
     ``risk = 1 - accuracy``. Abstentions are not counted as errors. The threshold is an
     argument: choose it with :func:`select_confidence_threshold` on validation data.
 
+    This reapplies ``confidence >= threshold`` itself; it does not call the rule. That is
+    exactly right when the rule's only review branch *is* that confidence gate (nothing
+    else can send an example to review), and wrong otherwise: a rule with an additional
+    unconditional branch (an explicit fallback option such as ``no_match``, a check that
+    the chosen option is a real member of some set, or any other branch that does not
+    depend on ``min_confidence``) can reject an example this function would still count as
+    answered, or vice versa. For such a rule, build ``accepted``/``correct`` from what the
+    rule itself returned and use :func:`evaluate_outcomes` instead of reaching for this
+    function with a made-up confidence for the examples the rule rejects unconditionally.
+    See "Selective prediction" in ``docs/evaluation.md`` for the full convention.
+
     Args:
         correct: Whether each prediction was right.
-        confidence: Per-example confidence (numbers or answers with ``.confidence``).
+        confidence: Per-example confidence, in [0, 1] (numbers or answers with
+            ``.confidence``).
         threshold: The frozen cut-off.
 
     Returns:
-        A :class:`SelectiveResult`. Empty input or unequal lengths raise ``ValueError``.
+        A :class:`SelectiveResult`. Empty input, unequal lengths, or a confidence outside
+        [0, 1] (a sentinel such as -1.0 included) raise ``ValueError``.
     """
     ok, conf = _conf_inputs(correct, confidence)
     sel = conf >= threshold
     n_ans = int(sel.sum())
     acc = float(ok[sel].mean()) if n_ans else float("nan")
     return SelectiveResult(float(threshold), len(ok), n_ans, n_ans / len(ok), acc, 1.0 - acc)
+
+
+def evaluate_outcomes(accepted: Iterable[Any], correct: Iterable[Any]) -> SelectiveResult:
+    """Coverage and accuracy of a rule's own accept/review decisions.
+
+    Use this, not :func:`evaluate_selective`, for a rule whose review branch is more than
+    a single confidence gate: an explicit fallback option the rule never gates on
+    confidence (``no_match``, ``unclear``, ...), a check that the chosen option is really
+    a member of some set, or any other branch that can send an example to review (or let
+    it through) independently of ``confidence >= threshold``. Pass what the rule actually
+    did, not a reconstruction of it: ``accepted[i]`` is whether the rule answered example
+    ``i`` (True) or sent it to review (False), and ``correct[i]`` is whether an answered
+    example's answer was right (ignored, but still required, where ``accepted[i]`` is
+    False). Do not feed a sentinel confidence (``-1.0``, ``2.0``, ...) for the
+    unconditionally-rejected examples into :func:`select_confidence_threshold` or
+    :func:`evaluate_selective` to reproduce this split instead: that is exactly the
+    mistake this function exists to replace, and an out-of-range sentinel now raises in
+    both of those functions rather than silently leaking into a threshold.
+
+    ``coverage = n_answered / n``; ``accuracy = correct among answered / n_answered``;
+    ``risk = 1 - accuracy``, the same definitions as :func:`evaluate_selective`. For a
+    rule whose *only* review branch is a confidence gate, the two functions agree on
+    every field but ``threshold``: ``evaluate_outcomes(confidence >= t, correct)`` equals
+    ``evaluate_selective(correct, confidence, t)`` in ``n_total``, ``n_answered``,
+    ``coverage``, ``accuracy`` and ``risk`` (``threshold`` is NaN here, a real float
+    there), because ``accepted`` and ``conf >= threshold`` select exactly the same
+    examples. The two diverge as soon as the rule has a second, unconditional branch,
+    which is the case this function is for.
+
+    Args:
+        accepted: Whether the rule answered (as opposed to sent to review) each example,
+            as the rule itself decided it (bool or 0/1).
+        correct: Whether each answered example's answer was right (bool or 0/1).
+
+    Returns:
+        A :class:`SelectiveResult` with ``threshold`` NaN (see its docstring: no single
+        confidence cut-off produced ``accepted`` here, so a threshold is undefined, not
+        merely unreported). Empty input or unequal lengths raise ``ValueError``.
+    """
+    acc = _binary(_as_list(accepted, "accepted"), "accepted")
+    ok = _binary(_as_list(correct, "correct"), "correct")
+    _same_length(acc, ok, "accepted and correct")
+    n_ans = int(acc.sum())
+    accuracy_ = float(ok[acc].mean()) if n_ans else float("nan")
+    return SelectiveResult(
+        float("nan"), len(acc), n_ans, n_ans / len(acc), accuracy_, 1.0 - accuracy_
+    )
 
 
 # --------------------------------------------------------------------------- Calibration

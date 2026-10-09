@@ -29,6 +29,7 @@ out-of-range probabilities and invalid settings. No metric returns a number for 
 | nDCG | no item has positive gain |
 | recall at a budget | no item is relevant |
 | selective accuracy | nothing was answered |
+| `SelectiveResult.threshold` from `evaluate_outcomes` | always (no single confidence cut-off produced the split) |
 | reliability bin means | the bin is empty |
 
 **Macro averages** average over *present* classes (at least one gold or predicted example),
@@ -120,7 +121,47 @@ whose set is exactly right (two empty sets match).
 `selective_curve(correct, confidence)` gives accuracy, risk (`1 - accuracy`) and coverage at
 each distinct confidence threshold. `select_confidence_threshold(correct, confidence,
 target_accuracy=... | min_coverage=...)` picks the value to freeze. `evaluate_selective(correct,
-confidence, threshold)` reports coverage, accuracy, risk. Abstentions are not errors.
+confidence, threshold)` reports coverage, accuracy, risk. Abstentions are not errors. Every
+`confidence` here must lie in `[0, 1]`; all three functions raise `ValueError` otherwise, so a
+sentinel (`-1.0`, `2.0`, ...) cannot leak through `select_confidence_threshold` into a threshold
+and reach a rule's own `min_confidence` check.
+
+**A rule whose review branch is more than a confidence gate needs `evaluate_outcomes`, not a
+sentinel.** `evaluate_selective` reapplies `confidence >= threshold` itself; it never calls the
+rule. That is exactly right when the rule's only review branch *is* that gate — nothing else can
+send an example to review — and wrong otherwise. A rule with an unconditional second branch (an
+explicit fallback option such as `no_match` or `unclear` that is never confidence-checked, a
+check that the chosen option is really a member of some set, or any other branch that does not
+depend on `min_confidence`) can disagree with `evaluate_selective` about which examples were
+answered. Recipes have reached for a sentinel confidence to paper over this: hand the rejected
+examples a confidence of `0.0` (or, worse, `-1.0`) so `evaluate_selective` reproduces the rule's
+split by construction. This is fragile two ways. First, it is one-directional: a change to the
+rule's own confidence comparison does not change what the sentinel-fed call reports, so the two
+accounts can silently drift apart (seen in review on #148). Second, an out-of-range sentinel
+(`-1.0`) can be selected as "the threshold" by `select_confidence_threshold` itself whenever the
+target accuracy admits every answer, and that candidate then fails the rule's own `[0, 1]`
+validation when frozen and reused (#155) — which is exactly why confidence is now validated here.
+
+`evaluate_outcomes(accepted, correct)` reports coverage, accuracy and risk from the rule's own
+decisions instead: `accepted[i]` is whether the rule answered example `i` (not a confidence, not
+a reconstruction — what the rule actually returned), `correct[i]` is whether an answered
+example's answer was right. It returns the same `SelectiveResult` as `evaluate_selective`, with
+`threshold` NaN (no single confidence cut-off decided `accepted`, so a threshold is undefined
+here, not merely unreported — the module's general NaN convention, above).
+
+For a rule whose only review branch *is* a confidence gate, the two agree, which is checked
+directly (not merely argued) in `tests/test_evaluation.py`,
+`test_evaluate_outcomes_matches_evaluate_selective_for_a_confidence_only_rule`:
+
+```python
+accepted = [c >= threshold for c in confidence]
+evaluate_outcomes(accepted, correct) == evaluate_selective(correct, confidence, threshold)
+# equal in n_total, n_answered, coverage, accuracy, risk; threshold differs (NaN vs. the float)
+```
+
+Use `evaluate_outcomes` as soon as the rule has a second, unconditional branch (a fallback
+option, a membership check): build `accepted` from what the rule returned on each split, and
+never invent a confidence for the examples it rejects outright.
 
 ### Noul three-path pattern
 
@@ -195,7 +236,7 @@ Every result type is a frozen dataclass whose fields are plain attributes, so ot
 | `ClassificationCounts` | `tp`, `fp`, `fn`, `precision`, `recall`, `f1`, plus `support` and `present` (what `per_class_metrics` returns for each class) |
 | `ThresholdPoint` | `threshold`, `tp`, `fp`, `fn`, `tn`, `precision`, `recall`, `f1`; `threshold_sweep` returns `list[ThresholdPoint]` |
 | `SelectiveCurve` | `thresholds`, `coverage`, `accuracy`, `risk` (equal-length numpy arrays, one entry per threshold) |
-| `SelectiveResult` | `threshold`, `n_total`, `n_answered`, `coverage`, `accuracy`, `risk` |
+| `SelectiveResult` | `threshold`, `n_total`, `n_answered`, `coverage`, `accuracy`, `risk`; returned by both `evaluate_selective` and `evaluate_outcomes` (`threshold` is NaN from the latter) |
 | `ReliabilityBin` | `lower`, `upper`, `count`, `mean_probability`, `observed_rate` (the last two are NaN for an empty bin); `reliability_table` returns `list[ReliabilityBin]` |
 | `BootstrapResult` | `difference`, `lower`, `upper`, `confidence_level`, `n`, `n_resamples`, `seed` |
 | `UsageTotals` | `requests`, `input_tokens`, `output_tokens`, `total_tokens`, `requests_missing_input`, `requests_missing_output` |
