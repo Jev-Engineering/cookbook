@@ -7,8 +7,8 @@ Every response is synthetic (written by hand as probabilities, not produced by a
 deliberately imperfect: a few are wrong, several more are right but at low confidence, and one
 (``t16-mixed``) is wrong *and* confident, at 0.6000, comfortably above the threshold this recipe's
 notebook freezes on validation (0.4933) -- so the notebook's selective-prediction numbers show a
-real, non-zero risk on test rather than a guarantee that happens to hold. The hard cases the issue
-names are included and tagged in their id: sarcasm (``-sarcasm``), a review that praises one thing
+real, non-zero risk on test rather than a guarantee that happens to hold. The use case's hard cases
+are included and tagged in their id: sarcasm (``-sarcasm``), a review that praises one thing
 and condemns another (``-mixed``), a neutral statement of fact (``-neutral-fact``), and a very
 short review (``-short``). The replay keys come from the same ``build_state`` and
 ``build_questions`` the notebook uses, via ``helpers.py``.

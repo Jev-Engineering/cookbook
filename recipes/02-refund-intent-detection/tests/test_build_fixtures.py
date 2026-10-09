@@ -40,7 +40,7 @@ def test_the_committed_responses_are_byte_identical_to_the_recorders_writer():
     of what build_responses computes directly from ROWS, independent of what main() actually
     wrote to disk."""
     raw = (RECIPE / "fixtures" / "responses.json").read_text("utf-8")
-    module = load_module_at(SCRIPT, "recipe01_build_fixtures_for_test")
+    module = load_module_at(SCRIPT, "recipe02_build_fixtures_for_test")
     assert len(module.ROWS) > 1
     assert raw == _dump(module.build_responses(module.ROWS))
 
@@ -51,7 +51,7 @@ def test_build_fixtures_separates_inputs_labels_from_responses(tmp_path):
     rewritten from ROWS on every run, refused or not: only responses.json is guarded, and this
     also proves it by corrupting both files before the refused run and checking that they come
     back exactly as build_inputs_and_labels(ROWS) computes them, not merely "changed"."""
-    copy = tmp_path / "01-sentiment-classification"
+    copy = tmp_path / "02-refund-intent-detection"
     copy.mkdir()
     for name in ("helpers.py", "build_fixtures.py"):
         (copy / name).write_bytes((RECIPE / name).read_bytes())
@@ -77,7 +77,7 @@ def test_build_fixtures_separates_inputs_labels_from_responses(tmp_path):
     assert refused.returncode != 0
     assert "recorded" in refused.stderr and "--force" in refused.stderr
     assert responses.read_bytes() == before
-    module = load_module_at(script, "recipe01_build_fixtures_for_test_refused")
+    module = load_module_at(script, "recipe02_build_fixtures_for_test_refused")
     expected_inputs, expected_labels = module.build_inputs_and_labels(module.ROWS)
     assert inputs_path.read_text("utf-8") == _jsonl(expected_inputs)
     assert labels_path.read_text("utf-8") == _jsonl(expected_labels)
@@ -91,7 +91,7 @@ def test_build_fixtures_separates_inputs_labels_from_responses(tmp_path):
 
 
 def test_the_generator_reproduces_the_committed_fixtures(tmp_path):
-    copy = tmp_path / "01-sentiment-classification"
+    copy = tmp_path / "02-refund-intent-detection"
     copy.mkdir()
     for name in ("helpers.py", "build_fixtures.py"):
         (copy / name).write_bytes((RECIPE / name).read_bytes())
