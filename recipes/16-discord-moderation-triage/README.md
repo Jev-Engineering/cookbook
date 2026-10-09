@@ -6,7 +6,7 @@ Classify sample Discord messages as allowed, review-needed, or potentially viola
 
 ## What it teaches
 
-Jev supplies one narrow judgment, a typed `Choice` over three fixed categories Python builds: `allowed`, the explicit uncertain outcome `review_needed` (a message whose tone or context a reader cannot be sure of), and `potentially_violating`. Python owns everything else: the community rule and message text Jev sees, the identifiers that never reach the model, and a rule (`helpers.moderate`) that turns a category and its confidence into one of four simulated moderation actions -- `ignore`, `warn`, `hide`, or `escalate` to a person -- through `jev_cookbook.simulation`'s `ActionLog` and `ReviewQueue`. Nothing is ever posted, deleted, or sent to a real server. The notebook shows typed answers across this recipe's hard cases (sarcasm, a message that only quotes or reports someone else's abusive words, borderline banter, and a benign message with a trigger word), then the rule and the simulated queue it fills, then an evaluation that reports a confusion matrix, the separate cost of a false allow against a false flag, and the coverage, accuracy and risk the rule's own outcomes produce on a confidence gate chosen on `validation` and frozen before `test`.
+Jev supplies one narrow judgment, a typed `Choice` over three fixed categories Python builds: `review_needed` (the explicit uncertain outcome, for a message whose tone or context a reader cannot be sure of), `potentially_violating`, and `allowed`. Python owns everything else: the community rule and message text Jev sees, the identifiers that never reach the model, and a rule (`helpers.moderate`) that applies one confidence gate to every category alike -- the standard three-path pattern -- before turning the category into one of four simulated moderation actions: `ignore`, `warn`, `hide`, or `escalate` to a person, through `jev_cookbook.simulation`'s `ActionLog` and `ReviewQueue`. `allowed` gets no exemption from the gate: a confidently wrong `allowed` answer leaves a message standing that a person never sees, which is a real consequence, not a free action. Nothing is ever posted, deleted, or sent to a real server. The notebook shows typed answers across this recipe's hard cases (sarcasm, a message that only quotes or reports someone else's abusive words, borderline banter, and a benign message with a trigger word), then the rule and the simulated queue it fills, then an evaluation that reports a confusion matrix, the separate cost of a false allow against a false flag, and the coverage, accuracy and risk the gate produces, chosen on `validation` over every category and frozen before `test`.
 
 ## Run it offline
 
@@ -33,11 +33,11 @@ both modes. Install the SDK (`pip install -e ".[live]"`) and set `TYPESAFE_API_K
 `JEV_COOKBOOK_LIVE=1` and `JEV_COOKBOOK_LIVE_MODEL`; then open `notebook.ipynb` from this folder in
 Jupyter (not a dependency of this repository), or record answers with the recorder described in
 [docs/live.md](../../docs/live.md). `tools/execute_notebook.py` removes those variables on purpose
-and always runs offline. In live mode this notebook makes exactly one call for each of the 40
+and always runs offline. In live mode this notebook makes exactly one call for each of the 41
 examples in `fixtures/`, and no other (each message is decided once and the stored answer is reused
 wherever it is shown again). That is more than the live backend's default request budget of 25
 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)), so set
-`JEV_COOKBOOK_LIVE_MAX_REQUESTS=40` or higher before running this notebook live, or it stops partway
+`JEV_COOKBOOK_LIVE_MAX_REQUESTS=41` or higher before running this notebook live, or it stops partway
 through with `BudgetExceeded`. Never put a key in a notebook, a fixture, or any other committed file.
 
 ## What was and was not measured
@@ -45,17 +45,22 @@ through with `BudgetExceeded`. Never put a key in a notebook, a fixture, or any 
 - **Mode:** synthetic (offline replay of hand-written answers). Not measured live.
 - **Model, capture date:** not applicable; no answer came from a model. A recorded recipe names the
   model the API returned and the date or dates the answers were captured.
-- **N:** 19 `validation` and 19 `test` examples are scored (40 in the fixtures; the 2 `demo`
+- **N:** 19 `validation` and 20 `test` examples are scored (41 in the fixtures; the 2 `demo`
   examples are shown in the notebook but never scored).
 
-The committed run replays 40 invented Discord messages with hand-written (synthetic) answers, three
-wrong on purpose: one wrong and confident on `validation` (a message reporting someone else's
-abusive words, read as violating in its own right), which the confidence gate chosen on
-`validation` is selected to exclude, and two more on `test` -- a false allow the gate cannot catch
-structurally (`allowed` never passes through it) and a false flag confident enough to clear the
-gate anyway. Its confusion matrix, per-category metrics and the coverage, accuracy and risk the
-frozen confidence gate produces check that the pipeline works; they say nothing about how Jev
-performs, how fast it is, or what it costs. This recipe has no recorded fixtures.
+The committed run replays 41 invented Discord messages with hand-written (synthetic) answers, five
+wrong on purpose (the notebook derives this count, and which ones, from the fixtures rather than
+stating it, since this README's own text could drift from the fixtures where the notebook cannot):
+one wrong and confident on `validation`, which the confidence gate -- chosen over every category
+alike, `allowed` included -- is selected to exclude, and four more on `test`: two the gate catches
+(one of them a false allow, caught now that `allowed` is gated like every other category instead
+of being exempt from it), and two it does not -- a false flag that clears the gate (an allowed
+message wrongly hidden) and a false allow that clears it too (a message that actually violates
+the rule, read confidently as `allowed` and left standing: the cost the issue names, which gating
+`allowed` does not make impossible, only subject to the same gate every other category gets). Its
+confusion matrix, per-category metrics and the coverage, accuracy and risk the frozen gate produces check
+that the pipeline works; they say nothing about how Jev performs, how fast it is, or what it
+costs. This recipe has no recorded fixtures.
 
 ## Pull request rules
 

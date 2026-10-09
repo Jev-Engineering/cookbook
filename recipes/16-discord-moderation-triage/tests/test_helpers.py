@@ -6,21 +6,23 @@ import pytest
 
 from jev_cookbook import ChoiceAnswer, Provenance, get_backend, load_helpers, replay_key
 from jev_cookbook.fixtures import load_inputs, load_labels, responses_path
+from jev_cookbook.simulation import ReviewQueue
 
 RECIPE = Path(__file__).resolve().parent.parent
 helpers = load_helpers(RECIPE)
 
-# The threshold recipe 16's notebook chooses on validation and freezes before test (see
-# notebook.ipynb, "Python's part"): the lowest confidence among the gated validation examples
-# (review_needed or potentially_violating) whose answered subset is perfectly accurate -- which
-# is "v13-violating-harass"'s own stored confidence, printed as 0.7600 but not exactly that in
-# floating point (the Choice confidence formula divides by 2/3). Written here as a literal, to
-# the precision select_confidence_threshold actually returns it, so a change to this rule's
-# behaviour, not merely to the fixtures, is what the frozen-threshold tests below are pinned
-# against.
-FROZEN_THRESHOLD = 0.7599999999999998
+# The gate recipe 16's notebook chooses over all of validation and freezes before test (see
+# notebook.ipynb, "Python's part"): the lowest confidence whose answered subset -- every
+# category, allowed included -- is perfectly accurate. It happens to be the same value as the
+# recipe's first fix round (0.7600 printed; "v03-trigger-word" and "v13-violating-harass" both
+# carry it exactly), not by coincidence but because validation's "allowed" examples were raised
+# above it precisely so that re-selecting the gate over every category, not just the two flagged
+# ones, would not quietly lower it. Written here as a literal, to the precision
+# select_confidence_threshold actually returns it, so a change to this rule's behaviour, not
+# merely to the fixtures, is what the frozen-gate tests below are pinned against.
+FROZEN_GATE = 0.7599999999999998
 
-REAL_FLAGGED_CATEGORIES = [helpers.REVIEW_NEEDED, helpers.POTENTIALLY_VIOLATING]
+ALL_CATEGORIES = [helpers.ALLOWED, helpers.REVIEW_NEEDED, helpers.POTENTIALLY_VIOLATING]
 
 
 def answer(probabilities):
@@ -41,31 +43,31 @@ def _low_confidence(label):
     return answer({label: 0.36, **{o: rest for o in others}})
 
 
+_EXPECTED_ACTION = {
+    helpers.ALLOWED: helpers.IGNORE,
+    helpers.REVIEW_NEEDED: helpers.WARN,
+    helpers.POTENTIALLY_VIOLATING: helpers.HIDE,
+}
+
+
 def test_questions_are_built_by_python():
     questions = helpers.build_questions()
     assert list(questions) == ["triage"]
     triage = questions["triage"]
-    assert list(triage.criteria) == ["allowed", "review_needed", "potentially_violating"]
+    assert list(triage.criteria) == ["review_needed", "potentially_violating", "allowed"]
     assert all(isinstance(d, str) and d for d in triage.criteria.values())
     assert isinstance(triage.instructions, str) and triage.instructions
 
 
-def test_allowed_is_always_ignored_confident_or_not():
-    confident = helpers.moderate("M1", _confident(helpers.ALLOWED), 0.9)
-    unsure = helpers.moderate("M1", _low_confidence(helpers.ALLOWED), 0.9)
-    assert (confident.label, confident.action) == (helpers.ALLOWED, helpers.IGNORE)
-    assert (unsure.label, unsure.action) == (helpers.ALLOWED, helpers.IGNORE)
-
-
-@pytest.mark.parametrize("label", REAL_FLAGGED_CATEGORIES)
-def test_a_confident_flagged_category_acts_whatever_the_label(label):
+@pytest.mark.parametrize("label", ALL_CATEGORIES)
+def test_a_confident_category_acts_whatever_the_label(label):
+    # The standard three-path pattern: every category, allowed included, is gated the same way.
     result = helpers.moderate("M1", _confident(label), 0.5)
-    expected_action = helpers.WARN if label == helpers.REVIEW_NEEDED else helpers.HIDE
-    assert (result.label, result.action) == (label, expected_action)
+    assert (result.label, result.action) == (label, _EXPECTED_ACTION[label])
 
 
-@pytest.mark.parametrize("label", REAL_FLAGGED_CATEGORIES)
-def test_a_low_confidence_flagged_category_is_escalated_whatever_the_label(label):
+@pytest.mark.parametrize("label", ALL_CATEGORIES)
+def test_a_low_confidence_category_is_escalated_whatever_the_label(label):
     a = _low_confidence(label)
     assert a.choice == label
     result = helpers.moderate("M1", a, 0.9)
@@ -78,17 +80,28 @@ def test_an_option_outside_the_fixed_set_is_escalated():
     # rule does not trust that alone (CONTRIBUTING.md section 3: options are a fixed, supplied
     # set). ``from_probabilities`` accepts any option names and computes choice/confidence from
     # them, so an answer naming an option outside this recipe's three is still easy to build.
+    # The membership check runs before the confidence gate, so a very high confidence does not
+    # help a foreign option either.
     odd = ChoiceAnswer.from_probabilities({"mystery": 0.9, "allowed": 0.1}, Provenance.synthetic())
     result = helpers.moderate("M1", odd, 0.0)
     assert result.action == helpers.ESCALATE
     assert result.reason == "not one of the fixed categories"
 
 
-def test_the_threshold_is_inclusive():
+def test_the_gate_is_inclusive():
     a = _confident(helpers.POTENTIALLY_VIOLATING)
     t = a.confidence
     assert helpers.moderate("M1", a, t).action == helpers.HIDE
     assert helpers.moderate("M1", a, t + 1e-9).action == helpers.ESCALATE
+
+
+def test_the_gate_applies_to_allowed_too():
+    # The central claim this recipe makes after its first review round: allowed is not exempt.
+    # A confident allowed answer is accepted; the identical answer, gated at a threshold just
+    # above its own confidence, is escalated rather than ignored outright.
+    a = _confident(helpers.ALLOWED)
+    assert helpers.moderate("M1", a, a.confidence).action == helpers.IGNORE
+    assert helpers.moderate("M1", a, a.confidence + 1e-9).action == helpers.ESCALATE
 
 
 @pytest.mark.parametrize("bad", [-0.1, 1.1])
@@ -107,6 +120,19 @@ def test_the_state_hides_python_owned_fields():
     assert "Lumen Games Community" in state["rule"]
     assert "Do not harass, threaten, demean, or target a member" in state["rule"]
     assert state["rule"] == helpers.RULE_TEXT
+
+
+def test_the_review_queue_preserves_submission_order():
+    # Recipe 15's review asked for this: the populated moderator queue must come back in the
+    # order items were escalated, not merely hold the right items.
+    queue = ReviewQueue()
+    ids = ["M1", "M2", "M3", "M4"]
+    for message_id in ids:
+        low = _low_confidence(helpers.REVIEW_NEEDED)
+        result = helpers.moderate(message_id, low, 0.9)
+        assert result.action == helpers.ESCALATE
+        queue.submit({"message_id": message_id}, result.reason, answer=low)
+    assert [item["item"]["message_id"] for item in queue.to_dicts()] == ids
 
 
 def test_every_replay_key_in_the_fixtures_matches_the_current_question():
@@ -130,12 +156,12 @@ def test_stored_answers_are_not_all_right():
     assert wrong, "the fixtures should contain some wrong answers"
 
 
-def test_a_wrong_stored_answer_is_confident_at_or_above_the_frozen_threshold():
-    """The honest-threshold guard: a threshold is only informative if it is shown not catching
-    every mistake. ``t15-false-allow`` and ``t17-false-flag`` are wrong and, respectively,
-    0.7000 and 0.7750 confident; the second clears ``FROZEN_THRESHOLD`` (printed as 0.7600), and
-    both show a cost the confidence gate does not (``t15``, "allowed" never passes through the
-    gate) or does not always (``t17``, confident enough to clear it) prevent."""
+def test_a_wrong_stored_answer_is_confident_at_or_above_the_frozen_gate():
+    """The honest-gate guard: a gate is only informative if it is shown not catching every
+    mistake. ``t17-false-flag`` and ``t20-missed-violation`` are both wrong and confident
+    (0.7750 each), clearing ``FROZEN_GATE`` (printed as 0.7600): one hides an allowed message,
+    the other lets a violating one stand as ``allowed`` -- the gate applies to every category
+    alike, and still does not catch either."""
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
     labels = load_labels(RECIPE)
@@ -144,6 +170,6 @@ def test_a_wrong_stored_answer_is_confident_at_or_above_the_frozen_threshold():
         if e.id not in labels:
             continue
         triage = backend.decide(helpers.build_state(e.fields), questions)["triage"]
-        if triage.choice != labels[e.id] and triage.confidence >= FROZEN_THRESHOLD:
+        if triage.choice != labels[e.id] and triage.confidence >= FROZEN_GATE:
             confident_and_wrong.append(e.id)
-    assert confident_and_wrong, "at least one wrong answer should clear the frozen threshold"
+    assert confident_and_wrong, "at least one wrong answer should clear the frozen gate"

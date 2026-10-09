@@ -32,7 +32,10 @@ RULE_TEXT = (
 ALLOWED = "allowed"
 REVIEW_NEEDED = "review_needed"
 POTENTIALLY_VIOLATING = "potentially_violating"
-OPTIONS = (ALLOWED, REVIEW_NEEDED, POTENTIALLY_VIOLATING)
+# jev-1.13's documented option-order lean (S07 item 8) favours whichever option is listed
+# first. Listing ``allowed`` last, rather than first, points that lean away from the option
+# this recipe's rule trusts with no side effect, not toward it.
+OPTIONS = (REVIEW_NEEDED, POTENTIALLY_VIOLATING, ALLOWED)
 
 # Descriptions say what belongs to each category and, for the pair that is easiest to confuse
 # (review_needed vs. potentially_violating, over a message that quotes or reports someone
@@ -91,9 +94,10 @@ def build_questions() -> dict[str, Choice]:
 
 
 # The simulated moderation actions Python's rule can take, through ``jev_cookbook.simulation``
-# (``ActionLog`` for ``warn``/``hide``, ``ReviewQueue`` for ``escalate``): nothing is ever
-# posted, deleted, or sent to Discord (the issue's build note). ``IGNORE`` has no side effect at
-# all, so it is the one action the confidence gate never has to protect.
+# (``ActionLog`` for ``ignore``/``warn``/``hide``, ``ReviewQueue`` for ``escalate``): nothing is
+# ever posted, deleted, or sent to Discord. Every action but ``escalate`` is reached only once
+# the confidence gate clears; ``ignore`` still has no side effect, so there is nothing left for
+# a later step to protect once it is reached, but reaching it is gated like every other action.
 IGNORE = "ignore"
 WARN = "warn"
 HIDE = "hide"
@@ -111,32 +115,33 @@ class Moderation:
 
 
 def moderate(message_id: str, answer: Any, min_confidence: float) -> Moderation:
-    """Decide the simulated action for one message.
+    """Decide the simulated action for one message: the standard three-path pattern, applied to
+    every category alike.
 
-    ``allowed`` always resolves to ``ignore``: nothing happens, so there is no side effect for
-    a confidence gate to protect, and the option is final whatever its confidence (CONTRIBUTING.md
-    section 4: "Python owns every side effect."; a low-confidence fallback-shaped option may be
-    final only when it triggers no side effect, and this notebook says so). A defensive
-    membership check comes first, since the backend also rejects an option outside the fixed set
-    (CONTRIBUTING.md section 3: "Choice options are a fixed, supplied set."). Every action that
-    does have a side effect (``warn``, ``hide``, ``escalate``) goes through the confidence gate:
-    below ``min_confidence`` the message is always escalated to a person, whichever of the two
-    flagged categories Jev named, because acting on a side-effecting category without confidence
-    is exactly what the gate exists to prevent. A confident ``review_needed`` is warned rather
-    than hidden -- the category itself already says the message's violation is not clear-cut --
-    and a confident ``potentially_violating`` is hidden. The rule is code, so it holds whatever
-    the model answers.
+    A defensive membership check comes first, since the backend already rejects an option
+    outside the fixed set (CONTRIBUTING.md section 3: "Choice options are a fixed, supplied
+    set."). After that, **every** category -- ``allowed`` included -- goes through the same
+    confidence gate before anything else is decided: below ``min_confidence`` the message is
+    always escalated to a person, whatever category Jev named, because acting on *any* category
+    without confidence is what the gate exists to prevent, and leaving a message that is really
+    ``potentially_violating`` standing because it was confidently misread as ``allowed`` is
+    exactly the kind of consequence CONTRIBUTING.md section 4 asks a review outcome to catch --
+    ``allowed`` is a substantive judgement here, not the fallback-shaped option the section's
+    no-side-effect clause is about (that is ``review_needed``, and it is gated too). Only once a
+    category clears the gate does it decide the action: ``allowed`` resolves to ``ignore`` (no
+    side effect, so nothing is left for a later step to protect), a confident ``review_needed``
+    is warned rather than hidden -- the category itself already says the message's violation is
+    not clear-cut -- and a confident ``potentially_violating`` is hidden. The rule is code, so it
+    holds whatever the model answers.
     """
     if not 0.0 <= min_confidence <= 1.0:
         raise ValueError(f"min_confidence must be between 0 and 1, got {min_confidence!r}")
     if answer.choice not in OPTIONS:
         return Moderation(message_id, answer.choice, ESCALATE, "not one of the fixed categories")
-    if answer.choice == ALLOWED:
-        return Moderation(
-            message_id, ALLOWED, IGNORE, "allowed: no action, whatever the confidence"
-        )
     if answer.confidence < min_confidence:
         return Moderation(message_id, answer.choice, ESCALATE, "confidence below the threshold")
+    if answer.choice == ALLOWED:
+        return Moderation(message_id, ALLOWED, IGNORE, "confident allowed: no action")
     if answer.choice == REVIEW_NEEDED:
         return Moderation(
             message_id, REVIEW_NEEDED, WARN, "confident review_needed: warn, do not hide"
