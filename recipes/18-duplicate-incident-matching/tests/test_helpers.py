@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from jev_cookbook import ChoiceAnswer, Provenance, get_backend, load_helpers, replay_key
-from jev_cookbook.evaluation import select_confidence_threshold
+from jev_cookbook.evaluation import evaluate_outcomes, select_confidence_threshold
 from jev_cookbook.fixtures import load_inputs, load_labels, responses_path
 
 RECIPE = Path(__file__).resolve().parent.parent
@@ -322,8 +322,6 @@ def test_accepted_and_correct_marks_review_as_not_accepted():
 def test_accepted_and_correct_feeds_evaluate_outcomes():
     # The shared jev_cookbook.evaluation.evaluate_outcomes helper is the one this recipe's
     # notebook uses for coverage/accuracy/risk; this pins that the two functions still agree.
-    from jev_cookbook.evaluation import evaluate_outcomes
-
     results = [
         _resolution("a", "INC-101", helpers.LINKED),
         _resolution("b", "INC-102", helpers.LINKED),  # wrong link, gold is INC-101

@@ -18,8 +18,8 @@ this recipe's central trap; a ticket that matches nothing; and a `validation` ti
 answer falls into the trap and gets it wrong), then the rule and its one simulated action (an
 `ActionLog` entry recording a link, never executed), a sweep of the confidence gate so the choice
 of cut-off can be checked rather than taken on faith, then an evaluation that reports top-1 match
-accuracy, and coverage, risk and the false-merge rate taken from `jev_cookbook.evaluation.
-evaluate_outcomes` and the rule's own outcomes.
+accuracy, and coverage, risk and the false-merge rate taken from
+`jev_cookbook.evaluation.evaluate_outcomes` and the rule's own outcomes.
 
 ## Run it offline
 
