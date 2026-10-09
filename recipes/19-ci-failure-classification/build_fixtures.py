@@ -190,17 +190,18 @@ def _flaky_log(test_path, old, new, rerun=1):
 
 
 def _conflicting_log(warning, test_path, old, new, rerun=1):
-    """Two weak, non-matching signals in one log: a non-fatal dependency-resolver warning that
-    never blocks the install, and a flaky test that passes on rerun. Neither is decisive."""
+    """Two weak, non-matching signals, placed so both survive trim_log: a non-fatal
+    dependency-resolver warning right next to the test failure (within one line of it, so the
+    same context window that keeps the failure keeps the warning too), and a flaky test that
+    passes on rerun. Neither alone is decisive, which is the point."""
     return "\n".join(
         [
-            "$ pip install -r requirements.txt",
-            f"WARNING: {warning}",
             "$ pytest -q",
             "collected 140 items",
             "tests/ ................................",
             "=================================== FAILURES ====================================",
             f"____________________________ {test_path} ____________________________",
+            f"WARNING: {warning}",
             f"E   AssertionError: assert {new} {'==' if new != old else '>='} {old}",
             f"FAILED {test_path} - AssertionError (flaky: passed on rerun {rerun}/{rerun})",
             "139 passed, 1 flaky test rerun and passed in 29.91s",
@@ -208,16 +209,46 @@ def _conflicting_log(warning, test_path, old, new, rerun=1):
     )
 
 
-def _inconclusive_log(note):
-    """No failure, no error, no clear signal at all: nothing here matches a decisive pattern,
-    so helpers.trim_log falls back to the first lines of the log."""
+def _inconclusive_log(detail):
+    """A build that failed, with nothing in the log pointing at a cause: no dependency,
+    infrastructure, or test-failure pattern, so helpers.trim_log falls back to the first lines
+    of the log. The build genuinely failed (so "why did the build fail" is a fair question);
+    there is just no decisive signal to answer it with."""
     return "\n".join(
         [
             "$ pytest -q",
             "============================= test session starts ==============================",
             "collected 140 items",
-            f"{note}",
-            "##[warning]No test results were produced for this run.",
+            f"{detail}",
+            "##[error]Process completed with exit code 1.",
+        ]
+    )
+
+
+def _regression_log_scattered(path_a, old_a, new_a, path_b, old_b, new_b, collected=150):
+    """A genuine behaviour change again, but spread across two files with no visibly shared
+    cause: both failures are real assertions (no dependency or infrastructure signal at all),
+    but a reader seeing two different tests fail with two unrelated-looking numbers, instead of
+    one clean failure, might plausibly hedge rather than call it a confident test_regression."""
+    return "\n".join(
+        [
+            "$ pytest -q",
+            "============================= test session starts ==============================",
+            f"collected {collected} items",
+            "tests/ .........F..........F.......................",
+            "",
+            "=================================== FAILURES ====================================",
+            f"____________________________ {path_a} ____________________________",
+            f"    assert total == {old_a}",
+            f"E   AssertionError: assert {new_a} == {old_a}",
+            f"FAILED {path_a} - AssertionError: assert {new_a} == {old_a}",
+            "",
+            "=================================== FAILURES ====================================",
+            f"____________________________ {path_b} ____________________________",
+            f"    assert total == {old_b}",
+            f"E   AssertionError: assert {new_b} == {old_b}",
+            f"FAILED {path_b} - AssertionError: assert {new_b} == {old_b}",
+            f"2 failed, {collected - 2} passed in 24.88s",
         ]
     )
 
@@ -242,35 +273,35 @@ ROWS = [
         "validation",
         _fields("CI-10101", _regression_log("tests/test_pricing.py::test_total_with_discount", 42.50, 45.00)),
         TEST_REGRESSION,
-        _dist(TEST_REGRESSION, 0.88),
+        _dist(TEST_REGRESSION, 0.85),
     ),
     (
         "v-tr-02",
         "validation",
         _fields("CI-10102", _regression_log("tests/test_checkout.py::test_shipping_fee", 5.99, 7.99)),
         TEST_REGRESSION,
-        _dist(TEST_REGRESSION, 0.75),
+        _dist(TEST_REGRESSION, 0.65),
     ),
     (
         "v-tr-03",
         "validation",
         _fields("CI-10103", _regression_log("tests/test_inventory.py::test_stock_decrement", 10, 9)),
         TEST_REGRESSION,
-        _dist(TEST_REGRESSION, 0.60),
+        _dist(TEST_REGRESSION, 0.65),
     ),
     (
         "v-tr-04",
         "validation",
         _fields("CI-10104", _regression_log("tests/test_auth.py::test_session_expiry_minutes", 30, 15)),
         TEST_REGRESSION,
-        _dist(TEST_REGRESSION, 0.70),
+        _dist(TEST_REGRESSION, 0.85),
     ),
     (
         "v-tr-05",
         "validation",
         _fields("CI-10105", _regression_log("tests/test_reporting.py::test_monthly_total", 1200.00, 1150.00)),
         TEST_REGRESSION,
-        _dist(TEST_REGRESSION, 0.45),
+        _dist(TEST_REGRESSION, 0.40),
     ),
     # -- dependency_problem: install failures, a collection error, the hard cases. --------
     (
@@ -281,7 +312,7 @@ ROWS = [
             _dependency_install_log("acme-sdk", "No matching distribution found for acme-sdk==4.2.0"),
         ),
         DEPENDENCY_PROBLEM,
-        _dist(DEPENDENCY_PROBLEM, 0.80),
+        _dist(DEPENDENCY_PROBLEM, 0.85),
     ),
     (
         "v-dep-02",
@@ -294,7 +325,7 @@ ROWS = [
             ),
         ),
         DEPENDENCY_PROBLEM,
-        _dist(DEPENDENCY_PROBLEM, 0.58),
+        _dist(DEPENDENCY_PROBLEM, 0.65),
     ),
     (
         "v-dep-03-surfaces",
@@ -308,7 +339,9 @@ ROWS = [
             ),
         ),
         DEPENDENCY_PROBLEM,
-        _dist(TEST_REGRESSION, 0.82),  # wrong on purpose, and confidently so
+        _dist(TEST_REGRESSION, 0.52),  # wrong, and the one validation answer that pins the gate:
+        # select_confidence_threshold(target_accuracy=1.0) must set the threshold above this
+        # confidence (the lowest confidence below it, v-infra-05, does not also compete for it)
     ),
     (
         "v-dep-04-fartrim",
@@ -320,12 +353,12 @@ ROWS = [
                 3.14,
                 3.15,
                 "geo_sdk",
-                "No module named 'geo_sdk.regions'",
+                "No module named 'geo_sdk.regions' (version solving failed while installing geo_sdk)",
                 "tests/test_region_lookup.py::test_resolve_region_code",
             ),
         ),
         DEPENDENCY_PROBLEM,
-        _dist(DEPENDENCY_PROBLEM, 0.62),
+        _dist(DEPENDENCY_PROBLEM, 0.65),
     ),
     (
         "v-dep-05",
@@ -337,15 +370,15 @@ ROWS = [
             ),
         ),
         DEPENDENCY_PROBLEM,
-        _dist(DEPENDENCY_PROBLEM, 0.50),
+        _dist(DEPENDENCY_PROBLEM, 0.85),
     ),
     # -- infrastructure_failure: the runner itself, and the hard case that looks like a test. --
     (
         "v-infra-01",
         "validation",
-        _fields("CI-10301", _infra_log("The job was terminated: exit code 137 (out of memory).")),
+        _fields("CI-10301", _infra_log("The job was OOMKilled after exceeding its memory limit (exit code 137).")),
         INFRASTRUCTURE_FAILURE,
-        _dist(INFRASTRUCTURE_FAILURE, 0.78),
+        _dist(INFRASTRUCTURE_FAILURE, 0.85),
     ),
     (
         "v-infra-02",
@@ -355,14 +388,14 @@ ROWS = [
             _infra_log("The runner has received a shutdown signal and will be terminated."),
         ),
         INFRASTRUCTURE_FAILURE,
-        _dist(INFRASTRUCTURE_FAILURE, 0.66),
+        _dist(INFRASTRUCTURE_FAILURE, 0.65),
     ),
     (
         "v-infra-03",
         "validation",
         _fields("CI-10303", _infra_log("This step has timed out after 45 minutes.")),
         INFRASTRUCTURE_FAILURE,
-        _dist(INFRASTRUCTURE_FAILURE, 0.55),
+        _dist(INFRASTRUCTURE_FAILURE, 0.65),
     ),
     (
         "v-infra-04-looks-like-test",
@@ -376,7 +409,7 @@ ROWS = [
             ),
         ),
         INFRASTRUCTURE_FAILURE,
-        _dist(INFRASTRUCTURE_FAILURE, 0.60),
+        _dist(INFRASTRUCTURE_FAILURE, 0.65),
     ),
     (
         "v-infra-05",
@@ -386,7 +419,7 @@ ROWS = [
             _infra_log("Connection reset by peer while uploading test artifacts."),
         ),
         INFRASTRUCTURE_FAILURE,
-        _dist(TEST_REGRESSION, 0.35),  # wrong, but low confidence: the gate should catch it
+        _dist(TEST_REGRESSION, 0.30),  # wrong, comfortably below the pin above: caught either way
     ),
     # -- unknown: flaky, inconclusive, or genuinely conflicting logs. ---------------------
     (
@@ -394,17 +427,17 @@ ROWS = [
         "validation",
         _fields("CI-10401", _flaky_log("tests/test_webhook_delivery.py::test_retry_on_timeout", True, False)),
         UNKNOWN,
-        _dist(UNKNOWN, 0.70),
+        _dist(UNKNOWN, 0.85),
     ),
     (
         "v-unknown-02",
         "validation",
         _fields(
             "CI-10402",
-            _inconclusive_log("This run was superseded by a newer commit before any tests finished."),
+            _inconclusive_log("The build failed before producing a test report; the log has no further detail."),
         ),
         UNKNOWN,
-        _dist(UNKNOWN, 0.55),
+        _dist(UNKNOWN, 0.65),
     ),
     (
         "v-unknown-03",
@@ -429,7 +462,7 @@ ROWS = [
             _flaky_log("tests/test_session_cache.py::test_cache_hit_rate_within_bounds", 0.95, 0.91, rerun=2),
         ),
         UNKNOWN,
-        _dist(UNKNOWN, 0.30),
+        _dist(UNKNOWN, 0.40),
     ),
     # ======================================================================================
     # test
@@ -439,35 +472,46 @@ ROWS = [
         "test",
         _fields("CI-20101", _regression_log("tests/test_billing.py::test_tax_rate", 0.08, 0.075)),
         TEST_REGRESSION,
-        _dist(TEST_REGRESSION, 0.84),
+        _dist(TEST_REGRESSION, 0.85),
     ),
     (
         "t-tr-02",
         "test",
         _fields("CI-20102", _regression_log("tests/test_cart.py::test_item_count_after_remove", 3, 2)),
         TEST_REGRESSION,
-        _dist(TEST_REGRESSION, 0.68),
+        _dist(TEST_REGRESSION, 0.65),
     ),
     (
         "t-tr-03",
         "test",
         _fields("CI-20103", _regression_log("tests/test_shipping.py::test_delivery_estimate_days", 5, 7)),
         TEST_REGRESSION,
-        _dist(TEST_REGRESSION, 0.52),
+        _dist(TEST_REGRESSION, 0.65),
     ),
     (
         "t-tr-04",
         "test",
         _fields("CI-20104", _regression_log("tests/test_notifications.py::test_digest_frequency", 7, 14)),
         TEST_REGRESSION,
-        _dist(TEST_REGRESSION, 0.90),
+        _dist(TEST_REGRESSION, 0.85),
     ),
     (
         "t-tr-05-wrong",
         "test",
-        _fields("CI-20105", _regression_log("tests/test_loyalty_points.py::test_points_awarded_per_purchase", 100, 80)),
+        _fields(
+            "CI-20105",
+            _regression_log_scattered(
+                "tests/test_loyalty_points.py::test_points_awarded_per_purchase",
+                100,
+                80,
+                "tests/test_cart_summary.py::test_grand_total_rounding",
+                49.99,
+                49.49,
+            ),
+        ),
         TEST_REGRESSION,
-        _dist(UNKNOWN, 0.85),  # wrong and confident: shows the cost of never gating `unknown`
+        _dist(UNKNOWN, 0.75),  # wrong, and above the gate: two unrelated-looking failures,
+        # both real regressions from one shared change, read as inconclusive instead
     ),
     (
         "t-dep-01",
@@ -477,7 +521,7 @@ ROWS = [
             _dependency_install_log("search_index", "No matching distribution found for search_index==1.8.3"),
         ),
         DEPENDENCY_PROBLEM,
-        _dist(DEPENDENCY_PROBLEM, 0.72),
+        _dist(DEPENDENCY_PROBLEM, 0.85),
     ),
     (
         "t-dep-02-surfaces",
@@ -491,7 +535,7 @@ ROWS = [
             ),
         ),
         DEPENDENCY_PROBLEM,
-        _dist(TEST_REGRESSION, 0.85),  # the hard case the issue names: wrong, and confident
+        _dist(TEST_REGRESSION, 0.75),  # the hard case the issue names: wrong, and above the gate
     ),
     (
         "t-dep-03-fartrim",
@@ -508,7 +552,7 @@ ROWS = [
             ),
         ),
         DEPENDENCY_PROBLEM,
-        _dist(DEPENDENCY_PROBLEM, 0.58),
+        _dist(DEPENDENCY_PROBLEM, 0.65),
     ),
     (
         "t-dep-04",
@@ -521,17 +565,21 @@ ROWS = [
             ),
         ),
         DEPENDENCY_PROBLEM,
-        _dist(DEPENDENCY_PROBLEM, 0.47),
+        _dist(DEPENDENCY_PROBLEM, 0.40),
     ),
     (
         "t-dep-05",
         "test",
         _fields(
             "CI-20205",
-            _dependency_install_log("data_connector", "ERESOLVE could not resolve dependency tree for data_connector@2.4.0"),
+            _dependency_install_log(
+                "data_connector",
+                "pip's resolver found conflicting dependencies: data-connector 2.4.0 depends "
+                "on urllib3<2.0, but installed urllib3 is 2.1.0",
+            ),
         ),
         DEPENDENCY_PROBLEM,
-        _dist(DEPENDENCY_PROBLEM, 0.63),
+        _dist(DEPENDENCY_PROBLEM, 0.85),
     ),
     (
         "t-infra-01",
@@ -541,21 +589,21 @@ ROWS = [
             _infra_log("The self-hosted runner lost communication with the server; the job will be requeued."),
         ),
         INFRASTRUCTURE_FAILURE,
-        _dist(INFRASTRUCTURE_FAILURE, 0.80),
+        _dist(INFRASTRUCTURE_FAILURE, 0.85),
     ),
     (
         "t-infra-02",
         "test",
         _fields("CI-20302", _infra_log("This step has timed out after 60 minutes.")),
         INFRASTRUCTURE_FAILURE,
-        _dist(INFRASTRUCTURE_FAILURE, 0.68),
+        _dist(INFRASTRUCTURE_FAILURE, 0.65),
     ),
     (
         "t-infra-03",
         "test",
         _fields("CI-20303", _infra_log("Process completed with exit code 143 (terminated).")),
         INFRASTRUCTURE_FAILURE,
-        _dist(INFRASTRUCTURE_FAILURE, 0.50),
+        _dist(INFRASTRUCTURE_FAILURE, 0.40),
     ),
     (
         "t-infra-04-looks-like-test",
@@ -568,31 +616,31 @@ ROWS = [
             ),
         ),
         INFRASTRUCTURE_FAILURE,
-        _dist(INFRASTRUCTURE_FAILURE, 0.57),
+        _dist(INFRASTRUCTURE_FAILURE, 0.65),
     ),
     (
         "t-infra-05",
         "test",
         _fields("CI-20305", _infra_log("The runner has received a shutdown signal during cleanup.")),
         INFRASTRUCTURE_FAILURE,
-        _dist(INFRASTRUCTURE_FAILURE, 0.73),
+        _dist(INFRASTRUCTURE_FAILURE, 0.85),
     ),
     (
         "t-unknown-01",
         "test",
         _fields("CI-20401", _flaky_log("tests/test_email_delivery.py::test_bounce_handling", True, False)),
         UNKNOWN,
-        _dist(UNKNOWN, 0.65),
+        _dist(UNKNOWN, 0.85),
     ),
     (
         "t-unknown-02",
         "test",
         _fields(
             "CI-20402",
-            _inconclusive_log("This workflow run was manually canceled before the test job finished."),
+            _inconclusive_log("The build failed partway through; no test report and no further detail were logged."),
         ),
         UNKNOWN,
-        _dist(UNKNOWN, 0.48),
+        _dist(UNKNOWN, 0.65),
     ),
     (
         "t-unknown-03",
@@ -607,7 +655,7 @@ ROWS = [
             ),
         ),
         UNKNOWN,
-        _dist(UNKNOWN, 0.33),
+        _dist(UNKNOWN, 0.40),
     ),
     (
         "t-unknown-04",
@@ -617,7 +665,7 @@ ROWS = [
             _flaky_log("tests/test_rate_limiter.py::test_requests_per_minute_within_bounds", 60, 58, rerun=2),
         ),
         UNKNOWN,
-        _dist(UNKNOWN, 0.52),
+        _dist(UNKNOWN, 0.40),
     ),
     # -- demo: shown to the reader, never scored. ------------------------------------------
     (
@@ -632,7 +680,7 @@ ROWS = [
             ),
         ),
         None,
-        _dist(TEST_REGRESSION, 0.78),  # the same confident mistake, shown up close
+        _dist(TEST_REGRESSION, 0.75),  # the same confident mistake, shown up close
     ),
     (
         "demo-02-unknown-flaky",
@@ -642,7 +690,7 @@ ROWS = [
             _flaky_log("tests/test_notification_batch.py::test_batch_dedup", True, False),
         ),
         None,
-        _dist(UNKNOWN, 0.60),
+        _dist(UNKNOWN, 0.65),
     ),
 ]  # fmt: skip
 

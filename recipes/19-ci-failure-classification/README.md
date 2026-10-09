@@ -6,7 +6,7 @@ Classify a continuous-integration failure, from its log excerpt, as a test regre
 
 ## What it teaches
 
-Python trims each build's CI log down to the excerpt that matters *before* it ever builds a request, so the trimming is checked against the untrimmed log kept in the fixtures, not merely illustrated. Jev then reads the excerpt and picks exactly one of four outcomes — `test_regression`, `dependency_problem`, `infrastructure_failure`, or `unknown` — and Python looks up the next diagnostic workflow from a fixed table keyed by outcome, logging it to a simulated action log only when the answer is confident enough, except `unknown`, whose own workflow (manual triage) commits to no automated remedy and so needs no confidence gate at all.
+Python trims each build's CI log down to the excerpt that matters *before* it ever builds a request, so the trimming is checked against the untrimmed log kept in the fixtures, not merely illustrated. Jev then reads the excerpt and picks exactly one of four outcomes — `test_regression`, `dependency_problem`, `infrastructure_failure`, or `unknown` — and every one of the four goes through the same confidence gate. An answer below the gate is sent to a simulated review queue for a person to decide; an answer at or above it is accepted, and Python looks up the next diagnostic workflow from a fixed table keyed by outcome. Three of the four workflows name an automated remedy, logged to a simulated action log that never executes anything; the fourth, `unknown`'s own workflow (manual triage), names no automated remedy at all, so an accepted `unknown` answer is logged to the *same* review queue instead — accepted, not rejected for low confidence, but still a person's decision either way.
 
 ## Run it offline
 
@@ -36,9 +36,9 @@ of this repository), or record answers with the recorder described in
 and always runs offline. The live backend's default request budget is 25
 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)); every attempt counts
 against that budget, including each retry. In live mode this notebook makes exactly **40**
-calls, one for each of the 40 examples in `fixtures/` (each example — the four shown up close
-and the 19 `validation` plus 19 `test` builds — is decided once and the stored answer is reused
-wherever it is shown again). That is **above** the live backend's default request budget of 25:
+calls, one for each of the 40 examples in `fixtures/` — the 2 `demo` examples plus the 19
+`validation` and 19 `test` builds, each decided once and the stored answer reused wherever it
+is shown again. That is **above** the live backend's default request budget of 25:
 set `JEV_COOKBOOK_LIVE_MAX_REQUESTS=40` (or higher, to allow for a retry) before running this
 notebook live, or it stops partway through with `BudgetExceeded`. Never put a key in a notebook
 or a fixture.
@@ -55,11 +55,10 @@ A recorded recipe states the model version the API returned, the capture date an
 it reports, here and in the notebook.
 
 The offline run replays 40 hand-written (synthetic) CI log excerpts with synthetic answers, some
-wrong on purpose, including two wrong *and* confident in different ways on `test`: one the
-confidence gate catches (sent to review), one it structurally cannot (`unknown` is never
-gated). Its accuracy, the confusion matrix, the per-outcome counts and the selective
-coverage/accuracy/risk check that the pipeline works; they say nothing about how Jev performs,
-how fast it is, or what it costs.
+wrong on purpose, including two on `test` that are both wrong and confident enough to clear the
+gate, which is why `test` risk is non-zero. Its accuracy, the confusion matrix, the action log
+and review queue contents, and the selective coverage/accuracy/risk check that the pipeline
+works; they say nothing about how Jev performs, how fast it is, or what it costs.
 
 ## Pull request rules
 

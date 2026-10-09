@@ -50,14 +50,14 @@ _DESCRIPTIONS = {
     ),
 }
 
-# What Python does next for each outcome, keyed by outcome exactly as the build notes ask for.
-# The three substantive outcomes name an automated remedy that a real system would act on
-# (rerun the suite, pin and rebuild dependencies, requeue on a fresh runner), so Python only
-# logs one of them as chosen (via `ActionLog`, which never executes anything) when the answer
-# is both confident and a workflow Python recognises; UNKNOWN's workflow, manual triage, commits
-# to no automated remedy at all, so delivering it needs no confidence gate (CONTRIBUTING.md,
-# section 4: a low-confidence fallback option may be a final result when choosing it has no
-# side effect).
+# What Python does next when it accepts an answer, keyed by outcome exactly as the build notes
+# ask for: the next diagnostic workflow. The three substantive outcomes each name an automated
+# remedy a real system would act on (rerun the suite, pin and rebuild dependencies, requeue on
+# a fresh runner), so an accepted answer naming one of them is logged to `ActionLog`, which
+# never executes anything. `unknown`'s workflow, manual triage, names no automated remedy at
+# all -- it names asking a person -- so an accepted `unknown` answer is logged to `ReviewQueue`
+# instead of `ActionLog`: accepting it still means Jev was confident enough to be believed, but
+# what it is confident *of* is that nobody should act automatically here.
 WORKFLOWS = {
     TEST_REGRESSION: "rerun_suite_with_bisect",
     DEPENDENCY_PROBLEM: "pin_and_rebuild_dependencies",
@@ -69,12 +69,13 @@ WORKFLOWS = {
 # log, however far from the first failure; only the first line that names a test failure
 # anchors a window, because a log can carry many of those once a suite starts failing and
 # keeping every one of them would crowd out a decisive line that appears once, far away.
+# Public (no leading underscore): the notebook's keyword-regex baseline reuses these same
+# patterns directly, rather than re-deriving a second, possibly-drifting set.
 DEPENDENCY_RE = re.compile(
     r"ModuleNotFoundError"
     r"|ImportError: cannot import"
     r"|No matching distribution found"
     r"|Could not find a version that satisfies"
-    r"|ERESOLVE"
     r"|conflicting dependencies"
     r"|version solving failed"
 )
@@ -104,8 +105,8 @@ def trim_log(
     infrastructure problem, wherever it falls, and around the first line naming a test
     failure. A naive "window around the first failure" would miss a decisive line that sits
     far from it; scanning the whole log for the dependency and infrastructure patterns is what
-    this trimming does instead. When nothing matches (a flaky or inconclusive log), the excerpt
-    is the first ``max_lines`` lines, so the reader still sees where the log starts.
+    this trimming does instead. When nothing matches (an inconclusive log), the excerpt is the
+    first ``max_lines`` lines, so the reader still sees where the log starts.
     """
     lines = full_log.splitlines()
     keep: set[int] = set()
@@ -155,8 +156,9 @@ def build_questions() -> dict[str, Choice]:
 
 @dataclass(frozen=True)
 class Diagnosis:
-    """What Python decided for one build: an outcome and, when one applies, the simulated
-    next diagnostic workflow Python chose to log."""
+    """What Python decided for one build: ``outcome`` is the gold-comparable label when the
+    gate accepted the answer (one of ``OUTCOMES``, ``unknown`` included), or ``"review"`` when
+    the gate rejected it; ``workflow`` is the table entry for an accepted answer, or ``None``."""
 
     build_id: str
     outcome: str
@@ -174,31 +176,22 @@ def classify(
 ) -> Diagnosis:
     """Decide what happens with one classified CI failure.
 
-    ``unknown`` is delivered as a final result with no confidence gate at all: Python's own
-    ``WORKFLOWS`` table sends it straight to ``manual_triage``, which is logged in ``actions``
-    like every other workflow but commits to no automated remedy, so there is nothing left for
-    a confidence gate to protect (CONTRIBUTING.md, section 4). Every other option names an
-    automated remedy, which Python is only willing to log as chosen when the answer names a
-    workflow it recognises *and* is confident enough; anything else, including an answer naming
-    an option this rule does not have a workflow for, goes to ``queue`` with the reason recorded
-    instead, and no workflow is logged.
+    Every option goes through the same confidence gate first, whatever it is: an answer below
+    ``min_confidence`` is sent to ``queue`` with ``"confidence below the threshold"``, and that
+    is the only condition under which this happens. An answer at or above the gate is accepted;
+    what Python then does with it depends only on the workflow the table names for it, not on a
+    second gate. The three substantive outcomes name an automated remedy, logged to ``actions``.
+    ``unknown``'s workflow, manual triage, names no automated remedy, so an accepted ``unknown``
+    answer is logged to ``queue`` instead -- accepted, not rejected for low confidence, but
+    still a human's decision to make rather than an action Python proposes on its own.
+
+    "Accepted" here means exactly ``answer.confidence >= min_confidence``: nothing else about
+    the answer changes whether the gate lets it through, which is why this rule's own
+    accept/review split is reported with ``jev_cookbook.evaluation.evaluate_selective`` rather
+    than reimplemented.
     """
     if not 0.0 <= min_confidence <= 1.0:
         raise ValueError(f"min_confidence must be between 0 and 1, got {min_confidence!r}")
-    if answer.choice == UNKNOWN:
-        workflow = WORKFLOWS[UNKNOWN]
-        actions.record(workflow, {"build": build_id}, answer=answer, rule="no option fits")
-        return Diagnosis(build_id, UNKNOWN, workflow, "no option fits")
-    if answer.choice not in WORKFLOWS:
-        # Defensive, not required: the backend already rejects an answer whose choice is
-        # outside the question's own options before this rule ever sees it (docs/backends.md).
-        # Kept anyway, with its own reason, because naming the boundary is worth the branch.
-        queue.submit(
-            {"build": build_id, "choice": answer.choice},
-            "not a workflow Python may use",
-            answer=answer,
-        )
-        return Diagnosis(build_id, REVIEW, None, "not a workflow Python may use")
     if answer.confidence < min_confidence:
         queue.submit(
             {"build": build_id, "choice": answer.choice},
@@ -206,6 +199,18 @@ def classify(
             answer=answer,
         )
         return Diagnosis(build_id, REVIEW, None, "confidence below the threshold")
+    # Every question option is a key of WORKFLOWS (OUTCOMES and WORKFLOWS are built from the
+    # same names), and the backend already rejects an answer whose choice is outside the
+    # question's own options before this rule ever sees it (docs/backends.md): indexing
+    # directly relies on that guarantee rather than re-checking it, as backends.md documents as
+    # an equally acceptable alternative to a defensive membership branch.
     workflow = WORKFLOWS[answer.choice]
+    if answer.choice == UNKNOWN:
+        queue.submit(
+            {"build": build_id, "choice": answer.choice, "workflow": workflow},
+            "no option fits",
+            answer=answer,
+        )
+        return Diagnosis(build_id, UNKNOWN, workflow, "no option fits")
     actions.record(workflow, {"build": build_id}, answer=answer, rule="confident match")
     return Diagnosis(build_id, answer.choice, workflow, "confident match")
