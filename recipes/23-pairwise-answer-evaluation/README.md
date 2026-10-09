@@ -47,30 +47,30 @@ Live calls are opt-in and change nothing but the backend. Install the SDK
 `JEV_COOKBOOK_LIVE_MODEL`; then open `notebook.ipynb` from this folder in Jupyter (not a dependency
 of this repository), or record answers with the recorder described in
 [docs/live.md](../../docs/live.md). `tools/execute_notebook.py` removes those variables on purpose
-and always runs offline. The live backend's default request budget is 25
-(`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)); every attempt counts
-against that budget, including each retry.
+and always runs offline.
+
 Every comparison needs two calls, not one: the two candidates in one order, then the same two
-with the order swapped. This notebook makes exactly 80 calls in live mode (two for each of the
-40 comparisons in `fixtures/`, including the two `demo` ones shown up close), and no other: each
+with the order swapped. This notebook makes exactly 82 calls in live mode (two for each of the
+41 comparisons in `fixtures/`, including the two `demo` ones shown up close), and no other: each
 request is cached by comparison id and order, so an answer shown earlier and scored again later
-is never requested twice. 80 is well above the live backend's default request budget of 25
-(`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)), so set
-`JEV_COOKBOOK_LIVE_MAX_REQUESTS=80` or higher before running this notebook live, or it stops
-partway through with `BudgetExceeded`. Never put a key in a notebook or a fixture.
+is never requested twice. 82 is well above the live backend's default request budget of 25
+(`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)); every attempt counts
+against that budget, including each retry, so set `JEV_COOKBOOK_LIVE_MAX_REQUESTS=82` or higher
+before running this notebook live, or it stops partway through with `BudgetExceeded`. Never put a
+key in a notebook or a fixture.
 
 ## What was and was not measured
 
 - **Mode:** synthetic (offline replay of hand-written answers). Not measured live.
 - **Model, capture date:** not applicable; no answer came from a model. A recorded recipe names
   the model the API returned and the date or dates the answers were captured.
-- **N:** 19 `validation` and 19 `test` comparisons are scored (40 comparisons and 80 requests in
+- **N:** 19 `validation` and 20 `test` comparisons are scored (41 comparisons and 82 requests in
   the fixtures; the 2 `demo` comparisons are shown in the notebook but never scored).
 
 A recorded recipe states the model version the API returned, the capture date and N for every number
 it reports, here and in the notebook.
 
-The committed run replays 80 stored answers (two per comparison) for 40 hand-written comparisons,
+The committed run replays 82 stored answers (two per comparison) for 41 hand-written comparisons,
 some deliberately wrong and some deliberately inconsistent between the two orders. Its accuracy,
 Cohen's kappa, order-consistency rate, and the coverage/accuracy/risk of the frozen confidence
 gate check that the pipeline works; they say nothing about how Jev performs, how fast it is, or
