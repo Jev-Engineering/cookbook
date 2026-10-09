@@ -73,9 +73,9 @@ distribution.
 ## confidence
 
 A single number from 0 to 1 that summarizes the shape of a `Choice` or `Score` distribution: 1 when
-all the probability is on one outcome, 0 when it is spread evenly. A `Noul` has none
-([S03](https://docs.typesafe.ai/confidence)). Because the answer's `probabilities` are included,
-you can recompute it, and the cookbook checks stored answers against these formulas.
+all the probability is on one outcome, 0 when it is spread evenly. A `Noul` has none (see the
+Noul bullet below). Because the answer's `probabilities` are included, you can recompute it, and
+the cookbook checks stored answers against these formulas.
 
 - **Choice**, with `n` options and `p_max` the probability of the selected option:
   `(p_max - 1/n) / (1 - 1/n)`. Only the top probability counts. It is not the raw top
@@ -85,6 +85,11 @@ you can recompute it, and the cookbook checks stored answers against these formu
   the middle level), and floored at 0. Probability on a neighbouring level lowers it less than the
   same probability on a distant level. The exact formula, with a worked example, is on the
   [confidence page](https://docs.typesafe.ai/confidence) (S03).
+- **Noul** has no `confidence` field, but the [confidence page](https://docs.typesafe.ai/confidence)
+  (S03) defines one for it anyway, as the Choice formula above applied to a yes-or-no Choice
+  (`n = 2`, `p_max = max(p, 1 - p)`), which reduces to `|2p - 1|` for a Noul's probability `p`:
+  0 at `p = 0.5`, 1 at `p = 0` or `p = 1`. It is on the *same* 0-1 scale as Choice confidence, not
+  a separate convention. [evaluation.md](evaluation.md) provides this as `noul_confidence(noul)`.
 
 ## threshold
 
