@@ -149,7 +149,11 @@ own first use the same way.
   is drawn from `test`, which is never a selection step, so this does not arise there; a recipe
   that plots a `validation` figure (a threshold sweep used to justify the choice, say) still gives
   its title only `{check}`, because the figure is read as a pipeline check in that run, not
-  additionally re-labelled as a selection step the way a printed number is.
+  additionally re-labelled as a selection step the way a printed number is. This rule covers the
+  evaluation chart helpers — `plot_confusion_matrix`, `plot_risk_coverage`, `plot_threshold_sweep`
+  — each of which summarises a whole split; it does not reach `plot_answer_probabilities` shown
+  for one answer up close (the template's own `title="One Choice answer"`), which is neither a
+  pipeline check nor a selection step on an aggregate and so carries no disclosure label at all.
 - **Nothing path-like is printed.** The hygiene scan fails notebook outputs that contain absolute
   paths, usernames or environment dumps.
 - **`Noul` propositions are statements** that can be true or false. The contract is stricter than
