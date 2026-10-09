@@ -35,14 +35,14 @@ OUTCOMES = (MATCH, PARTIAL_MATCH, NO_MATCH, NEEDS_REVIEW)
 
 _CRITERIA = {
     MATCH: (
-        "The response names the accepted answer itself, or an equally specific way of saying "
-        "it (a recognisable misspelling, a title plus the accepted name, or extra detail that "
-        "is itself true), with no part of the response naming something else instead."
+        "The response names the accepted answer itself, or adds wording before or after it "
+        "(a title, a role, or another detail) that does not name a different answer, or is a "
+        "misspelling close enough that no other reading fits."
     ),
     PARTIAL_MATCH: (
-        "The response names something closely related to the accepted answer, such as a "
-        "group, role or relation the accepted answer belongs to, but not the accepted answer "
-        "itself, or it is missing a part of the answer that every accepted phrasing includes."
+        "The response names a person or thing related to the accepted answer, such as a role "
+        "connected to it, a group it is part of, or someone closely associated with it, but "
+        "not the accepted answer itself."
     ),
     NO_MATCH: (
         "The response names something that is not the accepted answer and is not closely "
@@ -167,6 +167,19 @@ def candidate_set(quiz_id: str) -> list[str]:
     return list(QUESTION_BANK[quiz_id]["accepted"])
 
 
+def queue_item(fields: dict[str, Any]) -> dict[str, Any]:
+    """What a human adjudicator sees for one queued response: the quiz id, the question text,
+    and the response itself, not only an identifier (CONTRIBUTING.md section 4: the queue is
+    the side effect a `needs_review` outcome triggers, and an item with nothing to read is not
+    something a person can actually adjudicate)."""
+    quiz = QUESTION_BANK[fields["quiz_id"]]
+    return {
+        "quiz_id": fields["quiz_id"],
+        "question": quiz["question"],
+        "response": fields["response"],
+    }
+
+
 def build_state(fields: dict[str, Any]) -> dict[str, Any]:
     """The state Jev sees for one response: the question, the candidate set, and the
     response. ``fields`` also carries ``quiz_id``, which stays in Python: it is only a lookup
@@ -202,8 +215,12 @@ def settle(fields: dict[str, Any]) -> str | None:
     it does not (`no_match`), including when the response names no number at all. A
     `TEXT`-kind question is settled only when its normalised response exactly equals the
     normalised form of some accepted phrasing (`match`); anything else, including a
-    misspelling, an over-specific answer, an unanticipated alternative name, a hedge or a
-    wrong answer, needs Jev's judgment and this returns ``None``.
+    misspelling, an over-specific answer, a hedge or a wrong answer, needs Jev's judgment and
+    this returns ``None``. An alternative phrasing this recipe did not anticipate (one not in
+    ``QUESTION_BANK``'s own ``accepted`` tuple) is exactly that "anything else": it is not
+    settled here either, whatever its meaning, because the normaliser only ever certifies a
+    match against a phrasing Python was told about in advance; telling a genuine alternative
+    apart from a wrong answer is Jev's job, not this function's.
     """
     quiz = QUESTION_BANK[fields["quiz_id"]]
     response = fields["response"]
@@ -217,23 +234,30 @@ def settle(fields: dict[str, Any]) -> str | None:
 
 @dataclass(frozen=True)
 class Adjudication:
-    """What Python decided for one response: the outcome, why, and whether a model call was
-    needed to reach it."""
+    """What Python decided for one response: which example this is, the outcome, why, and
+    whether a model call was needed to reach it.
 
-    quiz_id: str
+    ``example_id`` is whatever the caller passes as the first argument to ``adjudicate``
+    (this recipe always passes the fixture's own id, such as ``"d02-review"``); it is not a
+    quiz id. A quiz id (such as ``"tower"``) is in ``fields["quiz_id"]``, unchanged, and in
+    ``queue_item``'s output, for anything that needs to look the quiz up.
+    """
+
+    example_id: str
     outcome: str
     reason: str
     settled_without_a_call: bool
 
 
 def adjudicate(
-    quiz_id: str, fields: dict[str, Any], answer: Any, min_confidence: float
+    example_id: str, fields: dict[str, Any], answer: Any, min_confidence: float
 ) -> Adjudication:
     """Adjudicate one response.
 
-    The normaliser goes first (``settle``); if it can decide, Jev is never asked and
-    ``answer`` is not read at all. Otherwise ``answer`` must be Jev's `Choice` answer to the
-    question ``build_questions`` returns, and two independent conditions each send it to
+    The normaliser goes first (``settle``) and wins whenever it can decide, unconditionally:
+    even a supplied ``answer`` that disagrees with it is never read, not only when ``answer``
+    is ``None``. Otherwise ``answer`` must be Jev's `Choice` answer to the question
+    ``build_questions`` returns, and two independent conditions each send it to
     ``needs_review`` instead of reporting a grade: Jev choosing `needs_review` itself (an
     outcome Python never second-guesses), and a confidence below ``min_confidence`` for any of
     the other three choices. `needs_review` is never a final score: CONTRIBUTING.md section 4
@@ -244,11 +268,11 @@ def adjudicate(
         raise ValueError(f"min_confidence must be between 0 and 1, got {min_confidence!r}")
     settled = settle(fields)
     if settled is not None:
-        return Adjudication(quiz_id, settled, "settled by the normaliser, no model call", True)
+        return Adjudication(example_id, settled, "settled by the normaliser, no model call", True)
     if answer is None:
-        raise ValueError(f"{quiz_id} was not settled by the normaliser and needs a Jev answer")
+        raise ValueError(f"{example_id} was not settled by the normaliser and needs a Jev answer")
     if answer.choice == NEEDS_REVIEW:
-        return Adjudication(quiz_id, NEEDS_REVIEW, "the model chose needs_review", False)
+        return Adjudication(example_id, NEEDS_REVIEW, "the model chose needs_review", False)
     if answer.confidence < min_confidence:
-        return Adjudication(quiz_id, NEEDS_REVIEW, "confidence below the threshold", False)
-    return Adjudication(quiz_id, answer.choice, "confidence met the threshold", False)
+        return Adjudication(example_id, NEEDS_REVIEW, "confidence below the threshold", False)
+    return Adjudication(example_id, answer.choice, "confidence met the threshold", False)

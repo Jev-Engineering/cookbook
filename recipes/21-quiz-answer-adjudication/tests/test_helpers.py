@@ -1,11 +1,13 @@
 """Tests for recipe 21's helpers. They load the helpers by file path."""
 
+import math
 from pathlib import Path
 
 import pytest
 
-from jev_cookbook import ChoiceAnswer, Provenance, load_helpers, replay_key
-from jev_cookbook.fixtures import load_inputs, load_labels
+from jev_cookbook import ChoiceAnswer, Provenance, get_backend, load_helpers, replay_key
+from jev_cookbook.evaluation import select_confidence_threshold
+from jev_cookbook.fixtures import load_inputs, load_labels, responses_path, select_split
 
 RECIPE = Path(__file__).resolve().parent.parent
 helpers = load_helpers(RECIPE)
@@ -127,6 +129,53 @@ def test_a_settled_response_never_reads_the_answer_argument():
     assert (result.outcome, result.settled_without_a_call) == ("no_match", True)
 
 
+def test_the_normaliser_wins_even_over_a_contradicting_supplied_answer_text():
+    # The normaliser must win unconditionally, not merely "when answer is None": a mutation
+    # that reads a supplied answer whenever one exists (`settled = settle(fields) if answer is
+    # None else None`) passes every other test in this file, because they only ever pass
+    # `None` for a settleable response. This one does not: "Lindqvist" settles to `match`
+    # outright, and a confident, contradicting `no_match` answer at a gate low enough to
+    # accept it must still lose, on outcome, reason and settled_without_a_call alike.
+    contradicting = answer(
+        {"match": 0.05, "partial_match": 0.05, "no_match": 0.85, "needs_review": 0.05}
+    )
+    result = helpers.adjudicate(
+        "q1", {"quiz_id": "tower", "response": "Lindqvist"}, contradicting, 0.0
+    )
+    assert result.outcome == "match"
+    assert result.reason == "settled by the normaliser, no model call"
+    assert result.settled_without_a_call is True
+
+
+def test_the_normaliser_wins_even_over_a_contradicting_supplied_answer_number():
+    contradicting = answer(
+        {"match": 0.85, "partial_match": 0.05, "no_match": 0.05, "needs_review": 0.05}
+    )
+    result = helpers.adjudicate("q2", {"quiz_id": "moons", "response": "4"}, contradicting, 0.0)
+    assert result.outcome == "no_match"
+    assert result.reason == "settled by the normaliser, no model call"
+    assert result.settled_without_a_call is True
+
+
+def test_adjudication_example_id_is_whatever_the_caller_passed_not_the_quiz_id():
+    # The first argument is this recipe's fixture id (e.g. "d02-review"), never the quiz id
+    # inside fields (e.g. "tower"): the two happen to differ on every real fixture.
+    settled = helpers.adjudicate(
+        "d01-settled", {"quiz_id": "capital", "response": "Mirrowgate"}, None, 0.5
+    )
+    assert settled.example_id == "d01-settled"
+    called = helpers.adjudicate("d02-review", TEXT_FIELDS, MATCH_ANSWER, 0.1)
+    assert called.example_id == "d02-review"
+
+
+def test_queue_item_carries_the_quiz_id_question_and_response():
+    assert helpers.queue_item({"quiz_id": "tower", "response": "Lindqvist?"}) == {
+        "quiz_id": "tower",
+        "question": "Who first lit the Observatory Tower in the city of Veyla?",
+        "response": "Lindqvist?",
+    }
+
+
 def test_the_settled_reason_is_pinned():
     result = helpers.adjudicate("q1", {"quiz_id": "moons", "response": "3"}, None, 0.5)
     assert result.reason == "settled by the normaliser, no model call"
@@ -211,3 +260,37 @@ def test_the_gold_label_is_not_concentrated_in_one_option_position():
         if example.replay_keys and example.id in gold
     }
     assert positions == {0, 1, 2, 3}
+
+
+def test_stored_answers_are_not_all_right():
+    """At least one stored `test` answer sent to Jev is wrong (its raw `choice` does not match
+    the gold label) while confident enough to clear the frozen confidence gate -- the fixture
+    that keeps `test`'s selective risk non-zero rather than a gate that happens to look perfect
+    (docs/fixtures.md, "Avoid synthetic responses so tidy that every model-free baseline scores
+    perfectly on test"). The gate is chosen on `validation`'s called responses exactly as the
+    notebook chooses it, not assumed."""
+    examples = load_inputs(RECIPE)
+    gold = load_labels(RECIPE)
+    questions = helpers.build_questions()
+    backend = get_backend(fixtures=responses_path(RECIPE))
+
+    def decide(example):
+        return backend.decide(helpers.build_state(example.fields), questions)["adjudication"]
+
+    val_called = [
+        e for e in select_split(examples, "validation") if helpers.settle(e.fields) is None
+    ]
+    val_answers = [decide(e) for e in val_called]
+    val_correct = [a.choice == gold[e.id] for e, a in zip(val_called, val_answers, strict=True)]
+    val_confidence = [a.confidence for a in val_answers]
+    gate = select_confidence_threshold(val_correct, val_confidence, target_accuracy=1.0)
+    assert not math.isnan(gate)
+
+    test_called = [e for e in select_split(examples, "test") if helpers.settle(e.fields) is None]
+    test_answers = [decide(e) for e in test_called]
+    wrong_and_confident = [
+        a
+        for e, a in zip(test_called, test_answers, strict=True)
+        if a.choice != gold[e.id] and a.confidence >= gate
+    ]
+    assert wrong_and_confident, "expected at least one confidently wrong test answer sent to Jev"
