@@ -60,12 +60,12 @@
         "type": "choice",
         "choice": "no_suitable_rewrite",
         "probabilities": {
-          "candidate_1": 0.09999999999999998,
-          "candidate_3": 0.09999999999999998,
-          "no_suitable_rewrite": 0.5,
+          "candidate_1": 0.14,
+          "candidate_3": 0.14,
+          "no_suitable_rewrite": 0.42,
           "candidate_2": 0.3
         },
-        "confidence": 0.3333333333333333,
+        "confidence": 0.22666666666666666,
         "provenance": {
           "source": "synthetic",
           "model": null,

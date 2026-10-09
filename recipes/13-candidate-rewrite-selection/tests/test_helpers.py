@@ -179,5 +179,8 @@ def test_a_wrong_answer_is_at_or_above_the_frozen_threshold_on_test():
         "the test split should contain at least one wrong answer the frozen confidence gate "
         "lets through (confidence at or above the threshold)"
     )
-    for _ident, confidence, frozen in wrong_and_confident:
-        assert confidence >= frozen
+    # Named literally, not just "non-empty": outcome == ACCEPTED already implies
+    # confidence >= threshold by construction (select_rewrite's own gate), so a loop
+    # re-asserting that would never fail. This names the specific fixture the mutation above
+    # is supposed to catch, which can fail if a future edit moves the error elsewhere.
+    assert [ident for ident, _conf, _t in wrong_and_confident] == ["t07-sympathetic-wrong"]

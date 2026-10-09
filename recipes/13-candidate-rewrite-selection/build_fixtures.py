@@ -11,10 +11,14 @@ lowest observed confidence, whatever the target accuracy -- the gate would never
 chosen by anything. The other three deliberate errors are in ``test``, each wrong in a different
 way: one candidate is answered confidently (above the frozen threshold), so the confidence gate
 lets a wrong rewrite through (``t07-sympathetic-wrong``); one is answered
-``no_suitable_rewrite`` -- wrongly -- at a confidence the rule never checks at all, because
-``no_suitable_rewrite`` bypasses the gate entirely (``t12-courtesy-credit-wrong``); a third is
-wrong but not confident, so it is sent to review instead of being reported
-(``t19-setup-fee-wrong``). The hard cases the issue names are included: candidates that change
+``no_suitable_rewrite`` -- wrongly -- at a confidence (0.2267) *below* the frozen gate, which
+the rule never checks at all because ``no_suitable_rewrite`` bypasses the gate entirely
+(``t12-courtesy-credit-wrong``): this is also the one row where ``evaluate_outcomes`` and
+``evaluate_selective`` genuinely disagree, since ``evaluate_selective`` would exclude a
+confidence this low as unanswered while the rule itself still returns it as a final
+``kept_original`` result (see the notebook's "Evaluation" section); a third is wrong but not
+confident, so it is sent to review instead of being reported (``t19-setup-fee-wrong``). The hard
+cases the issue names are included: candidates that change
 the original sentence's meaning, candidates that miss the requested tone, candidates that do
 both, and several items where no candidate is good enough and the gold label is
 ``no_suitable_rewrite``. The replay keys come from the same ``build_state`` and
@@ -108,10 +112,12 @@ ROWS = [
       "I need the report sometime after the meeting ends."),
      C2, dist(candidate_2=0.82)),
     # Gold is candidate_3 (the only one that is both correctly stated and actually warm), but
-    # the stored answer confidently (0.45) names candidate_1 instead -- correct meaning, flatter
-    # tone, a plausible wrong answer deliberately placed in validation itself (see the module
-    # docstring: this is the error that gives select_confidence_threshold something real to cut
-    # on, instead of returning the lowest observed confidence for any target accuracy).
+    # the stored answer names candidate_1 instead -- correct meaning, flatter tone -- at
+    # confidence 0.2667 (top probability 0.45). That is the highest confidence among
+    # validation's wrong real-candidate answers (it is the only one), which is exactly why it
+    # sets the bar: a plausible wrong answer deliberately placed in validation itself (see the
+    # module docstring: this is the error that gives select_confidence_threshold something real
+    # to cut on, instead of returning the lowest observed confidence for any target accuracy).
     ("v06-sympathetic-wrong", "validation", "R1006",
      "We can't approve the refund as requested.", "sympathetic",
      ("We're unable to approve the refund as requested.",
@@ -250,9 +256,10 @@ ROWS = [
       "Exciting update -- the event is now happening next week instead, so mark your "
       "calendars, we can't wait to see you there!"),
      C3, dist(candidate_3=0.84)),
-    # Gold is candidate_3 (the genuinely sympathetic rewrite), but the stored answer confidently
-    # (0.60, above the frozen threshold) names candidate_1 instead -- correct meaning, flatter
-    # tone, a real, wrong candidate the confidence gate lets straight through.
+    # Gold is candidate_3 (the genuinely sympathetic rewrite), but the stored answer names
+    # candidate_1 instead -- correct meaning, flatter tone -- at confidence 0.4667 (top
+    # probability 0.60), comfortably above the frozen 0.28 gate: a real, wrong candidate the
+    # confidence gate lets straight through.
     ("t07-sympathetic-wrong", "test", "R2007",
      "We can't waive the late fee this time.", "sympathetic",
      ("We're not able to waive the late fee this time.",
@@ -287,15 +294,18 @@ ROWS = [
       "No one is allowed to know anyone's pricing, including yours."),
      NSR, dist(no_suitable_rewrite=0.79)),
     # Gold is candidate_2 (a genuinely warm, correct rewrite existed), but the stored answer
-    # names no_suitable_rewrite at 0.50 -- no_suitable_rewrite is never run past the confidence
-    # gate (it has none), so this wrong answer is delivered as a final "keep the original"
-    # result, not caught by any threshold.
+    # names no_suitable_rewrite instead, at confidence 0.2267 -- *below* the frozen 0.28 gate.
+    # no_suitable_rewrite is never run past the confidence gate (it has none), so this wrong
+    # answer is still delivered as a final "keep the original" result, not caught by any
+    # threshold, even though its own confidence is low: this is the row that makes
+    # evaluate_outcomes and evaluate_selective genuinely disagree (see "Python's part" and
+    # "Evaluation" below), because evaluate_selective would have excluded it as unanswered.
     ("t12-courtesy-credit-wrong", "test", "R2012",
      "We can give you a one-time courtesy credit.", "warm",
      ("A one-time courtesy credit can be issued.",
       "We'd love to give you a one-time courtesy credit as a thank-you for your patience!",
       "We can give you a recurring monthly credit."),
-     C2, dist(no_suitable_rewrite=0.50, candidate_2=0.30)),
+     C2, dist(no_suitable_rewrite=0.42, candidate_2=0.30)),
     ("t13-deleted-file", "test", "R2013",
      "We can't restore the deleted file.", "sympathetic",
      ("I'm really sorry, but we're not able to restore the deleted file.",
@@ -303,8 +313,8 @@ ROWS = [
       "Deleted files can't be restored. That's final."),
      C1, dist(candidate_1=0.88)),
     # candidate_3 keeps the meaning but reads firmer than calm; candidate_1 is the genuinely
-    # calm one. Correct, but at 0.36 confidence, below the threshold, so the rule sends this one
-    # to review instead of reporting it.
+    # calm one. Correct, but at confidence 0.1467 (top probability 0.36), below the 0.28 gate,
+    # so the rule sends this one to review instead of reporting it.
     ("t14-account-paused", "test", "R2014",
      "We need to pause your account during the investigation.", "calm",
      ("Just so you know, we'll need to pause your account for a short time while we look into "
@@ -338,8 +348,9 @@ ROWS = [
      NSR, dist(no_suitable_rewrite=0.70)),
     # Gold is no_suitable_rewrite: all three candidates are flawed (candidate_3 quietly adds an
     # unstated "first month only" restriction, a meaning change dressed up in an enthusiastic,
-    # tempting tone). The stored answer names candidate_3 instead, but only at 0.33 confidence,
-    # below the threshold, so this one is caught and sent to review rather than reported.
+    # tempting tone). The stored answer names candidate_3 instead, but only at confidence 0.1067
+    # (top probability 0.33), below the 0.28 gate, so this one is caught and sent to review
+    # rather than reported.
     ("t19-setup-fee-wrong", "test", "R2019",
      "We can waive the setup fee for annual plans.", "enthusiastic",
      ("We can waive the setup fee for monthly plans.",
