@@ -270,43 +270,19 @@ def test_noul_confidence_is_the_choice_formula_at_n_equals_2():
 
 
 def test_noul_confidence_is_mirror_symmetric_and_bit_exact_with_choice():
-    # The underlying formula, 2 * max(p, 1 - p) - 1, must be exactly mirror-symmetric
-    # (f(p) == f(1 - p), where "1 - p" is computed, not a separately-rounded decimal
-    # literal that only looks like the mirror) and bit-for-bit equal to
-    # choice_confidence([p, 1 - p]) at n = 2, over every two-decimal probability
-    # 0.00..1.00, checked here on the raw formula before noul_confidence's own
-    # 12-decimal rounding is applied (see test_noul_confidence_rounds_... below for that).
-    # abs(2p - 1) fails both: it differs from its computed mirror by up to 1 ULP (e.g.
-    # p = 0.2 vs computed 1 - 0.2), which this test is designed to catch.
-    def raw(p):
-        return 2.0 * max(p, 1.0 - p) - 1.0
-
+    # 2 * max(p, 1 - p) - 1 must be exactly mirror-symmetric (f(p) == f(1 - p), where
+    # "1 - p" is computed, not a separately-rounded decimal literal that only looks like
+    # the mirror) and bit-for-bit equal to choice_confidence([p, 1 - p]) at n = 2, over
+    # every two-decimal probability 0.00..1.00. abs(2p - 1) fails both: it differs from
+    # its computed mirror by up to 1 ULP (e.g. p = 0.2 vs computed 1 - 0.2), which this
+    # test is designed to catch.
     grid = [round(i * 0.01, 2) for i in range(101)]
     mirror_grid = [1.0 - p for p in grid]  # computed complement, not a grid literal
-    values = [raw(p) for p in grid]
-    mirror_values = [raw(p) for p in mirror_grid]
+    values = ev.noul_confidence(grid)
+    mirror_values = ev.noul_confidence(mirror_grid)
     assert values == mirror_values, "not exactly mirror-symmetric about p = 0.5"
     for p, v in zip(grid, values, strict=True):
         assert v == ans.choice_confidence([p, 1.0 - p]), f"not bit-exact at p={p}"
-    # noul_confidence itself returns exactly these values rounded to 12 decimal places.
-    assert ev.noul_confidence(grid) == [round(v, 12) for v in values]
-
-
-def test_noul_confidence_rounds_ulp_different_mirror_literals_to_the_same_value():
-    # docs/evaluation.md: 0.42/0.58 (nominal 0.16) and 0.07/0.93 (nominal 0.86) are
-    # hand-written mirror-pair literals whose raw |2p - 1| differs by a few ULPs even
-    # though both halves of each pair are meant to express the same confidence -- the raw
-    # formula really does disagree between the two literals of each pair:
-    def raw(p):
-        return 2.0 * max(p, 1.0 - p) - 1.0
-
-    assert raw(0.42) != raw(0.58)
-    assert raw(0.07) != raw(0.93)
-    # noul_confidence's 12-decimal rounding closes exactly that gap.
-    c42, c58 = ev.noul_confidence([0.42, 0.58])
-    assert c42 == c58 == 0.16
-    c07, c93 = ev.noul_confidence([0.07, 0.93])
-    assert c07 == c93 == 0.86
 
 
 # ---------------------------------------------------------------- Multi-label
@@ -823,33 +799,83 @@ def test_selective_curve_ties_enter_together():
 def test_selective_curve_collapses_ulp_different_mirror_confidence_into_one_threshold():
     # 0.42/0.58 and 0.07/0.93 are the hand-written mirror pairs docs/evaluation.md names
     # (nominal confidence 0.16 and 0.86): fed through noul_confidence, their raw |2p - 1|
-    # values differ by a few ULPs even though both halves of each pair mean the same
-    # confidence. Without rounding at the _conf_inputs boundary this would be 4 distinct
-    # numpy.unique thresholds (a duplicate "row" per pair); with it, exactly 2.
+    # values really do differ by a few ULPs, even though both halves of each pair mean the
+    # same confidence -- noul_confidence does not round this away (reverted: a rounded
+    # confidence could disagree, by rounding noise, with the raw value a recipe's own code
+    # compares a frozen threshold against). Instead _candidate_thresholds (used by
+    # selective_curve, outcome_curve and threshold_sweep) groups the sorted unique values
+    # by round(v, 12) and keeps only the smaller raw member of each group, so each pair
+    # collapses to one candidate -- 2 thresholds here, not 4 -- and that candidate is
+    # always one of the actual observed confidences.
     noul = [0.42, 0.58, 0.07, 0.93]
-    confidence = ev.noul_confidence(noul)  # [0.16, 0.16, 0.86, 0.86] once rounded
+    confidence = ev.noul_confidence(noul)
+    assert confidence[0] != confidence[1], "0.42 vs 0.58 must still differ, unrounded"
+    assert confidence[2] != confidence[3], "0.07 vs 0.93 must still differ, unrounded"
     correct = [True, False, True, False]
     c = ev.selective_curve(correct, confidence)
-    assert c.thresholds.tolist() == [0.86, 0.16]
     assert len(c.thresholds) == 2  # not 4: each mirror pair collapsed to one candidate
-    # at 0.86 the two 0.86-confidence examples answer (one right -> 0.5); at 0.16 every
-    # example answers (two of four right -> 0.5).
+    lo_16, hi_16 = sorted((confidence[0], confidence[1]))
+    lo_86, hi_86 = sorted((confidence[2], confidence[3]))
+    assert sorted(c.thresholds.tolist()) == [lo_16, lo_86]
+    # the surviving threshold is the smaller twin, and the larger twin still clears
+    # "confidence >= threshold" against it -- both members of each pair are accepted
+    # together at that one candidate, exactly as if neither had moved.
+    assert hi_16 >= lo_16 and hi_86 >= lo_86
+    # at 0.86's survivor the two high-confidence examples answer (one right -> 0.5); at
+    # 0.16's survivor every example answers (two of four right -> 0.5).
     assert c.coverage.tolist() == pytest.approx([0.5, 1.0])
     assert c.accuracy.tolist() == pytest.approx([0.5, 0.5])
 
 
-def test_rounding_leaves_ordinary_confidence_values_unchanged():
-    # Confidences a recipe actually reports (4 decimal places, typically) must not move at
-    # all under the 12-decimal rounding: it is meant to close a ~1e-16 ULP gap, far below
-    # anything an ordinary fixture value carries.
+def test_candidate_thresholds_leaves_ordinary_values_unchanged():
+    # Confidences at ordinary fixture precision (2-4 decimals) are nowhere near a few-ULP
+    # nominal twin, so the candidate-threshold grid must not merge any of them.
     correct = [True, False, True, False, True]
-    confidence = [0.1234, 0.5, 0.0, 1.0, 0.999999999999]
+    confidence = [0.1234, 0.5, 0.0, 1.0, 0.9999]
     c = ev.selective_curve(correct, confidence)
     assert c.thresholds.tolist() == sorted(confidence, reverse=True)  # all 5 kept distinct
     r = ev.evaluate_selective(correct, confidence, 0.5)
-    assert r.coverage == pytest.approx(3 / 5)  # answers 0.5, 1.0, 0.999999999999
-    # noul_confidence's own rounding, same guarantee: ordinary values pass through exactly.
-    assert ev.noul_confidence([0.1, 0.25, 0.9]) == pytest.approx([0.8, 0.5, 0.8])
+    assert r.coverage == pytest.approx(3 / 5)  # answers 0.5, 1.0, 0.9999
+
+
+def _frozen_confidence_gate(recipe_dir: Path) -> float:
+    """Reproduces one recipe's own two-stage threshold selection from its committed
+    fixtures, offline, no network: the business threshold via select_threshold, then the
+    certainty/confidence gate via select_confidence_threshold with min_coverage=0.80,
+    exactly as recipes 10 and 15's own "Python's part" cell does."""
+    helpers = load_helpers(recipe_dir)
+    examples = load_inputs(recipe_dir)
+    labels = load_labels(recipe_dir)
+    backend = get_backend(fixtures=responses_path(recipe_dir))
+    questions = helpers.build_questions()
+    key = next(iter(questions))
+
+    def decide(example):
+        return backend.decide(helpers.build_state(example.fields), questions)[key]
+
+    val_examples = select_split(examples, "validation")
+    val_answers = [decide(e) for e in val_examples]
+    val_gold = [labels[e.id] for e in val_examples]
+    val_noul = [a.noul for a in val_answers]
+    threshold = ev.select_threshold(val_gold, val_noul, objective="f1")
+    would_be = [n >= threshold for n in val_noul]
+    raw_correct = [r == g for r, g in zip(would_be, val_gold, strict=True)]
+    val_confidence = ev.noul_confidence(val_noul)
+    return ev.select_confidence_threshold(raw_correct, val_confidence, min_coverage=0.80)
+
+
+def test_select_confidence_threshold_on_recipes_10_and_15_returns_the_same_gate_as_before():
+    # Recipes 10 and 15's validation fixtures carry the same 0.07/0.93 mirror pair (nominal
+    # certainty 0.86) that printed as a duplicate "gate >= 0.86" sweep row before this fix --
+    # but neither recipe's own *frozen* gate is that pair itself (the duplicate is a few
+    # rows further down the sweep than the frozen gate). The candidate-grid dedup must
+    # therefore not move the value these two notebooks freeze and print as "0.30": it has to
+    # come out bit-for-bit identical to the raw value select_confidence_threshold always
+    # returned, on real fixtures.
+    for recipe_dir in (RECIPE_10, RECIPE_15):
+        gate = _frozen_confidence_gate(recipe_dir)
+        assert gate == 0.30000000000000004, recipe_dir.name
+        assert f"{gate:.2f}" == "0.30"
 
 
 def test_select_confidence_threshold():
@@ -1112,8 +1138,10 @@ def test_outcome_curve_errors():
 # ---------------------------------------------------------------- outcome_curve against merged recipes
 
 
+RECIPE_10 = REPO / "recipes" / "10-answer-relevance-check"
 RECIPE_11 = REPO / "recipes" / "11-clarification-selection"
 RECIPE_13 = REPO / "recipes" / "13-candidate-rewrite-selection"
+RECIPE_15 = REPO / "recipes" / "15-sensitive-text-triage"
 
 
 def _row_at_or_above(curve: ev.SelectiveCurve, threshold: float) -> tuple[float, float, float]:

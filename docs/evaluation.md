@@ -116,11 +116,12 @@ few depends on the pair. The practical consequence is in `selective_curve` (and 
 it, including `outcome_curve` below): its candidate thresholds are `numpy.unique` of the observed
 confidences, so two fixture rows hand-written as separate mirror-pair literals can land as two
 *adjacent* threshold candidates ("`gate >= 0.86`" printed twice, at a few-ULPs-apart value) instead
-of coalescing into one. This was a property of floating-point decimal literals rather than a bug
-in `noul_confidence` to fix by changing it: `_conf_inputs` now rounds every confidence to 12
-decimal places before any candidate threshold is taken, and `noul_confidence`'s own return is
-rounded the same way (#172), so the paragraph above describes history, not a live problem — two
-such literals report one candidate, not two.
+of coalescing into one. This is a property of floating-point decimal literals, not a bug in
+`noul_confidence` to fix by changing it: `_candidate_thresholds` (used wherever `selective_curve`,
+`outcome_curve` and `threshold_sweep` derive candidates) groups the sorted unique values by
+`round(v, 12)` and keeps only the smaller raw member of each group, so such a pair collapses to one
+candidate — never a rounded stand-in — and a caller's own `value >= threshold` comparison on raw
+data stays an exact tie (#172).
 
 ### Multi-label
 
