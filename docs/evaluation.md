@@ -117,18 +117,31 @@ it, including `outcome_curve` below): its candidate thresholds are `numpy.unique
 confidences, so two fixture rows hand-written as separate mirror-pair literals can land as two
 *adjacent* threshold candidates ("`gate >= 0.86`" printed twice, at a few-ULPs-apart value) instead
 of coalescing into one. This is a property of floating-point decimal literals, not a bug in
-`noul_confidence` to fix by changing it here: #172 is rounding the confidence to 12 decimal places
+`noul_confidence` to fix by changing it here: #172 rounds the confidence to 12 decimal places
 inside `_conf_inputs` — the shared input boundary of `selective_curve`, `select_confidence_threshold`,
 `evaluate_selective` and `outcome_curve` — so every one of those functions sees the same, already-
-deduplicated candidates, rather than rounding inside `noul_confidence` itself (which other, non-
-selective callers also use) or re-deduping separately inside each curve function. That rounding
-cannot land yet: recipes 02, 10 and 15 already carry this exact duplicate pair (nominal `0.86`) in
-their committed fixtures, and 10 and 15 print it as two identical-looking `gate >= 0.86` rows in
-their committed notebook output. CI's per-recipe notebook jobs re-execute every notebook on any
-pull request that touches `jev_cookbook.evaluation` (not just the recipe folders it changes), so
-rounding here now would make those three recipes' fresh output disagree with their committed one
-and fail CI — the rounding has to wait for a recipe-side regeneration of 02, 10 and 15 (#163)
-first.
+deduplicated confidences (not "candidates": `evaluate_selective` derives no candidate grid of its
+own, it only reapplies an already-frozen threshold), rather than rounding inside `noul_confidence`
+itself (which other, non-selective callers also use) or re-deduping separately inside each curve
+function.
+
+Landing this requires regenerating two recipes' committed notebook output, not three. Recipes
+**10** and **15** carry the colliding pair (nominal `0.86`) on validation examples their sweep
+cell prints as text, so rounding collapses their duplicate `gate >= 0.86` row into one (the
+surviving row keeps the higher-coverage half, `coverage 0.240`; every other row, the frozen-gate
+line and its `0.30` threshold are unchanged), and their committed output has to be refreshed to
+match. Recipe **02** carries the same colliding pair in its fixtures but needs **no**
+regeneration: its sweep cell prints only three derived numbers (`curve.accuracy[-1]` /
+`curve.risk[-1]`, the frozen-gate line, the argmin row), every one identical before and after
+rounding, and the dropped point is collinear with its neighbour on the plotted line, so the
+figure compares equal too. Because CI's notebook matrix (`tools/notebook_ci.py`) re-executes
+every recipe notebook once a change touches anything outside `recipes/` and `README.md`, the
+rounding change and 10/15's regenerated output have to ship in the **same** foundation pull
+request: a regeneration run on `main` before the rounding lands would only reproduce today's
+(duplicated) output byte for byte, so "regenerate first, then round" cannot work — only "round,
+and refresh 10 and 15 in the same pull request" keeps every `Notebook (<slug>)` check green.
+(CONTRIBUTING.md's scope allowlist applies only to recipe pull requests, not foundation ones, so
+a foundation pull request carrying a `recipes/` output refresh is in scope.)
 
 ### Multi-label
 
@@ -260,18 +273,29 @@ above).
 
 **Coverage counts delivered answers, not every decision the rule reaches.** `coverage =
 n_answered / n_total` counts only examples where the rule delivered its own answer as the result
-for that example. A deferral the rule still records somewhere — an `unknown` or `needs_review`
-tag, a "manual triage" result, anything else handed to a `jev_cookbook.simulation.ReviewQueue`
-rather than returned as the rule's own answer — is a review outcome, not a covered one, however
-faithfully it is logged: `accepted[i]` must be `False` for such an example. Logging a deferral
-(even to a container, even with a reason attached) does not make it an answer. Recipe 19's
-fallback that selects `"manual triage"` was corrected from `jev_cookbook.simulation.ActionLog` to
-`ReviewQueue` for exactly this reason — a deferral queued for a person is still a deferral, not a
-delivered result, whichever container happens to receive it. CONTRIBUTING.md section 4's
-no-side-effect exemption for a fallback option is about whether choosing it is safe to *deliver*
-as a final answer; it says nothing about whether some container recorded that the rule ran at
-all, and recording a deferral is not the same thing as answering. (Orchestrator ruling 4,
-tracked from #164.)
+for that example. A deferral — an `unknown` or `needs_review` tag, a "manual triage" result,
+anything else that asks a person to answer rather than answering itself — fails CONTRIBUTING.md
+section 4 part (a) outright ("a complete answer to the question, not a deferral"): a deferral is
+always a review outcome, in the `ReviewQueue`, however confidently it was reached, and
+`accepted[i]` must be `False` for it. This is not about where the decision ends up recorded: a
+complete-answer fallback that is *also* noted in a backlog still counts toward coverage, because
+it passes part (a) regardless (recipe 22's `no_match` is logged to a `ReviewQueue` reused as an
+unmatched-asset backlog and is still `accepted=True`, see
+[docs/glossary.md](glossary.md#coverage)).
+What decides `accepted` is whether the rule answered the question it was asked, not which
+container received the result. (Orchestrator ruling 4, tracked from #164.)
+
+**Recipe 19 is the case this ruling changes, not one that already complies.** As merged, it
+reports `test` coverage with `evaluate_selective(test_correct, test_confidence, threshold)`,
+which counts every build whose raw choice clears the confidence gate toward the answered set —
+`unknown` included: three of the nineteen `test` builds name `unknown`, clear the `0.4400` gate,
+and are queued in the `ReviewQueue` for a person to find the real cause (`reason: "no option
+fits"`), and the printed figure, `coverage 0.7895` (15 of 19), counts those three as answered.
+`unknown` is a deferral under part (a) — it says "ask a person", not "here is the cause" — so
+those three examples' `accepted` must be `False`; recomputing with `evaluate_outcomes` and that
+correction gives `coverage 0.6316` (12 of 19) instead. Recipe 19's own correction is tracked
+under #163, not made here; this paragraph names the gap between the shipped number and the rule
+rather than presenting `0.7895` as the compliant figure.
 
 **Note the argument order.** Every other function in this family leads with `correct`
 (`selective_curve(correct, confidence)`, `select_confidence_threshold(correct, confidence, ...)`,
@@ -381,32 +405,43 @@ row in the arrays: leave it out of `confidences`/`correct`/`exempt` entirely —
 placeholder is not inert even though the example would stay exempt either way: `thresholds` is
 `numpy.unique` of every confidence passed in, so one placeholder value adds a row to that grid and
 moves the curve's x-axis, despite never changing which examples the mask selects. This is not a
-blanket ban on ever showing a stand-in number — #164 ruling 9 allows a disclosed, in-range,
-quantified one printed beside the figure it stands in for (e.g. "confidence: 0.00, no call made")
-— only on letting it reach `select_confidence_threshold`, `selective_curve` or `outcome_curve` as
-an input, exactly the answered-examples-only rule just above. The ban bites only on those three
-functions, the ones that derive their threshold candidates from the confidence array itself
-(`numpy.unique` of it); it does not reach `evaluate_selective`, which never derives a candidate
-from `confidence` at all — it only reapplies a threshold that was already chosen elsewhere. A
-disclosed, in-range stand-in for a short-circuited example (the same "confidence: 0.00, no call
-made" ruling 9 allows) may be handed to `evaluate_selective` once a threshold is already frozen:
-at `confidence 0.00`, such an example reads as not meeting the gate (as it should, since no
-question was ever asked), and it cannot shift a threshold grid `evaluate_selective` never builds.
+blanket ban on ever showing a stand-in number. `docs/recipe-template.md`'s "a sentinel is not the
+same thing as a disclosed stand-in" rule (and #164 ruling 9) allows a disclosed, in-range,
+quantified one, but only where it cannot reach a function that derives threshold candidates from
+the array — `select_confidence_threshold`, `selective_curve` and `outcome_curve`, the
+answered-examples-only rule just above. `evaluate_selective` is not one of those three: it
+reapplies an already-frozen threshold rather than deriving one, so a disclosed stand-in for an
+example that never had a confidence to report may be handed to it. Recipe 14 is the shipped case:
+`t17` never reaches a question (no candidate span), so `confidence_only = [1.0 if a is None else
+a.confidence for a in test_answers]` stands in `1.0`, the top of the scale, specifically so that
+it reads as a sure thing and is never the reason anything is excluded from `evaluate_selective`'s
+gate — the opposite choice, `0.0`, would instead make the stand-in itself decide whether the
+example clears the gate, exactly the sentinel behaviour this rule forbids. Disclosure alone is
+not enough: the notebook also quantifies what the stand-in costs, printing the gated view's
+coverage over all 21 test documents (9 of them, `0.4286`) beside the narrower, 20-document
+denominator a confidence gate could actually have applied to — the documents really asked a
+question (8 of them, `0.4000`) — the same "disclose and quantify against the narrower
+denominator" requirement `docs/recipe-template.md` states.
 
 **Print both Ns when a recipe short-circuits examples.** `outcome_curve`'s own denominator at
 every threshold is `len(confidences)` — the answered subset actually passed in — never the
 recipe's whole scored split, because a short-circuited example was never in `confidences` to
-begin with. `evaluate_outcomes`'s denominator, by contrast, is `len(accepted)`: the whole split,
-short-circuited examples included, since each still gets an `accepted` entry (`False`, as a
-`not_stated`-shaped result with no side effect) even though it never reached a question. A recipe
-that short-circuits some examples and reports both views must print both Ns next to their
-coverage figures, not just one of them: on recipe 14's `test` split (21 documents, one of which
-`no_candidates` answers before any question is built) an `outcome_curve` over the 20 documents
-that reach `select_span` reports coverage as a fraction of 20, while
-`evaluate_outcomes(test_accepted, test_correct)` over the same split reports coverage as a
-fraction of 21. Both denominators are correct for what each function computes; a reader shown one
-coverage number from each without both Ns printed beside them would be comparing two fractions
-over two different totals without any way to tell.
+begin with: no question was built for it, so there is no `Noul`/`Choice` answer to read a
+confidence from, whatever its `accepted` value turns out to be. `evaluate_outcomes`'s
+denominator, by contrast, is `len(accepted)`: the whole split, short-circuited examples included.
+A short-circuited example's own `accepted` entry follows CONTRIBUTING.md section 4 like any other:
+`not_stated` is a complete answer, not a deferral (section 4 part (a) names it explicitly), so
+recipe 14's `no_candidates` short-circuit is `accepted=True` — present in `evaluate_outcomes`'s
+count of answered examples, absent from `confidences` only because it never produced a confidence
+to report, not because it is treated as unanswered. A recipe that short-circuits some examples
+and reports both views must print both Ns next to their coverage figures, not just one of them:
+on recipe 14's `test` split (21 documents, one of which `no_candidates` answers before any
+question is built) an `outcome_curve` over the 20 documents that reach `select_span` reports
+coverage as a fraction of 20, while `evaluate_outcomes(test_accepted, test_correct)` over the
+same split — the short-circuited document counted as accepted — reports coverage as a fraction of
+21. Both denominators are correct for what each function computes; a reader shown one coverage
+number from each without both Ns printed beside them would be comparing two fractions over two
+different totals without any way to tell.
 
 ### Outcomes versus the confidence-only view
 
