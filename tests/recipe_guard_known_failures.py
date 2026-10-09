@@ -78,18 +78,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "15-sensitive-text-triage",
         "build_fixtures_scaffold",
     ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
-        "16-discord-moderation-triage",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
-        "17-passage-reranking",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
-        "18-duplicate-incident-matching",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
     # --- check 2: no "#NNN" issue numbers or "the issue" in a recipe file --------------------
     # R9/R10: a private issue cited by number or by "the issue" in a recipe file.
     (
@@ -128,22 +116,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "15-sensitive-text-triage",
         "no_issue_citations",
     ): '"the issue" in build_fixtures.py (R10); see #163',
-    (
-        "16-discord-moderation-triage",
-        "no_issue_citations",
-    ): '"The issue"/"the issue" in helpers.py, build_fixtures.py, README.md and notebook (R9/R10); see #163',
-    (
-        "17-passage-reranking",
-        "no_issue_citations",
-    ): '"the issue" (x3) in helpers.py (R10, R11 business-cutoff recipe); see #163',
-    (
-        "18-duplicate-incident-matching",
-        "no_issue_citations",
-    ): '"the issue" in build_fixtures.py (R10); see #163',
-    (
-        "19-ci-failure-classification",
-        "no_issue_citations",
-    ): '"the issue" in build_fixtures.py (R10); see #163',
     # --- check 3: test_stored_answers_are_not_all_right is the strong form -------------------
     # R7, extended to the six Level 1 recipes Wave 2 never reviewed (01-10 are outside its
     # "Level 2 recipes 11-23" scope): 01-06, 08-10 have no test_stored_answers_are_not_all_right
@@ -177,24 +149,12 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "13-candidate-rewrite-selection",
         "stored_answers_strong_form",
     ): "weak assert-wrong form, not re-derived from the frozen threshold (R7); see #163",
-    (
-        "16-discord-moderation-triage",
-        "stored_answers_strong_form",
-    ): "weak assert-wrong form, not re-derived from the frozen threshold (R7); see #163",
-    (
-        "19-ci-failure-classification",
-        "stored_answers_strong_form",
-    ): "weak assert-wrong form, not re-derived from the frozen threshold (R7); see #163",
     # --- check 4a: a validation metric line carries both {selection} and {check} -------------
     # R1/R3: a validation metric line disclosed with {selection} alone.
     (
         "08-faq-selection",
         "validation_lines_carry_selection_and_check",
     ): "a validation metric line prints {selection} without {check}; see #163",
-    (
-        "18-duplicate-incident-matching",
-        "validation_lines_carry_selection_and_check",
-    ): "validation metric lines print {selection} without {check} (R1, 14 lines across 5 cells); see #163",
     # --- check 4b: every printed metric line carries at least {check} (G1(d) clause 2) -------
     # R3 and more besides: a coverage/accuracy/risk/precision/recall/F1/nDCG line with no
     # {check} token (traced through bound variables), beyond what Wave 2 reviewed.
@@ -218,14 +178,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "10-answer-relevance-check",
         "metric_lines_carry_check",
     ): "validation sweep lines carry no {check} at all (R3-shaped, G1(d) clause 2); see #163",
-    (
-        "17-passage-reranking",
-        "metric_lines_carry_check",
-    ): "the risk-coverage sweep rows in `selective` carry no disclosure label at all (R3, the six lines the spec names); see #163",
-    (
-        "18-duplicate-incident-matching",
-        "metric_lines_carry_check",
-    ): "validation sweep and outcome lines carry {selection} but no {check} (G1(d) clause 2); see #163",
     # --- check 4c: a plot_confusion_matrix / plot_threshold_sweep / plot_risk_coverage title -
     #              carries {check} and not {selection} ---------------------------------------
     # R2: four different conventions across the thirteen; only {check}-only is compliant.
@@ -249,10 +201,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "15-sensitive-text-triage",
         "figure_titles_check_only",
     ): "validation figure titles carry {selection} without {check} (R2); see #163",
-    (
-        "18-duplicate-incident-matching",
-        "figure_titles_check_only",
-    ): "validation figure title carries {selection} without {check} (R2); see #163",
     # --- check 5: every plot_confusion_matrix / plot_risk_coverage / plot_threshold_sweep ----
     #              call prints the plotted object itself, in the same cell -------------------
     # R4 and more besides: a figure plotted with nothing of its own data printed (an aggregate
@@ -277,6 +225,8 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "13-candidate-rewrite-selection",
         "print_what_you_plot",
     ): "plot_confusion_matrix in evaluation-test prints only a list of wrong ids, not the matrix's own counts; see #163",
+    # --- check 6a: every Next-steps link target exists on disk -------------------------------
+    # R20: a forward link to a recipe not yet published, which docs/recipe-template.md forbids.
     # --- check 6b: every recipe is the target of some other recipe's Next steps -------------
     # R21: a published recipe no other recipe's Next steps links to.
     (
@@ -291,14 +241,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "14-source-span-selection",
         "next_steps_inbound_links",
     ): "no other published recipe's Next steps links ../14-source-span-selection/ (R21); see #163",
-    (
-        "17-passage-reranking",
-        "next_steps_inbound_links",
-    ): "no other published recipe's Next steps links ../17-passage-reranking/ (R21); see #163",
-    (
-        "19-ci-failure-classification",
-        "next_steps_inbound_links",
-    ): "no other published recipe's Next steps links ../19-ci-failure-classification/ (R21); see #163",
     # --- check 7a: helpers.REVIEW == "review" where it exists, traced where it does not -----
     # PR #186 review MC3 / fix round 2 suggestion 2: 09 ships a different REVIEW value directly;
     # 06 and 21's confidence-gated outcome, traced through the reason string, is not "review"

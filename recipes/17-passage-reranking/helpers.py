@@ -39,7 +39,7 @@ DIRECT = (
 )
 RELEVANCE_LEVELS = (NOT_RELEVANT, TANGENTIAL, RELEVANT, DIRECT)  # level 0 to level 3
 
-# The business cutoff lives in code, per the issue: a passage whose most likely level is below
+# The business cutoff lives in code: a passage whose most likely level is below
 # RELEVANT (level 2) does not state what the query asks for, so Python does not treat it as a
 # match. This is a fixed editorial decision, not a value chosen by searching validation: unlike
 # the confidence gate below, there is no "selecting" step for it, which is also why it is a
@@ -119,7 +119,7 @@ def classify(passage_id: str, answer: Any, confidence_gate: float) -> Classifica
 
 # A small, deliberately dumb lexical scorer: it counts matching words and nothing else (no
 # stemming, no term weighting, no synonyms), so "the original retrieval order from a small
-# lexical scorer written in plain Python" the issue's build notes call for is exactly this one
+# lexical scorer written in plain Python" this use case calls for is exactly this one
 # countable rule, not a black box. A query that is phrased with different words than the
 # passage that actually answers it (a paraphrase) defeats this scorer on purpose: that is the
 # gap a semantic reranker is for.
@@ -156,7 +156,7 @@ def baseline_rank(candidates: list[Candidate]) -> dict[str, int]:
     """The 0-based rank of each candidate under :func:`lexical_score`: highest score first,
     ties broken by ``position`` (the order the candidates were originally retrieved in). This
     is a strict order with no further ties, and it is "the original retrieval order from a
-    small lexical scorer written in plain Python" the issue's build notes name as the baseline.
+    small lexical scorer written in plain Python" -- the baseline this use case names.
     """
     ordered = sorted(candidates, key=lambda c: (-lexical_score(c.query, c.passage), c.position))
     return {c.passage_id: rank for rank, c in enumerate(ordered)}
