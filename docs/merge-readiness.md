@@ -76,9 +76,8 @@ no receipt.
    app, with that app's slug readable, all `success`, for a non-baseline name, collapse into a
    single `success` result (see "Required checks" below for the exact rule, the `results`/`runs`
    receipt shape, and why); a baseline name, any mix that is not all-`success`, or results from
-   more than one source (a
-   StatusContext mixed with a CheckRun, two StatusContexts, or CheckRuns from different apps) stay
-   ambiguous and fail closed exactly as before.
+   more than one source (a StatusContext mixed with a CheckRun, two StatusContexts, or CheckRuns
+   from different apps) stay ambiguous and fail closed exactly as before.
 4. After collecting evidence it re-reads the default branch and the PR. If `main` or the head
    moved, or the PR is no longer open, it fails.
 
@@ -189,12 +188,12 @@ post-merge remedy "rerun the workflow on that exact commit"). The real reason is
 *original* event payload, not a fresh one. `github.event.pull_request.body` in that stale payload
 is the pre-edit body — exactly the staleness a *new* `edited` event (unlike a rerun of an old one)
 exists to catch — so a rerun's verdict is untrustworthy, not merely unhelpful. This is why the
-rule in `CONTRIBUTING.md` — never edit a
-pull request's description after the final push of a head that goes to the merge gate — stays in
-force: an edit is the only way `Scope` reruns at all, and every rerun after the first either
-leaves a `cancelled` row behind (if it overlaps a run still in progress) or, if the head already
-failed `Scope` for a real reason, cannot un-fail it short of a new head. #150's four changes above
-make the helper's reasoning on these rows legible (the actual cause is now visible in `"states"`)
+rule in `CONTRIBUTING.md` — never edit a pull request's description after the final push of a
+head that goes to the merge gate — stays in force: an edit is the only way `Scope` reruns at all,
+and every rerun after the first either leaves a `cancelled` row behind (if it overlaps a run
+still in progress) or, if the head already failed `Scope` for a real reason, cannot un-fail it
+short of a new head. #150's four changes above make the helper's reasoning on these rows legible
+(the actual cause is now visible in `"states"`)
 but do not and cannot change the rows themselves: that is `scope.yml`'s concurrency behaviour and
 GitHub's check-suite model, outside this read-only helper's reach.
 
