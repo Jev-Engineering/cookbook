@@ -9,7 +9,7 @@
 **Sixty notebook recipes for typed decisions with Jev, ordered from a first `Choice` question to closed-loop factory control.**
 
 <!-- catalog:progress:start -->
-![Recipes: 20 of 60 published](https://img.shields.io/badge/Recipes-20%20of%2060%20published-F386A1?style=flat-square&labelColor=1E1E1E) ![Status: in progress](https://img.shields.io/badge/Status-in%20progress-E551BA?style=flat-square&labelColor=1E1E1E) ![Categories: 10](https://img.shields.io/badge/Categories-10-F386A1?style=flat-square&labelColor=1E1E1E) ![Levels: 5](https://img.shields.io/badge/Levels-5-F386A1?style=flat-square&labelColor=1E1E1E)
+![Recipes: 21 of 60 published](https://img.shields.io/badge/Recipes-21%20of%2060%20published-F386A1?style=flat-square&labelColor=1E1E1E) ![Status: in progress](https://img.shields.io/badge/Status-in%20progress-E551BA?style=flat-square&labelColor=1E1E1E) ![Categories: 10](https://img.shields.io/badge/Categories-10-F386A1?style=flat-square&labelColor=1E1E1E) ![Levels: 5](https://img.shields.io/badge/Levels-5-F386A1?style=flat-square&labelColor=1E1E1E)
 <!-- catalog:progress:end -->
 ![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-F386A1?style=flat-square&labelColor=1E1E1E) [![License: MIT](https://img.shields.io/badge/License-MIT-DEDEDE?style=flat-square&labelColor=1E1E1E)](LICENSE)
 
@@ -175,7 +175,7 @@ Context-sensitive matching, scoring, or verification with candidate sets and exp
 | 20 | **Claim support classification**<br>Classify whether a provided passage supports, contradicts, or leaves unresolved a specific claim while preserving the passage identifier. | Search & retrieval | `Choice` | [Open notebook](recipes/20-claim-support-classification/notebook.ipynb) |
 | 21 | **Quiz answer adjudication**<br>Judge whether a typed quiz response matches an accepted answer by meaning, with partial-match and review outcomes for ambiguous responses. | Games & simulation | `Choice` | [Open notebook](recipes/21-quiz-answer-adjudication/notebook.ipynb) |
 | 22 | **CMDB asset matching**<br>Link differently worded software asset descriptions to a canonical configuration-management record from a bounded candidate list or a no-match outcome. | Data quality & knowledge graphs | `Choice` | Coming soon · [#22](https://github.com/Jev-Engineering/cookbook/issues/22) |
-| 23 | **Pairwise answer evaluation**<br>Compare two candidate answers against one explicit rubric criterion while retaining tie and insufficient-evidence outcomes for evaluation against human labels. | Evaluation & optimization | `Choice` | Coming soon · [#23](https://github.com/Jev-Engineering/cookbook/issues/23) |
+| 23 | **Pairwise answer evaluation**<br>Compare two candidate answers against one explicit rubric criterion while retaining tie and insufficient-evidence outcomes for evaluation against human labels. | Evaluation & optimization | `Choice` | [Open notebook](recipes/23-pairwise-answer-evaluation/notebook.ipynb) |
 
 ### Level 3 · Intermediate
 
