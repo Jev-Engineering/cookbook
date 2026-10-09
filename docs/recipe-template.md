@@ -31,6 +31,7 @@ Python. It is deliberately small, so that it can be read in a few minutes and co
 | `build_fixtures.py` | Writes `fixtures/`; the replay keys come from `helpers.py`, so they cannot drift from the questions. It lives next to the notebook, outside `fixtures/` ([fixtures.md](fixtures.md)). Generating inputs and labels is separate from generating responses: `--force` is needed to overwrite a `responses.json` that already holds a `recorded` answer. |
 | `fixtures/` | `inputs.jsonl`, `labels.jsonl`, `responses.json`: 22 examples (10 `validation`, 10 `test`, 2 `demo`), synthetic and deliberately imperfect. |
 | `tests/test_helpers.py` | Tests for the rule, and a check that the stored keys match the current question. |
+| `tests/test_build_fixtures.py` | Guards `build_fixtures.py` (replay recipes only): refusal without `--force`, `inputs.jsonl`/`labels.jsonl` regenerated from `ROWS` even on a refused run, and the committed `responses.json` byte-identical to `jev_cookbook.live`'s recorder. A scripted recipe has no `responses.json` and nothing for these tests to guard, so the scaffolder does not emit this file for `--mode scripted`. |
 
 The notebook sections, in order: **What you will build**, **Setup and run mode**, **The state**,
 **The questions**, **One answer up close**, **Python's part**, **Evaluation**, **What was and was not
@@ -43,6 +44,40 @@ measured**, **Next steps**. A recipe keeps these headings.
   the mode, and the setup cell passes `n_examples=len(scored)` in every mode.
 - **Validation chooses, test reports.** The one setting (a confidence threshold) is selected on
   `validation` with `select_confidence_threshold` and frozen before `test` is touched.
+- **`evaluate_selective` reports the same split as the rule only when the rule's only review
+  branch is that confidence gate — `route` here has three, so it is not that rule.**
+  `helpers.py::route` sends a ticket to `human_review` for any of three reasons, in this order:
+  `answer.choice == NONE` ("no option fits"), `answer.choice not in QUEUES` ("not a queue Python
+  may use"), or `answer.confidence < min_confidence` ("confidence below the threshold"). Only
+  the third is a confidence gate; the first two are unconditional, so `evaluate_selective`
+  — which only ever compares a confidence against a threshold — can disagree with `route` about
+  which tickets were answered. It does, on the template's own `test` fixtures, at the threshold
+  the template's own evaluation section computes (`0.6933`):
+
+  ```
+  evaluate_selective(test_correct, test_confidence, threshold)
+  # n_answered=7  coverage=0.7000  accuracy=0.8571  risk=0.1429
+  evaluate_outcomes(accepted, test_correct)   # accepted = [r.outcome != REVIEW for r in routings]
+  # n_answered=6  coverage=0.6000  accuracy=0.8333  risk=0.1667
+  ```
+
+  The one ticket they disagree on, `t07`, names `none` at confidence 0.80 — well above the
+  threshold, so `evaluate_selective` would count it as answered, but `route` sends it to review
+  outright because `none` is never a queue, whatever its confidence. (The template's own
+  evaluation section does not call either function; this is the illustration for recipes that
+  do, not a claim about what the template prints.)
+
+  A rule with any unconditional review branch like `route`'s first two — an explicit fallback
+  option it never confidence-checks (`unsorted`, `no_match`, `unclear`), a check that the chosen
+  option is really a member of some set, or anything else that does not depend on
+  `min_confidence` — can diverge from `evaluate_selective` the same way. Do not paper over this
+  by handing the rejected examples a sentinel confidence (`0.0`, `-1.0`, ...) so the two "happen"
+  to agree: that construction is one-directional (it cannot follow a later change to the rule's
+  own confidence comparison) and an out-of-range sentinel can be selected as a threshold outright
+  (#155). Build selective coverage/accuracy/risk from the rule's own accept/review decisions
+  instead, with `jev_cookbook.evaluation.evaluate_outcomes(accepted, correct)` — see "Selective
+  prediction" in [evaluation.md](evaluation.md), which also proves the two agree exactly when the
+  rule really is confidence-only (which `route` is not, but recipes 01 and 05's rules are).
 - **Figures** are the last expression of a cell. They draw after `apply_style()`; the notebook
   needs no `%matplotlib inline` line.
 - **Nothing path-like is printed.** The hygiene scan fails notebook outputs that contain absolute
@@ -55,6 +90,33 @@ measured**, **Next steps**. A recipe keeps these headings.
   there is no more stable target in the generated README to link to instead. A folder link 404s
   on GitHub until that recipe's `notebook.ipynb` is committed; that is expected, not a defect to
   fix by removing the link or waiting to add it.
+- **Every validation number in an offline run carries both labels, `{selection}{check}`.**
+  CONTRIBUTING.md section 2 requires the pipeline-check disclosure beside every synthetic or
+  scripted number, and separately requires the selection-step label on every `validation` number
+  in every run mode; in a synthetic or scripted run a `validation` number needs both, so it
+  prints `{selection}{check}`, never `{selection}` alone.
+  `tests/test_template.py::test_every_metric_line_of_the_evaluation_carries_the_pipeline_check_label`
+  enforces this for the template. Several merged recipes print `{selection}` only on their
+  validation lines, which under-states the pipeline-check disclosure on a synthetic run; bringing
+  them in line with this convention is a recipe-side follow-up tracked in #163 (acceptance item
+  1), not done by any foundation issue, and not listed here by name so this bullet does not go
+  stale on the next merge.
+- **The foreign-option membership check is defensive, not required.** A backend's `_check_fits`
+  already rejects an answer whose `choice` is outside the question's own option set at the
+  boundary, before any rule sees it (see [backends.md](backends.md)). The template's `route`
+  keeps an explicit `not in QUEUES` branch anyway, with its own review reason, because naming the
+  boundary for a reader is worth the one extra branch; a rule that instead indexes a dict of
+  known options directly (`QUEUES[answer.choice]`) and lets an impossible case raise `KeyError`
+  is relying on the same backend guarantee, not skipping a required step. Either layer owning the
+  check is acceptable.
+- **A low-confidence fallback option may be a final result only when it has no side effect.**
+  CONTRIBUTING.md section 4 requires an uncertain or inconsistent result to go to an explicit
+  review outcome. A fallback option such as `none`, `unclear_request` or `no_match` can satisfy
+  that requirement by itself, with no further confidence gate, exactly when choosing it routes
+  nothing, answers nothing and moves nothing: the "result" is that nothing happened, which needs
+  no gate because there is nothing left to protect. A fallback that itself triggers a side effect
+  (sends a message, closes a ticket, writes a record) is not exempt on the strength of its name:
+  it goes through the same confidence gate as every other option before that side effect runs.
 
 ## How `load_helpers` works
 
@@ -98,6 +160,9 @@ writes) is accepted.
   `NotImplementedError("TODO ...")` until you write them. The test file's replay-key test assumes
   one request per example (`example.replay_keys` holds a single key); adapt it when an example
   needs a dependent second request, which is a later request with its own key.
+- `tests/test_build_fixtures.py`, for a replay recipe only: the three guard tests already working
+  against your `build_fixtures.py` once you have filled in `ROWS` and `answers_for` (step 4);
+  nothing here is a `TODO`. A `--mode scripted` scaffold does not get this file.
 
 Every place you must write is marked `TODO`, so `grep -rn TODO recipes/NN-slug` lists what remains;
 a finished recipe prints nothing. The command validates that `NN` is a whole number from 1 to 60
@@ -153,6 +218,7 @@ scripted scaffold changes:
 | setup cell | `get_backend(fixtures=responses_path())` | `get_backend(script=helpers.script, seed=helpers.SEED)`; `run_header(..., backend=backend, n_examples=len(scored))` is the same |
 | `measured` cell | follows `backend.mode` | the same line: `Provenance: scripted. Not measured live: a pipeline check, not a Jev result.` |
 | `tests/test_helpers.py` | asserts every example's keys equal `replay_key(state, questions)` | asserts the keys are empty and that a fresh `ScriptedBackend(helpers.script, helpers.SEED)` answers the same request identically twice; the scaffolder writes the one test file that fits `--mode`, so neither carries the other's machinery |
+| `tests/test_build_fixtures.py` | emitted: guards the refusal, inputs/labels regeneration and the writer | not emitted: no `responses.json` and no refusal logic for these tests to guard |
 | validator | `fixtures valid (mode replay)` | `fixtures valid (mode scripted)` |
 
 Write `script` with `rng.random()` only for chance and no clock, global `random` or environment

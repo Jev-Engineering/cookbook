@@ -1,16 +1,15 @@
-"""build_fixtures.py follows the recipes/_template/build_fixtures.py pattern (#124, #129):
-inputs/labels generation is separate from responses generation, a recorded responses.json is
-never silently overwritten, and the committed file matches jev_cookbook.live's writer exactly."""
+"""build_fixtures.py: inputs and labels generation is separate from responses generation, a
+recorded responses.json is never silently overwritten, and the committed file matches
+jev_cookbook.live's writer exactly. Every scaffolded replay recipe gets a copy of this file
+(tools/new_recipe.py's build_fixtures_test_text); keep the two in step."""
 
-import difflib
 import importlib.util
 import json
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
-from jev_cookbook.live import _dump, merge_responses
+from jev_cookbook.live import _dump
 
 RECIPE = Path(__file__).resolve().parent.parent
 SCRIPT = RECIPE / "build_fixtures.py"
@@ -26,6 +25,10 @@ def load_module_at(path, name):
     return module
 
 
+def _jsonl(rows):
+    return "".join(json.dumps(row) + "\n" for row in rows)
+
+
 def test_the_committed_responses_are_byte_identical_to_the_recorders_writer():
     """jev_cookbook.live._dump sorts only the top-level keys; json.dumps(..., sort_keys=True)
     sorts every nested dict too and so disagrees with it on every response's field order. The
@@ -38,16 +41,18 @@ def test_the_committed_responses_are_byte_identical_to_the_recorders_writer():
     of what build_responses computes directly from ROWS, independent of what main() actually
     wrote to disk."""
     raw = (RECIPE / "fixtures" / "responses.json").read_text("utf-8")
-    module = load_module_at(SCRIPT, "recipe01_build_fixtures_for_test")
+    module = load_module_at(SCRIPT, "template_build_fixtures_for_test")
     assert len(module.ROWS) > 1
     assert raw == _dump(module.build_responses(module.ROWS))
 
 
 def test_build_fixtures_separates_inputs_labels_from_responses(tmp_path):
     """Mutation check: regenerating must never silently overwrite a recorded responses.json,
-    and --force must restore the exact synthetic bytes. (Removing the refusal in build_fixtures
-    main() makes this test fail.)"""
-    copy = tmp_path / "01-sentiment-classification"
+    and --force must restore the exact synthetic bytes. inputs.jsonl and labels.jsonl are
+    rewritten from ROWS on every run, refused or not: only responses.json is guarded, and this
+    also proves it by corrupting both files before the refused run and checking that they come
+    back exactly as build_inputs_and_labels(ROWS) computes them, not merely "changed"."""
+    copy = tmp_path / "_template"
     copy.mkdir()
     for name in ("helpers.py", "build_fixtures.py"):
         (copy / name).write_bytes((RECIPE / name).read_bytes())
@@ -64,10 +69,19 @@ def test_build_fixtures_separates_inputs_labels_from_responses(tmp_path):
     )
     before = responses.read_bytes()
 
+    inputs_path = copy / "fixtures" / "inputs.jsonl"
+    labels_path = copy / "fixtures" / "labels.jsonl"
+    inputs_path.write_bytes(b"corrupted")
+    labels_path.write_bytes(b"corrupted")
+
     refused = subprocess.run([sys.executable, str(script)], capture_output=True, text=True)
     assert refused.returncode != 0
     assert "recorded" in refused.stderr and "--force" in refused.stderr
     assert responses.read_bytes() == before
+    module = load_module_at(script, "template_build_fixtures_for_test_refused")
+    expected_inputs, expected_labels = module.build_inputs_and_labels(module.ROWS)
+    assert inputs_path.read_text("utf-8") == _jsonl(expected_inputs)
+    assert labels_path.read_text("utf-8") == _jsonl(expected_labels)
 
     forced = subprocess.run(
         [sys.executable, str(script), "--force"], capture_output=True, text=True
@@ -78,7 +92,7 @@ def test_build_fixtures_separates_inputs_labels_from_responses(tmp_path):
 
 
 def test_the_generator_reproduces_the_committed_fixtures(tmp_path):
-    copy = tmp_path / "01-sentiment-classification"
+    copy = tmp_path / "_template"
     copy.mkdir()
     for name in ("helpers.py", "build_fixtures.py"):
         (copy / name).write_bytes((RECIPE / name).read_bytes())
@@ -88,43 +102,3 @@ def test_the_generator_reproduces_the_committed_fixtures(tmp_path):
     assert done.returncode == 0, done.stderr
     for name in ("inputs.jsonl", "labels.jsonl", "responses.json"):
         assert (copy / "fixtures" / name).read_bytes() == (RECIPE / "fixtures" / name).read_bytes()
-
-
-def test_a_simulated_recording_produces_a_minimal_diff():
-    """Proves issue #124 item 4's actual purpose (recipes/_template/tests/test_build_fixtures.py
-    has the counterpart this test mirrors): recording over this file should change only the
-    values a real call would change, not reformat every response. Simulate a recording that
-    keeps every answer's content but flips its provenance to recorded (what the recording wave
-    does), merge it the way jev_cookbook.live.record does, and check the diff is confined to the
-    lines that actually changed (provenance and, for the top-level entry, its model) rather than
-    a wholesale reordering."""
-    responses_path = RECIPE / "fixtures" / "responses.json"
-    before_text = responses_path.read_text("utf-8")
-    before_lines = before_text.splitlines()
-    data = json.loads(before_text)
-
-    recorded = {}
-    for key, response in data.items():
-        new_answers = {}
-        for name, answer in response["answers"].items():
-            new_answer = dict(answer)
-            new_answer["provenance"] = {
-                "source": "recorded",
-                "model": "jev-1.13.0",
-                "date": "2026-10-09",
-            }
-            new_answers[name] = new_answer
-        recorded[key] = {"model": "jev-1.13.0", "usage": response["usage"], "answers": new_answers}
-
-    with tempfile.TemporaryDirectory() as tmp:
-        scratch = Path(tmp) / "responses.json"
-        scratch.write_text(before_text, encoding="utf-8")
-        merge_responses(scratch, recorded, overwrite=True)
-        after_lines = scratch.read_text("utf-8").splitlines()
-
-    diff = list(difflib.unified_diff(before_lines, after_lines, lineterm=""))
-    changed = [line for line in diff if line[:1] in "+-" and line[:3] not in ("+++", "---")]
-    # Every response's provenance block is 3 lines (source, model, date) on each side, and the
-    # top-level model line changes too: for N responses that is at most 4N changed lines on
-    # each side, well under reformatting the whole file.
-    assert 0 < len(changed) <= 8 * len(data), len(changed)

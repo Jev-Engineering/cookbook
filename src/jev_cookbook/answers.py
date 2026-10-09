@@ -75,7 +75,7 @@ def _even_spread(n: int) -> float:
 
 def score_confidence_bound(n: int, peak: int) -> float:
     """Score confidence is 1 - spread / even with spread = sum(p_i * |i - peak|) and
-    even = mean(|i - (n-1)/2|) (https://docs.typesafe.ai/confidence.md). For a fixed peak,
+    even = mean(|i - (n-1)/2|) (https://docs.typesafe.ai/confidence). For a fixed peak,
     each p_i off by ROUND_ERR moves the spread by at most ROUND_ERR * sum(|i - peak|), so the
     formula moves by at most ROUND_ERR * sum(|i - peak|) / even; ``confidence`` itself is off
     by ROUND_ERR. The clamp never increases a gap."""
