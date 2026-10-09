@@ -59,7 +59,7 @@ def test_every_canonical_record_retrieves_itself_at_similarity_one():
 def test_shortlist_never_pads_with_zero_similarity_records():
     # Nothing in the catalog shares any wording with this text, so retrieval must return
     # nothing at all rather than padding the list out with unrelated records tied at zero.
-    assert helpers.shortlist("Zoom Video Communications", "Zoom Workplace") == []
+    assert helpers.shortlist("Chorus Collective", "Chorus Meet") == []
 
 
 def test_shortlist_is_capped_at_max_candidates():
@@ -71,44 +71,44 @@ def test_shortlist_is_capped_at_max_candidates():
 
 
 def test_shortlist_ranks_the_self_match_first_when_it_is_unique():
-    # Adobe Acrobat shares wording with its own record and, more thinly, with Photoshop (both
-    # Adobe), but never ties it: the self-match must rank first.
-    result = helpers.shortlist("Adobe", "Acrobat")
+    # Candlewood InkPress shares wording with its own record and, more thinly, with PixelForge (both
+    # Candlewood), but never ties it: the self-match must rank first.
+    result = helpers.shortlist("Candlewood", "InkPress")
     assert result[0] == "CMDB-04"
-    assert "CMDB-05" in result  # the Adobe sibling is still retrieved, thinner overlap
+    assert "CMDB-05" in result  # the Candlewood sibling is still retrieved, thinner overlap
 
 
 def test_shortlist_ties_the_version_family_and_breaks_on_id():
-    # CMDB-01/02/03 (Microsoft SQL Server 2016/2019/2022) are identical in vendor and product,
+    # CMDB-01/02/03 (Northcastle LedgerStack Server 2017/2020/2023) are identical in vendor and product,
     # so retrieval -- which never looks at version -- always ties all three and breaks the tie
     # on id, whatever version the observed asset actually names.
-    for vendor in ("Microsoft", "MSFT", "Microsoft Corporation"):
-        assert helpers.shortlist(vendor, "SQL Server") == ["CMDB-01", "CMDB-02", "CMDB-03"]
+    for vendor in ("Northcastle", "NSTL", "Northcastle Corporation"):
+        assert helpers.shortlist(vendor, "LedgerStack Server") == ["CMDB-01", "CMDB-02", "CMDB-03"]
 
 
 def test_shortlist_is_deterministic():
-    assert helpers.shortlist("Oracle", "Database") == helpers.shortlist("Oracle", "Database")
+    assert helpers.shortlist("Thornfield", "VaultDB") == helpers.shortlist("Thornfield", "VaultDB")
 
 
 def test_similarity_scores_covers_every_canonical_record():
-    scores = helpers.similarity_scores("Adobe", "Acrobat")
+    scores = helpers.similarity_scores("Candlewood", "InkPress")
     assert set(scores) == set(helpers.CMDB_RECORDS)
     assert all(0.0 <= v <= 1.0 for v in scores.values())
 
 
 def test_vendor_aliases_still_retrieve_the_canonical_record():
     # Different wordings of the same vendor name must normalize to the same tokens.
-    for vendor in ("Red Hat", "Red Hat, Inc.", "Red Hat Inc"):
-        assert "CMDB-08" in helpers.shortlist(vendor, "Enterprise Linux")
-    # "RHEL" alone expands to "redhat enterprise linux", covering vendor and product together.
-    assert "CMDB-08" in helpers.shortlist("RHEL", "")
+    for vendor in ("Redfern", "Redfern, Inc.", "Redfern Inc"):
+        assert "CMDB-08" in helpers.shortlist(vendor, "Enterprise OS")
+    # "RFOS" alone expands to "redfern enterprise os", covering vendor and product together.
+    assert "CMDB-08" in helpers.shortlist("RFOS", "")
 
 
 def test_a_lexical_lookalike_is_retrieved_but_is_not_the_canonical_products_own_pool():
-    # Acrobat Reader is a different, free product from the paid Acrobat the catalog holds, but
+    # InkPress Reader is a different, free product from the paid InkPress the catalog holds, but
     # shares enough wording with it to be retrieved as a candidate -- the trap this recipe's
     # fixtures use.
-    result = helpers.shortlist("Adobe", "Acrobat Reader DC")
+    result = helpers.shortlist("Candlewood", "InkPress Reader IC")
     assert "CMDB-04" in result
 
 
@@ -141,14 +141,14 @@ def test_build_questions_refuses_an_empty_candidate_list():
 def test_the_state_hides_the_asset_id():
     fields = {
         "asset_id": "AST-9",
-        "vendor": "Adobe",
-        "product": "Acrobat",
+        "vendor": "Candlewood",
+        "product": "InkPress",
         "version": "11.0",
         "edition": "Pro",
     }
     assert helpers.build_state(fields) == {
-        "vendor": "Adobe",
-        "product": "Acrobat",
+        "vendor": "Candlewood",
+        "product": "InkPress",
         "version": "11.0",
         "edition": "Pro",
     }
@@ -445,21 +445,35 @@ def test_baseline_always_top_picks_the_first_candidate():
 def test_baseline_always_top_cannot_tell_the_version_family_apart():
     # Whatever version is actually observed, this baseline only ever sees the tied shortlist and
     # always names its lowest id -- it is wrong whenever the true match is CMDB-02 or CMDB-03.
-    candidates = helpers.shortlist("Microsoft", "SQL Server")
+    candidates = helpers.shortlist("Northcastle", "LedgerStack Server")
     assert helpers.baseline_always_top(candidates) == "CMDB-01"
 
 
 def test_baseline_overlap_cutoff_links_a_clean_self_match():
-    assert helpers.baseline_overlap_cutoff("Adobe", "Acrobat") == "CMDB-04"
+    assert helpers.baseline_overlap_cutoff("Candlewood", "InkPress") == "CMDB-04"
 
 
 def test_baseline_overlap_cutoff_reports_no_match_below_the_cutoff():
-    assert helpers.baseline_overlap_cutoff("Zoom Video Communications", "Zoom Workplace") == (
-        helpers.NO_MATCH
-    )
+    assert helpers.baseline_overlap_cutoff("Chorus Collective", "Chorus Meet") == helpers.NO_MATCH
 
 
 def test_baseline_overlap_cutoff_also_cannot_tell_the_version_family_apart():
     # Version plays no part in either baseline's input, so this one is exactly as unable to
     # distinguish CMDB-01/02/03 as baseline_always_top is.
-    assert helpers.baseline_overlap_cutoff("Microsoft", "SQL Server") == "CMDB-01"
+    assert helpers.baseline_overlap_cutoff("Northcastle", "LedgerStack Server") == "CMDB-01"
+
+
+@pytest.mark.parametrize(
+    ("vendor", "product", "expected"),
+    [("NSTL", "LedgerStack Server", "CMDB-01"), ("MRDN", "Pipeline Cloud", "CMDB-10")],
+)
+def test_the_nstl_and_mrdn_aliases_are_load_bearing_for_the_overlap_baseline(
+    vendor, product, expected
+):
+    # Unlike shortlist (which ties a whole family regardless of the exact score), this baseline
+    # only answers when the single best overlap clears OVERLAP_CUTOFF (0.6): without its alias,
+    # "NSTL"/"LedgerStack Server" and "MRDN"/"Pipeline Cloud" each score only 0.5 (an abbreviated
+    # vendor word against the full canonical spelling), below the cutoff, so the baseline would
+    # report no_match instead of the right record. A mutation that deleted either alias entry
+    # would fail this test by returning helpers.NO_MATCH here.
+    assert helpers.baseline_overlap_cutoff(vendor, product) == expected
