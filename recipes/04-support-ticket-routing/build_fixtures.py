@@ -14,7 +14,7 @@ threshold this recipe's notebook freezes on validation (0.3750), so the selectiv
 numbers in "Evaluation" show a real, non-zero risk rather than a guarantee that happens to
 hold. ``t13-mixed-topics`` is wrong too, but at low confidence, so the threshold catches it
 and sends it to review instead. Three ``unclear_request`` tickets per split (vague, off-topic,
-and mixing several unrelated requests) are the fallback outcome the issue names. The replay
+and mixing several unrelated requests) are the use case's fallback outcome. The replay
 keys come from the same ``build_state`` and ``build_questions`` the notebook uses, via
 ``helpers.py``.
 """
