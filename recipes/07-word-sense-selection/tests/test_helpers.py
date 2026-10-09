@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from jev_cookbook import ChoiceAnswer, Provenance, get_backend, load_helpers, replay_key
+from jev_cookbook.evaluation import select_confidence_threshold
 from jev_cookbook.fixtures import load_inputs, load_labels, responses_path
 
 RECIPE = Path(__file__).resolve().parent.parent
@@ -137,15 +138,36 @@ def test_every_replay_key_in_the_fixtures_matches_the_current_question():
 
 
 def test_stored_answers_are_not_all_right():
+    """A wrong answer anywhere is a weak guard: it would still pass even if the confidence gate
+    caught every mistake, which would hide the exact lesson this fixture set exists to teach.
+    Re-derive the threshold the way the notebook does (the lowest confidence at which every
+    validation answer naming a real sense is correct) and require a wrong `test` answer at or
+    above it: a mistake the gate would still let through."""
     backend = get_backend(fixtures=responses_path(RECIPE))
+    examples = load_inputs(RECIPE)
     labels = load_labels(RECIPE)
-    wrong = []
-    for e in load_inputs(RECIPE):
-        if e.id not in labels:
-            continue
-        word = e.fields["word"]
-        questions = helpers.build_questions(word)
-        choice = backend.decide(helpers.build_state(e.fields), questions)["sense"].choice
-        if choice != labels[e.id]:
-            wrong.append(e.id)
-    assert wrong, "the fixtures should contain some wrong answers"
+    questions_by_word = {word: helpers.build_questions(word) for word in helpers.SENSE_INVENTORY}
+
+    def decide(example):
+        word = example.fields["word"]
+        return backend.decide(helpers.build_state(example.fields), questions_by_word[word])["sense"]
+
+    validation = [e for e in examples if e.split == "validation" and e.id in labels]
+    named = [
+        (decide(e).choice == labels[e.id], decide(e).confidence)
+        for e in validation
+        if decide(e).choice in helpers.SENSE_INVENTORY[e.fields["word"]]
+    ]
+    threshold = select_confidence_threshold(
+        [ok for ok, _ in named], [c for _, c in named], target_accuracy=1.0
+    )
+
+    test = [e for e in examples if e.split == "test" and e.id in labels]
+    wrong_and_confident = [
+        e.id
+        for e in test
+        if decide(e).choice in helpers.SENSE_INVENTORY[e.fields["word"]]
+        and decide(e).choice != labels[e.id]
+        and decide(e).confidence >= threshold
+    ]
+    assert wrong_and_confident, "expected at least one confidently wrong test answer"

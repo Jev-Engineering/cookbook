@@ -32,9 +32,13 @@ LABELS: dict[str, str] = {
 }
 
 # Outcomes the three-path rule in ``decide_tags`` can produce for one (example, label) pair.
+# UNCERTAIN's value is the lexicon's own outcome string, "review" (docs/glossary.md#review):
+# the name stays UNCERTAIN because it is the clearer word for what a low-confidence label is,
+# but what the rule actually reports for it is "review", the same word every other recipe's
+# confidence-gated outcome reports.
 YES = "yes"
 NO = "no"
-UNCERTAIN = "uncertain"
+UNCERTAIN = "review"
 
 
 def build_state(fields: dict[str, Any]) -> dict[str, str]:
@@ -94,12 +98,12 @@ def decide_tags(
     - the business tag is ``noul >= thresholds[label]`` (the rule ``multilabel_from_noul``
       applies at evaluation time; this function applies the same comparison per label so the
       notebook can show it decision by decision);
-    - the outcome is ``"uncertain"`` whenever ``noul_confidence(noul) < confidence_cutoff``,
+    - the outcome is ``"review"`` whenever ``noul_confidence(noul) < confidence_cutoff``,
       whatever the business tag says, and otherwise ``"yes"`` or ``"no"`` matching the tag.
 
-    An ``"uncertain"`` label is not reported as a tag either way: it is Python's explicit
-    third path (CONTRIBUTING.md section 4, "Uncertain or inconsistent results go to an
-    explicit review outcome."), alongside the two the business rule alone would give. The
+    A label routed to ``"review"`` is not reported as a tag either way: it is Python's
+    explicit third path (CONTRIBUTING.md section 4, "Uncertain or inconsistent results go to
+    an explicit review outcome."), alongside the two the business rule alone would give. The
     rule holds whatever the model answers: it is code, not prose, and ``tests/test_helpers.py``
     checks it for every label and every outcome.
 
@@ -131,7 +135,7 @@ def decide_tags(
         # is the shared implementation, so it is imported rather than reimplemented here.
         confidence = noul_confidence([noul])[0]
         if confidence < confidence_cutoff:
-            outcome, reason = UNCERTAIN, "confidence below the review cutoff"
+            outcome, reason = UNCERTAIN, "confidence below the threshold"
         elif tag:
             outcome, reason = YES, "at or above the label's threshold, confident enough"
         else:
@@ -142,8 +146,8 @@ def decide_tags(
 
 def tag_set(decisions: dict[str, LabelDecision]) -> frozenset[str]:
     """The labels Python is willing to report as present: every ``"yes"`` outcome, and no
-    ``"uncertain"`` one, whatever its business tag says (an uncertain label is reviewed, not
-    reported as absent or present)."""
+    label sent to review, whatever its business tag says (a reviewed label is not reported as
+    absent or present)."""
     return frozenset(label for label, d in decisions.items() if d.outcome == YES)
 
 

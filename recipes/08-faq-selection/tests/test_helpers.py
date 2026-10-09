@@ -1,12 +1,12 @@
 """Tests for recipe 08's helpers. They load the helpers by file path."""
 
-import math
 from pathlib import Path
 
 import pytest
 
-from jev_cookbook import ChoiceAnswer, Provenance, load_helpers, replay_key
-from jev_cookbook.fixtures import load_inputs
+from jev_cookbook import ChoiceAnswer, Provenance, get_backend, load_helpers, replay_key
+from jev_cookbook.evaluation import select_confidence_threshold
+from jev_cookbook.fixtures import load_inputs, load_labels, responses_path
 
 RECIPE = Path(__file__).resolve().parent.parent
 helpers = load_helpers(RECIPE)
@@ -31,6 +31,36 @@ EXPECTED_OPTIONS = [
     "delete_account",
     "no_match",
 ]
+
+# Literal expected answer text, independent of helpers.ANSWERS: select_faq returns
+# ANSWERS[answer.choice] directly, so comparing against that same dict would only ever check
+# that the rule agrees with itself, never that the stored text is still what it should be.
+EXPECTED_ANSWERS = {
+    "password_reset": (
+        "Open the sign-in page, select 'Forgot password', and follow the link we email you to "
+        "set a new one. The link expires after 30 minutes."
+    ),
+    "change_email": (
+        "Go to Account settings > Profile, enter the new email address, and confirm it from the "
+        "verification link we send there."
+    ),
+    "cancel_subscription": (
+        "Go to Account settings > Subscription > Cancel plan. Cancelling takes effect at the end "
+        "of the current billing period; you keep access until then."
+    ),
+    "billing_cycle": (
+        "Your plan renews every 30 days from the date you subscribed. The next charge date is "
+        "shown on the Billing page under Account settings."
+    ),
+    "export_data": (
+        "Go to Account settings > Data > Export, choose a format, and we will email a download "
+        "link within 24 hours."
+    ),
+    "delete_account": (
+        "Go to Account settings > Delete account, confirm by email, and the account and its data "
+        "are permanently removed after a 14-day grace period."
+    ),
+}
 
 
 def answer(probabilities):
@@ -68,7 +98,7 @@ def test_a_confident_real_faq_is_matched_whatever_the_label(label):
         "Q1",
         label,
         helpers.MATCHED,
-        helpers.ANSWERS[label],
+        EXPECTED_ANSWERS[label],
     )
 
 
@@ -80,7 +110,7 @@ def test_a_low_confidence_real_faq_goes_to_review_whatever_the_label(label):
     result = helpers.select_faq("Q1", a, 0.5)
     assert result.outcome == helpers.REVIEW
     assert result.answer is None
-    assert "threshold" in result.reason
+    assert result.reason == "confidence below the threshold"
 
 
 @pytest.mark.parametrize("top_probability", [0.95, 0.20])
@@ -124,51 +154,36 @@ def test_every_replay_key_in_the_fixtures_matches_the_current_question():
         assert example.replay_keys == (replay_key(helpers.build_state(example.fields), questions),)
 
 
-# --- summarize_outcomes ----------------------------------------------------------------------
+def test_stored_answers_are_not_all_right():
+    """A wrong answer anywhere is a weak guard: it would still pass even if the confidence gate
+    caught every mistake, which would hide the exact lesson this fixture set exists to teach.
+    Re-derive the threshold the way the notebook does (the lowest confidence at which every
+    validation answer naming a real FAQ is correct) and require a wrong `test` answer at or
+    above it: a mistake the gate would still let through."""
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    labels = load_labels(RECIPE)
+    examples = load_inputs(RECIPE)
 
+    def decide(example):
+        return backend.decide(helpers.build_state(example.fields), questions)["faq"]
 
-def _selection(question_id, label, outcome):
-    return helpers.Selection(question_id, label, outcome, None, "test fixture")
-
-
-def test_summarize_outcomes_counts_matched_and_no_match_as_answered():
-    results = [
-        _selection("a", "password_reset", helpers.MATCHED),
-        _selection("b", "no_match", helpers.NO_MATCH_OUTCOME),
-        _selection("c", "change_email", helpers.REVIEW),
+    validation = [e for e in examples if e.split == "validation" and e.id in labels]
+    real_match = [
+        (decide(e).choice == labels[e.id], decide(e).confidence)
+        for e in validation
+        if decide(e).choice != helpers.NO_MATCH
     ]
-    gold = {"a": "password_reset", "b": "no_match", "c": "change_email"}
-    summary = helpers.summarize_outcomes(results, gold)
-    assert summary.n_total == 3
-    assert summary.n_answered == 2
-    assert summary.coverage == pytest.approx(2 / 3)
-    assert summary.accuracy == pytest.approx(1.0)
-    assert summary.risk == pytest.approx(0.0)
+    threshold = select_confidence_threshold(
+        [ok for ok, _ in real_match], [c for _, c in real_match], target_accuracy=1.0
+    )
 
-
-def test_summarize_outcomes_counts_a_wrong_no_match_against_accuracy():
-    # "b" is answered no_match, but the gold label is a real FAQ: the rule never gated this on
-    # confidence (no_match has no gate), so it is a wrong, answered result, not an abstention.
-    results = [
-        _selection("a", "password_reset", helpers.MATCHED),
-        _selection("b", "no_match", helpers.NO_MATCH_OUTCOME),
+    test = [e for e in examples if e.split == "test" and e.id in labels]
+    wrong_and_confident = [
+        e.id
+        for e in test
+        if decide(e).choice != helpers.NO_MATCH
+        and decide(e).choice != labels[e.id]
+        and decide(e).confidence >= threshold
     ]
-    gold = {"a": "password_reset", "b": "export_data"}
-    summary = helpers.summarize_outcomes(results, gold)
-    assert summary.n_answered == 2
-    assert summary.accuracy == pytest.approx(0.5)
-    assert summary.risk == pytest.approx(0.5)
-
-
-def test_summarize_outcomes_is_nan_when_nothing_was_answered():
-    results = [_selection("a", "password_reset", helpers.REVIEW)]
-    summary = helpers.summarize_outcomes(results, {"a": "password_reset"})
-    assert summary.n_answered == 0
-    assert summary.coverage == 0.0
-    assert math.isnan(summary.accuracy)
-    assert math.isnan(summary.risk)
-
-
-def test_summarize_outcomes_rejects_empty_input():
-    with pytest.raises(ValueError, match="at least one"):
-        helpers.summarize_outcomes([], {})
+    assert wrong_and_confident, "expected at least one confidently wrong test answer"

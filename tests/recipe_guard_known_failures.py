@@ -59,26 +59,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "build_fixtures_scaffold",
     ): "pre-#162 test_build_fixtures.py (R8); see #163",
     (
-        "06-multiple-topic-labels",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
-        "07-word-sense-selection",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
-        "08-faq-selection",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
-        "09-file-organization",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
-        "10-answer-relevance-check",
-        "build_fixtures_scaffold",
-    ): "pre-#162 test_build_fixtures.py (R8); see #163",
-    (
         "11-clarification-selection",
         "build_fixtures_scaffold",
     ): "pre-#162 test_build_fixtures.py (R8); see #163",
@@ -132,26 +112,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "05-document-classification",
         "no_issue_citations",
     ): '"#124"/"#129" in tests/test_build_fixtures.py (R9, pre-#162 copy); see #163',
-    (
-        "06-multiple-topic-labels",
-        "no_issue_citations",
-    ): '"the issue" in build_fixtures.py, issue numbers in tests/test_build_fixtures.py (R9/R10); see #163',
-    (
-        "07-word-sense-selection",
-        "no_issue_citations",
-    ): '"the issue" in build_fixtures.py, issue numbers in tests/test_build_fixtures.py (R9/R10); see #163',
-    (
-        "08-faq-selection",
-        "no_issue_citations",
-    ): '"issue #8" in helpers.py, "the issue" in helpers.py/build_fixtures.py/notebook, issue numbers in tests/test_build_fixtures.py (R9/R10); see #163',
-    (
-        "09-file-organization",
-        "no_issue_citations",
-    ): '"the issue" in build_fixtures.py and notebook:evaluation-md, issue numbers in tests/test_build_fixtures.py (R9/R10); see #163',
-    (
-        "10-answer-relevance-check",
-        "no_issue_citations",
-    ): '"the issue" in build_fixtures.py, issue numbers in tests/test_build_fixtures.py (R9/R10); see #163',
     (
         "11-clarification-selection",
         "no_issue_citations",
@@ -222,26 +182,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "stored_answers_strong_form",
     ): "no test_stored_answers_are_not_all_right in tests/ at all; see #163",
     (
-        "06-multiple-topic-labels",
-        "stored_answers_strong_form",
-    ): "no test_stored_answers_are_not_all_right in tests/ at all; see #163",
-    (
-        "07-word-sense-selection",
-        "stored_answers_strong_form",
-    ): "weak assert-wrong form, not re-derived from the frozen threshold (R7); see #163",
-    (
-        "08-faq-selection",
-        "stored_answers_strong_form",
-    ): "no test_stored_answers_are_not_all_right in tests/ at all; see #163",
-    (
-        "09-file-organization",
-        "stored_answers_strong_form",
-    ): "no test_stored_answers_are_not_all_right in tests/ at all; see #163",
-    (
-        "10-answer-relevance-check",
-        "stored_answers_strong_form",
-    ): "no test_stored_answers_are_not_all_right in tests/ at all; see #163",
-    (
         "12-thesaurus-word-selection",
         "stored_answers_strong_form",
     ): "weak assert-wrong form, not re-derived from the frozen threshold (R7); see #163",
@@ -263,10 +203,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     ): "weak assert-wrong form, not re-derived from the frozen threshold (R7); see #163",
     # --- check 4a: a validation metric line carries both {selection} and {check} -------------
     # R1/R3: a validation metric line disclosed with {selection} alone.
-    (
-        "08-faq-selection",
-        "validation_lines_carry_selection_and_check",
-    ): "a validation metric line prints {selection} without {check}; see #163",
     (
         "18-duplicate-incident-matching",
         "validation_lines_carry_selection_and_check",
@@ -291,26 +227,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "metric_lines_carry_check",
     ): "a validation accuracy line carries {selection} but no {check} (G1(d) clause 2); see #163",
     (
-        "06-multiple-topic-labels",
-        "metric_lines_carry_check",
-    ): "validation selective-prediction lines carry {selection} but no {check} (G1(d) clause 2); see #163",
-    (
-        "07-word-sense-selection",
-        "metric_lines_carry_check",
-    ): "a validation accuracy line carries {selection} but no {check} (G1(d) clause 2); see #163",
-    (
-        "08-faq-selection",
-        "metric_lines_carry_check",
-    ): "validation accuracy/coverage lines carry {selection} but no {check} (G1(d) clause 2); see #163",
-    (
-        "09-file-organization",
-        "metric_lines_carry_check",
-    ): "a validation accuracy line carries {selection} but no {check} (G1(d) clause 2); see #163",
-    (
-        "10-answer-relevance-check",
-        "metric_lines_carry_check",
-    ): "validation sweep lines carry no {check} at all (R3-shaped, G1(d) clause 2); see #163",
-    (
         "17-passage-reranking",
         "metric_lines_carry_check",
     ): "the risk-coverage sweep rows in `selective` carry no disclosure label at all (R3, the six lines the spec names); see #163",
@@ -323,14 +239,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     # R2: four different conventions across the thirteen; only {check}-only is compliant.
     (
         "02-refund-intent-detection",
-        "figure_titles_check_only",
-    ): "validation figure titles carry {selection} without {check} (R2); see #163",
-    (
-        "06-multiple-topic-labels",
-        "figure_titles_check_only",
-    ): "validation figure titles carry {selection} without {check} (R2); see #163",
-    (
-        "10-answer-relevance-check",
         "figure_titles_check_only",
     ): "validation figure titles carry {selection} without {check} (R2); see #163",
     (
@@ -374,22 +282,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "print_what_you_plot",
     ): "plot_confusion_matrix prints only aggregate accuracy, not the matrix's own counts; see #163",
     (
-        "06-multiple-topic-labels",
-        "print_what_you_plot",
-    ): "plot_threshold_sweep (python-sweep) and plot_risk_coverage (python-cutoff) print no swept rows; see #163",
-    (
-        "08-faq-selection",
-        "print_what_you_plot",
-    ): "plot_confusion_matrix in evaluation-code-test prints only aggregate accuracy, not the matrix's own counts; see #163",
-    (
-        "09-file-organization",
-        "print_what_you_plot",
-    ): "plot_confusion_matrix in test-matrix prints nothing; see #163",
-    (
-        "10-answer-relevance-check",
-        "print_what_you_plot",
-    ): "plot_threshold_sweep in sweep-chart prints no swept rows; see #163",
-    (
         "13-candidate-rewrite-selection",
         "print_what_you_plot",
     ): "plot_confusion_matrix in evaluation-test prints only a list of wrong ids, not the matrix's own counts; see #163",
@@ -409,10 +301,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     ): "next-md links ../36-card-game-action-selection/, not published on main (R20); see #163",
     # --- check 6b: every recipe is the target of some other recipe's Next steps -------------
     # R21: a published recipe no other recipe's Next steps links to.
-    (
-        "09-file-organization",
-        "next_steps_inbound_links",
-    ): "no other published recipe's Next steps links ../09-file-organization/ (R21); see #163",
     (
         "12-thesaurus-word-selection",
         "next_steps_inbound_links",
@@ -447,14 +335,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     # either (both read as a plain rename of the review-queue outcome). 16 is a named exemption
     # in that check's own docstring (ESCALATE is a genuine domain-specific outcome), not here.
     (
-        "06-multiple-topic-labels",
-        "review_value_is_review",
-    ): 'the confidence-gated outcome (UNCERTAIN) is "uncertain", not "review"; see #163',
-    (
-        "09-file-organization",
-        "review_value_is_review",
-    ): 'REVIEW = "unsorted", not "review" (PR #186 review MC3); see #163',
-    (
         "21-quiz-answer-adjudication",
         "review_value_is_review",
     ): 'the confidence-gated outcome (NEEDS_REVIEW) is "needs_review", not "review"; see #163',
@@ -463,14 +343,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "02-refund-intent-detection",
         "review_reason_string",
     ): '"too close to an even split to trust either way: needs a person" instead of the lexicon reason string; see #163',
-    (
-        "06-multiple-topic-labels",
-        "review_reason_string",
-    ): '"confidence below the review cutoff" instead of the lexicon reason string; see #163',
-    (
-        "10-answer-relevance-check",
-        "review_reason_string",
-    ): "helpers.py does not use the lexicon's exact reason string; see #163",
     # --- check 9: no ".[dev,ml]" install line in the README ---------------------------------
     # R15: the pre-#162 README install paragraph combined the two extras into one line.
     (
@@ -483,22 +355,6 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
     ): 'README quotes `pip install -e ".[dev,ml]"` for reproducing outputs (R15); see #163',
     (
         "04-support-ticket-routing",
-        "readme_no_dev_ml_install",
-    ): 'README quotes `pip install -e ".[dev,ml]"` for reproducing outputs (R15); see #163',
-    (
-        "06-multiple-topic-labels",
-        "readme_no_dev_ml_install",
-    ): 'README quotes `pip install -e ".[dev,ml]"` for reproducing outputs (R15); see #163',
-    (
-        "07-word-sense-selection",
-        "readme_no_dev_ml_install",
-    ): 'README quotes `pip install -e ".[dev,ml]"` for reproducing outputs (R15); see #163',
-    (
-        "08-faq-selection",
-        "readme_no_dev_ml_install",
-    ): 'README quotes `pip install -e ".[dev,ml]"` for reproducing outputs (R15); see #163',
-    (
-        "09-file-organization",
         "readme_no_dev_ml_install",
     ): 'README quotes `pip install -e ".[dev,ml]"` for reproducing outputs (R15); see #163',
 }

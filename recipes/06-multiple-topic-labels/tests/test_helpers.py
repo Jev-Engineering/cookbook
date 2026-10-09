@@ -4,8 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from jev_cookbook import NoulAnswer, Provenance, load_helpers, replay_key
-from jev_cookbook.fixtures import load_inputs
+from jev_cookbook import NoulAnswer, Provenance, get_backend, load_helpers, replay_key
+from jev_cookbook.evaluation import (
+    pool_label_decisions,
+    select_confidence_threshold,
+    select_threshold,
+)
+from jev_cookbook.fixtures import load_inputs, load_labels, responses_path
 
 RECIPE = Path(__file__).resolve().parent.parent
 helpers = load_helpers(RECIPE)
@@ -132,6 +137,49 @@ def test_tag_before_the_confidence_gate_matches_multilabel_from_noul():
 def test_the_state_hides_the_feedback_id():
     fields = {"feedback_id": "FB-9", "text": "It works fine."}
     assert helpers.build_state(fields) == {"text": "It works fine."}
+
+
+def test_stored_answers_are_not_all_right():
+    """A wrong (example, label) pair anywhere is a weak guard: it would still pass even if the
+    confidence gate caught every mistake, which would hide the exact lesson this fixture set
+    exists to teach. Re-derive both frozen settings the way the notebook does -- the five
+    per-label business thresholds by F1 on `validation`, then the pooled confidence cutoff at
+    `target_accuracy=0.97` over every (example, label) pair -- and require a wrong `test` pair
+    at or above that cutoff: a mistake the gate would still let through."""
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    labels = load_labels(RECIPE)
+    examples = load_inputs(RECIPE)
+
+    def decide(example):
+        return backend.decide(helpers.build_state(example.fields), questions)
+
+    validation = [e for e in examples if e.split == "validation" and e.id in labels]
+    val_gold_by_label = {label: [label in labels[e.id] for e in validation] for label in LABELS}
+    val_noul_by_label = {label: [decide(e)[label].noul for e in validation] for label in LABELS}
+    thresholds = {
+        label: select_threshold(val_gold_by_label[label], val_noul_by_label[label], "f1")
+        for label in LABELS
+    }
+    val_correct, val_confidence, _ = pool_label_decisions(
+        [e.id for e in validation], LABELS, val_gold_by_label, val_noul_by_label, thresholds
+    )
+    confidence_cutoff = select_confidence_threshold(
+        val_correct, val_confidence, target_accuracy=0.97
+    )
+
+    test = [e for e in examples if e.split == "test" and e.id in labels]
+    test_gold_by_label = {label: [label in labels[e.id] for e in test] for label in LABELS}
+    test_noul_by_label = {label: [decide(e)[label].noul for e in test] for label in LABELS}
+    test_correct, test_confidence, test_keys = pool_label_decisions(
+        [e.id for e in test], LABELS, test_gold_by_label, test_noul_by_label, thresholds
+    )
+    wrong_and_confident = [
+        key
+        for key, ok, conf in zip(test_keys, test_correct, test_confidence, strict=True)
+        if not ok and conf >= confidence_cutoff
+    ]
+    assert wrong_and_confident, "expected at least one confidently wrong (example, label) pair"
 
 
 def test_every_replay_key_in_the_fixtures_matches_the_current_question():
