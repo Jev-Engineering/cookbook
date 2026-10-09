@@ -81,10 +81,11 @@ def test_the_scaffolded_build_fixtures_test_stays_in_step_with_the_template(tmp_
     scaffolded replay recipe gets a copy of it, kept in step with
     tools/new_recipe.py's build_fixtures_test_text. Prove it rather than assert it: substitute
     the template's own placeholders ("_template" the folder name, "template_build_fixtures_for_
-    test" the module name) for a recipe's slug and module name, and the result must equal what
-    the scaffolder actually emits for that recipe byte for byte, with the one intentional
-    difference (the module docstring: the template's talks about every recipe getting a copy of
-    it, which a scaffolded copy does not need to say about itself) substituted out first."""
+    test" the module name) for a recipe's slug and module name, then swap in the scaffolder's own
+    module docstring last (the one intentional difference this test allows: the template's talks
+    about every recipe getting a copy of it, which a scaffolded copy does not need to say about
+    itself) — order matters here, see the comment below. The result must equal what the
+    scaffolder actually emits for that recipe, byte for byte."""
     new_recipe = load_tool("new_recipe.py")
     catalog = json.loads((REPO / "catalog" / "recipes.json").read_text("utf-8"))
     recipe = next(r for r in catalog["recipes"] if r["rank"] == 9)
@@ -95,12 +96,22 @@ def test_the_scaffolded_build_fixtures_test_stays_in_step_with_the_template(tmp_
     scaffolded_docstring = scaffolded.split('"""', 2)[1]
     assert template_docstring != scaffolded_docstring  # the one difference this test allows
 
+    # The docstring swap must run last, after the slug/module-name substitutions below, not
+    # before: the scaffolded docstring itself says "the recipes/_template/build_fixtures.py
+    # pattern" (a deliberate, unsubstituted reference to the template as the canonical source),
+    # so swapping the docstring in first would let the slug substitution corrupt that reference.
+    # Swapping last has its own trap in the other direction: if the template's docstring ever
+    # came to contain "_template" or the module-name placeholder itself, the substitutions below
+    # would already have mutated that occurrence, and this exact-match replace would then silently
+    # no-op instead of swapping in the scaffolded docstring — failing on an opaque byte diff rather
+    # than naming the cause. Guard it explicitly: the original docstring text must survive the
+    # substitutions below unchanged before this test relies on finding and replacing it.
     module_name = f"recipe{recipe['rank']:02d}_build_fixtures_for_test"
-    expected = (
-        template_text.replace("_template", recipe["slug"])
-        .replace("template_build_fixtures_for_test", module_name)
-        .replace(template_docstring, scaffolded_docstring)
+    substituted = template_text.replace("_template", recipe["slug"]).replace(
+        "template_build_fixtures_for_test", module_name
     )
+    assert template_docstring in substituted
+    expected = substituted.replace(template_docstring, scaffolded_docstring)
     assert scaffolded == expected
 
 

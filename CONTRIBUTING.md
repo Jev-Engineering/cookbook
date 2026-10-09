@@ -70,7 +70,7 @@ A recipe pull request touches only `recipes/NN-slug/`, with one bounded exceptio
 
 - Actions are simulated. Nothing sends a message, moves a file, changes a ticket, or calls an external system.
 - Permissions, budgets, retry limits, interlocks, and stop conditions are enforced in code and hold whatever the model answers. Where it makes sense, prove it with a test rather than a sentence.
-- Uncertain or inconsistent results go to an explicit review outcome.
+- Uncertain or inconsistent results go to an explicit review outcome; a low-confidence fallback option (`none`, `unclear_request`, `no_match`) may be delivered as a final result instead of going to review, but only when choosing it triggers no side effect, and the notebook says so.
 
 ### 5. Fixtures are synthetic and small
 

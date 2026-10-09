@@ -62,9 +62,11 @@ measured**, **Next steps**. A recipe keeps these headings.
   in every run mode; in a synthetic or scripted run a `validation` number needs both, so it
   prints `{selection}{check}`, never `{selection}` alone.
   `tests/test_template.py::test_every_metric_line_of_the_evaluation_carries_the_pipeline_check_label`
-  enforces this for the template. Recipes 01, 03, 04, 05 and 07 print `{selection}` only on their
+  enforces this for the template. Several merged recipes print `{selection}` only on their
   validation lines, which under-states the pipeline-check disclosure on a synthetic run; bringing
-  them in line with this convention is a recipe-side follow-up, not done by any foundation issue.
+  them in line with this convention is a recipe-side follow-up tracked in #163 (acceptance item
+  1), not done by any foundation issue, and not listed here by name so this bullet does not go
+  stale on the next merge.
 - **The foreign-option membership check is defensive, not required.** A backend's `_check_fits`
   already rejects an answer whose `choice` is outside the question's own option set at the
   boundary, before any rule sees it (see [backends.md](backends.md)). The template's `route`
