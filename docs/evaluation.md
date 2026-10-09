@@ -143,7 +143,9 @@ the row that was dropped?
   curve is flat across that segment), so nothing is lost but a genuinely redundant row: 10 and 15
   each drop one `gate >= 0.86` sweep row (two coverages, one accuracy — `0.200`'s row is dropped,
   `0.240`'s survives, both `1.000`), and 02's pair is never printed as a row at all, only plotted,
-  where the dropped point is collinear, so even its figure does not move.
+  where the dropped point is exactly collinear on a flat risk-zero segment, so the plotted line
+  does not move (the figure's bytes do, since the dropped point was still a distinct pixel; that
+  drift is exactly what `tools/check_notebook_fresh.py`'s figure comparison is built to tolerate).
 - 03's pair (`v07-filler`/`v14-injection`, both nominal `0.40`) also agrees on correctness, but the
   two rows do **not** read the same accuracy: the dropped row (`0.4`) reads `0.937500`, the kept
   row (`0.3999999999999999`) reads `0.941176` — *better*, because its union coverage includes one
@@ -398,9 +400,10 @@ way. Do not invent a placeholder confidence (`0.0` or otherwise) for such an exa
 row in the arrays: leave it out of `confidences`/`correct`/`exempt` entirely —
 `outcome_curve` sweeps the *answered* examples only — and report it separately with its own
 `evaluate_outcomes`-style accounting (it is still accepted, unconditionally, for that purpose). A
-placeholder is not inert even though the example would stay exempt either way: `thresholds` is
-`numpy.unique` of every confidence passed in, so one placeholder value adds a row to that grid and
-moves the curve's x-axis, despite never changing which examples the mask selects. This is not a
+placeholder is not inert even though the example would stay exempt either way: `thresholds` comes
+from `_candidate_thresholds` of every confidence passed in, so one placeholder value adds a row to
+that grid and moves the curve's x-axis, despite never changing which examples the mask selects.
+This is not a
 blanket ban on ever showing a stand-in number — #164 ruling 9 allows a disclosed, in-range,
 quantified one printed beside the figure it stands in for (e.g. "confidence: 0.00, no call made")
 — only on letting it reach `select_confidence_threshold`, `selective_curve` or `outcome_curve` as

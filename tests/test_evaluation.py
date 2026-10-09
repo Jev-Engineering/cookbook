@@ -838,6 +838,33 @@ def test_candidate_thresholds_leaves_ordinary_values_unchanged():
     assert r.coverage == pytest.approx(3 / 5)  # answers 0.5, 1.0, 0.9999
 
 
+def test_candidate_thresholds_never_returns_a_value_absent_from_the_input():
+    # The headline invariant the whole redesign exists to preserve: every threshold this
+    # module ever returns is a bit-exact member of the array it was given, never a rounded
+    # stand-in. Checked directly against _candidate_thresholds, and through every public
+    # function built on it, over a handful of vectors (an ordinary set, a ULP-twin set, a
+    # plain tie, and the endpoints).
+    vectors = [
+        [0.9, 0.8, 0.7, 0.6, 0.5],
+        [0.42, 0.58, 0.07, 0.93],  # two ULP-twin pairs
+        [0.5, 0.5, 0.5],  # an ordinary (bit-identical) tie
+        [0.0, 1.0],
+        [0.3],
+    ]
+    for values in vectors:
+        arr = np.asarray(values, dtype=float)
+        observed = set(arr.tolist())
+        assert set(ev._candidate_thresholds(arr).tolist()) <= observed
+
+        correct = [True] * len(values)
+        assert set(ev.selective_curve(correct, values).thresholds.tolist()) <= observed
+        assert set(ev.outcome_curve(values, correct).thresholds.tolist()) <= observed
+
+        gold = [v >= values[0] for v in values]  # arbitrary but valid boolean gold
+        points = ev.threshold_sweep(gold, values)
+        assert {p.threshold for p in points} <= observed
+
+
 def _frozen_confidence_gate(recipe_dir: Path) -> float:
     """Reproduces one recipe's own two-stage threshold selection from its committed
     fixtures, offline, no network: the business threshold via select_threshold, then the

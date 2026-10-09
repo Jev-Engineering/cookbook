@@ -194,7 +194,7 @@ def _candidate_thresholds(values: np.ndarray) -> np.ndarray:
     way this happens; it is not the only one. A Score recipe can see it too, with no
     mirror pair in sight: two entirely different probability distributions that happen to
     share the same nominal confidence accumulate their internal sum in a different order,
-    landing one ULP apart (``choice_confidence``'s and the Score formula's own spread sum).
+    landing one ULP apart (the Score formula's own spread sum).
     Left alone, such a pair lands as two *adjacent* candidates, printed or plotted as a
     duplicate row or point.
 
