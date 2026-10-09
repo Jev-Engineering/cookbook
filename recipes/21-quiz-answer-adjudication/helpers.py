@@ -24,8 +24,8 @@ from jev_cookbook import Choice
 TEXT = "text"
 NUMBER = "number"
 
-# The fixed outcome set the use case names. Jev never invents one of these; Python supplies
-# the list, Jev only picks among it, and `needs_review` is the fallback outcome the use case
+# The fixed option set the use case names. Jev never invents one of these; Python supplies
+# the list, Jev only picks among it, and `needs_review` is the fallback option the use case
 # names explicitly, not an afterthought.
 MATCH = "match"
 PARTIAL_MATCH = "partial_match"
@@ -33,15 +33,19 @@ NO_MATCH = "no_match"
 NEEDS_REVIEW = "needs_review"
 OUTCOMES = (MATCH, PARTIAL_MATCH, NO_MATCH, NEEDS_REVIEW)
 
-# `NEEDS_REVIEW` is this recipe's own domain-specific name for the outcome
-# docs/glossary.md#review names generically "review" -- it is both one of Jev's own `Choice`
-# options (see `_CRITERIA` and `build_questions` below) and the tag `adjudicate` gives any
-# response it defers rather than grades, whatever sent it there (the model naming
-# `needs_review` itself, or a confidence below the threshold). The glossary allows a recipe to
-# keep its own domain-specific sub-reason name for this outcome; REVIEW documents that mapping
-# for anything that reads this file looking for the canonical value, without renaming
-# `NEEDS_REVIEW`, which is also the literal option name baked into every stored response,
-# gold label and replay key in `fixtures/`.
+# `NEEDS_REVIEW` and `REVIEW` name two different things, and `adjudicate` below keeps them
+# that way on purpose. `NEEDS_REVIEW` is one of Jev's own four `Choice` options (see
+# `_CRITERIA` and `build_questions` below) -- the model can answer it, and a human adjudicator
+# can write it down as a gold label, exactly like `match`, `partial_match` or `no_match`.
+# `REVIEW` (docs/glossary.md#review) is the separate outcome `adjudicate` actually returns for
+# *any* response it defers rather than grades, whichever of its two conditions caused the
+# deferral: the model naming the `needs_review` option itself, or a confidence below the
+# threshold for one of the other three. Neither condition is itself a grade, so neither one
+# reports `NEEDS_REVIEW` (or anything else) as a final `Adjudication.outcome` -- both report
+# `REVIEW`, and the `reason` field says which of the two it was. Fixtures, replay keys and
+# `labels.jsonl` all stay keyed on the option-level vocabulary (`OUTCOMES`), since that is what
+# Jev answers with and what a human adjudicator grades against; only the rule's own outcome is
+# `REVIEW`. "Python's part" below reads this the same way the notebook does.
 REVIEW = "review"
 
 _CRITERIA = {
@@ -181,7 +185,7 @@ def candidate_set(quiz_id: str) -> list[str]:
 def queue_item(fields: dict[str, Any]) -> dict[str, Any]:
     """What a human adjudicator sees for one queued response: the quiz id, the question text,
     and the response itself, not only an identifier (CONTRIBUTING.md section 4: the queue is
-    the side effect a `needs_review` outcome triggers, and an item with nothing to read is not
+    the side effect a `review` outcome triggers, and an item with nothing to read is not
     something a person can actually adjudicate)."""
     quiz = QUESTION_BANK[fields["quiz_id"]]
     return {
@@ -268,12 +272,15 @@ def adjudicate(
     The normaliser goes first (``settle``) and wins whenever it can decide, unconditionally:
     even a supplied ``answer`` that disagrees with it is never read, not only when ``answer``
     is ``None``. Otherwise ``answer`` must be Jev's `Choice` answer to the question
-    ``build_questions`` returns, and two independent conditions each send it to
-    ``needs_review`` instead of reporting a grade: Jev choosing `needs_review` itself (an
-    outcome Python never second-guesses), and a confidence below ``min_confidence`` for any of
-    the other three choices. `needs_review` is never a final score: CONTRIBUTING.md section 4
-    treats awarding or withholding a point as a side effect, so every `needs_review` outcome,
-    whatever sent it there, is for a simulated human adjudicator, not this rule, to resolve.
+    ``build_questions`` returns, and two independent conditions each send it to the ``REVIEW``
+    outcome instead of reporting a grade: Jev choosing the `needs_review` *option* itself (a
+    choice Python never second-guesses), and a confidence below ``min_confidence`` for any of
+    the other three choices. `needs_review` names the option, not the outcome: this function
+    never returns it as ``Adjudication.outcome``, only ``REVIEW``, whichever condition caused
+    it (``reason`` says which). A `REVIEW` outcome is never a final score: CONTRIBUTING.md
+    section 4 treats awarding or withholding a point as a side effect, so every response that
+    lands there, whatever sent it there, is for a simulated human adjudicator, not this rule,
+    to resolve.
     """
     if not 0.0 <= min_confidence <= 1.0:
         raise ValueError(f"min_confidence must be between 0 and 1, got {min_confidence!r}")
@@ -283,7 +290,7 @@ def adjudicate(
     if answer is None:
         raise ValueError(f"{example_id} was not settled by the normaliser and needs a Jev answer")
     if answer.choice == NEEDS_REVIEW:
-        return Adjudication(example_id, NEEDS_REVIEW, "the model chose needs_review", False)
+        return Adjudication(example_id, REVIEW, "the model chose needs_review", False)
     if answer.confidence < min_confidence:
-        return Adjudication(example_id, NEEDS_REVIEW, "confidence below the threshold", False)
+        return Adjudication(example_id, REVIEW, "confidence below the threshold", False)
     return Adjudication(example_id, answer.choice, "confidence met the threshold", False)

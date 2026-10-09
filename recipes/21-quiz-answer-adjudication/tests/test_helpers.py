@@ -200,14 +200,14 @@ def test_a_confident_answer_is_accepted_as_is_whatever_the_choice(answer_obj):
 
 def test_the_model_choosing_needs_review_is_never_second_guessed_even_at_zero_confidence():
     result = helpers.adjudicate("q1", TEXT_FIELDS, REVIEW_ANSWER, 0.0)
-    assert result.outcome == "needs_review"
+    assert result.outcome == "review"
     assert result.reason == "the model chose needs_review"
 
 
 @pytest.mark.parametrize("answer_obj", [MATCH_ANSWER, PARTIAL_ANSWER, NO_MATCH_ANSWER])
 def test_low_confidence_goes_to_needs_review_whatever_the_choice(answer_obj):
     result = helpers.adjudicate("q1", TEXT_FIELDS, answer_obj, answer_obj.confidence + 1e-9)
-    assert result.outcome == "needs_review"
+    assert result.outcome == "review"
     assert result.reason == "confidence below the threshold"
 
 
@@ -217,7 +217,7 @@ def test_the_threshold_is_inclusive():
         == "match"
     )
     boundary = MATCH_ANSWER.confidence + 1e-9
-    assert helpers.adjudicate("q1", TEXT_FIELDS, MATCH_ANSWER, boundary).outcome == "needs_review"
+    assert helpers.adjudicate("q1", TEXT_FIELDS, MATCH_ANSWER, boundary).outcome == "review"
 
 
 @pytest.mark.parametrize("bad", [-0.1, 1.1])
@@ -230,7 +230,7 @@ def test_an_answer_with_even_odds_still_reaches_the_gate():
     # Not a hard case by itself, but confirms the gate reads .confidence, not .choice, for a
     # genuinely close call.
     result = helpers.adjudicate("q1", TEXT_FIELDS, VAGUE_MATCH_ANSWER, 0.5)
-    assert result.outcome == "needs_review"
+    assert result.outcome == "review"
     assert result.reason == "confidence below the threshold"
 
 

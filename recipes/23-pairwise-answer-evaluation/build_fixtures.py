@@ -8,9 +8,9 @@ with the order swapped (``helpers.build_state(fields, swap=True)``), so every ro
 contributes two entries to ``responses.json`` and two replay keys, listed in request order, to
 its row in ``inputs.jsonl``. Which candidate is shown first in the *first* request
 (``fields["a_shown_first"]``) is decided once by ``helpers.assign_first_shown``, which derives
-each row's id on its own, via ``jev_cookbook.fixtures.stable_permutation`` (never the id's
-position in ``ROWS``, which is grouped by gold label here, and never the gold label or the
-candidate text itself). That rules out the one correlation a sequential random draw over this
+which side is shown first from each row's id alone, via
+``jev_cookbook.fixtures.stable_permutation`` (never the id's position in ``ROWS``, which is
+grouped by gold label here, and never the gold label or the candidate text itself). That rules out the one correlation a sequential random draw over this
 list could otherwise have smuggled in; it does not by itself prove the result is balanced -- see
 the printed table in "The questions" and the comment next to ``helpers.RECIPE``.
 

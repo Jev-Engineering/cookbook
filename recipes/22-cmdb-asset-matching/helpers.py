@@ -294,9 +294,10 @@ def no_candidate_resolution(asset_id: str) -> Resolution:
     """The forced resolution for an asset whose retrieved candidate list is empty: with no real
     candidate, the only possible Choice option would be the fallback alone, a single-option
     Choice ``build_questions`` refuses to build at all, so no request is ever sent to Jev for
-    this asset. This is a forced answer, not a confident one: CONTRIBUTING.md section 4 still
-    applies (no side effect -- see ``record_resolution``), so ``no_match`` is final here exactly
-    as it is when Jev itself names it."""
+    this asset. This is a forced answer, not a confident one: CONTRIBUTING.md section 4's
+    three-part test still applies (see ``record_resolution`` and "The simulated side effects"
+    in the notebook for the full argument), so ``no_match`` is final here exactly as it is when
+    Jev itself names it."""
     return Resolution(
         asset_id,
         (),
@@ -312,10 +313,11 @@ def match_record(
     """Decide what to do with one typed answer: link, call it unmatched, or hold it for review.
 
     ``no_match`` is never run past the confidence gate, whatever its confidence: the option
-    itself already says no candidate is the same asset, and there is no side effect (no link
-    written to the CMDB) a confidence check could protect -- CONTRIBUTING.md section 4 allows a
-    low-confidence fallback option to be a final result exactly when choosing it triggers no
-    side effect, and here it triggers only a backlog entry (see ``record_resolution``), never a
+    itself already says no candidate is the same asset, and CONTRIBUTING.md section 4's
+    three-part test lets a low-confidence fallback option be a final result only when it is a
+    complete answer, records no action, and leaves nothing standing if wrong beyond the missed
+    item itself ("The simulated side effects" in the notebook walks through all three for
+    ``no_match``); here it triggers only a backlog entry (see ``record_resolution``), never a
     write. Choosing anything that is not one of the retrieved candidates and not ``no_match``
     goes to review (defensive: ``build_questions`` never offers such an option, but the rule
     does not trust that silently, the same guard recipe 07's word-sense rule and recipe 18's
@@ -357,10 +359,11 @@ def record_resolution(
     ``jev_cookbook.simulation.ReviewQueue``, reused here for an "unmatched asset" backlog rather
     than a person's review queue): the asset is noted for someone to later decide whether a new
     canonical record is needed, but nothing is written to the CMDB and no canonical record is
-    linked or created -- this is exactly the "no side effect" CONTRIBUTING.md section 4 requires
-    before a low-confidence (or, for ``no_candidate_resolution``, forced) fallback may be a final
-    result, and it is why ``no_match`` bypasses the confidence gate above: there is no write to
-    protect against. ``answer`` is ``None`` for a forced, request-free resolution, and the queue
+    linked or created -- this is the part of CONTRIBUTING.md section 4's three-part test ("The
+    simulated side effects" in the notebook has the other two) that this backlog entry itself
+    satisfies for a low-confidence (or, for ``no_candidate_resolution``, forced) fallback, and
+    it is why ``no_match`` bypasses the confidence gate above: there is no write to protect
+    against. ``answer`` is ``None`` for a forced, request-free resolution, and the queue
     entry simply carries no answer. A ``review`` resolution is queued in ``queue`` (a second,
     separate ``ReviewQueue``) with the candidates it was offered, so a person can see what Jev
     was choosing between.
