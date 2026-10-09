@@ -14,9 +14,9 @@ from jev_cookbook import Choice
 
 # The fixed clarification catalog: each entry is one follow-up question Python may ask before a
 # task moves to its next step, and the one piece of information that question is for. Jev never
-# writes the question text; it only picks which entry, if any, applies (the issue's build note:
-# "Options come from a predefined catalog of follow-up questions plus no_clarification_needed
-# ... Python decides between asking and proceeding. The model does not write the question.").
+# writes the question text; it only picks which entry, if any, applies. Options come from this
+# predefined catalog of follow-up questions plus no_clarification_needed: Python decides between
+# asking and proceeding, and the model never writes the question.
 ASK_DEADLINE = "ask_deadline"
 ASK_RECIPIENT = "ask_recipient"
 ASK_SCOPE = "ask_scope"
@@ -157,10 +157,12 @@ def select_followup(task_id: str, answer: Any, min_confidence: float) -> Selecti
     ``no_clarification_needed`` is never run past the confidence gate, whatever its confidence:
     the option itself already says the task needs no follow-up, so there is no clarifying
     question a confidence check could protect here (the same shape as recipe 08's
-    ``no_match``). Accepting it unconditionally means a low-confidence
-    ``no_clarification_needed`` answer can still be final -- but it triggers no side effect in
-    this recipe: Python only returns a "proceed, nothing to ask" result, never a simulated
-    action, so a wrong one costs this pipeline check some accuracy and nothing else here (it is
+    ``no_match``). Accepting it unconditionally passes every part of CONTRIBUTING.md section 4's
+    three-part test: (a) it is a complete answer, not a deferral -- it says plainly that the task
+    needs no follow-up, rather than asking a person to decide again; (b) choosing it records no
+    action, since Python only returns a "proceed, nothing to ask" result, never a simulated
+    action; and (c) being wrong leaves nothing standing beyond the missed item itself -- a wrong
+    one costs this pipeline check some accuracy and nothing else here (it is
     exactly the mistake ``risk``, in the notebook's evaluation, is counting; in a real pipeline
     the cost would be the task moving on without the information it needed -- the notebook's
     "Python's part" section says this explicitly). Choosing a real catalog option

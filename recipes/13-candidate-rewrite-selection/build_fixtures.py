@@ -18,7 +18,7 @@ the rule never checks at all because ``no_suitable_rewrite`` bypasses the gate e
 confidence this low as unanswered while the rule itself still returns it as a final
 ``kept_original`` result (see the notebook's "Evaluation" section); a third is wrong but not
 confident, so it is sent to review instead of being reported (``t19-setup-fee-wrong``). The hard
-cases the issue names are included: candidates that change
+cases this use case calls for are included: candidates that change
 the original sentence's meaning, candidates that miss the requested tone, candidates that do
 both, and several items where no candidate is good enough and the gold label is
 ``no_suitable_rewrite``. The replay keys come from the same ``build_state`` and
