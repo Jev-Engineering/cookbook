@@ -79,10 +79,5 @@ latency, or cost: every number above is a synthetic pipeline check. The full con
 ## Sources
 
 - S02: [TypeSafe AI: Primitives (Questions)](https://docs.typesafe.ai/primitives)
+- S03: [TypeSafe AI: Confidence](https://docs.typesafe.ai/confidence)
 - S07: [TypeSafe AI: Jev 1.13 jaggedness](https://docs.typesafe.ai/model-jaggedness/jev-1.13)
-
-The `Choice` confidence formula the notebook uses is on TypeSafe's confidence page,
-<https://docs.typesafe.ai/confidence.md>. It is not listed above because `catalog/recipes.json`
-does not yet list it (S03) among this recipe's sources on `main` (tracked in #142); the
-README-to-catalog test requires this table to match the catalog exactly, so it is cited by URL in
-the notebook instead of added here.
