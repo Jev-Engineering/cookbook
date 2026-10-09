@@ -145,9 +145,22 @@ validation when frozen and reused (#155) — which is exactly why confidence is 
 `evaluate_outcomes(accepted, correct)` reports coverage, accuracy and risk from the rule's own
 decisions instead: `accepted[i]` is whether the rule answered example `i` (not a confidence, not
 a reconstruction — what the rule actually returned), `correct[i]` is whether an answered
-example's answer was right. It returns the same `SelectiveResult` as `evaluate_selective`, with
-`threshold` NaN (no single confidence cut-off decided `accepted`, so a threshold is undefined
-here, not merely unreported — the module's general NaN convention, above).
+example's answer was right (pass anything you like, conventionally `False`, for an example where
+`accepted[i]` is `False`: it is required but never read). It returns the same `SelectiveResult`
+as `evaluate_selective`, with `threshold` NaN (no single confidence cut-off decided `accepted`,
+so a threshold is undefined here, not merely unreported — the module's general NaN convention,
+above).
+
+**Note the argument order.** Every other function in this family leads with `correct`
+(`selective_curve(correct, confidence)`, `select_confidence_threshold(correct, confidence, ...)`,
+`evaluate_selective(correct, confidence, threshold)`); `evaluate_outcomes(accepted, correct)`
+puts `accepted` first. This is deliberate, not an inconsistency to fix: it mirrors this
+function's own definition of `accepted` as the thing decided first (whether the rule answered at
+all) and `correct` as conditional on it (whether the answer was right, which only matters once
+something was answered) — the same order the dataclass's own fields read in
+(`n_answered`/`coverage` before `accuracy`/`risk`). Both arguments are same-length boolean lists,
+so swapping them raises nothing and silently returns a different, still-plausible number; read
+the parameter names at the call site rather than relying on position alone.
 
 For a rule whose only review branch *is* a confidence gate, the two agree, which is checked
 directly (not merely argued) in `tests/test_evaluation.py`,
@@ -155,8 +168,17 @@ directly (not merely argued) in `tests/test_evaluation.py`,
 
 ```python
 accepted = [c >= threshold for c in confidence]
-evaluate_outcomes(accepted, correct) == evaluate_selective(correct, confidence, threshold)
-# equal in n_total, n_answered, coverage, accuracy, risk; threshold differs (NaN vs. the float)
+a, b = evaluate_outcomes(accepted, correct), evaluate_selective(correct, confidence, threshold)
+(a.n_total, a.n_answered, a.coverage, a.accuracy, a.risk) == (
+    b.n_total,
+    b.n_answered,
+    b.coverage,
+    b.accuracy,
+    b.risk,
+)
+# True; only `threshold` differs: NaN from evaluate_outcomes, the frozen float from
+# evaluate_selective. (`a == b` on the two SelectiveResult objects directly is False: `==` on a
+# frozen dataclass compares every field, including threshold, and NaN != NaN.)
 ```
 
 Use `evaluate_outcomes` as soon as the rule has a second, unconditional branch (a fallback

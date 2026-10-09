@@ -1197,10 +1197,18 @@ def evaluate_outcomes(accepted: Iterable[Any], correct: Iterable[Any]) -> Select
     examples. The two diverge as soon as the rule has a second, unconditional branch,
     which is the case this function is for.
 
+    Note the argument order: every other function in this family leads with ``correct``
+    (:func:`selective_curve`, :func:`select_confidence_threshold`,
+    :func:`evaluate_selective`); this one leads with ``accepted``, deliberately, because
+    here whether an example was answered at all is decided independently of (and before)
+    whether its answer was right. Both arguments are same-length boolean lists, so a
+    transposed call raises nothing and returns a different, still-plausible number.
+
     Args:
         accepted: Whether the rule answered (as opposed to sent to review) each example,
             as the rule itself decided it (bool or 0/1).
-        correct: Whether each answered example's answer was right (bool or 0/1).
+        correct: Whether each answered example's answer was right (bool or 0/1); the
+            value where ``accepted`` is False is required but never read.
 
     Returns:
         A :class:`SelectiveResult` with ``threshold`` NaN (see its docstring: no single
