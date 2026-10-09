@@ -1,11 +1,16 @@
-"""The template recipe is a recipe: its fixtures validate, its notebook keeps the contract."""
+"""The template recipe is a recipe: its fixtures validate, its notebook keeps the contract.
+
+The generic build_fixtures.py guard tests (refusal without --force, inputs/labels regenerated
+from ROWS even on a refused run, and the writer byte-identical to jev_cookbook.live's recorder)
+live in recipes/_template/tests/test_build_fixtures.py, the same file every scaffolded replay
+recipe gets a copy of, not here: this file is for behaviour specific to the template as a
+worked example (re-execution, the minimal-diff recording check, the scaffolder's own sections)."""
 
 import ast
 import difflib
 import importlib.util
 import json
 import re
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -13,7 +18,7 @@ from pathlib import Path
 import pytest
 
 from jev_cookbook.fixtures import validate_recipe
-from jev_cookbook.live import _dump, merge_responses
+from jev_cookbook.live import merge_responses
 
 REPO = Path(__file__).resolve().parent.parent
 TEMPLATE = REPO / "recipes" / "_template"
@@ -24,16 +29,6 @@ def load_tool(name):
     spec = importlib.util.spec_from_file_location(
         f"{name}_for_template_test", REPO / "tools" / name
     )
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def load_module_at(path, name):
-    """Import an arbitrary .py file (the template's own build_fixtures.py, not under tools/)
-    so its functions and module-level values (ROWS, build_responses) are plain Python
-    objects, not subprocess output or a re-dump of the file it wrote."""
-    spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -59,6 +54,7 @@ def test_the_template_has_the_documented_files():
         "fixtures/labels.jsonl",
         "fixtures/responses.json",
         "tests/test_helpers.py",
+        "tests/test_build_fixtures.py",
     }
     found = {
         p.relative_to(TEMPLATE).as_posix()
@@ -270,21 +266,6 @@ def test_the_confusion_matrix_title_follows_the_mode_and_states_n():
     assert 'title=f"Test split, {len(test_examples)} examples{check}"' in source(cell)
 
 
-def test_the_generator_reproduces_the_committed_fixtures(tmp_path):
-    copy = tmp_path / "_template"
-    copy.mkdir()
-    for name in ("helpers.py", "build_fixtures.py"):
-        (copy / name).write_bytes((TEMPLATE / name).read_bytes())
-    done = subprocess.run(
-        [sys.executable, str(copy / "build_fixtures.py")], capture_output=True, text=True
-    )
-    assert done.returncode == 0, done.stderr
-    for name in ("inputs.jsonl", "labels.jsonl", "responses.json"):
-        assert (copy / "fixtures" / name).read_bytes() == (
-            TEMPLATE / "fixtures" / name
-        ).read_bytes()
-
-
 def test_the_first_next_step_names_the_tools_that_show_key_drift():
     cell = next(c for c in NOTEBOOK["cells"] if c.get("id") == "next-md")
     first = source(cell).split("\n- ")[1]
@@ -338,54 +319,6 @@ def test_the_measured_markdown_does_not_hardcode_a_mode_specific_claim():
     for stale in ("written by hand", "invented messages", "hand-written"):
         assert stale not in measured_md.lower()
     assert "demo" in measured_md
-
-
-def test_build_fixtures_separates_inputs_labels_from_responses(tmp_path):
-    copy = tmp_path / "_template"
-    copy.mkdir()
-    for name in ("helpers.py", "build_fixtures.py"):
-        (copy / name).write_bytes((TEMPLATE / name).read_bytes())
-    script = copy / "build_fixtures.py"
-    first = subprocess.run([sys.executable, str(script)], capture_output=True, text=True)
-    assert first.returncode == 0, first.stderr
-
-    responses = copy / "fixtures" / "responses.json"
-    data = json.loads(responses.read_text("utf-8"))
-    for value in data.values():
-        value["model"] = "jev-1.13.0"
-    responses.write_text(
-        json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
-    )
-    before = responses.read_bytes()
-
-    refused = subprocess.run([sys.executable, str(script)], capture_output=True, text=True)
-    assert refused.returncode != 0
-    assert "recorded" in refused.stderr and "--force" in refused.stderr
-    assert responses.read_bytes() == before
-
-    forced = subprocess.run(
-        [sys.executable, str(script), "--force"], capture_output=True, text=True
-    )
-    assert forced.returncode == 0, forced.stderr
-    after = json.loads(responses.read_text("utf-8"))
-    assert all(v["model"] == "synthetic" for v in after.values())
-
-
-def test_the_committed_responses_are_byte_identical_to_the_recorders_writer():
-    """jev_cookbook.live._dump sorts only the top-level keys; json.dumps(..., sort_keys=True)
-    sorts every nested dict too and so disagrees with it on every response's field order. The
-    committed file must match _dump exactly, not just agree with it on top-level order.
-
-    Comparing against _dump(json.loads(raw)) (re-dumping the file's own parsed content)
-    cannot catch a sort_keys=True regression: json.loads preserves whatever nested order the
-    file already has, and _dump only re-sorts the top level, so that round trip would pass no
-    matter which writer produced the file. Instead, import build_fixtures.py and compare
-    against _dump of what build_responses computes directly from ROWS, independent of what
-    main() actually wrote to disk."""
-    raw = (TEMPLATE / "fixtures" / "responses.json").read_text("utf-8")
-    module = load_module_at(TEMPLATE / "build_fixtures.py", "template_build_fixtures_for_test")
-    assert len(module.ROWS) > 1
-    assert raw == _dump(module.build_responses(module.ROWS))
 
 
 def test_a_simulated_recording_produces_a_minimal_diff():

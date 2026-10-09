@@ -61,7 +61,7 @@ A recipe pull request touches only `recipes/NN-slug/`, with one bounded exceptio
 
 - Each question asks one specific thing. Decompose anything that weighs several factors and combine the answers in Python.
 - `Choice` options are a fixed, supplied set. Include `none`, `other`, `no_match`, or `uncertain` outcomes when the use case calls for them.
-- `Noul` propositions are written as statements that can be true or false. One independent question per label for multi-label tasks. Noul has no confidence field; thresholds are chosen from examples and evaluated.
+- `Noul` propositions are written as statements that can be true or false. One independent question per label for multi-label tasks. Noul has no confidence field in the API; `jev_cookbook.evaluation.noul_confidence` derives a certainty `|2p - 1|` from its probability, and thresholds are chosen from examples and evaluated.
 - `Score` rubrics define every level in words. Exact measurement and arithmetic stay in code.
 - Independent questions go in one request. A question that depends on an earlier answer goes in a later request.
 - Option lists, candidates, spans, and identifiers are built by Python and carried through to the output unchanged, so every result traces back to its source.

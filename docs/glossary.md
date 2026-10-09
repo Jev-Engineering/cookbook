@@ -9,7 +9,9 @@ how well Jev performs, how fast it is, or what it costs.
 | Term | Where it comes from |
 | --- | --- |
 | [state](#state), [question](#question), [Choice](#choice), [Noul](#noul), [Score](#score), [criteria](#criteria), [probabilities](#probabilities), [confidence](#confidence) | Jev, as documented by TypeSafe |
+| [gold label](#gold-label) | This cookbook's fixtures |
 | [threshold](#threshold) | TypeSafe's guidance, and this cookbook's rule for choosing one |
+| [accuracy](#accuracy) | This cookbook, `jev_cookbook.evaluation` |
 | [replay key](#replay-key), [fixture](#fixture), [provenance](#provenance), [run mode](#run-mode) | This cookbook |
 
 ## state
@@ -91,6 +93,14 @@ the cookbook checks stored answers against these formulas.
   0 at `p = 0.5`, 1 at `p = 0` or `p = 1`. It is on the *same* 0-1 scale as Choice confidence, not
   a separate convention. [evaluation.md](evaluation.md) provides this as `noul_confidence(noul)`.
 
+## gold label
+
+The correct answer for an example, written by whoever built the fixtures, never by Jev, and used
+only to score an answer after the fact: it is never part of the state Jev sees. Stored in a
+recipe's `fixtures/labels.jsonl`, one per scored example; the `demo` examples carry none
+([fixtures.md](fixtures.md#labels)). [accuracy](#accuracy) and every other metric in
+`jev_cookbook.evaluation` compare an answer against its gold label.
+
 ## threshold
 
 A cut-off in your own code that turns a number into an action, for example "route to a person when
@@ -99,6 +109,14 @@ scales with the cost of being wrong ([S03](https://docs.typesafe.ai/confidence))
 cookbook a threshold belongs to the task, so a recipe chooses it from labelled `validation`
 examples, freezes it, and reports on `test` ([evaluation.md](evaluation.md),
 [recipe-template.md](recipe-template.md)).
+
+## accuracy
+
+The fraction of scored examples whose answer exactly matches its [gold label](#gold-label): for a
+`Choice`, `choice == gold`; for a rule's own outcome, whatever the rule treats as a match.
+Computed by `accuracy(gold, predicted)` in `jev_cookbook.evaluation`
+([evaluation.md](evaluation.md)). Reported after a threshold is chosen and frozen, never used to
+choose one.
 
 ## replay key
 

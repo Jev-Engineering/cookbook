@@ -31,6 +31,7 @@ Python. It is deliberately small, so that it can be read in a few minutes and co
 | `build_fixtures.py` | Writes `fixtures/`; the replay keys come from `helpers.py`, so they cannot drift from the questions. It lives next to the notebook, outside `fixtures/` ([fixtures.md](fixtures.md)). Generating inputs and labels is separate from generating responses: `--force` is needed to overwrite a `responses.json` that already holds a `recorded` answer. |
 | `fixtures/` | `inputs.jsonl`, `labels.jsonl`, `responses.json`: 22 examples (10 `validation`, 10 `test`, 2 `demo`), synthetic and deliberately imperfect. |
 | `tests/test_helpers.py` | Tests for the rule, and a check that the stored keys match the current question. |
+| `tests/test_build_fixtures.py` | Guards `build_fixtures.py` (replay recipes only): refusal without `--force`, `inputs.jsonl`/`labels.jsonl` regenerated from `ROWS` even on a refused run, and the committed `responses.json` byte-identical to `jev_cookbook.live`'s recorder. A scripted recipe has no `responses.json` and nothing for these tests to guard, so the scaffolder does not emit this file for `--mode scripted`. |
 
 The notebook sections, in order: **What you will build**, **Setup and run mode**, **The state**,
 **The questions**, **One answer up close**, **Python's part**, **Evaluation**, **What was and was not
@@ -98,6 +99,9 @@ writes) is accepted.
   `NotImplementedError("TODO ...")` until you write them. The test file's replay-key test assumes
   one request per example (`example.replay_keys` holds a single key); adapt it when an example
   needs a dependent second request, which is a later request with its own key.
+- `tests/test_build_fixtures.py`, for a replay recipe only: the three guard tests already working
+  against your `build_fixtures.py` once you have filled in `ROWS` and `answers_for` (step 4);
+  nothing here is a `TODO`. A `--mode scripted` scaffold does not get this file.
 
 Every place you must write is marked `TODO`, so `grep -rn TODO recipes/NN-slug` lists what remains;
 a finished recipe prints nothing. The command validates that `NN` is a whole number from 1 to 60
@@ -153,6 +157,7 @@ scripted scaffold changes:
 | setup cell | `get_backend(fixtures=responses_path())` | `get_backend(script=helpers.script, seed=helpers.SEED)`; `run_header(..., backend=backend, n_examples=len(scored))` is the same |
 | `measured` cell | follows `backend.mode` | the same line: `Provenance: scripted. Not measured live: a pipeline check, not a Jev result.` |
 | `tests/test_helpers.py` | asserts every example's keys equal `replay_key(state, questions)` | asserts the keys are empty and that a fresh `ScriptedBackend(helpers.script, helpers.SEED)` answers the same request identically twice; the scaffolder writes the one test file that fits `--mode`, so neither carries the other's machinery |
+| `tests/test_build_fixtures.py` | emitted: guards the refusal, inputs/labels regeneration and the writer | not emitted: no `responses.json` and no refusal logic for these tests to guard |
 | validator | `fixtures valid (mode replay)` | `fixtures valid (mode scripted)` |
 
 Write `script` with `rng.random()` only for chance and no clock, global `random` or environment
