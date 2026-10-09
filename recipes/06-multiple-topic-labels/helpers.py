@@ -32,13 +32,11 @@ LABELS: dict[str, str] = {
 }
 
 # Outcomes the three-path rule in ``decide_tags`` can produce for one (example, label) pair.
-# UNCERTAIN's value is the lexicon's own outcome string, "review" (docs/glossary.md#review):
-# the name stays UNCERTAIN because it is the clearer word for what a low-confidence label is,
-# but what the rule actually reports for it is "review", the same word every other recipe's
-# confidence-gated outcome reports.
+# REVIEW is the lexicon's own outcome string (docs/glossary.md#review), the same word every
+# other recipe's confidence-gated outcome reports.
 YES = "yes"
 NO = "no"
-UNCERTAIN = "review"
+REVIEW = "review"
 
 
 def build_state(fields: dict[str, Any]) -> dict[str, str]:
@@ -88,7 +86,7 @@ class LabelDecision:
 def decide_tags(
     answers: Any,
     thresholds: dict[str, float],
-    confidence_cutoff: float,
+    confidence_gate: float,
 ) -> dict[str, LabelDecision]:
     """Apply the per-label business rule and the shared confidence gate to one request's answers.
 
@@ -98,7 +96,7 @@ def decide_tags(
     - the business tag is ``noul >= thresholds[label]`` (the rule ``multilabel_from_noul``
       applies at evaluation time; this function applies the same comparison per label so the
       notebook can show it decision by decision);
-    - the outcome is ``"review"`` whenever ``noul_confidence(noul) < confidence_cutoff``,
+    - the outcome is ``"review"`` whenever ``noul_confidence(noul) < confidence_gate``,
       whatever the business tag says, and otherwise ``"yes"`` or ``"no"`` matching the tag.
 
     A label routed to ``"review"`` is not reported as a tag either way: it is Python's
@@ -111,15 +109,15 @@ def decide_tags(
         answers: ``{label: NoulAnswer-like}``, one per label in ``LABELS``.
         thresholds: The frozen per-label business thresholds (chosen on ``validation``); must
             name exactly the labels in ``LABELS``, no more and no fewer.
-        confidence_cutoff: The frozen shared confidence gate (chosen on ``validation``, pooled
+        confidence_gate: The frozen shared confidence gate (chosen on ``validation``, pooled
             across labels; see the notebook's "Python's part" section for why one shared value
             is used rather than a second per-label parameter).
 
     Returns:
         ``{label: LabelDecision}``, one entry per label in ``LABELS``.
     """
-    if not 0.0 <= float(confidence_cutoff) <= 1.0:
-        raise ValueError(f"confidence_cutoff must be between 0 and 1, got {confidence_cutoff!r}")
+    if not 0.0 <= float(confidence_gate) <= 1.0:
+        raise ValueError(f"confidence_gate must be between 0 and 1, got {confidence_gate!r}")
     if set(thresholds) != set(LABELS):
         raise ValueError(
             f"thresholds must name exactly LABELS {sorted(LABELS)}, got {sorted(thresholds)}"
@@ -134,8 +132,8 @@ def decide_tags(
         # |2p - 1| per the TypeSafe confidence page (S03); jev_cookbook.evaluation.noul_confidence
         # is the shared implementation, so it is imported rather than reimplemented here.
         confidence = noul_confidence([noul])[0]
-        if confidence < confidence_cutoff:
-            outcome, reason = UNCERTAIN, "confidence below the threshold"
+        if confidence < confidence_gate:
+            outcome, reason = REVIEW, "confidence below the threshold"
         elif tag:
             outcome, reason = YES, "at or above the label's threshold, confident enough"
         else:
@@ -151,6 +149,6 @@ def tag_set(decisions: dict[str, LabelDecision]) -> frozenset[str]:
     return frozenset(label for label, d in decisions.items() if d.outcome == YES)
 
 
-def uncertain_labels(decisions: dict[str, LabelDecision]) -> tuple[str, ...]:
+def review_labels(decisions: dict[str, LabelDecision]) -> tuple[str, ...]:
     """The labels sent to review for this example, in ``LABELS`` order."""
-    return tuple(label for label, d in decisions.items() if d.outcome == UNCERTAIN)
+    return tuple(label for label, d in decisions.items() if d.outcome == REVIEW)

@@ -41,79 +41,77 @@ def test_questions_are_built_by_python():
 
 @pytest.mark.parametrize("label", LABELS)
 def test_a_confident_yes_is_tagged_yes_whatever_the_label(label):
-    decisions = helpers.decide_tags(answers(**{label: 0.90}), THRESHOLDS, confidence_cutoff=0.3)
+    decisions = helpers.decide_tags(answers(**{label: 0.90}), THRESHOLDS, confidence_gate=0.3)
     assert decisions[label].outcome == helpers.YES
     assert helpers.tag_set(decisions) == {label}
-    assert helpers.uncertain_labels(decisions) == ()
+    assert helpers.review_labels(decisions) == ()
 
 
 @pytest.mark.parametrize("label", LABELS)
 def test_a_confident_no_is_tagged_no_whatever_the_label(label):
-    decisions = helpers.decide_tags(answers(**{label: 0.05}), THRESHOLDS, confidence_cutoff=0.3)
+    decisions = helpers.decide_tags(answers(**{label: 0.05}), THRESHOLDS, confidence_gate=0.3)
     assert decisions[label].outcome == helpers.NO
     assert label not in helpers.tag_set(decisions)
-    assert helpers.uncertain_labels(decisions) == ()
+    assert helpers.review_labels(decisions) == ()
 
 
 @pytest.mark.parametrize("label", LABELS)
-def test_a_low_confidence_answer_is_uncertain_whatever_the_label_or_business_tag(label):
+def test_a_low_confidence_answer_is_sent_to_review_whatever_the_label_or_business_tag(label):
     # noul = 0.52: just above the 0.5 threshold (a "yes" by the business rule alone), but its
-    # confidence |2*0.52 - 1| = 0.04 is well below any reasonable cutoff, so the three-path
+    # confidence |2*0.52 - 1| = 0.04 is well below any reasonable gate, so the three-path
     # rule must still send it to review rather than reporting it as a tag either way.
-    decisions = helpers.decide_tags(answers(**{label: 0.52}), THRESHOLDS, confidence_cutoff=0.3)
-    assert decisions[label].outcome == helpers.UNCERTAIN
+    decisions = helpers.decide_tags(answers(**{label: 0.52}), THRESHOLDS, confidence_gate=0.3)
+    assert decisions[label].outcome == helpers.REVIEW
     assert decisions[label].tag is True  # the business rule alone would have said yes
     assert label not in helpers.tag_set(decisions)
-    assert helpers.uncertain_labels(decisions) == (label,)
+    assert helpers.review_labels(decisions) == (label,)
 
 
 def test_the_business_threshold_is_inclusive():
-    decisions = helpers.decide_tags(answers(pricing=0.5), THRESHOLDS, confidence_cutoff=0.0)
+    decisions = helpers.decide_tags(answers(pricing=0.5), THRESHOLDS, confidence_gate=0.0)
     assert decisions["pricing"].outcome == helpers.YES
-    just_below = helpers.decide_tags(answers(pricing=0.4999999), THRESHOLDS, confidence_cutoff=0.0)
+    just_below = helpers.decide_tags(answers(pricing=0.4999999), THRESHOLDS, confidence_gate=0.0)
     assert just_below["pricing"].outcome == helpers.NO
 
 
-def test_the_confidence_cutoff_is_inclusive():
+def test_the_confidence_gate_is_inclusive():
     # noul = 0.75: |2*0.75 - 1| = 0.5 exactly.
-    at_cutoff = helpers.decide_tags(answers(pricing=0.75), THRESHOLDS, confidence_cutoff=0.5)
-    assert at_cutoff["pricing"].outcome == helpers.YES
-    above_cutoff = helpers.decide_tags(
-        answers(pricing=0.75), THRESHOLDS, confidence_cutoff=0.5 + 1e-9
-    )
-    assert above_cutoff["pricing"].outcome == helpers.UNCERTAIN
+    at_gate = helpers.decide_tags(answers(pricing=0.75), THRESHOLDS, confidence_gate=0.5)
+    assert at_gate["pricing"].outcome == helpers.YES
+    above_gate = helpers.decide_tags(answers(pricing=0.75), THRESHOLDS, confidence_gate=0.5 + 1e-9)
+    assert above_gate["pricing"].outcome == helpers.REVIEW
 
 
 @pytest.mark.parametrize("bad", [-0.1, 1.1])
 def test_a_business_threshold_outside_zero_to_one_is_an_error(bad):
     bad_thresholds = {**THRESHOLDS, "pricing": bad}
     with pytest.raises(ValueError, match="between 0 and 1"):
-        helpers.decide_tags(answers(), bad_thresholds, confidence_cutoff=0.3)
+        helpers.decide_tags(answers(), bad_thresholds, confidence_gate=0.3)
 
 
 def test_thresholds_missing_a_label_is_an_error():
     incomplete = {label: 0.5 for label in LABELS[:-1]}
     with pytest.raises(ValueError, match="exactly LABELS"):
-        helpers.decide_tags(answers(), incomplete, confidence_cutoff=0.3)
+        helpers.decide_tags(answers(), incomplete, confidence_gate=0.3)
 
 
 def test_thresholds_with_an_unknown_label_is_an_error():
     extra = {**THRESHOLDS, "not_a_label": 0.5}
     with pytest.raises(ValueError, match="exactly LABELS"):
-        helpers.decide_tags(answers(), extra, confidence_cutoff=0.3)
+        helpers.decide_tags(answers(), extra, confidence_gate=0.3)
 
 
 @pytest.mark.parametrize("bad", [-0.1, 1.1])
-def test_a_confidence_cutoff_outside_zero_to_one_is_an_error(bad):
+def test_a_confidence_gate_outside_zero_to_one_is_an_error(bad):
     with pytest.raises(ValueError, match="between 0 and 1"):
-        helpers.decide_tags(answers(), THRESHOLDS, confidence_cutoff=bad)
+        helpers.decide_tags(answers(), THRESHOLDS, confidence_gate=bad)
 
 
 def test_tag_set_can_be_empty_or_hold_several_labels():
-    all_no = helpers.decide_tags(answers(), THRESHOLDS, confidence_cutoff=0.3)
+    all_no = helpers.decide_tags(answers(), THRESHOLDS, confidence_gate=0.3)
     assert helpers.tag_set(all_no) == frozenset()
     all_yes = helpers.decide_tags(
-        answers(**{label: 0.9 for label in LABELS}), THRESHOLDS, confidence_cutoff=0.3
+        answers(**{label: 0.9 for label in LABELS}), THRESHOLDS, confidence_gate=0.3
     )
     assert helpers.tag_set(all_yes) == frozenset(LABELS)
 
@@ -122,12 +120,12 @@ def test_tag_before_the_confidence_gate_matches_multilabel_from_noul():
     # decide_tags's .tag field (the business rule alone, before the confidence gate) must agree
     # with jev_cookbook.evaluation.multilabel_from_noul, since the notebook's "Evaluation" section
     # uses that shared helper to build the business-rule tag set and nothing here should drift
-    # from it. confidence_cutoff=0.0 means nothing is marked uncertain, so .tag and .outcome
+    # from it. confidence_gate=0.0 means nothing is sent to review, so .tag and .outcome
     # agree, which keeps this test's assertion about .tag directly checkable against tag_set too.
     from jev_cookbook.evaluation import multilabel_from_noul
 
     sample = answers(pricing=0.9, reliability=0.3, usability=0.6, support=0.1, feature_request=0.5)
-    decisions = helpers.decide_tags(sample, THRESHOLDS, confidence_cutoff=0.0)
+    decisions = helpers.decide_tags(sample, THRESHOLDS, confidence_gate=0.0)
     noul_by_label = {label: [sample[label].noul] for label in LABELS}
     predicted = multilabel_from_noul(noul_by_label, THRESHOLDS)[0]
     assert {label for label in LABELS if decisions[label].tag} == set(predicted)
@@ -143,9 +141,9 @@ def test_stored_answers_are_not_all_right():
     """A wrong (example, label) pair anywhere is a weak guard: it would still pass even if the
     confidence gate caught every mistake, which would hide the exact lesson this fixture set
     exists to teach. Re-derive both frozen settings the way the notebook does -- the five
-    per-label business thresholds by F1 on `validation`, then the pooled confidence cutoff at
+    per-label business thresholds by F1 on `validation`, then the pooled confidence gate at
     `target_accuracy=0.97` over every (example, label) pair -- and require a wrong `test` pair
-    at or above that cutoff: a mistake the gate would still let through."""
+    at or above that gate: a mistake it would still let through."""
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
     labels = load_labels(RECIPE)
@@ -164,9 +162,7 @@ def test_stored_answers_are_not_all_right():
     val_correct, val_confidence, _ = pool_label_decisions(
         [e.id for e in validation], LABELS, val_gold_by_label, val_noul_by_label, thresholds
     )
-    confidence_cutoff = select_confidence_threshold(
-        val_correct, val_confidence, target_accuracy=0.97
-    )
+    confidence_gate = select_confidence_threshold(val_correct, val_confidence, target_accuracy=0.97)
 
     test = [e for e in examples if e.split == "test" and e.id in labels]
     test_gold_by_label = {label: [label in labels[e.id] for e in test] for label in LABELS}
@@ -177,7 +173,7 @@ def test_stored_answers_are_not_all_right():
     wrong_and_confident = [
         key
         for key, ok, conf in zip(test_keys, test_correct, test_confidence, strict=True)
-        if not ok and conf >= confidence_cutoff
+        if not ok and conf >= confidence_gate
     ]
     assert wrong_and_confident, "expected at least one confidently wrong (example, label) pair"
 

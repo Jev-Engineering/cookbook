@@ -6,7 +6,7 @@ Tag customer feedback with every applicable topic by asking an independent yes-o
 
 ## What it teaches
 
-Jev answers five independent `Noul` propositions over one piece of feedback, one per topic label in a fixed list Python builds (`pricing`, `reliability`, `usability`, `support`, `feature_request`), all sent together in a single request because they share the same state. Python turns the five yes-or-no answers into a tag set with a threshold chosen separately for each label, gates every label behind a shared confidence cutoff built from `|2p - 1|`, and sends anything it is not confident enough about to an explicit review outcome instead of guessing. The notebook shows feedback that raises no topic, feedback that only looks like it raises one, and feedback that raises three at once, then evaluates the frozen rule with per-label precision and recall, a micro and a macro F1, and the share of examples tagged exactly right.
+Jev answers five independent `Noul` propositions over one piece of feedback, one per topic label in a fixed list Python builds (`pricing`, `reliability`, `usability`, `support`, `feature_request`), all sent together in a single request because they share the same state. Python turns the five yes-or-no answers into a tag set with a threshold chosen separately for each label, gates every label behind a shared confidence gate built from `|2p - 1|`, and sends anything it is not confident enough about to an explicit review outcome instead of guessing. The notebook shows feedback that raises no topic, feedback that only looks like it raises one, and feedback that raises three at once, then evaluates the frozen rule with per-label precision and recall, a micro and a macro F1, and the share of examples tagged exactly right.
 
 ## Run it offline
 
@@ -59,7 +59,7 @@ associated with a label — `price` or `feature` — without actually raising th
 leave `v16-lookalike-wrong`'s 0.80 untagged, but `t16-lookalike-wrong`'s 0.82 clears it anyway —
 wrong *and* confident on `test` — and the same threshold costs a real feature request, `t18`, a
 confident false negative two hundredths below it; plus six low-confidence crossover pairs on
-`validation` that the shared confidence cutoff is chosen to catch. Its per-label precision and
+`validation` that the shared confidence gate is chosen to catch. Its per-label precision and
 recall, the micro and
 macro F1, the exact-set match, and the coverage, accuracy and risk of the confidence gate check
 that the pipeline works; they say nothing about how Jev performs, how fast it is, or what it costs.
