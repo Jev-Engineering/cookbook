@@ -87,7 +87,7 @@ quality, latency, or cost: every number above is a synthetic pipeline check. The
 - S03: [TypeSafe AI: Confidence](https://docs.typesafe.ai/confidence)
 - S04: [TypeSafe AI: How to build with TypeSafe](https://docs.typesafe.ai/concepts/how-to-build-with-system-one)
 - S06: [TypeSafe AI: Cookbooks](https://docs.typesafe.ai/cookbooks) — the citation-checking pattern
-  (`https://docs.typesafe.ai/cookbooks/citation_check.md`) is the closest worked example: a single
+  (`https://docs.typesafe.ai/cookbooks/citation_check`) is the closest worked example: a single
   `Choice` question that decides whether a passage supports, contradicts, or says nothing about a
   claim. This recipe's question is designed from it directly (same question shape, closely related
   option wording), widening the third option from "says nothing" to the use case's own

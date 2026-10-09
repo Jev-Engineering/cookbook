@@ -279,8 +279,10 @@ shown = stable_shuffle(f"{recipe}:{example_id}", candidates)  # the candidates, 
 For a binary choice such as which of two candidates is shown first, use `n = 2`:
 `stable_permutation(seed_key, 2)[0] == 0` says the first candidate keeps its place.
 `stable_permutation`/`stable_shuffle` live in the shared package precisely so every recipe's
-per-item order is derived the same documented-stable way; recipe 12's `shuffled_candidates` and
-recipe 23's `assign_first_shown` predate this helper and migrate onto it separately (issue #163).
+per-item order is derived the same documented-stable way; recipe 12's `shuffled_candidates`
+(keyed on `f"{RECIPE_SLUG}:{item_id}"`, calling `stable_shuffle`) and recipe 23's
+`assign_first_shown` (keyed on `f"{recipe}:{comparison_id}"`, calling `stable_permutation`) are
+two such call sites, each deriving its own per-item order the same way.
 
 ## Writing fixtures
 
