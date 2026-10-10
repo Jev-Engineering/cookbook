@@ -285,10 +285,17 @@ def test_evaluate_outcomes_reports_a_nonzero_task_level_risk_on_test():
 def test_the_review_queue_holds_every_review_outcome_from_both_splits_and_nothing_else():
     """The notebook submits every ``review`` outcome from `validation` and `test` into one
     `ReviewQueue` as it evaluates each split, and nothing else: no `demo` ticket (never scored,
-    so never composed), no `accepted` ticket. Rebuild the queue the way the notebook does and
-    check what ends up in it, in what order, and why -- today a change that dropped the
-    `validation` loop, or that queued a `demo` ticket, would be caught by nothing but a reader's
-    eye."""
+    so never composed), no `accepted` ticket.
+
+    The notebook and this test both build the queue through ``helpers.compose_split`` and
+    ``helpers.submit_reviews`` -- the one place this recipe decides what happens to a ticket and
+    the one place it turns a `review` outcome into a queued item -- so there is a single
+    implementation to get right rather than two copies that could silently drift apart. The
+    expected ids, their count, their order and the fact that both splits contributed are all
+    written down below as literals, independent of the loop that builds the queue: a change that
+    dropped the `validation` split, reversed the two splits, or let a `demo` ticket in would
+    change what the queue holds without changing what this test expects, so it would fail.
+    """
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
     labels = load_labels(RECIPE)
@@ -313,19 +320,31 @@ def test_the_review_queue_holds_every_review_outcome_from_both_splits_and_nothin
     test = select_split(examples, "test")
     test_decisions = {e.id: decide(e) for e in test}
 
-    queue = ReviewQueue()
-    expected_order = []
-    for split_examples, decisions in ((validation, val_decisions), (test, test_decisions)):
-        for e in split_examples:
-            result = helpers.compose_priority(e.id, *decisions[e.id], threshold)
-            if result.outcome == helpers.REVIEW:
-                queue.submit({"ticket_id": e.id}, result.reason)
-                expected_order.append(e.id)
+    # Written independently of the submission below: the exact ids this fixture set's
+    # `validation` and `test` splits send to review at the frozen threshold, in the order the
+    # notebook submits them (validation, then test, each in fixture order).
+    EXPECTED_REVIEWED_IDS = [
+        "v17-one-confident",
+        "v18-wrong",
+        "v19-one-confident",
+        "t09",
+        "t17-one-confident",
+        "t18-one-confident",
+    ]
 
-    assert expected_order, "expected at least one reviewed ticket on each split to test anything"
+    queue = ReviewQueue()
+    val_results = helpers.compose_split(validation, val_decisions, threshold)
+    helpers.submit_reviews(queue, validation, val_decisions, val_results)
+    test_results = helpers.compose_split(test, test_decisions, threshold)
+    helpers.submit_reviews(queue, test, test_decisions, test_results)
+
     submitted_ids = [item["item"]["ticket_id"] for item in queue.to_dicts()]
-    assert submitted_ids == expected_order
-    assert len(queue) == len(expected_order)
+    assert submitted_ids == EXPECTED_REVIEWED_IDS
+    assert len(queue) == 6
+    validation_ids = {e.id for e in validation}
+    test_ids = {e.id for e in test}
+    assert any(i in validation_ids for i in submitted_ids), "expected a reviewed validation ticket"
+    assert any(i in test_ids for i in submitted_ids), "expected a reviewed test ticket"
     assert all(item["reason"] == "confidence below the threshold" for item in queue.to_dicts())
     demo_ids = {e.id for e in select_split(examples, "demo")}
     assert demo_ids.isdisjoint(submitted_ids)

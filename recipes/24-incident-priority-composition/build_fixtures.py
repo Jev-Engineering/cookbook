@@ -21,10 +21,17 @@ on `validation` actually has to exclude something, rather than finding every ans
 by default. t19 is wrong *and* confident on `test`, at a confidence shared with several
 correctly-answered tickets, so it clears whatever gate `validation` chose and the selective-
 prediction numbers on `test` show a real, non-zero risk. t09 is a second `test` mistake, in the
-other question: its business impact is answered confidently and correctly, but its urgency
-answer is wrong *and* unconfident (gold `medium`, stored peak at `high`), so the gate correctly
-sends it to review -- the business-impact question is not the only one with a mistake on the
-page, and this one is exactly what the gate is for. The two `demo` tickets are both shown in the
+other question: its business impact is answered confidently and correctly, but its report mixes
+a social-pressure signal ("called it a priority", "checking in daily") with the substantive one
+the urgency rubric actually asks about ("nothing about the missing chart itself has gotten
+worse") -- unlike v17/t17 and v19/t18, where the ticket withholds the information the question
+asks for and an unsure answer is the best available reading, t09 answers the question but is
+genuinely easy to misjudge, since the social-pressure language reads as urgent even though the
+rubric does not ask about it. The gold label, `medium`, follows the substantive sentence; the
+stored answer leans the other way, toward `high`, so it is wrong *and* unconfident, and the gate
+correctly sends it to review -- the business-impact question is not the only one with a mistake
+on the page, and this one is exactly what the gate is for. The two `demo` tickets are both shown
+in the
 notebook, one against the other, so both are decided and the live request count equals the
 number of fixture rows. The replay keys come from the same `build_state` and `build_questions`
 the notebook uses, via `helpers.py`.
@@ -238,8 +245,9 @@ ROWS = [
      {"impact": "major", "urgency": "medium"}, confident(2, 0.88), confident(1, 0.84)),
     ("t09", "test", "INC-8009",
      "report-exporter's monthly internal summary is missing one chart used only by one "
-     "analyst; no customer-facing system is touched. The analyst would like it restored "
-     "sometime this week.",
+     "analyst; no customer-facing system is touched. The analyst's manager has called it a "
+     "priority and has been checking in daily, though nothing about the missing chart itself "
+     "has gotten worse.",
      {"impact": "minor", "urgency": "medium"}, confident(0, 0.84), AMBIGUOUS_B[2]),
     ("t10", "test", "INC-8010",
      "upload-pipeline is adding a faint watermark to a subset of uploaded photos by mistake; "

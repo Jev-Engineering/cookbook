@@ -183,3 +183,42 @@ def compose_priority(
     if gate_confidence(impact_answer, urgency_answer) < min_confidence:
         return Outcome(ticket_id, composition, REVIEW, "confidence below the threshold")
     return Outcome(ticket_id, composition, ACCEPTED, "priority matrix applied")
+
+
+def compose_split(examples: Any, decisions: dict[str, Any], min_confidence: float) -> list[Outcome]:
+    """:func:`compose_priority` applied to every example of one split, in order.
+
+    ``examples`` is a sequence of fixture examples (each with an ``.id``) and ``decisions`` maps
+    each example's id to its ``(impact_answer, urgency_answer)`` pair. The notebook calls this
+    once per split and so does ``tests/test_helpers.py``, so there is exactly one place this
+    recipe decides what happens to a ticket's two answers.
+    """
+    return [compose_priority(e.id, *decisions[e.id], min_confidence) for e in examples]
+
+
+def submit_reviews(
+    queue: Any, examples: Any, decisions: dict[str, Any], results: list[Outcome]
+) -> None:
+    """Submit every ``review`` outcome in ``results`` to ``queue``, in order; skip every
+    ``accepted`` one. ``results`` must align with ``examples`` (the output of
+    :func:`compose_split` on the same two arguments does). This is this recipe's one simulated
+    side effect (CONTRIBUTING.md section 4): nothing here changes a ticket, it only queues it for
+    a person to look at, with the composed categories and both Score answers attached so a
+    reviewer has context. The notebook calls this once per split, into the same queue, so a
+    ticket from either split that needed review ends up findable in one place; the tests call it
+    the same way, so a change to what gets queued shows up in both without being re-typed twice.
+    """
+    for example, result in zip(examples, results, strict=True):
+        if result.outcome == REVIEW:
+            queue.submit(
+                {
+                    "ticket_id": example.id,
+                    "impact_category": result.composition.impact_category,
+                    "urgency_category": result.composition.urgency_category,
+                },
+                result.reason,
+                answer={
+                    "business_impact": decisions[example.id][0].to_dict(),
+                    "urgency": decisions[example.id][1].to_dict(),
+                },
+            )
