@@ -14,6 +14,7 @@ from jev_cookbook.fixtures import (
     select_split,
     validate_recipe,
 )
+from jev_cookbook.simulation import ReviewQueue
 
 RECIPE = Path(__file__).resolve().parent.parent
 helpers = load_helpers(RECIPE)
@@ -118,10 +119,26 @@ def test_categorize_depends_on_both_inputs():
 
 
 def test_categorize_uses_the_modal_level_not_the_expected_score():
-    # A peak at level 3 with real but smaller mass elsewhere still reports level 3 (score_level,
-    # never the probability-weighted expected score, which would fall between levels here).
-    composition = helpers.categorize(impact_answer(CONFIDENT[3]), urgency_answer(CONFIDENT[2]))
-    assert (composition.impact_level, composition.urgency_level) == (3, 2)
+    """LOW_CONFIDENCE[0]'s modal level is 0, but its expected score is 1.40, which rounds to 1;
+    LOW_CONFIDENCE[3]'s modal level is 3, but its expected score is 1.60, which rounds to 2. A
+    categorize that read round(answer.score) instead of score_level(answer) would get both
+    wrong -- confirmed locally by swapping the two calls in helpers.categorize for
+    round(impact_answer.score) / round(urgency_answer.score): this test is the one that then
+    fails, out of the whole suite."""
+    composition = helpers.categorize(
+        impact_answer(LOW_CONFIDENCE[0]), urgency_answer(LOW_CONFIDENCE[3])
+    )
+    assert (composition.impact_level, composition.urgency_level) == (0, 3)
+
+
+def test_categorize_ties_go_to_the_lower_level():
+    """helpers.categorize's own docstring and the notebook's "python-md" cell both promise
+    score_level's tie-break ("ties going to the lower one"); an exact tie between two levels is
+    what actually exercises that promise rather than merely citing it. Confirmed locally by
+    patching score_level's tie-break to the higher level: this test is the one that fails."""
+    tie = (0.0, 0.5, 0.5, 0.0)  # levels 1 and 2 exactly tied; the lower, 1, wins
+    composition = helpers.categorize(impact_answer(tie), urgency_answer(CONFIDENT[0]))
+    assert composition.impact_level == 1
 
 
 def test_a_confident_ticket_at_or_above_the_gate_is_accepted():
@@ -263,3 +280,52 @@ def test_evaluate_outcomes_reports_a_nonzero_task_level_risk_on_test():
     assert 0.0 < outcome.coverage < 1.0
     assert 0.0 < outcome.accuracy < 1.0
     assert 0.0 < outcome.risk < 1.0
+
+
+def test_the_review_queue_holds_every_review_outcome_from_both_splits_and_nothing_else():
+    """The notebook submits every ``review`` outcome from `validation` and `test` into one
+    `ReviewQueue` as it evaluates each split, and nothing else: no `demo` ticket (never scored,
+    so never composed), no `accepted` ticket. Rebuild the queue the way the notebook does and
+    check what ends up in it, in what order, and why -- today a change that dropped the
+    `validation` loop, or that queued a `demo` ticket, would be caught by nothing but a reader's
+    eye."""
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    labels = load_labels(RECIPE)
+    examples = load_inputs(RECIPE)
+
+    def decide(example):
+        result = backend.decide(helpers.build_state(example.fields), questions)
+        return result["business_impact"], result["urgency"]
+
+    def gold_priority(example_id):
+        label = labels[example_id]
+        return helpers.PRIORITY_MATRIX[(label["impact"], label["urgency"])]
+
+    validation = select_split(examples, "validation")
+    val_decisions = {e.id: decide(e) for e in validation}
+    val_correct = [
+        helpers.categorize(*val_decisions[e.id]).priority == gold_priority(e.id) for e in validation
+    ]
+    val_confidence = [helpers.gate_confidence(*val_decisions[e.id]) for e in validation]
+    threshold = select_confidence_threshold(val_correct, val_confidence, target_accuracy=1.0)
+
+    test = select_split(examples, "test")
+    test_decisions = {e.id: decide(e) for e in test}
+
+    queue = ReviewQueue()
+    expected_order = []
+    for split_examples, decisions in ((validation, val_decisions), (test, test_decisions)):
+        for e in split_examples:
+            result = helpers.compose_priority(e.id, *decisions[e.id], threshold)
+            if result.outcome == helpers.REVIEW:
+                queue.submit({"ticket_id": e.id}, result.reason)
+                expected_order.append(e.id)
+
+    assert expected_order, "expected at least one reviewed ticket on each split to test anything"
+    submitted_ids = [item["item"]["ticket_id"] for item in queue.to_dicts()]
+    assert submitted_ids == expected_order
+    assert len(queue) == len(expected_order)
+    assert all(item["reason"] == "confidence below the threshold" for item in queue.to_dicts())
+    demo_ids = {e.id for e in select_split(examples, "demo")}
+    assert demo_ids.isdisjoint(submitted_ids)

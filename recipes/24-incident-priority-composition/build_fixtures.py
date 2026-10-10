@@ -7,18 +7,27 @@ Every response is synthetic: written by hand as probabilities over the four leve
 rubric, not produced by a model. Validation tickets v01 through v16 and test tickets t01 through
 t16 each cover one of the sixteen (business impact level, urgency level) pairs exactly once, so
 every cell of ``helpers.PRIORITY_MATRIX`` is exercised by a realistic ticket on both splits, not
-only by the unit tests in ``tests/test_helpers.py``. Both splits also carry the hard cases the
-issue names: a divergent ticket where impact and urgency pull in different directions (v05/t05:
-low impact, critical urgency; v06/t06: critical impact, low urgency), and a ticket where one
-question is confidently answered and the other is not (v17/t17: impact confident, urgency
-ambiguous; v19/t18: urgency confident, impact ambiguous). v18 is wrong at moderate confidence on
-`validation` -- confident enough to matter, but not as confident as the tickets answered
-correctly -- so the threshold this recipe's notebook selects on `validation` actually has to
-exclude something, rather than finding every answer trustworthy by default. t19 is wrong *and*
-confident on `test`, at the same confidence as several correctly-answered tickets, so it clears
-whatever gate `validation` chose and the selective-prediction numbers on `test` show a real,
-non-zero risk. The replay keys come from the same `build_state` and `build_questions` the
-notebook uses, via `helpers.py`.
+only by the unit tests in ``tests/test_helpers.py``. Every one of these uses `confident` with a
+different `peak` (0.80 to 0.92), so the fixture set's confidences do not collapse onto one value
+per level.
+
+Both splits also carry this recipe's hard cases: a divergent ticket where impact and
+urgency pull in different directions (v05/t05: low impact, critical urgency; v06/t06: critical
+impact, low urgency), and a ticket where one question is confidently answered and the other is
+not (v17/t17: impact confident, urgency ambiguous; v19/t18: urgency confident, impact ambiguous).
+v18 is wrong at moderate confidence on `validation` -- confident enough to matter, but not as
+confident as the tickets answered correctly -- so the threshold this recipe's notebook selects
+on `validation` actually has to exclude something, rather than finding every answer trustworthy
+by default. t19 is wrong *and* confident on `test`, at a confidence shared with several
+correctly-answered tickets, so it clears whatever gate `validation` chose and the selective-
+prediction numbers on `test` show a real, non-zero risk. t09 is a second `test` mistake, in the
+other question: its business impact is answered confidently and correctly, but its urgency
+answer is wrong *and* unconfident (gold `medium`, stored peak at `high`), so the gate correctly
+sends it to review -- the business-impact question is not the only one with a mistake on the
+page, and this one is exactly what the gate is for. The two `demo` tickets are both shown in the
+notebook, one against the other, so both are decided and the live request count equals the
+number of fixture rows. The replay keys come from the same `build_state` and `build_questions`
+the notebook uses, via `helpers.py`.
 """
 
 import argparse
@@ -33,24 +42,52 @@ QUESTIONS = helpers.build_questions()
 IMPACT_LEVELS = list(helpers.IMPACT_LEVELS)
 URGENCY_LEVELS = list(helpers.URGENCY_LEVELS)
 
-# Four-level probability vectors reused across many tickets, named by what they are meant to
-# show rather than repeated as bare literals. CONFIDENT peaks hard on one level (confidence
-# 0.76-0.78 under the published Score confidence formula); AMBIGUOUS is nearly even, peaked
-# gently on one level (confidence 0.00-0.06); MEDIUM_WRONG_IMPACT peaks at level 2 ("major") at a
-# moderate confidence (0.58), used once, for the one ticket whose stored answer is wrong at a
-# confidence the threshold selection must still learn to exclude.
-CONFIDENT = {
-    0: (0.85, 0.10, 0.03, 0.02),
-    1: (0.08, 0.80, 0.08, 0.04),
-    2: (0.04, 0.08, 0.80, 0.08),
-    3: (0.02, 0.03, 0.10, 0.85),
-}
-AMBIGUOUS = {
+
+def confident(level: int, peak: float) -> tuple[float, float, float, float]:
+    """A Score probability vector peaked at ``level`` with ``peak`` probability there. The
+    remaining mass is split among the other three levels in a fixed 3:2:1 ratio by distance
+    from the peak (the closest level gets the most), rounded to two decimals with the farthest
+    level absorbing the rounding remainder so the four values still sum to exactly 1.00.
+
+    Varying ``peak`` per ticket (0.80 to 0.92 below) is what keeps this fixture set's confidences
+    off the coarse four-value grid a single fixed vector per level would produce -- the sparse-
+    candidate trap docs/evaluation.md documents for `select_confidence_threshold` on a small
+    validation set. Every vector this produces still reads as a clearly confident, correctly-
+    shaped answer; only the exact confidence it carries varies.
+    """
+    rest = sorted((i for i in range(4) if i != level), key=lambda i: abs(i - level))
+    weights = [3, 2, 1][: len(rest)]
+    remainder = round(1.0 - peak, 2)
+    shares = [round(remainder * w / sum(weights), 2) for w in weights]
+    shares[-1] = round(remainder - sum(shares[:-1]), 2)
+    probs = [0.0, 0.0, 0.0, 0.0]
+    probs[level] = peak
+    for position, share in zip(rest, shares, strict=True):
+        probs[position] = share
+    return tuple(probs)
+
+
+# Two near-even shapes, gently peaked on one level (confidence 0.00-0.10 under the published
+# formula): AMBIGUOUS_A is the gentler of the two, AMBIGUOUS_B a little more peaked. Both are
+# used, rather than one, for the same reason `confident` varies its peak: an unsure answer is
+# not always equally unsure. Hand-written, not generated, so each stays visibly close to an
+# even split rather than drifting toward a shape `confident` would also produce.
+AMBIGUOUS_A = {
     0: (0.28, 0.26, 0.24, 0.22),
     1: (0.24, 0.28, 0.26, 0.22),
     2: (0.22, 0.24, 0.28, 0.26),
     3: (0.22, 0.24, 0.26, 0.28),
 }
+AMBIGUOUS_B = {
+    0: (0.30, 0.26, 0.24, 0.20),
+    1: (0.26, 0.30, 0.24, 0.20),
+    2: (0.20, 0.24, 0.30, 0.26),
+    3: (0.20, 0.24, 0.26, 0.30),
+}
+# The one ticket whose stored answer is wrong at a *moderate* confidence on validation (peaks at
+# level 2, "major", the wrong category for v18-wrong's gold, "moderate"), so the gate's
+# threshold selection has to exclude a real mistake rather than finding every answer
+# trustworthy by default.
 MEDIUM_WRONG_IMPACT = (0.07, 0.08, 0.65, 0.20)
 
 # (id, split, ticket_id, report text, gold label or None for demo, impact probs, urgency probs)
@@ -63,209 +100,209 @@ ROWS = [
      "catalog-sync is returning stale thumbnails for about 40 products in one seldom-browsed "
      "category. Checkout and pricing are unaffected, and no customer has reported it; this can "
      "be scheduled into the normal backlog with no special handling.",
-     {"impact": "minor", "urgency": "low"}, CONFIDENT[0], CONFIDENT[0]),
+     {"impact": "minor", "urgency": "low"}, confident(0, 0.84), confident(0, 0.88)),
     ("v02", "validation", "INC-7002",
      "feed-aggregator is dropping about 15% of personalized recommendation entries for "
      "logged-in users on the home feed; browsing and purchasing both still work normally. The "
      "growth team wants this fixed before the release planned for later this week.",
-     {"impact": "moderate", "urgency": "medium"}, CONFIDENT[1], CONFIDENT[1]),
+     {"impact": "moderate", "urgency": "medium"}, confident(1, 0.88), confident(1, 0.80)),
     ("v03", "validation", "INC-7003",
      "checkout-gateway is failing roughly 35% of card payments across every region; customers "
      "who hit the failure cannot complete a purchase at all. The failure rate has climbed twice "
      "in the last hour and support tickets are piling up.",
-     {"impact": "major", "urgency": "high"}, CONFIDENT[2], CONFIDENT[2]),
+     {"impact": "major", "urgency": "high"}, confident(2, 0.80), confident(2, 0.92)),
     ("v04", "validation", "INC-7004",
      "auth-broker is rejecting every login attempt across the entire platform; no customer can "
      "sign in at all. The outage started eight minutes ago and is getting worse by the minute "
      "as cached sessions expire.",
-     {"impact": "critical", "urgency": "critical"}, CONFIDENT[3], CONFIDENT[3]),
+     {"impact": "critical", "urgency": "critical"}, confident(3, 0.92), confident(3, 0.84)),
     ("v05-divergent", "validation", "INC-7005",
      "media-transcoder failed to prepare the one highlight video an account manager needs for "
      "a live demo to a single external partner starting in four minutes; no other customer or "
      "workflow is touched. The demo cannot proceed without it and there is no time left to "
      "reschedule.",
-     {"impact": "minor", "urgency": "critical"}, CONFIDENT[0], CONFIDENT[3]),
+     {"impact": "minor", "urgency": "critical"}, confident(0, 0.88), confident(3, 0.84)),
     ("v06-divergent", "validation", "INC-7006",
      "audit-log has been silently dropping write records for every customer account for the "
      "past three weeks, leaving a required compliance audit trail incomplete platform-wide and "
      "creating real regulatory exposure. The next audit review is not scheduled for several "
      "months, so there is no immediate deadline to fix it by.",
-     {"impact": "critical", "urgency": "low"}, CONFIDENT[3], CONFIDENT[0]),
+     {"impact": "critical", "urgency": "low"}, confident(3, 0.84), confident(0, 0.92)),
     ("v07", "validation", "INC-7007",
      "notif-dispatcher is delaying password-reset emails for about a quarter of requests by up "
      "to twenty minutes; other notifications are unaffected. The delay is getting worse as the "
      "queue backs up, so a fix is needed within hours.",
-     {"impact": "moderate", "urgency": "high"}, CONFIDENT[1], CONFIDENT[2]),
+     {"impact": "moderate", "urgency": "high"}, confident(1, 0.92), confident(2, 0.80)),
     ("v08", "validation", "INC-7008",
      "pricing-engine is showing the wrong discount on about half of cart totals platform-wide, "
      "undercharging customers; checkout itself still completes normally. Finance wants it "
      "corrected before this week's billing run.",
-     {"impact": "major", "urgency": "medium"}, CONFIDENT[2], CONFIDENT[1]),
+     {"impact": "major", "urgency": "medium"}, confident(2, 0.80), confident(1, 0.88)),
     ("v09", "validation", "INC-7009",
      "report-exporter's weekly CSV export is missing one optional column used only by internal "
      "analysts; no customer-facing feature is affected. The analytics team would like it back "
      "before their report is due later this week.",
-     {"impact": "minor", "urgency": "medium"}, CONFIDENT[0], CONFIDENT[1]),
+     {"impact": "minor", "urgency": "medium"}, confident(0, 0.84), confident(1, 0.92)),
     ("v10", "validation", "INC-7010",
      "upload-pipeline is compressing uploaded photos more than intended for a subset of "
      "customers, reducing image quality; uploads still succeed and no revenue is affected. "
      "There is no deadline: it can go into the normal sprint.",
-     {"impact": "moderate", "urgency": "low"}, CONFIDENT[1], CONFIDENT[0]),
+     {"impact": "moderate", "urgency": "low"}, confident(1, 0.88), confident(0, 0.84)),
     ("v11", "validation", "INC-7011",
      "quota-service has mis-set storage limits for a large share of accounts on one legacy "
      "plan, so many of those customers cannot upload new files at all; that plan was deprecated "
      "last year and support is not fielding active complaints yet, so there is no pressing "
      "deadline.",
-     {"impact": "major", "urgency": "low"}, CONFIDENT[2], CONFIDENT[0]),
+     {"impact": "major", "urgency": "low"}, confident(2, 0.92), confident(0, 0.88)),
     ("v12", "validation", "INC-7012",
      "tax-calculator has been applying the wrong tax rate on every order platform-wide for the "
      "past two days, creating significant regulatory and financial exposure; finance wants it "
      "corrected within this work week as part of the scheduled billing reconciliation.",
-     {"impact": "critical", "urgency": "medium"}, CONFIDENT[3], CONFIDENT[1]),
+     {"impact": "critical", "urgency": "medium"}, confident(3, 0.80), confident(1, 0.84)),
     ("v13", "validation", "INC-7013",
      "geo-router is sending a small number of requests from one minor region to the wrong data "
      "center, adding minor latency for a handful of customers; the regional on-call wants it "
      "fixed within the next few hours before their peak traffic window starts.",
-     {"impact": "minor", "urgency": "high"}, CONFIDENT[0], CONFIDENT[2]),
+     {"impact": "minor", "urgency": "high"}, confident(0, 0.84), confident(2, 0.80)),
     ("v14", "validation", "INC-7014",
      "webhook-relay has stopped delivering order-confirmation webhooks to about a third of "
      "partner integrations; those partners' systems are actively falling out of sync right now "
      "and are already escalating, so this needs a response immediately.",
-     {"impact": "moderate", "urgency": "critical"}, CONFIDENT[1], CONFIDENT[3]),
+     {"impact": "moderate", "urgency": "critical"}, confident(1, 0.88), confident(3, 0.92)),
     ("v15", "validation", "INC-7015",
      "session-cache is evicting active sessions for a large share of logged-in customers, "
      "logging them out mid-task across the platform; the eviction rate is climbing minute by "
      "minute and needs an immediate response.",
-     {"impact": "major", "urgency": "critical"}, CONFIDENT[2], CONFIDENT[3]),
+     {"impact": "major", "urgency": "critical"}, confident(2, 0.80), confident(3, 0.84)),
     ("v16", "validation", "INC-7016",
      "sso-gateway is issuing session tokens that never expire for every customer platform-wide, "
      "a severe security exposure; the fix needs to ship within the next few hours before the "
      "exposure is discovered more widely.",
-     {"impact": "critical", "urgency": "high"}, CONFIDENT[3], CONFIDENT[2]),
+     {"impact": "critical", "urgency": "high"}, confident(3, 0.92), confident(2, 0.88)),
     ("v17-one-confident", "validation", "INC-7017",
      "invoice-renderer is attaching the wrong line items to about forty percent of invoices "
      "sent to customers platform-wide, a clear and ongoing effect on customer trust and support "
      "load. The ticket does not yet say how quickly the team wants this handled.",
-     {"impact": "major", "urgency": "medium"}, CONFIDENT[2], AMBIGUOUS[1]),
+     {"impact": "major", "urgency": "medium"}, confident(2, 0.88), AMBIGUOUS_A[1]),
     ("v18-wrong", "validation", "INC-7018",
      "search-index is returning slightly stale results for about a fifth of searches "
      "platform-wide for the last day; most searches still return current results and customers "
      "can still find what they need. There is no deadline: the search team can pick this up in "
      "normal planning.",
-     {"impact": "moderate", "urgency": "low"}, MEDIUM_WRONG_IMPACT, CONFIDENT[0]),
+     {"impact": "moderate", "urgency": "low"}, MEDIUM_WRONG_IMPACT, confident(0, 0.84)),
     ("v19-one-confident", "validation", "INC-7019",
      "ledger-api has started rejecting a growing share of payout requests to sellers, and the "
      "rejection rate is climbing by the minute; this needs an immediate response. The team is "
      "still assessing exactly how many sellers and how much revenue this affects.",
-     {"impact": "major", "urgency": "critical"}, AMBIGUOUS[2], CONFIDENT[3]),
+     {"impact": "major", "urgency": "critical"}, AMBIGUOUS_B[2], confident(3, 0.92)),
     # --- test: 19 tickets, t01-t16 cover each of the 16 matrix cells once --------------------
     ("t01", "test", "INC-8001",
      "catalog-sync is showing an outdated badge icon for about 25 products in one niche "
      "category; no other feature or customer workflow is affected. There's no rush: it can "
      "wait for the normal backlog.",
-     {"impact": "minor", "urgency": "low"}, CONFIDENT[0], CONFIDENT[0]),
+     {"impact": "minor", "urgency": "low"}, confident(0, 0.92), confident(0, 0.84)),
     ("t02", "test", "INC-8002",
      "feed-aggregator is missing secondary images for roughly 10% of listings in the "
      "recommendation carousel; the main feed and purchasing flow work normally. The growth team "
      "wants it fixed sometime this week.",
-     {"impact": "moderate", "urgency": "medium"}, CONFIDENT[1], CONFIDENT[1]),
+     {"impact": "moderate", "urgency": "medium"}, confident(1, 0.80), confident(1, 0.88)),
     ("t03", "test", "INC-8003",
      "checkout-gateway is timing out on about 30% of checkout attempts across every region, "
      "and affected customers cannot finish buying anything. The failure rate has been rising "
      "for the last hour, so this needs attention within hours.",
-     {"impact": "major", "urgency": "high"}, CONFIDENT[2], CONFIDENT[2]),
+     {"impact": "major", "urgency": "high"}, confident(2, 0.88), confident(2, 0.80)),
     ("t04", "test", "INC-8004",
      "auth-broker just started rejecting every sign-in attempt platform-wide with no "
      "workaround; the outage began minutes ago and is actively spreading as more sessions "
      "expire, so a response is needed right now.",
-     {"impact": "critical", "urgency": "critical"}, CONFIDENT[3], CONFIDENT[3]),
+     {"impact": "critical", "urgency": "critical"}, confident(3, 0.84), confident(3, 0.92)),
     ("t05-divergent", "test", "INC-8005",
      "media-transcoder failed to render the one sizzle reel an account manager needs for a "
      "client pitch starting in five minutes; no other customer or workflow is touched. There is "
      "no time left to work around it.",
-     {"impact": "minor", "urgency": "critical"}, CONFIDENT[0], CONFIDENT[3]),
+     {"impact": "minor", "urgency": "critical"}, confident(0, 0.80), confident(3, 0.92)),
     ("t06-divergent", "test", "INC-8006",
      "audit-log has been missing write records for every customer account for over a month, "
      "leaving a platform-wide compliance gap with real regulatory exposure. The next scheduled "
      "compliance review is not for several months, so there's no immediate deadline.",
-     {"impact": "critical", "urgency": "low"}, CONFIDENT[3], CONFIDENT[0]),
+     {"impact": "critical", "urgency": "low"}, confident(3, 0.92), confident(0, 0.80)),
     ("t07", "test", "INC-8007",
      "notif-dispatcher is delaying shipping-confirmation emails for about a fifth of orders by "
      "up to half an hour; other notification types are unaffected. The backlog is growing, so "
      "this needs a fix within hours.",
-     {"impact": "moderate", "urgency": "high"}, CONFIDENT[1], CONFIDENT[2]),
+     {"impact": "moderate", "urgency": "high"}, confident(1, 0.84), confident(2, 0.88)),
     ("t08", "test", "INC-8008",
      "pricing-engine is applying the wrong currency conversion on about 40% of international "
      "orders platform-wide, overcharging customers; checkout still completes normally "
      "otherwise. Finance wants it fixed before this week's reconciliation.",
-     {"impact": "major", "urgency": "medium"}, CONFIDENT[2], CONFIDENT[1]),
+     {"impact": "major", "urgency": "medium"}, confident(2, 0.88), confident(1, 0.84)),
     ("t09", "test", "INC-8009",
      "report-exporter's monthly internal summary is missing one chart used only by one "
      "analyst; no customer-facing system is touched. The analyst would like it restored "
      "sometime this week.",
-     {"impact": "minor", "urgency": "medium"}, CONFIDENT[0], CONFIDENT[1]),
+     {"impact": "minor", "urgency": "medium"}, confident(0, 0.84), AMBIGUOUS_B[2]),
     ("t10", "test", "INC-8010",
      "upload-pipeline is adding a faint watermark to a subset of uploaded photos by mistake; "
      "uploads still succeed and no revenue is affected. There's no deadline: it can go into the "
      "normal queue.",
-     {"impact": "moderate", "urgency": "low"}, CONFIDENT[1], CONFIDENT[0]),
+     {"impact": "moderate", "urgency": "low"}, confident(1, 0.92), confident(0, 0.88)),
     ("t11", "test", "INC-8011",
      "quota-service has set storage limits far too low for a large share of accounts on one "
      "retired plan, blocking many of those customers from uploading anything; that plan has "
      "almost no active users left and nobody has escalated, so there's no pressing deadline.",
-     {"impact": "major", "urgency": "low"}, CONFIDENT[2], CONFIDENT[0]),
+     {"impact": "major", "urgency": "low"}, confident(2, 0.84), confident(0, 0.80)),
     ("t12", "test", "INC-8012",
      "tax-calculator has been using an expired tax table for every order platform-wide for the "
      "past three days, creating significant regulatory and financial exposure; finance wants it "
      "corrected within this work week alongside the scheduled reconciliation.",
-     {"impact": "critical", "urgency": "medium"}, CONFIDENT[3], CONFIDENT[1]),
+     {"impact": "critical", "urgency": "medium"}, confident(3, 0.88), confident(1, 0.92)),
     ("t13", "test", "INC-8013",
      "geo-router is adding a small amount of extra latency for a handful of customers in one "
      "minor region; the regional on-call wants it fixed within the next few hours before their "
      "peak traffic window.",
-     {"impact": "minor", "urgency": "high"}, CONFIDENT[0], CONFIDENT[2]),
+     {"impact": "minor", "urgency": "high"}, confident(0, 0.80), confident(2, 0.84)),
     ("t14", "test", "INC-8014",
      "webhook-relay has stopped delivering shipment-update webhooks to about a third of partner "
      "integrations; those partners' systems are falling out of sync right now and are already "
      "escalating, so this needs an immediate response.",
-     {"impact": "moderate", "urgency": "critical"}, CONFIDENT[1], CONFIDENT[3]),
+     {"impact": "moderate", "urgency": "critical"}, confident(1, 0.92), confident(3, 0.80)),
     ("t15", "test", "INC-8015",
      "session-cache is evicting active sessions for a large share of customers platform-wide, "
      "logging them out mid-checkout; the eviction rate is climbing minute by minute and needs "
      "an immediate response.",
-     {"impact": "major", "urgency": "critical"}, CONFIDENT[2], CONFIDENT[3]),
+     {"impact": "major", "urgency": "critical"}, confident(2, 0.84), confident(3, 0.88)),
     ("t16", "test", "INC-8016",
      "sso-gateway is accepting expired session tokens for every customer platform-wide, a "
      "severe security exposure; the fix needs to ship within the next few hours before this is "
      "discovered more widely.",
-     {"impact": "critical", "urgency": "high"}, CONFIDENT[3], CONFIDENT[2]),
+     {"impact": "critical", "urgency": "high"}, confident(3, 0.80), confident(2, 0.92)),
     ("t17-one-confident", "test", "INC-8017",
      "invoice-renderer is attaching the wrong line items to about forty percent of invoices "
      "sent to customers platform-wide, a clear and ongoing effect on customer trust and support "
      "load. It isn't clear from the ticket yet how quickly the team wants this handled.",
-     {"impact": "major", "urgency": "high"}, CONFIDENT[2], AMBIGUOUS[2]),
+     {"impact": "major", "urgency": "high"}, confident(2, 0.84), AMBIGUOUS_B[2]),
     ("t18-one-confident", "test", "INC-8018",
      "ledger-api has started rejecting a growing share of refund requests, and the rejection "
      "rate is climbing by the minute; this needs an immediate response. The team does not yet "
      "know how many customers or how much revenue this touches.",
-     {"impact": "moderate", "urgency": "critical"}, AMBIGUOUS[1], CONFIDENT[3]),
+     {"impact": "moderate", "urgency": "critical"}, AMBIGUOUS_A[1], confident(3, 0.88)),
     ("t19-wrong", "test", "INC-8019",
      "search-index is returning results a few minutes out of date for about one in twenty "
      "searches platform-wide; nearly every search still returns current results and no "
      "checkout or account flow is touched. There's no deadline: the team can schedule this "
      "into normal planning.",
-     {"impact": "minor", "urgency": "low"}, CONFIDENT[2], CONFIDENT[0]),
+     {"impact": "minor", "urgency": "low"}, confident(2, 0.88), confident(0, 0.84)),
     # --- demo: 2 tickets, shown but never scored ---------------------------------------------
     ("d01-divergent", "demo", "INC-9001",
      "media-transcoder failed to generate the one highlight clip an account manager needs for "
      "a sponsor call starting in three minutes; no other customer or workflow is affected. "
      "There is no time left to find a workaround.",
-     None, CONFIDENT[0], CONFIDENT[3]),
+     None, confident(0, 0.88), confident(3, 0.92)),
     ("d02-aligned", "demo", "INC-9002",
      "auth-broker is rejecting every login attempt platform-wide right now, with no workaround "
      "available; the outage began two minutes ago and is actively getting worse as more "
      "sessions expire.",
-     None, CONFIDENT[3], CONFIDENT[3]),
+     None, confident(3, 0.88), confident(3, 0.88)),
 ]  # fmt: skip
 
 

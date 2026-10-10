@@ -39,8 +39,9 @@ against that budget, including each retry. In live mode this notebook makes exac
 each of the 40 tickets in `fixtures/` (both questions go in that one request), and no other: each
 ticket is decided once and the stored answer is reused wherever it is shown again. That is more
 than the default budget of 25, so set `JEV_COOKBOOK_LIVE_MAX_REQUESTS=40` or higher before running
-this notebook live, or it stops partway through with `BudgetExceeded`. Never put a key in a
-notebook or a fixture.
+this notebook live, or it stops partway through with `BudgetExceeded`. Counted against decisions:
+38 scored tickets (19 `validation`, 19 `test`) plus the 2 `demo` tickets shown up close make 40
+requests, two questions each, for 80 judgments total. Never put a key in a notebook or a fixture.
 
 ## What was and was not measured
 

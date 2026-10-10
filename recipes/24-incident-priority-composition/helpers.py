@@ -17,7 +17,7 @@ from jev_cookbook.evaluation import score_level
 # Business impact rubric, lowest level first. Every level is evaluated on its own against the
 # incident report ("Every level is evaluated separately. The model doesn't see a level's number
 # or its neighbours, so 'worse than the previous level' means nothing to it.",
-# https://docs.typesafe.ai/primitives/score.md), so each description stands alone: it names the
+# https://docs.typesafe.ai/primitives/score), so each description stands alone: it names the
 # scope of the effect on customers and operations, never "bigger than the level above".
 IMPACT_MINOR = (
     "The effect is contained to a small number of customers or to one non-critical feature; "
@@ -39,8 +39,10 @@ IMPACT_LEVELS = (IMPACT_MINOR, IMPACT_MODERATE, IMPACT_MAJOR, IMPACT_CRITICAL)  
 IMPACT_CATEGORIES = ("minor", "moderate", "major", "critical")  # the named category per level
 
 # Urgency rubric: how quickly a response is needed, a different question from how severe the
-# incident is. Level 3 ("minor") and level 3 here name unrelated things; a ticket's urgency and
-# its business impact are judged from the same report text by two independent questions.
+# incident is. Level 0 ("minor" impact) and level 0 here ("low" urgency) name unrelated things
+# that merely share a number; a ticket's urgency and its business impact are judged from the
+# same report text by two independent questions, and either can land on any level regardless
+# of where the other one lands.
 URGENCY_LOW = (
     "There is no deadline pressure: the incident can be scheduled into normal work with no "
     "special handling."
