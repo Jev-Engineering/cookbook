@@ -60,6 +60,19 @@ SCORE = FakeScore(
 )
 NOUL = FakeNoul(0.93)
 
+# A legend written as full sentences (as score.md encourages), long enough that the "0" line
+# alone is 241 characters before any wrapping -- the shape that motivated issue #139.
+LONG_LEGEND = {
+    "0": (
+        "The reader cannot tell what happened to their request or what to do next, because "
+        "the response omits the key fact, hides it behind an internal term or acronym the "
+        "reader has no way to resolve, or states two things that contradict each other."
+    ),
+    "1": "The reader can find the outcome and the next step, but only with effort.",
+    "2": "fine",
+}
+LONG_SCORE = FakeScore(0.60, {"0": 0.60, "1": 0.25, "2": 0.15}, 0.40, LONG_LEGEND)
+
 # --- run header: the exact text of each mode -----------------------------------------------
 
 SYNTHETIC_TEXT = (
@@ -342,6 +355,150 @@ def test_format_score_shows_legend_and_distribution():
     assert text.splitlines()[0] == "Score: 1.43 (confidence 0.35)"
     assert "1 Workaround exists  0.57" in text
     assert "Provenance: synthetic" in text
+
+
+# --- legend wrapping (issue #139) -----------------------------------------------------------
+
+
+def test_short_score_legend_is_byte_identical_to_before_width_existed():
+    """A legend that fits in LEGEND_WIDTH columns prints exactly as it always did."""
+    assert style.format_answer(SCORE) == (
+        "Score: 1.43 (confidence 0.35)\n"
+        "  0 Cosmetic  0.00  \n"
+        "  1 Workaround exists  0.57  ###########\n"
+        "  2 Blocking  0.43  #########\n"
+        "Provenance: synthetic"
+    )
+
+
+def test_every_short_legend_score_answer_is_unaffected_by_width():
+    """Every width (the default, None, or an arbitrary column count) gives the same text
+    once every level's legend already fits -- wrapping never touches a short legend."""
+    plain = style.format_answer(SCORE)
+    assert style.format_answer(SCORE, width=None) == plain
+    assert style.format_answer(SCORE, width=50) == plain  # fits every level's short legend
+    assert style.format_answer(SCORE, width=1000) == plain
+
+
+def test_choice_and_noul_output_does_not_depend_on_width():
+    """Choice and Noul have no legend, so the width parameter is a no-op for them."""
+    assert style.format_answer(CHOICE, width=None) == style.format_answer(CHOICE)
+    assert style.format_answer(CHOICE, width=5) == style.format_answer(CHOICE)
+    assert style.format_answer(NOUL, width=None) == style.format_answer(NOUL)
+    assert style.format_answer(NOUL, width=5) == style.format_answer(NOUL)
+
+
+def test_long_legend_wraps_at_the_default_width_with_no_line_over_it():
+    text = style.format_answer(LONG_SCORE)
+    lines = text.splitlines()
+    assert lines[0] == "Score: 0.60 (confidence 0.40)"
+    assert lines[-1] == "Provenance: synthetic"
+    # Level 0's legend (241 characters) must wrap into more than one line; levels 1 and 2
+    # fit in LEGEND_WIDTH and stay on one line each.
+    level_1_start = next(i for i, ln in enumerate(lines) if ln.startswith("  1 "))
+    level_0_lines = lines[1:level_1_start]
+    assert len(level_0_lines) > 1
+    assert all(len(ln) <= style.LEGEND_WIDTH for ln in level_0_lines[:-1])
+    assert "0.60" not in level_0_lines[0]  # the probability and bar are not on the first line
+    assert "0.60" in level_0_lines[-1]  # only the last piece carries them
+
+
+def test_width_none_keeps_a_long_legend_on_one_line():
+    """width=None must return the previous, unwrapped behaviour exactly: one line per level,
+    however long, with no continuation line -- even for the 241-character level-0 legend that
+    the default width wraps into three lines (the test above)."""
+    body = style.format_answer(LONG_SCORE, width=None).splitlines()[1:-1]
+    assert len(body) == 3  # one line per level: none of the three is wrapped
+    assert body[0] == f"  0 {LONG_LEGEND['0']}  0.60  ############"
+    assert body[1] == f"  1 {LONG_LEGEND['1']}  0.25  #####"
+    assert body[2] == f"  2 {LONG_LEGEND['2']}  0.15  ###"
+
+
+def test_long_legend_wraps_at_word_boundaries_never_mid_word():
+    text = style.format_answer(LONG_SCORE, width=60)
+    for word in ("The", "response", "acronym", "contradict"):
+        assert f" {word} " in text or text.startswith(word)  # intact, not split mid-word
+
+
+def test_wrap_never_splits_a_token_longer_than_the_budget():
+    """A single token longer than the wrap budget (break_long_words=False) is left whole, on
+    its own line, rather than split mid-word. LONG_LEGEND's longest word is far under every
+    budget used above, so this needs its own, deliberately over-long, token."""
+    token = "Y" * 50
+    answer = FakeScore(0.0, {"0": 1.0}, 0.0, {"0": f"aa {token} bb"})
+    text = style.format_answer(answer, width=30)
+    assert token in text  # fails if break_long_words becomes True
+
+
+def test_wrap_never_splits_a_hyphenated_token_at_its_hyphens():
+    """A hyphenated compound long enough to straddle the wrap boundary
+    (break_on_hyphens=False) is kept whole on one line rather than split at a hyphen."""
+    token = "well-documented-and-very-long-token"
+    answer = FakeScore(0.0, {"0": 1.0}, 0.0, {"0": f"a {token} here"})
+    text = style.format_answer(answer, width=30)
+    assert token in text  # fails if break_on_hyphens becomes True
+
+
+def test_wrap_boundary_exact_width_moves_one_word_at_a_time():
+    """A deterministic boundary: three 4-character words joined by single spaces, under a
+    level whose "  0 " prefix is 4 columns, so the text budget is width - 4."""
+
+    @dataclass
+    class Boundary:
+        score: float = 0.0
+        confidence: float = 0.0
+        probabilities: dict = field(default_factory=lambda: {"0": 1.0})
+        legend: dict = field(default_factory=lambda: {"0": "AAAA BBBB CCCC"})
+        provenance: str = "synthetic"
+
+    answer = Boundary()
+    # width=13 -> text budget 9 -> "AAAA BBBB" (9 chars) fits exactly on one line.
+    body_13 = style.format_answer(answer, width=13).splitlines()[1:-1]
+    assert body_13 == ["  0 AAAA BBBB", "    CCCC  1.00  ####################"]
+    # width=12 -> text budget 8 -> "AAAA BBBB" (9 chars) no longer fits: three lines.
+    body_12 = style.format_answer(answer, width=12).splitlines()[1:-1]
+    assert body_12 == ["  0 AAAA", "    BBBB", "    CCCC  1.00  ####################"]
+
+
+def test_wrap_puts_the_probability_and_bar_only_on_the_last_line():
+    lines = style.format_answer(LONG_SCORE, width=60).splitlines()
+    level_1_start = next(i for i, ln in enumerate(lines) if ln.startswith("  1 "))
+    level_0_lines = lines[1:level_1_start]  # only level 0's own lines, not level 1's
+    assert len(level_0_lines) > 1
+    assert level_0_lines[0].split()[0] == "0"  # the level number stays on the first line
+    assert all(ln.startswith("    ") for ln in level_0_lines[1:])  # aligned under the text
+    with_bar = [ln for ln in level_0_lines if "0.60" in ln]
+    assert with_bar == [level_0_lines[-1]]  # exactly the last line, and no other
+
+
+def test_wrap_handles_a_legend_missing_for_a_level():
+    @dataclass
+    class NoLegend:
+        score: float = 0.0
+        confidence: float = 0.0
+        probabilities: dict = field(default_factory=lambda: {"0": 1.0})
+        legend: dict = field(default_factory=dict)
+        provenance: str = "synthetic"
+
+    text = style.format_answer(NoLegend(), width=10)
+    assert "  0  1.00" in text
+
+
+def test_show_answer_forwards_width(capsys):
+    style.show_answer(LONG_SCORE, width=None)
+    assert capsys.readouterr().out == style.format_answer(LONG_SCORE, width=None) + "\n"
+    style.show_answer(LONG_SCORE)
+    assert capsys.readouterr().out == style.format_answer(LONG_SCORE) + "\n"
+
+
+def test_legend_width_is_a_fixed_column_count_matching_ruff():
+    import pathlib
+    import re
+
+    pyproject = pathlib.Path(__file__).resolve().parent.parent / "pyproject.toml"
+    match = re.search(r"line-length\s*=\s*(\d+)", pyproject.read_text(encoding="utf-8"))
+    assert match is not None
+    assert style.LEGEND_WIDTH == int(match.group(1))
 
 
 def test_format_noul_has_no_confidence():
