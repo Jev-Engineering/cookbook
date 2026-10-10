@@ -6,7 +6,7 @@ Classify recorded tool outcomes as complete, partial, failed, or unverifiable us
 
 ## What it teaches
 
-A tool run leaves behind a record: what it reported, its exit code, a slice of its stdout and stderr, and the artefacts it listed. Jev reads the original request together with that evidence and names one of four outcomes — `complete`, `partial`, `failed`, or `unverifiable` — judging from the evidence as a whole rather than trusting the tool's own reported status. Python gates every outcome on confidence with no exemption, then composes the accepted outcome into a next step: `complete` is logged as an accepted handoff, `partial`/`failed` are both logged as a scheduled retry naming which, and `unverifiable` (and anything below the confidence gate) goes to a review queue for a person to decide. The evaluation scores both the raw judgment and that composed next step against the gold label.
+A tool run leaves behind a record: what it reported, its exit code, a slice of its stdout and stderr, and the artefacts it listed. Jev reads the original request together with that evidence and names one of four outcomes — `complete`, `partial`, `failed`, or `unverifiable` — asked to judge from the evidence as a whole, not from the reported status alone. Python gates every outcome on confidence with no exemption, then composes the accepted outcome into a next step: `complete` is logged as an accepted handoff, `partial`/`failed` are both logged as a scheduled retry naming which, and `unverifiable` (and anything below the confidence gate) goes to a review queue for a person to decide. The evaluation scores both the raw judgment and that composed next step against the gold label.
 
 ## Run it offline
 

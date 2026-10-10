@@ -17,10 +17,10 @@ from jev_cookbook.simulation import ActionLog, ReviewQueue
 # leaned toward whichever option is listed first, listing the costly outcome last points that
 # lean away from it rather than toward it -- a wrong ``complete`` leaves a false success
 # standing, which is exactly the mistake CONTRIBUTING.md section 4 asks every option to be
-# gated against, so the fixed order does not also give that mistake a head start. "Evaluation"
-# in the notebook prints how often the raw answer actually lands on the first-listed option
-# (``unverifiable``), on both splits, so the claim is checked against this fixture set rather
-# than merely asserted.
+# gated against, so the fixed order does not also give that mistake a head start. Whether any
+# model actually leans toward the first-listed option is not something an offline run over
+# hand-written fixtures can show either way -- only a recorded run could -- so the notebook
+# does not print a first-listed-option share as if it were a check for that.
 UNVERIFIABLE = "unverifiable"
 FAILED = "failed"
 PARTIAL = "partial"
@@ -100,9 +100,9 @@ def build_questions() -> dict[str, Choice]:
     return {
         "outcome": Choice(
             instructions=(
-                "An agent asked a tool to carry out the request above. Given the request and "
-                "the evidence the tool run reports below, which outcome best describes whether "
-                "the request was fulfilled? Judge from the evidence as a whole, not from the "
+                "An agent asked a tool to carry out the request. Given the request and the "
+                "evidence the tool run reports, which outcome best describes whether the "
+                "request was fulfilled? Judge from the evidence as a whole, not from the "
                 "reported status alone."
             ),
             criteria={name: _DESCRIPTIONS[name] for name in OUTCOMES},
