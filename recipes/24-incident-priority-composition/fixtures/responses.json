@@ -1,0 +1,2122 @@
+{
+  "0bae49bb82d8f304b59ea85446ccc140bbe7d8bac7ca96dda11a94fcf271c26c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 0.13,
+        "probabilities": {
+          "0": 0.92,
+          "1": 0.04,
+          "2": 0.03,
+          "3": 0.01
+        },
+        "confidence": 0.87,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 0.27,
+        "probabilities": {
+          "0": 0.84,
+          "1": 0.08,
+          "2": 0.05,
+          "3": 0.03
+        },
+        "confidence": 0.73,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0ed10ceb24b4f4f513cb66d13c65be1e1956a8cb85e36d28d93661a83f34e5f5": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 1.03,
+        "probabilities": {
+          "0": 0.1,
+          "1": 0.8,
+          "2": 0.07,
+          "3": 0.03
+        },
+        "confidence": 0.77,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 1.02,
+        "probabilities": {
+          "0": 0.06,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.02
+        },
+        "confidence": 0.86,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0f18922c6a57f2fa787a0062fae26c3c70c6dc1c7dc7ca274ef97cc0381119a4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 1.94,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.06,
+          "2": 0.88,
+          "3": 0.04
+        },
+        "confidence": 0.86,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 1.03,
+        "probabilities": {
+          "0": 0.08,
+          "1": 0.84,
+          "2": 0.05,
+          "3": 0.03
+        },
+        "confidence": 0.81,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "164664612cfcd18833a276fa39be9a7389e29e008549583a7e1e400b272426e6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 1.03,
+        "probabilities": {
+          "0": 0.08,
+          "1": 0.84,
+          "2": 0.05,
+          "3": 0.03
+        },
+        "confidence": 0.81,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 1.94,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.06,
+          "2": 0.88,
+          "3": 0.04
+        },
+        "confidence": 0.86,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1ee4cb695a5fbe33a38c96b730474f563df1806eb1d4be3512d1dba637445816": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 2.8000000000000003,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.04,
+          "2": 0.06,
+          "3": 0.88
+        },
+        "confidence": 0.8,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 2.8000000000000003,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.04,
+          "2": 0.06,
+          "3": 0.88
+        },
+        "confidence": 0.8,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2ddd3f831777ba11a4450806ab10d5c0403333c6822995f61534cb954fd40a75": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 2.8000000000000003,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.04,
+          "2": 0.06,
+          "3": 0.88
+        },
+        "confidence": 0.8,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 1.01,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.92,
+          "2": 0.03,
+          "3": 0.01
+        },
+        "confidence": 0.91,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4513fd4755db453dbb64d394ba7449fc2a3437092326a5f7a977b849585f7c88": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 1.91,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.08,
+          "2": 0.84,
+          "3": 0.05
+        },
+        "confidence": 0.81,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 1.62,
+        "probabilities": {
+          "0": 0.2,
+          "1": 0.24,
+          "2": 0.3,
+          "3": 0.26
+        },
+        "confidence": 0.09999999999999998,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "495cb764ec682a8cc353c3d0f091fb5688da6b1110342a68b9b52c6536742961": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 1.02,
+        "probabilities": {
+          "0": 0.06,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.02
+        },
+        "confidence": 0.86,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 2.87,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.03,
+          "2": 0.04,
+          "3": 0.92
+        },
+        "confidence": 0.87,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4bdaf3977093f981b20ba6be0dcd1b54166b3c0c1d5e4194f6380890f430b886": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 1.01,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.92,
+          "2": 0.03,
+          "3": 0.01
+        },
+        "confidence": 0.91,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 1.9100000000000001,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.1,
+          "2": 0.8,
+          "3": 0.07
+        },
+        "confidence": 0.77,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4dcdbd5b542ceb343ffee779bd45d3800b1ebe97462815a28240a081a21117db": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 2.6700000000000004,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.07,
+          "2": 0.1,
+          "3": 0.8
+        },
+        "confidence": 0.6699999999999999,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 1.97,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.04,
+          "2": 0.92,
+          "3": 0.03
+        },
+        "confidence": 0.91,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4dd5bbaf2d2ecca02e6916d2aef45697ba0fec1d8649c80c3861977284b1eb02": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 2.73,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.05,
+          "2": 0.08,
+          "3": 0.84
+        },
+        "confidence": 0.73,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 0.13,
+        "probabilities": {
+          "0": 0.92,
+          "1": 0.04,
+          "2": 0.03,
+          "3": 0.01
+        },
+        "confidence": 0.87,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5e6f590b9fb4fe291722c02b77ece88b5cf80c8f9f0045bc3f2dcf38ab8fb369": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 0.2,
+        "probabilities": {
+          "0": 0.88,
+          "1": 0.06,
+          "2": 0.04,
+          "3": 0.02
+        },
+        "confidence": 0.8,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 2.87,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.03,
+          "2": 0.04,
+          "3": 0.92
+        },
+        "confidence": 0.87,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5e7fd8637dd16d341f3f088679757a9b581bffda583fe29f9c781caacf44564f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 2.87,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.03,
+          "2": 0.04,
+          "3": 0.92
+        },
+        "confidence": 0.87,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 1.94,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.06,
+          "2": 0.88,
+          "3": 0.04
+        },
+        "confidence": 0.86,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5f5a6e41a9b67bb93dec0e6ff965e2fcaa119b2317b4e9adf0d8be51992769cd": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 2.6700000000000004,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.07,
+          "2": 0.1,
+          "3": 0.8
+        },
+        "confidence": 0.6699999999999999,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 1.03,
+        "probabilities": {
+          "0": 0.08,
+          "1": 0.84,
+          "2": 0.05,
+          "3": 0.03
+        },
+        "confidence": 0.81,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7a27a805777c4f5addf6a7096d3061cb74a1d8d157a73e08c566e76491f0887b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 0.27,
+        "probabilities": {
+          "0": 0.84,
+          "1": 0.08,
+          "2": 0.05,
+          "3": 0.03
+        },
+        "confidence": 0.73,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 1.01,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.92,
+          "2": 0.03,
+          "3": 0.01
+        },
+        "confidence": 0.91,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7d2483f6993b44173fffadc6c7dcdee8ff1cf4f53a1829b58314f856c3a0eb29": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 1.62,
+        "probabilities": {
+          "0": 0.2,
+          "1": 0.24,
+          "2": 0.3,
+          "3": 0.26
+        },
+        "confidence": 0.09999999999999998,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 2.87,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.03,
+          "2": 0.04,
+          "3": 0.92
+        },
+        "confidence": 0.87,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7fd547d0394b7b082856c22bd3826c6b9cf524a44474950cc3b08fb3cecdedc4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 1.94,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.06,
+          "2": 0.88,
+          "3": 0.04
+        },
+        "confidence": 0.86,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 0.27,
+        "probabilities": {
+          "0": 0.84,
+          "1": 0.08,
+          "2": 0.05,
+          "3": 0.03
+        },
+        "confidence": 0.73,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "85b9e12e5274db62a925b5fe658a3897ea72951bfa8becc1c258ef103515fbe0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 1.9100000000000001,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.1,
+          "2": 0.8,
+          "3": 0.07
+        },
+        "confidence": 0.77,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 1.02,
+        "probabilities": {
+          "0": 0.06,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.02
+        },
+        "confidence": 0.86,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "86b6b3deb9639624d02417333d18cd19fb6263538e06e2f262477ef32231ca85": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 2.73,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.05,
+          "2": 0.08,
+          "3": 0.84
+        },
+        "confidence": 0.73,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 2.87,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.03,
+          "2": 0.04,
+          "3": 0.92
+        },
+        "confidence": 0.87,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "89a5e1146875a54b96ced1382be22d7ae02a8e576ad46974c6441999305a7689": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 1.9800000000000002,
+        "probabilities": {
+          "0": 0.07,
+          "1": 0.08,
+          "2": 0.65,
+          "3": 0.2
+        },
+        "confidence": 0.58,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 0.27,
+        "probabilities": {
+          "0": 0.84,
+          "1": 0.08,
+          "2": 0.05,
+          "3": 0.03
+        },
+        "confidence": 0.73,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8d6bcdd37558b13c9648eae025fdaa759eef036c91bf8303227bc816113a2acc": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 1.97,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.04,
+          "2": 0.92,
+          "3": 0.03
+        },
+        "confidence": 0.91,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 0.2,
+        "probabilities": {
+          "0": 0.88,
+          "1": 0.06,
+          "2": 0.04,
+          "3": 0.02
+        },
+        "confidence": 0.8,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "92645ca71fb4b3b2c621a3065b44d47988d36b7c2d68debfba44ea7d34270af6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 1.9100000000000001,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.1,
+          "2": 0.8,
+          "3": 0.07
+        },
+        "confidence": 0.77,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 1.97,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.04,
+          "2": 0.92,
+          "3": 0.03
+        },
+        "confidence": 0.91,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9d937cdc1c535bdcac662f7efc045db036f5ff52edd1f9473dca75eddbdd3839": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 1.02,
+        "probabilities": {
+          "0": 0.06,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.02
+        },
+        "confidence": 0.86,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 0.27,
+        "probabilities": {
+          "0": 0.84,
+          "1": 0.08,
+          "2": 0.05,
+          "3": 0.03
+        },
+        "confidence": 0.73,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a30c650aacd047acdea08d5210c4aaa95ca0651a934d93f16f7ced6378c26b47": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 1.94,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.06,
+          "2": 0.88,
+          "3": 0.04
+        },
+        "confidence": 0.86,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 1.46,
+        "probabilities": {
+          "0": 0.24,
+          "1": 0.28,
+          "2": 0.26,
+          "3": 0.22
+        },
+        "confidence": 0.06000000000000005,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a63b91e82749697887443b0bb1e8fc0dbe6ea457f0ba309f22b74031d2841ce6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 1.01,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.92,
+          "2": 0.03,
+          "3": 0.01
+        },
+        "confidence": 0.91,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 2.6700000000000004,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.07,
+          "2": 0.1,
+          "3": 0.8
+        },
+        "confidence": 0.6699999999999999,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a6f3786a4bd8cfa06a5c26d8e71ff60b174c9c9a3d5031ae88a92ab50349a662": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 0.33,
+        "probabilities": {
+          "0": 0.8,
+          "1": 0.1,
+          "2": 0.07,
+          "3": 0.03
+        },
+        "confidence": 0.6699999999999999,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 2.87,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.03,
+          "2": 0.04,
+          "3": 0.92
+        },
+        "confidence": 0.87,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a974a677c4619985f9732e9451ffddab98121157d1977cd14a127d2c13ea3a78": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 1.01,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.92,
+          "2": 0.03,
+          "3": 0.01
+        },
+        "confidence": 0.91,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 0.2,
+        "probabilities": {
+          "0": 0.88,
+          "1": 0.06,
+          "2": 0.04,
+          "3": 0.02
+        },
+        "confidence": 0.8,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "aa1a93fce525aaf8294545d07539b002a798fcac65f3cfd7d6e87adb08cb4a10": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 1.91,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.08,
+          "2": 0.84,
+          "3": 0.05
+        },
+        "confidence": 0.81,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 0.33,
+        "probabilities": {
+          "0": 0.8,
+          "1": 0.1,
+          "2": 0.07,
+          "3": 0.03
+        },
+        "confidence": 0.6699999999999999,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bac2f4288857ea056e851e93509c7c46ef8a9321973460ae5d10ce7cb7ff3c0d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 0.33,
+        "probabilities": {
+          "0": 0.8,
+          "1": 0.1,
+          "2": 0.07,
+          "3": 0.03
+        },
+        "confidence": 0.6699999999999999,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 1.91,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.08,
+          "2": 0.84,
+          "3": 0.05
+        },
+        "confidence": 0.81,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bad40e1ad9c35b675c2c0f8472b1de10349577b01ca844b34878170cf0507b81": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 1.46,
+        "probabilities": {
+          "0": 0.24,
+          "1": 0.28,
+          "2": 0.26,
+          "3": 0.22
+        },
+        "confidence": 0.06000000000000005,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 2.8000000000000003,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.04,
+          "2": 0.06,
+          "3": 0.88
+        },
+        "confidence": 0.8,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c61ea92ebae08b8a3a23314d794d6adbe2a6dadf946c21f07706e7d070c9060d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 0.2,
+        "probabilities": {
+          "0": 0.88,
+          "1": 0.06,
+          "2": 0.04,
+          "3": 0.02
+        },
+        "confidence": 0.8,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 2.73,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.05,
+          "2": 0.08,
+          "3": 0.84
+        },
+        "confidence": 0.73,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d584da3a7e39fc58e930a95ae60ec5337fb2fac079d1ac1421c986d8b1832177": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 0.27,
+        "probabilities": {
+          "0": 0.84,
+          "1": 0.08,
+          "2": 0.05,
+          "3": 0.03
+        },
+        "confidence": 0.73,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 1.62,
+        "probabilities": {
+          "0": 0.2,
+          "1": 0.24,
+          "2": 0.3,
+          "3": 0.26
+        },
+        "confidence": 0.09999999999999998,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d642cbf6ef57cc25d6f2de6c3d59292d27087744ff36afc1d6c23c93be4c5ac9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 0.27,
+        "probabilities": {
+          "0": 0.84,
+          "1": 0.08,
+          "2": 0.05,
+          "3": 0.03
+        },
+        "confidence": 0.73,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 1.9100000000000001,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.1,
+          "2": 0.8,
+          "3": 0.07
+        },
+        "confidence": 0.77,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e31eb98b9296bb4d0695dcb049b837197d8b6f5f2d96d43615c523138da70f6c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 2.87,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.03,
+          "2": 0.04,
+          "3": 0.92
+        },
+        "confidence": 0.87,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 0.33,
+        "probabilities": {
+          "0": 0.8,
+          "1": 0.1,
+          "2": 0.07,
+          "3": 0.03
+        },
+        "confidence": 0.6699999999999999,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e34360cfdbb38a05ecd20cefb46a93d8ac4d88f91277cf0f69961fddc473b8cf": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 0.27,
+        "probabilities": {
+          "0": 0.84,
+          "1": 0.08,
+          "2": 0.05,
+          "3": 0.03
+        },
+        "confidence": 0.73,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 0.2,
+        "probabilities": {
+          "0": 0.88,
+          "1": 0.06,
+          "2": 0.04,
+          "3": 0.02
+        },
+        "confidence": 0.8,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e5500478377ef0a6980f10300924f390a2c0cdef03fbd1812ae92874f8ad1646": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 1.91,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.08,
+          "2": 0.84,
+          "3": 0.05
+        },
+        "confidence": 0.81,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 2.8000000000000003,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.04,
+          "2": 0.06,
+          "3": 0.88
+        },
+        "confidence": 0.8,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ef65d85ec8362762e37bf39e4e2301d44dcda6407d7bdfd776ade9f23ae573bd": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 1.9100000000000001,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.1,
+          "2": 0.8,
+          "3": 0.07
+        },
+        "confidence": 0.77,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 2.73,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.05,
+          "2": 0.08,
+          "3": 0.84
+        },
+        "confidence": 0.73,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f45c9e00a2806263db449d3e3f5d89f571f9ff5f3778238335e9041b0d56bc1e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 1.94,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.06,
+          "2": 0.88,
+          "3": 0.04
+        },
+        "confidence": 0.86,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 1.9100000000000001,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.1,
+          "2": 0.8,
+          "3": 0.07
+        },
+        "confidence": 0.77,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f4da7bcdaa629592186ea7d211f63b131b88f8ce0a75e66250a23cc9fbfdb04a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 1.02,
+        "probabilities": {
+          "0": 0.06,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.02
+        },
+        "confidence": 0.86,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 1.03,
+        "probabilities": {
+          "0": 0.1,
+          "1": 0.8,
+          "2": 0.07,
+          "3": 0.03
+        },
+        "confidence": 0.77,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f8622982d13a534b1701841e63723079796f60be5a31f14df495f9998c1901c6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "business_impact": {
+        "type": "score",
+        "score": 2.87,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.03,
+          "2": 0.04,
+          "3": 0.92
+        },
+        "confidence": 0.87,
+        "legend": {
+          "0": "The effect is contained to a small number of customers or to one non-critical feature; core operations, revenue and data are unaffected.",
+          "1": "A noticeable but partial segment of customers, or one feature many customers rely on, is degraded; there is some effect on revenue or operations, but most customers are unaffected.",
+          "2": "A core feature is broken or unavailable, or a large share of customers cannot complete what they came to do, with a clear effect on revenue, operations or customer trust.",
+          "3": "The whole customer base or a core system is affected outright, with severe effect on revenue, data integrity, safety, or legal or regulatory exposure."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "score": 2.73,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.05,
+          "2": 0.08,
+          "3": 0.84
+        },
+        "confidence": 0.73,
+        "legend": {
+          "0": "There is no deadline pressure: the incident can be scheduled into normal work with no special handling.",
+          "1": "A response is expected within the current work week; nothing described is actively getting worse while it waits.",
+          "2": "A response is expected within hours: the situation described is actively worsening, or a deadline is close.",
+          "3": "A response is needed immediately: the situation described is worsening by the minute, or a hard deadline has already passed or is minutes away."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
