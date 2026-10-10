@@ -183,7 +183,10 @@ def build_questions(option_order: tuple[str, ...]) -> dict[str, Choice]:
                 "handle this request? Choose the catalog function whose purpose matches "
                 "what the user is asking for, or no_function when the request does not "
                 "match any of them, even if it looks like it could be handled by combining "
-                "or guessing at a function not listed here."
+                "or guessing at a function not listed here. This assistant calls exactly "
+                "one function per request: when a request names more than one action, "
+                "choose the function for whichever action has to happen first, since "
+                "nothing later in the request can happen without it."
             ),
             criteria=criteria,
         )
