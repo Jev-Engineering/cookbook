@@ -6,7 +6,7 @@ Flag instruction-redirection attempts in retrieved text using adversarial and be
 
 ## What it teaches
 
-Jev supplies two narrow judgments over one retrieved passage, sent together in one request: a typed `Noul` for "this passage contains an instruction redirecting the reader's assistant," and a second, independent `Noul` for "this passage quotes or discusses such an instruction without issuing one." Python owns everything else: an excerpting function that bounds what Jev ever sees, a business threshold chosen per proposition (by F1, on `validation`), one confidence gate shared by both propositions (chosen on their pooled decisions), and a single tested function, `helpers.screen`, that composes the two label decisions into one of three outcomes -- `flag`, `pass`, or an explicit `review` outcome that lands in a simulated `ReviewQueue`, sorted least-confident first. The evaluation reports a miss rate on the adversarial fixtures and a false-positive rate on the benign ones, gated and ungated side by side, and shows two `test` passages the shared gate cannot catch by construction: `noul_confidence` measures distance from an even split, never distance from either frozen threshold, so a passage that lands just past a threshold can still read as confidently decided, in the wrong direction. This recipe screens for one pattern; it does not guarantee detection, and TypeSafe's own notes on Jev 1.13 ([S07](https://docs.typesafe.ai/model-jaggedness/jev-1.13)) describe real limits on how adversarial content is handled that this recipe does not try to quantify.
+Jev supplies two narrow judgments over one retrieved passage, sent together in one request: a typed `Noul` for "this passage contains an instruction redirecting the reader's assistant," and a second, independent `Noul` for "this passage quotes or discusses such an instruction without issuing one." The fixtures cover every combination of the two: text that only redirects, text that only discusses, text that does both at once (reporting a known attack pattern and separately issuing a live one), and ordinary text that does neither. Python owns everything else: an excerpting function that bounds what Jev ever sees, a business threshold chosen per proposition (by F1, on `validation`), one confidence gate shared by both propositions (chosen on their pooled decisions), and a single tested function, `helpers.screen`, that composes the two label decisions into one of three outcomes — `flag`, `pass`, or an explicit `review` outcome that lands in a simulated `ReviewQueue`, sorted least-confident first. The evaluation reports a miss rate on the adversarial fixtures and a false-positive rate on the benign ones, gated and ungated side by side, and shows real fixtures where each proposition changes the outcome on its own: two `test` passages the shared gate cannot catch by construction (`noul_confidence` measures distance from an even split, never distance from either frozen threshold, so a passage that lands just past a threshold can still read as confidently decided, in the wrong direction), and one `test` passage where the gate catches genuine uncertainty on `discusses` alone while `redirect` reads confidently and correctly. `tests/test_helpers.py` proves both propositions independently consequential directly, by flipping one stored decision at a time on real fixtures and checking the composed outcome changes. This recipe screens for one pattern; it does not guarantee detection, and TypeSafe's own notes on Jev 1.13 ([S07](https://docs.typesafe.ai/model-jaggedness/jev-1.13)) describe real limits on how adversarial content is handled that this recipe does not try to quantify.
 
 ## Run it offline
 
@@ -36,9 +36,9 @@ of this repository), or record answers with the recorder described in
 and always runs offline. The live backend's default request budget is 25
 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)); every attempt counts
 against that budget, including each retry. In live mode this notebook makes exactly one call
-for each of the 40 examples in `fixtures/`, and no other (each passage is decided once and the
+for each of the 48 examples in `fixtures/`, and no other (each passage is decided once and the
 stored answer is reused wherever it is shown again). That is more than the default budget, so
-set `JEV_COOKBOOK_LIVE_MAX_REQUESTS=40` or higher before running this notebook live, or it stops
+set `JEV_COOKBOOK_LIVE_MAX_REQUESTS=48` or higher before running this notebook live, or it stops
 partway through with `BudgetExceeded`. Never put a key in a notebook or a fixture.
 
 ## What was and was not measured
@@ -46,25 +46,29 @@ partway through with `BudgetExceeded`. Never put a key in a notebook or a fixtur
 - **Mode:** synthetic (offline replay of hand-written answers). Not measured live.
 - **Model, capture date:** not applicable; no answer came from a model. A recorded recipe names the
   model the API returned and the date or dates the answers were captured.
-- **N:** 19 `validation` and 19 `test` passages are scored (40 in the fixtures; the 2 `demo`
+- **N:** 23 `validation` and 23 `test` passages are scored (48 in the fixtures; the 2 `demo`
   passages are shown in the notebook but never scored).
 
 A recorded recipe states the model version the API returned, the capture date and N for every number
 it reports, here and in the notebook.
 
-The committed run replays 40 invented passages with hand-written (synthetic) answers: two
-`validation` passages whose redirect probability is close enough to the adversarial cluster to
-pull the frozen business threshold up (a benign look-alike that quotes an attack almost
-verbatim), one `validation` passage the stored answer misses outright (a softly-worded attack,
-caught by the confidence gate instead of being reported wrong), and two `test` passages that are
-confidently wrong on purpose -- one missed attack and one wrongly flagged quotation, each just
-on the far side of the frozen business threshold with a confidence the shared gate does not
-catch. On `test` the composed rule reports a miss rate of 0.1000 (1 of 10 adversarial passages)
-and a false-positive rate of 0.1111 (1 of 9 benign passages), against 0.2000 and 0.1111 for the
-same two numbers with no gate at all; coverage 0.9474, accuracy among answered 0.8889, risk
-0.1111. These numbers, the threshold sweep, and the pooled confidence-only view check that the
-pipeline works; they say nothing about how Jev performs, how fast it is, or what it costs. This
-recipe has no recorded fixtures.
+The committed run replays 48 invented passages with hand-written (synthetic) answers, covering
+every combination of the two propositions: text that only redirects, text that only discusses,
+text that does both at once, and ordinary text that does neither. Two `validation` passages
+have a redirect probability close enough to the adversarial cluster to pull the frozen business
+threshold up (a benign look-alike that quotes an attack almost verbatim), one `validation`
+passage the stored answer misses outright (a softly-worded attack, caught by the confidence
+gate instead of being reported wrong), and on `test`: two passages that are confidently wrong on
+purpose — one missed attack and one wrongly flagged quotation, each just on the far side of the
+frozen business threshold with a confidence the shared gate does not catch — and one ordinary,
+not-about-injection passage whose wording superficially echoes redirect phrasing, where the
+stored `discusses` answer is left genuinely uncertain so the confidence gate, not `redirect`,
+sends it to review. On `test` the composed rule reports a miss rate of 0.0833 (1 of 12
+adversarial passages) and a false-positive rate of 0.0909 (1 of 11 benign passages), against
+0.1667 and 0.0909 for the same two numbers with no gate at all; coverage 0.9130, accuracy among
+answered 0.9048, risk 0.0952. These numbers, the threshold sweep, and the pooled
+confidence-only view check that the pipeline works; they say nothing about how Jev performs, how
+fast it is, or what it costs. This recipe has no recorded fixtures.
 
 ## Pull request rules
 

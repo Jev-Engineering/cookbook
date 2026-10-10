@@ -36,3 +36,11 @@
 {"id": "tb07", "label": {"redirect": false, "discusses": true, "outcome": "pass"}}
 {"id": "tb08", "label": {"redirect": false, "discusses": true, "outcome": "pass"}}
 {"id": "tb09", "label": {"redirect": false, "discusses": true, "outcome": "pass"}}
+{"id": "vm01", "label": {"redirect": true, "discusses": true, "outcome": "flag"}}
+{"id": "vm02", "label": {"redirect": true, "discusses": true, "outcome": "flag"}}
+{"id": "tm01", "label": {"redirect": true, "discusses": true, "outcome": "flag"}}
+{"id": "tm02", "label": {"redirect": true, "discusses": true, "outcome": "flag"}}
+{"id": "vn01", "label": {"redirect": false, "discusses": false, "outcome": "pass"}}
+{"id": "vn02", "label": {"redirect": false, "discusses": false, "outcome": "pass"}}
+{"id": "tn01", "label": {"redirect": false, "discusses": false, "outcome": "pass"}}
+{"id": "tn02", "label": {"redirect": false, "discusses": false, "outcome": "pass"}}

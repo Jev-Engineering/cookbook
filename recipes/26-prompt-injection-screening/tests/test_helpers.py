@@ -141,6 +141,18 @@ def test_decide_labels_rejects_thresholds_that_do_not_name_exactly_labels():
         )
 
 
+def test_decide_labels_tag_is_inclusive_at_the_threshold():
+    # helpers.py's own docstring claims parity with multilabel_from_noul's `noul >= threshold`;
+    # a noul exactly equal to the threshold must tag True, not False. A mutation to `noul >
+    # threshold` passes every other test in this file but changes real notebook numbers on
+    # re-execution (va10 and ta09 both sit exactly on 0.90), which is why this is pinned here
+    # directly rather than left to the notebook staleness check alone.
+    thresholds = {helpers.REDIRECT: 0.9, helpers.DISCUSSES: 0.7}
+    decisions = helpers.decide_labels(_answers(0.9, 0.7), thresholds, confidence_gate=0.0)
+    assert decisions[helpers.REDIRECT].tag is True
+    assert decisions[helpers.DISCUSSES].tag is True
+
+
 # --------------------------------------------------------------------------------------------
 # screen: the deterministic composition, every label/outcome combination
 # --------------------------------------------------------------------------------------------
@@ -295,3 +307,93 @@ def test_stored_answers_are_not_all_right():
         and result.discusses.confidence >= gate
     ]
     assert wrong_and_confident, "expected at least one confidently wrong test answer"
+
+
+# --------------------------------------------------------------------------------------------
+# each proposition is independently consequential on the real, committed fixtures: flipping
+# one stored label decision, holding the other fixed, changes screen()'s composed outcome
+# --------------------------------------------------------------------------------------------
+
+
+def _frozen_thresholds_and_gate():
+    """``(thresholds, gate, backend, questions, examples)``, computed from the committed
+    ``validation`` fixtures exactly as the notebook computes them: both per-label thresholds
+    chosen independently by F1, then the one shared gate chosen afterwards from their pooled
+    decisions at ``target_accuracy=1.0``. A second, independent computation of the same
+    selection ``test_stored_answers_are_not_all_right`` above already performs, factored out
+    here so the two tests below do not each repeat it."""
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    labels = load_labels(RECIPE)
+    examples = load_inputs(RECIPE)
+
+    def decide(example):
+        return backend.decide(helpers.build_state(example.fields), questions)
+
+    validation = [e for e in examples if e.split == "validation" and e.id in labels]
+    val_gold_redirect = [labels[e.id]["redirect"] for e in validation]
+    val_gold_discusses = [labels[e.id]["discusses"] for e in validation]
+    val_redirect = [decide(e)[helpers.REDIRECT].noul for e in validation]
+    val_discusses = [decide(e)[helpers.DISCUSSES].noul for e in validation]
+
+    t_redirect = select_threshold(val_gold_redirect, val_redirect, objective="f1")
+    t_discusses = select_threshold(val_gold_discusses, val_discusses, objective="f1")
+    thresholds = {helpers.REDIRECT: t_redirect, helpers.DISCUSSES: t_discusses}
+
+    val_ids = [e.id for e in validation]
+    gold_by_label = {helpers.REDIRECT: val_gold_redirect, helpers.DISCUSSES: val_gold_discusses}
+    noul_by_label = {helpers.REDIRECT: val_redirect, helpers.DISCUSSES: val_discusses}
+    correct, confidence, _keys = pool_label_decisions(
+        val_ids, list(helpers.LABELS), gold_by_label, noul_by_label, thresholds
+    )
+    gate = select_confidence_threshold(correct, confidence, target_accuracy=1.0)
+    return thresholds, gate, backend, questions, examples
+
+
+def test_redirect_decision_is_independently_consequential_on_the_fixtures():
+    # ta01 is a real, committed `test` fixture: a confident redirect (0.97, not gated) paired
+    # with a confident, low discusses (0.04, not gated), composed as "flag" because redirect's
+    # own tag is True. Flipping only the stored redirect decision to a confident False,
+    # holding the real discusses answer fixed, changes the composed outcome to "pass" -- proof
+    # that redirect alone, not merely the pair, drives the result on this fixture.
+    thresholds, gate, backend, questions, examples = _frozen_thresholds_and_gate()
+    example = next(e for e in examples if e.id == "ta01")
+    real_answer = backend.decide(helpers.build_state(example.fields), questions)
+
+    baseline = helpers.screen(helpers.decide_labels(real_answer, thresholds, gate))
+    assert baseline.outcome == helpers.FLAG
+
+    flipped = {
+        helpers.REDIRECT: _FakeNoul(0.05),
+        helpers.DISCUSSES: real_answer[helpers.DISCUSSES],
+    }
+    changed = helpers.screen(helpers.decide_labels(flipped, thresholds, gate))
+    assert changed.outcome != baseline.outcome
+    assert changed.outcome == helpers.PASS
+
+
+def test_discusses_decision_is_independently_consequential_on_the_fixtures():
+    # tn02 is a real, committed `test` fixture: a confident, clear redirect (0.04, not gated)
+    # paired with a genuinely uncertain discusses (0.50, gated), composed as "review" because
+    # the gate on discusses alone sends the whole passage to review -- redirect is never gated
+    # here. Flipping only the stored discusses decision to a confident False, holding the real
+    # redirect answer fixed, changes the composed outcome to "pass" -- proof that discusses
+    # alone, not merely redirect, drives the result on this fixture, and that the confidence
+    # gate (not only the business tag) is a channel through which discusses matters.
+    thresholds, gate, backend, questions, examples = _frozen_thresholds_and_gate()
+    example = next(e for e in examples if e.id == "tn02")
+    real_answer = backend.decide(helpers.build_state(example.fields), questions)
+
+    baseline_decisions = helpers.decide_labels(real_answer, thresholds, gate)
+    assert baseline_decisions[helpers.REDIRECT].gated is False
+    assert baseline_decisions[helpers.DISCUSSES].gated is True
+    baseline = helpers.screen(baseline_decisions)
+    assert baseline.outcome == helpers.REVIEW
+
+    flipped = {
+        helpers.REDIRECT: real_answer[helpers.REDIRECT],
+        helpers.DISCUSSES: _FakeNoul(0.05),
+    }
+    changed = helpers.screen(helpers.decide_labels(flipped, thresholds, gate))
+    assert changed.outcome != baseline.outcome
+    assert changed.outcome == helpers.PASS
