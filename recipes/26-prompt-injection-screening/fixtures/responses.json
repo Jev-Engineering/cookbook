@@ -1,0 +1,1298 @@
+{
+  "0080eb233f9009921620ca60da57f64d0ec1c59f67a7ece2f05f2c05c8609633": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.05,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "09c08471163977d9746290a133e7671b64313ff6173e69719fd39297157239f5": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0be9400b83e93921d3da21f7f7dce5a052b731d0bec5a1e3cee530992519ae72": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "17e21cfff16a54107a918b09c377e3e0a26e9f7443952802890444b1230de6ba": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "197df896eab1a8edef897e71fcccae90929eb26eeecf93c56b018cc77a8dc4f1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.02,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.02,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "20333f9744b6e2a89fbcdcc2e9c8848c7679de7722ce4352e522577593502297": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "226a8c9c17cb1b196d93dc8dbf3b0c1590c7c8252f6819cf70c6d0d0bfa46517": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "23906c276d75908c29d5cd34759bb9593068bbac3582b0f4175e6f755e0236cb": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.93,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2709efb9303d278bf8e8a23aba4c8197a941205f4931ccee1b334d4c0638423a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "27c796a5dd67be4c28c16f84883247b8bf9c8d152094325287d9947dd270850d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.89,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "28943848956ce71f9abbe81921d47cb5bb246edd83c08647270d08c88842c9f1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.02,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "29dff4ef136c424850ce2930a495f485fdfd051835bf1a9c8d54cdeb6ccc1bed": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2d8e33ec965e664c9ee62d91671eb50de3cff4bb4e9c3ee2a55e1af222a5ac2b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2ed383ff5e5b1aaaeac9da8bcaa42b84b5f547db338855f165db3daffe76ccba": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.06,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "39679ffaa35bac0f150e6c3c5fdb9825c4f187c713c5f4ce20dab2c0635e6718": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3bddcf8239fa1b8fa8f94c681a8f0192796cd94229bd8a0d1548254e079be8b7": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.06,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "46ac8d125b0bac5e9cd120b5f50acd54edc51561d9278d0d3203ffd9480d5bda": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.05,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "55493f9126ab6a906fd57364d2749c448f7c3632079ab480332dd0fef2d03eac": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.93,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.06,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "55a8a36800f5ca026a481626eaf994e823ed9f2a1b7523bd990a6bdc5896c3d9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "622bd3081a877bb5221fa7876f9e0c4e66b79bc06675a58733bb8d42ed1e3244": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6543d4d02e1d262c075d4f44df5b9e8d887814f347e0a62e55db2d5013cdc376": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.89,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6f22663f074c9f42272ef77228ec09ea34626aa5d124e2a3f2c7376c0a555c9e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7810331676764e2350949d91d43a358f7ca4c3906cb3742a17a5d28fa16d22a2": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7b4752750fd915e809fadad6aea7f9cea5e0ee0c534eace8fa293581544d501d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7b91fb95fec784b29ebdef44669f5e941a33253f6e2cf58ea3d3210f1f46dfe8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "832def4574be1f5af17ff7164bc6983a99e67cfe22c9ca0fc04215c1d0440ff1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.05,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "85af8fa60e7a68ca5627d34c2cdf9466d236e16d2ee0736e7be02c4a4b78b06b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8c55ec4ac674870cdc154ed6722389478c87293b58df693410e2c70108e6b50b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8e7619aea8f59ebf09b85e91532a3b4e73e23abb127bdce3af00b67f113a2f74": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.55,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.45,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "98012d06fe811dcb4dee94a2e79e138aa4f79c0e22162c54c9535419744452d0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.07,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a607c97b5a8ec91c122f27789e139dc7a20b9cde9a2aacf4a14f87ebf6420098": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.07,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.93,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "aaf59e0be5d60ced9ca779a36450912faa27d870846a537ae660b3e7b7786f52": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "af8fb8fc052184c4a4744021017c5ddbb4252266036c4b4143332cb5f84c9843": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.07,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b6b3f01fcd0d58ebecaaf8a4ff3247c08d7393412b90a0b2ff8d28c87797771f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b8273055bbbf3e1eb2754f81f635645f19f145d8cfd2de17c4e0fe51950df1ac": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.93,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b96872feedfc5dfe4cd53f975bab792223c08755ce2e332349fe9a998be97a02": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.07,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b9fb04b047ad9678bf2f84e5ed8f362d1a6376588719f4ae7f453ccc8eb41e6f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.5,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c468ca43b5c13d22cff075f69572b61b42b59f8cc1c5caefadf35075963b55c2": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.885,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c8ff63f6fc159bec5978ee23e0fa48b0fee21f95f0e2dd7d85f0f8a184af3df4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "cc4e80f062b2876b03db60ab362fb00ea76d3d71d9daca027f91c721a4505147": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.93,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.06,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "cfc895c2ca05e2c32a6cc9379d40a9b48498944beb4af024943ab9769718e52e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d4c5e641448c381db1a5ca72dc672662c789cb210b8e47da64991f190cf835f3": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e228af80f351b71c55d4aa344c878a1c2a8c6faf3630c48e39e5c020a383229c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.05,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e7fcc7280fc15570ce419828d3536d7ca3fe819b09ca21bd5e493637f53e8354": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f4431d83998adea4218e5de24e2f5931e501818ca1c05098343df39ee5d0a72a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f5ddce508e76da7c2f2f878f89fdf4dfe6941d113d699047a46a62da14a43e8c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.02,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f88095d8af9c50914fdfb27fb49be9da4c4207c2d9904e43185139e7645bc8d8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.93,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "fa8064873aebbd7a71b1e707bea2c3e282af92108ac3e23d9dfdc69e48a54500": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "redirect": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "discusses": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
