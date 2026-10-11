@@ -16,13 +16,18 @@ synthetic answers, or --force is given.
 RAW_ROWS below holds forty fabricated change records: eight combinations of the three gold
 propositions (sufficient implementation evidence, sufficient validation evidence, sufficient
 rollback evidence), two records per combination, split across validation and test, plus three
-further records per split -- one per proposition -- where the record vaguely gestures at that
-one evidence type without actually supplying it (an insufficient reading this use case names
-directly: a record that mentions a rollback plan without describing one), stored with a noul
-high enough to pull that proposition's business threshold up near the top of the scale. Two
-plain demo records close the set. Every combination of the three gold values therefore appears
-at least once, so every pair of propositions is exercised in all four of its own combinations
-(each alone, both together, neither) without needing a fixture group dedicated to the pair.
+further records per split -- one per proposition -- where the record names a specific-sounding
+but ultimately empty mention of that one evidence type (a ticket, an approver, a runbook, a
+sign-off) without actually describing it (an insufficient reading this use case names directly:
+a record that mentions a rollback plan without describing one), stored with a noul high enough
+to read as a false positive against that proposition's own business threshold. These six
+lookalikes do not move any threshold -- the thresholds are set elsewhere, by the three
+deliberately borderline true readings (the lowest true positive for each proposition); what the
+lookalikes do is give the shared confidence gate false positives to catch on validation, and
+leave the single confidently-wrong record the gate does not catch on test. Two plain demo
+records close the set. Every combination of the three gold values therefore appears at least
+once, so every pair of propositions is exercised in all four of its own combinations (each
+alone, both together, neither) without needing a fixture group dedicated to the pair.
 """
 
 import argparse
@@ -160,21 +165,21 @@ RAW_ROWS = (
     (
         "v17",
         "validation",
-        "Externalize shipping rate table\n\nImplementation: Implementation details attached.\n\nValidation: Tested the feature flag in both positions in staging: with it off, rates matched the old table exactly for all 40 sample routes; with it on, rates matched the new service's published rate card.\n\nRollback: Set `use_rates_service` to false in the feature-flag service, which reverts to the hardcoded table with no deploy required; no code rollback is needed.",
+        "Externalize shipping rate table\n\nImplementation: Delivered in the Q3 release train (sprint 14); approved by the platform lead and tracked under JIRA-5192.\n\nValidation: Tested the feature flag in both positions in staging: with it off, rates matched the old table exactly for all 40 sample routes; with it on, rates matched the new service's published rate card.\n\nRollback: Set `use_rates_service` to false in the feature-flag service, which reverts to the hardcoded table with no deploy required; no code rollback is needed.",
         (False, True, True),
         (0.87, 0.98, 0.96),
     ),
     (
         "v18",
         "validation",
-        "Add rate limiting to search API\n\nImplementation: Added rate limiting (100 requests per minute per API key) to the `/v2/search` endpoint in `search_api/middleware.py`.\n\nValidation: Validated per standard process.\n\nRollback: Remove the rate-limiting middleware from `search_api/middleware.py` and redeploy search-api at the previous tag (search-api:7.2.0).",
+        "Add rate limiting to search API\n\nImplementation: Added rate limiting (100 requests per minute per API key) to the `/v2/search` endpoint in `search_api/middleware.py`.\n\nValidation: Reviewed and signed off by QA under ticket QA-3310, per the release checklist.\n\nRollback: Remove the rate-limiting middleware from `search_api/middleware.py` and redeploy search-api at the previous tag (search-api:7.2.0).",
         (True, False, True),
         (0.97, 0.86, 0.95),
     ),
     (
         "v19",
         "validation",
-        "Increase payments-gateway retries\n\nImplementation: Reconfigured the `payments-gateway` retry policy in `gateway.yaml` from 3 attempts to 5, with exponential backoff starting at 200ms.\n\nValidation: Simulated gateway timeouts in staging and confirmed the retry policy made exactly 5 attempts with the expected backoff intervals, logged in the test run.\n\nRollback: A rollback plan is in place.",
+        "Increase payments-gateway retries\n\nImplementation: Reconfigured the `payments-gateway` retry policy in `gateway.yaml` from 3 attempts to 5, with exponential backoff starting at 200ms.\n\nValidation: Simulated gateway timeouts in staging and confirmed the retry policy made exactly 5 attempts with the expected backoff intervals, logged in the test run.\n\nRollback: Rollback plan documented in RUNBOOK-204, owned by the payments on-call rotation and reviewed before this deploy.",
         (True, True, False),
         (0.96, 0.97, 0.89),
     ),
@@ -259,7 +264,7 @@ RAW_ROWS = (
     (
         "t12",
         "test",
-        "Migrate billing worker to new topic\n\nImplementation: The change has been made as discussed.\n\nValidation: Replayed the last 30 days of production billing events against the new consumer in a shadow environment and confirmed the computed totals matched the legacy consumer's output exactly.\n\nRollback: A rollback plan is in place.",
+        "Migrate billing worker to new topic\n\nImplementation: The change has been made as discussed.\n\nValidation: Replayed a sample of the last 30 days of production billing events against the new consumer in a shadow environment; totals matched the legacy consumer's output for the sampled window, though the full 30-day replay had not finished before this record was filed.\n\nRollback: A rollback plan is in place.",
         (False, True, False),
         (0.03, 0.82, 0.05),
     ),
@@ -294,21 +299,21 @@ RAW_ROWS = (
     (
         "t17",
         "test",
-        "Rotate edge TLS certificate\n\nImplementation: Implementation details attached.\n\nValidation: Verified in staging that the rotated certificate presents correctly on every edge load balancer and that the TLS handshake succeeds from three external test clients.\n\nRollback: Restore the previous certificate from the inventory's prior entry and reload the load balancers' TLS configuration; the prior certificate remains valid for 11 more days, so there is no gap.",
+        "Rotate edge TLS certificate\n\nImplementation: Delivered in the Q3 release train (sprint 14); approved by the platform lead and tracked under JIRA-5188.\n\nValidation: Verified in staging that the rotated certificate presents correctly on every edge load balancer and that the TLS handshake succeeds from three external test clients.\n\nRollback: Restore the previous certificate from the inventory's prior entry and reload the load balancers' TLS configuration; the prior certificate remains valid for 11 more days, so there is no gap.",
         (False, True, True),
         (0.85, 0.97, 0.95),
     ),
     (
         "t18",
         "test",
-        "Migrate billing worker to new topic\n\nImplementation: Migrated the `billing-worker` service from the legacy queue (billing-legacy) to the new `billing-events` topic, updating the consumer group configuration accordingly.\n\nValidation: Validated per standard process.\n\nRollback: Repoint the `billing-worker` consumer group back to the `billing-legacy` queue and redeploy the prior consumer image; the new topic's events remain available for replay later if needed.",
+        "Migrate billing worker to new topic\n\nImplementation: Migrated the `billing-worker` service from the legacy queue (billing-legacy) to the new `billing-events` topic, updating the consumer group configuration accordingly.\n\nValidation: Reviewed and signed off by QA under ticket QA-3318, per the release checklist.\n\nRollback: Repoint the `billing-worker` consumer group back to the `billing-legacy` queue and redeploy the prior consumer image; the new topic's events remain available for replay later if needed.",
         (True, False, True),
         (0.96, 0.84, 0.94),
     ),
     (
         "t19",
         "test",
-        "Backfill invoice tax region\n\nImplementation: Patched the `invoice_totals` backfill migration to recompute `tax_region` for every invoice created before 2024-01-01, run via the nightly `migrate:backfill` batch job.\n\nValidation: Ran the backfill against a staging copy of the production database and confirmed all 18,204 affected invoices now report the correct tax region, spot-checked against the tax team's reference list.\n\nRollback: A rollback plan is in place.",
+        "Backfill invoice tax region\n\nImplementation: Patched the `invoice_totals` backfill migration to recompute `tax_region` for every invoice created before 2024-01-01, run via the nightly `migrate:backfill` batch job.\n\nValidation: Ran the backfill against a staging copy of the production database and confirmed all 18,204 affected invoices now report the correct tax region, spot-checked against the tax team's reference list.\n\nRollback: Rollback plan documented in RUNBOOK-211, owned by the data-platform on-call rotation and reviewed before this deploy.",
         (True, True, False),
         (0.95, 0.96, 0.9),
     ),

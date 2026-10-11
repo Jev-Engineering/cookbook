@@ -264,6 +264,17 @@ def review_sort_key(result: ChecklistResult) -> float:
     )
 
 
+def gating_label(result: ChecklistResult) -> str:
+    """The name of the proposition whose confidence is :func:`review_sort_key`'s minimum for
+    ``result`` -- the one that actually sent the record to review when ``result.outcome`` is
+    ``REVIEW``. Ties break in ``LABELS`` order, the same tie-break ``review_sort_key`` itself
+    relies on when a notebook sorts queued records by ``(review_sort_key(result), example_id)``.
+    A queue entry's recorded ``answer`` should be this label's, not an arbitrary other one, so
+    a reviewer reading "the typed answer that sent this item to review" is shown the answer the
+    reason is actually about."""
+    return min(LABELS, key=lambda label: getattr(result, label).confidence)
+
+
 def queue_item(example_id: str, fields: dict[str, Any], result: ChecklistResult) -> dict[str, Any]:
     """What a human reviewer sees for one queued change record: its id, the record Jev was
     actually asked about, and all three label decisions -- not only an identifier

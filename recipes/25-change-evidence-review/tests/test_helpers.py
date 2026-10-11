@@ -186,35 +186,73 @@ def test_review_checklist_reviews_whenever_any_label_is_gated(gated):
 
 
 @pytest.mark.parametrize(
-    "tags,expected_gaps",
+    "tags,expected_gaps,expected_reason",
     [
-        ((True, True, True), frozenset()),
-        ((False, True, True), frozenset({"implementation_evidence"})),
-        ((True, False, True), frozenset({"validation_evidence"})),
-        ((True, True, False), frozenset({"rollback_evidence"})),
-        ((False, False, True), frozenset({"implementation_evidence", "validation_evidence"})),
-        ((False, True, False), frozenset({"implementation_evidence", "rollback_evidence"})),
-        ((True, False, False), frozenset({"validation_evidence", "rollback_evidence"})),
+        ((True, True, True), frozenset(), None),
+        (
+            (False, True, True),
+            frozenset({"implementation_evidence"}),
+            "missing evidence: implementation_evidence",
+        ),
+        (
+            (True, False, True),
+            frozenset({"validation_evidence"}),
+            "missing evidence: validation_evidence",
+        ),
+        (
+            (True, True, False),
+            frozenset({"rollback_evidence"}),
+            "missing evidence: rollback_evidence",
+        ),
+        (
+            (False, False, True),
+            frozenset({"implementation_evidence", "validation_evidence"}),
+            "missing evidence: implementation_evidence, validation_evidence",
+        ),
+        (
+            (False, True, False),
+            frozenset({"implementation_evidence", "rollback_evidence"}),
+            "missing evidence: implementation_evidence, rollback_evidence",
+        ),
+        (
+            (True, False, False),
+            frozenset({"validation_evidence", "rollback_evidence"}),
+            "missing evidence: rollback_evidence, validation_evidence",
+        ),
         (
             (False, False, False),
             frozenset({"implementation_evidence", "validation_evidence", "rollback_evidence"}),
+            "missing evidence: implementation_evidence, rollback_evidence, validation_evidence",
         ),
     ],
 )
-def test_review_checklist_reports_every_gap_combination_when_nothing_is_gated(tags, expected_gaps):
+def test_review_checklist_reports_every_gap_combination_when_nothing_is_gated(
+    tags, expected_gaps, expected_reason
+):
+    # expected_reason is a literal string, not helpers.reason_gaps(expected_gaps): asserting
+    # against the function under test's own output here would be circular and could not fail
+    # if reason_gaps stopped sorting its gap names.
     decisions = _decisions(tags)
     result = helpers.review_checklist(decisions)
     assert result.gaps == expected_gaps
     if expected_gaps:
         assert result.outcome == helpers.GAPS
-        assert result.reason == helpers.reason_gaps(expected_gaps)
+        assert result.reason == expected_reason
     else:
         assert result.outcome == helpers.READY
         assert result.reason == helpers.REASON_READY
 
 
 def test_reason_gaps_is_sorted_so_dict_order_never_changes_the_wording():
-    assert helpers.reason_gaps(frozenset({"rollback_evidence", "implementation_evidence"})) == (
+    # A frozenset's own iteration order is hash-randomized per process (PYTHONHASHSEED), so a
+    # frozenset literal input would pass this assertion on some seeds even with sorted()
+    # removed from reason_gaps, purely by the luck of which order the two elements happen to
+    # iterate in. A list input sidesteps that: list iteration order is exactly insertion order,
+    # never hash-dependent, so giving reason_gaps its two elements in the deliberately wrong
+    # (reverse-alphabetical) order makes the unsorted join produce the wrong string on every
+    # seed, while the correct, sorting implementation still produces the right one regardless
+    # of the order it is handed.
+    assert helpers.reason_gaps(["rollback_evidence", "implementation_evidence"]) == (
         "missing evidence: implementation_evidence, rollback_evidence"
     )
 
@@ -261,6 +299,35 @@ def test_review_sort_key_is_the_lowest_of_the_three_confidences():
     }
     result = helpers.review_checklist(decisions)
     assert helpers.review_sort_key(result) == pytest.approx(0.2)
+
+
+def test_gating_label_names_the_proposition_with_the_lowest_confidence():
+    # validation_evidence (0.4) is the lowest of the three, not implementation_evidence, even
+    # though implementation_evidence is the one whose gate flag happens to be True here: the
+    # label that actually gated a real record is not always the first one in LABELS order, and
+    # gating_label must point at whichever one review_sort_key's minimum came from.
+    decisions = {
+        helpers.IMPLEMENTATION_EVIDENCE: _decision(
+            helpers.IMPLEMENTATION_EVIDENCE, 0.5, False, 0.6, True
+        ),
+        helpers.VALIDATION_EVIDENCE: _decision(helpers.VALIDATION_EVIDENCE, 0.6, True, 0.4, False),
+        helpers.ROLLBACK_EVIDENCE: _decision(helpers.ROLLBACK_EVIDENCE, 0.6, True, 0.9, False),
+    }
+    result = helpers.review_checklist(decisions)
+    assert helpers.gating_label(result) == helpers.VALIDATION_EVIDENCE
+    assert result.validation_evidence.confidence == pytest.approx(helpers.review_sort_key(result))
+
+
+def test_gating_label_breaks_a_tie_in_labels_order():
+    decisions = {
+        helpers.IMPLEMENTATION_EVIDENCE: _decision(
+            helpers.IMPLEMENTATION_EVIDENCE, 0.5, False, 0.3, True
+        ),
+        helpers.VALIDATION_EVIDENCE: _decision(helpers.VALIDATION_EVIDENCE, 0.6, True, 0.9, False),
+        helpers.ROLLBACK_EVIDENCE: _decision(helpers.ROLLBACK_EVIDENCE, 0.6, True, 0.3, False),
+    }
+    result = helpers.review_checklist(decisions)
+    assert helpers.gating_label(result) == helpers.IMPLEMENTATION_EVIDENCE
 
 
 def test_queue_item_shows_the_record_and_all_three_label_decisions():
