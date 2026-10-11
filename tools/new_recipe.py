@@ -242,6 +242,7 @@ for answer in result.answers.values():
             """
 if offline:
     print(f"Provenance: {backend.mode}. Not measured live: a pipeline check, not a Jev result.")
+    print(f"N: {len(scored)} scored examples{check}")
 else:
     dates = ", ".join(getattr(backend, "recorded_dates", ()) or ()) or "this run"
     print(f"Provenance: {backend.mode}, model {backend.model}")

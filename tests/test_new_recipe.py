@@ -745,7 +745,14 @@ def test_the_scaffold_readme_and_measured_cell_leave_room_for_a_recorded_run(cat
     assert "TYPESAFE_API_KEY" in readme and '".[live]"' in readme
     nb = nbformat.read(folder / "notebook.ipynb", as_version=4)
     measured = next(c for c in nb.cells if c.get("id") == "measured").source
-    assert "recorded_dates" in measured and "backend.model" in measured and "N:" in measured
+    assert "recorded_dates" in measured and "backend.model" in measured
+    # "N:" must be checked against the OFFLINE branch specifically (the same split
+    # tests/test_template.py's own measured-cell check uses on the template): the live (else)
+    # branch always prints "N:", so asserting "N:" in measured as a whole is satisfied by the
+    # live branch regardless of what the offline branch does -- exactly the defect #215 found,
+    # where the offline branch printed no N at all and this assertion still passed.
+    offline_branch = measured.split("else:")[0]
+    assert "N:" in offline_branch, "the offline branch must print N too, not only the live branch"
     # The sentence follows the backend mode: scripted says pipeline check too, never "synthetic".
     assert "Provenance: synthetic" not in measured and "{backend.mode}. Not measured" in measured
     state = next(c for c in nb.cells if c.get("id") == "state").source

@@ -73,6 +73,9 @@ check id                              rule -> detection
                                        live-mode call count equals ``len(responses.json)``.
 ``readme_no_dev_ml_install``          docs/recipe-template.md step 6: reproducing committed
                                        outputs installs ``.[ml]``, never ``.[dev,ml]``.
+``measured_cell_prints_n_offline``    CONTRIBUTING.md section 2 (#215): the "measured" cell's
+                                       offline branch prints N, not only its live/recorded
+                                       branch.
 ====================================  =====================================================
 
 Scope decisions (see the pull request body for the full reasoning):
@@ -1065,3 +1068,50 @@ def test_the_readme_never_installs_dev_and_ml_combined(recipe):
     checks the literal substring is gone."""
     readme = (recipe_dir(recipe) / "README.md").read_text("utf-8")
     assert ".[dev,ml]" not in readme
+
+
+# --------------------------------------------------------------------------------------------
+# check 10: the "measured" cell's offline branch prints N (#215)
+# --------------------------------------------------------------------------------------------
+
+MEASURED_SIGNATURE = "Not measured live: a pipeline check, not a Jev result."
+
+
+@pytest.mark.parametrize("recipe", guarded_with_template("measured_cell_prints_n_offline")())
+def test_the_measured_cell_prints_n_in_the_offline_branch(recipe):
+    """CONTRIBUTING.md section 2: the disclosure names, "in every mode", the run mode and N --
+    the number of examples a reported number covers. docs/recipe-template.md states the
+    consequence explicitly: the "What was and was not measured" code cell's branches must each
+    actually print N, so an offline run's branch prints it too, not only the recorded/live
+    branch -- a markdown promise one branch of its own code does not keep is a defect in the
+    cell, not something to soften in the prose.
+
+    #215: the scaffolder's own version of this cell printed no N in the offline branch for weeks,
+    and the only test naming this property, ``tests/test_new_recipe.py``, could not fail: it
+    checked ``"N:" in measured`` against the whole cell rather than the offline branch alone, and
+    the live (``else``) branch's own ``"N:"`` line satisfied that regardless of what the offline
+    branch did. This check applies the same fix at the recipe level, over every published recipe
+    (and the template), so a recipe scaffolded with the defect, or a hand-edit that drops N from
+    one branch later, is caught here even when nothing else does.
+
+    The cell is found by its disclosure sentence (``MEASURED_SIGNATURE``) rather than by cell id:
+    most recipes call it ``measured``, but a few predate that convention (recipe 01 calls it
+    ``measured-code``; recipe 05's id is an auto-generated hex string) -- the sentence itself is
+    the one thing every recipe's version of this cell shares, by CONTRIBUTING.md's own "the
+    disclosure is the same in every recipe" rule. The offline branch is everything in the cell's
+    source up to its first ``else:`` (the same split ``tests/test_template.py``'s pin on the
+    template uses); a cell with no ``else:`` at all has nothing to compare against and fails as
+    not carrying the disclosure in a recognisable shape."""
+    cells = [
+        c
+        for c in notebook_cells(recipe_dir(recipe))
+        if c["cell_type"] == "code" and MEASURED_SIGNATURE in cell_source(c)
+    ]
+    assert cells, f"{recipe['slug']}: no code cell carries the disclosure sentence"
+    for cell in cells:
+        source = cell_source(cell)
+        assert "else:" in source, f"{recipe['slug']}: cell {cell.get('id', '?')} has no else branch"
+        offline_branch = source.split("else:", 1)[0]
+        assert "N:" in offline_branch, (
+            f"{recipe['slug']}: cell {cell.get('id', '?')}'s offline branch prints no N"
+        )
