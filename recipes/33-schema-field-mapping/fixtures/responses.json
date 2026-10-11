@@ -1,0 +1,1087 @@
+{
+  "03718d76e79c93f5b27e1484f3221f666caf96a5e67eccac14ded8425cf83144": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "is_gift_order",
+        "probabilities": {
+          "customer_email": 0.0111111111,
+          "customer_id": 0.0111111111,
+          "order_total": 0.0111111111,
+          "order_date": 0.0111111111,
+          "loyalty_tier": 0.0111111111,
+          "shipping_country": 0.0111111111,
+          "product_sku": 0.0111111111,
+          "is_gift_order": 0.9,
+          "ambiguous": 0.0111111111,
+          "unmapped": 0.0111111112
+        },
+        "confidence": 0.888888888888889,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1226a643b4207f3bb59a0eb342f8fe262347b596e108b0adcdd1fe552ba672cc": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "is_gift_order",
+        "probabilities": {
+          "customer_email": 0.0155555556,
+          "customer_id": 0.0155555556,
+          "order_total": 0.0155555556,
+          "order_date": 0.0155555556,
+          "loyalty_tier": 0.0155555556,
+          "shipping_country": 0.0155555556,
+          "product_sku": 0.0155555556,
+          "is_gift_order": 0.86,
+          "ambiguous": 0.0155555556,
+          "unmapped": 0.0155555552
+        },
+        "confidence": 0.8444444444444444,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1e19a5d1e731d3606605a9e65a3cdc07746ad56fef99e12cb5e3cf1f40a23b80": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "shipping_country",
+        "probabilities": {
+          "customer_email": 0.02,
+          "customer_id": 0.02,
+          "order_total": 0.02,
+          "order_date": 0.02,
+          "loyalty_tier": 0.02,
+          "shipping_country": 0.82,
+          "product_sku": 0.02,
+          "is_gift_order": 0.02,
+          "ambiguous": 0.02,
+          "unmapped": 0.02
+        },
+        "confidence": 0.7999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "20e37d06fb28811844a80d56d84a83f1ae9d506d14c64b659ef2b2223db87bb3": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "shipping_country",
+        "probabilities": {
+          "customer_email": 0.02,
+          "customer_id": 0.02,
+          "order_total": 0.02,
+          "order_date": 0.02,
+          "loyalty_tier": 0.02,
+          "shipping_country": 0.82,
+          "product_sku": 0.02,
+          "is_gift_order": 0.02,
+          "ambiguous": 0.02,
+          "unmapped": 0.02
+        },
+        "confidence": 0.7999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "231e93ce3915dc62b1696c33dce9914741ee811ccccc560b1fed4d8676b47253": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "customer_email",
+        "probabilities": {
+          "customer_email": 0.86,
+          "customer_id": 0.0155555556,
+          "order_total": 0.0155555556,
+          "order_date": 0.0155555556,
+          "loyalty_tier": 0.0155555556,
+          "shipping_country": 0.0155555556,
+          "product_sku": 0.0155555556,
+          "is_gift_order": 0.0155555556,
+          "ambiguous": 0.0155555556,
+          "unmapped": 0.0155555552
+        },
+        "confidence": 0.8444444444444444,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2c105624a735e3c09bba431eb176f33420004ae13c067a3c5eb9a747cda2df32": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "loyalty_tier",
+        "probabilities": {
+          "customer_email": 0.0133333333,
+          "customer_id": 0.0133333333,
+          "order_total": 0.0133333333,
+          "order_date": 0.0133333333,
+          "loyalty_tier": 0.88,
+          "shipping_country": 0.0133333333,
+          "product_sku": 0.0133333333,
+          "is_gift_order": 0.0133333333,
+          "ambiguous": 0.0133333333,
+          "unmapped": 0.0133333336
+        },
+        "confidence": 0.8666666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2f1a26b34a36e48519540a8a61408f1178438d8a66d86ec731956b624924ed7f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "customer_id",
+        "probabilities": {
+          "customer_email": 0.02,
+          "customer_id": 0.82,
+          "order_total": 0.02,
+          "order_date": 0.02,
+          "loyalty_tier": 0.02,
+          "shipping_country": 0.02,
+          "product_sku": 0.02,
+          "is_gift_order": 0.02,
+          "ambiguous": 0.02,
+          "unmapped": 0.02
+        },
+        "confidence": 0.7999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "35c70b06ad90c7ee426ea1fbe69f1b251f464161d96415d097a7a63f6d3ed86f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "customer_email",
+        "probabilities": {
+          "customer_email": 0.92,
+          "customer_id": 0.0088888889,
+          "order_total": 0.0088888889,
+          "order_date": 0.0088888889,
+          "loyalty_tier": 0.0088888889,
+          "shipping_country": 0.0088888889,
+          "product_sku": 0.0088888889,
+          "is_gift_order": 0.0088888889,
+          "ambiguous": 0.0088888889,
+          "unmapped": 0.0088888888
+        },
+        "confidence": 0.9111111111111112,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "38546ef4c44fafd64b5c6900698498cb2a5abeac6a66da17e6dcd6f2ab890732": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "ambiguous",
+        "probabilities": {
+          "customer_email": 0.0,
+          "customer_id": 0.0,
+          "order_total": 0.0,
+          "order_date": 0.0,
+          "loyalty_tier": 0.3,
+          "shipping_country": 0.3,
+          "product_sku": 0.0,
+          "is_gift_order": 0.0,
+          "ambiguous": 0.4,
+          "unmapped": 0.0
+        },
+        "confidence": 0.33333333333333337,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3b7acefff08a3539668e0aed9587aa74692b70df69c46767b1bef9775c0bc54f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "customer_id",
+        "probabilities": {
+          "customer_email": 0.0111111111,
+          "customer_id": 0.9,
+          "order_total": 0.0111111111,
+          "order_date": 0.0111111111,
+          "loyalty_tier": 0.0111111111,
+          "shipping_country": 0.0111111111,
+          "product_sku": 0.0111111111,
+          "is_gift_order": 0.0111111111,
+          "ambiguous": 0.0111111111,
+          "unmapped": 0.0111111112
+        },
+        "confidence": 0.888888888888889,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3b9495506e87dc8c568f58b7e685e9b16e141612f65e3bbdd51f25844082bf76": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "unmapped",
+        "probabilities": {
+          "customer_email": 0.0177777778,
+          "customer_id": 0.0177777778,
+          "order_total": 0.0177777778,
+          "order_date": 0.0177777778,
+          "loyalty_tier": 0.0177777778,
+          "shipping_country": 0.0177777778,
+          "product_sku": 0.0177777778,
+          "is_gift_order": 0.0177777778,
+          "ambiguous": 0.0177777776,
+          "unmapped": 0.84
+        },
+        "confidence": 0.8222222222222222,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4355c01afbd68cd3bd22045cd55daff43306f0d0b40126762b6541aa6ccaeafe": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "order_total",
+        "probabilities": {
+          "customer_email": 0.0111111111,
+          "customer_id": 0.0111111111,
+          "order_total": 0.9,
+          "order_date": 0.0111111111,
+          "loyalty_tier": 0.0111111111,
+          "shipping_country": 0.0111111111,
+          "product_sku": 0.0111111111,
+          "is_gift_order": 0.0111111111,
+          "ambiguous": 0.0111111111,
+          "unmapped": 0.0111111112
+        },
+        "confidence": 0.888888888888889,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "436b552ecf5247ac1d6b72399c6efbb7cf07187a78bcc7219758da40ed9e141a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "shipping_country",
+        "probabilities": {
+          "customer_email": 0.0555555556,
+          "customer_id": 0.0555555556,
+          "order_total": 0.0555555556,
+          "order_date": 0.0555555556,
+          "loyalty_tier": 0.0555555556,
+          "shipping_country": 0.5,
+          "product_sku": 0.0555555556,
+          "is_gift_order": 0.0555555556,
+          "ambiguous": 0.0555555556,
+          "unmapped": 0.0555555552
+        },
+        "confidence": 0.4444444444444445,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "473b0a888e057e59c18c9117b1a4b13a81a5bc3202e117e8230c58828963abe3": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "loyalty_tier",
+        "probabilities": {
+          "customer_email": 0.02,
+          "customer_id": 0.02,
+          "order_total": 0.02,
+          "order_date": 0.02,
+          "loyalty_tier": 0.82,
+          "shipping_country": 0.02,
+          "product_sku": 0.02,
+          "is_gift_order": 0.02,
+          "ambiguous": 0.02,
+          "unmapped": 0.02
+        },
+        "confidence": 0.7999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "477b6171f67ac998541339452feeb0ba584be8347ad05c4982e22fbe2c342694": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "unmapped",
+        "probabilities": {
+          "customer_email": 0.0133333333,
+          "customer_id": 0.0133333333,
+          "order_total": 0.0133333333,
+          "order_date": 0.0133333333,
+          "loyalty_tier": 0.0133333333,
+          "shipping_country": 0.0133333333,
+          "product_sku": 0.0133333333,
+          "is_gift_order": 0.0133333333,
+          "ambiguous": 0.0133333336,
+          "unmapped": 0.88
+        },
+        "confidence": 0.8666666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "51daf012855c8196a466131ffc9cb8b269f4aaa6a3deedfedacdc6f9765c6aa0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "loyalty_tier",
+        "probabilities": {
+          "customer_email": 0.0177777778,
+          "customer_id": 0.0177777778,
+          "order_total": 0.0177777778,
+          "order_date": 0.0177777778,
+          "loyalty_tier": 0.84,
+          "shipping_country": 0.0177777778,
+          "product_sku": 0.0177777778,
+          "is_gift_order": 0.0177777778,
+          "ambiguous": 0.0177777778,
+          "unmapped": 0.0177777776
+        },
+        "confidence": 0.8222222222222222,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5400ee664a7436b73c1f05fca5b33ce961d6c9ef8eb7fba2dc6b36acd40afc95": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "product_sku",
+        "probabilities": {
+          "customer_email": 0.0177777778,
+          "customer_id": 0.0177777778,
+          "order_total": 0.0177777778,
+          "order_date": 0.0177777778,
+          "loyalty_tier": 0.0177777778,
+          "shipping_country": 0.0177777778,
+          "product_sku": 0.84,
+          "is_gift_order": 0.0177777778,
+          "ambiguous": 0.0177777778,
+          "unmapped": 0.0177777776
+        },
+        "confidence": 0.8222222222222222,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "59d349e6fda0fd8ecbfac59c5bbe3f7f1f0c8b2ea02cc76a4e1a5f2343e124e1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "customer_email",
+        "probabilities": {
+          "customer_email": 0.84,
+          "customer_id": 0.0177777778,
+          "order_total": 0.0177777778,
+          "order_date": 0.0177777778,
+          "loyalty_tier": 0.0177777778,
+          "shipping_country": 0.0177777778,
+          "product_sku": 0.0177777778,
+          "is_gift_order": 0.0177777778,
+          "ambiguous": 0.0177777778,
+          "unmapped": 0.0177777776
+        },
+        "confidence": 0.8222222222222222,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "59da94c3f37360cb5696c8ef366c4989574fefa04ed7a298dba36759ebbab9cf": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "product_sku",
+        "probabilities": {
+          "customer_email": 0.0155555556,
+          "customer_id": 0.0155555556,
+          "order_total": 0.0155555556,
+          "order_date": 0.0155555556,
+          "loyalty_tier": 0.0155555556,
+          "shipping_country": 0.0155555556,
+          "product_sku": 0.86,
+          "is_gift_order": 0.0155555556,
+          "ambiguous": 0.0155555556,
+          "unmapped": 0.0155555552
+        },
+        "confidence": 0.8444444444444444,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7c0d400a35f0e060cbd386f2ad7ea2743040495a942497d35d9243fdf6958ae0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "unmapped",
+        "probabilities": {
+          "customer_email": 0.02,
+          "customer_id": 0.02,
+          "order_total": 0.02,
+          "order_date": 0.02,
+          "loyalty_tier": 0.02,
+          "shipping_country": 0.02,
+          "product_sku": 0.02,
+          "is_gift_order": 0.02,
+          "ambiguous": 0.02,
+          "unmapped": 0.82
+        },
+        "confidence": 0.7999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "890a7448f98ceee8a47e419f7aa65c630826c62a0ecf8270917a352c88045eb4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "ambiguous",
+        "probabilities": {
+          "customer_email": 0.0,
+          "customer_id": 0.0,
+          "order_total": 0.0,
+          "order_date": 0.0,
+          "loyalty_tier": 0.3,
+          "shipping_country": 0.3,
+          "product_sku": 0.0,
+          "is_gift_order": 0.0,
+          "ambiguous": 0.4,
+          "unmapped": 0.0
+        },
+        "confidence": 0.33333333333333337,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "951ecd766314ff5bbc7a96d646bedbd91129057f846dd4d240cfe8b2e6cbc1d0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "unmapped",
+        "probabilities": {
+          "customer_email": 0.0177777778,
+          "customer_id": 0.0177777778,
+          "order_total": 0.0177777778,
+          "order_date": 0.0177777778,
+          "loyalty_tier": 0.0177777778,
+          "shipping_country": 0.0177777778,
+          "product_sku": 0.0177777778,
+          "is_gift_order": 0.0177777778,
+          "ambiguous": 0.0177777776,
+          "unmapped": 0.84
+        },
+        "confidence": 0.8222222222222222,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "96eb5f87302fd6742e92e83a5aa219dc0e262b4702bec1aaf18fb528b10a90fc": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "loyalty_tier",
+        "probabilities": {
+          "customer_email": 0.0133333333,
+          "customer_id": 0.0133333333,
+          "order_total": 0.0133333333,
+          "order_date": 0.0133333333,
+          "loyalty_tier": 0.88,
+          "shipping_country": 0.0133333333,
+          "product_sku": 0.0133333333,
+          "is_gift_order": 0.0133333333,
+          "ambiguous": 0.0133333333,
+          "unmapped": 0.0133333336
+        },
+        "confidence": 0.8666666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a6225ab15f0265ee800f5db87baf9eaf0e734df8c2023dcb8d4465087728f5f5": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "ambiguous",
+        "probabilities": {
+          "customer_email": 0.0,
+          "customer_id": 0.0,
+          "order_total": 0.0,
+          "order_date": 0.0,
+          "loyalty_tier": 0.29,
+          "shipping_country": 0.29,
+          "product_sku": 0.0,
+          "is_gift_order": 0.0,
+          "ambiguous": 0.42,
+          "unmapped": 0.0
+        },
+        "confidence": 0.3555555555555555,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ac5e0fe51e84b297fe37e6508f4013cee8248f515208cf82bed3d7a57f17fd78": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "loyalty_tier",
+        "probabilities": {
+          "customer_email": 0.0166666667,
+          "customer_id": 0.0166666667,
+          "order_total": 0.0166666667,
+          "order_date": 0.0166666667,
+          "loyalty_tier": 0.85,
+          "shipping_country": 0.0166666667,
+          "product_sku": 0.0166666667,
+          "is_gift_order": 0.0166666667,
+          "ambiguous": 0.0166666667,
+          "unmapped": 0.0166666664
+        },
+        "confidence": 0.8333333333333333,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "adb74f5752c3e0d1d80d16f6e9e8920e7a7ab1406bad33aa94f6351450310f5b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "shipping_country",
+        "probabilities": {
+          "customer_email": 0.0166666667,
+          "customer_id": 0.0166666667,
+          "order_total": 0.0166666667,
+          "order_date": 0.0166666667,
+          "loyalty_tier": 0.0166666667,
+          "shipping_country": 0.85,
+          "product_sku": 0.0166666667,
+          "is_gift_order": 0.0166666667,
+          "ambiguous": 0.0166666667,
+          "unmapped": 0.0166666664
+        },
+        "confidence": 0.8333333333333333,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "af88223128fc02b46930ae471c1a3e3ab0418435e224ada8fb3fc38a86cdf54c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "shipping_country",
+        "probabilities": {
+          "customer_email": 0.0166666667,
+          "customer_id": 0.0166666667,
+          "order_total": 0.0166666667,
+          "order_date": 0.0166666667,
+          "loyalty_tier": 0.0166666667,
+          "shipping_country": 0.85,
+          "product_sku": 0.0166666667,
+          "is_gift_order": 0.0166666667,
+          "ambiguous": 0.0166666667,
+          "unmapped": 0.0166666664
+        },
+        "confidence": 0.8333333333333333,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b3a81ace7280ba88f27ebb7e6b49a41edc42eeb5a8deeaa675e1fdbcfa6669cc": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "unmapped",
+        "probabilities": {
+          "customer_email": 0.0155555556,
+          "customer_id": 0.0155555556,
+          "order_total": 0.0155555556,
+          "order_date": 0.0155555556,
+          "loyalty_tier": 0.0155555556,
+          "shipping_country": 0.0155555556,
+          "product_sku": 0.0155555556,
+          "is_gift_order": 0.0155555556,
+          "ambiguous": 0.0155555552,
+          "unmapped": 0.86
+        },
+        "confidence": 0.8444444444444444,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c343f86be02fbb7939ab88452ac99f2932ebdd883fd901c8adb593d84bff79e0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "order_total",
+        "probabilities": {
+          "customer_email": 0.0133333333,
+          "customer_id": 0.0133333333,
+          "order_total": 0.88,
+          "order_date": 0.0133333333,
+          "loyalty_tier": 0.0133333333,
+          "shipping_country": 0.0133333333,
+          "product_sku": 0.0133333333,
+          "is_gift_order": 0.0133333333,
+          "ambiguous": 0.0133333333,
+          "unmapped": 0.0133333336
+        },
+        "confidence": 0.8666666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d15c747b96e6166cea5fceaca57b0c9cb4be0dc5ae1594f793ddbec649adf0ef": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "is_gift_order",
+        "probabilities": {
+          "customer_email": 0.0222222222,
+          "customer_id": 0.0222222222,
+          "order_total": 0.0222222222,
+          "order_date": 0.0222222222,
+          "loyalty_tier": 0.0222222222,
+          "shipping_country": 0.0222222222,
+          "product_sku": 0.0222222222,
+          "is_gift_order": 0.8,
+          "ambiguous": 0.0222222222,
+          "unmapped": 0.0222222224
+        },
+        "confidence": 0.7777777777777778,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d36c59b7be62c4ae1a9b33b78de0ec5b7fd38b80b9f2fc2668815019b94f00ab": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "shipping_country",
+        "probabilities": {
+          "customer_email": 0.0166666667,
+          "customer_id": 0.0166666667,
+          "order_total": 0.0166666667,
+          "order_date": 0.0166666667,
+          "loyalty_tier": 0.0166666667,
+          "shipping_country": 0.85,
+          "product_sku": 0.0166666667,
+          "is_gift_order": 0.0166666667,
+          "ambiguous": 0.0166666667,
+          "unmapped": 0.0166666664
+        },
+        "confidence": 0.8333333333333333,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d777c10ad9195e4c1579630d47577f43ee8abb6ae7168a447c7acd16e9cd9f57": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "is_gift_order",
+        "probabilities": {
+          "customer_email": 0.0111111111,
+          "customer_id": 0.0111111111,
+          "order_total": 0.0111111111,
+          "order_date": 0.0111111111,
+          "loyalty_tier": 0.0111111111,
+          "shipping_country": 0.0111111111,
+          "product_sku": 0.0111111111,
+          "is_gift_order": 0.9,
+          "ambiguous": 0.0111111111,
+          "unmapped": 0.0111111112
+        },
+        "confidence": 0.888888888888889,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ead96121981d6e6955250f2deeaeb81f87c4ee0c0e845f1f382587a1a3cec13b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "order_date",
+        "probabilities": {
+          "customer_email": 0.0177777778,
+          "customer_id": 0.0177777778,
+          "order_total": 0.0177777778,
+          "order_date": 0.84,
+          "loyalty_tier": 0.0177777778,
+          "shipping_country": 0.0177777778,
+          "product_sku": 0.0177777778,
+          "is_gift_order": 0.0177777778,
+          "ambiguous": 0.0177777778,
+          "unmapped": 0.0177777776
+        },
+        "confidence": 0.8222222222222222,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f8bdae20b5ecf1362a2f420a5cf1619de5e4c975616732afcc6ed747aa2069aa": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "order_date",
+        "probabilities": {
+          "customer_email": 0.0222222222,
+          "customer_id": 0.0222222222,
+          "order_total": 0.0222222222,
+          "order_date": 0.8,
+          "loyalty_tier": 0.0222222222,
+          "shipping_country": 0.0222222222,
+          "product_sku": 0.0222222222,
+          "is_gift_order": 0.0222222222,
+          "ambiguous": 0.0222222222,
+          "unmapped": 0.0222222224
+        },
+        "confidence": 0.7777777777777778,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f9a007cb93308384c0f606d49dbbde91ac1c708c3eba8f85f0b791977f260a4b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target": {
+        "type": "choice",
+        "choice": "shipping_country",
+        "probabilities": {
+          "customer_email": 0.0166666667,
+          "customer_id": 0.0166666667,
+          "order_total": 0.0166666667,
+          "order_date": 0.0166666667,
+          "loyalty_tier": 0.0166666667,
+          "shipping_country": 0.85,
+          "product_sku": 0.0166666667,
+          "is_gift_order": 0.0166666667,
+          "ambiguous": 0.0166666667,
+          "unmapped": 0.0166666664
+        },
+        "confidence": 0.8333333333333333,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
