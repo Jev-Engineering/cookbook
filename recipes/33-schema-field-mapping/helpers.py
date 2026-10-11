@@ -298,6 +298,42 @@ def compose_task(
     return apply_one_to_one(gated)
 
 
+def rows_for_task(
+    examples: Any, decisions: dict[str, Any]
+) -> dict[str, list[tuple[str, str, str, Any]]]:
+    """``{task_id: [(field_id, field_name, declared_type, answer), ...]}`` for every example in
+    ``examples``, grouping each one's own batch together -- the shape :func:`compose_task`
+    consumes. ``decisions`` maps each example's id to its typed answer.
+
+    This is the one place a split's fields are grouped into the batches the one-to-one
+    constraint checks them within; the notebook and ``tests/test_helpers.py`` both call it (and
+    :func:`compose_split` below), rather than each keeping its own copy of the grouping, because
+    a grouping bug (an example attributed to the wrong batch, or every example merged into one)
+    would otherwise be invisible to a test that never calls the code it is meant to guard.
+    """
+    by_task: dict[str, list[tuple[str, str, str, Any]]] = {}
+    for example in examples:
+        fields = example.fields
+        by_task.setdefault(fields["task_id"], []).append(
+            (example.id, fields["field_name"], fields["declared_type"], decisions[example.id])
+        )
+    return by_task
+
+
+def compose_split(
+    examples: Any, decisions: dict[str, Any], min_confidence: float
+) -> list[FieldOutcome]:
+    """:func:`compose_task` applied to every batch among ``examples``, in task-id order -- the
+    one place this recipe composes a whole split's worth of fields. The notebook and
+    ``tests/test_helpers.py`` both call this function, never a separate reimplementation of the
+    grouping or the composition, so a change to either stays visible to both at once.
+    """
+    outcomes = []
+    for task_id, rows in sorted(rows_for_task(examples, decisions).items()):
+        outcomes.extend(compose_task(task_id, rows, min_confidence))
+    return outcomes
+
+
 def field_accepted_and_correct(
     outcomes: list[FieldOutcome], gold: dict[str, Any]
 ) -> tuple[list[bool], list[bool]]:

@@ -25,19 +25,31 @@ batch has to carry all of them:
 - One batch per split (``batch_v04``/``batch_t04``) where the model's choice is semantically
   *right* but the declared type does not match the chosen target's type -- a mistake only
   Python's type check catches, not a confidence gate.
-- One batch per split (``batch_v06``/``batch_t06``) with two source fields the model both maps
-  to ``shipping_country``: a one-to-one conflict Python's validation is the only thing
-  positioned to catch, since each field is judged from its own state alone and never sees its
-  sibling column.
-- One low-confidence, wrong validation field (``promo_code_applied`` in ``batch_v03``): wrong,
-  and unconfident enough that the frozen gate, chosen on `validation`, excludes it -- the
-  gate's one genuine validation-side catch, so the threshold selection has to exclude a real
-  mistake rather than finding every answer trustworthy by default.
-- One confidently wrong `test` field (``sku_note`` in ``batch_t08``): wrong, at a confidence
-  this fixture set's correctly-answered fields also reach, with nothing else in its own batch
-  under review, so nothing stops that batch from being accepted outright, wrong field and all.
-  This is where this recipe's non-zero `test` risk comes from, at both the field level and the
-  task level.
+- One batch per split (``batch_v06``/``batch_t06``) with two source fields -- ``ship_to_cc``/
+  ``dest_country`` and ``alt_country_note``/``legacy_country_note`` -- whose descriptions BOTH
+  genuinely name ``shipping_country`` (one is an acknowledged duplicate of the other, kept side
+  by side in the export, and its own description says so), so both gold labels are
+  ``shipping_country`` and the model's stored answers for both are correct: a one-to-one
+  conflict Python's validation is the only thing positioned to catch, since each field is
+  judged from its own state alone and never sees its sibling column, and this one shows the
+  conflict costs even a batch where every individual answer was right.
+- One low-confidence, wrong validation field (``promo_code_applied`` in ``batch_v03``): its own
+  description is a near match for ``product_sku``'s own wording ("the stock-keeping unit code
+  identifying the exact product variant") except that it names a product the customer
+  *viewed and abandoned*, never one actually ordered, so its gold is ``unmapped`` (no target
+  field is about an abandoned-cart item) and the stored answer wrongly names ``product_sku`` --
+  a plausible misreading that drops the one qualifying word -- unconfident enough that the
+  frozen gate, chosen on `validation`, excludes it. This is the gate's one genuine
+  validation-side catch, so the threshold selection has to exclude a real mistake rather than
+  finding every answer trustworthy by default.
+- One confidently wrong `test` field (``sku_note`` in ``batch_t08``): its own description does
+  name the ordered product's SKU, so its gold is ``product_sku``, but the stored answer wrongly
+  names ``unmapped`` -- "a duplicated secondary copy has no place in the target schema" is a
+  mistake a model reading "recorded as a secondary copy by an older point-of-sale terminal"
+  could plausibly make -- at a confidence this fixture set's correctly-answered fields also
+  reach, with nothing else in its own batch under review, so nothing stops that batch from
+  being accepted outright, wrong field and all. This is where this recipe's non-zero `test`
+  risk comes from, at both the field level and the task level.
 
 Generating inputs and labels is kept separate from generating responses, on purpose: once
 responses.json holds even one recorded answer (provenance "recorded", captured from a real Jev
@@ -123,7 +135,7 @@ ROWS = [
         "v06-wrong", "validation", "batch_v03", "promo_code_applied", "varchar",
         "The stock-keeping unit code identifying the exact product variant most recently "
         "viewed by the customer on the storefront, logged for abandoned-cart follow-up.",
-        "product_sku", {"choice": "shipping_country", "peak": 0.50},
+        "unmapped", {"choice": "product_sku", "peak": 0.50},
     ),
     # --------------------------- validation: batch_v04 (2 fields, hard) ---------------------------
     (
@@ -160,7 +172,7 @@ ROWS = [
         "A duplicate column some orders carry from an old checkout form that also recorded "
         "the shipping country in free text; this export keeps both columns side by side for "
         "orders created before the main field was added.",
-        "unmapped", {"choice": "shipping_country", "peak": 0.85},
+        "shipping_country", {"choice": "shipping_country", "peak": 0.85},
     ),
     # ------------------------------- validation: batch_v07 (2 fields) ----------------------------
     (
@@ -269,7 +281,7 @@ ROWS = [
         "A duplicate column some orders carry from an old checkout form that also recorded "
         "the shipping country in free text; kept side by side with the main field for orders "
         "created before it was added.",
-        "unmapped", {"choice": "shipping_country", "peak": 0.85},
+        "shipping_country", {"choice": "shipping_country", "peak": 0.85},
     ),
     # ---------------------------------- test: batch_t07 (2 fields) -------------------------------
     (
@@ -296,7 +308,7 @@ ROWS = [
         "t16-wrong", "test", "batch_t08", "sku_note", "varchar",
         "The stock-keeping unit code identifying the exact product variant ordered, recorded "
         "as a secondary copy by an older point-of-sale terminal still in use at two stores.",
-        "product_sku", {"choice": "customer_email", "peak": 0.92},
+        "product_sku", {"choice": "unmapped", "peak": 0.92},
     ),
     # --------------------------------- demo: batch_d01 (3 fields) --------------------------------
     (

@@ -2,6 +2,8 @@
 
 import importlib.util
 import json
+import re
+from collections import namedtuple
 from pathlib import Path
 
 import pytest
@@ -94,10 +96,10 @@ def test_every_replay_key_in_the_fixtures_matches_the_current_question():
 
 
 def test_every_stored_answers_top_choice_matches_its_row_spec():
-    """Rule 11 (recipe 30 lineage): a fixture-spec shorthand must never default the label-
-    bearing argument, and every committed stored answer's own top choice must be the one its
-    row's spec names -- not merely close to it, and not some other value a later edit silently
-    substituted. ``build_fixtures.answers_for`` reads ``spec["choice"]`` with ``[...]``, never
+    """A fixture-spec shorthand must never default the label-bearing argument, and every
+    committed stored answer's own top choice must be the one its row's spec names -- not merely
+    close to it, and not some other value a later edit silently substituted.
+    ``build_fixtures.answers_for`` reads ``spec["choice"]`` with ``[...]``, never
     ``.get(..., default)``, so a row missing it would already be a ``KeyError`` at build time;
     this test additionally proves every row that *did* specify a choice is honoured by the
     committed ``responses.json``. With ``ambiguous`` and ``unmapped`` both live options here, a
@@ -297,7 +299,7 @@ def test_compose_task_runs_the_gate_before_the_one_to_one_check():
 
 
 def test_flipping_one_fields_choice_changes_its_siblings_composed_outcome():
-    """Rule 2: both the model's Choice and Python's validation must be shown to matter. Start
+    """Both the model's Choice and Python's validation must be shown to matter. Start
     from the two real, committed `validation` fields that collide on `shipping_country`
     (ship_to_cc, alt_country_note) and show that changing only ONE field's stored Choice (what
     the model answered) changes the OTHER field's composed outcome (what Python decided) --
@@ -342,7 +344,7 @@ def test_flipping_one_fields_choice_changes_its_siblings_composed_outcome():
 
 
 def test_flipping_a_declared_type_on_a_real_fixture_changes_the_composed_outcome():
-    """Rule 2, the type-compatibility half: `order_total_code` (validation) is stored as
+    """The type-compatibility half of the same property: `order_total_code` (validation) is stored as
     `varchar` and the model's own answer, `order_total`, is semantically right but type-
     mismatched, so Python's validation holds it for review. Changing only its declared type to
     one that matches `order_total`'s own category flips the composed outcome to accepted, with
@@ -449,6 +451,56 @@ def test_submit_reviews_queues_only_review_outcomes_in_order():
 
 
 # ---------------------------------------------------------------------------------------------
+# rows_for_task / compose_split: the split-level grouping, called by the notebook too.
+# ---------------------------------------------------------------------------------------------
+
+_FakeExample = namedtuple("_FakeExample", ["id", "fields"])
+
+
+def _fake_example(field_id, task_id, field_name="col", declared_type="varchar"):
+    return _FakeExample(
+        field_id, {"task_id": task_id, "field_name": field_name, "declared_type": declared_type}
+    )
+
+
+def test_rows_for_task_groups_by_task_id_preserving_order():
+    """Pins the grouping itself, independent of composition: two fields of the same task stay
+    together, in the order they were given, and a third field of a different task lands in its
+    own group. A grouping bug that keyed every example to one constant task (or dropped
+    `task_id` and grouped globally) would fail this directly, before it ever reached
+    `compose_split` or the one-to-one check."""
+    e1 = _fake_example("f1", "ta")
+    e2 = _fake_example("f2", "ta")
+    e3 = _fake_example("f3", "tb")
+    decisions = {
+        "f1": confident("customer_email"),
+        "f2": confident("customer_id"),
+        "f3": confident("order_date"),
+    }
+    grouped = helpers.rows_for_task([e1, e2, e3], decisions)
+    assert set(grouped) == {"ta", "tb"}
+    assert [row[0] for row in grouped["ta"]] == ["f1", "f2"]
+    assert [row[0] for row in grouped["tb"]] == ["f3"]
+
+
+def test_compose_split_checks_the_one_to_one_constraint_within_each_task_only():
+    """Two fields in DIFFERENT tasks that both pick the same real target must not conflict: the
+    one-to-one constraint is checked within one task's own fields, never across a whole split.
+    This is exactly the property a grouping bug -- merging every field of a split into one task,
+    say -- would break (a mutation on `helpers.rows_for_task` that always grouped under one
+    constant key makes this fail, turning this field's own, correct `ACCEPTED` outcome into a
+    manufactured conflict). The notebook and this file both call `helpers.compose_split`, never
+    a private copy of the grouping, so a bug here cannot pass one copy and fail silently in the
+    other."""
+    e1 = _fake_example("f1", "ta")
+    e2 = _fake_example("f2", "tb")
+    decisions = {"f1": confident("shipping_country"), "f2": confident("shipping_country")}
+    outcomes = helpers.compose_split([e1, e2], decisions, 0.5)
+    assert all(o.outcome == helpers.ACCEPTED for o in outcomes)
+    assert {o.final_target for o in outcomes} == {"shipping_country"}
+
+
+# ---------------------------------------------------------------------------------------------
 # End-to-end over the real fixtures: the threshold, the non-zero `test` risk, and the queue.
 # ---------------------------------------------------------------------------------------------
 
@@ -459,24 +511,11 @@ def _decisions(backend, questions, examples):
     }
 
 
-def _rows_by_task(examples, decisions):
-    by_task = {}
-    for e in examples:
-        task_id = e.fields["task_id"]
-        by_task.setdefault(task_id, []).append(
-            (e.id, e.fields["field_name"], e.fields["declared_type"], decisions[e.id])
-        )
-    return by_task
-
-
-def _compose_split(examples, decisions, threshold):
-    outcomes = []
-    for task_id, rows in sorted(_rows_by_task(examples, decisions).items()):
-        outcomes.extend(helpers.compose_task(task_id, rows, threshold))
-    return outcomes
-
-
-MIN_COVERAGE = 0.85  # pinned objective: rule 12 prefers min_coverage over target_accuracy=1.0
+# A coverage floor (the share of validation fields a plain confidence gate alone must answer)
+# is chosen deliberately here instead of asking select_confidence_threshold for perfect
+# validation accuracy (target_accuracy=1.0): the floor is a property of how much of validation
+# the gate may ignore, not a demand that it be perfect. See notebook cell `python-md`.
+MIN_COVERAGE = 0.85
 THRESHOLD = None  # computed lazily in the fixture below; module-level for the helpers above
 
 
@@ -504,12 +543,11 @@ def test_the_frozen_threshold_objective_is_pinned():
 
 def test_stored_answers_are_not_all_right():
     """Re-derives the frozen threshold directly (the strong form: a wrong `test` answer must
-    clear a gate re-computed here, not merely exist somewhere). `t11-conflict`'s raw choice also
-    clears the gate wrong, but validation's one-to-one check catches it before it is ever
-    accepted, so a wrong-and-confident raw answer is a necessary condition, not by itself this
-    recipe's lesson: the stronger assertion below is on the full composed pipeline
-    (`gate_field`, then `apply_one_to_one`) -- at least one `test` field is *accepted* with the
-    *wrong* final target, a mistake nothing in this recipe's own validation catches."""
+    clear a gate re-computed here, not merely exist somewhere). A wrong-and-confident raw answer
+    is a necessary condition, not by itself this recipe's lesson: the stronger assertion below
+    is on the full composed pipeline (`gate_field`, then `apply_one_to_one`) -- at least one
+    `test` field is *accepted* with the *wrong* final target, a mistake nothing in this
+    recipe's own validation catches."""
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
     examples = load_inputs(RECIPE)
@@ -531,7 +569,7 @@ def test_stored_answers_are_not_all_right():
     ]
     assert wrong_and_confident, "expected at least one confidently wrong raw test answer"
 
-    outcomes = _compose_split(test, test_decisions, threshold)
+    outcomes = helpers.compose_split(test, test_decisions, threshold)
     accepted_and_wrong = [
         o.field_id
         for o in outcomes
@@ -547,7 +585,7 @@ def test_evaluate_outcomes_reports_a_nonzero_risk_at_both_levels_on_test():
     labels = load_labels(RECIPE)
     test = select_split(examples, "test")
     test_decisions = _decisions(backend, questions, test)
-    outcomes = _compose_split(test, test_decisions, THRESHOLD)
+    outcomes = helpers.compose_split(test, test_decisions, THRESHOLD)
 
     field_accepted, field_correct = helpers.field_accepted_and_correct(outcomes, labels)
     field_result = evaluate_outcomes(field_accepted, field_correct)
@@ -566,7 +604,7 @@ def test_the_conflict_is_caught_on_both_splits():
     for split in ("validation", "test"):
         split_examples = select_split(examples, split)
         decisions = _decisions(backend, questions, split_examples)
-        outcomes = _compose_split(split_examples, decisions, THRESHOLD)
+        outcomes = helpers.compose_split(split_examples, decisions, THRESHOLD)
         assert helpers.conflict_count(outcomes) == 2
 
 
@@ -596,7 +634,7 @@ def test_the_review_queue_holds_every_review_outcome_from_both_splits_and_nothin
     for split in ("validation", "test"):
         split_examples = select_split(examples, split)
         decisions = _decisions(backend, questions, split_examples)
-        outcomes = _compose_split(split_examples, decisions, THRESHOLD)
+        outcomes = helpers.compose_split(split_examples, decisions, THRESHOLD)
         helpers.submit_reviews(queue, outcomes, decisions)
         all_ids |= {e.id for e in split_examples}
 
@@ -605,3 +643,18 @@ def test_the_review_queue_holds_every_review_outcome_from_both_splits_and_nothin
     assert len(queue) == len(EXPECTED_REVIEWED_IDS)
     demo_ids = {e.id for e in select_split(examples, "demo")}
     assert demo_ids.isdisjoint(submitted_ids)
+
+
+def test_the_notebooks_min_coverage_matches_this_files_pinned_value():
+    """The frozen gate's objective parameter is defined twice, deliberately: once in the
+    notebook's own `python-threshold` cell, once as this file's `MIN_COVERAGE`. Nothing ties
+    the two together structurally (a notebook cell's source is not an importable value), so an
+    edit that changed only the notebook's own `MIN_COVERAGE` would otherwise leave every test in
+    this file green while the notebook ran a different selection than the one these tests
+    describe. Parse the committed notebook's cell directly and pin the agreement."""
+    notebook = json.loads((RECIPE / "notebook.ipynb").read_text("utf-8"))
+    cell = next(c for c in notebook["cells"] if c.get("id") == "python-threshold")
+    source = "".join(cell["source"])
+    match = re.search(r"MIN_COVERAGE\s*=\s*([0-9.]+)", source)
+    assert match, "notebook cell 'python-threshold' no longer defines MIN_COVERAGE"
+    assert float(match.group(1)) == MIN_COVERAGE

@@ -225,9 +225,9 @@
     "answers": {
       "target": {
         "type": "choice",
-        "choice": "customer_email",
+        "choice": "unmapped",
         "probabilities": {
-          "customer_email": 0.92,
+          "customer_email": 0.0088888889,
           "customer_id": 0.0088888889,
           "order_total": 0.0088888889,
           "order_date": 0.0088888889,
@@ -235,8 +235,8 @@
           "shipping_country": 0.0088888889,
           "product_sku": 0.0088888889,
           "is_gift_order": 0.0088888889,
-          "ambiguous": 0.0088888889,
-          "unmapped": 0.0088888888
+          "ambiguous": 0.0088888888,
+          "unmapped": 0.92
         },
         "confidence": 0.9111111111111112,
         "provenance": {
@@ -380,15 +380,15 @@
     "answers": {
       "target": {
         "type": "choice",
-        "choice": "shipping_country",
+        "choice": "product_sku",
         "probabilities": {
           "customer_email": 0.0555555556,
           "customer_id": 0.0555555556,
           "order_total": 0.0555555556,
           "order_date": 0.0555555556,
           "loyalty_tier": 0.0555555556,
-          "shipping_country": 0.5,
-          "product_sku": 0.0555555556,
+          "shipping_country": 0.0555555556,
+          "product_sku": 0.5,
           "is_gift_order": 0.0555555556,
           "ambiguous": 0.0555555556,
           "unmapped": 0.0555555552
