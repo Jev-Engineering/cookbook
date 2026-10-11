@@ -78,10 +78,15 @@ L0_HIGH_A = (0.75, 0.15, 0.07, 0.03)  # unrelated, confident
 L0_HIGH_B = (0.78, 0.14, 0.05, 0.03)  # unrelated, confident (a second, slightly different)
 ADVERSARIAL_WRONG = (0.04, 0.05, 0.07, 0.84)  # peaks at level 3; gold is unrelated (0)
 
-# A small pool of candidate tests from entirely different feature areas, used for the
-# `unrelated` candidate in several tasks. Reusing one of these across two different patches is
-# not a fixture leak: a (patch, test) pair's full state always differs because the patch text
-# differs, and docs/fixtures.md's leak rule compares the complete state, not one field of it.
+# A small pool of candidate tests, each gold-`unrelated` to whichever patch borrows it, used for
+# the `unrelated` candidate in several tasks. Most live in a different feature area than the
+# patch that borrows them; the `billing` entry does not -- `discount-engine` deliberately
+# borrows it anyway, so the baseline's file-path signal can tie (and, on `validation`, beat) the
+# gold-relevant candidate on file-area overlap alone, the showcase the notebook's "Candidate
+# sets" section and task-level evaluation both walk through. Reusing one of these across two
+# different patches is not a fixture leak: a (patch, test) pair's full state always differs
+# because the patch text differs, and docs/fixtures.md's leak rule compares the complete state,
+# not one field of it.
 FOREIGN = [
     (
         "analytics",
