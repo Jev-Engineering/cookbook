@@ -223,19 +223,29 @@ def rank_judgments(judgments: list[Judgment]) -> list[Judgment]:
 # property of the rubric or of `Score` answers in general; a different recipe, or a
 # differently-drawn set of tasks for this one, could easily need the gate back.
 #
-# The measurement: at the frozen margin threshold, every task this rule auto-selects (never
-# reviewed) on `validation` and `test` combined ranges from confidence 0.19 up to 0.78. Exactly
-# two of those selections are wrong (`v22`, `t05`), and both sit at 0.78 -- the top of that
-# range, tied with two genuinely correct selections there too (`v01`, `t01`). That is the
-# highest confidence among auto-selected tasks' own top answers, not the highest confidence of
-# any stored answer anywhere: `t05`'s own `doc_search` candidate, never selected, scores higher
-# still, at 0.92. Any gate at or below 0.78 keeps both mistakes in the auto-selected set, since
-# confidence alone does not distinguish them from the correct answers tied with them there; the
-# only gate that excludes the mistakes is one set strictly above 0.78, and that gate excludes
-# every other selection this rule gets right too. On these fixtures, a confidence gate can only
-# cost coverage -- it cannot reduce risk, because the mistakes are not distinguishable by
-# confidence from the correct answers they are tied with. `tests/test_helpers.py` checks this
-# measurement directly, per split
+# The measurement: on each split, this rule's one wrong auto-selection (never reviewed) sits
+# at the top of that split's own auto-selected confidence range (0.19 up to 0.78), tied with
+# one genuinely correct selection there too (`v22`/`v01` on `validation`, `t05`/`t01` on
+# `test`). That tie is arranged, not merely observed: `build_fixtures.py`'s `TASK_SPECS` gives
+# `v01`, `v22`, `t01` and `t05`'s top skill the same probability vector, `IDEAL_CONFIDENT`. It
+# is also not the global maximum -- `t05`'s own `doc_search` candidate, never selected, scores
+# higher still, at 0.92. Any gate at or below 0.78 keeps the mistake in the auto-selected set,
+# since confidence alone does not distinguish it from the correct answer tied with it there;
+# the only gate that excludes the mistake is one set strictly above 0.78, and that gate
+# excludes every other selection this rule gets right too.
+#
+# The more decisive fact: a gate chosen the way this cookbook actually chooses gates --
+# ``jev_cookbook.evaluation.select_confidence_threshold`` on this rule's own auto-selected
+# `validation` pool, the same way ``select_margin_threshold`` is chosen below -- returns the
+# lowest confidence observed there, and sends zero of the auto-selected tasks on either split
+# to review. A confidence gate here is not merely unhelpful; a house-conforming one is inert.
+# The transferable question for a later recipe is not "are my mistakes high-confidence" but
+# "would a gate chosen by ``select_confidence_threshold`` on my own validation pool change
+# any committed outcome" -- if not, the branch is dead, and the standard
+# ``test_deleting_the_business_cutoff_changes_a_reported_outcome_on_the_committed_fixtures`` and
+# ``test_deleting_the_margin_check_changes_a_reported_outcome_on_the_committed_fixtures`` hold
+# the other two branches to is exactly the standard a dead branch fails.
+# ``tests/test_helpers.py`` checks the tie directly, per split
 # (``test_no_confidence_gate_could_have_caught_the_wrong_selections_without_also_losing_correct_ones``),
 # so a future fixture edit that changes it is caught rather than leaving this comment stale.
 def select_skill(task_id: str, judgments: list[Judgment], margin_threshold: float) -> Selection:
