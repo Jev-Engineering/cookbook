@@ -456,9 +456,7 @@ def test_deleting_the_margin_check_changes_a_reported_outcome_on_the_committed_f
         with_margin, gold_best = _selections(
             split, margin_threshold, backend, questions, examples_by_task, labels
         )
-        without_margin, _ = _selections(
-            split, 0.0, backend, questions, examples_by_task, labels
-        )
+        without_margin, _ = _selections(split, 0.0, backend, questions, examples_by_task, labels)
         accepted_with, correct_with = helpers.outcome_accounting(with_margin, gold_best)
         accepted_without, correct_without = helpers.outcome_accounting(without_margin, gold_best)
         result_with = evaluate_outcomes(accepted_with, correct_with)
@@ -493,9 +491,9 @@ def test_no_confidence_gate_could_have_caught_the_wrong_selections_without_also_
                 for e in exs
                 if e.fields["skill_id"] == s.skill_id
             )
-            (correct_confidences if s.skill_id in gold_best[s.task_id] else wrong_confidences).append(
-                answer.confidence
-            )
+            (
+                correct_confidences if s.skill_id in gold_best[s.task_id] else wrong_confidences
+            ).append(answer.confidence)
 
     assert wrong_confidences, "expected at least one wrong auto-selection"
     assert correct_confidences, "expected at least one correct auto-selection"
