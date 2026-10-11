@@ -221,9 +221,10 @@ _TEST_NAMES = (
 
 # The eight combinations, visited in a fixed order (FFF, TFF, FTF, FFT, TTF, TFT, FTT, TTT),
 # each paired with two rows. The second row of the single-concern combinations (TFF, FTF, FFT)
-# is the one deliberately borderline true reading that sets that concern's own business
-# threshold (recipe convention: the lowest true positive for each proposition), overridden
-# below rather than drawn from the same high band as every other true reading.
+# is a deliberately borderline true reading, overridden below rather than drawn from the same
+# high band as every other true reading, so F1 has a real choice of candidates near the line
+# rather than only the clean high band to select a threshold from; which observed value F1
+# actually freezes as a concern's threshold is reported by the notebook, not decided here.
 _COMBOS = (
     (False, False, False),
     (True, False, False),
@@ -240,15 +241,20 @@ _COMBOS = (
 _TRUE_CYCLE = (0.86, 0.93, 0.97, 0.90, 0.95, 0.84, 0.91, 0.96)
 _FALSE_CYCLE = (0.04, 0.09, 0.02, 0.11, 0.06, 0.03, 0.08, 0.05)
 
-# Overrides, by (row index within the split, label): the three borderline true readings that
-# set each concern's own business threshold; on validation, two further overrides that give
-# the shared confidence gate something real to do on this split (a low-confidence reading that
-# is wrong, so excluding it raises accuracy, and a near-0.5 reading that the gate actually
-# sends to review) rather than leaving the gate free to cover every validation record.
+# Overrides, by (row index within the split, label): deliberately borderline or wrong readings
+# written to land somewhere specific, not drawn from the clean bands below. Each is a true
+# reading unless its own comment says otherwise. Which one of these ends up setting a given
+# concern's frozen business threshold is decided by F1 over the whole split, not by this
+# comment: on validation it happens to be (9, INPUT_VALIDATION_CONCERN) at 0.50 (the near-0.5
+# reading written to be gated) rather than (5, INPUT_VALIDATION_CONCERN) at 0.56, because 0.50
+# is the lower of the two and F1 ties toward the more conservative (higher) threshold only when
+# two candidates score equally -- here they do not, so the frozen threshold is whichever of the
+# observed values actually maximises F1, confirmed in the notebook's own printed output, not
+# asserted here.
 _VALIDATION_OVERRIDES = {
-    (3, helpers.AUTHENTICATION_CONCERN): 0.58,  # TFF, second row: sets the auth threshold
-    (5, helpers.INPUT_VALIDATION_CONCERN): 0.56,  # FTF, second row: sets the input threshold
-    (7, helpers.DATA_LOSS_CONCERN): 0.61,  # FFT, second row: sets the data-loss threshold
+    (3, helpers.AUTHENTICATION_CONCERN): 0.58,  # TFF, second row: borderline true
+    (5, helpers.INPUT_VALIDATION_CONCERN): 0.56,  # FTF, second row: borderline true
+    (7, helpers.DATA_LOSS_CONCERN): 0.61,  # FFT, second row: borderline true
     (1, helpers.INPUT_VALIDATION_CONCERN): 0.63,  # FFF, second row: a wrong, low-confidence tag
     (9, helpers.INPUT_VALIDATION_CONCERN): 0.50,  # TTF, second row: a near-0.5 reading, gated
 }
@@ -258,10 +264,22 @@ _TEST_OVERRIDES = {
     (7, helpers.DATA_LOSS_CONCERN): 0.67,
 }
 
+# A per-split shift into _TRUE_CYCLE/_FALSE_CYCLE so the two splits do not draw the same clean
+# reading at the same row index: with no shift, row i's clean readings on validation and on
+# test are the same two cycle entries (same combo at the same position), which is what made 11
+# of the 19 test patches share a validation patch's exact stored-answer profile. Shifting test's
+# index by half the cycle length (4 of 8) de-correlates every non-overridden row while leaving
+# the actual *set* of values each split draws from unchanged -- every entry of both cycles
+# still appears in both splits the same number of times, just attached to different rows -- so
+# no per-concern tag, no threshold, and no gate decision moves; only which row carries which
+# already-clean reading does.
+_CYCLE_OFFSET = {"validation": 0, "test": 4}
+
 
 def _combo_rows(split: str, names, overrides):
     rows = []
     row_index = 0
+    offset = _CYCLE_OFFSET[split]
     for combo in _COMBOS:
         for _ in range(2):
             service, field, table, title = names[row_index]
@@ -270,9 +288,9 @@ def _combo_rows(split: str, names, overrides):
                 if (row_index, label) in overrides:
                     noul.append(overrides[(row_index, label)])
                 elif gold_value:
-                    noul.append(_TRUE_CYCLE[row_index % len(_TRUE_CYCLE)])
+                    noul.append(_TRUE_CYCLE[(row_index + offset) % len(_TRUE_CYCLE)])
                 else:
-                    noul.append(_FALSE_CYCLE[row_index % len(_FALSE_CYCLE)])
+                    noul.append(_FALSE_CYCLE[(row_index + offset) % len(_FALSE_CYCLE)])
             ident = f"{split[0]}{row_index + 1:02d}"
             diff = _diff(title, service, field, table, combo)
             rows.append((ident, split, diff, combo, tuple(noul)))

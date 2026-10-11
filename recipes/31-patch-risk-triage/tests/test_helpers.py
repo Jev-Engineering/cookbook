@@ -509,9 +509,12 @@ def test_the_committed_notebook_freezes_the_threshold_and_gate_this_recipe_selec
         if o.get("output_type") == "stream"
     )
     assert text, "python-rule cell has no committed stdout to check"
+    # Anchored to each printed line's own fixed wording, not a bare substring search over the
+    # whole cell's stdout (which also prints noul readings and composed priorities that could,
+    # in principle, happen to contain the same digits).
     for label in helpers.LABELS:
-        assert f"{thresholds[label]:.3f}" in text
-    assert f"{gate:.3f}" in text
+        assert f"{label} business threshold, frozen from here on: {thresholds[label]:.3f}" in text
+    assert f"confidence gate, frozen from here on: {gate:.3f}" in text
 
 
 # --------------------------------------------------------------------------------------------
