@@ -9,7 +9,7 @@
 **Sixty notebook recipes for typed decisions with Jev, ordered from a first `Choice` question to closed-loop factory control.**
 
 <!-- catalog:progress:start -->
-![Recipes: 23 of 60 published](https://img.shields.io/badge/Recipes-23%20of%2060%20published-F386A1?style=flat-square&labelColor=1E1E1E) ![Status: in progress](https://img.shields.io/badge/Status-in%20progress-E551BA?style=flat-square&labelColor=1E1E1E) ![Categories: 10](https://img.shields.io/badge/Categories-10-F386A1?style=flat-square&labelColor=1E1E1E) ![Levels: 5](https://img.shields.io/badge/Levels-5-F386A1?style=flat-square&labelColor=1E1E1E)
+![Recipes: 25 of 60 published](https://img.shields.io/badge/Recipes-25%20of%2060%20published-F386A1?style=flat-square&labelColor=1E1E1E) ![Status: in progress](https://img.shields.io/badge/Status-in%20progress-E551BA?style=flat-square&labelColor=1E1E1E) ![Categories: 10](https://img.shields.io/badge/Categories-10-F386A1?style=flat-square&labelColor=1E1E1E) ![Levels: 5](https://img.shields.io/badge/Levels-5-F386A1?style=flat-square&labelColor=1E1E1E)
 <!-- catalog:progress:end -->
 ![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-F386A1?style=flat-square&labelColor=1E1E1E) [![License: MIT](https://img.shields.io/badge/License-MIT-DEDEDE?style=flat-square&labelColor=1E1E1E)](LICENSE)
 
@@ -183,9 +183,9 @@ Multiple judgments or stages, structured evidence, deterministic composition, an
 
 | # | Recipe | Category | Decision | Status |
 | :---: | --- | --- | --- | --- |
-| 24 | **Incident priority composition**<br>Score reported business impact and urgency against separate rubrics so Python can map the scores to defined categories and apply a fixed service-priority matrix. | Workflow & service operations | `Score` | Coming soon · [#24](https://github.com/Jev-Engineering/cookbook/issues/24) |
+| 24 | **Incident priority composition**<br>Score reported business impact and urgency against separate rubrics so Python can map the scores to defined categories and apply a fixed service-priority matrix. | Workflow & service operations | `Score` | [Open notebook](recipes/24-incident-priority-composition/notebook.ipynb) |
 | 25 | **Change evidence review**<br>Check whether a proposed change includes sufficient implementation, validation, and rollback evidence so a deterministic checklist can identify review gaps. | Workflow & service operations | `Noul` | Coming soon · [#25](https://github.com/Jev-Engineering/cookbook/issues/25) |
-| 26 | **Prompt-injection screening**<br>Flag instruction-redirection attempts in retrieved text using adversarial and benign quotation fixtures to measure false positives and missed attacks. | Trust & security | `Noul` | Coming soon · [#26](https://github.com/Jev-Engineering/cookbook/issues/26) |
+| 26 | **Prompt-injection screening**<br>Flag instruction-redirection attempts in retrieved text using adversarial and benign quotation fixtures to measure false positives and missed attacks. | Trust & security | `Noul` | [Open notebook](recipes/26-prompt-injection-screening/notebook.ipynb) |
 | 27 | **Function selection**<br>Select a function from a preapproved catalog for a request while Python validates supplied arguments before simulated execution. | Agent orchestration | `Choice` | Coming soon · [#27](https://github.com/Jev-Engineering/cookbook/issues/27) |
 | 28 | **Skill selection**<br>Score retrieved skill descriptions for relevance to a task so Python can select a suitable skill or request clarification. | Agent orchestration | `Score` | Coming soon · [#28](https://github.com/Jev-Engineering/cookbook/issues/28) |
 | 29 | **Tool outcome verification**<br>Classify recorded tool outcomes as complete, partial, failed, or unverifiable using the original request and observed evidence. | Agent orchestration | `Choice` | Coming soon · [#29](https://github.com/Jev-Engineering/cookbook/issues/29) |

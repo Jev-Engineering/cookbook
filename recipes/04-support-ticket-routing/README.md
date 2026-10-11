@@ -75,10 +75,12 @@ recorded fixtures.
 This recipe's pull request changes only `recipes/04-support-ticket-routing/`. The root `README.md`
 is generated: its catalog tables are regenerated inside this same pull request by a separate
 integration worker, once this branch is handed over to them — never by the recipe builder's own
-commits. Until that handover happens, `Catalog (README is current)` is expected to be red on this
-pull request, which is not a defect to fix here. No sentence anywhere in this folder states or
-implies Jev's real quality, latency, or cost: every number above is a synthetic pipeline check. The
-full contract is [CONTRIBUTING.md](../../CONTRIBUTING.md).
+commits. While this recipe remains unpublished and that handover has not yet happened,
+`Catalog (README is current)` is expected to be red on its pull request, which is not a defect to
+fix here; once the catalog is regenerated for it, the check turns green and stays that way. No
+sentence anywhere in this folder states or implies Jev's real quality, latency, or cost: every
+number above is a synthetic pipeline check. The full contract is
+[CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ## Sources
 

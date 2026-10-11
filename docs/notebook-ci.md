@@ -634,7 +634,12 @@ one), figure disclosure labels, print-what-you-plot, Next-steps links both forwa
 and inbound (every recipe is linked from some other recipe), the review outcome value and reason
 string, the README sources and live budget note, and the README install line — over every
 published recipe at once, so each is enforced by `Tests (py3.10)`/`Tests (py3.14)` on every pull
-request rather than re-derived by a reviewer by hand. Running it the day
+request rather than re-derived by a reviewer by hand — except the inbound half of the Next-steps
+check, `next_steps_inbound_links` (#203): a new recipe's own pull request can never satisfy it (no
+recipe may link forward to one not yet published, and a recipe pull request may change only its
+own folder), so it is marked `catalog_audit`, deselected from the default `pytest` run, and run by
+hand instead at each wave close-out (`pytest -m catalog_audit tests/test_recipe_guard.py`; see
+[development.md](development.md#continuous-integration)). Running it the day
 it landed found real, pre-existing drift in recipes merged before the guard existed; that drift
 is recorded once, in `tests/recipe_guard_known_failures.py`, as a `(recipe slug, check id)`
 allowlist that marks the pair `xfail(strict=True)` with a reason naming `#163`, the sweep issue
@@ -643,8 +648,10 @@ newly fails belongs in the recipe itself, not in the allowlist, and the path is 
 check allowlist in any case); only a `#163` sweep pull request removes one, by making the
 underlying recipe pass the check for real — `strict=True` turns a sweep that fixes the recipe but
 forgets to remove the entry into a hard failure, so the allowlist cannot go stale in that
-direction either; and a foundation pull request that adds a stricter guard check may add the
-entries that check newly reveals, never one for a check that already existed and already passed.
+direction either (one check narrower since #203: a `next_steps_inbound_links` entry is now caught
+only at the next close-out, not by per-PR CI); and a foundation pull request that adds a stricter
+guard check may add the entries that check newly reveals, never one for a check that already
+existed and already passed.
 
 ## Local commands
 
