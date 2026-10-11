@@ -158,9 +158,7 @@ def mode_neutral_statements(source: str) -> list[str]:
 # own fully-written evaluation cells. Any statement the template carries that is not in this
 # tuple, and any statement the scaffold drops, adds, or rewrites relative to what remains, fails
 # the equality check below -- see the module docstring's "PLAINLY" paragraph.
-TEMPLATE_ONLY_SETUP_STATEMENTS = (
-    "selection = ' (a selection step, not a reported result)'",
-)
+TEMPLATE_ONLY_SETUP_STATEMENTS = ("selection = ' (a selection step, not a reported result)'",)
 
 
 def _setup_template_stmts(source: str) -> list[str]:
