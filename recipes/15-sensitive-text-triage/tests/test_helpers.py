@@ -191,7 +191,7 @@ def test_queue_candidates_excludes_cleared_documents():
 def test_queue_candidates_carries_the_candidate_spans():
     entries = [("D1", "Call 555-0199 about the delivery.", answer(0.60))]
     items = helpers.queue_candidates(entries, threshold=0.55, min_confidence=0.0)
-    assert items[0].candidate_spans == ["555-0199"]
+    assert items[0].candidate_spans == ("555-0199",)
 
 
 def test_every_replay_key_in_the_fixtures_matches_the_current_question():

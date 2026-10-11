@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from jev_cookbook import ChoiceAnswer, Provenance, load_helpers, replay_key
-from jev_cookbook.evaluation import evaluate_outcomes
-from jev_cookbook.fixtures import load_inputs
+from jev_cookbook import ChoiceAnswer, Provenance, get_backend, load_helpers, replay_key
+from jev_cookbook.evaluation import evaluate_outcomes, select_confidence_threshold
+from jev_cookbook.fixtures import load_inputs, load_labels, responses_path
 
 RECIPE = Path(__file__).resolve().parent.parent
 helpers = load_helpers(RECIPE)
@@ -149,6 +149,52 @@ def test_every_replay_key_in_the_fixtures_matches_the_current_question():
     questions = helpers.build_questions()
     for example in load_inputs(RECIPE):
         assert example.replay_keys == (replay_key(helpers.build_state(example.fields), questions),)
+
+
+def test_stored_answers_are_not_all_right():
+    """At least one stored test-split answer naming a real catalog entry (``ask_*``, not
+    ``no_clarification_needed``) is wrong at a confidence at or above the confidence gate the
+    notebook freezes on validation, so the gate's lesson is honest: a confident mistake is not
+    something a confidence gate alone catches.
+
+    Narrowed to the real-catalog pool on purpose (the same pool ``select_confidence_threshold``
+    is chosen from): a wrong, confident ``no_clarification_needed`` answer would also satisfy a
+    looser "any option, wrong, confidence >= gate" check, but ``select_followup`` never applies
+    the gate to ``no_clarification_needed`` at all, so that would not actually test what the gate
+    catches. The gate is recomputed here, from the same validation rows and the same rule the
+    notebook uses (``select_confidence_threshold`` over the real-catalog answers, excluding
+    ``no_clarification_needed``, at ``target_accuracy=1.0``), read through the replay backend
+    rather than from the fixture generator's ``ROWS`` directly."""
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    labels = load_labels(RECIPE)
+    examples = load_inputs(RECIPE)
+
+    def decide(example):
+        return backend.decide(helpers.build_state(example.fields), questions)["clarification"]
+
+    def real_catalog_only(split):
+        return [
+            e
+            for e in examples
+            if e.split == split and e.id in labels and decide(e).choice in helpers.ASK_OPTIONS
+        ]
+
+    validation_real = real_catalog_only("validation")
+    gate = select_confidence_threshold(
+        [decide(e).choice == labels[e.id] for e in validation_real],
+        [decide(e).confidence for e in validation_real],
+        target_accuracy=1.0,
+    )
+
+    test_real = real_catalog_only("test")
+    wrong_at_or_above_gate = [
+        e.id for e in test_real if decide(e).choice != labels[e.id] and decide(e).confidence >= gate
+    ]
+    assert wrong_at_or_above_gate, (
+        "no stored test answer naming a real catalog entry is wrong at a confidence at or "
+        f"above the frozen gate ({gate!r})"
+    )
 
 
 # --- outcome_accounting, composed with jev_cookbook.evaluation.evaluate_outcomes -------------

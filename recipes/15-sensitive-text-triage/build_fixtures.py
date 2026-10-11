@@ -4,7 +4,8 @@
     python build_fixtures.py --force  # also overwrite a responses.json holding a recorded answer
 
 Every response is synthetic (written by hand as a probability, not produced by a model) and
-deliberately imperfect. The hard cases the issue names are included and tagged in their id: a
+deliberately imperfect. The hard cases this use case calls for are included and tagged in their
+id: a
 document that clearly contains personal information (``-pii``), one that clearly does not
 (``-clean``), and four harder shapes.
 

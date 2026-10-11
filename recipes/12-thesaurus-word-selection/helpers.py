@@ -93,7 +93,19 @@ def build_questions(word: str, candidates: list[str]) -> dict[str, Choice]:
     built fresh per sentence from ``candidates``, so two sentences about the same word can be
     asked to choose among different sets of candidates, and changing one sentence's candidates
     changes only that sentence's replay key, never another sentence's.
+
+    ``candidates`` must be non-empty: with none, the only possible option would be the fallback
+    ``keep_original`` alone, a single-option ``Choice`` that is never built at all -- a sentence
+    with no supplied candidates is resolved directly by ``no_candidate_resolution`` instead,
+    before any question is built and before any request is spent. Unreachable from this recipe's
+    committed fixtures (every sentence lists at least one real candidate), but kept so the
+    single-option guard is uniform with recipes 14 and 22.
     """
+    if not candidates:
+        raise ValueError(
+            "build_questions needs at least one real candidate; a sentence with none is "
+            "resolved directly by no_candidate_resolution and never reaches this function"
+        )
     return {
         "synonym": Choice(
             instructions=(
@@ -114,6 +126,22 @@ class Resolution:
     choice: str
     outcome: str
     reason: str
+
+
+def no_candidate_resolution(item_id: str) -> Resolution:
+    """The forced resolution for a sentence with no supplied candidates at all: with no real
+    candidate, the only possible option would be the fallback ``keep_original`` alone, a
+    single-option ``Choice`` ``build_questions`` refuses to build, so Python decides directly,
+    before any question is built and before any request is spent -- not because
+    ``keep_original`` is exempt from the confidence gate (it is not: ``resolve`` gates it like
+    every other option, and ``v05-happy-fp``/``t05-big-fp`` are stored answers where a confident
+    or unconfident ``keep_original`` is wrong), but because there is no candidate at all for Jev
+    to be asked about, and so no answer here for a gate to apply to. Unreachable from this
+    recipe's committed fixtures -- every sentence supplies at least one real candidate -- but
+    kept so this recipe makes the same single-option decision recipes 14 and 22 make."""
+    return Resolution(
+        item_id, KEEP_ORIGINAL, ACCEPTED, "no candidates were supplied for this sentence"
+    )
 
 
 def resolve(item_id: str, answer: Any, candidates: list[str], min_confidence: float) -> Resolution:

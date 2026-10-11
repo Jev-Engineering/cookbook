@@ -7,12 +7,12 @@ Every comparison makes two requests: the candidates in one order, then the same 
 with the order swapped (``helpers.build_state(fields, swap=True)``), so every row below
 contributes two entries to ``responses.json`` and two replay keys, listed in request order, to
 its row in ``inputs.jsonl``. Which candidate is shown first in the *first* request
-(``fields["a_shown_first"]``) is decided once by ``helpers.assign_first_shown``, which hashes
-each row's id on its own (never its position in ``ROWS``, which is grouped by gold label here,
-and never the gold label or the candidate text itself). That rules out the one correlation a
-sequential random draw over this list could otherwise have smuggled in; it does not by itself
-prove the result is balanced -- see the printed table in "The questions" and the comment next to
-``helpers.ORDER_SEED``.
+(``fields["a_shown_first"]``) is decided once by ``helpers.assign_first_shown``, which derives
+which side is shown first from each row's id alone, via
+``jev_cookbook.fixtures.stable_permutation`` (never the id's position in ``ROWS``, which is
+grouped by gold label here, and never the gold label or the candidate text itself). That rules out the one correlation a sequential random draw over this
+list could otherwise have smuggled in; it does not by itself prove the result is balanced -- see
+the printed table in "The questions" and the comment next to ``helpers.RECIPE``.
 
 Every response here is synthetic, authored directly in the comparison's own vocabulary
 (``a``, ``b``, ``tie``, ``insufficient_evidence``) rather than as positional probabilities:
@@ -23,7 +23,7 @@ using which candidate is first in that specific request. That keeps the hard cas
 the real, positional question the notebook asks.
 
 Several rows are deliberately imperfect on purpose, and fall into the shapes CONTRIBUTING.md and
-the issue's build notes ask for:
+this use case's own hard cases ask for:
 
 - most rows: both requests agree with each other and with the gold label (the ordinary case);
 - ``v04``/``t04``: both requests agree with each other but *not* with the gold label. Both use

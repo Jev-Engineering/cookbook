@@ -58,14 +58,14 @@
     "answers": {
       "verdict": {
         "type": "choice",
-        "choice": "first",
+        "choice": "insufficient_evidence",
         "probabilities": {
-          "first": 0.715,
-          "second": 0.09500000000000001,
-          "tie": 0.09500000000000001,
-          "insufficient_evidence": 0.09500000000000001
+          "first": 0.10500000000000002,
+          "second": 0.10500000000000002,
+          "tie": 0.10500000000000002,
+          "insufficient_evidence": 0.6849999999999999
         },
-        "confidence": 0.62,
+        "confidence": 0.58,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -258,14 +258,14 @@
     "answers": {
       "verdict": {
         "type": "choice",
-        "choice": "tie",
+        "choice": "second",
         "probabilities": {
-          "first": 0.11249999999999998,
-          "second": 0.11249999999999998,
-          "tie": 0.6625000000000001,
-          "insufficient_evidence": 0.11249999999999998
+          "first": 0.10000000000000002,
+          "second": 0.7,
+          "tie": 0.10000000000000002,
+          "insufficient_evidence": 0.10000000000000002
         },
-        "confidence": 0.5500000000000002,
+        "confidence": 0.6,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -308,14 +308,14 @@
     "answers": {
       "verdict": {
         "type": "choice",
-        "choice": "second",
+        "choice": "first",
         "probabilities": {
-          "first": 0.08749999999999998,
-          "second": 0.7375,
-          "tie": 0.08749999999999998,
-          "insufficient_evidence": 0.08749999999999998
+          "first": 0.7,
+          "second": 0.10000000000000002,
+          "tie": 0.10000000000000002,
+          "insufficient_evidence": 0.10000000000000002
         },
-        "confidence": 0.65,
+        "confidence": 0.6,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -383,14 +383,14 @@
     "answers": {
       "verdict": {
         "type": "choice",
-        "choice": "insufficient_evidence",
+        "choice": "first",
         "probabilities": {
-          "first": 0.11249999999999998,
-          "second": 0.11249999999999998,
-          "tie": 0.11249999999999998,
-          "insufficient_evidence": 0.6625000000000001
+          "first": 0.7,
+          "second": 0.10000000000000002,
+          "tie": 0.10000000000000002,
+          "insufficient_evidence": 0.10000000000000002
         },
-        "confidence": 0.5500000000000002,
+        "confidence": 0.6,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -410,12 +410,12 @@
         "type": "choice",
         "choice": "second",
         "probabilities": {
-          "first": 0.07500000000000002,
-          "second": 0.7749999999999999,
-          "tie": 0.07500000000000002,
-          "insufficient_evidence": 0.07500000000000002
+          "first": 0.06999999999999999,
+          "second": 0.79,
+          "tie": 0.06999999999999999,
+          "insufficient_evidence": 0.06999999999999999
         },
-        "confidence": 0.6999999999999998,
+        "confidence": 0.7200000000000001,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -435,12 +435,12 @@
         "type": "choice",
         "choice": "first",
         "probabilities": {
-          "first": 0.8875,
-          "second": 0.03750000000000001,
-          "tie": 0.03750000000000001,
-          "insufficient_evidence": 0.03750000000000001
+          "first": 0.8724999999999999,
+          "second": 0.04250000000000002,
+          "tie": 0.04250000000000002,
+          "insufficient_evidence": 0.04250000000000002
         },
-        "confidence": 0.85,
+        "confidence": 0.83,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -458,14 +458,14 @@
     "answers": {
       "verdict": {
         "type": "choice",
-        "choice": "second",
+        "choice": "first",
         "probabilities": {
-          "first": 0.085,
-          "second": 0.745,
-          "tie": 0.085,
-          "insufficient_evidence": 0.085
+          "first": 0.76,
+          "second": 0.08,
+          "tie": 0.08,
+          "insufficient_evidence": 0.08
         },
-        "confidence": 0.66,
+        "confidence": 0.68,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -485,12 +485,12 @@
         "type": "choice",
         "choice": "insufficient_evidence",
         "probabilities": {
-          "first": 0.0625,
-          "second": 0.0625,
-          "tie": 0.0625,
-          "insufficient_evidence": 0.8125
+          "first": 0.07500000000000002,
+          "second": 0.07500000000000002,
+          "tie": 0.07500000000000002,
+          "insufficient_evidence": 0.7749999999999999
         },
-        "confidence": 0.75,
+        "confidence": 0.6999999999999998,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -533,14 +533,14 @@
     "answers": {
       "verdict": {
         "type": "choice",
-        "choice": "first",
+        "choice": "tie",
         "probabilities": {
-          "first": 0.7,
-          "second": 0.10000000000000002,
-          "tie": 0.10000000000000002,
-          "insufficient_evidence": 0.10000000000000002
+          "first": 0.11249999999999998,
+          "second": 0.11249999999999998,
+          "tie": 0.6625000000000001,
+          "insufficient_evidence": 0.11249999999999998
         },
-        "confidence": 0.6,
+        "confidence": 0.5500000000000002,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -560,12 +560,12 @@
         "type": "choice",
         "choice": "tie",
         "probabilities": {
-          "first": 0.04999999999999997,
-          "second": 0.04999999999999997,
-          "tie": 0.8500000000000001,
-          "insufficient_evidence": 0.04999999999999997
+          "first": 0.03750000000000001,
+          "second": 0.03750000000000001,
+          "tie": 0.8875,
+          "insufficient_evidence": 0.03750000000000001
         },
-        "confidence": 0.8000000000000002,
+        "confidence": 0.85,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -635,12 +635,12 @@
         "type": "choice",
         "choice": "second",
         "probabilities": {
-          "first": 0.12,
-          "second": 0.64,
-          "tie": 0.12,
-          "insufficient_evidence": 0.12
+          "first": 0.11249999999999998,
+          "second": 0.6625000000000001,
+          "tie": 0.11249999999999998,
+          "insufficient_evidence": 0.11249999999999998
         },
-        "confidence": 0.52,
+        "confidence": 0.5500000000000002,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -735,12 +735,12 @@
         "type": "choice",
         "choice": "insufficient_evidence",
         "probabilities": {
-          "first": 0.11249999999999998,
-          "second": 0.11249999999999998,
-          "tie": 0.11249999999999998,
-          "insufficient_evidence": 0.6625000000000001
+          "first": 0.125,
+          "second": 0.125,
+          "tie": 0.125,
+          "insufficient_evidence": 0.625
         },
-        "confidence": 0.5500000000000002,
+        "confidence": 0.5,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -760,12 +760,12 @@
         "type": "choice",
         "choice": "insufficient_evidence",
         "probabilities": {
-          "first": 0.10999999999999999,
-          "second": 0.10999999999999999,
-          "tie": 0.10999999999999999,
-          "insufficient_evidence": 0.67
+          "first": 0.10500000000000002,
+          "second": 0.10500000000000002,
+          "tie": 0.10500000000000002,
+          "insufficient_evidence": 0.6849999999999999
         },
-        "confidence": 0.56,
+        "confidence": 0.58,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -785,12 +785,12 @@
         "type": "choice",
         "choice": "insufficient_evidence",
         "probabilities": {
-          "first": 0.125,
-          "second": 0.125,
-          "tie": 0.125,
-          "insufficient_evidence": 0.625
+          "first": 0.11249999999999998,
+          "second": 0.11249999999999998,
+          "tie": 0.11249999999999998,
+          "insufficient_evidence": 0.6625000000000001
         },
-        "confidence": 0.5,
+        "confidence": 0.5500000000000002,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -885,12 +885,12 @@
         "type": "choice",
         "choice": "second",
         "probabilities": {
-          "first": 0.04,
-          "second": 0.88,
-          "tie": 0.04,
-          "insufficient_evidence": 0.04
+          "first": 0.02999999999999999,
+          "second": 0.91,
+          "tie": 0.02999999999999999,
+          "insufficient_evidence": 0.02999999999999999
         },
-        "confidence": 0.84,
+        "confidence": 0.88,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -908,14 +908,14 @@
     "answers": {
       "verdict": {
         "type": "choice",
-        "choice": "tie",
+        "choice": "first",
         "probabilities": {
-          "first": 0.06999999999999999,
-          "second": 0.06999999999999999,
-          "tie": 0.79,
-          "insufficient_evidence": 0.06999999999999999
+          "first": 0.625,
+          "second": 0.125,
+          "tie": 0.125,
+          "insufficient_evidence": 0.125
         },
-        "confidence": 0.7200000000000001,
+        "confidence": 0.5,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -935,12 +935,12 @@
         "type": "choice",
         "choice": "first",
         "probabilities": {
-          "first": 0.91,
-          "second": 0.02999999999999999,
-          "tie": 0.02999999999999999,
-          "insufficient_evidence": 0.02999999999999999
+          "first": 0.88,
+          "second": 0.04,
+          "tie": 0.04,
+          "insufficient_evidence": 0.04
         },
-        "confidence": 0.88,
+        "confidence": 0.84,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -983,14 +983,14 @@
     "answers": {
       "verdict": {
         "type": "choice",
-        "choice": "second",
+        "choice": "first",
         "probabilities": {
-          "first": 0.08,
-          "second": 0.76,
-          "tie": 0.08,
-          "insufficient_evidence": 0.08
+          "first": 0.745,
+          "second": 0.085,
+          "tie": 0.085,
+          "insufficient_evidence": 0.085
         },
-        "confidence": 0.68,
+        "confidence": 0.66,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -1083,14 +1083,14 @@
     "answers": {
       "verdict": {
         "type": "choice",
-        "choice": "insufficient_evidence",
+        "choice": "second",
         "probabilities": {
-          "first": 0.10500000000000002,
-          "second": 0.10500000000000002,
-          "tie": 0.10500000000000002,
-          "insufficient_evidence": 0.6849999999999999
+          "first": 0.09500000000000001,
+          "second": 0.715,
+          "tie": 0.09500000000000001,
+          "insufficient_evidence": 0.09500000000000001
         },
-        "confidence": 0.58,
+        "confidence": 0.62,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -1160,12 +1160,12 @@
         "type": "choice",
         "choice": "tie",
         "probabilities": {
-          "first": 0.03750000000000001,
-          "second": 0.03750000000000001,
-          "tie": 0.8875,
-          "insufficient_evidence": 0.03750000000000001
+          "first": 0.04999999999999997,
+          "second": 0.04999999999999997,
+          "tie": 0.8500000000000001,
+          "insufficient_evidence": 0.04999999999999997
         },
-        "confidence": 0.85,
+        "confidence": 0.8000000000000002,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -1183,14 +1183,14 @@
     "answers": {
       "verdict": {
         "type": "choice",
-        "choice": "second",
+        "choice": "tie",
         "probabilities": {
-          "first": 0.125,
-          "second": 0.625,
-          "tie": 0.125,
-          "insufficient_evidence": 0.125
+          "first": 0.06999999999999999,
+          "second": 0.06999999999999999,
+          "tie": 0.79,
+          "insufficient_evidence": 0.06999999999999999
         },
-        "confidence": 0.5,
+        "confidence": 0.7200000000000001,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -1210,12 +1210,12 @@
         "type": "choice",
         "choice": "insufficient_evidence",
         "probabilities": {
-          "first": 0.10500000000000002,
-          "second": 0.10500000000000002,
-          "tie": 0.10500000000000002,
-          "insufficient_evidence": 0.6849999999999999
+          "first": 0.10999999999999999,
+          "second": 0.10999999999999999,
+          "tie": 0.10999999999999999,
+          "insufficient_evidence": 0.67
         },
-        "confidence": 0.58,
+        "confidence": 0.56,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -1235,12 +1235,12 @@
         "type": "choice",
         "choice": "insufficient_evidence",
         "probabilities": {
-          "first": 0.10000000000000002,
-          "second": 0.10000000000000002,
-          "tie": 0.10000000000000002,
-          "insufficient_evidence": 0.7
+          "first": 0.10500000000000002,
+          "second": 0.10500000000000002,
+          "tie": 0.10500000000000002,
+          "insufficient_evidence": 0.6849999999999999
         },
-        "confidence": 0.6,
+        "confidence": 0.58,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -1385,12 +1385,12 @@
         "type": "choice",
         "choice": "insufficient_evidence",
         "probabilities": {
-          "first": 0.07500000000000002,
-          "second": 0.07500000000000002,
-          "tie": 0.07500000000000002,
-          "insufficient_evidence": 0.7749999999999999
+          "first": 0.0625,
+          "second": 0.0625,
+          "tie": 0.0625,
+          "insufficient_evidence": 0.8125
         },
-        "confidence": 0.6999999999999998,
+        "confidence": 0.75,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -1435,12 +1435,12 @@
         "type": "choice",
         "choice": "first",
         "probabilities": {
-          "first": 0.6625000000000001,
-          "second": 0.11249999999999998,
-          "tie": 0.11249999999999998,
-          "insufficient_evidence": 0.11249999999999998
+          "first": 0.64,
+          "second": 0.12,
+          "tie": 0.12,
+          "insufficient_evidence": 0.12
         },
-        "confidence": 0.5500000000000002,
+        "confidence": 0.52,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -1485,12 +1485,12 @@
         "type": "choice",
         "choice": "first",
         "probabilities": {
-          "first": 0.6625000000000001,
-          "second": 0.11249999999999998,
-          "tie": 0.11249999999999998,
-          "insufficient_evidence": 0.11249999999999998
+          "first": 0.64,
+          "second": 0.12,
+          "tie": 0.12,
+          "insufficient_evidence": 0.12
         },
-        "confidence": 0.5500000000000002,
+        "confidence": 0.52,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -1510,12 +1510,12 @@
         "type": "choice",
         "choice": "insufficient_evidence",
         "probabilities": {
-          "first": 0.10500000000000002,
-          "second": 0.10500000000000002,
-          "tie": 0.10500000000000002,
-          "insufficient_evidence": 0.6849999999999999
+          "first": 0.10000000000000002,
+          "second": 0.10000000000000002,
+          "tie": 0.10000000000000002,
+          "insufficient_evidence": 0.7
         },
-        "confidence": 0.58,
+        "confidence": 0.6,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -1533,14 +1533,14 @@
     "answers": {
       "verdict": {
         "type": "choice",
-        "choice": "second",
+        "choice": "first",
         "probabilities": {
-          "first": 0.10000000000000002,
-          "second": 0.7,
-          "tie": 0.10000000000000002,
-          "insufficient_evidence": 0.10000000000000002
+          "first": 0.7375,
+          "second": 0.08749999999999998,
+          "tie": 0.08749999999999998,
+          "insufficient_evidence": 0.08749999999999998
         },
-        "confidence": 0.6,
+        "confidence": 0.65,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -1583,14 +1583,14 @@
     "answers": {
       "verdict": {
         "type": "choice",
-        "choice": "second",
+        "choice": "insufficient_evidence",
         "probabilities": {
-          "first": 0.10000000000000002,
-          "second": 0.7,
-          "tie": 0.10000000000000002,
-          "insufficient_evidence": 0.10000000000000002
+          "first": 0.11249999999999998,
+          "second": 0.11249999999999998,
+          "tie": 0.11249999999999998,
+          "insufficient_evidence": 0.6625000000000001
         },
-        "confidence": 0.6,
+        "confidence": 0.5500000000000002,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -1685,12 +1685,12 @@
         "type": "choice",
         "choice": "tie",
         "probabilities": {
-          "first": 0.11750000000000001,
-          "second": 0.11750000000000001,
-          "tie": 0.6475,
-          "insufficient_evidence": 0.11750000000000001
+          "first": 0.11249999999999998,
+          "second": 0.11249999999999998,
+          "tie": 0.6625000000000001,
+          "insufficient_evidence": 0.11249999999999998
         },
-        "confidence": 0.5299999999999999,
+        "confidence": 0.5500000000000002,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -1710,12 +1710,12 @@
         "type": "choice",
         "choice": "tie",
         "probabilities": {
-          "first": 0.11249999999999998,
-          "second": 0.11249999999999998,
-          "tie": 0.6625000000000001,
-          "insufficient_evidence": 0.11249999999999998
+          "first": 0.11750000000000001,
+          "second": 0.11750000000000001,
+          "tie": 0.6475,
+          "insufficient_evidence": 0.11750000000000001
         },
-        "confidence": 0.5500000000000002,
+        "confidence": 0.5299999999999999,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -1760,12 +1760,12 @@
         "type": "choice",
         "choice": "second",
         "probabilities": {
-          "first": 0.04250000000000002,
-          "second": 0.8724999999999999,
-          "tie": 0.04250000000000002,
-          "insufficient_evidence": 0.04250000000000002
+          "first": 0.03750000000000001,
+          "second": 0.8875,
+          "tie": 0.03750000000000001,
+          "insufficient_evidence": 0.03750000000000001
         },
-        "confidence": 0.83,
+        "confidence": 0.85,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -1810,12 +1810,12 @@
         "type": "choice",
         "choice": "second",
         "probabilities": {
-          "first": 0.12,
-          "second": 0.64,
-          "tie": 0.12,
-          "insufficient_evidence": 0.12
+          "first": 0.11249999999999998,
+          "second": 0.6625000000000001,
+          "tie": 0.11249999999999998,
+          "insufficient_evidence": 0.11249999999999998
         },
-        "confidence": 0.52,
+        "confidence": 0.5500000000000002,
         "provenance": {
           "source": "synthetic",
           "model": null,
@@ -2010,12 +2010,12 @@
         "type": "choice",
         "choice": "first",
         "probabilities": {
-          "first": 0.79,
-          "second": 0.06999999999999999,
-          "tie": 0.06999999999999999,
-          "insufficient_evidence": 0.06999999999999999
+          "first": 0.7749999999999999,
+          "second": 0.07500000000000002,
+          "tie": 0.07500000000000002,
+          "insufficient_evidence": 0.07500000000000002
         },
-        "confidence": 0.7200000000000001,
+        "confidence": 0.6999999999999998,
         "provenance": {
           "source": "synthetic",
           "model": null,

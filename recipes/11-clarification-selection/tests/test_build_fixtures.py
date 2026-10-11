@@ -1,6 +1,6 @@
-"""build_fixtures.py follows the recipes/_template/build_fixtures.py pattern: inputs/labels
-generation is separate from responses generation, a recorded responses.json is never silently
-overwritten, and the committed file matches jev_cookbook.live's writer exactly."""
+"""build_fixtures.py follows the recipes/_template/build_fixtures.py pattern: inputs and
+labels generation is separate from responses generation, a recorded responses.json is never
+silently overwritten, and the committed file matches jev_cookbook.live's writer exactly."""
 
 import importlib.util
 import json
@@ -8,8 +8,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-from jev_cookbook import Provenance
-from jev_cookbook.evaluation import select_confidence_threshold
 from jev_cookbook.live import _dump
 
 RECIPE = Path(__file__).resolve().parent.parent
@@ -24,6 +22,10 @@ def load_module_at(path, name):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def _jsonl(rows):
+    return "".join(json.dumps(row) + "\n" for row in rows)
 
 
 def test_the_committed_responses_are_byte_identical_to_the_recorders_writer():
@@ -45,8 +47,10 @@ def test_the_committed_responses_are_byte_identical_to_the_recorders_writer():
 
 def test_build_fixtures_separates_inputs_labels_from_responses(tmp_path):
     """Mutation check: regenerating must never silently overwrite a recorded responses.json,
-    and --force must restore the exact synthetic bytes. (Removing the refusal in build_fixtures
-    main() makes this test fail.)"""
+    and --force must restore the exact synthetic bytes. inputs.jsonl and labels.jsonl are
+    rewritten from ROWS on every run, refused or not: only responses.json is guarded, and this
+    also proves it by corrupting both files before the refused run and checking that they come
+    back exactly as build_inputs_and_labels(ROWS) computes them, not merely "changed"."""
     copy = tmp_path / "11-clarification-selection"
     copy.mkdir()
     for name in ("helpers.py", "build_fixtures.py"):
@@ -64,10 +68,19 @@ def test_build_fixtures_separates_inputs_labels_from_responses(tmp_path):
     )
     before = responses.read_bytes()
 
+    inputs_path = copy / "fixtures" / "inputs.jsonl"
+    labels_path = copy / "fixtures" / "labels.jsonl"
+    inputs_path.write_bytes(b"corrupted")
+    labels_path.write_bytes(b"corrupted")
+
     refused = subprocess.run([sys.executable, str(script)], capture_output=True, text=True)
     assert refused.returncode != 0
     assert "recorded" in refused.stderr and "--force" in refused.stderr
     assert responses.read_bytes() == before
+    module = load_module_at(script, "recipe11_build_fixtures_for_test_refused")
+    expected_inputs, expected_labels = module.build_inputs_and_labels(module.ROWS)
+    assert inputs_path.read_text("utf-8") == _jsonl(expected_inputs)
+    assert labels_path.read_text("utf-8") == _jsonl(expected_labels)
 
     forced = subprocess.run(
         [sys.executable, str(script), "--force"], capture_output=True, text=True
@@ -88,50 +101,3 @@ def test_the_generator_reproduces_the_committed_fixtures(tmp_path):
     assert done.returncode == 0, done.stderr
     for name in ("inputs.jsonl", "labels.jsonl", "responses.json"):
         assert (copy / "fixtures" / name).read_bytes() == (RECIPE / "fixtures" / name).read_bytes()
-
-
-def test_stored_answers_are_not_all_right():
-    """At least one stored test-split answer naming a real catalog entry (``ask_*``, not
-    ``no_clarification_needed``) is wrong at a confidence at or above the confidence gate the
-    notebook freezes on validation, so the gate's lesson is honest: a confident mistake is not
-    something a confidence gate alone catches.
-
-    Narrowed to the real-catalog pool on purpose (the same pool ``select_confidence_threshold``
-    is chosen from): a wrong, confident ``no_clarification_needed`` answer would also satisfy a
-    looser "any option, wrong, confidence >= gate" check, but ``select_followup`` never applies
-    the gate to ``no_clarification_needed`` at all, so that would not actually test what the gate
-    catches. This test fails if a future edit to ``ROWS`` removes the gated, confidently-wrong
-    ``ask_*`` test example (``t09-format-wrong``) without anyone updating the prose that
-    describes it; it does not pass merely because a *different* branch (``no_clarification_needed``)
-    happens to have its own confident mistake.
-
-    The gate is recomputed here, from the same validation rows and the same rule the notebook
-    uses (``select_confidence_threshold`` over the real-catalog answers, excluding
-    ``no_clarification_needed``, at ``target_accuracy=1.0``).
-    """
-    module = load_module_at(SCRIPT, "recipe11_build_fixtures_for_wrong_answer_check")
-    by_split: dict[str, list] = {}
-    for ident, split, _fields, label, spec in module.ROWS:
-        if label is None:  # demo rows carry no gold label and are never scored
-            continue
-        answer = module.answers_for(spec, Provenance.synthetic())["clarification"]
-        by_split.setdefault(split, []).append((ident, answer, label))
-
-    def real_catalog_only(rows):
-        return [row for row in rows if row[1].choice != "no_clarification_needed"]
-
-    validation_real = real_catalog_only(by_split["validation"])
-    gate = select_confidence_threshold(
-        [a.choice == label for _ident, a, label in validation_real],
-        [a.confidence for _ident, a, _label in validation_real],
-        target_accuracy=1.0,
-    )
-
-    test_real = real_catalog_only(by_split["test"])
-    wrong_at_or_above_gate = [
-        ident for ident, a, label in test_real if a.choice != label and a.confidence >= gate
-    ]
-    assert wrong_at_or_above_gate, (
-        "no stored test answer naming a real catalog entry is wrong at a confidence at or "
-        f"above the frozen gate ({gate!r})"
-    )

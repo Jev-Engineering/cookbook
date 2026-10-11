@@ -29,8 +29,11 @@ where = ["src"]
 "jev_cookbook.fixtures" = ["schema.json"]
 
 [tool.pytest.ini_options]
-addopts = "--import-mode=importlib"
+addopts = "--import-mode=importlib -m 'not catalog_audit'"
 testpaths = ["tests", "recipes"]
+markers = [
+    "catalog_audit: a wave close-out check over every published recipe at once, not a per-PR check (deselected by default; run with -m catalog_audit).",
+]
 
 [tool.ruff]
 line-length = 100

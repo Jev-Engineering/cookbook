@@ -12,7 +12,7 @@ from jev_cookbook import Choice
 # No ``from __future__ import annotations`` here: load_helpers removes this module from
 # ``sys.modules``, so typing.get_type_hints cannot resolve postponed annotations on a dataclass.
 
-# The fixed option set the catalog's use case names, in the order the issue's build notes list
+# The fixed option set the catalog's use case names, in the order this recipe's use case lists
 # them. There is no separate "none of the above": UNRESOLVED is the fallback outcome the use
 # case names, and it is a real class a passage can genuinely belong to, not a last resort for an
 # option Python is unwilling to report (CONTRIBUTING.md section 4: an uncertain or inconsistent

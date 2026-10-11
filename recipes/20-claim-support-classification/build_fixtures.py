@@ -4,7 +4,7 @@
     python build_fixtures.py --force  # also overwrite a responses.json holding a recorded answer
 
 Every response is synthetic (written by hand as probabilities, not produced by a model) and
-deliberately imperfect. The hard cases the issue names are included and tagged in their id:
+deliberately imperfect. The hard cases this use case names are included and tagged in their id:
 
 - ``-ontopic-unsettled``: a passage on the same topic that does not settle the claim either way
   (``unresolved``), because the thing being measured is still in progress or has not been

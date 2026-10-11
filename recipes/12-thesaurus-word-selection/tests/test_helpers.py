@@ -68,6 +68,23 @@ def test_build_questions_names_the_word_and_keeps_candidate_order():
     assert list(synonym.criteria) == ["fast", "swift", "speedy", "keep_original"]
 
 
+def test_build_questions_rejects_an_empty_candidate_list():
+    # Defensive, unreachable from this recipe's committed fixtures (every sentence supplies at
+    # least one real candidate): with none, the only option would be keep_original alone, a
+    # single-option Choice that is never built.
+    with pytest.raises(ValueError, match="no_candidate_resolution"):
+        helpers.build_questions("quick", [])
+
+
+def test_no_candidate_resolution_is_a_final_keep_original_with_no_candidates():
+    result = helpers.no_candidate_resolution("E1")
+    assert (result.item_id, result.choice, result.outcome) == (
+        "E1",
+        helpers.KEEP_ORIGINAL,
+        helpers.ACCEPTED,
+    )
+
+
 def test_the_state_hides_the_item_id_and_the_candidates():
     fields = {
         "item_id": "E1",
@@ -139,25 +156,10 @@ def test_every_replay_key_in_the_fixtures_matches_the_current_question():
 
 
 def test_stored_answers_are_not_all_right():
-    backend = get_backend(fixtures=responses_path(RECIPE))
-    labels = load_labels(RECIPE)
-    wrong = []
-    for e in load_inputs(RECIPE):
-        if e.id not in labels:
-            continue
-        candidates = e.fields["candidates"]
-        questions = helpers.build_questions(e.fields["word"], candidates)
-        choice = backend.decide(helpers.build_state(e.fields), questions)["synonym"].choice
-        if choice not in labels[e.id]:
-            wrong.append(e.id)
-    assert wrong, "the fixtures should contain some wrong answers"
-
-
-def test_a_wrong_test_answer_clears_the_frozen_confidence_threshold():
     """The threshold this recipe freezes is chosen on `validation` exactly as the notebook does;
     this test recomputes it the same way and asserts that at least one `test` answer is wrong at
     or above it, so the selective-prediction risk the notebook reports on `test` is never zero by
-    construction. This is its own test, not just a comment in `build_fixtures.py`, so a future
+    construction. This is a re-derivation, not just a comment in `build_fixtures.py`, so a future
     fixture edit that accidentally removes the wrong-and-confident case fails CI."""
     backend = get_backend(fixtures=responses_path(RECIPE))
     labels = load_labels(RECIPE)

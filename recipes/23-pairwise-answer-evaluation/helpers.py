@@ -4,11 +4,11 @@ The fixture generator, the notebook and the tests all load this file with
 ``jev_cookbook.load_helpers``, so the questions and the state cannot disagree.
 """
 
-import hashlib
 from dataclasses import dataclass
 from typing import Any
 
 from jev_cookbook import Choice
+from jev_cookbook.fixtures import stable_permutation
 
 # No ``from __future__ import annotations`` here: load_helpers removes this module from
 # ``sys.modules``, so typing.get_type_hints cannot resolve postponed annotations on a dataclass.
@@ -54,35 +54,37 @@ _DESCRIPTIONS = {
     ),
 }
 
-# The seed for Python's own randomisation of which candidate is shown first. It has nothing to
-# do with any model: it only sets the inputs to the hash below, which decides, once and
-# deterministically, how build_fixtures.py lays out the two requests this recipe makes for every
-# comparison. Picked once as a plain constant (the recipe number), not searched for a balanced
-# table: "The questions" below reports the table this draw happens to give, not a guarantee.
-ORDER_SEED = 23
+# The namespace Python's own randomisation of which candidate is shown first is seeded with. It
+# has nothing to do with any model: it only sets the seed key ``stable_permutation`` below
+# hashes, which decides, once and deterministically, how build_fixtures.py lays out the two
+# requests this recipe makes for every comparison. Picked once as this recipe's own slug, not
+# searched for a balanced table: "The questions" below reports the table this draw happens to
+# give, not a guarantee.
+RECIPE = "23-pairwise-answer-evaluation"
 
 
-def assign_first_shown(comparison_ids: list[str], seed: int = ORDER_SEED) -> dict[str, bool]:
+def assign_first_shown(comparison_ids: list[str], recipe: str = RECIPE) -> dict[str, bool]:
     """Deterministically decide, for every id in ``comparison_ids``, whether candidate ``a`` is
     the one shown first in that comparison's first request (``True``) or candidate ``b`` is
     (``False``).
 
-    Each id's bit comes from hashing ``seed`` and that id alone (SHA-256, first byte even or
-    odd), not from the id's position in ``comparison_ids`` or from any other id: shuffling the
-    list, or reading one id's bit, changes nothing about any other id's bit. That is a stronger
-    property than "looks at nothing but the id" alone would be -- a per-id hash cannot be made to
-    track an id's *position* in a list the way a sequential random-number stream can, which
-    matters here because ``ROWS`` in ``build_fixtures.py`` happens to be grouped by gold label, so
-    a position-based draw would have been a label proxy even without reading the label directly.
-    The function still never reads the gold label or the candidate text, but that is necessary,
-    not sufficient, for the realised assignment to come out balanced across gold labels: it is a
-    fact about one draw, checked by printing it, not a property the function proves on its own.
+    Each id's side comes from ``jev_cookbook.fixtures.stable_permutation(f"{recipe}:{comparison_id}",
+    2)`` (``docs/fixtures.md``, "Per-item option order"): index 0 of that permutation is 0 exactly
+    when ``a`` keeps its place as the one shown first, never from the id's position in
+    ``comparison_ids`` or from any other id, so shuffling the list, or reading one id's side,
+    changes nothing about any other id's side. That is a stronger property than "looks at nothing
+    but the id" alone would be -- a per-id hash cannot be made to track an id's *position* in a
+    list the way a sequential random-number stream can, which matters here because ``ROWS`` in
+    ``build_fixtures.py`` happens to be grouped by gold label, so a position-based draw would have
+    been a label proxy even without reading the label directly. The function still never reads the
+    gold label or the candidate text, but that is necessary, not sufficient, for the realised
+    assignment to come out balanced across gold labels: it is a fact about one draw, checked by
+    printing it, not a property the function proves on its own.
     """
-    assignment = {}
-    for comparison_id in comparison_ids:
-        digest = hashlib.sha256(f"{seed}:{comparison_id}".encode()).digest()
-        assignment[comparison_id] = digest[0] % 2 == 0
-    return assignment
+    return {
+        comparison_id: stable_permutation(f"{recipe}:{comparison_id}", 2)[0] == 0
+        for comparison_id in comparison_ids
+    }
 
 
 def first_is_a(fields: dict[str, Any], swap: bool) -> bool:

@@ -21,8 +21,8 @@ ask" result anyway (``t12-budget-wrong``: the one case in this recipe where the 
 not the gate, is demonstrably what lets a wrong answer through -- a confidence gate reapplied to
 every example here would have reviewed it, and the notebook shows that divergence directly); a
 third (``t15-access-wrong-caught``) is wrong but not confident (0.0900) and names a real catalog
-option, so it is sent to review instead of being reported. The hard cases the issue names are
-included: tasks that omit one specific
+option, so it is sent to review instead of being reported. The hard cases this use case calls
+for are included: tasks that omit one specific
 piece of information (every ``ask_*``-labelled row) and tasks that omit nothing
 (``no_clarification_needed``). The replay keys come from the same ``build_state`` and
 ``build_questions`` the notebook uses, via ``helpers.py``.
