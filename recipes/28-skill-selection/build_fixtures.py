@@ -15,9 +15,10 @@ business cutoff (`v03`, `t03`); one per split retrieves two skills whose descrip
 *both* genuinely plausible for the task, scored close together on purpose -- the "two skills
 equally plausible" hard case the use case names (`v04`, `t04`); and one per split is a
 deliberately wrong pair of stored answers: the skill that actually fits is scored low and the
-skill that only sounds related is scored confidently high, so the composed rule picks the wrong
-one with a wide margin (`v05`, `t05`) -- on `validation` this is one of the examples the margin
-threshold is chosen from, and on `test` it is the one the frozen threshold still lets through,
+skill that only sounds related is scored high, with a wide margin (`v05`, `t05`). `v05`'s wrong
+pick is also written with a spread, unsure-looking distribution, so it is one of the validation
+examples both the confidence gate and the margin threshold are chosen from; `t05`'s wrong pick is
+written confidently instead, so it is the one example the frozen gates still let through,
 giving the evaluation a real, non-zero risk to report. Three more tasks are `demo`: one of each
 shape (a confident correct pick, the ambiguous pair, and a cutoff failure), shown up close before
 any aggregate and never scored. Every row names the level its own stored answer is written to
@@ -28,7 +29,7 @@ checks every committed stored answer's modal level against its row's own ``inten
 Generating inputs and labels is kept separate from generating responses, on purpose: once
 responses.json holds even one recorded answer (provenance "recorded", captured from a real Jev
 call), running this script again must not silently replace it with a synthetic probability.
-inputs.jsonl and labels.jsonl are always rewritten from TASKS, because neither ever holds a
+inputs.jsonl and labels.jsonl are always rewritten from TASK_SPECS, because neither ever holds a
 model's answer; responses.json is rewritten only when it does not yet exist, holds only
 synthetic answers, or --force is given.
 """
@@ -58,7 +59,7 @@ RELATED_A = (0.09, 0.71, 0.14, 0.06)  # modal level 1
 RELATED_B = (0.14, 0.58, 0.20, 0.08)  # modal level 1, a different vector for the same level
 RELATED_C = (0.12, 0.60, 0.21, 0.07)  # modal level 1, a third vector for the same level
 NOT_SUITABLE_CONFIDENT = (0.72, 0.16, 0.08, 0.04)  # modal level 0
-IDEAL_MEDIUM = (0.04, 0.08, 0.18, 0.70)  # modal level 3, less peaked -- the wrong, over-eager pick
+IDEAL_LOW_CONFIDENCE = (0.08, 0.15, 0.30, 0.47)  # modal level 3, spread enough to read as unsure
 # Close-scoring pairs for the "two skills equally plausible" tasks: both land on modal level 3,
 # with a small enough gap between their expected scores that the margin check should not let
 # either one through automatically. Four distinct vectors (not one pair reused twice) so the
@@ -76,7 +77,7 @@ TIE_LOW_3 = (0.03, 0.13, 0.39, 0.45)
 # `intended_level` is the modal level the row's own `probabilities` are written to land on --
 # equal to `gold_level` everywhere the stored answer is right, and deliberately different on the
 # two rows that are not (both skills of v05, and both skills of t05).
-TASKS = [
+TASK_SPECS = [
     (
         "v01",
         "validation",
@@ -131,11 +132,13 @@ TASKS = [
         "Pull up the internal doc on how travel booking approvals work for the finance team.",
         {
             # Deliberately wrong: the task only asks to find a document, which is exactly
-            # doc_search's job (gold level 3), but the stored answer confidently scores
-            # travel_booking instead (gold level 1: the same general area, mentioned by name,
-            # but the task never asks to book anything) -- and under-scores doc_search to match.
-            # This is one of the examples the margin threshold below is chosen from.
-            "travel_booking": (1, 3, IDEAL_MEDIUM),
+            # doc_search's job (gold level 3), but the stored answer scores travel_booking
+            # instead (gold level 1: the same general area, mentioned by name, but the task
+            # never asks to book anything) -- and under-scores doc_search to match. The wrong
+            # pick's own distribution is also written spread enough to read as genuinely unsure
+            # (confidence 0.16), so this is one of the examples the confidence gate below is
+            # chosen from, and -- independently -- the margin threshold too.
+            "travel_booking": (1, 3, IDEAL_LOW_CONFIDENCE),
             "doc_search": (3, 1, RELATED_A),
             "code_review_summary": (0, 0, NOT_SUITABLE_CONFIDENT),
         },
@@ -240,7 +243,7 @@ def _fields(task_id: str, task: str, skill_id: str) -> dict:
 
 
 def _rows(tasks):
-    """Flatten ``TASKS`` into one row per (task, retrieved skill) pair, in retrieval order,
+    """Flatten ``TASK_SPECS`` into one row per (task, retrieved skill) pair, in retrieval order,
     calling the same ``retrieve_candidates`` the notebook calls -- so this script can never
     hand-pick a task's candidates behind the rule's back. Each row is
     ``(id, split, fields, gold_level, intended_level, probabilities)``.
@@ -251,7 +254,7 @@ def _rows(tasks):
         if set(candidates) != set(specs):
             raise SystemExit(
                 f"{task_id}: retrieve_candidates returned {candidates}, "
-                f"but TASKS names {sorted(specs)}"
+                f"but TASK_SPECS names {sorted(specs)}"
             )
         for skill_id in candidates:
             gold_level, intended_level, probabilities = specs[skill_id]
@@ -261,6 +264,16 @@ def _rows(tasks):
                  probabilities)
             )  # fmt: skip
     return rows
+
+
+# The flat row list every guard test and tool (tests/test_recipe_guard.py,
+# tools/new_recipe.py's own scaffolded test_build_fixtures.py) expects a recipe's
+# build_fixtures.py to expose as ``ROWS``: one row per (task, retrieved skill) pair, computed
+# once here by calling the real ``retrieve_candidates`` against ``TASK_SPECS`` -- so ``ROWS``
+# itself can never silently hand-pick a task's candidates behind the rule's back, even though
+# it is a flat list by the time anything downstream (``build_responses``,
+# ``build_inputs_and_labels``, the guard's own generated tests) reads it.
+ROWS = _rows(TASK_SPECS)
 
 
 def answers_for(probabilities: tuple[float, ...], provenance: Provenance) -> dict:
@@ -300,7 +313,7 @@ def check_intended_levels(rows) -> None:
         level = score_level(answers["relevance"])
         if level != intended_level:
             raise SystemExit(
-                f"{ident}: probabilities land on level {level}, but TASKS names "
+                f"{ident}: probabilities land on level {level}, but TASK_SPECS names "
                 f"intended_level {intended_level}"
             )
 
@@ -327,7 +340,7 @@ def _is_recorded(path: Path) -> bool:
 
 def _unresolved_keys(inputs, responses_file: Path) -> list[str]:
     """Replay keys the just-rewritten ``inputs`` ask for that ``responses_file`` does not have,
-    used only to warn when a TASKS edit has desynchronised the two."""
+    used only to warn when a TASK_SPECS edit has desynchronised the two."""
     if not responses_file.exists():
         return []
     try:
@@ -347,13 +360,12 @@ def main() -> None:
         help="overwrite responses.json even if it holds a recorded (non-synthetic) answer",
     )
     args = parser.parse_args()
-    if not TASKS:
-        raise SystemExit("add tasks to TASKS in build_fixtures.py")
-    rows = _rows(TASKS)
-    check_intended_levels(rows)
+    if not ROWS:
+        raise SystemExit("add tasks to TASK_SPECS in build_fixtures.py")
+    check_intended_levels(ROWS)
     folder = HERE / "fixtures"
     folder.mkdir(exist_ok=True)
-    inputs, labels = build_inputs_and_labels(rows)
+    inputs, labels = build_inputs_and_labels(ROWS)
     for name, items in (("inputs.jsonl", inputs), ("labels.jsonl", labels)):
         text = "".join(json.dumps(row) + "\n" for row in items)
         (folder / name).write_text(text, encoding="utf-8", newline="\n")
@@ -365,13 +377,13 @@ def main() -> None:
         )
         if _unresolved_keys(inputs, responses_file):
             message += (
-                "\ninputs.jsonl and labels.jsonl above were rewritten from TASKS; "
+                "\ninputs.jsonl and labels.jsonl above were rewritten from TASK_SPECS; "
                 "responses.json was not, and at least one of the keys the rewritten inputs "
                 "ask for is missing from it. The three files are desynchronised until you "
                 "--force a rewrite or record the missing answers."
             )
         raise SystemExit(message)
-    responses = build_responses(rows)
+    responses = build_responses(ROWS)
     # The same serialization jev_cookbook.live._dump writes: only the top-level keys are
     # sorted; each response keeps the field order DecisionResult.to_dict() emits. Matching the
     # recorder exactly, rather than json.dumps(..., sort_keys=True) (which also sorts every

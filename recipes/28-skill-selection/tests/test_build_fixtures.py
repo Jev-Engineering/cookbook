@@ -8,9 +8,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
-from jev_cookbook.evaluation import score_level
 from jev_cookbook.live import _dump
 
 RECIPE = Path(__file__).resolve().parent.parent
@@ -18,7 +15,7 @@ SCRIPT = RECIPE / "build_fixtures.py"
 
 
 def load_module_at(path, name):
-    """Import build_fixtures.py by file path so its functions and module-level values (TASKS,
+    """Import build_fixtures.py by file path so its functions and module-level values (ROWS,
     build_responses) are plain Python objects, not subprocess output or a re-dump of the file
     it wrote."""
     spec = importlib.util.spec_from_file_location(name, path)
@@ -31,10 +28,6 @@ def _jsonl(rows):
     return "".join(json.dumps(row) + "\n" for row in rows)
 
 
-MODULE = load_module_at(SCRIPT, "recipe28_build_fixtures_for_test")
-ROWS = MODULE._rows(MODULE.TASKS)
-
-
 def test_the_committed_responses_are_byte_identical_to_the_recorders_writer():
     """jev_cookbook.live._dump sorts only the top-level keys; json.dumps(..., sort_keys=True)
     sorts every nested dict too and so disagrees with it on every response's field order. The
@@ -44,63 +37,20 @@ def test_the_committed_responses_are_byte_identical_to_the_recorders_writer():
     catch a sort_keys=True regression: json.loads preserves whatever nested order the file
     already has, and _dump only re-sorts the top level, so that round trip would pass no matter
     which writer produced the file. Instead, import build_fixtures.py and compare against _dump
-    of what build_responses computes directly from TASKS, independent of what main() actually
+    of what build_responses computes directly from ROWS, independent of what main() actually
     wrote to disk."""
     raw = (RECIPE / "fixtures" / "responses.json").read_text("utf-8")
-    assert len(ROWS) > 1
-    assert raw == _dump(MODULE.build_responses(ROWS))
-
-
-def test_every_committed_stored_answers_top_choice_is_the_one_its_row_names():
-    """CONTRIBUTING's rule 11: a fixture-building spec must never let the stored answer's own
-    top choice silently drift from what the row itself says it should be. Every row in TASKS
-    names its own ``intended_level`` directly, never defaulted or inferred from the gold level
-    (two of the thirteen tasks' rows deliberately disagree: ``gold_level`` is what a skill
-    really deserves, ``intended_level`` is the modal level the row's own probabilities are
-    written to land on). This checks every one of the 39 committed rows against that
-    declaration."""
-    responses = json.loads((RECIPE / "fixtures" / "responses.json").read_text("utf-8"))
-    questions = MODULE.helpers.build_questions()
-    for ident, _split, fields, _gold_level, intended_level, _probabilities in ROWS:
-        key = MODULE.replay_key(MODULE.helpers.build_state(fields), questions)
-        stored = responses[key]
-        answer = stored["answers"]["relevance"]
-        from jev_cookbook import answer_from_dict
-
-        level = score_level(answer_from_dict(answer))
-        assert level == intended_level, f"{ident}: stored level {level}, row names {intended_level}"
-
-
-def test_check_intended_levels_catches_a_mismatch():
-    """Mutation proof for the test above: check_intended_levels (what build_fixtures.py itself
-    runs before writing anything) must actually fail when a row's intended_level disagrees with
-    what its probabilities land on, not merely pass by construction."""
-    good = MODULE._rows(MODULE.TASKS)
-    MODULE.check_intended_levels(good)  # no error on the real rows
-
-    mutated = list(good)
-    ident, split, fields, gold_level, intended_level, probabilities = mutated[0]
-    mutated[0] = (ident, split, fields, gold_level, (intended_level + 1) % 4, probabilities)
-    with pytest.raises(SystemExit, match="intended_level"):
-        MODULE.check_intended_levels(mutated)
-
-
-def test_retrieval_matches_every_tasks_own_spec():
-    """TASKS names each task's candidates only implicitly, through their own dict keys;
-    _rows() calls the real helpers.retrieve_candidates to decide which skills are asked about,
-    and raises if retrieval ever disagrees with what a task's own spec names (so TASKS cannot
-    silently drift from what the recipe's own retriever would actually return)."""
-    for task_id, _split, task, specs in MODULE.TASKS:
-        candidates = MODULE.helpers.retrieve_candidates(task)
-        assert set(candidates) == set(specs), task_id
+    module = load_module_at(SCRIPT, "recipe28_build_fixtures_for_test")
+    assert len(module.ROWS) > 1
+    assert raw == _dump(module.build_responses(module.ROWS))
 
 
 def test_build_fixtures_separates_inputs_labels_from_responses(tmp_path):
     """Mutation check: regenerating must never silently overwrite a recorded responses.json,
     and --force must restore the exact synthetic bytes. inputs.jsonl and labels.jsonl are
-    rewritten from TASKS on every run, refused or not: only responses.json is guarded, and this
+    rewritten from ROWS on every run, refused or not: only responses.json is guarded, and this
     also proves it by corrupting both files before the refused run and checking that they come
-    back exactly as build_inputs_and_labels(rows) computes them, not merely "changed"."""
+    back exactly as build_inputs_and_labels(ROWS) computes them, not merely "changed"."""
     copy = tmp_path / "28-skill-selection"
     copy.mkdir()
     for name in ("helpers.py", "build_fixtures.py"):
@@ -128,8 +78,7 @@ def test_build_fixtures_separates_inputs_labels_from_responses(tmp_path):
     assert "recorded" in refused.stderr and "--force" in refused.stderr
     assert responses.read_bytes() == before
     module = load_module_at(script, "recipe28_build_fixtures_for_test_refused")
-    rows = module._rows(module.TASKS)
-    expected_inputs, expected_labels = module.build_inputs_and_labels(rows)
+    expected_inputs, expected_labels = module.build_inputs_and_labels(module.ROWS)
     assert inputs_path.read_text("utf-8") == _jsonl(expected_inputs)
     assert labels_path.read_text("utf-8") == _jsonl(expected_labels)
 

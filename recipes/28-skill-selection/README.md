@@ -12,13 +12,14 @@ once per candidate: how well that one skill's own description shows it can carry
 on a four-level `Score` rubric. Python never asks Jev to compare skills against each other. The
 rule that composes several of those scores into one task-level decision is code, in
 `helpers.select_skill`: it ranks the candidates by their expected score and selects the top one
-only when its own score clears a fixed business cutoff *and* it clearly beats the runner-up by a
-margin threshold chosen on `validation` -- the check for the hard case the use case names, two
-skills whose descriptions are both genuinely plausible for the task, scored close together.
-Either check failing sends the task to review for a person to clarify, never an automatic guess.
-The evaluation reports two different things: per question, how well each individual relevance
-score agrees with its own gold level; per task, how often the composed decision names a correct
-skill versus asks for clarification, and at what rate.
+only when its own answer is confident enough to trust, its score clears a fixed business cutoff,
+*and* it clearly beats the runner-up by a margin threshold -- both the confidence gate and the
+margin threshold chosen on `validation` -- the margin check being the one for the hard case the
+use case names, two skills whose descriptions are both genuinely plausible for the task, scored
+close together. Any check failing sends the task to review for a person to clarify, never an
+automatic guess. The evaluation reports two different things: per question, how well each
+individual relevance score agrees with its own gold level; per task, how often the composed
+decision names a correct skill versus asks for clarification, and at what rate.
 
 ## Run it offline
 
@@ -74,8 +75,8 @@ one decision correctly -- and say nothing about how Jev actually scores skill de
 relevance. The evaluation covers exact-level agreement and mean absolute error against each
 request's own gold level (per question), and top-1 accuracy among automatically selected tasks,
 risk, and the clarification rate (per task, from `jev_cookbook.evaluation.evaluate_outcomes`,
-since the rule has two independent review branches -- the business cutoff and the margin --
-neither of which is a plain confidence gate on one answer's own `.confidence`).
+since the rule has three independent review branches -- the confidence gate, the business
+cutoff, and the margin -- so a task can be sent to review for any one of three separate reasons).
 
 ## Pull request rules
 
