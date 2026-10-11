@@ -374,10 +374,10 @@ def baseline_recall(
     ``-ranks[c.test_id]`` -- never the raw, possibly-tied :func:`baseline_score` directly, which
     would let ``recall_at_budget`` credit a tie in expectation over tie orders where
     ``baseline_rank`` itself (ties broken by listed position) already picks one deterministic
-    winner. Feeding the tied score instead of the rank is asymmetric with how the Jev side is
-    scored (:func:`effective_scores` is deterministic by construction) and was the mechanism
-    behind an earlier, incorrect report that the baseline beat the pipeline on `validation`: the
-    two are in fact an exact tie there once both sides are ranked under their own stated order.
+    winner. Feeding the tied score instead of the rank would be asymmetric with how the Jev
+    side is scored (:func:`effective_scores` is deterministic by construction): the two sides
+    must be ranked under their own stated order for a recall comparison between them to mean
+    anything.
     """
     strict_scores = {c.test_id: float(-ranks[c.test_id]) for c in candidates}
     return recall_at_budget(gold_relevant, [strict_scores[c.test_id] for c in candidates], budget)

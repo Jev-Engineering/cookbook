@@ -85,7 +85,6 @@ ADVERSARIAL_WRONG = (0.04, 0.05, 0.07, 0.84)  # peaks at level 3; gold is unrela
 FOREIGN = [
     (
         "analytics",
-        "analytics/dashboard_export.py",
         "test_dashboard_export_includes_all_widgets",
         "def test_dashboard_export_includes_all_widgets():\n"
         '    dashboard = build_dashboard(widgets=["funnel", "retention", "revenue"])\n'
@@ -94,7 +93,6 @@ FOREIGN = [
     ),
     (
         "teams",
-        "teams/timezone_picker.py",
         "test_timezone_picker_lists_all_regions",
         "def test_timezone_picker_lists_all_regions():\n"
         "    options = list_timezone_options()\n"
@@ -102,7 +100,6 @@ FOREIGN = [
     ),
     (
         "files",
-        "files/thumbnail_cache.py",
         "test_thumbnail_cache_evicts_oldest_entry",
         "def test_thumbnail_cache_evicts_oldest_entry():\n"
         "    cache = ThumbnailCache(capacity=2)\n"
@@ -111,7 +108,6 @@ FOREIGN = [
     ),
     (
         "notifications",
-        "notifications/sms_gateway.py",
         "test_sms_gateway_retries_on_timeout",
         "def test_sms_gateway_retries_on_timeout():\n"
         "    gateway = SmsGateway(transport=FlakyTransport(failures=1))\n"
@@ -120,7 +116,6 @@ FOREIGN = [
     ),
     (
         "search",
-        "search/autocomplete_cache.py",
         "test_autocomplete_cache_warms_on_startup",
         "def test_autocomplete_cache_warms_on_startup():\n"
         "    cache = AutocompleteCache()\n"
@@ -129,7 +124,6 @@ FOREIGN = [
     ),
     (
         "billing",
-        "billing/invoice_pdf.py",
         "test_invoice_pdf_includes_company_logo",
         "def test_invoice_pdf_includes_company_logo():\n"
         '    pdf = render_invoice_pdf(make_invoice(), logo=b"PNGDATA")\n'
@@ -1233,7 +1227,7 @@ def build_rows() -> list[tuple]:
                 foreign_index = module[idx_key]
                 if foreign_index is None:
                     continue
-                f_area, _f_file, f_name, f_body = FOREIGN[foreign_index]
+                f_area, f_name, f_body = FOREIGN[foreign_index]
                 probs = probs_pair[0] if variant == "a" else probs_pair[1]
                 candidates.append(
                     (
