@@ -216,28 +216,27 @@ def rank_judgments(judgments: list[Judgment]) -> list[Judgment]:
 # Why this rule has two review branches, not three. An earlier draft also gated on the top
 # answer's own Score `.confidence` (the reason a review would carry, had it fired:
 # "confidence below the threshold" -- the lexicon's exact words for a confidence-gated review,
-# docs/glossary.md#review). It was removed, deliberately, after measuring that it could never
-# be the reason a real task is held for review here, given this rubric and the margin
-# threshold this recipe actually freezes:
+# docs/glossary.md#review). It was removed -- not because a `Score` recipe never needs one (it
+# can, and most of this cookbook's recipes do), but because, specifically on this recipe's own
+# committed fixtures, with the margin threshold this recipe actually freezes, no confidence gate
+# can do useful work. This is a measured property of this fixture set and this frozen
+# threshold, not a property of the rubric or of `Score` answers in general; a different recipe,
+# or a differently-drawn set of tasks for this one, could easily need the gate back.
 #
-#   For a Score over N_LEVELS=4 levels with modal level 3 (the only level a margin this wide
-#   is ever reached from -- see below), `confidence = score - 2` exactly: the "even" spread
-#   for 4 levels is 1.0, and the probability-weighted distance from the peak reduces
-#   algebraically to `3 - score`, so `confidence = 1 - (3 - score) = score - 2`. A confidence
-#   gate at `g` is therefore identical to a floor on `score` alone, `score >= g + 2`.
-#   The margin check already enforces `score_top >= margin_threshold * (N_LEVELS - 1) +
-#   score_runner_up`. Once `margin_threshold * 3` alone exceeds `g + 2` -- true for any gate
-#   `g < 1.0` once the threshold clears about two-thirds of the scale, which is exactly the
-#   range `select_margin_threshold` lands in on this recipe's fixtures -- every task that
-#   clears the margin check has *already* cleared the confidence gate, for any non-negative
-#   runner-up score. A confidence gate kept under those conditions could still be *evaluated*,
-#   but it could never be the reason a real, committed task is sent to review instead of being
-#   selected: deleting it and re-running the evaluation would change no number this recipe
-#   reports, only which of two reason strings an already-reviewed task is given. That fails
-#   the same test this recipe's own tests hold the business cutoff and the margin to (see
-#   ``tests/test_helpers.py``, which proves each of those two *does* change a real, committed
-#   task's outcome by itself) -- so a third branch that cannot pass it is not kept just to
-#   have three.
+# The measurement: at the frozen margin threshold, every task this rule auto-selects (never
+# reviewed) on `validation` and `test` combined ranges from confidence 0.19 up to 0.78. Exactly
+# two of those selections are wrong (`v22`, `t05`), and both happen to sit at 0.78 -- the single
+# highest confidence anywhere in either split, tied with several genuinely correct selections
+# (`v01`, `v08`, `v09`, `v10` and their `test` counterparts) at that same value. A confidence
+# gate set anywhere below 0.78 would hold back some of the stretch of correct, lower-confidence
+# selections (0.19 up to just under 0.78) while still letting both wrong ones through, since
+# they are tied with the gate-clearing correct ones at the top; a gate set at or above 0.78
+# would hold back everything, the two mistakes included, but also every other selection this
+# rule gets right. On these fixtures, a confidence gate can only cost coverage -- it cannot
+# reduce risk, because the mistakes are not distinguishable by confidence from the correct
+# answers they are tied with. `tests/test_helpers.py` checks this measurement directly
+# (``test_no_confidence_gate_could_have_caught_the_wrong_selections_without_also_losing_correct_ones``),
+# so a future fixture edit that changes it is caught rather than leaving this comment stale.
 def select_skill(task_id: str, judgments: list[Judgment], margin_threshold: float) -> Selection:
     """Select the top-ranked skill only when its score clears the business cutoff *and* it
     clearly beats the runner-up; otherwise send the task to review so a person can clarify

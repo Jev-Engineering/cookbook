@@ -1,5 +1,6 @@
 """Tests for recipe 28's helpers. They load the helpers by file path."""
 
+import contextlib
 import importlib.util
 import json
 import math
@@ -377,9 +378,31 @@ def test_the_margin_threshold_is_consequential_on_a_real_fixture():
     assert after.reason == "the margin between the top two skills is below the threshold"
 
 
-def _selections_with(
-    split, use_cutoff, margin_threshold, backend, questions, examples_by_task, labels
-):
+@contextlib.contextmanager
+def _cutoff_disabled():
+    """Patches ``helpers.BUSINESS_CUTOFF`` to a value its own check inside ``select_skill``
+    (``top.level < BUSINESS_CUTOFF``) can never satisfy -- a modal level is always 0, 1, 2 or
+    3, never negative, so 0 makes the comparison always false. This calls the real
+    ``select_skill`` with its cutoff branch structurally unreachable, rather than a second
+    implementation of the branch standing in for "deleted": if the branch were actually
+    deleted from ``select_skill``'s own source, patching this constant would do nothing (there
+    would be no comparison left to defeat), and the tests below that rely on this context
+    manager would then compute the same selections with or without it -- which is exactly the
+    failure that proves they are reading the real function, not a copy of its logic."""
+    original = helpers.BUSINESS_CUTOFF
+    helpers.BUSINESS_CUTOFF = 0
+    try:
+        yield
+    finally:
+        helpers.BUSINESS_CUTOFF = original
+
+
+def _selections(split, margin_threshold, backend, questions, examples_by_task, labels):
+    """Selections from the real ``helpers.select_skill`` for every task in ``split`` -- never a
+    second implementation of its branches. Margin is "deleted" by passing
+    ``margin_threshold=0.0``: margin is a normalized gap between two scores and is therefore
+    always ``>= 0``, so ``margin < 0.0`` can never be true and that branch cannot fire, the
+    same structural-unreachability trick :func:`_cutoff_disabled` uses for the cutoff."""
     selections, gold_best_by_task = [], {}
     for task_id, exs in sorted(examples_by_task.items()):
         if exs[0].split != split:
@@ -388,44 +411,29 @@ def _selections_with(
         gold_best_by_task[task_id] = helpers.gold_best_skills(
             {e.fields["skill_id"]: labels[e.id] for e in exs}
         )
-        top, runner_up = helpers.rank_judgments(judgments)[:2]
-        margin = (top.score - runner_up.score) / (helpers.N_LEVELS - 1)
-        if use_cutoff and top.level < helpers.BUSINESS_CUTOFF:
-            outcome, reason = (
-                helpers.REVIEW,
-                "the top skill's modal level is below the business cutoff",
-            )
-        elif margin < margin_threshold:
-            outcome, reason = (
-                helpers.REVIEW,
-                "the margin between the top two skills is below the threshold",
-            )
-        else:
-            outcome, reason = helpers.SELECT, "clearly the best-fitting skill"
-        selections.append(
-            helpers.Selection(task_id, top.skill_id, top.level, margin, outcome, reason)
-        )
+        selections.append(helpers.select_skill(task_id, judgments, margin_threshold))
     return selections, gold_best_by_task
 
 
 def test_deleting_the_business_cutoff_changes_a_reported_outcome_on_the_committed_fixtures():
     # The stronger standard: not just "a mutation flips one example in isolation", but "the
-    # rule actually used on the committed fixtures, with the business cutoff removed entirely,
-    # reports a different coverage and a different accuracy". v23 and t22 are built exactly to
-    # make this true: a modal-level-1 top, scored near the ceiling, with a margin wide enough
-    # to pass on its own.
+    # real rule, called on the committed fixtures with the business cutoff structurally
+    # unreachable, reports a different coverage and a different accuracy". v23 and t22 are
+    # built exactly to make this true: a modal-level-1 top, scored near the ceiling, with a
+    # margin wide enough to pass on its own.
     backend, questions = _real_backend_and_questions()
     examples_by_task = helpers.group_by_task_id(load_inputs(RECIPE))
     labels = load_labels(RECIPE)
     margin_threshold = 0.4033333333333334
 
     for split in ("validation", "test"):
-        with_cutoff, gold_best = _selections_with(
-            split, True, margin_threshold, backend, questions, examples_by_task, labels
+        with_cutoff, gold_best = _selections(
+            split, margin_threshold, backend, questions, examples_by_task, labels
         )
-        without_cutoff, _ = _selections_with(
-            split, False, margin_threshold, backend, questions, examples_by_task, labels
-        )
+        with _cutoff_disabled():
+            without_cutoff, _ = _selections(
+                split, margin_threshold, backend, questions, examples_by_task, labels
+            )
         accepted_with, correct_with = helpers.outcome_accounting(with_cutoff, gold_best)
         accepted_without, correct_without = helpers.outcome_accounting(without_cutoff, gold_best)
         result_with = evaluate_outcomes(accepted_with, correct_with)
@@ -435,25 +443,66 @@ def test_deleting_the_business_cutoff_changes_a_reported_outcome_on_the_committe
 
 
 def test_deleting_the_margin_check_changes_a_reported_outcome_on_the_committed_fixtures():
-    # Same standard, for the margin: without it, the "two skills equally plausible" tasks
-    # (v04, t04) become automatic, unreviewed guesses, changing coverage.
+    # Same standard, for the margin: without it (margin_threshold=0.0, which the real
+    # select_skill's own `margin < margin_threshold` comparison can never fail against a
+    # margin that is always >= 0), the "two skills equally plausible" tasks (v04, t04) become
+    # automatic, unreviewed guesses, changing coverage.
     backend, questions = _real_backend_and_questions()
     examples_by_task = helpers.group_by_task_id(load_inputs(RECIPE))
     labels = load_labels(RECIPE)
     margin_threshold = 0.4033333333333334
 
     for split in ("validation", "test"):
-        with_margin, gold_best = _selections_with(
-            split, True, margin_threshold, backend, questions, examples_by_task, labels
+        with_margin, gold_best = _selections(
+            split, margin_threshold, backend, questions, examples_by_task, labels
         )
-        without_margin, _ = _selections_with(
-            split, True, 0.0, backend, questions, examples_by_task, labels
+        without_margin, _ = _selections(
+            split, 0.0, backend, questions, examples_by_task, labels
         )
         accepted_with, correct_with = helpers.outcome_accounting(with_margin, gold_best)
         accepted_without, correct_without = helpers.outcome_accounting(without_margin, gold_best)
         result_with = evaluate_outcomes(accepted_with, correct_with)
         result_without = evaluate_outcomes(accepted_without, correct_without)
         assert result_with.coverage != result_without.coverage
+
+
+def test_no_confidence_gate_could_have_caught_the_wrong_selections_without_also_losing_correct_ones():
+    # The measurement helpers.py's own comment above select_skill relies on, checked directly:
+    # every wrong auto-selection on the committed fixtures shares the single highest confidence
+    # observed anywhere in either split with several genuinely correct selections, so no
+    # confidence gate -- at any threshold -- can separate the mistakes from the correct answers
+    # they are tied with. A fixture edit that broke this property (made a wrong selection's
+    # confidence strictly higher, or strictly lower, than every correct one) would fail this
+    # test, which is what keeps helpers.py's comment honest.
+    backend, questions = _real_backend_and_questions()
+    examples_by_task = helpers.group_by_task_id(load_inputs(RECIPE))
+    labels = load_labels(RECIPE)
+    margin_threshold = 0.4033333333333334
+
+    wrong_confidences, correct_confidences = [], []
+    for split in ("validation", "test"):
+        selections, gold_best = _selections(
+            split, margin_threshold, backend, questions, examples_by_task, labels
+        )
+        for s in selections:
+            if s.outcome != helpers.SELECT:
+                continue
+            exs = examples_by_task[s.task_id]
+            answer = next(
+                backend.decide(helpers.build_state(e.fields), questions)["relevance"]
+                for e in exs
+                if e.fields["skill_id"] == s.skill_id
+            )
+            (correct_confidences if s.skill_id in gold_best[s.task_id] else wrong_confidences).append(
+                answer.confidence
+            )
+
+    assert wrong_confidences, "expected at least one wrong auto-selection"
+    assert correct_confidences, "expected at least one correct auto-selection"
+    assert math.isclose(max(wrong_confidences), max(correct_confidences), abs_tol=1e-9), (
+        "expected every wrong selection's confidence to be tied with the highest confidence "
+        "among correct selections -- the property a confidence gate cannot act on"
+    )
 
 
 def test_margin_threshold_frozen_on_validation_matches_the_committed_fixtures():
