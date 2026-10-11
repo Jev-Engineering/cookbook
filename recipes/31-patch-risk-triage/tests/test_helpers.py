@@ -7,7 +7,11 @@ from pathlib import Path
 import pytest
 
 from jev_cookbook import get_backend, load_helpers, replay_key
-from jev_cookbook.evaluation import pool_label_decisions
+from jev_cookbook.evaluation import (
+    pool_label_decisions,
+    select_confidence_threshold,
+    select_threshold,
+)
 from jev_cookbook.fixtures import load_inputs, load_labels, responses_path
 
 RECIPE = Path(__file__).resolve().parent.parent
@@ -90,7 +94,9 @@ _THRESHOLDS = {
 
 
 def test_decide_concerns_tags_each_proposition_against_its_own_threshold():
-    decisions = helpers.decide_concerns(_answers(0.90, 0.10, 0.90), _THRESHOLDS, confidence_gate=0.3)
+    decisions = helpers.decide_concerns(
+        _answers(0.90, 0.10, 0.90), _THRESHOLDS, confidence_gate=0.3
+    )
     assert decisions[helpers.AUTHENTICATION_CONCERN].tag is True
     assert decisions[helpers.INPUT_VALIDATION_CONCERN].tag is False
     assert decisions[helpers.DATA_LOSS_CONCERN].tag is True
@@ -101,7 +107,9 @@ def test_decide_concerns_tags_each_proposition_against_its_own_threshold():
 def test_decide_concerns_gates_on_confidence_whatever_the_tag_says():
     # noul 0.55 is below the authentication threshold (tag False) but its confidence,
     # |2*0.55-1|=0.1, is below a 0.3 gate, so it must be marked gated regardless of the tag.
-    decisions = helpers.decide_concerns(_answers(0.55, 0.90, 0.90), _THRESHOLDS, confidence_gate=0.3)
+    decisions = helpers.decide_concerns(
+        _answers(0.55, 0.90, 0.90), _THRESHOLDS, confidence_gate=0.3
+    )
     assert decisions[helpers.AUTHENTICATION_CONCERN].tag is False
     assert decisions[helpers.AUTHENTICATION_CONCERN].gated is True
 
@@ -135,7 +143,9 @@ def test_decide_concerns_rejects_thresholds_that_do_not_name_exactly_labels():
 
 
 def test_decide_concerns_tag_is_inclusive_at_the_threshold():
-    decisions = helpers.decide_concerns(_answers(0.58, 0.50, 0.61), _THRESHOLDS, confidence_gate=0.0)
+    decisions = helpers.decide_concerns(
+        _answers(0.58, 0.50, 0.61), _THRESHOLDS, confidence_gate=0.0
+    )
     assert decisions[helpers.AUTHENTICATION_CONCERN].tag is True
     assert decisions[helpers.INPUT_VALIDATION_CONCERN].tag is True
     assert decisions[helpers.DATA_LOSS_CONCERN].tag is True
@@ -436,12 +446,37 @@ def test_stored_answers_are_not_all_right():
     # business threshold chosen on validation by F1, then the shared confidence gate chosen on
     # the pooled (patch, concern) decisions by minimum coverage -- and requires a `test` patch
     # whose composed priority is wrong and whose own confidence, on all three concerns, still
-    # clears that frozen gate.
-    thresholds, gate, backend, questions, examples = _frozen_thresholds_and_gate()
+    # clears that frozen gate. The derivation stays inline here (rather than behind
+    # helpers.choose_label_threshold/helpers.choose_gate, which the notebook and the other tests
+    # use) so this still re-derives the threshold and gate the way the strong-form guard (G1(c))
+    # checks for: an assignment from select_confidence_threshold( bound to the comparison below.
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
     labels = load_labels(RECIPE)
+    examples = load_inputs(RECIPE)
 
     def decide(example):
         return backend.decide(helpers.build_state(example.fields), questions)
+
+    validation = [e for e in examples if e.split == "validation" and e.id in labels]
+    val_ids = [e.id for e in validation]
+    val_gold_by_label = {
+        label: [labels[e.id][label] for e in validation] for label in helpers.LABELS
+    }
+    val_noul_by_label = {
+        label: [decide(e)[label].noul for e in validation] for label in helpers.LABELS
+    }
+    thresholds = {
+        label: select_threshold(val_gold_by_label[label], val_noul_by_label[label], objective="f1")
+        for label in helpers.LABELS
+    }
+
+    val_correct, val_confidence, _val_keys = pool_label_decisions(
+        val_ids, list(helpers.LABELS), val_gold_by_label, val_noul_by_label, thresholds
+    )
+    gate = select_confidence_threshold(
+        val_correct, val_confidence, min_coverage=helpers.MIN_COVERAGE
+    )
 
     test = [e for e in examples if e.split == "test" and e.id in labels]
     test_decisions = {e.id: helpers.decide_concerns(decide(e), thresholds, gate) for e in test}
@@ -469,7 +504,9 @@ def test_the_committed_notebook_freezes_the_threshold_and_gate_this_recipe_selec
     nb = json.loads((RECIPE / "notebook.ipynb").read_text("utf-8"))
     cell = next(c for c in nb["cells"] if c.get("id") == "python-rule")
     text = "".join(
-        "".join(o.get("text", "")) for o in cell.get("outputs", []) if o.get("output_type") == "stream"
+        "".join(o.get("text", ""))
+        for o in cell.get("outputs", [])
+        if o.get("output_type") == "stream"
     )
     assert text, "python-rule cell has no committed stdout to check"
     for label in helpers.LABELS:
