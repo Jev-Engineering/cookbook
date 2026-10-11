@@ -192,8 +192,10 @@ The full contract is [CONTRIBUTING.md](../../CONTRIBUTING.md); in short:
   to shared code goes through its own issue and pull request.
 - **The root README is generated.** Do not run `python tools/render_catalog.py` and do not edit
   `README.md`. Adding a notebook makes its catalog tables stale; a separate integration worker
-  regenerates them in your pull request after you hand the branch over. Until then the `Catalog (README is
-  current)` check is expected to be red, and that is not yours to fix.
+  regenerates them in your pull request after you hand the branch over. While a recipe remains
+  unpublished and that integration step has not yet run, the `Catalog (README is current)` check
+  is expected to be red on its pull request, and that is not yours to fix; once the catalog is
+  regenerated for it, the check turns green and stays that way.
 - **Branch and description.** Branch `recipe/NN-slug`, description `Closes #NN`, the checklist from the pull
   request template filled in, commits signed, and no key, token or `Authorization` header anywhere.
 - **No claims about Jev.** Nothing about its quality, speed or cost unless it comes from recorded live
