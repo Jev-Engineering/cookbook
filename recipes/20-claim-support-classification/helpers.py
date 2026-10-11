@@ -28,7 +28,7 @@ ACCEPTED = "accepted"
 REVIEW = "review"
 
 # The instructions and descriptions below are adapted from TypeSafe's citation-checking cookbook
-# (S06, https://docs.typesafe.ai/cookbooks/citation_check.md): a Choice question named "relation"
+# (S06, https://docs.typesafe.ai/cookbooks/citation_check): a Choice question named "relation"
 # with instructions "How does the section relate to the claim?" and three options -- supports,
 # contradicts, and a third option for a section that does not address the claim either way
 # (there named "says_nothing"). This recipe keeps the question shape (one Choice, the same three-
