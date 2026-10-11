@@ -1077,6 +1077,31 @@ def test_the_readme_never_installs_dev_and_ml_combined(recipe):
 MEASURED_SIGNATURE = "Not measured live: a pipeline check, not a Jev result."
 
 
+def _load_measured_cell_branches() -> ModuleType:
+    """``tests/measured_cell_branches.py``, loaded by file path like
+    ``_load_known_failures`` above: the branch-anchoring and "really prints N" logic is shared
+    with ``tests/test_template.py``'s own pin on the template, so the one piece of logic that
+    decides "which branch discloses the run mode, and does it really print N" is written, and
+    proved against PR #219 reviewer B's evasions, once rather than twice."""
+    spec = importlib.util.spec_from_file_location(
+        "measured_cell_branches_for_recipe_guard",
+        Path(__file__).resolve().parent / "measured_cell_branches.py",
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_measured_cell = _load_measured_cell_branches()
+
+
+def _disclosure_branches(source: str) -> list[list[ast.stmt]]:
+    return _measured_cell.disclosure_branches(source, MEASURED_SIGNATURE)
+
+
+_branch_prints_n = _measured_cell.branch_prints_n
+
+
 @pytest.mark.parametrize("recipe", guarded_with_template("measured_cell_prints_n_offline")())
 def test_the_measured_cell_prints_n_in_the_offline_branch(recipe):
     """CONTRIBUTING.md section 2: the disclosure names, "in every mode", the run mode and N --
@@ -1098,10 +1123,20 @@ def test_the_measured_cell_prints_n_in_the_offline_branch(recipe):
     most recipes call it ``measured``, but a few predate that convention (recipe 01 calls it
     ``measured-code``; recipe 05's id is an auto-generated hex string) -- the sentence itself is
     the one thing every recipe's version of this cell shares, by CONTRIBUTING.md's own "the
-    disclosure is the same in every recipe" rule. The offline branch is everything in the cell's
-    source up to its first ``else:`` (the same split ``tests/test_template.py``'s pin on the
-    template uses); a cell with no ``else:`` at all has nothing to compare against and fails as
-    not carrying the disclosure in a recognisable shape."""
+    disclosure is the same in every recipe" rule.
+
+    The branch that must print N is found with ``ast``, anchored on whichever branch actually
+    carries the disclosure (``_disclosure_branches``) -- not, as the first version of this check
+    did, by splitting the source on the first ``else:`` and treating whatever comes before it as
+    "the offline branch". That assumption is what let three shapes pass while the rule stayed
+    broken (PR #219 reviewer B): an ``elif`` that moves N into a third branch while the
+    disclosure stays in the ``if``; an inverted ``if not offline: ... else:`` that moves the
+    disclosure into the ``else``; and ``# N: ...`` written as a comment, which a substring search
+    over the branch's raw text cannot tell apart from an actual ``print``. ``_branch_prints_n``
+    requires a real ``print`` call whose string argument starts with ``"N:"``, which closes all
+    three. The ``else:`` requirement below is unchanged from the original check (a cell with no
+    recorded/live branch at all still fails here, as it always did); what changed is how the
+    branch to check is chosen and what counts as "prints N" within it."""
     cells = [
         c
         for c in notebook_cells(recipe_dir(recipe))
@@ -1111,7 +1146,27 @@ def test_the_measured_cell_prints_n_in_the_offline_branch(recipe):
     for cell in cells:
         source = cell_source(cell)
         assert "else:" in source, f"{recipe['slug']}: cell {cell.get('id', '?')} has no else branch"
-        offline_branch = source.split("else:", 1)[0]
-        assert "N:" in offline_branch, (
-            f"{recipe['slug']}: cell {cell.get('id', '?')}'s offline branch prints no N"
+        branches = _disclosure_branches(source)
+        assert branches, (
+            f"{recipe['slug']}: cell {cell.get('id', '?')} carries the disclosure sentence but "
+            "not inside any if/elif/else branch this check can parse"
+        )
+        for branch in branches:
+            assert _branch_prints_n(branch), (
+                f"{recipe['slug']}: cell {cell.get('id', '?')}'s branch carrying the disclosure "
+                "prints no N"
+            )
+        # The committed, stored output must carry a line starting "N:" too (the same pin
+        # tests/test_template.py makes on the template, tests/test_template.py:398): a cell
+        # whose source prints N but whose committed output was captured from a stale run that did
+        # not would otherwise pass the check above and still mislead a reader of the rendered
+        # notebook, who sees only the stored output, never the source.
+        lines = "".join(
+            "".join(o.get("text", ""))
+            for o in cell.get("outputs", [])
+            if o.get("output_type") == "stream"
+        ).splitlines()
+        assert any(line.startswith("N:") for line in lines), (
+            f"{recipe['slug']}: cell {cell.get('id', '?')}'s committed stdout has no line "
+            "starting with N:"
         )
