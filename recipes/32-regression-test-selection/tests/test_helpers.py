@@ -374,8 +374,24 @@ def _frozen_gate():
 def test_stored_answers_are_not_all_right():
     """At least one stored `test` answer is wrong (its modal level does not match the gold
     label) while confident enough to clear the frozen confidence gate -- the fixture that keeps
-    selective risk on `test` non-zero rather than a threshold that happens to look perfect."""
-    examples, labels, _backend, _questions, answers, gate = _frozen_gate()
+    selective risk on `test` non-zero rather than a threshold that happens to look perfect.
+
+    Re-derives the frozen gate from `validation` here directly (rather than only through
+    `_frozen_gate()`), so this test still catches a wrong-but-uncaught `test` answer even if a
+    future edit changes how the notebook itself happens to compute the gate.
+    """
+    examples = load_inputs(RECIPE)
+    labels = load_labels(RECIPE)
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    answers = _decide_all(examples, backend, questions)
+
+    val = select_split(examples, "validation")
+    val_gold = [labels[e.id] for e in val]
+    val_correct = [score_level(answers[e.id]) == g for e, g in zip(val, val_gold, strict=True)]
+    val_confidence = [answers[e.id].confidence for e in val]
+    gate = select_confidence_threshold(val_correct, val_confidence, min_coverage=0.8)
+
     test = select_split(examples, "test")
     test_gold = [labels[e.id] for e in test]
     wrong_and_confident = [
