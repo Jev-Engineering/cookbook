@@ -511,6 +511,40 @@ def test_test_split_has_a_wrong_task_that_clears_the_frozen_margin_threshold():
     assert wrong_and_selected, "expected at least one test task the frozen gates wrongly select"
 
 
+def test_stored_answers_are_not_all_right():
+    # The standard per-question guard: re-derive a confidence threshold from validation's own
+    # (correct, confidence) pairs and require a wrong `test` answer at or above it. This is a
+    # property of the stored answers themselves, independent of the task-level margin rule
+    # above (which does not gate on any answer's own `.confidence` -- see helpers.select_skill's
+    # comment for why): a question-level answer can still be wrong and confident even though
+    # the composed task-level decision has no confidence check to catch it with.
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    name = next(iter(questions))
+    labels = load_labels(RECIPE)
+    examples = load_inputs(RECIPE)
+
+    def decide(example):
+        return backend.decide(helpers.build_state(example.fields), questions)[name]
+
+    def predicted(answer):
+        return answer.choice if hasattr(answer, "choice") else score_level(answer)
+
+    validation = [e for e in examples if e.split == "validation" and e.id in labels]
+    val_answers = {e.id: decide(e) for e in validation}
+    correct = [predicted(val_answers[e.id]) == labels[e.id] for e in validation]
+    confidence = [val_answers[e.id].confidence for e in validation]
+    threshold = select_confidence_threshold(correct, confidence, target_accuracy=1.0)
+
+    test = [e for e in examples if e.split == "test" and e.id in labels]
+    wrong_and_confident = [
+        e.id
+        for e in test
+        if predicted(decide(e)) != labels[e.id] and decide(e).confidence >= threshold
+    ]
+    assert wrong_and_confident, "expected at least one confidently wrong test answer"
+
+
 # ------------------------------------------- build_fixtures.py's own rows and declared levels
 
 

@@ -444,10 +444,11 @@ TASK_SPECS = [
         {
             # Deliberately wrong, the case the frozen margin threshold does not catch: the task
             # asks to find an article (doc_search, gold level 3), but the stored answer scores
-            # expense_report confidently instead (gold level 1) and scores doc_search as if it
-            # were not suitable at all.
+            # expense_report confidently instead (gold level 1) and scores doc_search as near-
+            # certainly not suitable at all -- the same confidently-wrong-per-question shape
+            # tests/test_helpers.py's stored-answers guard requires on `test`.
             "expense_report": (1, 3, IDEAL_CONFIDENT),
-            "doc_search": (3, 0, NOT_SUITABLE_CONFIDENT),
+            "doc_search": (3, 0, NOT_SUITABLE_AT_ALL),
             "calendar_scheduling": (0, 0, NOT_SUITABLE_CONFIDENT),
         },
     ),

@@ -12,14 +12,16 @@ once per candidate: how well that one skill's own description shows it can carry
 on a four-level `Score` rubric. Python never asks Jev to compare skills against each other. The
 rule that composes several of those scores into one task-level decision is code, in
 `helpers.select_skill`: it ranks the candidates by their expected score and selects the top one
-only when its own answer is confident enough to trust, its score clears a fixed business cutoff,
-*and* it clearly beats the runner-up by a margin threshold -- both the confidence gate and the
+only when its score clears a fixed business cutoff *and* it clearly beats the runner-up by a
 margin threshold chosen on `validation` -- the margin check being the one for the hard case the
 use case names, two skills whose descriptions are both genuinely plausible for the task, scored
-close together. Any check failing sends the task to review for a person to clarify, never an
-automatic guess. The evaluation reports two different things: per question, how well each
-individual relevance score agrees with its own gold level; per task, how often the composed
-decision names a correct skill versus asks for clarification, and at what rate.
+close together. Either check failing sends the task to review for a person to clarify, never an
+automatic guess; each check is independently consequential, proved on the committed fixtures by
+deleting one at a time and confirming the evaluation's reported numbers actually change, not
+just a reason string (`tests/test_helpers.py`). The evaluation reports two different things: per
+question, how well each individual relevance score agrees with its own gold level; per task, how
+often the composed decision names a correct skill versus asks for clarification, and at what
+rate.
 
 ## Run it offline
 
@@ -49,11 +51,11 @@ of this repository), or record answers with the recorder described in
 and always runs offline. The live backend's default request budget is 25
 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)); every attempt counts
 against that budget, including each retry. In live mode this notebook makes exactly one call for
-each of the 39 (task, skill) requests in `fixtures/` -- one relevance `Score` question per
-candidate skill a task retrieved, not one call per task, so the count is 13 tasks times 3
+each of the 150 (task, skill) requests in `fixtures/` -- one relevance `Score` question per
+candidate skill a task retrieved, not one call per task, so the count is 50 tasks times 3
 retrieved candidates each -- and no other: every request is decided once (cached by its example
 id) and the stored answer is reused wherever it is shown again. That is more than the live
-backend's default request budget of 25, so set `JEV_COOKBOOK_LIVE_MAX_REQUESTS=39` or higher
+backend's default request budget of 25, so set `JEV_COOKBOOK_LIVE_MAX_REQUESTS=150` or higher
 before running this notebook live, or it stops partway through with `BudgetExceeded`. Never put a
 key in a notebook, a fixture, or any other committed file.
 
@@ -61,8 +63,8 @@ key in a notebook, a fixture, or any other committed file.
 
 - **Mode:** synthetic (offline replay of hand-written answers). Not measured live.
 - **Model, capture date:** not applicable while every answer is synthetic.
-- **N:** 15 validation and 15 test (task, skill) requests for the per-question agreement
-  numbers; 5 validation and 5 test tasks for the composed, task-level selection numbers. The
+- **N:** 72 validation and 69 test (task, skill) requests for the per-question agreement
+  numbers; 24 validation and 23 test tasks for the composed, task-level selection numbers. The
   three `demo` tasks (9 requests) are shown up close but never scored.
 
 A recorded recipe states the model version the API returned, the capture date and N for every number
@@ -75,8 +77,8 @@ one decision correctly -- and say nothing about how Jev actually scores skill de
 relevance. The evaluation covers exact-level agreement and mean absolute error against each
 request's own gold level (per question), and top-1 accuracy among automatically selected tasks,
 risk, and the clarification rate (per task, from `jev_cookbook.evaluation.evaluate_outcomes`,
-since the rule has three independent review branches -- the confidence gate, the business
-cutoff, and the margin -- so a task can be sent to review for any one of three separate reasons).
+since the rule has two independent review branches -- the business cutoff and the margin -- so
+a task can be sent to review for either of two separate reasons).
 
 ## Pull request rules
 

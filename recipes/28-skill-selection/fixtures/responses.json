@@ -2581,14 +2581,14 @@
     "answers": {
       "relevance": {
         "type": "score",
-        "score": 0.44,
+        "score": 0.08,
         "probabilities": {
-          "0": 0.72,
-          "1": 0.16,
-          "2": 0.08,
-          "3": 0.04
+          "0": 0.95,
+          "1": 0.03,
+          "2": 0.01,
+          "3": 0.01
         },
-        "confidence": 0.56,
+        "confidence": 0.92,
         "legend": {
           "0": "The skill's description names a different kind of action, or a different kind of information, than what the task asks for. Nothing the description states would let this skill carry out the task.",
           "1": "The skill's description names the same general area of work as the task, but it does not state that it performs the specific action, on the specific kind of thing, that the task asks for.",
