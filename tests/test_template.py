@@ -454,3 +454,50 @@ def test_a_simulated_recording_produces_a_minimal_diff():
     # top-level model line changes too: for N responses that is at most 4N changed lines on
     # each side, well under reformatting the whole 500+ line file.
     assert 0 < len(changed) <= 8 * len(data), len(changed)
+
+
+def test_the_confusion_matrix_header_and_every_row_render_to_the_same_width():
+    """PR #190 review (comment 6085598499): the header's leading text ("  predicted ->  ", a
+    fixed 16 characters) and each row's leading text ("  gold <label>  ", width + 9 characters)
+    lined up only when a label's width happened to equal 7; a width of 8 (this template, once it
+    stopped hardcoding the field width to 8 and started computing it) already printed the counts
+    one column off, and a 15-character label would land them eight columns off. The fix must
+    compute both leaders from the same `width`, so pin that generically, from the rendered text,
+    rather than from the formula: every column after the leader uses the same per-column width
+    on the header line and on every row line, so the header line and every row line can render to
+    the same length (once the trailing pipeline-check label is stripped) only if the two kinds of
+    leader are themselves the same length."""
+    lines = stream_lines("evaluation-matrix")
+    header = next(line for line in lines if "predicted ->" in line)
+    rows = [line for line in lines if line.strip().startswith("gold ")]
+    assert len(rows) == len(["billing", "bug", "account", "none"])
+
+    def without_check(line):
+        return line.split(" (a pipeline check")[0]
+
+    lengths = {len(without_check(header))} | {len(without_check(row)) for row in rows}
+    assert len(lengths) == 1, (without_check(header), [without_check(r) for r in rows])
+
+
+def test_the_evaluation_note_cell_id_follows_the_markdown_suffix_convention():
+    """PR #193 review (comment 6085949784): every other markdown cell in this notebook carries
+    the `-md` suffix (`setup-md`, `state-md`, ..., `measured-md`, `next-md`); `evaluation-note`
+    was the one holdout, and the sweep's own rename convention for merged recipes assumes the
+    template no longer ships it."""
+    markdown_ids = [c["id"] for c in NOTEBOOK["cells"] if c["cell_type"] == "markdown"]
+    assert "evaluation-note" not in markdown_ids
+    assert "evaluation-note-md" in markdown_ids
+    assert all(cell_id.endswith("-md") or cell_id == "intro" for cell_id in markdown_ids)
+
+
+def test_the_readme_states_the_catalog_check_conditionally():
+    """PR #193 review (comment 6085949784): the generated-README-exception paragraph must
+    describe the pre-publication state conditionally, so the sentence stays true once this
+    template's wording is read on a published recipe's README, not only while a pull request is
+    still open."""
+    readme = (TEMPLATE / "README.md").read_text("utf-8")
+    section = readme.split("### Pull request rules")[1].split("### Notes on the contract")[0]
+    flat = " ".join(section.split())
+    assert "While a recipe remains unpublished" in flat
+    assert "is expected to be red on its pull request" in flat
+    assert "once the catalog is regenerated for it, the check turns green" in flat

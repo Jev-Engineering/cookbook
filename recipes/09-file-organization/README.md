@@ -71,11 +71,12 @@ how Jev performs, how fast it is, or what it costs. This recipe has no recorded 
 
 This recipe's pull request changes only `recipes/09-file-organization/`; the root `README.md` is
 generated and is regenerated inside this same pull request by a separate integration worker after
-this branch is handed over, never by this recipe's own pull request. Until that happens, `Catalog
-(README is current)` is expected to be red on this pull request, which is not a defect to fix here.
-No sentence anywhere in this folder states or implies Jev's real quality, latency, or cost: every
-number above is a synthetic pipeline check, and every proposed move is a preview only. The full
-contract is [CONTRIBUTING.md](../../CONTRIBUTING.md).
+this branch is handed over, never by this recipe's own pull request. While this recipe remains
+unpublished and that has not yet happened, `Catalog (README is current)` is expected to be red on
+its pull request, which is not a defect to fix here; once the catalog is regenerated for it, the
+check turns green and stays that way. No sentence anywhere in this folder states or implies Jev's
+real quality, latency, or cost: every number above is a synthetic pipeline check, and every
+proposed move is a preview only. The full contract is [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ## Sources
 
