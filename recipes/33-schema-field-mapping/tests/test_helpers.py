@@ -535,9 +535,10 @@ def _freeze_threshold():
 
 
 def test_the_frozen_threshold_objective_is_pinned():
-    """Pin the objective and its parameter (rule 12): if a later edit changes `min_coverage`
-    or swaps in `target_accuracy`, this is the test that notices, before the consequentiality
-    proofs above describe a selection procedure the notebook no longer runs."""
+    """Pin the objective and its parameter: the notebook's selection cell and this file must
+    agree on both, so a later edit that changes `min_coverage` or swaps in `target_accuracy` in
+    only one of the two is caught here, before the consequentiality proofs above describe a
+    selection procedure the notebook no longer runs."""
     assert THRESHOLD == pytest.approx(0.7777777777777778)
 
 
