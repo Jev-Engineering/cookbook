@@ -49,10 +49,10 @@ LEVELS = list(helpers.SUITABILITY_LEVELS)
 # Probability vectors over the four levels (not_suitable, related, suitable, ideal), each
 # summing to 1. Reused across tasks on purpose, the same way recipes/17-passage-reranking reuses
 # one vector per rubric level for every passage at that level: the *level* a row is written to
-# land on is what the row names (below), not the particular vector, so reusing a vector is not
-# the same mistake a confidence-only shorthand would make (CONTRIBUTING's rule 11 risk: a spec
-# that *infers* its label). Every vector here is given directly as a full distribution; nothing
-# about the stored level is defaulted or inferred.
+# land on is what the row names (below), not the particular vector. Every vector here is given
+# directly as a full distribution, with the level it lands on named separately in each row (see
+# ``intended_level``), so nothing about a stored answer's label is defaulted or inferred from a
+# shorthand.
 IDEAL_CONFIDENT = (0.02, 0.03, 0.10, 0.85)  # modal level 3
 SUITABLE_CONFIDENT = (0.03, 0.09, 0.73, 0.15)  # modal level 2
 RELATED_A = (0.09, 0.71, 0.14, 0.06)  # modal level 1
@@ -306,8 +306,9 @@ def build_responses(rows):
 
 def check_intended_levels(rows) -> None:
     """Every row's stored answer must land on the level the row itself names
-    (``intended_level``), never a level inferred from the probabilities after the fact
-    (CONTRIBUTING's rule 11 risk). Raises if any row disagrees with its own ``probabilities``."""
+    (``intended_level``), never a level silently drifting from what the row's own
+    ``probabilities`` actually produce. Raises if any row disagrees with its own
+    ``probabilities``."""
     for ident, _split, _fields, _gold_level, intended_level, probabilities in rows:
         answers = answers_for(probabilities, Provenance.synthetic())
         level = score_level(answers["relevance"])

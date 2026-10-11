@@ -309,11 +309,12 @@ def pool_for_confidence_selection(
 
 
 # Both objectives below freeze the highest-accuracy cut-off among those that still answer at
-# least this share of their own pool, rather than `target_accuracy=1.0` (CONTRIBUTING's rule
-# 12 risk: a perfect-validation-accuracy target is true by construction and tells a reader
-# nothing). Chosen, not derived -- a different value would freeze a different threshold, which
-# is exactly why `tests/test_helpers.py` pins both constants and the fact that the two
-# selectors below call `min_coverage=`, never `target_accuracy=`.
+# least this share of their own pool, rather than `target_accuracy=1.0`: a perfect-validation-
+# accuracy target is true by construction here (both pools have a feasible threshold that
+# clears every wrong example) and would tell a reader nothing about the trade-off actually
+# made. Chosen, not derived -- a different value would freeze a different threshold, which is
+# exactly why `tests/test_helpers.py` pins both constants and the fact that the two selectors
+# below call `min_coverage=`, never `target_accuracy=`.
 CONFIDENCE_MIN_COVERAGE = 0.5
 MARGIN_MIN_COVERAGE = 0.5
 

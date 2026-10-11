@@ -281,8 +281,8 @@ def test_outcome_accounting_empty_is_an_error():
 
 
 def test_confidence_min_coverage_is_pinned():
-    # Rule 12: pin the objective (min_coverage, not target_accuracy) and its parameter, so
-    # changing either cannot leave this test green.
+    # Pin the objective (min_coverage, not target_accuracy) and its parameter, so changing
+    # either cannot leave this test green.
     assert helpers.CONFIDENCE_MIN_COVERAGE == 0.5
 
 
@@ -508,13 +508,13 @@ def test_stored_answers_are_not_all_right():
 
 
 def test_every_committed_stored_answers_top_choice_is_the_one_its_row_names():
-    """CONTRIBUTING's rule 11: a fixture-building spec must never let the stored answer's own
-    top choice silently drift from what the row itself says it should be. Every row in
-    build_fixtures.py's ``TASK_SPECS`` names its own ``intended_level`` directly, never
-    defaulted or inferred from the gold level (two of the thirteen tasks' rows deliberately
-    disagree: ``gold_level`` is what a skill really deserves, ``intended_level`` is the modal
-    level the row's own probabilities are written to land on). This checks every one of the 39
-    committed rows against that declaration."""
+    """A fixture-building spec must never let the stored answer's own top choice silently
+    drift from what the row itself says it should be. Every row in build_fixtures.py's
+    ``TASK_SPECS`` names its own ``intended_level`` directly, never defaulted or inferred from
+    the gold level (two of the thirteen tasks' rows deliberately disagree: ``gold_level`` is
+    what a skill really deserves, ``intended_level`` is the modal level the row's own
+    probabilities are written to land on). This checks every one of the 39 committed rows
+    against that declaration."""
     module = _load_build_fixtures()
     responses = json.loads((RECIPE / "fixtures" / "responses.json").read_text("utf-8"))
     questions = helpers.build_questions()
