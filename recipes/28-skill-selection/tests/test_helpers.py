@@ -337,6 +337,26 @@ def _real_judgments(task_id, examples_by_task, backend, questions):
     return {skill_id: helpers.judgment_from_answer(skill_id, a) for skill_id, a in answers.items()}
 
 
+def _frozen_margin_threshold(backend, questions, labels):
+    """The margin threshold the notebook itself freezes, computed the same way it is there --
+    calling the real ``helpers.select_margin_threshold`` on the real ``validation`` pool --
+    rather than a magic constant repeated at every call site. (A test below pins the number
+    this returns against the committed fixtures directly.)"""
+    val_examples_by_task = helpers.group_by_task_id(
+        [e for e in load_inputs(RECIPE) if e.split == "validation"]
+    )
+    judgments_by_task = {
+        tid: list(_real_judgments(tid, val_examples_by_task, backend, questions).values())
+        for tid in val_examples_by_task
+    }
+    gold_best_by_task = {
+        tid: helpers.gold_best_skills({e.fields["skill_id"]: labels[e.id] for e in exs})
+        for tid, exs in val_examples_by_task.items()
+    }
+    safe, margin = helpers.pool_for_margin_selection(judgments_by_task, gold_best_by_task)
+    return helpers.select_margin_threshold(safe, margin)
+
+
 def test_the_business_cutoff_is_consequential_on_a_real_fixture():
     # t01 (test): calendar_scheduling is confidently selected (modal level 3). Flip its stored
     # answer to RELATED_HIGH -- modal level 1, but still scored well clear of t01's own
@@ -424,7 +444,7 @@ def test_deleting_the_business_cutoff_changes_a_reported_outcome_on_the_committe
     backend, questions = _real_backend_and_questions()
     examples_by_task = helpers.group_by_task_id(load_inputs(RECIPE))
     labels = load_labels(RECIPE)
-    margin_threshold = 0.4033333333333334
+    margin_threshold = _frozen_margin_threshold(backend, questions, labels)
 
     for split in ("validation", "test"):
         with_cutoff, gold_best = _selections(
@@ -450,7 +470,7 @@ def test_deleting_the_margin_check_changes_a_reported_outcome_on_the_committed_f
     backend, questions = _real_backend_and_questions()
     examples_by_task = helpers.group_by_task_id(load_inputs(RECIPE))
     labels = load_labels(RECIPE)
-    margin_threshold = 0.4033333333333334
+    margin_threshold = _frozen_margin_threshold(backend, questions, labels)
 
     for split in ("validation", "test"):
         with_margin, gold_best = _selections(
@@ -465,23 +485,23 @@ def test_deleting_the_margin_check_changes_a_reported_outcome_on_the_committed_f
 
 
 def test_no_confidence_gate_could_have_caught_the_wrong_selections_without_also_losing_correct_ones():
-    # The measurement helpers.py's own comment above select_skill relies on, checked directly:
-    # every wrong auto-selection on the committed fixtures shares the single highest confidence
-    # observed anywhere in either split with several genuinely correct selections, so no
-    # confidence gate -- at any threshold -- can separate the mistakes from the correct answers
-    # they are tied with. A fixture edit that broke this property (made a wrong selection's
-    # confidence strictly higher, or strictly lower, than every correct one) would fail this
-    # test, which is what keeps helpers.py's comment honest.
+    # The measurement helpers.py's own comment above select_skill relies on, checked directly,
+    # per split rather than pooled: each split's own wrong auto-selection shares the highest
+    # confidence among that split's auto-selected tasks with a genuinely correct one, so no
+    # confidence gate -- at any threshold -- can separate that split's mistake from the correct
+    # answers it is tied with. Checking per split (not just the pooled maxima) means lowering
+    # either v22's or t05's confidence alone, leaving the other at the top, still fails this
+    # test on the split that moved -- not only when both move together.
     backend, questions = _real_backend_and_questions()
     examples_by_task = helpers.group_by_task_id(load_inputs(RECIPE))
     labels = load_labels(RECIPE)
-    margin_threshold = 0.4033333333333334
+    margin_threshold = _frozen_margin_threshold(backend, questions, labels)
 
-    wrong_confidences, correct_confidences = [], []
     for split in ("validation", "test"):
         selections, gold_best = _selections(
             split, margin_threshold, backend, questions, examples_by_task, labels
         )
+        wrong_confidences, correct_confidences = [], []
         for s in selections:
             if s.outcome != helpers.SELECT:
                 continue
@@ -495,12 +515,13 @@ def test_no_confidence_gate_could_have_caught_the_wrong_selections_without_also_
                 correct_confidences if s.skill_id in gold_best[s.task_id] else wrong_confidences
             ).append(answer.confidence)
 
-    assert wrong_confidences, "expected at least one wrong auto-selection"
-    assert correct_confidences, "expected at least one correct auto-selection"
-    assert math.isclose(max(wrong_confidences), max(correct_confidences), abs_tol=1e-9), (
-        "expected every wrong selection's confidence to be tied with the highest confidence "
-        "among correct selections -- the property a confidence gate cannot act on"
-    )
+        assert wrong_confidences, f"expected at least one wrong auto-selection on {split}"
+        assert correct_confidences, f"expected at least one correct auto-selection on {split}"
+        assert math.isclose(max(wrong_confidences), max(correct_confidences), abs_tol=1e-9), (
+            f"expected {split}'s wrong selection's confidence to be tied with the highest "
+            f"confidence among {split}'s correct selections -- the property a confidence gate "
+            f"cannot act on"
+        )
 
 
 def test_margin_threshold_frozen_on_validation_matches_the_committed_fixtures():

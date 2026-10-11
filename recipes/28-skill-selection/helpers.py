@@ -213,28 +213,29 @@ def rank_judgments(judgments: list[Judgment]) -> list[Judgment]:
     return sorted(judgments, key=lambda j: -j.score)
 
 
-# Why this rule has two review branches, not three. An earlier draft also gated on the top
-# answer's own Score `.confidence` (the reason a review would carry, had it fired:
+# Why this rule has two review branches, not three. This rule has no third, separate check on
+# each top answer's own Score `.confidence` (the reason a review would carry, had it fired:
 # "confidence below the threshold" -- the lexicon's exact words for a confidence-gated review,
-# docs/glossary.md#review). It was removed -- not because a `Score` recipe never needs one (it
-# can, and most of this cookbook's recipes do), but because, specifically on this recipe's own
-# committed fixtures, with the margin threshold this recipe actually freezes, no confidence gate
-# can do useful work. This is a measured property of this fixture set and this frozen
-# threshold, not a property of the rubric or of `Score` answers in general; a different recipe,
-# or a differently-drawn set of tasks for this one, could easily need the gate back.
+# docs/glossary.md#review) -- not because a `Score` recipe never needs one (it can, and most of
+# this cookbook's recipes do), but because, specifically on this recipe's own committed
+# fixtures, with the margin threshold this recipe actually freezes, one could not do useful
+# work. This is a measured property of this fixture set and this frozen threshold, not a
+# property of the rubric or of `Score` answers in general; a different recipe, or a
+# differently-drawn set of tasks for this one, could easily need the gate back.
 #
 # The measurement: at the frozen margin threshold, every task this rule auto-selects (never
 # reviewed) on `validation` and `test` combined ranges from confidence 0.19 up to 0.78. Exactly
-# two of those selections are wrong (`v22`, `t05`), and both happen to sit at 0.78 -- the single
-# highest confidence anywhere in either split, tied with several genuinely correct selections
-# (`v01`, `v08`, `v09`, `v10` and their `test` counterparts) at that same value. A confidence
-# gate set anywhere below 0.78 would hold back some of the stretch of correct, lower-confidence
-# selections (0.19 up to just under 0.78) while still letting both wrong ones through, since
-# they are tied with the gate-clearing correct ones at the top; a gate set at or above 0.78
-# would hold back everything, the two mistakes included, but also every other selection this
-# rule gets right. On these fixtures, a confidence gate can only cost coverage -- it cannot
-# reduce risk, because the mistakes are not distinguishable by confidence from the correct
-# answers they are tied with. `tests/test_helpers.py` checks this measurement directly
+# two of those selections are wrong (`v22`, `t05`), and both sit at 0.78 -- the top of that
+# range, tied with two genuinely correct selections there too (`v01`, `t01`). That is the
+# highest confidence among auto-selected tasks' own top answers, not the highest confidence of
+# any stored answer anywhere: `t05`'s own `doc_search` candidate, never selected, scores higher
+# still, at 0.92. Any gate at or below 0.78 keeps both mistakes in the auto-selected set, since
+# confidence alone does not distinguish them from the correct answers tied with them there; the
+# only gate that excludes the mistakes is one set strictly above 0.78, and that gate excludes
+# every other selection this rule gets right too. On these fixtures, a confidence gate can only
+# cost coverage -- it cannot reduce risk, because the mistakes are not distinguishable by
+# confidence from the correct answers they are tied with. `tests/test_helpers.py` checks this
+# measurement directly, per split
 # (``test_no_confidence_gate_could_have_caught_the_wrong_selections_without_also_losing_correct_ones``),
 # so a future fixture edit that changes it is caught rather than leaving this comment stale.
 def select_skill(task_id: str, judgments: list[Judgment], margin_threshold: float) -> Selection:
