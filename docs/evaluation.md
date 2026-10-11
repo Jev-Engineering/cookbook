@@ -502,7 +502,7 @@ branch".** `outcome_curve(confidences, correct, exempt=None)` equals `selective_
 confidences)` exactly, by construction — `exempt=None` is unconditionally no exemptions, so this
 holds for *any* rule, confidence-only or not, as long as `exempt` is actually left empty. The
 trap is passing something else there by mistake. Recipe 06 (`pool_label_decisions`/
-`pool_label_outcomes`) is a genuinely confidence-only rule: one global `uncertain` gate (`0.1200`)
+`pool_label_outcomes`) is a genuinely confidence-only rule: one global confidence gate (`0.1200`)
 is its only review branch, no fallback label. Its own `accepted` array (what `pool_label_outcomes`
 builds, and what `evaluate_outcomes` correctly takes) is `confidence >= 0.1200` — a *fixed*
 snapshot of that one gate. Reusing that array as `outcome_curve`'s `exempt` argument (instead of

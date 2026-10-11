@@ -76,6 +76,15 @@ Run the lint, test and hygiene commands from this document locally before openin
 request. Third-party actions are pinned to full commit SHAs with the version in a
 comment; bump them deliberately, and keep the permissions at `contents: read`.
 
+`pytest` above does not run every test in `tests/test_recipe_guard.py`: `pyproject.toml`'s
+`addopts` deselects the `catalog_audit` marker by default. The one test carrying that marker,
+`test_every_recipe_is_linked_from_some_other_recipes_next_steps`, checks that every published
+recipe is the target of at least one other recipe's Next steps link; a new recipe's own pull
+request can never satisfy it, because no recipe on `main` may link forward to one that is not
+yet published and a recipe pull request may change only its own folder. Run it by hand at each
+wave close-out, after the close-out sweep has added the missing backlinks:
+`pytest -m catalog_audit tests/test_recipe_guard.py`.
+
 ### Notebook checks (workflow `Notebooks`)
 
 | Check name | What it runs |

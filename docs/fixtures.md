@@ -241,13 +241,16 @@ message names the file and the line or id, for example
 
 ## Per-item option order
 
-Whenever a recipe needs a per-example order it does not want to come from the data itself --
+Whenever a recipe needs a per-example order it does not want to come from the data itself —
 which candidate a `Choice` lists first, which of two answers is shown first in a pairwise
-comparison -- derive it from
+comparison — derive it from
 `jev_cookbook.fixtures.stable_permutation(f"{recipe}:{example_id}", n)` (or
 `stable_shuffle(seed_key, items)` to get the items themselves back in that order), never from
 `random.shuffle` and never from the position an item already has in the authored list or in
-`ROWS`.
+`ROWS`. `{recipe}` here is the recipe's own slug (`"12-thesaurus-word-selection"`, never the bare
+issue number `"12"` or `12`): a seed key is a string a person reads while debugging a replay
+miss, and the slug is what the rest of the fixture tooling, and a recipe's own `helpers.py`,
+already use to name the recipe.
 
 Two different things go wrong otherwise:
 
@@ -261,7 +264,7 @@ Two different things go wrong otherwise:
   (Durstenfeld's Fisher-Yates) calling nothing but `random()`, so it is pinned forever (see
   `src/jev_cookbook/fixtures/permutation.py` for the full construction, and issue #181).
 - **List position proxies grouped gold.** Fixtures are usually authored gold-candidate-first,
-  for readability, and often written a whole target word or topic at a time -- so the authored
+  for readability, and often written a whole target word or topic at a time — so the authored
   order is correlated with the label, and a frozen rule that always picks "option 1" can look
   right for the wrong reason (recipe 12 hit exactly this: an earlier draft that asked Jev in
   authored order let "always answer option 1" score as well as the real rule). Deriving the
@@ -280,9 +283,8 @@ For a binary choice such as which of two candidates is shown first, use `n = 2`:
 `stable_permutation(seed_key, 2)[0] == 0` says the first candidate keeps its place.
 `stable_permutation`/`stable_shuffle` live in the shared package precisely so every recipe's
 per-item order is derived the same documented-stable way; recipe 12's `shuffled_candidates`
-(keyed on `f"{RECIPE_SLUG}:{item_id}"`, calling `stable_shuffle`) and recipe 23's
-`assign_first_shown` (keyed on `f"{recipe}:{comparison_id}"`, calling `stable_permutation`) are
-two such call sites, each deriving its own per-item order the same way.
+(candidate order via `stable_shuffle`) and recipe 23's `assign_first_shown` (a pairwise side via
+`stable_permutation(..., 2)`) are the two shapes this takes in practice.
 
 ## Writing fixtures
 
