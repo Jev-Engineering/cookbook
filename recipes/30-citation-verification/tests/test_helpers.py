@@ -1,5 +1,6 @@
 """Tests for recipe 30's helpers. They load the helpers by file path."""
 
+import functools
 import importlib.util
 import json
 from pathlib import Path
@@ -38,13 +39,17 @@ def _load_module_at(path, name):
     return module
 
 
-def _real_frozen_threshold():
+@functools.lru_cache(maxsize=1)
+def real_threshold():
     """The threshold this recipe's own notebook freezes, recomputed independently from the
     real, committed fixtures with ``helpers.choose_threshold`` (``select_confidence_threshold``
     pinned to ``helpers.MIN_COVERAGE``) -- the same inputs and the same objective the
-    notebook's own selection cell uses, so every test below that needs "the frozen gate" reads
-    it from here rather than a bare literal that could silently stop matching what the
-    notebook actually does."""
+    notebook's own selection cell uses, so every test below that needs "the frozen gate" calls
+    this rather than a bare literal that could silently stop matching what the notebook
+    actually does. Cached (computed once per test session, not once per call) and, deliberately,
+    never called at import time: the one deliberately-unresolved-citation mutation this recipe's
+    PR description proves against should break only the tests that actually call this, not
+    every test in the file through a collection-time side effect."""
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
     examples = load_inputs(RECIPE)
@@ -55,12 +60,6 @@ def _real_frozen_threshold():
     correct = [answers[e.id].choice == labels[e.id] for e in resolved]
     confidence = [answers[e.id].confidence for e in resolved]
     return helpers.choose_threshold(correct, confidence)
-
-
-# Computed once, from the real fixtures, at collection time: every test below that needs "the
-# frozen gate" uses this, never a bare literal, so a change to MIN_COVERAGE, to the resolved-
-# citation filter, or to the fixtures themselves moves every test that depends on it together.
-REAL_THRESHOLD = _real_frozen_threshold()
 
 
 def test_the_options_come_from_options():
@@ -329,7 +328,13 @@ def test_citation_resolution_is_independently_consequential_on_a_real_fixture():
     a bare ``None`` by hand -- so a mutation that neuters ``resolve_citation`` (makes it return
     a passage for every citation, ``v-broken-01``'s fabricated one included) breaks this test
     directly: the derivation below would then try to decide ``v-broken-01`` against the
-    backend, which holds no stored answer for it, and raise."""
+    backend, which holds no stored answer for it, and raise.
+
+    The gate used below is a fixed, deliberately low ``0.1``, not ``real_threshold()``:
+    ``v-s1``'s confidence (0.88) clears either one and the forced branch needs no confidence
+    at all, so the exact gate is incidental here -- calling ``real_threshold()`` would add a
+    second, unrelated route to the same dependency this test already means to exercise on
+    purpose through ``answer_via_resolution``, rather than proving anything new."""
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
     examples = {e.id: e for e in load_inputs(RECIPE)}
@@ -342,12 +347,13 @@ def test_citation_resolution_is_independently_consequential_on_a_real_fixture():
 
     v_s1 = examples["v-s1"]
     v_broken_01 = examples["v-broken-01"]
+    gate = 0.1  # incidental to this test; see the docstring
 
     resolved = helpers.classify(
         "v-s1",
         v_s1.fields,
         answer_via_resolution(v_s1),
-        REAL_THRESHOLD,
+        gate,
         actions=ActionLog(),
         queue=ReviewQueue(),
     )
@@ -355,7 +361,7 @@ def test_citation_resolution_is_independently_consequential_on_a_real_fixture():
         "v-broken-01",
         v_broken_01.fields,
         answer_via_resolution(v_broken_01),
-        REAL_THRESHOLD,
+        gate,
         actions=ActionLog(),
         queue=ReviewQueue(),
     )
@@ -377,7 +383,14 @@ def test_the_models_choice_is_independently_consequential_on_a_real_fixture():
     composed verdict, the recorded action and ``flag_agreement`` all flip. A mutation that
     makes ``classify`` ignore ``answer.choice`` (treat every resolved claim as ``supported``
     regardless of what Jev answered) breaks this test directly, because the rebuilt
-    ``contradicted`` answer would then be kept as cited instead of flagged."""
+    ``contradicted`` answer would then be kept as cited instead of flagged.
+
+    The gate used below is a fixed, deliberately low ``0.1``, not ``real_threshold()``: both
+    compared confidences (0.52) clear either one, so the choice of gate is incidental to what
+    this test proves, and calling ``real_threshold()`` here would route this test through
+    ``helpers.resolved_subset``/``resolve_citation`` for no reason this test needs -- exactly
+    the accidental coupling that would make a ``resolve_citation`` mutation wrongly fail a
+    test named for the model's choice instead of for citation resolution."""
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
     examples = {e.id: e for e in load_inputs(RECIPE)}
@@ -389,11 +402,12 @@ def test_the_models_choice_is_independently_consequential_on_a_real_fixture():
     rebuilt_answer = answer_for(helpers.CONTRADICTED, stored_answer.confidence)
     assert rebuilt_answer.confidence == pytest.approx(stored_answer.confidence)
 
+    gate = 0.1  # incidental to this test; see the docstring
     original = helpers.classify(
-        "t-c5-wrong", t_c5.fields, stored_answer, REAL_THRESHOLD, actions=ActionLog(), queue=ReviewQueue()
+        "t-c5-wrong", t_c5.fields, stored_answer, gate, actions=ActionLog(), queue=ReviewQueue()
     )
     rebuilt = helpers.classify(
-        "t-c5-wrong", t_c5.fields, rebuilt_answer, REAL_THRESHOLD, actions=ActionLog(), queue=ReviewQueue()
+        "t-c5-wrong", t_c5.fields, rebuilt_answer, gate, actions=ActionLog(), queue=ReviewQueue()
     )
 
     assert (original.verdict, original.action) == (helpers.SUPPORTED, helpers.ACTION_KEEP)
@@ -441,7 +455,7 @@ def test_stored_answers_are_not_all_right():
     correct = [val_answers[e.id].choice == labels[e.id] for e in validation]
     confidence = [val_answers[e.id].confidence for e in validation]
     threshold = select_confidence_threshold(correct, confidence, min_coverage=helpers.MIN_COVERAGE)
-    assert threshold == pytest.approx(REAL_THRESHOLD)
+    assert threshold == pytest.approx(real_threshold())
 
     test = helpers.resolved_subset([e for e in examples if e.split == "test" and e.id in labels])
     test_answers = {e.id: _decide(backend, questions, e) for e in test}
@@ -458,9 +472,9 @@ def test_the_committed_notebook_freezes_the_threshold_this_recipe_selects():
     does unless something reads what it committed. This reads the committed
     ``notebook.ipynb``'s own stdout for the ``python-rule`` cell (never re-executing it --
     recipe tests never execute notebooks) and checks that the threshold line it prints matches
-    ``REAL_THRESHOLD`` exactly. Swapping the notebook's own selection to a different objective
+    ``real_threshold()`` exactly. Swapping the notebook's own selection to a different objective
     (``target_accuracy=1.0``, say) and re-executing it would print a different value there
-    (0.7500, forcing validation accuracy to 1.0000) while ``REAL_THRESHOLD`` above -- derived
+    (0.7500, forcing validation accuracy to 1.0000) while ``real_threshold()`` above -- derived
     independently through ``helpers.choose_threshold`` -- stays 0.4500, so this test is what
     actually notices, not just the committed-output freshness check."""
     nb = json.loads((RECIPE / "notebook.ipynb").read_text("utf-8"))
@@ -471,5 +485,5 @@ def test_the_committed_notebook_freezes_the_threshold_this_recipe_selects():
         if o.get("output_type") == "stream"
     )
     assert text, "python-rule cell has no committed stdout to check"
-    assert f"{REAL_THRESHOLD:.4f}" in text
-    assert REAL_THRESHOLD == pytest.approx(0.45)
+    assert f"{real_threshold():.4f}" in text
+    assert real_threshold() == pytest.approx(0.45)
