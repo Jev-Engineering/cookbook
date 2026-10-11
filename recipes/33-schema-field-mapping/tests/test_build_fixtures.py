@@ -90,26 +90,6 @@ def test_build_fixtures_separates_inputs_labels_from_responses(tmp_path):
     assert all(v["model"] == "synthetic" for v in after.values())
 
 
-def test_every_stored_answers_top_choice_matches_its_row_spec():
-    """Rule 11 (recipe 30 lineage, #163): a fixture-spec shorthand must never default the
-    label-bearing argument, and every committed stored answer's own top choice must be the one
-    its row's spec names -- not merely close to it, and not some other value a later edit
-    silently substituted. ``answers_for`` reads ``spec["choice"]`` with ``[...]``, never
-    ``.get(..., default)``, so a row missing it would already be a ``KeyError`` at build time;
-    this test additionally proves every row that *did* specify a choice is honoured by the
-    committed ``responses.json``. With ``ambiguous`` and ``unmapped`` both live options here, a
-    default that quietly filled in a real target field for every row would turn every
-    unmapped/ambiguous row into a mapped one without ever raising."""
-    module = load_module_at(SCRIPT, "recipe33_build_fixtures_choice_check")
-    responses = json.loads((RECIPE / "fixtures" / "responses.json").read_text("utf-8"))
-    assert len(module.ROWS) > 1
-    for row in module.ROWS:
-        _ident, _split, task_id, field_name, declared_type, description, _label, spec = row
-        fields = module._fields(task_id, field_name, declared_type, description)
-        key = module.replay_key(module.helpers.build_state(fields), module.QUESTIONS)
-        assert responses[key]["answers"]["target"]["choice"] == spec["choice"]
-
-
 def test_the_generator_reproduces_the_committed_fixtures(tmp_path):
     copy = tmp_path / "33-schema-field-mapping"
     copy.mkdir()

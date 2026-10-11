@@ -37,13 +37,12 @@ and always runs offline. The live backend's default request budget is 25
 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)); every attempt counts
 against that budget, including each retry.
 
-This notebook makes exactly one request per source field it decides, each field decided once and
-reused everywhere it is shown again: 35 fields in `fixtures/`, so **35 requests in live mode**, no
-more. That is above the live backend's default budget of 25, so **raise
-`JEV_COOKBOOK_LIVE_MAX_REQUESTS` to at least 35** before running this notebook live, or it stops
-partway through with `BudgetExceeded`; raise it further still to leave room for retries, since
-every attempt (including a retry) counts against the budget. Never put a key in a notebook or a
-fixture.
+This notebook makes exactly one request for each of the 35 fields in `fixtures/`, each field
+decided once and reused everywhere it is shown again, and no other. That is above the live
+backend's default budget of 25, so **raise `JEV_COOKBOOK_LIVE_MAX_REQUESTS` to at least 35**
+before running this notebook live, or it stops partway through with `BudgetExceeded`; raise it
+further still to leave room for retries, since every attempt (including a retry) counts against
+the budget. Never put a key in a notebook or a fixture.
 
 ## What was and was not measured
 

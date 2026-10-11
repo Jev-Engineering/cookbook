@@ -73,11 +73,10 @@ def _fields(task_id, field_name, declared_type, description):
 # `spec` is {"choice": <option Jev is stored as answering>, "peak": <top probability>,
 # "shares": {<option>: <probability>, ...}}; "choice" and "peak" are always given explicitly --
 # never defaulted -- because a bare-float shorthand that filled in "choice" by default would
-# silently mislabel every row whose intended choice is not the positive case (the exact mistake
-# a recipe 30 draft made and #163 now calls out: see docs/recipe-template.md's lineage of
-# fixture rules). "shares" is only given for the three `ambiguous` rows, where the remaining
-# probability mass must land on the two specific candidates the field's own description is torn
-# between, not spread evenly over every option.
+# silently mislabel every row whose intended choice is not the positive case. "shares" is only
+# given for the three `ambiguous` rows, where the remaining probability mass must land on the
+# two specific candidates the field's own description is torn between, not spread evenly over
+# every option.
 ROWS = [
     # ------------------------------- validation: batch_v01 (2 fields) ----------------------------
     (

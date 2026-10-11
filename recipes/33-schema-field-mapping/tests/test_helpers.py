@@ -1,5 +1,7 @@
 """Tests for recipe 33's helpers. They load the helpers by file path."""
 
+import importlib.util
+import json
 from pathlib import Path
 
 import pytest
@@ -11,6 +13,18 @@ from jev_cookbook.simulation import ReviewQueue
 
 RECIPE = Path(__file__).resolve().parent.parent
 helpers = load_helpers(RECIPE)
+
+
+def _load_build_fixtures():
+    """Import build_fixtures.py by file path, the same way tests/test_build_fixtures.py does,
+    so ROWS and its helper functions are plain Python objects rather than re-parsed output."""
+    spec = importlib.util.spec_from_file_location(
+        "recipe33_build_fixtures_for_helpers_test", RECIPE / "build_fixtures.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
 
 # Literal expected option set, typed independently of helpers.TARGET_SCHEMA so the assertion
 # below is not self-referential (comparing the module's own data to itself).
@@ -77,6 +91,26 @@ def test_every_replay_key_in_the_fixtures_matches_the_current_question():
     questions = helpers.build_questions()
     for example in load_inputs(RECIPE):
         assert example.replay_keys == (replay_key(helpers.build_state(example.fields), questions),)
+
+
+def test_every_stored_answers_top_choice_matches_its_row_spec():
+    """Rule 11 (recipe 30 lineage): a fixture-spec shorthand must never default the label-
+    bearing argument, and every committed stored answer's own top choice must be the one its
+    row's spec names -- not merely close to it, and not some other value a later edit silently
+    substituted. ``build_fixtures.answers_for`` reads ``spec["choice"]`` with ``[...]``, never
+    ``.get(..., default)``, so a row missing it would already be a ``KeyError`` at build time;
+    this test additionally proves every row that *did* specify a choice is honoured by the
+    committed ``responses.json``. With ``ambiguous`` and ``unmapped`` both live options here, a
+    default that quietly filled in a real target field for every row would turn every
+    unmapped/ambiguous row into a mapped one without ever raising."""
+    module = _load_build_fixtures()
+    responses = json.loads((RECIPE / "fixtures" / "responses.json").read_text("utf-8"))
+    assert len(module.ROWS) > 1
+    for row in module.ROWS:
+        _ident, _split, task_id, field_name, declared_type, description, _label, spec = row
+        fields = module._fields(task_id, field_name, declared_type, description)
+        key = module.replay_key(module.helpers.build_state(fields), module.QUESTIONS)
+        assert responses[key]["answers"]["target"]["choice"] == spec["choice"]
 
 
 # ---------------------------------------------------------------------------------------------
@@ -435,10 +469,10 @@ def _rows_by_task(examples, decisions):
     return by_task
 
 
-def _compose_split(examples, decisions):
+def _compose_split(examples, decisions, threshold):
     outcomes = []
     for task_id, rows in sorted(_rows_by_task(examples, decisions).items()):
-        outcomes.extend(helpers.compose_task(task_id, rows, THRESHOLD))
+        outcomes.extend(helpers.compose_task(task_id, rows, threshold))
     return outcomes
 
 
@@ -469,19 +503,35 @@ def test_the_frozen_threshold_objective_is_pinned():
 
 
 def test_stored_answers_are_not_all_right():
-    """A wrong raw answer clearing the gate is a weak guard on its own: `t11-conflict`'s raw
-    choice also clears THRESHOLD wrong, but validation's one-to-one check catches it before it
-    is ever accepted, so it is not the field this test is about. The real guard is on the full
-    composed pipeline (gate_field, then apply_one_to_one): at least one `test` field is
-    *accepted* with the *wrong* final target -- a mistake nothing in this recipe's own
-    validation catches."""
+    """Re-derives the frozen threshold directly (the strong form: a wrong `test` answer must
+    clear a gate re-computed here, not merely exist somewhere). `t11-conflict`'s raw choice also
+    clears the gate wrong, but validation's one-to-one check catches it before it is ever
+    accepted, so a wrong-and-confident raw answer is a necessary condition, not by itself this
+    recipe's lesson: the stronger assertion below is on the full composed pipeline
+    (`gate_field`, then `apply_one_to_one`) -- at least one `test` field is *accepted* with the
+    *wrong* final target, a mistake nothing in this recipe's own validation catches."""
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
     examples = load_inputs(RECIPE)
     labels = load_labels(RECIPE)
+
+    validation = select_split(examples, "validation")
+    val_decisions = _decisions(backend, questions, validation)
+    val_correct = [val_decisions[e.id].choice == labels[e.id] for e in validation]
+    val_confidence = [val_decisions[e.id].confidence for e in validation]
+    threshold = select_confidence_threshold(val_correct, val_confidence, min_coverage=MIN_COVERAGE)
+
     test = select_split(examples, "test")
     test_decisions = _decisions(backend, questions, test)
-    outcomes = _compose_split(test, test_decisions)
+    wrong_and_confident = [
+        e.id
+        for e in test
+        if test_decisions[e.id].choice != labels[e.id]
+        and test_decisions[e.id].confidence >= threshold
+    ]
+    assert wrong_and_confident, "expected at least one confidently wrong raw test answer"
+
+    outcomes = _compose_split(test, test_decisions, threshold)
     accepted_and_wrong = [
         o.field_id
         for o in outcomes
@@ -497,7 +547,7 @@ def test_evaluate_outcomes_reports_a_nonzero_risk_at_both_levels_on_test():
     labels = load_labels(RECIPE)
     test = select_split(examples, "test")
     test_decisions = _decisions(backend, questions, test)
-    outcomes = _compose_split(test, test_decisions)
+    outcomes = _compose_split(test, test_decisions, THRESHOLD)
 
     field_accepted, field_correct = helpers.field_accepted_and_correct(outcomes, labels)
     field_result = evaluate_outcomes(field_accepted, field_correct)
@@ -516,7 +566,7 @@ def test_the_conflict_is_caught_on_both_splits():
     for split in ("validation", "test"):
         split_examples = select_split(examples, split)
         decisions = _decisions(backend, questions, split_examples)
-        outcomes = _compose_split(split_examples, decisions)
+        outcomes = _compose_split(split_examples, decisions, THRESHOLD)
         assert helpers.conflict_count(outcomes) == 2
 
 
@@ -546,7 +596,7 @@ def test_the_review_queue_holds_every_review_outcome_from_both_splits_and_nothin
     for split in ("validation", "test"):
         split_examples = select_split(examples, split)
         decisions = _decisions(backend, questions, split_examples)
-        outcomes = _compose_split(split_examples, decisions)
+        outcomes = _compose_split(split_examples, decisions, THRESHOLD)
         helpers.submit_reviews(queue, outcomes, decisions)
         all_ids |= {e.id for e in split_examples}
 
