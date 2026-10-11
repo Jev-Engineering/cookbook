@@ -75,11 +75,12 @@ fixtures.
 This recipe's pull request changes only `recipes/07-word-sense-selection/`; the root `README.md` is
 generated, and the five generated regions (between the `<!-- catalog:NAME:start -->` /
 `<!-- catalog:NAME:end -->` markers) are regenerated inside this same pull request by a separate
-integration worker after this branch is handed over, never by the recipe builder. Until that
-happens, `Catalog (README is current)` is expected to be red on this pull request, which is not a
-defect to fix here. No sentence anywhere in this folder states or implies Jev's real quality,
-latency, or cost: every number above is a synthetic pipeline check. The full contract is
-[CONTRIBUTING.md](../../CONTRIBUTING.md).
+integration worker after this branch is handed over, never by the recipe builder. While this recipe
+remains unpublished and that has not yet happened, `Catalog (README is current)` is expected to be
+red on its pull request, which is not a defect to fix here; once the catalog is regenerated for it,
+the check turns green and stays that way. No sentence anywhere in this folder states or implies
+Jev's real quality, latency, or cost: every number above is a synthetic pipeline check. The full
+contract is [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ## Sources
 
