@@ -321,10 +321,17 @@ def group_by_task_id(examples: list[Any]) -> dict[str, list[Any]]:
 
 
 # The objective below freezes the highest-accuracy cut-off among those that still answer at
-# least this share of the margin pool, rather than `target_accuracy=1.0`: a perfect-
-# validation-accuracy target is true by construction here (the pool has a feasible threshold
-# that clears every wrong example) and would tell a reader nothing about the trade-off
-# actually made. Chosen, not derived -- a different value would freeze a different threshold,
+# least this share of the margin pool, rather than `target_accuracy=1.0`: on this pool, a
+# perfect-validation-accuracy target is not merely a weaker choice than this one -- it is
+# infeasible. The pool's joint-maximum margin (0.7800) is held by two examples, one safe
+# (`v01`) and one unsafe (`v22`), so every non-empty answered set contains an error; the
+# highest accuracy any threshold on this pool reaches is 0.9500, and
+# `select_confidence_threshold(safe, margin, target_accuracy=1.0)` raises `ValueError: no
+# threshold reaches accuracy 1.0` rather than handing back a flattering number.
+# `tests/test_helpers.py` asserts that directly
+# (`test_perfect_validation_accuracy_is_infeasible_on_the_margin_pool`), so a future fixture
+# edit that makes the target feasible again is caught rather than leaving this comment stale a
+# second time. Chosen, not derived -- a different value would freeze a different threshold,
 # which is exactly why `tests/test_helpers.py` pins this constant and the fact that
 # `select_margin_threshold` calls `min_coverage=`, never `target_accuracy=`.
 MARGIN_MIN_COVERAGE = 0.5

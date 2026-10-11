@@ -466,7 +466,7 @@ def test_deleting_the_margin_check_changes_a_reported_outcome_on_the_committed_f
     # Same standard, for the margin: without it (margin_threshold=0.0, which the real
     # select_skill's own `margin < margin_threshold` comparison can never fail against a
     # margin that is always >= 0), the "two skills equally plausible" tasks (v04, t04) become
-    # automatic, unreviewed guesses, changing coverage.
+    # automatic, unreviewed guesses, changing both coverage and accuracy.
     backend, questions = _real_backend_and_questions()
     examples_by_task = helpers.group_by_task_id(load_inputs(RECIPE))
     labels = load_labels(RECIPE)
@@ -482,6 +482,7 @@ def test_deleting_the_margin_check_changes_a_reported_outcome_on_the_committed_f
         result_with = evaluate_outcomes(accepted_with, correct_with)
         result_without = evaluate_outcomes(accepted_without, correct_without)
         assert result_with.coverage != result_without.coverage
+        assert result_with.accuracy != result_without.accuracy
 
 
 def test_no_confidence_gate_could_have_caught_the_wrong_selections_without_also_losing_correct_ones():
@@ -544,6 +545,39 @@ def test_margin_threshold_frozen_on_validation_matches_the_committed_fixtures():
     assert safe.count(False) == 3  # v04 (tied), v05 and v22 (wrong), each unsafe to auto-answer
     margin_threshold = helpers.select_margin_threshold(safe, margin)
     assert math.isclose(margin_threshold, 0.4033333333333334, abs_tol=1e-9)
+
+
+def test_perfect_validation_accuracy_is_infeasible_on_the_margin_pool():
+    # The property helpers.py's own comment above MARGIN_MIN_COVERAGE relies on, checked
+    # directly: on the real margin pool, a target_accuracy=1.0 objective is not merely a
+    # weaker choice than min_coverage -- it is unreachable, because the pool's own
+    # joint-maximum margin is held by both a safe example (v01) and an unsafe one (v22), so
+    # no non-empty answered set is ever error-free. A fixture edit that made a perfect
+    # threshold reachable again (by, say, giving v22 a margin below every safe example's)
+    # would make this test stop raising, catching the comment going stale a second time.
+    backend, questions = _real_backend_and_questions()
+    examples_by_task = helpers.group_by_task_id(
+        [e for e in load_inputs(RECIPE) if e.split == "validation"]
+    )
+    labels = load_labels(RECIPE)
+    judgments_by_task = {
+        tid: list(_real_judgments(tid, examples_by_task, backend, questions).values())
+        for tid in examples_by_task
+    }
+    gold_best_by_task = {
+        tid: helpers.gold_best_skills({e.fields["skill_id"]: labels[e.id] for e in exs})
+        for tid, exs in examples_by_task.items()
+    }
+    safe, margin = helpers.pool_for_margin_selection(judgments_by_task, gold_best_by_task)
+
+    max_margin = max(margin)
+    holders_safe = {s for s, m in zip(safe, margin, strict=True) if m == max_margin}
+    assert holders_safe == {True, False}, (
+        "expected the pool's joint-maximum margin to be held by both a safe and an unsafe "
+        "example -- the property that makes target_accuracy=1.0 infeasible here"
+    )
+    with pytest.raises(ValueError, match="no threshold reaches accuracy 1.0"):
+        select_confidence_threshold(safe, margin, target_accuracy=1.0)
 
 
 # --------------------------------------------------------------------- not all answers are right
