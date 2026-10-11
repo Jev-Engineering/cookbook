@@ -63,19 +63,30 @@ def branch_prints_n(branch: list[ast.stmt]) -> bool:
 
 
 def disclosure_branches(source: str, signature: str) -> list[list[ast.stmt]]:
-    """Every ``if``/``elif``/``else`` branch, at the top level of ``source``, whose own
-    statements carry ``signature`` (the disclosure sentence) -- found by parsing with ``ast`` and
-    anchoring on the branch that actually holds it, rather than by a string split on the first
-    ``else:``. The split assumed the disclosure's branch always comes first; it does not survive
-    an inserted ``elif`` (the disclosure stays in the ``if`` while ``N`` moves to the ``elif``) or
-    an inverted ``if not offline: ... else:`` (the disclosure moves to the ``else``) -- both pass
-    a split-based check while the rule is broken. Anchoring on content rather than position
-    catches both: the branch returned here is whichever one the disclosure is actually in,
-    wherever that is."""
+    """Every ``if``/``elif``/``else`` branch, anywhere in ``source`` -- not only at the top level
+    -- whose own statements carry ``signature`` (the disclosure sentence) -- found by parsing
+    with ``ast`` and anchoring on the branch that actually holds it, rather than by a string
+    split on the first ``else:``. The split assumed the disclosure's branch always comes first;
+    it does not survive an inserted ``elif`` (the disclosure stays in the ``if`` while ``N``
+    moves to the ``elif``) or an inverted ``if not offline: ... else:`` (the disclosure moves to
+    the ``else``) -- both pass a split-based check while the rule is broken. Anchoring on content
+    rather than position catches both: the branch returned here is whichever one the disclosure
+    is actually in, wherever that is.
+
+    Walking with ``ast.walk`` rather than scanning only ``tree.body`` also matters for nesting:
+    an ``if``/``else`` one level deeper (the whole disclosure cell wrapped in, say,
+    ``if backend is not None:``) would otherwise be invisible to a top-level-only scan, which
+    finds only the *outer* ``if`` and treats its entire body -- offline branch, live branch, and
+    the live branch's own ``N:`` print, all three -- as one undifferentiated "branch" containing
+    the disclosure. That collapses the branch distinction the whole check exists to make: the
+    live branch's ``N:`` print then satisfies ``branch_prints_n`` even when the offline branch,
+    considered on its own, prints no ``N`` at all. Walking the whole tree finds the *inner*
+    ``if``/``else`` too, so its own offline and live branches are checked independently, at any
+    nesting depth."""
     tree = ast.parse(source)
     return [
         branch
-        for node in tree.body
+        for node in ast.walk(tree)
         if isinstance(node, ast.If)
         for branch in if_elif_else_branches(node)
         if signature in branch_text(branch)

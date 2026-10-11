@@ -22,33 +22,41 @@ the ``backend = ...`` construction, which is a different call shape in replay vs
 not a different literal), the counted-noun phrase in the "N: ..." line (``scored`` vs.
 ``val_examples``/``test_examples``; recipe 23 counts "test comparisons" and 24 "test tickets", so
 the noun varies legitimately across the published set, and the template and the scaffold already
-disagree on it between themselves) -- and then asserts what is left is the same. For ``measured``
-that is plain equality (the two sides are the same length once the noun is masked). For ``setup``
-it is "every statement the scaffold emits appears, in order, in the template", because the
-template is a filled-in worked example and legitimately carries extra statements (``selection``)
-the scaffold's still-TODO evaluation cells have no use for yet; this degenerates to equality
-whenever the two sides are in fact the same length, so one helper serves both cells.
+disagree on it between themselves) -- and then asserts what is left is the same, on both cells,
+by EQUALITY.
 
-Either way this is one assertion per cell, not a list of remembered rules, and it is blind to
-the specific property #215 found: deleting the offline ``N`` print (or any other statement, from
-either side) changes that side's statement sequence, which the comparison catches without this
-module's code ever testing for the word "N". See
+The ``setup`` cell's template side carries exactly one statement the scaffold's still-TODO
+evaluation cells have no use for yet: ``selection``, used only by the template's own
+fully-written evaluation cells. That one statement, and no other, is named in
+``TEMPLATE_ONLY_SETUP_STATEMENTS`` and filtered out of the template's side before the equality
+check runs. Naming it rather than reaching for a weaker check (a subsequence, "every statement
+the scaffold emits appears, in order, in the template's") matters because a subsequence check
+is satisfied by *any* omission on the scaffold side -- a shorter list is still a subsequence of a
+longer one. That is exactly #215's own defect direction: the scaffolder silently dropping
+something the template has. Equality modulo the one named allowance closes that direction too:
+the scaffolder dropping, adding, or rewriting any statement on either side -- including
+``selection`` growing a second template-only statement nobody added to the allowance -- fails
+the comparison. See ``test_the_setup_comparison_catches_a_dropped_statement`` for the proof in
+that direction and ``test_the_setup_comparison_catches_a_changed_offline_definition`` for a
+reword.
+
+This is one assertion per cell, not a list of remembered rules, and it is blind to the specific
+property #215 found: deleting the offline ``N`` print (or any other statement, from either side)
+changes that side's statement sequence, which the comparison catches without this module's code
+ever testing for the word "N". See
 ``test_the_measured_comparison_is_blind_to_n_and_still_catches_215`` for the proof, and the pull
 request description for the on-disk mutation against the real generator that backs the same
 claim.
 
-PLAINLY, so a reader is not misled about the strength of either guarantee: ``measured`` is
-checked for EQUALITY -- the scaffold's and the template's normalised statement lists must be the
-same list, in the same order, nothing more on either side. ``setup`` is checked as an ordered
-SUBSEQUENCE -- every normalised statement the scaffold emits must appear, in order, in the
-template's, but the template is allowed extra statements (``selection``) the scaffold does not
-emit. A subsequence check is weaker than equality: it cannot notice the template losing a
-statement the scaffold never had in the first place. It is the right check here only because the
-template is a genuinely larger, filled-in worked example and the scaffold a smaller skeleton --
-not a device to make a mismatch pass. Every statement the two sides *do* share is still compared
-exactly, so a change to any of ``scored``, ``offline``, ``check``, or the ``run_header(...)``
-call -- on either side -- still fails the check (see
-``test_the_setup_comparison_catches_a_changed_offline_definition``).
+PLAINLY, so a reader is not misled about the strength of either guarantee: both ``measured`` and
+``setup`` are checked for EQUALITY of the two sides' normalised statement lists, in the same
+order. ``setup``'s equality is taken after filtering the one named, template-only statement in
+``TEMPLATE_ONLY_SETUP_STATEMENTS`` out of the template's side; every other statement either side
+carries must match the other's exactly, including by not being dropped. Nothing is checked only
+as a subsequence. The one thing neither comparison can see is a drift applied identically to
+both sides at once (that is inherent to any agreement check, not a gap specific to this one), and
+neither covers the cells outside ``setup`` and ``measured`` -- see CONTRIBUTING.md section 2 for
+why those two are the ones that matter here.
 """
 
 from __future__ import annotations
@@ -145,37 +153,44 @@ def mode_neutral_statements(source: str) -> list[str]:
     ]
 
 
-def _is_subsequence(small: list[str], big: list[str]) -> bool:
-    """True if every item of ``small`` appears in ``big``, in the same relative order (``big``
-    may hold extra items between matches). Equivalent to equality when the two lists are the
-    same length, which is exactly what lets one helper serve both cells below: ``measured`` is
-    the same length on both sides once the noun is masked, so this degenerates to plain
-    equality there; ``setup``'s template side carries the extra, legitimately template-only
-    ``selection`` statement, so this is a genuine subsequence check there."""
-    it = iter(big)
-    return all(any(x == y for y in it) for x in small)
+# The complete list of statements the template's ``setup`` cell is allowed to carry that the
+# scaffold's still-TODO cells have no use for yet. ``selection`` is used only by the template's
+# own fully-written evaluation cells. Any statement the template carries that is not in this
+# tuple, and any statement the scaffold drops, adds, or rewrites relative to what remains, fails
+# the equality check below -- see the module docstring's "PLAINLY" paragraph.
+TEMPLATE_ONLY_SETUP_STATEMENTS = (
+    "selection = ' (a selection step, not a reported result)'",
+)
+
+
+def _setup_template_stmts(source: str) -> list[str]:
+    """The template's ``setup`` cell, normalised, with the one named template-only statement in
+    ``TEMPLATE_ONLY_SETUP_STATEMENTS`` filtered out -- what the scaffold's ``setup`` cell must
+    equal."""
+    return [s for s in mode_neutral_statements(source) if s not in TEMPLATE_ONLY_SETUP_STATEMENTS]
 
 
 @pytest.mark.parametrize("mode", ["replay", "scripted"])
-def test_the_scaffolded_setup_cell_is_a_subsequence_of_the_templates(mode):
+def test_the_scaffolded_setup_cell_matches_the_template_modulo_the_named_allowance(mode):
     """Every mode-neutral statement the scaffold's ``setup`` cell emits -- ``scored``,
     ``offline``, ``check``, and the ``run_header(...)`` call with its ``n_examples=len(scored)``
-    -- must appear, in the same order, in the template's ``setup`` cell. A statement the scaffold
-    adds, drops, or rewrites relative to the template fails this; a statement only the template
-    has (``selection``, used by its own fully-written evaluation cells) does not.
+    -- must equal, in the same order, the template's ``setup`` cell once the one named,
+    template-only statement in ``TEMPLATE_ONLY_SETUP_STATEMENTS`` (``selection``, used by the
+    template's own fully-written evaluation cells) is filtered out of the template's side. A
+    statement either side adds, drops, or rewrites relative to the other fails this -- including
+    the scaffold dropping a statement the template has, which is issue #215's own defect
+    direction (see ``test_the_setup_comparison_catches_a_dropped_statement`` below).
 
-    This is a SUBSEQUENCE check, not equality (contrast
-    ``test_the_scaffolded_measured_cell_matches_the_template`` below, which is equality) --
-    deliberately weaker, because the template legitimately carries more than the scaffold here.
-    See the module docstring's "PLAINLY" paragraph for what that costs and why it is still the
-    right check."""
+    This is EQUALITY, exactly like ``test_the_scaffolded_measured_cell_matches_the_template``
+    below, not a weaker subsequence check: see the module docstring's "PLAINLY" paragraph."""
     generated = _cell(new_recipe.notebook_cells(CATALOG, RECIPE, mode=mode), "setup")
     template = _cell(TEMPLATE_NOTEBOOK["cells"], "setup")
     generated_stmts = mode_neutral_statements(_source(generated))
-    template_stmts = mode_neutral_statements(_source(template))
-    assert _is_subsequence(generated_stmts, template_stmts), (
-        f"scaffolded setup cell ({mode}) is not a subsequence of the template's after "
-        f"normalisation:\ngenerated: {generated_stmts}\ntemplate: {template_stmts}"
+    template_stmts = _setup_template_stmts(_source(template))
+    assert generated_stmts == template_stmts, (
+        f"scaffolded setup cell ({mode}) does not match the template's after normalisation "
+        f"(modulo {TEMPLATE_ONLY_SETUP_STATEMENTS}):\ngenerated: {generated_stmts}\n"
+        f"template: {template_stmts}"
     )
 
 
@@ -201,9 +216,9 @@ def test_the_scaffolded_measured_cell_matches_the_template(mode):
 def test_the_measured_comparison_is_blind_to_n_and_still_catches_215():
     """Reproduces the historical #215 defect directly against the real generated cell -- delete
     the offline branch's own ``N:`` print -- and shows the comparison disagrees, without this
-    module, ``mode_neutral_statements`` or ``_is_subsequence`` ever naming "N": the two sides
-    simply no longer have the same number of statements in the offline branch. This is the
-    "blind to any rule about N" standard both #219 reviewers asked for criterion 2 to meet."""
+    module or ``mode_neutral_statements`` ever naming "N": the two sides simply no longer have
+    the same number of statements in the offline branch. This is the "blind to any rule about N"
+    standard both #219 reviewers asked for criterion 2 to meet."""
     generated = _cell(new_recipe.notebook_cells(CATALOG, RECIPE, mode="replay"), "measured")
     template_stmts = mode_neutral_statements(_source(_cell(TEMPLATE_NOTEBOOK["cells"], "measured")))
     source = _source(generated)
@@ -235,11 +250,41 @@ def test_the_setup_comparison_catches_a_changed_offline_definition():
     is also caught, proving the structural comparison is not special-cased to the measured
     cell's own property."""
     generated = _cell(new_recipe.notebook_cells(CATALOG, RECIPE, mode="replay"), "setup")
-    template_stmts = mode_neutral_statements(_source(_cell(TEMPLATE_NOTEBOOK["cells"], "setup")))
+    template_stmts = _setup_template_stmts(_source(_cell(TEMPLATE_NOTEBOOK["cells"], "setup")))
     source = _source(generated)
     broken = source.replace(
         'offline = backend.mode in ("synthetic", "scripted")',
         'offline = backend.mode == "synthetic"',
     )
     assert broken != source
-    assert not _is_subsequence(mode_neutral_statements(broken), template_stmts)
+    assert mode_neutral_statements(broken) != template_stmts
+
+
+@pytest.mark.parametrize(
+    "removed_line",
+    [
+        pytest.param(
+            '\ncheck = " (a pipeline check, not a Jev result)" if offline else ""',
+            id="check",
+        ),
+        pytest.param("\napply_style()", id="apply_style"),
+        pytest.param(
+            '\nscored = [e for e in examples if e.split not in ("train", "demo")]',
+            id="scored",
+        ),
+    ],
+)
+def test_the_setup_comparison_catches_a_dropped_statement(removed_line):
+    """Issue #215 was the scaffolder silently *dropping* a statement the template has -- not
+    adding or rewording one. This reproduces that direction directly against the real generated
+    ``setup`` cell: delete one of its own statements and show the comparison disagrees. A
+    subsequence check (a shorter generated list is still a subsequence of a longer template list)
+    would not catch any of these three; equality modulo ``TEMPLATE_ONLY_SETUP_STATEMENTS`` catches
+    all three, because dropping a statement changes the length, and the two normalised lists are
+    no longer the same list."""
+    generated = _cell(new_recipe.notebook_cells(CATALOG, RECIPE, mode="replay"), "setup")
+    template_stmts = _setup_template_stmts(_source(_cell(TEMPLATE_NOTEBOOK["cells"], "setup")))
+    source = _source(generated)
+    broken = source.replace(removed_line, "", 1)
+    assert broken != source, "the mutation did not change anything -- the line was not found"
+    assert mode_neutral_statements(broken) != template_stmts
