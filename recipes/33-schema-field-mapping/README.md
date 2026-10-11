@@ -6,7 +6,7 @@ Map source field descriptions to a bounded target schema with ambiguous and unma
 
 ## What it teaches
 
-TODO: two or three sentences: the decision, what Jev is asked, what Python owns.
+Jev reads one source field at a time -- its name, its declared type, and a full description of what it actually holds -- from a fabricated legacy export, and answers one `Choice` over the eight fields of a fixed target schema, plus `ambiguous` and `unmapped`. Jev never sees more than one field at a time and never decides whether a proposed mapping is actually usable: Python does that afterward, in two steps (`helpers.gate_field`, then `helpers.apply_one_to_one`), checking that the declared type is compatible with the chosen target and that no two source fields were mapped to the same one. The notebook shows a field whose name is actively misleading and whose description resolves it anyway, two source fields that collide on the same target even though neither request could have known about the other, and an evaluation that reports mapping accuracy and the conflicts Python's validation catches, at the level of one field and at the level of a whole source batch.
 
 ## Run it offline
 
@@ -36,26 +36,34 @@ of this repository), or record answers with the recorder described in
 and always runs offline. The live backend's default request budget is 25
 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)); every attempt counts
 against that budget, including each retry.
-TODO: state how many calls this notebook makes in live mode (one per example it decides,
-each example decided once, never twice); if that count is more than 25, or close to it once
-retries are counted, tell the reader here to raise `JEV_COOKBOOK_LIVE_MAX_REQUESTS` to at least
-it before running this notebook live, or it stops partway through with `BudgetExceeded`. Never
-put a key in a notebook or a fixture.
+
+This notebook makes exactly one request per source field it decides, each field decided once and
+reused everywhere it is shown again: 35 fields in `fixtures/`, so **35 requests in live mode**, no
+more. That is above the live backend's default budget of 25, so **raise
+`JEV_COOKBOOK_LIVE_MAX_REQUESTS` to at least 35** before running this notebook live, or it stops
+partway through with `BudgetExceeded`; raise it further still to leave room for retries, since
+every attempt (including a retry) counts against the budget. Never put a key in a notebook or a
+fixture.
 
 ## What was and was not measured
 
 - **Mode:** synthetic (offline replay of hand-written answers). Not measured live.
-- **Model, capture date:** not applicable while every answer is synthetic.
-  TODO: if this recipe records real inference, replace the mode, model and date lines
-  with the mode (`recorded` or `live`), the model the API returned, and the capture date or
-  dates; state N for every reported metric. Leave them as they are for a synthetic recipe.
-- **N:** TODO: the number of scored examples per split (the `demo` examples are not scored).
+- **Model, capture date:** not applicable; no answer came from a model. A recorded recipe names the
+  model the API returned and the date or dates the answers were captured.
+- **N:** 16 `validation` and 16 `test` fields are scored (35 in the fixtures, across 16 source
+  batches on those two splits; the 3 `demo` fields, one more batch, are shown but never scored). A
+  recorded recipe states N beside every reported metric.
 
 A recorded recipe states the model version the API returned, the capture date and N for every number
 it reports, here and in the notebook.
 
-TODO: while every answer is synthetic, keep this: the offline run replays synthetic answers written for this recipe, so its numbers check that the pipeline works. For a recorded recipe,
-replace it with the model, the capture dates and N. Then state what the evaluation covers.
+The committed run replays 35 invented source fields with hand-written (synthetic) answers, some
+wrong on purpose: a deliberately unconfident mistake (caught by the confidence gate, on
+`validation`) and a one-to-one collision (caught by the one-to-one check, one on each split) are
+both caught by Python's validation; a confident mistake on `test` that neither mechanism catches is
+not, which is where this recipe's non-zero risk on `test` comes from. Its mapping accuracy, the
+field- and task-level coverage/accuracy/risk, and the number of conflicts caught check that the
+pipeline works; they say nothing about how Jev performs, how fast it is, or what it costs.
 
 ## Pull request rules
 
@@ -69,7 +77,7 @@ remains unpublished and that integration step has not yet run, `Catalog (README 
 expected to be red on its pull request, which is not a defect to fix here; once the catalog is
 regenerated for it, the check turns green and stays that way. No sentence anywhere in this
 folder states or implies Jev's real quality, latency, or cost: every number above is a synthetic
-pipeline check (see the TODO markers above). The full contract is
+pipeline check. The full contract is
 [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ## Sources
