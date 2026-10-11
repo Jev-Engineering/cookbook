@@ -72,11 +72,18 @@ ever hold, and several others have a gold-relevant candidate stored at too low a
 be trusted). Exact agreement, mean absolute error, the coverage of the frozen confidence gate,
 and the recall of the gold-relevant tests within the proposed suite all check that the pipeline
 works; they say nothing about how Jev performs, how fast it is, or what it costs. Every stored
-answer was written from its gold label, so the proposed suite reproduces that label wherever it
-decides a patch, and any margin over the baseline is a property of this fixture set, not a
-measurement of a real suite proposer (the notebook's "Evaluation" section says so where the
-comparison is made, and traces the patches where this recipe's own design -- the confidence gate,
-the size budget, or both -- costs it something instead). This recipe has no recorded fixtures.
+answer was written from its gold label except the three deliberately adversarial ones, so the
+proposed suite reproduces that label wherever it decides a patch away from those; any margin
+over the baseline is a property of this fixture set, not a measurement of a real suite proposer.
+
+The task-level mean recall is an exact tie with the baseline on `validation` and slightly behind
+it on `test`, once both are ranked under the same deterministic order -- but the shortfall is
+the confidence gate's own cost, not the semantic score's: the gate is selected against exact
+agreement with the gold level, a stricter target than the `relevant`/`not_relevant` decision it
+actually guards, and at that decision it costs coverage and recall while catching nothing on
+this fixture set. Removing only the gate puts the pipeline ahead of the baseline on both splits.
+The notebook's "Evaluation" section works through both the per-patch comparison and this
+counterfactual with the numbers that show it. This recipe has no recorded fixtures.
 
 ## Pull request rules
 

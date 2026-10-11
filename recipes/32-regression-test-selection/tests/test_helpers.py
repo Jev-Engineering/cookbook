@@ -10,7 +10,6 @@ from jev_cookbook import Provenance, ScoreAnswer, get_backend, load_helpers, rep
 from jev_cookbook.evaluation import (
     evaluate_outcomes,
     evaluate_selective,
-    recall_at_budget,
     score_level,
     select_confidence_threshold,
 )
@@ -227,6 +226,14 @@ def test_baseline_rank_orders_by_baseline_score_then_breaks_ties_by_position():
 # ------------------------------------------------------------------------- Suite composition
 
 
+def test_suite_budget_is_pinned_at_two():
+    # The three task shapes this recipe's fixtures are built around ("budget" patches: three
+    # relevant candidates; "gate" patches: exactly two) are both specific to SUITE_BUDGET == 2;
+    # changing the constant without noticing would silently stop testing the shape the fixtures
+    # were written to exercise.
+    assert helpers.SUITE_BUDGET == 2
+
+
 def _classifications(ids_outcomes):
     return {
         test_id: helpers.Classification(test_id, 3, outcome, "r")
@@ -277,14 +284,33 @@ def test_propose_suite_rejects_a_budget_below_one(bad_budget):
         helpers.propose_suite([], {}, {}, {}, budget=bad_budget)
 
 
-def test_effective_scores_keeps_the_real_score_for_relevant_candidates_only():
+def test_effective_scores_assigns_strictly_decreasing_ranks_to_eligible_candidates():
+    # No two eligible candidates may tie, even when their real expected scores do: "a" and "c"
+    # tie at 2.9, broken by ranks (a's rank 0 beats c's rank 2), so a gets the higher synthetic
+    # score despite the equal real score.
     cands = [candidate("a"), candidate("b"), candidate("c")]
     classifs = _classifications(
-        {"a": helpers.RELEVANT, "b": helpers.NOT_RELEVANT, "c": helpers.REVIEW}
+        {"a": helpers.RELEVANT, "b": helpers.NOT_RELEVANT, "c": helpers.RELEVANT}
     )
-    scores = {"a": 2.5, "b": 2.9, "c": 2.9}
-    eff = helpers.effective_scores(cands, classifs, scores)
-    assert eff == {"a": 2.5, "b": helpers.EXCLUDED_SCORE, "c": helpers.EXCLUDED_SCORE}
+    scores = {"a": 2.9, "b": 2.9, "c": 2.9}
+    ranks = {"a": 0, "b": 1, "c": 2}
+    eff = helpers.effective_scores(cands, classifs, scores, ranks)
+    assert eff == {"a": 2.0, "b": helpers.EXCLUDED_SCORE, "c": 1.0}
+    assert len({eff["a"], eff["c"]}) == 2  # no tie between the two eligible candidates
+
+
+def test_effective_scores_orders_eligible_candidates_like_propose_suite():
+    cands = [candidate("a"), candidate("b"), candidate("c")]
+    classifs = _classifications(
+        {"a": helpers.RELEVANT, "b": helpers.RELEVANT, "c": helpers.RELEVANT}
+    )
+    scores = {"a": 1.0, "b": 2.0, "c": 1.0}  # a and c tie on score
+    ranks = {"a": 1, "b": 0, "c": 0}  # baseline prefers c over a on the tie
+    eff = helpers.effective_scores(cands, classifs, scores, ranks)
+    # propose_suite's own order for this input is ["b", "c", "a"] (see the propose_suite test
+    # above with identical inputs); effective_scores must rank the same way.
+    ordered = sorted(cands, key=lambda c: -eff[c.test_id])
+    assert [c.test_id for c in ordered] == ["b", "c", "a"]
 
 
 def test_effective_budget_caps_at_the_eligible_count():
@@ -305,12 +331,19 @@ def test_effective_budget_rejects_a_budget_below_one(bad_budget):
         helpers.effective_budget([], {}, budget=bad_budget)
 
 
-def test_effective_budget_and_effective_scores_reproduce_propose_suite_on_a_fixture_shaped_case():
+def test_effective_budget_rejects_zero_eligible_candidates():
+    # task_recall rules this case out itself before ever calling effective_budget; a caller
+    # that reaches this directly with nothing eligible gets an error, not a silently wrong cap.
+    cands = [candidate("a")]
+    classifs = _classifications({"a": helpers.NOT_RELEVANT})
+    with pytest.raises(ValueError, match="no eligible candidate"):
+        helpers.effective_budget(cands, classifs, budget=2)
+
+
+def test_task_recall_matches_propose_suite_on_a_fixture_shaped_gate_case():
     # The exact shape a "gate" task takes in this recipe's fixtures: one high-confidence direct
     # candidate and one low-confidence (but high-scoring) exercises_change candidate, among
-    # four total. Without the cap, recall_at_budget would award the excluded candidate partial
-    # credit for tying with the not_relevant/review candidates at EXCLUDED_SCORE (the bug
-    # effective_budget exists to prevent); capping at the eligible count removes that tie.
+    # four total.
     cands = [candidate(t) for t in ("direct", "exercises_low", "same_area", "unrelated")]
     classifs = _classifications(
         {
@@ -327,17 +360,58 @@ def test_effective_budget_and_effective_scores_reproduce_propose_suite_on_a_fixt
     suite = helpers.propose_suite(cands, classifs, scores, ranks, budget=2)
     assert suite == ["direct"]  # exercises_low is excluded, however high its score
 
-    eff_scores = helpers.effective_scores(cands, classifs, scores)
-    eff_budget = helpers.effective_budget(cands, classifs, budget=2)
-    assert eff_budget == 1
-    recall = recall_at_budget(gold_relevant, [eff_scores[c.test_id] for c in cands], eff_budget)
+    recall = helpers.task_recall(cands, classifs, scores, ranks, gold_relevant, budget=2)
     assert recall == pytest.approx(0.5)  # found "direct"; missed "exercises_low"; 1 of 2
 
-    # Without the cap (the bug this function exists to prevent), recall_at_budget would instead
-    # give "exercises_low" partial tie credit for the second, nonexistent slot.
-    uncapped = recall_at_budget(gold_relevant, [eff_scores[c.test_id] for c in cands], 2)
-    assert uncapped == pytest.approx(2 / 3)
-    assert uncapped != recall
+
+def test_task_recall_gives_no_tie_credit_when_two_eligible_candidates_tie_on_score():
+    # Regression probe for a bug effective_scores' strict ordering closes: with a raw (tied)
+    # expected score and budget 1, recall_at_budget would credit this task 0.5 (a tie-break
+    # average between the two eligible candidates, only one of which is gold-relevant) where
+    # propose_suite deterministically picks one of them by rank. task_recall must match
+    # propose_suite exactly, not the uncapped tie-average.
+    cands = [candidate("a"), candidate("b")]
+    classifs = _classifications({"a": helpers.RELEVANT, "b": helpers.RELEVANT})
+    scores = {"a": 2.0, "b": 2.0}  # tied real expected score
+    ranks = {"a": 0, "b": 1}  # "a" wins the tie
+    gold_relevant = [0, 1]  # "a" is not gold-relevant; "b" (the one the rank loses) is
+
+    suite = helpers.propose_suite(cands, classifs, scores, ranks, budget=1)
+    assert suite == ["a"]  # the tie-break winner; "b" (gold-relevant) is not proposed
+
+    recall = helpers.task_recall(cands, classifs, scores, ranks, gold_relevant, budget=1)
+    assert recall == pytest.approx(0.0)  # matches propose_suite: "b" was never proposed
+
+
+def test_task_recall_is_zero_with_no_eligible_candidate_and_a_relevant_gold():
+    # Regression probe for the zero-eligible counterpart of the tie above: with every candidate
+    # excluded, recall_at_budget (given any non-empty budget) would tie every candidate at
+    # EXCLUDED_SCORE and credit a tie-break share of whichever happens to be gold-relevant.
+    # propose_suite proposes nothing, so the true recall is 0.0, not a fraction.
+    cands = [candidate("a"), candidate("b")]
+    classifs = _classifications({"a": helpers.NOT_RELEVANT, "b": helpers.NOT_RELEVANT})
+    scores = {"a": 0.5, "b": 0.5}
+    ranks = {"a": 0, "b": 1}
+    gold_relevant = [0, 1]
+
+    assert helpers.propose_suite(cands, classifs, scores, ranks, budget=2) == []
+    assert helpers.task_recall(cands, classifs, scores, ranks, gold_relevant, budget=2) == 0.0
+
+
+def test_task_recall_is_nan_with_no_eligible_candidate_and_no_relevant_gold():
+    cands = [candidate("a")]
+    classifs = _classifications({"a": helpers.NOT_RELEVANT})
+    assert math.isnan(helpers.task_recall(cands, classifs, {"a": 0.5}, {"a": 0}, [0], budget=2))
+
+
+def test_baseline_recall_uses_the_strict_rank_order_not_the_raw_tied_score():
+    # Two candidates tie on raw baseline_score (both via the same gold_relevant=[0, 1] shape as
+    # the task_recall tie probe above); baseline_rank breaks the tie by position, and
+    # baseline_recall must follow that break deterministically rather than average over it.
+    cands = [candidate("a", position=0), candidate("b", position=1)]
+    ranks = {"a": 0, "b": 1}  # "a" wins the tie (lower rank = preferred)
+    gold_relevant = [0, 1]  # "b" (the one the rank loses) is gold-relevant
+    assert helpers.baseline_recall(cands, ranks, gold_relevant, budget=1) == pytest.approx(0.0)
 
 
 # ---------------------------------------------------------- The fixtures tell the right story
@@ -446,6 +520,8 @@ def test_both_not_relevant_and_review_outcomes_occur_on_both_splits():
 
 
 def _task_recall(task_examples, labels, answers, gate, budget):
+    """Calls helpers.task_recall directly (never reimplements it): the real suite proposal
+    (for the "agrees with propose_suite" check) plus the recall that same proposal gives."""
     cands = [
         helpers.Candidate(
             e.id,
@@ -462,10 +538,8 @@ def _task_recall(task_examples, labels, answers, gate, budget):
     scores = {e.id: answers[e.id].score for e in task_examples}
     ranks = helpers.baseline_rank(cands)
     gold_relevant = [1 if labels[e.id] >= helpers.BUSINESS_CUTOFF else 0 for e in task_examples]
-    eff_scores = helpers.effective_scores(cands, classifs, scores)
-    eff_budget = helpers.effective_budget(cands, classifs, budget)
     suite = helpers.propose_suite(cands, classifs, scores, ranks, budget)
-    recall = recall_at_budget(gold_relevant, [eff_scores[e.id] for e in task_examples], eff_budget)
+    recall = helpers.task_recall(cands, classifs, scores, ranks, gold_relevant, budget)
     return recall, suite, gold_relevant
 
 

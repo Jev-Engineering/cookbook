@@ -12,7 +12,7 @@ from pathlib import PurePosixPath
 from typing import Any
 
 from jev_cookbook import Score
-from jev_cookbook.evaluation import score_level
+from jev_cookbook.evaluation import recall_at_budget, score_level
 
 # No ``from __future__ import annotations`` here: load_helpers removes this module from
 # ``sys.modules``, so typing.get_type_hints cannot resolve postponed annotations on a dataclass.
@@ -258,38 +258,54 @@ def effective_scores(
     candidates: list[Candidate],
     classifications: dict[str, Classification],
     scores: dict[str, float],
+    ranks: dict[str, int],
 ) -> dict[str, float]:
     """The ranking score :func:`jev_cookbook.evaluation.recall_at_budget` must use to reproduce
-    :func:`propose_suite`'s own selection exactly: a candidate :func:`classify` calls
-    ``relevant`` keeps its own expected score; every other candidate (confidently
-    ``not_relevant``, or sent to ``review``) gets ``EXCLUDED_SCORE`` (below every score a
-    4-level rubric can ever produce, so it can never occupy a budget slot), while still being
-    counted in ``recall_at_budget``'s own "all relevant items" denominator (it is not removed
-    from the task, only ranked last). ``recall_at_budget`` requires every score to be finite, so
-    negative infinity is not an option; a fixed, finite out-of-range constant serves the same
+    :func:`propose_suite`'s own selection exactly, with no tie for it to average over.
+
+    Eligible candidates (:func:`classify` called them ``relevant``) are ordered exactly as
+    :func:`propose_suite` orders them -- by ``scores`` (each candidate's expected Score, highest
+    first), ties broken by ``ranks`` (the baseline order from :func:`baseline_rank`, which is
+    itself a strict order with no ties of its own) -- and then assigned strictly decreasing
+    synthetic scores (the most preferred gets ``len(eligible)``, the next
+    ``len(eligible) - 1``, and so on down to ``1``). Every other candidate (confidently
+    ``not_relevant``, or sent to ``review``) gets ``EXCLUDED_SCORE`` (always below every eligible
+    synthetic score, so it can never occupy a budget slot), while still being counted in
+    ``recall_at_budget``'s own "all relevant items" denominator (it is not removed from the
+    task, only ranked last).
+
+    The synthetic scores, not the raw expected ``scores``, are what close a gap a real expected
+    score could otherwise open: two eligible candidates that tied on expected score would tie in
+    ``recall_at_budget`` too, which credits a tie in expectation over tie orders -- a different
+    number from ``propose_suite``'s own single, deterministic pick, which breaks that same tie
+    with ``ranks``. Assigning strictly decreasing integers after applying the identical
+    tie-break removes the possibility of a tie at the source, so the two can never diverge
+    (`tests/test_helpers.py` exercises this directly on a constructed tie, and also pins the
+    true reproduction on every real, committed fixture).
+
+    ``recall_at_budget`` requires every score to be finite, so negative infinity is not an
+    option for ``EXCLUDED_SCORE``; a fixed, finite out-of-range constant serves the same
     purpose. This is not the sentinel docs/recipe-template.md warns against: that page's
     sentinel is a stand-in fed to a function that validates its input to ``[0, 1]`` (a
     confidence), so an out-of-range value can itself be mistaken for a chosen threshold;
     ``recall_at_budget`` places no such range on ``scores``, and nothing here derives a
-    threshold from this value. `tests/test_helpers.py` checks this reproduces
-    :func:`propose_suite` exactly on real, committed fixtures.
+    threshold from this value.
     """
-    out: dict[str, float] = {}
-    for c in candidates:
-        if classifications[c.test_id].outcome == RELEVANT:
-            out[c.test_id] = scores[c.test_id]
-        else:
-            out[c.test_id] = EXCLUDED_SCORE
+    eligible = [c for c in candidates if classifications[c.test_id].outcome == RELEVANT]
+    ordered = sorted(eligible, key=lambda c: (-scores[c.test_id], ranks[c.test_id]))
+    out: dict[str, float] = {c.test_id: EXCLUDED_SCORE for c in candidates}
+    n = len(ordered)
+    for position, c in enumerate(ordered):
+        out[c.test_id] = float(n - position)
     return out
 
 
 def effective_budget(
     candidates: list[Candidate], classifications: dict[str, Classification], budget: int
 ) -> int:
-    """The budget to pass to :func:`jev_cookbook.evaluation.recall_at_budget` /
-    :func:`jev_cookbook.evaluation.mean_recall_at_budget` together with :func:`effective_scores`,
-    so that function's own top-budget selection reproduces :func:`propose_suite` exactly even
-    when fewer than ``budget`` candidates are eligible.
+    """The budget to pass to :func:`jev_cookbook.evaluation.recall_at_budget` together with
+    :func:`effective_scores`, so that function's own top-budget selection reproduces
+    :func:`propose_suite` exactly even when fewer than ``budget`` candidates are eligible.
 
     ``recall_at_budget`` always fills its budget from the whole list it is given, ranked by
     score; it has no notion of "eligible" and cannot return fewer than ``min(budget, len(list))``
@@ -299,16 +315,69 @@ def effective_budget(
     over that gap by reaching into the tied ``EXCLUDED_SCORE`` candidates for the remaining
     slot(s), crediting whichever of them happens to be gold-relevant with a fraction of a slot
     :func:`propose_suite` never gives it. Passing ``min(budget, n_eligible)`` instead closes it:
-    every eligible candidate's real score is higher than ``EXCLUDED_SCORE``, so the top
-    ``effective_budget`` selection can never reach an excluded one.
+    every eligible candidate's synthetic score (``effective_scores``) is higher than
+    ``EXCLUDED_SCORE``, so the top ``effective_budget`` selection can never reach an excluded one.
 
-    Every task in this recipe's fixtures has at least one eligible candidate under its frozen
-    confidence gate (`tests/test_helpers.py` checks this on both splits), so the ``n_eligible ==
-    0`` case below is never exercised on committed data; it still returns a valid (at least 1)
-    budget rather than raising, because a task with nothing eligible is not an error, only one
-    whose recall this function cannot shield from the same tie it exists to avoid.
+    Requires at least one eligible candidate: with none, every candidate ties at
+    ``EXCLUDED_SCORE`` and there is no well-defined non-empty budget to cap at, so a caller
+    reaches this only after ruling that case out itself (:func:`task_recall` does, by returning
+    the correct recall directly instead of calling this at all).
     """
     if budget < 1:
         raise ValueError(f"budget must be at least 1, got {budget!r}")
     n_eligible = sum(1 for c in candidates if classifications[c.test_id].outcome == RELEVANT)
-    return max(1, min(budget, n_eligible))
+    if n_eligible < 1:
+        raise ValueError("no eligible candidate: there is no budget to cap at")
+    return min(budget, n_eligible)
+
+
+def task_recall(
+    candidates: list[Candidate],
+    classifications: dict[str, Classification],
+    scores: dict[str, float],
+    ranks: dict[str, int],
+    gold_relevant: list[int],
+    budget: int,
+) -> float:
+    """One patch's recall of its own gold-relevant candidates within :func:`propose_suite`'s
+    actual proposed suite -- the single source both the notebook and `tests/test_helpers.py`
+    call, so the per-patch table and the mean it is averaged into can never silently drift apart
+    (CONTRIBUTING.md section 7 asks for exactly one place this composition is computed).
+
+    When at least one candidate is eligible, this is
+    ``jev_cookbook.evaluation.recall_at_budget`` on :func:`effective_scores` and
+    :func:`effective_budget`. When none is, :func:`propose_suite` would propose nothing, so the
+    recall is ``0.0`` whenever any candidate is gold-relevant, or ``NaN`` when none is (the same
+    undefined-is-NaN convention ``jev_cookbook.evaluation`` uses throughout) -- computed
+    directly, never by handing ``recall_at_budget`` a list where every candidate ties at
+    ``EXCLUDED_SCORE``, which would instead credit a tie-break share of whichever excluded
+    candidate happens to be gold-relevant (`tests/test_helpers.py` exercises this directly: it
+    is the zero-eligible counterpart of the tie :func:`effective_scores` closes).
+    """
+    n_eligible = sum(1 for c in candidates if classifications[c.test_id].outcome == RELEVANT)
+    if n_eligible < 1:
+        return 0.0 if any(gold_relevant) else float("nan")
+    eff_scores = effective_scores(candidates, classifications, scores, ranks)
+    eff_budget = effective_budget(candidates, classifications, budget)
+    return recall_at_budget(gold_relevant, [eff_scores[c.test_id] for c in candidates], eff_budget)
+
+
+def baseline_recall(
+    candidates: list[Candidate], ranks: dict[str, int], gold_relevant: list[int], budget: int
+) -> float:
+    """The file-path-and-lexical baseline's own recall of the gold-relevant candidates within
+    its own proposed suite: the top ``budget`` candidates under :func:`baseline_rank`'s order.
+
+    Every candidate is unconditionally rankable under the baseline (it has no confidence gate
+    and so no notion of "eligible" to exclude anyone), so this is simply
+    ``jev_cookbook.evaluation.recall_at_budget`` on the strict rank order
+    ``-ranks[c.test_id]`` -- never the raw, possibly-tied :func:`baseline_score` directly, which
+    would let ``recall_at_budget`` credit a tie in expectation over tie orders where
+    ``baseline_rank`` itself (ties broken by listed position) already picks one deterministic
+    winner. Feeding the tied score instead of the rank is asymmetric with how the Jev side is
+    scored (:func:`effective_scores` is deterministic by construction) and was the mechanism
+    behind an earlier, incorrect report that the baseline beat the pipeline on `validation`: the
+    two are in fact an exact tie there once both sides are ranked under their own stated order.
+    """
+    strict_scores = {c.test_id: float(-ranks[c.test_id]) for c in candidates}
+    return recall_at_budget(gold_relevant, [strict_scores[c.test_id] for c in candidates], budget)

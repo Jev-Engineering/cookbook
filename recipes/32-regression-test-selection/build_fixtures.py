@@ -1203,7 +1203,10 @@ def _candidate_rows(
     body = body_a if variant == "a" else body_b
     probs = probs_a if variant == "a" else probs_b
     area = changed_file.split("/")[0]
-    test_path = f"tests/{area}/test_{name}.py"
+    # `name` is already the test function's own name (always "test_..."), so the path is
+    # "tests/<area>/<name>.py", never "tests/<area>/test_<name>.py" -- that second "test_"
+    # would double the prefix every candidate already carries in its own name.
+    test_path = f"tests/{area}/{name}.py"
     return [(name, test_path, body, level, probs)]
 
 
@@ -1230,12 +1233,12 @@ def build_rows() -> list[tuple]:
                 foreign_index = module[idx_key]
                 if foreign_index is None:
                     continue
-                f_area, f_file, f_name, f_body = FOREIGN[foreign_index]
+                f_area, _f_file, f_name, f_body = FOREIGN[foreign_index]
                 probs = probs_pair[0] if variant == "a" else probs_pair[1]
                 candidates.append(
                     (
                         f_name,
-                        f_file.replace(f_file.split("/")[-1], f"test_{f_name}.py"),
+                        f"tests/{f_area}/{f_name}.py",
                         f_body,
                         0,
                         probs,
