@@ -18,7 +18,12 @@ digit:
 
 - **Cutoff-only** (`v03`/`t03`): every retrieved skill's description is only in the same
   general area as the task, never stating the specific action, so no candidate reaches the
-  business cutoff, whatever the margin among them turns out to be.
+  business cutoff, whatever the margin among them turns out to be. Read a different way, this
+  is also a retrieval miss: the catalog may hold no skill that genuinely does this task, or the
+  retriever's lexical overlap may simply not be surfacing one that does -- either way, the
+  lesson is the same (nothing retrieved is trustworthy enough to act on), which is why the two
+  gold labels these three retrieved skills carry are tied at the same, low level: none of them
+  is "the best fit", only "the least unrelated".
 - **Cutoff-consequential** (`v23`/`t22`, plus `v24`/`t23` supplying the lower-scoring "clearly
   correct" examples that make this possible): a *single* retrieved skill is related but not
   suitable (gold level 1, scored near the highest a genuinely modal-level-1 answer can reach),
@@ -124,7 +129,7 @@ TASK_SPECS = [
         "Book a flight and hotel for next week's trip to the Denver sales conference.",
         {
             "travel_booking": (3, 3, IDEAL_CONFIDENT),
-            "code_review_summary": (0, 0, NOT_SUITABLE_CONFIDENT),
+            "expense_report": (0, 0, NOT_SUITABLE_CONFIDENT),
             "calendar_scheduling": (0, 0, NOT_SUITABLE_CONFIDENT),
         },
     ),
@@ -163,7 +168,7 @@ TASK_SPECS = [
             # highest gold level and the stored scores are written close together.
             "calendar_scheduling": (3, 3, TIE_HIGH_1),
             "travel_booking": (3, 3, TIE_LOW_1),
-            "code_review_summary": (0, 0, NOT_SUITABLE_CONFIDENT),
+            "expense_report": (0, 0, NOT_SUITABLE_CONFIDENT),
         },
     ),
     (
@@ -209,7 +214,7 @@ TASK_SPECS = [
         "Check everyone's availability and book a 1:1 with my manager this afternoon.",
         {
             "calendar_scheduling": (3, 3, IDEAL_2),
-            "code_review_summary": (0, 0, NOT_SUITABLE_CONFIDENT),
+            "expense_report": (0, 0, NOT_SUITABLE_CONFIDENT),
             "travel_booking": (0, 0, NOT_SUITABLE_CONFIDENT),
         },
     ),
@@ -219,7 +224,7 @@ TASK_SPECS = [
         "Book a hotel room near the venue for next month's industry conference.",
         {
             "travel_booking": (3, 3, IDEAL_2),
-            "code_review_summary": (0, 0, NOT_SUITABLE_CONFIDENT),
+            "expense_report": (0, 0, NOT_SUITABLE_CONFIDENT),
             "calendar_scheduling": (0, 0, NOT_SUITABLE_CONFIDENT),
         },
     ),
@@ -249,7 +254,7 @@ TASK_SPECS = [
         "Submit the receipt for last night's client dinner for reimbursement.",
         {
             "expense_report": (3, 3, IDEAL_3),
-            "code_review_summary": (0, 0, NOT_SUITABLE_CONFIDENT),
+            "travel_booking": (0, 0, NOT_SUITABLE_CONFIDENT),
             "calendar_scheduling": (0, 0, NOT_SUITABLE_CONFIDENT),
         },
     ),
@@ -433,7 +438,7 @@ TASK_SPECS = [
         {
             "travel_booking": (3, 3, TIE_HIGH_2),
             "calendar_scheduling": (3, 3, TIE_LOW_2),
-            "code_review_summary": (0, 0, NOT_SUITABLE_CONFIDENT),
+            "expense_report": (0, 0, NOT_SUITABLE_CONFIDENT),
         },
     ),
     (
@@ -498,7 +503,7 @@ TASK_SPECS = [
         "Reserve a hotel for the team's offsite retreat next month.",
         {
             "travel_booking": (3, 3, IDEAL_2),
-            "code_review_summary": (0, 0, NOT_SUITABLE_CONFIDENT),
+            "expense_report": (0, 0, NOT_SUITABLE_CONFIDENT),
             "calendar_scheduling": (0, 0, NOT_SUITABLE_CONFIDENT),
         },
     ),
@@ -645,7 +650,7 @@ TASK_SPECS = [
         {
             "expense_report": (None, 3, IDEAL_CONFIDENT),
             "travel_booking": (None, 0, NOT_SUITABLE_CONFIDENT),
-            "code_review_summary": (None, 0, NOT_SUITABLE_CONFIDENT),
+            "calendar_scheduling": (None, 0, NOT_SUITABLE_CONFIDENT),
         },
     ),
     (
@@ -656,7 +661,7 @@ TASK_SPECS = [
         {
             "travel_booking": (None, 3, TIE_HIGH_3),
             "calendar_scheduling": (None, 3, TIE_LOW_3),
-            "code_review_summary": (None, 0, NOT_SUITABLE_CONFIDENT),
+            "expense_report": (None, 0, NOT_SUITABLE_CONFIDENT),
         },
     ),
     (

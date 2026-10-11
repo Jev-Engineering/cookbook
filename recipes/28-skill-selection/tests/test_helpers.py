@@ -38,7 +38,7 @@ def _load_build_fixtures():
 
 def judgment(skill_id, probabilities):
     answer = ScoreAnswer.from_probabilities(list(probabilities), LEVELS, Provenance.synthetic())
-    return helpers.Judgment(skill_id, score_level(answer), answer.score)
+    return helpers.judgment_from_answer(skill_id, answer)
 
 
 IDEAL_CONFIDENT = (0.02, 0.03, 0.10, 0.85)  # modal level 3, score 2.78
@@ -333,25 +333,29 @@ def _real_judgments(task_id, examples_by_task, backend, questions):
         e.fields["skill_id"]: backend.decide(helpers.build_state(e.fields), questions)["relevance"]
         for e in examples_by_task[task_id]
     }
-    return {
-        skill_id: helpers.Judgment(skill_id, score_level(a), a.score)
-        for skill_id, a in answers.items()
-    }
+    return {skill_id: helpers.judgment_from_answer(skill_id, a) for skill_id, a in answers.items()}
 
 
 def test_the_business_cutoff_is_consequential_on_a_real_fixture():
     # t01 (test): calendar_scheduling is confidently selected (modal level 3). Flip its stored
-    # answer's modal level below the business cutoff and the composed outcome must change from
-    # select to review, with the cutoff's own reason -- proof the cutoff is not a dead branch.
+    # answer to RELATED_HIGH -- modal level 1, but still scored well clear of t01's own
+    # fillers (margin 0.35 against the frozen margin_threshold=0.3 used here, so the margin
+    # check alone would still have passed) -- and the composed outcome must change from select
+    # to review, with the cutoff's own reason. Using RELATED_CONFIDENT instead (as an earlier
+    # version of this test did) would also drop the margin below 0.3, so the flip would be
+    # over-determined: either check alone could explain the review, and the reason assertion
+    # would be all that distinguishes them. RELATED_HIGH keeps the margin check passing so this
+    # proof isolates the cutoff on its own.
     backend, questions = _real_backend_and_questions()
     examples_by_task = helpers.group_by_task_id(load_inputs(RECIPE))
     judgments = _real_judgments("t01", examples_by_task, backend, questions)
-    before = helpers.select_skill("t01", list(judgments.values()), margin_threshold=0.4)
+    before = helpers.select_skill("t01", list(judgments.values()), margin_threshold=0.3)
     assert before.outcome == helpers.SELECT
 
     mutated = dict(judgments)
-    mutated["calendar_scheduling"] = judgment("calendar_scheduling", RELATED_CONFIDENT)
-    after = helpers.select_skill("t01", list(mutated.values()), margin_threshold=0.4)
+    mutated["calendar_scheduling"] = judgment("calendar_scheduling", RELATED_HIGH)
+    after = helpers.select_skill("t01", list(mutated.values()), margin_threshold=0.3)
+    assert after.margin >= 0.3  # the margin check alone would still have passed
     assert after.outcome == helpers.REVIEW
     assert after.reason == "the top skill's modal level is below the business cutoff"
 

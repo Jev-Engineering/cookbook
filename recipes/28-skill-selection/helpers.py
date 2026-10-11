@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from jev_cookbook import Score
-from jev_cookbook.evaluation import select_confidence_threshold
+from jev_cookbook.evaluation import score_level, select_confidence_threshold
 
 # No ``from __future__ import annotations`` here: load_helpers removes this module from
 # ``sys.modules``, so typing.get_type_hints cannot resolve postponed annotations on a dataclass.
@@ -60,10 +60,15 @@ _STOPWORDS = frozenset(
     {
         "a", "an", "and", "are", "as", "at", "be", "before", "by", "can", "do", "does", "for",
         "from", "has", "have", "how", "i", "if", "in", "is", "it", "its", "my", "next", "of",
-        "on", "or", "our", "please", "that", "the", "this", "to", "up", "want", "we", "what",
-        "when", "will", "with", "you", "your",
+        "on", "or", "our", "please", "s", "that", "the", "this", "to", "up", "want", "we",
+        "what", "when", "will", "with", "you", "your",
     }
 )  # fmt: skip
+# "s" is in the stopword list on purpose: the word regex has no apostrophe handling, so a
+# possessive like "request's" tokenizes into "request" and the bare letter "s". Left out of
+# the stopword list, that bare "s" token would match the same bare "s" split out of every other
+# possessive in the catalog (several skill descriptions have one), crediting retrieval with an
+# overlap point neither task actually earned.
 
 
 def _words(text: str) -> frozenset[str]:
@@ -171,6 +176,17 @@ class Judgment:
     skill_id: str
     level: int
     score: float
+
+
+def judgment_from_answer(skill_id: str, answer: Any) -> Judgment:
+    """A :class:`Judgment` for one candidate, read from its own ``ScoreAnswer`` (or anything
+    duck-typed the same way): ``skill_id`` plus the answer's modal level
+    (:func:`jev_cookbook.evaluation.score_level`) and its expected ``score``. Every call site
+    that builds a ``Judgment`` from a real answer -- the notebook's several evaluation cells and
+    the tests -- calls this one function, so the two fields can never be read from the answer
+    two different ways.
+    """
+    return Judgment(skill_id, score_level(answer), answer.score)
 
 
 @dataclass(frozen=True)
@@ -318,6 +334,15 @@ def is_safe_auto_answer(skill_id: str, gold_best: frozenset[str]) -> bool:
     Scoring a tied task as a success here would give the threshold search no reason to ever
     raise the bar above a razor-thin margin, so this pools a tied task as unsafe regardless of
     which retrieved skill happened to rank first.
+
+    A tie is not always the "two skills equally plausible" hard case specifically: v03 and t03
+    tie all three of their retrieved skills at the same gold level too, but at a *low* one
+    (every retrieved skill is merely related, none actually suitable) -- "equally mediocre",
+    not "equally excellent". ``gold_best_skills`` cannot tell the two shapes apart; both read
+    as a tie. It happens not to matter here, because ``pool_for_margin_selection`` already
+    drops a task that fails the business cutoff before this function is ever asked about it,
+    so v03/t03's own tie is never read -- but a future recipe reusing this pattern with a
+    cutoff that lets a low tie through would need to tell the two shapes apart explicitly.
     """
     return len(gold_best) == 1 and skill_id in gold_best
 
