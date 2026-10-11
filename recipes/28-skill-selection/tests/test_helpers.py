@@ -38,14 +38,15 @@ def _load_build_fixtures():
 
 def judgment(skill_id, probabilities):
     answer = ScoreAnswer.from_probabilities(list(probabilities), LEVELS, Provenance.synthetic())
-    return helpers.Judgment(skill_id, score_level(answer), answer.score, answer.confidence)
+    return helpers.Judgment(skill_id, score_level(answer), answer.score)
 
 
-IDEAL_CONFIDENT = (0.02, 0.03, 0.10, 0.85)  # modal level 3, score 2.78, confidence 0.78
+IDEAL_CONFIDENT = (0.02, 0.03, 0.10, 0.85)  # modal level 3, score 2.78
 SUITABLE_CONFIDENT = (0.03, 0.09, 0.73, 0.15)  # modal level 2, score 2.00
 RELATED_CONFIDENT = (0.09, 0.71, 0.14, 0.06)  # modal level 1, score 1.17
+RELATED_HIGH = (0.02, 0.49, 0.47, 0.02)  # modal level 1, score 1.49: near the level-1 ceiling
 NOT_SUITABLE_CONFIDENT = (0.72, 0.16, 0.08, 0.04)  # modal level 0, score 0.44
-IDEAL_LOW_CONFIDENCE = (0.08, 0.15, 0.30, 0.47)  # modal level 3, score 2.16, confidence 0.16
+NOT_SUITABLE_AT_ALL = (0.95, 0.03, 0.01, 0.01)  # modal level 0, score 0.08
 
 
 # ------------------------------------------------------------------------------- The question
@@ -150,21 +151,9 @@ def test_select_skill_selects_a_confident_clear_winner():
         judgment("b", NOT_SUITABLE_CONFIDENT),
         judgment("c", NOT_SUITABLE_CONFIDENT),
     ]
-    result = helpers.select_skill("t1", js, confidence_gate=0.0, margin_threshold=0.5)
+    result = helpers.select_skill("t1", js, margin_threshold=0.5)
     assert (result.skill_id, result.level, result.outcome) == ("a", 3, helpers.SELECT)
     assert result.reason == "clearly the best-fitting skill"
-
-
-def test_select_skill_reviews_when_confidence_is_below_the_gate():
-    # A spread-out, unsure-looking top answer: even though it wins the ranking by a wide
-    # margin and clears the business cutoff, it is not trusted at all.
-    js = [
-        judgment("a", IDEAL_LOW_CONFIDENCE),
-        judgment("b", NOT_SUITABLE_CONFIDENT),
-    ]
-    result = helpers.select_skill("t1", js, confidence_gate=0.5, margin_threshold=0.0)
-    assert result.outcome == helpers.REVIEW
-    assert result.reason == helpers.REASON_STRING == "confidence below the threshold"
 
 
 def test_select_skill_reviews_when_the_top_skill_is_below_the_business_cutoff():
@@ -174,7 +163,7 @@ def test_select_skill_reviews_when_the_top_skill_is_below_the_business_cutoff():
         judgment("a", RELATED_CONFIDENT),
         judgment("b", RELATED_CONFIDENT),
     ]
-    result = helpers.select_skill("t1", js, confidence_gate=0.0, margin_threshold=0.0)
+    result = helpers.select_skill("t1", js, margin_threshold=0.0)
     assert result.outcome == helpers.REVIEW
     assert result.reason == "the top skill's modal level is below the business cutoff"
 
@@ -185,57 +174,38 @@ def test_select_skill_reviews_when_the_margin_is_below_the_threshold():
     tie_high = (0.03, 0.10, 0.35, 0.52)
     tie_low = (0.03, 0.12, 0.38, 0.47)
     js = [judgment("a", tie_high), judgment("b", tie_low)]
-    result = helpers.select_skill("t1", js, confidence_gate=0.0, margin_threshold=0.5)
+    result = helpers.select_skill("t1", js, margin_threshold=0.5)
     assert result.outcome == helpers.REVIEW
     assert result.reason == "the margin between the top two skills is below the threshold"
 
 
-def test_confidence_is_checked_before_the_business_cutoff_and_the_margin():
-    # A top answer that fails every one of the three checks is still reported as a confidence
-    # failure: select_skill checks confidence first.
-    js = [judgment("a", RELATED_CONFIDENT), judgment("b", RELATED_CONFIDENT)]
-    result = helpers.select_skill("t1", js, confidence_gate=0.9, margin_threshold=0.9)
-    assert result.reason == helpers.REASON_STRING
+def test_the_business_cutoff_can_bind_even_with_a_wide_margin():
+    # A modal-level-1 top, scored near the ceiling a genuinely modal-1 answer can reach,
+    # against two confidently-unrelated fillers: the margin (wide) would pass on its own, but
+    # the business cutoff still rejects it outright. This is the shape of v23/t22.
+    js = [
+        judgment("a", RELATED_HIGH),
+        judgment("b", NOT_SUITABLE_AT_ALL),
+        judgment("c", NOT_SUITABLE_AT_ALL),
+    ]
+    result = helpers.select_skill("t1", js, margin_threshold=0.1)
+    assert (result.margin >= 0.1) is True  # the margin check alone would have passed
+    assert result.outcome == helpers.REVIEW
+    assert result.reason == "the top skill's modal level is below the business cutoff"
 
 
 def test_the_margin_gate_is_inclusive():
     js = [judgment("a", IDEAL_CONFIDENT), judgment("b", NOT_SUITABLE_CONFIDENT)]
-    margin = helpers.select_skill("t1", js, confidence_gate=0.0, margin_threshold=0.0).margin
-    assert (
-        helpers.select_skill("t1", js, confidence_gate=0.0, margin_threshold=margin).outcome
-        == helpers.SELECT
-    )
-    assert (
-        helpers.select_skill("t1", js, confidence_gate=0.0, margin_threshold=margin + 1e-9).outcome
-        == helpers.REVIEW
-    )
-
-
-def test_the_confidence_gate_is_inclusive():
-    js = [judgment("a", IDEAL_CONFIDENT), judgment("b", NOT_SUITABLE_CONFIDENT)]
-    gate = js[0].confidence
-    assert (
-        helpers.select_skill("t1", js, confidence_gate=gate, margin_threshold=0.0).outcome
-        == helpers.SELECT
-    )
-    assert (
-        helpers.select_skill("t1", js, confidence_gate=gate + 1e-9, margin_threshold=0.0).outcome
-        == helpers.REVIEW
-    )
+    margin = helpers.select_skill("t1", js, margin_threshold=0.0).margin
+    assert helpers.select_skill("t1", js, margin_threshold=margin).outcome == helpers.SELECT
+    assert helpers.select_skill("t1", js, margin_threshold=margin + 1e-9).outcome == helpers.REVIEW
 
 
 @pytest.mark.parametrize("bad", [-0.1, 1.1])
 def test_a_margin_threshold_outside_zero_to_one_is_an_error(bad):
     js = [judgment("a", IDEAL_CONFIDENT), judgment("b", NOT_SUITABLE_CONFIDENT)]
     with pytest.raises(ValueError, match="between 0 and 1"):
-        helpers.select_skill("t1", js, confidence_gate=0.0, margin_threshold=bad)
-
-
-@pytest.mark.parametrize("bad", [-0.1, 1.1])
-def test_a_confidence_gate_outside_zero_to_one_is_an_error(bad):
-    js = [judgment("a", IDEAL_CONFIDENT), judgment("b", NOT_SUITABLE_CONFIDENT)]
-    with pytest.raises(ValueError, match="between 0 and 1"):
-        helpers.select_skill("t1", js, confidence_gate=bad, margin_threshold=0.0)
+        helpers.select_skill("t1", js, margin_threshold=bad)
 
 
 # --------------------------------------------------------------------------- gold_best_skills
@@ -253,6 +223,23 @@ def test_gold_best_skills_is_every_tied_id_at_the_top():
 def test_gold_best_skills_empty_is_an_error():
     with pytest.raises(ValueError):
         helpers.gold_best_skills({})
+
+
+# ------------------------------------------------------------------------- is_safe_auto_answer
+
+
+def test_is_safe_auto_answer_true_only_for_the_sole_best_skill():
+    assert helpers.is_safe_auto_answer("a", frozenset({"a"})) is True
+    assert helpers.is_safe_auto_answer("b", frozenset({"a"})) is False
+
+
+def test_is_safe_auto_answer_is_false_for_a_tie_whichever_one_is_picked():
+    # Unlike gold_best_skills membership (used for the permissive, reported top-1 accuracy),
+    # a tie is never "safe" for the margin threshold to have let through automatically --
+    # picking either tied skill does not make guessing on it safe.
+    tied = frozenset({"a", "b"})
+    assert helpers.is_safe_auto_answer("a", tied) is False
+    assert helpers.is_safe_auto_answer("b", tied) is False
 
 
 # ----------------------------------------------------------------------------- outcome_accounting
@@ -277,48 +264,23 @@ def test_outcome_accounting_empty_is_an_error():
         helpers.outcome_accounting([], {})
 
 
-# ------------------------------------------------------------------- the confidence gate itself
-
-
-def test_confidence_min_coverage_is_pinned():
-    # Pin the objective (min_coverage, not target_accuracy) and its parameter, so changing
-    # either cannot leave this test green.
-    assert helpers.CONFIDENCE_MIN_COVERAGE == 0.5
-
-
-def test_select_confidence_gate_uses_min_coverage_not_target_accuracy():
-    # Same shape as the margin objective test below: target_accuracy=1.0 must exclude the one
-    # wrong example (at confidence 0.7, in the middle of the pool), landing on 0.8 (coverage
-    # 0.4); min_coverage instead keeps at least half the pool and prefers whichever cut-off
-    # among those is most accurate, landing on 0.3 (coverage 1.0, accuracy 0.8). The two
-    # disagree here, so pinning that select_confidence_gate reproduces the min_coverage answer
-    # is a real assertion.
-    correct = [True, True, False, True, True]
-    confidence = [0.9, 0.8, 0.7, 0.5, 0.3]
-    by_min_coverage = select_confidence_threshold(correct, confidence, min_coverage=0.5)
-    by_target_accuracy = select_confidence_threshold(correct, confidence, target_accuracy=1.0)
-    assert by_min_coverage != by_target_accuracy
-    assert helpers.select_confidence_gate(correct, confidence) == by_min_coverage
-
-
-def test_pool_for_confidence_selection_is_not_filtered_by_the_business_cutoff():
-    # Unlike pool_for_margin_selection, every task's top judgment joins this pool, whatever its
-    # level -- the confidence gate is checked first, before the cutoff ever applies.
-    judgments_by_task = {
-        "t1": [judgment("a", IDEAL_CONFIDENT), judgment("b", NOT_SUITABLE_CONFIDENT)],
-        "t2": [judgment("a", RELATED_CONFIDENT), judgment("b", RELATED_CONFIDENT)],
-    }
-    gold_best_by_task = {"t1": frozenset({"a"}), "t2": frozenset({"a", "b"})}
-    correct, confidence = helpers.pool_for_confidence_selection(
-        judgments_by_task, gold_best_by_task
-    )
-    assert len(correct) == len(confidence) == 2
+def test_outcome_accounting_uses_the_permissive_membership_check_unlike_the_margin_pool():
+    # A tied task counts as correct here (either tied skill is an acceptable top-1 pick), the
+    # opposite of is_safe_auto_answer's stricter rule for choosing the margin threshold itself.
+    selections = [
+        helpers.Selection("t1", "a", 3, 0.9, helpers.SELECT, "clearly the best-fitting skill")
+    ]
+    gold_best_by_task = {"t1": frozenset({"a", "b"})}
+    _, correct = helpers.outcome_accounting(selections, gold_best_by_task)
+    assert correct == [True]
 
 
 # --------------------------------------------------------------- the margin threshold itself
 
 
 def test_margin_min_coverage_is_pinned():
+    # Pin the objective (min_coverage, not target_accuracy) and its parameter, so changing
+    # either cannot leave this test green.
     assert helpers.MARGIN_MIN_COVERAGE == 0.5
 
 
@@ -330,12 +292,12 @@ def test_select_margin_threshold_uses_min_coverage_not_target_accuracy():
     # cut-offs that clear that coverage floor. The two objectives disagree on this pool, so
     # pinning that select_margin_threshold reproduces the min_coverage answer is a real
     # assertion, not one both objectives would satisfy anyway.
-    correct = [True, True, False, True, True]
+    safe = [True, True, False, True, True]
     margin = [0.9, 0.8, 0.7, 0.6, 0.1]
-    by_min_coverage = select_confidence_threshold(correct, margin, min_coverage=0.5)
-    by_target_accuracy = select_confidence_threshold(correct, margin, target_accuracy=1.0)
+    by_min_coverage = select_confidence_threshold(safe, margin, min_coverage=0.5)
+    by_target_accuracy = select_confidence_threshold(safe, margin, target_accuracy=1.0)
     assert by_min_coverage != by_target_accuracy
-    assert helpers.select_margin_threshold(correct, margin) == by_min_coverage
+    assert helpers.select_margin_threshold(safe, margin) == by_min_coverage
 
 
 def test_pool_for_margin_selection_excludes_tasks_below_the_business_cutoff():
@@ -344,11 +306,18 @@ def test_pool_for_margin_selection_excludes_tasks_below_the_business_cutoff():
         "t2": [judgment("a", RELATED_CONFIDENT), judgment("b", RELATED_CONFIDENT)],
     }
     gold_best_by_task = {"t1": frozenset({"a"}), "t2": frozenset({"a", "b"})}
-    correct, margin = helpers.pool_for_margin_selection(judgments_by_task, gold_best_by_task)
+    safe, margin = helpers.pool_for_margin_selection(judgments_by_task, gold_best_by_task)
     # Only t1 clears the business cutoff; t2's candidates are both modal level 1 and never
     # reach the pool, whatever their margin is.
-    assert correct == [True]
+    assert safe == [True]
     assert len(margin) == 1
+
+
+def test_pool_for_margin_selection_marks_a_tie_unsafe_regardless_of_which_side_ranks_first():
+    judgments_by_task = {"t1": [judgment("a", IDEAL_CONFIDENT), judgment("b", IDEAL_CONFIDENT)]}
+    gold_best_by_task = {"t1": frozenset({"a", "b"})}
+    safe, margin = helpers.pool_for_margin_selection(judgments_by_task, gold_best_by_task)
+    assert safe == [False]
 
 
 # ------------------------------------------------------------- consequentiality, on real fixtures
@@ -365,30 +334,9 @@ def _real_judgments(task_id, examples_by_task, backend, questions):
         for e in examples_by_task[task_id]
     }
     return {
-        skill_id: helpers.Judgment(skill_id, score_level(a), a.score, a.confidence)
+        skill_id: helpers.Judgment(skill_id, score_level(a), a.score)
         for skill_id, a in answers.items()
     }
-
-
-def test_the_confidence_gate_is_consequential_on_a_real_fixture():
-    # t01 (test): calendar_scheduling is confidently selected. Flip its stored answer to a
-    # spread-out distribution with the same modal level and a similar score, and the composed
-    # outcome must change from select to review, with the confidence gate's own reason.
-    backend, questions = _real_backend_and_questions()
-    examples_by_task = helpers.group_by_task_id(load_inputs(RECIPE))
-    judgments = _real_judgments("t01", examples_by_task, backend, questions)
-    before = helpers.select_skill(
-        "t01", list(judgments.values()), confidence_gate=0.3, margin_threshold=0.5
-    )
-    assert before.outcome == helpers.SELECT
-
-    mutated = dict(judgments)
-    mutated["calendar_scheduling"] = judgment("calendar_scheduling", IDEAL_LOW_CONFIDENCE)
-    after = helpers.select_skill(
-        "t01", list(mutated.values()), confidence_gate=0.3, margin_threshold=0.5
-    )
-    assert after.outcome == helpers.REVIEW
-    assert after.reason == helpers.REASON_STRING
 
 
 def test_the_business_cutoff_is_consequential_on_a_real_fixture():
@@ -398,16 +346,12 @@ def test_the_business_cutoff_is_consequential_on_a_real_fixture():
     backend, questions = _real_backend_and_questions()
     examples_by_task = helpers.group_by_task_id(load_inputs(RECIPE))
     judgments = _real_judgments("t01", examples_by_task, backend, questions)
-    before = helpers.select_skill(
-        "t01", list(judgments.values()), confidence_gate=0.0, margin_threshold=0.5
-    )
+    before = helpers.select_skill("t01", list(judgments.values()), margin_threshold=0.4)
     assert before.outcome == helpers.SELECT
 
     mutated = dict(judgments)
     mutated["calendar_scheduling"] = judgment("calendar_scheduling", RELATED_CONFIDENT)
-    after = helpers.select_skill(
-        "t01", list(mutated.values()), confidence_gate=0.0, margin_threshold=0.5
-    )
+    after = helpers.select_skill("t01", list(mutated.values()), margin_threshold=0.4)
     assert after.outcome == helpers.REVIEW
     assert after.reason == "the top skill's modal level is below the business cutoff"
 
@@ -419,22 +363,97 @@ def test_the_margin_threshold_is_consequential_on_a_real_fixture():
     backend, questions = _real_backend_and_questions()
     examples_by_task = helpers.group_by_task_id(load_inputs(RECIPE))
     judgments = _real_judgments("t01", examples_by_task, backend, questions)
-    before = helpers.select_skill(
-        "t01", list(judgments.values()), confidence_gate=0.0, margin_threshold=0.5
-    )
+    before = helpers.select_skill("t01", list(judgments.values()), margin_threshold=0.4)
     assert before.outcome == helpers.SELECT
 
     mutated = dict(judgments)
     mutated["travel_booking"] = judgment("travel_booking", IDEAL_CONFIDENT)
-    after = helpers.select_skill(
-        "t01", list(mutated.values()), confidence_gate=0.0, margin_threshold=0.5
-    )
+    after = helpers.select_skill("t01", list(mutated.values()), margin_threshold=0.4)
     assert after.outcome == helpers.REVIEW
     assert after.reason == "the margin between the top two skills is below the threshold"
 
 
-def test_gates_frozen_on_validation_match_the_committed_fixtures():
-    # End to end, on the committed fixtures: the exact values the notebook freezes.
+def _selections_with(
+    split, use_cutoff, margin_threshold, backend, questions, examples_by_task, labels
+):
+    selections, gold_best_by_task = [], {}
+    for task_id, exs in sorted(examples_by_task.items()):
+        if exs[0].split != split:
+            continue
+        judgments = list(_real_judgments(task_id, examples_by_task, backend, questions).values())
+        gold_best_by_task[task_id] = helpers.gold_best_skills(
+            {e.fields["skill_id"]: labels[e.id] for e in exs}
+        )
+        top, runner_up = helpers.rank_judgments(judgments)[:2]
+        margin = (top.score - runner_up.score) / (helpers.N_LEVELS - 1)
+        if use_cutoff and top.level < helpers.BUSINESS_CUTOFF:
+            outcome, reason = (
+                helpers.REVIEW,
+                "the top skill's modal level is below the business cutoff",
+            )
+        elif margin < margin_threshold:
+            outcome, reason = (
+                helpers.REVIEW,
+                "the margin between the top two skills is below the threshold",
+            )
+        else:
+            outcome, reason = helpers.SELECT, "clearly the best-fitting skill"
+        selections.append(
+            helpers.Selection(task_id, top.skill_id, top.level, margin, outcome, reason)
+        )
+    return selections, gold_best_by_task
+
+
+def test_deleting_the_business_cutoff_changes_a_reported_outcome_on_the_committed_fixtures():
+    # The stronger standard: not just "a mutation flips one example in isolation", but "the
+    # rule actually used on the committed fixtures, with the business cutoff removed entirely,
+    # reports a different coverage and a different accuracy". v23 and t22 are built exactly to
+    # make this true: a modal-level-1 top, scored near the ceiling, with a margin wide enough
+    # to pass on its own.
+    backend, questions = _real_backend_and_questions()
+    examples_by_task = helpers.group_by_task_id(load_inputs(RECIPE))
+    labels = load_labels(RECIPE)
+    margin_threshold = 0.4033333333333334
+
+    for split in ("validation", "test"):
+        with_cutoff, gold_best = _selections_with(
+            split, True, margin_threshold, backend, questions, examples_by_task, labels
+        )
+        without_cutoff, _ = _selections_with(
+            split, False, margin_threshold, backend, questions, examples_by_task, labels
+        )
+        accepted_with, correct_with = helpers.outcome_accounting(with_cutoff, gold_best)
+        accepted_without, correct_without = helpers.outcome_accounting(without_cutoff, gold_best)
+        result_with = evaluate_outcomes(accepted_with, correct_with)
+        result_without = evaluate_outcomes(accepted_without, correct_without)
+        assert result_with.coverage != result_without.coverage
+        assert result_with.accuracy != result_without.accuracy
+
+
+def test_deleting_the_margin_check_changes_a_reported_outcome_on_the_committed_fixtures():
+    # Same standard, for the margin: without it, the "two skills equally plausible" tasks
+    # (v04, t04) become automatic, unreviewed guesses, changing coverage.
+    backend, questions = _real_backend_and_questions()
+    examples_by_task = helpers.group_by_task_id(load_inputs(RECIPE))
+    labels = load_labels(RECIPE)
+    margin_threshold = 0.4033333333333334
+
+    for split in ("validation", "test"):
+        with_margin, gold_best = _selections_with(
+            split, True, margin_threshold, backend, questions, examples_by_task, labels
+        )
+        without_margin, _ = _selections_with(
+            split, True, 0.0, backend, questions, examples_by_task, labels
+        )
+        accepted_with, correct_with = helpers.outcome_accounting(with_margin, gold_best)
+        accepted_without, correct_without = helpers.outcome_accounting(without_margin, gold_best)
+        result_with = evaluate_outcomes(accepted_with, correct_with)
+        result_without = evaluate_outcomes(accepted_without, correct_without)
+        assert result_with.coverage != result_without.coverage
+
+
+def test_margin_threshold_frozen_on_validation_matches_the_committed_fixtures():
+    # End to end, on the committed fixtures: the exact value the notebook freezes.
     backend, questions = _real_backend_and_questions()
     examples_by_task = helpers.group_by_task_id(
         [e for e in load_inputs(RECIPE) if e.split == "validation"]
@@ -448,60 +467,48 @@ def test_gates_frozen_on_validation_match_the_committed_fixtures():
         tid: helpers.gold_best_skills({e.fields["skill_id"]: labels[e.id] for e in exs})
         for tid, exs in examples_by_task.items()
     }
-
-    conf_correct, conf_pool = helpers.pool_for_confidence_selection(
-        judgments_by_task, gold_best_by_task
-    )
-    assert len(conf_correct) == 5  # every validation task, unfiltered
-    confidence_gate = helpers.select_confidence_gate(conf_correct, conf_pool)
-    assert math.isclose(confidence_gate, 0.36, abs_tol=1e-9)
-
-    margin_correct, margin_pool = helpers.pool_for_margin_selection(
-        judgments_by_task, gold_best_by_task
-    )
-    assert len(margin_correct) == 4  # v03 fails the business cutoff and never joins the pool
-    margin_threshold = helpers.select_margin_threshold(margin_correct, margin_pool)
-    assert math.isclose(margin_threshold, 0.78, abs_tol=1e-9)
+    safe, margin = helpers.pool_for_margin_selection(judgments_by_task, gold_best_by_task)
+    assert len(safe) == 22  # every validation task except v03 and v23, which fail the cutoff
+    assert safe.count(False) == 3  # v04 (tied), v05 and v22 (wrong), each unsafe to auto-answer
+    margin_threshold = helpers.select_margin_threshold(safe, margin)
+    assert math.isclose(margin_threshold, 0.4033333333333334, abs_tol=1e-9)
 
 
 # --------------------------------------------------------------------- not all answers are right
 
 
-def test_stored_answers_are_not_all_right():
-    # A wrong answer anywhere is a weak guard: it would still pass even if a confidence gate
-    # caught every mistake. Mirror your notebook's own threshold selection here, including any
-    # filter on which answers can set the bar (the lowest confidence at which every validation
-    # answer *that counts* is right -- an unfiltered selection over every validation answer can
-    # choose a different, usually lower, threshold than your notebook's own one does), and
-    # require a wrong `test` answer at or above it: a mistake the gate would still let through,
-    # which is what evaluating on `test` exists to catch. This checks the *per-question* Score
-    # answers directly (each (task, skill) request against its own gold level), independent of
-    # the task-level rule checked above.
-    backend = get_backend(fixtures=responses_path(RECIPE))
-    questions = helpers.build_questions()
-    name = next(iter(questions))
-    labels = load_labels(RECIPE)
+def test_test_split_has_a_wrong_task_that_clears_the_frozen_margin_threshold():
+    # The standard "stored answers are not all right" guard, adapted to this recipe's actual
+    # mechanism: a task-level margin threshold, not a per-question confidence gate (this
+    # recipe has no per-answer confidence check to mirror -- see helpers.select_skill's own
+    # comment for why). Reproduces the notebook's own threshold selection by calling the same
+    # shared helpers it calls, never reimplementing them, then requires a `test` task the
+    # frozen gates still wrongly select -- the mistake evaluating on `test` exists to catch.
+    backend, questions = _real_backend_and_questions()
     examples = load_inputs(RECIPE)
+    labels = load_labels(RECIPE)
+    examples_by_task = helpers.group_by_task_id(examples)
 
-    def decide(example):
-        return backend.decide(helpers.build_state(example.fields), questions)[name]
+    val_tasks = {tid: exs for tid, exs in examples_by_task.items() if exs[0].split == "validation"}
+    judgments_by_task = {
+        tid: list(_real_judgments(tid, val_tasks, backend, questions).values()) for tid in val_tasks
+    }
+    gold_best_by_task = {
+        tid: helpers.gold_best_skills({e.fields["skill_id"]: labels[e.id] for e in exs})
+        for tid, exs in val_tasks.items()
+    }
+    safe, margin = helpers.pool_for_margin_selection(judgments_by_task, gold_best_by_task)
+    threshold = helpers.select_margin_threshold(safe, margin)
 
-    def predicted(answer):
-        return answer.choice if hasattr(answer, "choice") else score_level(answer)
-
-    validation = [e for e in examples if e.split == "validation" and e.id in labels]
-    val_answers = {e.id: decide(e) for e in validation}
-    correct = [predicted(val_answers[e.id]) == labels[e.id] for e in validation]
-    confidence = [val_answers[e.id].confidence for e in validation]
-    threshold = select_confidence_threshold(correct, confidence, target_accuracy=1.0)
-
-    test = [e for e in examples if e.split == "test" and e.id in labels]
-    wrong_and_confident = [
-        e.id
-        for e in test
-        if predicted(decide(e)) != labels[e.id] and decide(e).confidence >= threshold
-    ]
-    assert wrong_and_confident, "expected at least one confidently wrong test answer"
+    test_tasks = {tid: exs for tid, exs in examples_by_task.items() if exs[0].split == "test"}
+    wrong_and_selected = []
+    for task_id, exs in test_tasks.items():
+        judgments = list(_real_judgments(task_id, test_tasks, backend, questions).values())
+        selection = helpers.select_skill(task_id, judgments, threshold)
+        gold_best = helpers.gold_best_skills({e.fields["skill_id"]: labels[e.id] for e in exs})
+        if selection.outcome == helpers.SELECT and selection.skill_id not in gold_best:
+            wrong_and_selected.append(task_id)
+    assert wrong_and_selected, "expected at least one test task the frozen gates wrongly select"
 
 
 # ------------------------------------------- build_fixtures.py's own rows and declared levels
@@ -511,10 +518,10 @@ def test_every_committed_stored_answers_top_choice_is_the_one_its_row_names():
     """A fixture-building spec must never let the stored answer's own top choice silently
     drift from what the row itself says it should be. Every row in build_fixtures.py's
     ``TASK_SPECS`` names its own ``intended_level`` directly, never defaulted or inferred from
-    the gold level (two of the thirteen tasks' rows deliberately disagree: ``gold_level`` is
+    the gold level (several of the fifty tasks' rows deliberately disagree: ``gold_level`` is
     what a skill really deserves, ``intended_level`` is the modal level the row's own
-    probabilities are written to land on). This checks every one of the 39 committed rows
-    against that declaration."""
+    probabilities are written to land on). This checks every committed row against that
+    declaration."""
     module = _load_build_fixtures()
     responses = json.loads((RECIPE / "fixtures" / "responses.json").read_text("utf-8"))
     questions = helpers.build_questions()

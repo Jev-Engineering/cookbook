@@ -165,14 +165,12 @@ def build_questions() -> dict[str, Score]:
 
 @dataclass(frozen=True)
 class Judgment:
-    """One scored candidate: the skill, its modal level, its expected score, and the answer's
-    own ``confidence``. Built from a ``ScoreAnswer`` so the composition below never re-reads
-    the answer object itself."""
+    """One scored candidate: the skill, its modal level, and its expected score. Built from a
+    ``ScoreAnswer`` so the composition below never re-reads the answer object itself."""
 
     skill_id: str
     level: int
     score: float
-    confidence: float
 
 
 @dataclass(frozen=True)
@@ -199,32 +197,43 @@ def rank_judgments(judgments: list[Judgment]) -> list[Judgment]:
     return sorted(judgments, key=lambda j: -j.score)
 
 
-# docs/glossary.md#review: "the reason string for a confidence-gated review is exactly
-# 'confidence below the threshold'". That is a separate thing from the margin and the business
-# cutoff below (neither of which reads an answer's own `.confidence`), so it gets the lexicon's
-# exact words and nothing else does.
-REASON_STRING = "confidence below the threshold"
+# Why this rule has two review branches, not three. An earlier draft also gated on the top
+# answer's own Score `.confidence` (the reason a review would carry, had it fired:
+# "confidence below the threshold" -- the lexicon's exact words for a confidence-gated review,
+# docs/glossary.md#review). It was removed, deliberately, after measuring that it could never
+# be the reason a real task is held for review here, given this rubric and the margin
+# threshold this recipe actually freezes:
+#
+#   For a Score over N_LEVELS=4 levels with modal level 3 (the only level a margin this wide
+#   is ever reached from -- see below), `confidence = score - 2` exactly: the "even" spread
+#   for 4 levels is 1.0, and the probability-weighted distance from the peak reduces
+#   algebraically to `3 - score`, so `confidence = 1 - (3 - score) = score - 2`. A confidence
+#   gate at `g` is therefore identical to a floor on `score` alone, `score >= g + 2`.
+#   The margin check already enforces `score_top >= margin_threshold * (N_LEVELS - 1) +
+#   score_runner_up`. Once `margin_threshold * 3` alone exceeds `g + 2` -- true for any gate
+#   `g < 1.0` once the threshold clears about two-thirds of the scale, which is exactly the
+#   range `select_margin_threshold` lands in on this recipe's fixtures -- every task that
+#   clears the margin check has *already* cleared the confidence gate, for any non-negative
+#   runner-up score. A confidence gate kept under those conditions could still be *evaluated*,
+#   but it could never be the reason a real, committed task is sent to review instead of being
+#   selected: deleting it and re-running the evaluation would change no number this recipe
+#   reports, only which of two reason strings an already-reviewed task is given. That fails
+#   the same test this recipe's own tests hold the business cutoff and the margin to (see
+#   ``tests/test_helpers.py``, which proves each of those two *does* change a real, committed
+#   task's outcome by itself) -- so a third branch that cannot pass it is not kept just to
+#   have three.
+def select_skill(task_id: str, judgments: list[Judgment], margin_threshold: float) -> Selection:
+    """Select the top-ranked skill only when its score clears the business cutoff *and* it
+    clearly beats the runner-up; otherwise send the task to review so a person can clarify
+    which skill is meant.
 
+    Two independent conditions decide this, checked in this order, and each can send a task to
+    review on its own:
 
-def select_skill(
-    task_id: str, judgments: list[Judgment], confidence_gate: float, margin_threshold: float
-) -> Selection:
-    """Select the top-ranked skill only when its own judgment is trustworthy, its score clears
-    the business cutoff, *and* it clearly beats the runner-up; otherwise send the task to
-    review so a person can clarify which skill is meant.
-
-    Three independent conditions decide this, checked in this order, and each can send a task
-    to review on its own:
-
-    - **The confidence gate** (``confidence_gate``, chosen on validation and frozen): the top
-      skill's own answer ``confidence`` -- how peaked its probability distribution over the
-      four levels is, nothing to do with the other candidates -- must clear this gate. A
-      spread-out distribution is not solid ground for acting on, whatever level it happens to
-      peak at or how far ahead of the runner-up it scored.
     - **The business cutoff** (``BUSINESS_CUTOFF``, fixed): the top skill's modal level
       (:func:`jev_cookbook.evaluation.score_level`, ties going to the lower level) must be
       ``SUITABLE`` or better. A skill whose description does not even state that it can do
-      the task is never selected.
+      the task is never selected, however far ahead of the runner-up it scored.
     - **The margin** (``margin_threshold``, chosen on validation and frozen): the gap between
       the top skill's expected score and the runner-up's, normalized to 0-1 by dividing by
       ``N_LEVELS - 1`` (the largest a gap between two scores on this rubric can be), must clear
@@ -233,17 +242,12 @@ def select_skill(
       without asking is a guess Python should not make automatically.
 
     The rule is code, so it holds whatever the model answers; it never asks Jev to compare
-    skills itself. Raises ``ValueError`` if ``confidence_gate`` or ``margin_threshold`` is
-    outside ``[0, 1]``.
+    skills itself. Raises ``ValueError`` if ``margin_threshold`` is outside ``[0, 1]``.
     """
-    if not 0.0 <= confidence_gate <= 1.0:
-        raise ValueError(f"confidence_gate must be between 0 and 1, got {confidence_gate!r}")
     if not 0.0 <= margin_threshold <= 1.0:
         raise ValueError(f"margin_threshold must be between 0 and 1, got {margin_threshold!r}")
     top, runner_up = rank_judgments(judgments)[:2]
     margin = (top.score - runner_up.score) / (N_LEVELS - 1)
-    if top.confidence < confidence_gate:
-        return Selection(task_id, top.skill_id, top.level, margin, REVIEW, REASON_STRING)
     if top.level < BUSINESS_CUTOFF:
         return Selection(
             task_id,
@@ -290,79 +294,67 @@ def group_by_task_id(examples: list[Any]) -> dict[str, list[Any]]:
     return groups
 
 
-def pool_for_confidence_selection(
-    judgments_by_task: dict[str, list[Judgment]], gold_best_by_task: dict[str, frozenset[str]]
-) -> tuple[list[bool], list[float]]:
-    """``(correct, confidence)`` pairs for :func:`select_confidence_gate`, one pair per task,
-    from the top-ranked candidate's own answer confidence. Unlike
-    :func:`pool_for_margin_selection`, this pool is never filtered by the business cutoff or
-    the margin: the confidence gate is the first thing ``select_skill`` checks, before either
-    of those, so every task's top judgment -- whatever its level or margin -- sets the bar for
-    it.
-    """
-    correct, confidences = [], []
-    for task_id, judgments in judgments_by_task.items():
-        top = rank_judgments(judgments)[0]
-        confidences.append(top.confidence)
-        correct.append(top.skill_id in gold_best_by_task[task_id])
-    return correct, confidences
-
-
-# Both objectives below freeze the highest-accuracy cut-off among those that still answer at
-# least this share of their own pool, rather than `target_accuracy=1.0`: a perfect-validation-
-# accuracy target is true by construction here (both pools have a feasible threshold that
-# clears every wrong example) and would tell a reader nothing about the trade-off actually
-# made. Chosen, not derived -- a different value would freeze a different threshold, which is
-# exactly why `tests/test_helpers.py` pins both constants and the fact that the two selectors
-# below call `min_coverage=`, never `target_accuracy=`.
-CONFIDENCE_MIN_COVERAGE = 0.5
+# The objective below freezes the highest-accuracy cut-off among those that still answer at
+# least this share of the margin pool, rather than `target_accuracy=1.0`: a perfect-
+# validation-accuracy target is true by construction here (the pool has a feasible threshold
+# that clears every wrong example) and would tell a reader nothing about the trade-off
+# actually made. Chosen, not derived -- a different value would freeze a different threshold,
+# which is exactly why `tests/test_helpers.py` pins this constant and the fact that
+# `select_margin_threshold` calls `min_coverage=`, never `target_accuracy=`.
 MARGIN_MIN_COVERAGE = 0.5
 
 
-def select_confidence_gate(correct: list[bool], confidence: list[float]) -> float:
-    """The confidence gate to freeze, chosen on validation: the highest-accuracy cut-off among
-    those with coverage at least ``CONFIDENCE_MIN_COVERAGE`` over ``(correct, confidence)``
-    (see :func:`pool_for_confidence_selection`), ties going to the lower threshold (more
-    coverage). A thin, named wrapper around
-    :func:`jev_cookbook.evaluation.select_confidence_threshold` so the notebook and the tests
-    call the exact same objective rather than each spelling out ``min_coverage=...`` by hand.
+def is_safe_auto_answer(skill_id: str, gold_best: frozenset[str]) -> bool:
+    """Whether auto-answering with ``skill_id`` was *safe* for the margin threshold to have
+    allowed: true only when ``gold_best`` names exactly one skill and ``skill_id`` is it.
+
+    This is stricter than "is the pick acceptable" (:func:`gold_best_skills` can legitimately
+    name more than one skill -- the "two skills equally plausible" hard case -- and a
+    selection naming either one is a correct *top-1 pick*, scored that way everywhere else in
+    this recipe, including :func:`outcome_accounting`). For *choosing* the margin threshold
+    specifically, that permissive view is the wrong question: a threshold loose enough to
+    auto-answer a genuinely tied task is not vindicated by one of the two guesses landing
+    acceptably -- the point of the margin check is to not guess on a task like that at all.
+    Scoring a tied task as a success here would give the threshold search no reason to ever
+    raise the bar above a razor-thin margin, so this pools a tied task as unsafe regardless of
+    which retrieved skill happened to rank first.
     """
-    return select_confidence_threshold(correct, confidence, min_coverage=CONFIDENCE_MIN_COVERAGE)
+    return len(gold_best) == 1 and skill_id in gold_best
 
 
 def pool_for_margin_selection(
     judgments_by_task: dict[str, list[Judgment]], gold_best_by_task: dict[str, frozenset[str]]
 ) -> tuple[list[bool], list[float]]:
-    """``(correct, margin)`` pairs for :func:`select_margin_threshold`, one pair per task whose
+    """``(safe, margin)`` pairs for :func:`select_margin_threshold`, one pair per task whose
     top-ranked skill already clears ``BUSINESS_CUTOFF`` -- the same filter ``select_skill``
-    applies before it ever looks at the margin, so only tasks the margin threshold could
-    actually affect set the bar for it (the template's own pattern: "only an answer that names
-    a queue can be routed automatically, so only those can set the bar."). A task whose top
-    skill fails the business cutoff is left out entirely: it is sent to review for that reason
-    alone, whatever the margin among its candidates happens to be. This pool is independent of
-    the confidence gate -- chosen separately, from a pool filtered only by the one condition
-    (the business cutoff) that the margin check itself sits behind, regardless of which gate a
-    task is ultimately caught by when both are applied together in :func:`select_skill`.
+    applies before it ever looks at the margin, so only a task the margin threshold could
+    actually affect sets the bar for it (the template's own pattern: "only an answer that
+    names a queue can be routed automatically, so only those can set the bar."). A task whose
+    top skill fails the business cutoff is left out entirely: it is sent to review for that
+    reason alone, whatever the margin among its candidates happens to be. ``safe`` comes from
+    :func:`is_safe_auto_answer`, not the permissive ``gold_best_skills`` membership check --
+    see that function's docstring for why the margin pool needs the stricter one.
     """
-    correct, margins = [], []
+    safe, margins = [], []
     for task_id, judgments in judgments_by_task.items():
         top, runner_up = rank_judgments(judgments)[:2]
         if top.level < BUSINESS_CUTOFF:
             continue
         margins.append((top.score - runner_up.score) / (N_LEVELS - 1))
-        correct.append(top.skill_id in gold_best_by_task[task_id])
-    return correct, margins
+        safe.append(is_safe_auto_answer(top.skill_id, gold_best_by_task[task_id]))
+    return safe, margins
 
 
-def select_margin_threshold(correct: list[bool], margin: list[float]) -> float:
+def select_margin_threshold(safe: list[bool], margin: list[float]) -> float:
     """The margin threshold to freeze, chosen on validation: the highest-accuracy cut-off
-    among those with coverage at least ``MARGIN_MIN_COVERAGE`` over ``(correct, margin)``
-    (see :func:`pool_for_margin_selection`), ties going to the lower threshold (more
-    coverage). A thin, named wrapper around
-    :func:`jev_cookbook.evaluation.select_confidence_threshold` so the notebook and the tests
-    call the exact same objective rather than each spelling out ``min_coverage=...`` by hand.
+    among those with coverage at least ``MARGIN_MIN_COVERAGE`` over ``(safe, margin)`` (see
+    :func:`pool_for_margin_selection`), ties going to the lower threshold (more coverage). A
+    thin, named wrapper around :func:`jev_cookbook.evaluation.select_confidence_threshold` --
+    which reads its first argument as "was this example right", so here it reads as "was
+    auto-answering this example safe" -- so the notebook and the tests call the exact same
+    objective rather than each spelling out ``min_coverage=...`` by hand.
     """
-    return select_confidence_threshold(correct, margin, min_coverage=MARGIN_MIN_COVERAGE)
+    return select_confidence_threshold(safe, margin, min_coverage=MARGIN_MIN_COVERAGE)
 
 
 def outcome_accounting(
@@ -377,9 +369,11 @@ def outcome_accounting(
     (``evaluate_outcomes`` requires a value even where ``accepted`` is ``False``, though it never
     reads it there). This is deliberately not ``jev_cookbook.evaluation.evaluate_selective``
     reapplied to every task: that helper gates every example on one confidence value alone, but
-    ``select_skill`` checks three independent review branches -- the confidence gate, the
-    business cutoff, and the margin -- and a task can be sent to review by either of the last
-    two even once the first has already passed it.
+    ``select_skill`` checks two independent review branches -- the business cutoff and the
+    margin -- and a task can be sent to review by either one once the other has already
+    passed it. ``correct`` here uses the permissive ``gold_best_skills`` membership check
+    (either tied skill counts as a correct top-1 pick), unlike :func:`pool_for_margin_selection`,
+    which uses the stricter :func:`is_safe_auto_answer` for choosing the threshold itself.
     """
     if not selections:
         raise ValueError("outcome_accounting needs at least one selection")
