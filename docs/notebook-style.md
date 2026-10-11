@@ -177,7 +177,7 @@ its title, even though a *printed* `validation` line carries both `{selection}{c
 `plot_confusion_matrix`, `plot_risk_coverage`, `plot_threshold_sweep` — each of which summarises
 a whole split; it does not reach `plot_answer_probabilities` shown for one answer up close (the
 template's own `title="One Choice answer"`), which is neither a pipeline check nor a selection
-step on an aggregate and so carries no disclosure label at all.
+step on an aggregate and so need not carry one.
 
 ### Showing a figure in a notebook
 
