@@ -153,7 +153,7 @@ own first use the same way.
   evaluation chart helpers — `plot_confusion_matrix`, `plot_risk_coverage`, `plot_threshold_sweep`
   — each of which summarises a whole split; it does not reach `plot_answer_probabilities` shown
   for one answer up close (the template's own `title="One Choice answer"`), which is neither a
-  pipeline check nor a selection step on an aggregate and so carries no disclosure label at all.
+  pipeline check nor a selection step on an aggregate and so need not carry one.
 - **Nothing path-like is printed.** The hygiene scan fails notebook outputs that contain absolute
   paths, usernames or environment dumps.
 - **`Noul` propositions are statements** that can be true or false. The contract is stricter than
