@@ -553,8 +553,8 @@ def test_perfect_validation_accuracy_is_infeasible_on_the_margin_pool():
     # weaker choice than min_coverage -- it is unreachable, because the pool's own
     # joint-maximum margin is held by both a safe example (v01) and an unsafe one (v22), so
     # no non-empty answered set is ever error-free. A fixture edit that made a perfect
-    # threshold reachable again (by, say, giving v22 a margin below every safe example's)
-    # would make this test stop raising, catching the comment going stale a second time.
+    # threshold reachable (by, say, giving v22 a margin below every safe example's) would
+    # make this test stop raising, catching the comment going stale.
     backend, questions = _real_backend_and_questions()
     examples_by_task = helpers.group_by_task_id(
         [e for e in load_inputs(RECIPE) if e.split == "validation"]

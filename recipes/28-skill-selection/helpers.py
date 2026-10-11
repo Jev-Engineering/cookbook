@@ -330,8 +330,8 @@ def group_by_task_id(examples: list[Any]) -> dict[str, list[Any]]:
 # threshold reaches accuracy 1.0` rather than handing back a flattering number.
 # `tests/test_helpers.py` asserts that directly
 # (`test_perfect_validation_accuracy_is_infeasible_on_the_margin_pool`), so a future fixture
-# edit that makes the target feasible again is caught rather than leaving this comment stale a
-# second time. Chosen, not derived -- a different value would freeze a different threshold,
+# edit that makes the target feasible is caught rather than leaving this comment stale. Chosen,
+# not derived -- a different value would freeze a different threshold,
 # which is exactly why `tests/test_helpers.py` pins this constant and the fact that
 # `select_margin_threshold` calls `min_coverage=`, never `target_accuracy=`.
 MARGIN_MIN_COVERAGE = 0.5
