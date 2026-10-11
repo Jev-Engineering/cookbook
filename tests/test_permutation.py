@@ -6,7 +6,8 @@ deterministic", is the point: if a future CPython version changed how ``random.R
 behaves for a fixed seed (the one thing the standard library documents as stable), or if this
 module's construction changed, these assertions would catch it instead of every recipe fixture
 that uses this helper silently reshuffling. The suite runs this file under both the 3.10 and the
-3.14 venv (``BUILDER_RULES.md``), so the same pinned values are the reproduction check on both
+3.14 venv (``docs/development.md``, "Continuous integration": the ``Tests (py3.10)`` /
+``Tests (py3.14)`` jobs), so the same pinned values are the reproduction check on both
 interpreters; nothing in this file is version-conditional.
 """
 

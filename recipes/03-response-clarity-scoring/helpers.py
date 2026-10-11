@@ -16,7 +16,7 @@ from jev_cookbook.evaluation import score_level
 # The clarity rubric, lowest level first. Each level is judged on its own against the response
 # text ("Every level is evaluated separately. The model doesn't see a level's number or its
 # neighbours, so 'worse than the previous level' means nothing to it.",
-# https://docs.typesafe.ai/primitives/score.md), so every description stands alone: it names
+# https://docs.typesafe.ai/primitives/score), so every description stands alone: it names
 # what a reader of the response can and cannot do, never "clearer than the level above". Level
 # 0 and level 1 each gate on whether the outcome and the next step are available to the reader
 # at all, not on the presence of jargon by itself, so a response that states the outcome through

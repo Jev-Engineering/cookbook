@@ -116,6 +116,41 @@ Choice: calm (confidence 0.90)
 Provenance: synthetic
 ```
 
+### Wrapping a long Score level legend
+
+A Score's rubric is written as full sentences (as `score.md` encourages), and the criteria
+text must match what a live run returns, so it cannot be shortened just to print better. A
+level's legend can run to hundreds of characters; printed on one line, as the example above
+prints a short legend, it would make console and notebook output unreadable. `format_answer`
+and `show_answer` instead wrap a level's legend text at `width` columns (`width=` is a
+keyword-only parameter on both): the default, `style.LEGEND_WIDTH` (100, matching this
+repository's ruff `line-length`), wraps at word boundaries, never mid-word, with continuation
+lines indented to line up under where the legend text starts, not under the two-space margin
+or the level number. The probability and bar are never split from the text and always end the
+last line, so a level's number, probability and bar are each easy to find at a glance however
+many lines its legend takes. Pass `width=None` for the full legend on one line however long
+(useful for copying the whole rubric text out of a cell's output), or any other column count.
+
+Wrapping only changes how `format_answer` and `show_answer` print `answer.legend`; the legend
+itself, what is sent to Jev, and what a notebook's replay key compares are never touched. A
+legend that already fits in `width` columns prints as exactly one line, byte-identical to the
+line it printed before `width` existed, so a short legend (and every Choice or Noul answer,
+neither of which has a legend) is unaffected.
+
+Before (one line, 300 columns and more for a rubric written as full sentences):
+
+```text
+  0 The reader cannot tell what happened to their request or what to do next, because the response omits the key fact, hides it behind an internal term or acronym the reader has no way to resolve, or states two things that contradict each other.  0.60  ############
+```
+
+After (the same level, default `width`):
+
+```text
+  0 The reader cannot tell what happened to their request or what to do next, because the response
+    omits the key fact, hides it behind an internal term or acronym the reader has no way to
+    resolve, or states two things that contradict each other.  0.60  ############
+```
+
 ## Charts
 
 All helpers take plain arrays or mappings, return a matplotlib `Figure` (the one that owns
@@ -138,7 +173,11 @@ way a printed number is. The rest of the title is free text (the template's own
 `f"Test split, {len(test_examples)} examples{check}"` names the split and its size); `{check}` is
 the only *label* it carries. A figure plotted from `validation` still carries only `{check}` in
 its title, even though a *printed* `validation` line carries both `{selection}{check}`
-([recipe-template.md](recipe-template.md)).
+([recipe-template.md](recipe-template.md)). This rule covers the evaluation chart helpers —
+`plot_confusion_matrix`, `plot_risk_coverage`, `plot_threshold_sweep` — each of which summarises
+a whole split; it does not reach `plot_answer_probabilities` shown for one answer up close (the
+template's own `title="One Choice answer"`), which is neither a pipeline check nor a selection
+step on an aggregate and so need not carry one.
 
 ### Showing a figure in a notebook
 

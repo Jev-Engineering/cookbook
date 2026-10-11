@@ -18,7 +18,7 @@ from jev_cookbook.evaluation import score_level
 # The relevance rubric, lowest level first. Each level is judged on its own against the
 # (query, passage) pair ("Every level is evaluated separately. The model doesn't see a level's
 # number or its neighbours, so 'worse than the previous level' means nothing to it.",
-# https://docs.typesafe.ai/primitives/score.md), so every description stands alone: it says
+# https://docs.typesafe.ai/primitives/score), so every description stands alone: it says
 # what the passage itself states about the query, never "less relevant than the level above".
 NOT_RELEVANT = (
     "The passage is about a different topic, entity, time, or place than the query asks "
