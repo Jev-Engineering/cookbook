@@ -135,17 +135,17 @@ def classify(test_id: str, answer: Any, confidence_gate: float) -> Classificatio
 # A small, deliberately dumb file-path-and-lexical scorer: it checks whether a candidate test
 # lives in the same feature area as a file the patch changes, and counts matching words between
 # the patch description and the test, and nothing else (no stemming, no term weighting, no
-# understanding of what the test actually calls). This is "the original retrieval order from a
-# small lexical scorer written in plain Python" this use case calls for, generalized with one
-# more deterministic signal (file-path overlap) the issue also names. A test whose name or body
-# is phrased differently from the patch description (a paraphrase) can defeat the lexical half
-# of this score on purpose: that is the gap a semantic judgment is for.
+# understanding of what the test actually calls). This is a small lexical scorer written in
+# plain Python, standing in for however a candidate set might otherwise be ranked without a
+# semantic judgment, with one more deterministic signal (file-path overlap) added to it. A test
+# whose name or body is phrased differently from the patch description (a paraphrase) can defeat
+# the lexical half of this score on purpose: that is the gap a semantic judgment is for.
 _WORD_RE = re.compile(r"[a-z0-9]+")
 _STOPWORDS = frozenset(
     {
         "a", "an", "and", "are", "as", "at", "be", "but", "by", "can", "do", "does",
         "for", "from", "have", "how", "i", "if", "in", "is", "it", "its", "of", "on",
-        "or", "that", "the", "this", "to", "was", "when", "will", "with", "the",
+        "or", "that", "the", "this", "to", "was", "when", "will", "with",
     }
 )  # fmt: skip
 
@@ -198,10 +198,9 @@ def baseline_score(candidate: Candidate) -> float:
     """The baseline's own ranking score for one candidate: file-path overlap (weighted) plus
     lexical overlap between the patch description and the test. Deterministic, and computed
     with no reference to any Jev answer."""
-    return (
-        FILE_PATH_WEIGHT * file_path_score(candidate.changed_files, candidate.test_path)
-        + lexical_score(candidate.patch, candidate.test)
-    )
+    return FILE_PATH_WEIGHT * file_path_score(
+        candidate.changed_files, candidate.test_path
+    ) + lexical_score(candidate.patch, candidate.test)
 
 
 def baseline_rank(candidates: list[Candidate]) -> dict[str, int]:
@@ -256,7 +255,9 @@ def propose_suite(
 
 
 def effective_scores(
-    candidates: list[Candidate], classifications: dict[str, Classification], scores: dict[str, float]
+    candidates: list[Candidate],
+    classifications: dict[str, Classification],
+    scores: dict[str, float],
 ) -> dict[str, float]:
     """The ranking score :func:`jev_cookbook.evaluation.recall_at_budget` must use to reproduce
     :func:`propose_suite`'s own selection exactly: a candidate :func:`classify` calls
@@ -282,7 +283,9 @@ def effective_scores(
     return out
 
 
-def effective_budget(candidates: list[Candidate], classifications: dict[str, Classification], budget: int) -> int:
+def effective_budget(
+    candidates: list[Candidate], classifications: dict[str, Classification], budget: int
+) -> int:
     """The budget to pass to :func:`jev_cookbook.evaluation.recall_at_budget` /
     :func:`jev_cookbook.evaluation.mean_recall_at_budget` together with :func:`effective_scores`,
     so that function's own top-budget selection reproduces :func:`propose_suite` exactly even

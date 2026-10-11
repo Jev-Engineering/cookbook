@@ -1301,37 +1301,6 @@
       }
     }
   },
-  "4395ed05953b09f2cdcfc52468340c9c1616168fcb99195a3076fc0a39757bed": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "relevance": {
-        "type": "score",
-        "score": 0.38,
-        "probabilities": {
-          "0": 0.75,
-          "1": 0.15,
-          "2": 0.07,
-          "3": 0.03
-        },
-        "confidence": 0.62,
-        "legend": {
-          "0": "The test exercises code that has nothing to do with the module, function, or behavior the patch changes. Nothing the patch does could make this test start or stop passing.",
-          "1": "The test exercises the same module or feature area the patch touches, but not the function or branch the patch changes. A defect in the patch's own change could pass this test without being caught.",
-          "2": "The test calls the function or exercises the branch the patch changes, and would fail if that changed behavior were removed, but it does not exercise the exact edge case or boundary condition the patch adds or alters.",
-          "3": "The test exercises exactly the edge case, boundary, or condition the patch adds or alters, and would fail if the patch's own change were reverted."
-        },
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
   "44efc8462d3235455ba244d17556e6bc67f65803f58fd17f8c7abaf0f8d97b02": {
     "model": "synthetic",
     "usage": {
@@ -2014,37 +1983,6 @@
       }
     }
   },
-  "69869b3d38b1a2ea7d6de65a67783c3103a244b8eff26cf25e055ae0f9a168d1": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "relevance": {
-        "type": "score",
-        "score": 1.9500000000000002,
-        "probabilities": {
-          "0": 0.03,
-          "1": 0.08,
-          "2": 0.8,
-          "3": 0.09
-        },
-        "confidence": 0.77,
-        "legend": {
-          "0": "The test exercises code that has nothing to do with the module, function, or behavior the patch changes. Nothing the patch does could make this test start or stop passing.",
-          "1": "The test exercises the same module or feature area the patch touches, but not the function or branch the patch changes. A defect in the patch's own change could pass this test without being caught.",
-          "2": "The test calls the function or exercises the branch the patch changes, and would fail if that changed behavior were removed, but it does not exercise the exact edge case or boundary condition the patch adds or alters.",
-          "3": "The test exercises exactly the edge case, boundary, or condition the patch adds or alters, and would fail if the patch's own change were reverted."
-        },
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
   "6c696077545f653286eddea76a47add35520b61aaf84d56abe0164e3181e0332": {
     "model": "synthetic",
     "usage": {
@@ -2062,37 +2000,6 @@
           "3": 0.05
         },
         "confidence": 0.73,
-        "legend": {
-          "0": "The test exercises code that has nothing to do with the module, function, or behavior the patch changes. Nothing the patch does could make this test start or stop passing.",
-          "1": "The test exercises the same module or feature area the patch touches, but not the function or branch the patch changes. A defect in the patch's own change could pass this test without being caught.",
-          "2": "The test calls the function or exercises the branch the patch changes, and would fail if that changed behavior were removed, but it does not exercise the exact edge case or boundary condition the patch adds or alters.",
-          "3": "The test exercises exactly the edge case, boundary, or condition the patch adds or alters, and would fail if the patch's own change were reverted."
-        },
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "6e44df7aa91054cea247233b1bd49ff16d11018d3d49f875c67bc0c69a4d7357": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "relevance": {
-        "type": "score",
-        "score": 2.78,
-        "probabilities": {
-          "0": 0.02,
-          "1": 0.03,
-          "2": 0.1,
-          "3": 0.85
-        },
-        "confidence": 0.78,
         "legend": {
           "0": "The test exercises code that has nothing to do with the module, function, or behavior the patch changes. Nothing the patch does could make this test start or stop passing.",
           "1": "The test exercises the same module or feature area the patch touches, but not the function or branch the patch changes. A defect in the patch's own change could pass this test without being caught.",

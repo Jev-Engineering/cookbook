@@ -38,7 +38,14 @@ LOW_CONFIDENCE_BY_LEVEL = {
 }
 
 
-def candidate(test_id, patch="a patch", test="a test", changed_files=("area/f.py",), test_path="tests/area/test_f.py", position=0):
+def candidate(
+    test_id,
+    patch="a patch",
+    test="a test",
+    changed_files=("area/f.py",),
+    test_path="tests/area/test_f.py",
+    position=0,
+):
     return helpers.Candidate(test_id, "task", patch, test, changed_files, test_path, position)
 
 
@@ -138,7 +145,10 @@ def test_the_business_cutoff_is_exactly_at_exercises_change():
 
 
 def test_lexical_score_counts_shared_non_stopwords():
-    assert helpers.lexical_score("How does the refund timing work?", "Refund timing is fixed here.") == 2
+    assert (
+        helpers.lexical_score("How does the refund timing work?", "Refund timing is fixed here.")
+        == 2
+    )
     assert helpers.lexical_score("profile picture size", "a profile picture of your dog") == 2
 
 
@@ -165,20 +175,48 @@ def test_baseline_score_weights_file_path_overlap_above_a_single_word():
     # A file-area match alone (no lexical overlap) must still outrank a lexical-only match of
     # fewer than FILE_PATH_WEIGHT shared words, so the baseline's own weighting is real, not
     # window dressing.
-    in_area_no_words = candidate("a", patch="apply the discount boundary", test="def test_y(): pass",
-                                  changed_files=("billing/x.py",), test_path="tests/billing/test_y.py")
-    out_of_area_one_word = candidate("b", patch="apply the discount boundary", test="def test_discount(): pass",
-                                      changed_files=("billing/x.py",), test_path="tests/auth/test_discount.py")
+    in_area_no_words = candidate(
+        "a",
+        patch="apply the discount boundary",
+        test="def test_y(): pass",
+        changed_files=("billing/x.py",),
+        test_path="tests/billing/test_y.py",
+    )
+    out_of_area_one_word = candidate(
+        "b",
+        patch="apply the discount boundary",
+        test="def test_discount(): pass",
+        changed_files=("billing/x.py",),
+        test_path="tests/auth/test_discount.py",
+    )
     assert helpers.baseline_score(in_area_no_words) > helpers.baseline_score(out_of_area_one_word)
 
 
 def test_baseline_rank_orders_by_baseline_score_then_breaks_ties_by_position():
-    a = candidate("A", patch="refund timing", test="unrelated text here", changed_files=("x/y.py",),
-                  test_path="tests/w/test_a.py", position=0)
-    b = candidate("B", patch="refund timing", test="a refund post, with timing details",
-                  changed_files=("x/y.py",), test_path="tests/z/test_b.py", position=1)
-    c = candidate("C", patch="refund timing", test="another refund and timing passage",
-                  changed_files=("x/y.py",), test_path="tests/z/test_c.py", position=2)
+    a = candidate(
+        "A",
+        patch="refund timing",
+        test="unrelated text here",
+        changed_files=("x/y.py",),
+        test_path="tests/w/test_a.py",
+        position=0,
+    )
+    b = candidate(
+        "B",
+        patch="refund timing",
+        test="a refund post, with timing details",
+        changed_files=("x/y.py",),
+        test_path="tests/z/test_b.py",
+        position=1,
+    )
+    c = candidate(
+        "C",
+        patch="refund timing",
+        test="another refund and timing passage",
+        changed_files=("x/y.py",),
+        test_path="tests/z/test_c.py",
+        position=2,
+    )
     # B and C tie on lexical_score (2 each) and file_path_score (0, "z" != "x"); A has neither.
     # Presented out of position order, with C (the higher-position tie member) listed before B,
     # on purpose: a sort that happened to preserve input order could look right by accident.
@@ -198,7 +236,9 @@ def _classifications(ids_outcomes):
 
 def test_propose_suite_excludes_not_relevant_and_review_however_high_their_score():
     cands = [candidate("a"), candidate("b"), candidate("c")]
-    classifs = _classifications({"a": helpers.RELEVANT, "b": helpers.NOT_RELEVANT, "c": helpers.REVIEW})
+    classifs = _classifications(
+        {"a": helpers.RELEVANT, "b": helpers.NOT_RELEVANT, "c": helpers.REVIEW}
+    )
     # b and c score far higher than a, but neither is eligible.
     scores = {"a": 0.5, "b": 3.0, "c": 3.0}
     ranks = {"a": 0, "b": 1, "c": 2}
@@ -207,7 +247,9 @@ def test_propose_suite_excludes_not_relevant_and_review_however_high_their_score
 
 def test_propose_suite_orders_by_score_then_baseline_rank_on_ties():
     cands = [candidate("a"), candidate("b"), candidate("c")]
-    classifs = _classifications({"a": helpers.RELEVANT, "b": helpers.RELEVANT, "c": helpers.RELEVANT})
+    classifs = _classifications(
+        {"a": helpers.RELEVANT, "b": helpers.RELEVANT, "c": helpers.RELEVANT}
+    )
     scores = {"a": 1.0, "b": 2.0, "c": 1.0}  # a and c tie
     ranks = {"a": 1, "b": 0, "c": 0}  # baseline prefers c over a on the tie
     assert helpers.propose_suite(cands, classifs, scores, ranks, budget=3) == ["b", "c", "a"]
@@ -237,7 +279,9 @@ def test_propose_suite_rejects_a_budget_below_one(bad_budget):
 
 def test_effective_scores_keeps_the_real_score_for_relevant_candidates_only():
     cands = [candidate("a"), candidate("b"), candidate("c")]
-    classifs = _classifications({"a": helpers.RELEVANT, "b": helpers.NOT_RELEVANT, "c": helpers.REVIEW})
+    classifs = _classifications(
+        {"a": helpers.RELEVANT, "b": helpers.NOT_RELEVANT, "c": helpers.REVIEW}
+    )
     scores = {"a": 2.5, "b": 2.9, "c": 2.9}
     eff = helpers.effective_scores(cands, classifs, scores)
     assert eff == {"a": 2.5, "b": helpers.EXCLUDED_SCORE, "c": helpers.EXCLUDED_SCORE}
@@ -245,9 +289,13 @@ def test_effective_scores_keeps_the_real_score_for_relevant_candidates_only():
 
 def test_effective_budget_caps_at_the_eligible_count():
     cands = [candidate("a"), candidate("b"), candidate("c")]
-    classifs = _classifications({"a": helpers.RELEVANT, "b": helpers.NOT_RELEVANT, "c": helpers.REVIEW})
+    classifs = _classifications(
+        {"a": helpers.RELEVANT, "b": helpers.NOT_RELEVANT, "c": helpers.REVIEW}
+    )
     assert helpers.effective_budget(cands, classifs, budget=2) == 1  # only "a" is eligible
-    classifs_two = _classifications({"a": helpers.RELEVANT, "b": helpers.RELEVANT, "c": helpers.REVIEW})
+    classifs_two = _classifications(
+        {"a": helpers.RELEVANT, "b": helpers.RELEVANT, "c": helpers.REVIEW}
+    )
     assert helpers.effective_budget(cands, classifs_two, budget=5) == 2  # capped at the budget too
 
 
@@ -264,10 +312,14 @@ def test_effective_budget_and_effective_scores_reproduce_propose_suite_on_a_fixt
     # credit for tying with the not_relevant/review candidates at EXCLUDED_SCORE (the bug
     # effective_budget exists to prevent); capping at the eligible count removes that tie.
     cands = [candidate(t) for t in ("direct", "exercises_low", "same_area", "unrelated")]
-    classifs = _classifications({
-        "direct": helpers.RELEVANT, "exercises_low": helpers.REVIEW,
-        "same_area": helpers.NOT_RELEVANT, "unrelated": helpers.NOT_RELEVANT,
-    })
+    classifs = _classifications(
+        {
+            "direct": helpers.RELEVANT,
+            "exercises_low": helpers.REVIEW,
+            "same_area": helpers.NOT_RELEVANT,
+            "unrelated": helpers.NOT_RELEVANT,
+        }
+    )
     scores = {"direct": 2.78, "exercises_low": 2.28, "same_area": 1.11, "unrelated": 0.38}
     ranks = {"direct": 0, "exercises_low": 1, "same_area": 2, "unrelated": 3}
     gold_relevant = [1, 1, 0, 0]  # direct and exercises_low are both gold-relevant
@@ -292,7 +344,10 @@ def test_effective_budget_and_effective_scores_reproduce_propose_suite_on_a_fixt
 
 
 def _decide_all(recipe_examples, backend, questions):
-    return {e.id: backend.decide(helpers.build_state(e.fields), questions)["relevance"] for e in recipe_examples}
+    return {
+        e.id: backend.decide(helpers.build_state(e.fields), questions)["relevance"]
+        for e in recipe_examples
+    }
 
 
 def _by_task(split_examples):
@@ -324,7 +379,8 @@ def test_stored_answers_are_not_all_right():
     test = select_split(examples, "test")
     test_gold = [labels[e.id] for e in test]
     wrong_and_confident = [
-        e.id for e, g in zip(test, test_gold, strict=True)
+        e.id
+        for e, g in zip(test, test_gold, strict=True)
         if score_level(answers[e.id]) != g and answers[e.id].confidence >= gate
     ]
     assert wrong_and_confident, "expected at least one confidently wrong test answer"
@@ -355,7 +411,8 @@ def test_every_task_has_at_least_one_eligible_candidate_under_the_frozen_gate():
         by_task = _by_task(select_split(examples, split))
         for task_id, task_examples in by_task.items():
             n_eligible = sum(
-                1 for e in task_examples
+                1
+                for e in task_examples
                 if helpers.classify(e.id, answers[e.id], gate).outcome == helpers.RELEVANT
             )
             assert n_eligible >= 1, f"{task_id} has no eligible candidate"
@@ -374,8 +431,15 @@ def test_both_not_relevant_and_review_outcomes_occur_on_both_splits():
 
 def _task_recall(task_examples, labels, answers, gate, budget):
     cands = [
-        helpers.Candidate(e.id, e.fields["task_id"], e.fields["patch"], e.fields["test"],
-                           tuple(e.fields["changed_files"]), e.fields["test_path"], e.fields["position"])
+        helpers.Candidate(
+            e.id,
+            e.fields["task_id"],
+            e.fields["patch"],
+            e.fields["test"],
+            tuple(e.fields["changed_files"]),
+            e.fields["test_path"],
+            e.fields["position"],
+        )
         for e in task_examples
     ]
     classifs = {e.id: helpers.classify(e.id, answers[e.id], gate) for e in task_examples}
@@ -399,7 +463,9 @@ def test_recall_at_budget_agrees_with_propose_suite_on_every_task_in_both_splits
     for split in ("validation", "test"):
         by_task = _by_task(select_split(examples, split))
         for task_id, task_examples in by_task.items():
-            recall, suite, gold_relevant = _task_recall(task_examples, labels, answers, gate, helpers.SUITE_BUDGET)
+            recall, suite, gold_relevant = _task_recall(
+                task_examples, labels, answers, gate, helpers.SUITE_BUDGET
+            )
             ids = [e.id for e in task_examples]
             found = sum(1 for test_id in suite if gold_relevant[ids.index(test_id)])
             total_relevant = sum(gold_relevant)
@@ -413,8 +479,14 @@ def test_the_confidence_gate_is_load_bearing_for_task_level_recall():
     examples, labels, _backend, _questions, answers, gate = _frozen_gate()
     for split in ("validation", "test"):
         by_task = _by_task(select_split(examples, split))
-        with_gate = [_task_recall(items, labels, answers, gate, helpers.SUITE_BUDGET)[0] for items in by_task.values()]
-        without_gate = [_task_recall(items, labels, answers, 0.0, helpers.SUITE_BUDGET)[0] for items in by_task.values()]
+        with_gate = [
+            _task_recall(items, labels, answers, gate, helpers.SUITE_BUDGET)[0]
+            for items in by_task.values()
+        ]
+        without_gate = [
+            _task_recall(items, labels, answers, 0.0, helpers.SUITE_BUDGET)[0]
+            for items in by_task.values()
+        ]
         assert sum(without_gate) / len(without_gate) > sum(with_gate) / len(with_gate)
 
 
@@ -424,8 +496,13 @@ def test_the_suite_budget_is_load_bearing_for_task_level_recall():
     examples, labels, _backend, _questions, answers, gate = _frozen_gate()
     for split in ("validation", "test"):
         by_task = _by_task(select_split(examples, split))
-        with_budget = [_task_recall(items, labels, answers, gate, helpers.SUITE_BUDGET)[0] for items in by_task.values()]
-        unbounded = [_task_recall(items, labels, answers, gate, 1000)[0] for items in by_task.values()]
+        with_budget = [
+            _task_recall(items, labels, answers, gate, helpers.SUITE_BUDGET)[0]
+            for items in by_task.values()
+        ]
+        unbounded = [
+            _task_recall(items, labels, answers, gate, 1000)[0] for items in by_task.values()
+        ]
         assert sum(unbounded) / len(unbounded) > sum(with_budget) / len(with_budget)
 
 
@@ -466,8 +543,18 @@ def test_evaluate_selective_and_evaluate_outcomes_agree_for_this_confidence_only
     confidence = [answers[e.id].confidence for e in test]
     outcomes = evaluate_outcomes(accepted, correct)
     selective = evaluate_selective(correct, confidence, gate)
-    assert (outcomes.n_total, outcomes.n_answered, outcomes.coverage, outcomes.accuracy, outcomes.risk) == (
-        selective.n_total, selective.n_answered, selective.coverage, selective.accuracy, selective.risk,
+    assert (
+        outcomes.n_total,
+        outcomes.n_answered,
+        outcomes.coverage,
+        outcomes.accuracy,
+        outcomes.risk,
+    ) == (
+        selective.n_total,
+        selective.n_answered,
+        selective.coverage,
+        selective.accuracy,
+        selective.risk,
     )
 
 
