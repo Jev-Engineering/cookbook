@@ -387,13 +387,53 @@ def test_the_confusion_matrix_cell_prints_what_it_plots():
         assert "(a pipeline check, not a Jev result)" in line, line
 
 
+MEASURED_SIGNATURE = "Not measured live: a pipeline check, not a Jev result."
+
+
+def _load_measured_cell_branches():
+    """``tests/measured_cell_branches.py``, loaded by file path (this directory has no
+    ``__init__.py``, so a plain ``from tests.measured_cell_branches import ...`` is not a
+    reliable cross-module import here; ``tools/new_recipe.py``'s own loader elsewhere in this
+    module uses the same mechanism). Shared with ``tests/test_recipe_guard.py``'s per-recipe
+    guard, so the branch-anchoring and "really prints N" logic -- the thing issue #215 was
+    actually about -- is written, and proved against PR #219 reviewer B's evasions, once rather
+    than twice."""
+    spec = importlib.util.spec_from_file_location(
+        "measured_cell_branches_for_template_test",
+        Path(__file__).resolve().parent / "measured_cell_branches.py",
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_measured_cell = _load_measured_cell_branches()
+
+
 def test_the_measured_cell_prints_n_in_every_mode_the_markdown_promises_it():
     """docs/recipe-template.md: the "What was and was not measured" markdown must not promise an
     N its code does not print, in any mode. The offline branch prints N too, not only the
-    recorded/live branch."""
+    recorded/live branch.
+
+    The branch that must print N is found with ``ast``, anchored on whichever branch actually
+    carries the disclosure sentence (``measured_cell_branches.disclosure_branches``) -- not, as
+    this check used to, by splitting the cell's source on the first ``else:`` and treating
+    whatever comes before it as "the offline branch". That assumption is exactly what let three
+    shapes pass while the rule stayed broken (PR #219 reviewer B, reproduced against this
+    template in the pull request description that hardened this check): an ``elif`` that moves N
+    into a third branch while the disclosure stays in the ``if``; an inverted
+    ``if not offline: ... else:`` that moves the disclosure into the ``else``; and ``# N: ...``
+    written as a comment, which a substring search over the branch's raw text cannot tell apart
+    from an actual ``print``. ``branch_prints_n`` requires a real ``print`` call whose string
+    argument starts with ``"N:"``, which closes all three. The stored-output check below is
+    unchanged: the committed stream text must still carry a line starting ``"N:"``."""
     cell = source(next(c for c in NOTEBOOK["cells"] if c.get("id") == "measured"))
-    offline_branch = cell.split("else:")[0]
-    assert "N:" in offline_branch
+    branches = _measured_cell.disclosure_branches(cell, MEASURED_SIGNATURE)
+    assert branches, "measured: no code carries the disclosure sentence"
+    for branch in branches:
+        assert _measured_cell.branch_prints_n(branch), (
+            "measured: the branch carrying the disclosure prints no N"
+        )
     lines = stream_lines("measured")
     assert any(line.startswith("N:") for line in lines)
 
