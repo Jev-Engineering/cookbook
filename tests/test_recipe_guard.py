@@ -1077,72 +1077,29 @@ def test_the_readme_never_installs_dev_and_ml_combined(recipe):
 MEASURED_SIGNATURE = "Not measured live: a pipeline check, not a Jev result."
 
 
-def _if_elif_else_branches(node: ast.If) -> list[list[ast.stmt]]:
-    """``[if-body, elif-body, ..., else-body]`` for one ``if``/``elif``.../``else`` chain (the
-    final list is empty when there is no ``else:``). An ``elif`` is represented in the AST as a
-    single-statement ``orelse`` holding another ``If``, so this walks that chain instead of
-    stopping at the first ``orelse`` -- which is exactly what lets it anchor on the right branch
-    when an ``elif`` has been inserted between ``if`` and ``else`` (see
-    ``test_the_measured_cell_prints_n_in_the_offline_branch``'s docstring)."""
-    branches = [node.body]
-    orelse = node.orelse
-    while len(orelse) == 1 and isinstance(orelse[0], ast.If):
-        branches.append(orelse[0].body)
-        orelse = orelse[0].orelse
-    branches.append(orelse)
-    return branches
+def _load_measured_cell_branches() -> ModuleType:
+    """``tests/measured_cell_branches.py``, loaded by file path like
+    ``_load_known_failures`` above: the branch-anchoring and "really prints N" logic is shared
+    with ``tests/test_template.py``'s own pin on the template, so the one piece of logic that
+    decides "which branch discloses the run mode, and does it really print N" is written, and
+    proved against PR #219 reviewer B's evasions, once rather than twice."""
+    spec = importlib.util.spec_from_file_location(
+        "measured_cell_branches_for_recipe_guard",
+        Path(__file__).resolve().parent / "measured_cell_branches.py",
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
-def _branch_text(branch: list[ast.stmt]) -> str:
-    return "\n".join(ast.unparse(stmt) for stmt in branch)
-
-
-def _branch_prints_n(branch: list[ast.stmt]) -> bool:
-    """True if ``branch`` contains a ``print(...)`` call whose first argument is a string (an
-    f-string or a plain literal) that *starts with* ``"N:"`` -- an actually printed line, not
-    merely text that reads ``N:`` somewhere, such as a comment (``# N: deliberately not printed
-    offline``) that a plain substring search over the branch's text cannot tell apart from a real
-    print."""
-    for stmt in branch:
-        for node in ast.walk(stmt):
-            if not (
-                isinstance(node, ast.Call)
-                and isinstance(node.func, ast.Name)
-                and node.func.id == "print"
-                and node.args
-            ):
-                continue
-            first = node.args[0]
-            if isinstance(first, ast.JoinedStr) and first.values:
-                head = first.values[0]
-                text = head.value if isinstance(head, ast.Constant) else None
-            elif isinstance(first, ast.Constant):
-                text = first.value
-            else:
-                text = None
-            if isinstance(text, str) and text.startswith("N:"):
-                return True
-    return False
+_measured_cell = _load_measured_cell_branches()
 
 
 def _disclosure_branches(source: str) -> list[list[ast.stmt]]:
-    """Every ``if``/``elif``/``else`` branch, at the top level of ``source``, whose own
-    statements carry ``MEASURED_SIGNATURE`` -- found by parsing with ``ast`` and anchoring on the
-    branch that actually holds the disclosure, rather than by a string split on the first
-    ``else:``. The split assumed the disclosure's branch always comes first; it does not survive
-    an inserted ``elif`` (the disclosure stays in the ``if`` while ``N`` moves to the ``elif``) or
-    an inverted ``if not offline: ... else:`` (the disclosure moves to the ``else``) -- both pass
-    the old check while the rule is broken (demonstrated in the pull request description, after
-    PR #219 reviewer B's finding). Anchoring on content rather than position catches both: the
-    branch returned here is whichever one the disclosure is actually in, wherever that is."""
-    tree = ast.parse(source)
-    return [
-        branch
-        for node in tree.body
-        if isinstance(node, ast.If)
-        for branch in _if_elif_else_branches(node)
-        if MEASURED_SIGNATURE in _branch_text(branch)
-    ]
+    return _measured_cell.disclosure_branches(source, MEASURED_SIGNATURE)
+
+
+_branch_prints_n = _measured_cell.branch_prints_n
 
 
 @pytest.mark.parametrize("recipe", guarded_with_template("measured_cell_prints_n_offline")())

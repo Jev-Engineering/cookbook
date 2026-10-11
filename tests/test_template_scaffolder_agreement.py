@@ -36,6 +36,19 @@ module's code ever testing for the word "N". See
 ``test_the_measured_comparison_is_blind_to_n_and_still_catches_215`` for the proof, and the pull
 request description for the on-disk mutation against the real generator that backs the same
 claim.
+
+PLAINLY, so a reader is not misled about the strength of either guarantee: ``measured`` is
+checked for EQUALITY -- the scaffold's and the template's normalised statement lists must be the
+same list, in the same order, nothing more on either side. ``setup`` is checked as an ordered
+SUBSEQUENCE -- every normalised statement the scaffold emits must appear, in order, in the
+template's, but the template is allowed extra statements (``selection``) the scaffold does not
+emit. A subsequence check is weaker than equality: it cannot notice the template losing a
+statement the scaffold never had in the first place. It is the right check here only because the
+template is a genuinely larger, filled-in worked example and the scaffold a smaller skeleton --
+not a device to make a mismatch pass. Every statement the two sides *do* share is still compared
+exactly, so a change to any of ``scored``, ``offline``, ``check``, or the ``run_header(...)``
+call -- on either side -- still fails the check (see
+``test_the_setup_comparison_catches_a_changed_offline_definition``).
 """
 
 from __future__ import annotations
@@ -149,7 +162,13 @@ def test_the_scaffolded_setup_cell_is_a_subsequence_of_the_templates(mode):
     ``offline``, ``check``, and the ``run_header(...)`` call with its ``n_examples=len(scored)``
     -- must appear, in the same order, in the template's ``setup`` cell. A statement the scaffold
     adds, drops, or rewrites relative to the template fails this; a statement only the template
-    has (``selection``, used by its own fully-written evaluation cells) does not."""
+    has (``selection``, used by its own fully-written evaluation cells) does not.
+
+    This is a SUBSEQUENCE check, not equality (contrast
+    ``test_the_scaffolded_measured_cell_matches_the_template`` below, which is equality) --
+    deliberately weaker, because the template legitimately carries more than the scaffold here.
+    See the module docstring's "PLAINLY" paragraph for what that costs and why it is still the
+    right check."""
     generated = _cell(new_recipe.notebook_cells(CATALOG, RECIPE, mode=mode), "setup")
     template = _cell(TEMPLATE_NOTEBOOK["cells"], "setup")
     generated_stmts = mode_neutral_statements(_source(generated))
