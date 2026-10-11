@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from jev_cookbook import Choice
+from jev_cookbook.evaluation import select_confidence_threshold
 from jev_cookbook.simulation import ActionLog, ReviewQueue
 
 # No ``from __future__ import annotations`` here: load_helpers removes this module from
@@ -140,6 +141,33 @@ def resolve_citation(fields: dict[str, Any]) -> str | None:
     return CORPUS.get(fields["doc"], {}).get(fields["section"])
 
 
+def resolved_subset(examples: list[Any]) -> list[Any]:
+    """The examples among ``examples`` whose citation resolves -- the only ones with a
+    confidence to choose a gate from. The notebook's own threshold selection and
+    ``tests/test_helpers.py`` both filter through this one function, so neither can apply a
+    different filter from the other."""
+    return [e for e in examples if resolve_citation(e.fields) is not None]
+
+
+# The one setting this recipe tunes: how much of the resolved validation claims the confidence
+# gate must still answer. Fixed here, in one place, rather than as a literal repeated at every
+# call site, so the notebook's own selection and a test that re-derives it from the real
+# fixtures cannot drift to two different objectives without a change showing up in both.
+MIN_COVERAGE = 0.75
+
+
+def choose_threshold(correct: list[bool], confidence: list[float]) -> float:
+    """``select_confidence_threshold`` pinned to this recipe's own objective
+    (:data:`MIN_COVERAGE`). A convenience for anything that needs the frozen gate recomputed
+    from a resolved-citation validation subset (independent-consequence tests, the committed-
+    notebook pin) without repeating the parameter; the notebook's own selection cell and
+    ``tests/test_helpers.py::test_stored_answers_are_not_all_right`` instead call
+    ``select_confidence_threshold`` directly with ``min_coverage=MIN_COVERAGE`` so that each
+    keeps the literal call the strong-form guard (G1(c)) looks for, both still pinned to the
+    one constant above."""
+    return select_confidence_threshold(correct, confidence, min_coverage=MIN_COVERAGE)
+
+
 def trust_citation_baseline(fields: dict[str, Any]) -> str:
     """A baseline with no judgment about the passage at all: trust that a citation which
     resolves to a real passage supports the claim, without ever reading what the passage
@@ -229,9 +257,13 @@ def classify(
     itself learns the citation did not resolve. That branch is not a confidence-gated review:
     nothing was asked, nothing was uncertain, there is simply no passage behind the citation,
     so Python flags it for correction directly and the claim never passes through the
-    confidence gate below. Flagging it this way, rather than sending it to ``queue``, matches
-    the fallback test in CONTRIBUTING.md section 4: it is a complete answer ("this citation
-    has nothing behind it"), not a deferral asking a person to settle the same question again.
+    confidence gate below. This is not a CONTRIBUTING.md section 4 exemption: there is no
+    confidence here to gate in the first place, so there is nothing for an exemption to skip,
+    and section 4 part (b) would fail outright regardless, since choosing this outcome does
+    record an ``ActionLog`` entry (below). The actual authority is the one
+    :func:`resolve_citation` already cites, section 3's reasoning for a ``Choice`` with
+    nothing to weigh: when there is no passage to check the claim against, the decision
+    belongs to Python directly, never to a request.
 
     Once a citation resolves, every option goes through the same confidence gate: an answer
     below ``min_confidence`` is sent to ``queue`` with the reason

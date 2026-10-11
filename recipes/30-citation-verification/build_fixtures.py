@@ -9,10 +9,17 @@ other recipe's ``build_fixtures.py``, not every row asks Jev anything at all: a 
 citation does not resolve against ``helpers.CORPUS`` (an unknown document, an unknown section,
 or both) never reaches the model, so it carries no replay key and no stored response --
 ``docs/fixtures.md`` ("Replay and scripted recipes") allows ``replay_keys`` to be empty for an
-example. ``spec`` is ``None`` for exactly those rows; every other row's ``spec`` is a target
-confidence, written as the number a reader of the notebook will see, from which ``_dist`` below
-derives the probabilities that reproduce it exactly through
-``jev_cookbook.answers.choice_confidence``'s published formula.
+example. ``spec`` is ``None`` for exactly those rows; every other row's ``spec`` is a
+``(top, confidence)`` pair -- ``top`` is the stored answer's own top choice, named explicitly
+on every row rather than defaulted, and ``confidence`` is a target confidence, written as the
+number a reader of the notebook will see, from which ``_dist`` below derives the probabilities
+that reproduce it exactly through ``jev_cookbook.answers.choice_confidence``'s published
+formula. A row whose stored answer matches its gold label writes ``top`` equal to that label;
+a deliberately wrong row (``v-c5-wrong-low``, ``v-u3-wrongpassage``, ``t-c5-wrong``,
+``t-u3-wrongpassage``) writes a different one, so a reader never has to infer which a row means
+from its id alone, and `tests/test_helpers.py`'s
+``test_every_stored_choice_matches_the_rows_it_came_from`` checks the committed
+``responses.json`` against exactly this column, not by calling ``answers_for`` again.
 
 Generating inputs and labels is kept separate from generating responses, on purpose: once
 responses.json holds even one recorded answer (provenance "recorded", captured from a real Jev
@@ -114,7 +121,7 @@ ROWS = [
             "1",
         ),
         SUPPORTED,
-        0.88,
+        (SUPPORTED, 0.88),
     ),
     (
         "v-s2",
@@ -126,7 +133,7 @@ ROWS = [
             "1",
         ),
         SUPPORTED,
-        0.80,
+        (SUPPORTED, 0.80),
     ),
     (
         "v-s3",
@@ -138,7 +145,7 @@ ROWS = [
             "1",
         ),
         SUPPORTED,
-        0.75,
+        (SUPPORTED, 0.75),
     ),
     (
         "v-s4",
@@ -149,7 +156,7 @@ ROWS = [
             "1",
         ),
         SUPPORTED,
-        0.70,
+        (SUPPORTED, 0.70),
     ),
     (
         "v-s5",
@@ -161,7 +168,7 @@ ROWS = [
             "3",
         ),
         SUPPORTED,
-        0.64,
+        (SUPPORTED, 0.64),
     ),
     (
         "v-s6",
@@ -173,7 +180,7 @@ ROWS = [
             "2",
         ),
         SUPPORTED,
-        0.58,
+        (SUPPORTED, 0.58),
     ),
     (
         "v-c1",
@@ -184,7 +191,7 @@ ROWS = [
             "1",
         ),
         CONTRADICTED,
-        {CONTRADICTED: 0.82},
+        (CONTRADICTED, 0.82),
     ),
     (
         "v-c2",
@@ -196,7 +203,7 @@ ROWS = [
             "1",
         ),
         CONTRADICTED,
-        {CONTRADICTED: 0.77},
+        (CONTRADICTED, 0.77),
     ),
     (
         "v-c3",
@@ -208,7 +215,7 @@ ROWS = [
             "2",
         ),
         CONTRADICTED,
-        {CONTRADICTED: 0.68},
+        (CONTRADICTED, 0.68),
     ),
     (
         "v-c4",
@@ -220,7 +227,7 @@ ROWS = [
             "1",
         ),
         CONTRADICTED,
-        {CONTRADICTED: 0.60},
+        (CONTRADICTED, 0.60),
     ),
     (
         "v-c5-wrong-low",
@@ -235,7 +242,7 @@ ROWS = [
         # Wrong (hedged to unsupported) and below the gate: caught by the confidence threshold
         # either way, so this is the mistake the gate is built to catch, not the one that gets
         # through.
-        {UNSUPPORTED: 0.30},
+        (UNSUPPORTED, 0.30),
     ),
     (
         "v-u1",
@@ -246,7 +253,7 @@ ROWS = [
             "3",
         ),
         UNSUPPORTED,
-        {UNSUPPORTED: 0.55},
+        (UNSUPPORTED, 0.55),
     ),
     (
         "v-u2",
@@ -257,7 +264,7 @@ ROWS = [
             "3",
         ),
         UNSUPPORTED,
-        {UNSUPPORTED: 0.50},
+        (UNSUPPORTED, 0.50),
     ),
     (
         "v-u3-wrongpassage",
@@ -271,7 +278,7 @@ ROWS = [
             "1",
         ),
         UNSUPPORTED,
-        {SUPPORTED: 0.72},
+        (SUPPORTED, 0.72),
     ),
     (
         "v-u4-wrongpassage",
@@ -284,7 +291,7 @@ ROWS = [
             "3",
         ),
         UNSUPPORTED,
-        {UNSUPPORTED: 0.62},
+        (UNSUPPORTED, 0.62),
     ),
     (
         "v-u5-wrongpassage",
@@ -297,7 +304,7 @@ ROWS = [
             "2",
         ),
         UNSUPPORTED,
-        {UNSUPPORTED: 0.45},
+        (UNSUPPORTED, 0.45),
     ),
     # ======================================================================================
     # test -- 19 examples, the same shape as validation: 3 citations that do not resolve, 6
@@ -348,7 +355,7 @@ ROWS = [
             "1",
         ),
         SUPPORTED,
-        0.86,
+        (SUPPORTED, 0.86),
     ),
     (
         "t-s2",
@@ -360,7 +367,7 @@ ROWS = [
             "1",
         ),
         SUPPORTED,
-        0.78,
+        (SUPPORTED, 0.78),
     ),
     (
         "t-s3",
@@ -372,7 +379,7 @@ ROWS = [
             "1",
         ),
         SUPPORTED,
-        0.73,
+        (SUPPORTED, 0.73),
     ),
     (
         "t-s4",
@@ -383,7 +390,7 @@ ROWS = [
             "1",
         ),
         SUPPORTED,
-        0.68,
+        (SUPPORTED, 0.68),
     ),
     (
         "t-s5",
@@ -395,7 +402,7 @@ ROWS = [
             "4",
         ),
         SUPPORTED,
-        0.61,
+        (SUPPORTED, 0.61),
     ),
     (
         "t-s6",
@@ -407,7 +414,7 @@ ROWS = [
             "2",
         ),
         SUPPORTED,
-        0.56,
+        (SUPPORTED, 0.56),
     ),
     (
         "t-c1",
@@ -418,7 +425,7 @@ ROWS = [
             "1",
         ),
         CONTRADICTED,
-        {CONTRADICTED: 0.84},
+        (CONTRADICTED, 0.84),
     ),
     (
         "t-c2",
@@ -429,7 +436,7 @@ ROWS = [
             "2",
         ),
         CONTRADICTED,
-        {CONTRADICTED: 0.79},
+        (CONTRADICTED, 0.79),
     ),
     (
         "t-c3",
@@ -441,7 +448,7 @@ ROWS = [
             "2",
         ),
         CONTRADICTED,
-        {CONTRADICTED: 0.66},
+        (CONTRADICTED, 0.66),
     ),
     (
         "t-c4",
@@ -453,7 +460,7 @@ ROWS = [
             "2",
         ),
         CONTRADICTED,
-        {CONTRADICTED: 0.59},
+        (CONTRADICTED, 0.59),
     ),
     (
         "t-c5-wrong",
@@ -467,7 +474,7 @@ ROWS = [
         CONTRADICTED,
         # Wrong and confidently above the frozen gate (chosen on validation, below): the
         # costly mistake this recipe is built to show, not caught by the threshold.
-        {SUPPORTED: 0.52},
+        (SUPPORTED, 0.52),
     ),
     (
         "t-u1",
@@ -478,7 +485,7 @@ ROWS = [
             "3",
         ),
         UNSUPPORTED,
-        {UNSUPPORTED: 0.54},
+        (UNSUPPORTED, 0.54),
     ),
     (
         "t-u2",
@@ -489,7 +496,7 @@ ROWS = [
             "3",
         ),
         UNSUPPORTED,
-        {UNSUPPORTED: 0.48},
+        (UNSUPPORTED, 0.48),
     ),
     (
         "t-u3-wrongpassage",
@@ -503,7 +510,7 @@ ROWS = [
             "4",
         ),
         UNSUPPORTED,
-        {SUPPORTED: 0.60},
+        (SUPPORTED, 0.60),
     ),
     (
         "t-u4-wrongpassage",
@@ -516,7 +523,7 @@ ROWS = [
             "3",
         ),
         UNSUPPORTED,
-        {UNSUPPORTED: 0.49},
+        (UNSUPPORTED, 0.49),
     ),
     (
         "t-u5-wrongpassage",
@@ -530,7 +537,7 @@ ROWS = [
             "1",
         ),
         UNSUPPORTED,
-        {UNSUPPORTED: 0.44},
+        (UNSUPPORTED, 0.44),
     ),
     # -- demo: shown to the reader, never scored. ------------------------------------------
     (
@@ -554,7 +561,7 @@ ROWS = [
             "1",
         ),
         None,
-        {UNSUPPORTED: 0.60},
+        (UNSUPPORTED, 0.60),
     ),
 ]  # fmt: skip
 
@@ -562,13 +569,14 @@ ROWS = [
 def answers_for(spec, provenance: Provenance):
     """``{"relation": ChoiceAnswer}`` from a row's ``spec``.
 
-    ``spec`` is a target confidence (the stored answer's top choice is ``supported``) or a
-    one-entry ``{top: confidence}`` mapping when the stored answer is wrong (its top choice is
-    not the gold label, named explicitly so a reader does not have to infer it)."""
-    if isinstance(spec, dict):
-        (top, confidence) = next(iter(spec.items()))
-    else:
-        top, confidence = SUPPORTED, spec
+    ``spec`` is always a ``(top, confidence)`` pair: ``top`` is the stored answer's own top
+    choice, named explicitly on every row (there is no shorthand that defaults it to any
+    label, ``supported`` included) precisely so a mislabelled row cannot slip in silently --
+    ``top, confidence = spec`` raises outright on anything that is not a 2-tuple, and
+    ``tests/test_helpers.py``'s ``test_every_stored_choice_matches_the_rows_it_came_from``
+    checks every stored answer's own ``choice`` against this same column, read from the
+    committed ``responses.json`` rather than recomputed through this function again."""
+    top, confidence = spec
     return {"relation": ChoiceAnswer.from_probabilities(_dist(top, confidence), provenance)}
 
 

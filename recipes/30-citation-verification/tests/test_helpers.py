@@ -1,5 +1,7 @@
 """Tests for recipe 30's helpers. They load the helpers by file path."""
 
+import importlib.util
+import json
 from pathlib import Path
 
 import pytest
@@ -20,6 +22,45 @@ def answer_for(choice: str, confidence: float = 0.9):
     rest = (1.0 - p_max) / 2.0
     probabilities = {name: (p_max if name == choice else rest) for name in helpers.OPTIONS}
     return ChoiceAnswer.from_probabilities(probabilities, Provenance.synthetic())
+
+
+def _decide(backend, questions, example):
+    return backend.decide(helpers.build_state(example.fields), questions)["relation"]
+
+
+def _load_module_at(path, name):
+    """A module loaded by file path, the way ``tests/test_build_fixtures.py`` already does --
+    its functions and module-level values (``ROWS``, ``QUESTIONS``) as plain Python objects,
+    independent of whatever ``main()`` last wrote to disk."""
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _real_frozen_threshold():
+    """The threshold this recipe's own notebook freezes, recomputed independently from the
+    real, committed fixtures with ``helpers.choose_threshold`` (``select_confidence_threshold``
+    pinned to ``helpers.MIN_COVERAGE``) -- the same inputs and the same objective the
+    notebook's own selection cell uses, so every test below that needs "the frozen gate" reads
+    it from here rather than a bare literal that could silently stop matching what the
+    notebook actually does."""
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    examples = load_inputs(RECIPE)
+    labels = load_labels(RECIPE)
+    validation = [e for e in examples if e.split == "validation"]
+    resolved = helpers.resolved_subset(validation)
+    answers = {e.id: _decide(backend, questions, e) for e in resolved}
+    correct = [answers[e.id].choice == labels[e.id] for e in resolved]
+    confidence = [answers[e.id].confidence for e in resolved]
+    return helpers.choose_threshold(correct, confidence)
+
+
+# Computed once, from the real fixtures, at collection time: every test below that needs "the
+# frozen gate" uses this, never a bare literal, so a change to MIN_COVERAGE, to the resolved-
+# citation filter, or to the fixtures themselves moves every test that depends on it together.
+REAL_THRESHOLD = _real_frozen_threshold()
 
 
 def test_the_options_come_from_options():
@@ -62,6 +103,16 @@ def test_build_state_raises_for_a_citation_that_does_not_resolve():
     fields = {"doc": "NO-SUCH-DOC", "section": "1", "claim": "A claim."}
     with pytest.raises(ValueError, match="does not resolve"):
         helpers.build_state(fields)
+
+
+def test_resolved_subset_keeps_only_examples_whose_citation_resolves():
+    class Example:
+        def __init__(self, fields):
+            self.fields = fields
+
+    resolving = Example({"doc": "RATE-LIMITS", "section": "1", "claim": "x"})
+    not_resolving = Example({"doc": "NO-SUCH-DOC", "section": "1", "claim": "x"})
+    assert helpers.resolved_subset([resolving, not_resolving]) == [resolving]
 
 
 def test_an_unresolved_citation_is_flagged_without_ever_reaching_a_question():
@@ -225,75 +276,134 @@ def test_flag_agreement_rejects_empty_input():
 
 
 # -------------------------------------------------------------------------------------------
-# Independent-consequence proof, on real committed fixtures (not a synthetic in-test row):
-# the citation-resolution stage and the model's Choice answer each change the composed
-# verdict and action on their own, holding the other fixed.
+# Fixture-generation consistency (Wave 3 batch 1 rule 11): the committed responses.json must
+# store the top choice each ROWS entry actually names, checked against the committed file
+# itself -- never by calling answers_for/build_responses again, which would reproduce a
+# mislabelling identically on both sides.
+# -------------------------------------------------------------------------------------------
+
+_DELIBERATELY_WRONG = {"v-c5-wrong-low", "v-u3-wrongpassage", "t-c5-wrong", "t-u3-wrongpassage"}
+
+
+def test_every_stored_choice_matches_the_rows_it_came_from():
+    """For every row in ``build_fixtures.py``'s ``ROWS`` whose citation resolves, the stored
+    answer's own ``choice`` -- read directly from the committed ``fixtures/responses.json``,
+    not recomputed through ``answers_for`` -- must equal the top label ``spec`` names; for
+    every row not named in ``_DELIBERATELY_WRONG``, that top must also equal the row's own
+    gold label. Mutation: change ``v-c1``'s spec in ``build_fixtures.py`` from
+    ``(CONTRADICTED, 0.82)`` to ``(SUPPORTED, 0.82)``, run ``python build_fixtures.py
+    --force``, and this test fails naming ``v-c1`` (both assertions: the stored choice no
+    longer matches gold, and -- since ``v-c1`` is not in ``_DELIBERATELY_WRONG`` -- the row's
+    own declared top no longer matches its gold label either)."""
+    build_fixtures = _load_module_at(
+        RECIPE / "build_fixtures.py", "recipe30_build_fixtures_for_consistency_test"
+    )
+    stored = json.loads((RECIPE / "fixtures" / "responses.json").read_text("utf-8"))
+    mismatches = []
+    for ident, _split, fields, label, spec in build_fixtures.ROWS:
+        if spec is None:
+            continue
+        top, _confidence = spec
+        key = replay_key(build_fixtures.helpers.build_state(fields), build_fixtures.QUESTIONS)
+        stored_choice = stored[key]["answers"]["relation"]["choice"]
+        if stored_choice != top:
+            mismatches.append(f"{ident}: stored choice {stored_choice!r} != spec top {top!r}")
+        if ident not in _DELIBERATELY_WRONG and label is not None and top != label:
+            mismatches.append(
+                f"{ident}: spec top {top!r} != gold {label!r}, but not in _DELIBERATELY_WRONG"
+            )
+    assert not mismatches, "; ".join(mismatches)
+
+
+# -------------------------------------------------------------------------------------------
+# Independent-consequence proof, on real committed fixtures (not a synthetic in-test row).
+# Each test below varies exactly one of the two stages and fails under a mutation to that
+# stage alone -- proved in the PR description by the corresponding mutation.
 # -------------------------------------------------------------------------------------------
 
 
-def _decide(backend, questions, example):
-    return backend.decide(helpers.build_state(example.fields), questions)["relation"]
-
-
 def test_citation_resolution_is_independently_consequential_on_a_real_fixture():
-    """``v-s1`` is a real, committed validation fixture whose citation resolves and whose
-    stored answer confidently supports the claim. Holding that same stored answer fixed and
-    only flipping whether the citation resolved (the one thing ``classify`` reads ``answer``
-    for) changes the composed verdict and action, proving the citation-resolution stage is
-    consequential on its own."""
+    """``v-s1`` (citation resolves) and ``v-broken-01`` (citation does not) are both real,
+    committed validation fixtures. Both sides of the comparison are built by actually calling
+    ``helpers.resolve_citation`` on each example's own fields -- never by handing ``classify``
+    a bare ``None`` by hand -- so a mutation that neuters ``resolve_citation`` (makes it return
+    a passage for every citation, ``v-broken-01``'s fabricated one included) breaks this test
+    directly: the derivation below would then try to decide ``v-broken-01`` against the
+    backend, which holds no stored answer for it, and raise."""
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
     examples = {e.id: e for e in load_inputs(RECIPE)}
+
+    def answer_via_resolution(example):
+        passage = helpers.resolve_citation(example.fields)
+        if passage is None:
+            return None
+        return backend.decide(helpers.build_state(example.fields), questions)["relation"]
+
     v_s1 = examples["v-s1"]
-    answer = _decide(backend, questions, v_s1)
+    v_broken_01 = examples["v-broken-01"]
 
     resolved = helpers.classify(
-        "v-s1", v_s1.fields, answer, 0.45, actions=ActionLog(), queue=ReviewQueue()
+        "v-s1",
+        v_s1.fields,
+        answer_via_resolution(v_s1),
+        REAL_THRESHOLD,
+        actions=ActionLog(),
+        queue=ReviewQueue(),
+    )
+    not_resolved = helpers.classify(
+        "v-broken-01",
+        v_broken_01.fields,
+        answer_via_resolution(v_broken_01),
+        REAL_THRESHOLD,
+        actions=ActionLog(),
+        queue=ReviewQueue(),
     )
     assert (resolved.verdict, resolved.action) == (helpers.SUPPORTED, helpers.ACTION_KEEP)
-
-    not_resolved = helpers.classify(
-        "v-s1", v_s1.fields, None, 0.45, actions=ActionLog(), queue=ReviewQueue()
+    assert (not_resolved.verdict, not_resolved.action) == (
+        helpers.UNSUPPORTED,
+        helpers.ACTION_FLAG,
     )
-    assert (not_resolved.verdict, not_resolved.action) == (helpers.UNSUPPORTED, helpers.ACTION_FLAG)
     assert not_resolved.verdict != resolved.verdict
     assert not_resolved.action != resolved.action
 
 
 def test_the_models_choice_is_independently_consequential_on_a_real_fixture():
-    """``v-broken-01`` is a real, committed validation fixture whose citation never resolves
-    (its forced verdict, ``unsupported``/flagged, is what the committed labels record). Holding
-    the citation fixed as unresolved and instead asking what would happen if a resolved
-    citation's own real stored answer (``v-s1``'s, confidently ``supported``) applied here shows
-    the model's answer is independently consequential too: the composed verdict and action flip
-    from the forced ``unsupported``/flag to ``supported``/keep."""
+    """``t-c5-wrong`` is a real, committed test fixture whose citation resolves (so this never
+    touches ``resolve_citation``'s branch) and whose stored answer confidently (0.52) names
+    ``supported`` -- wrong; ``RETRY-POLICY§3`` contradicts the claim. Holding the citation and
+    the confidence fixed and rebuilding only the answer's top choice, to ``contradicted`` at
+    the identical confidence, shows the model's own choice is independently consequential: the
+    composed verdict, the recorded action and ``flag_agreement`` all flip. A mutation that
+    makes ``classify`` ignore ``answer.choice`` (treat every resolved claim as ``supported``
+    regardless of what Jev answered) breaks this test directly, because the rebuilt
+    ``contradicted`` answer would then be kept as cited instead of flagged."""
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
     examples = {e.id: e for e in load_inputs(RECIPE)}
-    v_broken_01 = examples["v-broken-01"]
-    v_s1 = examples["v-s1"]
-    assert helpers.resolve_citation(v_broken_01.fields) is None
+    t_c5 = examples["t-c5-wrong"]
+    state = helpers.build_state(t_c5.fields)
+    stored_answer = backend.decide(state, questions)["relation"]
+    assert stored_answer.choice == helpers.SUPPORTED  # the real, committed, wrong answer
 
-    forced = helpers.classify(
-        "v-broken-01", v_broken_01.fields, None, 0.45, actions=ActionLog(), queue=ReviewQueue()
-    )
-    assert (forced.verdict, forced.action) == (helpers.UNSUPPORTED, helpers.ACTION_FLAG)
+    rebuilt_answer = answer_for(helpers.CONTRADICTED, stored_answer.confidence)
+    assert rebuilt_answer.confidence == pytest.approx(stored_answer.confidence)
 
-    other_answer = _decide(backend, questions, v_s1)
-    as_if_resolved = helpers.classify(
-        "v-broken-01",
-        v_broken_01.fields,
-        other_answer,
-        0.45,
-        actions=ActionLog(),
-        queue=ReviewQueue(),
+    original = helpers.classify(
+        "t-c5-wrong", t_c5.fields, stored_answer, REAL_THRESHOLD, actions=ActionLog(), queue=ReviewQueue()
     )
-    assert (as_if_resolved.verdict, as_if_resolved.action) == (
-        helpers.SUPPORTED,
-        helpers.ACTION_KEEP,
+    rebuilt = helpers.classify(
+        "t-c5-wrong", t_c5.fields, rebuilt_answer, REAL_THRESHOLD, actions=ActionLog(), queue=ReviewQueue()
     )
-    assert as_if_resolved.verdict != forced.verdict
-    assert as_if_resolved.action != forced.action
+
+    assert (original.verdict, original.action) == (helpers.SUPPORTED, helpers.ACTION_KEEP)
+    assert (rebuilt.verdict, rebuilt.action) == (helpers.CONTRADICTED, helpers.ACTION_FLAG)
+    assert original.verdict != rebuilt.verdict
+    assert original.action != rebuilt.action
+
+    gold = {"t-c5-wrong": helpers.CONTRADICTED}
+    assert helpers.flag_agreement([original], gold) == 0.0
+    assert helpers.flag_agreement([rebuilt], gold) == 1.0
 
 
 def test_every_replay_key_in_the_fixtures_matches_the_current_question():
@@ -311,34 +421,29 @@ def test_every_replay_key_in_the_fixtures_matches_the_current_question():
 
 def test_stored_answers_are_not_all_right():
     # A wrong answer anywhere is a weak guard: it would still pass even if a confidence gate
-    # caught every mistake. This mirrors the notebook's own threshold selection: only claims
-    # whose citation resolves have a confidence to select on (a citation that never resolves is
-    # never asked a question, so it is left out of this selection entirely, exactly as
-    # docs/recipe-template.md's "selected-confidence-threshold" guidance requires for a case
-    # Python resolves on its own before any Choice is built). The frozen threshold then applies
-    # to every example, resolved or not; this test only needs a wrong `test` answer the model
-    # was actually asked about that clears the gate.
+    # caught every mistake. This mirrors the notebook's own threshold selection exactly:
+    # helpers.resolved_subset is the same filter the notebook's "Python's part" cell applies
+    # (only claims whose citation resolves have a confidence to select on -- a citation that
+    # never resolves is never asked a question, so it is left out of this selection entirely,
+    # per docs/recipe-template.md's guidance for a case Python resolves on its own before any
+    # Choice is built), and helpers.MIN_COVERAGE is the same objective parameter. The call to
+    # select_confidence_threshold stays inline (rather than behind helpers.choose_threshold)
+    # so this still re-derives the threshold the way the strong-form guard (G1(c)) checks for.
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
     labels = load_labels(RECIPE)
     examples = load_inputs(RECIPE)
 
-    def resolved_with_label(split):
-        return [
-            e
-            for e in examples
-            if e.split == split
-            and e.id in labels
-            and helpers.resolve_citation(e.fields) is not None
-        ]
-
-    validation = resolved_with_label("validation")
+    validation = helpers.resolved_subset(
+        [e for e in examples if e.split == "validation" and e.id in labels]
+    )
     val_answers = {e.id: _decide(backend, questions, e) for e in validation}
     correct = [val_answers[e.id].choice == labels[e.id] for e in validation]
     confidence = [val_answers[e.id].confidence for e in validation]
-    threshold = select_confidence_threshold(correct, confidence, min_coverage=0.75)
+    threshold = select_confidence_threshold(correct, confidence, min_coverage=helpers.MIN_COVERAGE)
+    assert threshold == pytest.approx(REAL_THRESHOLD)
 
-    test = resolved_with_label("test")
+    test = helpers.resolved_subset([e for e in examples if e.split == "test" and e.id in labels])
     test_answers = {e.id: _decide(backend, questions, e) for e in test}
     wrong_and_confident = [
         e.id
@@ -346,3 +451,25 @@ def test_stored_answers_are_not_all_right():
         if test_answers[e.id].choice != labels[e.id] and test_answers[e.id].confidence >= threshold
     ]
     assert wrong_and_confident, "expected at least one confidently wrong test answer"
+
+
+def test_the_committed_notebook_freezes_the_threshold_this_recipe_selects():
+    """Rule 12: nothing in this file pins what the *notebook's own* selection cell actually
+    does unless something reads what it committed. This reads the committed
+    ``notebook.ipynb``'s own stdout for the ``python-rule`` cell (never re-executing it --
+    recipe tests never execute notebooks) and checks that the threshold line it prints matches
+    ``REAL_THRESHOLD`` exactly. Swapping the notebook's own selection to a different objective
+    (``target_accuracy=1.0``, say) and re-executing it would print a different value there
+    (0.7500, forcing validation accuracy to 1.0000) while ``REAL_THRESHOLD`` above -- derived
+    independently through ``helpers.choose_threshold`` -- stays 0.4500, so this test is what
+    actually notices, not just the committed-output freshness check."""
+    nb = json.loads((RECIPE / "notebook.ipynb").read_text("utf-8"))
+    cell = next(c for c in nb["cells"] if c.get("id") == "python-rule")
+    text = "".join(
+        "".join(o.get("text", ""))
+        for o in cell.get("outputs", [])
+        if o.get("output_type") == "stream"
+    )
+    assert text, "python-rule cell has no committed stdout to check"
+    assert f"{REAL_THRESHOLD:.4f}" in text
+    assert REAL_THRESHOLD == pytest.approx(0.45)
