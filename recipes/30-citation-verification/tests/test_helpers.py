@@ -47,9 +47,9 @@ def real_threshold():
     notebook's own selection cell uses, so every test below that needs "the frozen gate" calls
     this rather than a bare literal that could silently stop matching what the notebook
     actually does. Cached (computed once per test session, not once per call) and, deliberately,
-    never called at import time: the one deliberately-unresolved-citation mutation this recipe's
-    PR description proves against should break only the tests that actually call this, not
-    every test in the file through a collection-time side effect."""
+    never called at import time: a resolve_citation that stopped returning None for a real
+    unresolved citation should break only the tests that actually call this, not every test in
+    the file through a collection-time side effect."""
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
     examples = load_inputs(RECIPE)
@@ -275,10 +275,10 @@ def test_flag_agreement_rejects_empty_input():
 
 
 # -------------------------------------------------------------------------------------------
-# Fixture-generation consistency (Wave 3 batch 1 rule 11): the committed responses.json must
-# store the top choice each ROWS entry actually names, checked against the committed file
-# itself -- never by calling answers_for/build_responses again, which would reproduce a
-# mislabelling identically on both sides.
+# Fixture-generation consistency: every committed stored answer's top choice must be the one
+# its own ROWS spec names. Checked against the committed responses.json file itself -- never
+# by calling answers_for/build_responses again, which would reproduce a mislabelling
+# identically on both sides and so could never catch one.
 # -------------------------------------------------------------------------------------------
 
 _DELIBERATELY_WRONG = {"v-c5-wrong-low", "v-u3-wrongpassage", "t-c5-wrong", "t-u3-wrongpassage"}
@@ -317,7 +317,10 @@ def test_every_stored_choice_matches_the_rows_it_came_from():
 # -------------------------------------------------------------------------------------------
 # Independent-consequence proof, on real committed fixtures (not a synthetic in-test row).
 # Each test below varies exactly one of the two stages and fails under a mutation to that
-# stage alone -- proved in the PR description by the corresponding mutation.
+# stage alone: making classify ignore answer.choice (treat every resolved claim as supported
+# regardless of what Jev answered) fails only the model's-choice test below; making
+# resolve_citation return a passage for every citation instead of None fails only the
+# citation-resolution test below.
 # -------------------------------------------------------------------------------------------
 
 
@@ -468,8 +471,8 @@ def test_stored_answers_are_not_all_right():
 
 
 def test_the_committed_notebook_freezes_the_threshold_this_recipe_selects():
-    """Rule 12: nothing in this file pins what the *notebook's own* selection cell actually
-    does unless something reads what it committed. This reads the committed
+    """Nothing else in this file pins what the *notebook's own* selection cell actually does
+    unless something reads what it committed. This reads the committed
     ``notebook.ipynb``'s own stdout for the ``python-rule`` cell (never re-executing it --
     recipe tests never execute notebooks) and checks that the threshold line it prints matches
     ``real_threshold()`` exactly. Swapping the notebook's own selection to a different objective
