@@ -1,5 +1,6 @@
 """Tests for recipe 36's helpers. They load the helpers by file path."""
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -186,6 +187,49 @@ def test_play_game_composes_turns_into_one_task_outcome():
 
 
 # --------------------------------------------------------------------------------------------
+# The rule-based policy is exhaustively optimal, not merely unbeaten on the seeds this recipe plays
+# --------------------------------------------------------------------------------------------
+
+
+def test_the_rule_based_policy_is_optimal_over_the_complete_game_space():
+    """A prose claim about a property of the whole game, not only the seeds this recipe commits,
+    needs a test rather than a sample: the prize order is a permutation of 1..N_CARDS and is the
+    only thing that varies between games (both hands always start full, and the opponent's reply
+    depends only on its own remaining hand and the current prize -- never on the player). This
+    enumerates every one of the N_CARDS! = 120 possible prize orders directly, with no seed
+    involved at all, and checks that the rule-based policy's score equals the maximum any player
+    policy could achieve against the same fixed opponent on every single one: not merely a
+    policy nothing in this recipe happens to beat, but one no policy could ever beat."""
+    space = helpers.enumerate_game_space()
+    assert len(space) == 120  # 5! possible prize orders; nothing else varies between games
+    for record in space:
+        assert record.max_achievable_score == 10
+        assert record.rule_based_score == record.max_achievable_score
+        assert record.opponent_score == 5
+        assert record.rule_based_score > record.opponent_score  # the rule-based policy wins
+
+
+# --------------------------------------------------------------------------------------------
+# A README claim about distinct Jev-visible requests, pinned against the committed fixtures
+# --------------------------------------------------------------------------------------------
+
+
+def test_scored_rows_collapse_to_fewer_distinct_states_because_build_state_drops_the_seed():
+    """README's live-call budget note says most of the task-level section's calls repeat a
+    request already asked in the per-question section, because `build_state` drops `game_seed`
+    and the same (turn, prize, hand, score) state recurs across different seeded games. Pin the
+    collapse this causes among the per-question section's own 96 scored rows directly against
+    the committed fixtures, so a future edit to `build_state` or the fixture set cannot leave
+    that sentence silently wrong."""
+    examples = load_inputs(RECIPE)
+    scored = [e for e in examples if e.split in ("validation", "test")]
+    assert len(scored) == 96
+    distinct_states = {json.dumps(helpers.build_state(e.fields), sort_keys=True) for e in scored}
+    assert len(distinct_states) == 52
+    assert len(distinct_states) < len(scored)  # the collision README's prose describes
+
+
+# --------------------------------------------------------------------------------------------
 # Rule-11 analog: every committed gold label matches its own generating spec, not a default
 # --------------------------------------------------------------------------------------------
 
@@ -222,11 +266,36 @@ def test_flipping_one_gold_label_changes_measured_accuracy_on_committed_fixtures
 
 
 # --------------------------------------------------------------------------------------------
+# The notebook's own confidence-gate objective, pinned against its committed cell source
+# --------------------------------------------------------------------------------------------
+
+
+def test_the_notebooks_confidence_gate_objective_is_pinned_to_min_coverage_and_its_value():
+    """The notebook's `python-rule` cell and this file each hold their own copy of
+    ``MIN_COVERAGE = 0.75``, and the notebook calls ``select_confidence_threshold(...,
+    min_coverage=MIN_COVERAGE)``. Nothing ties those two copies together: a test that only
+    re-derives the threshold locally (as the strong-form test below does, on purpose -- see its
+    own docstring) cannot notice that the notebook's own cell changed either the value or the
+    keyword, since no guard reads `notebook.ipynb` at all. An edit that changed the notebook's
+    `MIN_COVERAGE` to a different value, or swapped the keyword to `target_accuracy=1.0` while
+    leaving `MIN_COVERAGE`'s assignment untouched, would otherwise leave every other test in
+    this file green while the notebook actually ran a different selection than the one this
+    file describes. Parse the committed notebook's own cell directly and pin both the
+    objective's keyword and the value it is called with, not just this file's own copy."""
+    notebook = json.loads((RECIPE / "notebook.ipynb").read_text("utf-8"))
+    cell = next(c for c in notebook["cells"] if c.get("id") == "python-rule")
+    source = "".join(cell["source"])
+    assert "MIN_COVERAGE = 0.75" in source
+    assert "min_coverage=MIN_COVERAGE" in source
+    assert "target_accuracy" not in source
+
+
+# --------------------------------------------------------------------------------------------
 # Strong form: the fixture set is not so tidy that every wrong answer hides below the gate
 # --------------------------------------------------------------------------------------------
 
 
-def test_scripted_answers_are_not_all_right_above_the_frozen_confidence_gate():
+def test_stored_answers_are_not_all_right_above_the_frozen_confidence_gate():
     # Independent of the notebook's own threshold selection on purpose (docs/evaluation.md,
     # "Choose on validation, report on test"): this re-derives the confidence gate locally,
     # from validation turns alone, with the same min_coverage objective and keyword the

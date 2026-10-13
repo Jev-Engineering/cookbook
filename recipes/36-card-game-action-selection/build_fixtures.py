@@ -10,10 +10,14 @@ Each example is one DECIDED turn (a turn with two or more legal actions) of one 
 ``helpers.CardDuel``, rolled out once by the rule-based baseline (``helpers.rule_based_action``):
 the game's own sequence of prizes and the opponent's replies depend only on the seed, never on
 which policy is driving the player's bids (``helpers._opponent_card`` never reads the player's
-hand), so every policy this recipe evaluates sees the identical sequence of states a validation
-or test game seed produces. The gold label recorded for each turn is exactly the action the
-rule-based baseline took there, which is what lets the notebook score a model's own per-turn
-choice against it later without re-deriving the rule in two places.
+hand), so every policy this recipe evaluates sees the identical sequence of prizes and opponent
+cards for a given seed, which is what makes a same-seed comparison between policies fair. The
+player's own hand and running score are not identical across policies: both depend on what that
+policy actually bid, and once a policy's own choice differs from the rule-based action recorded
+here, its later turns can see a hand and a score this rollout never produced. The gold label
+recorded for each turn is exactly the action the rule-based baseline took there, which is what
+lets the notebook score a model's own per-turn choice against it later without re-deriving the
+rule in two places.
 """
 
 import json

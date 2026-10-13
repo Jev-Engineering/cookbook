@@ -13,6 +13,7 @@ turn -- ``CardDuel`` (a ``jev_cookbook.simulation.Simulator``) rejects anything 
 can never bid a card it does not hold or has already played.
 """
 
+import itertools
 import random
 from dataclasses import dataclass
 from typing import Any
@@ -227,6 +228,84 @@ def rule_based_policy(observation: dict[str, Any], legal: list[str]) -> str:
     """The rule-based baseline policy, over an observation (see ``rule_based_action``)."""
     hand = [int(a.split("_", 1)[1]) for a in legal]
     return rule_based_action(observation["prize"], hand)
+
+
+# --------------------------------------------------------------------------------------------
+# The complete game space: whether the rule-based policy is optimal, not only unbeaten
+# --------------------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class GameSpaceRecord:
+    """One of the ``n_cards!`` possible games against the fixed opponent. The whole game is
+    determined by its prize order: both hands always start full, and ``_opponent_card`` depends
+    only on the opponent's own remaining hand and the current prize, never on what the player
+    does -- so for a fixed prize order the opponent's sequence of cards is the same whatever the
+    player does, and the prize order is the only thing that varies from one game to the next."""
+
+    prize_order: tuple[int, ...]
+    opponent_cards: tuple[int, ...]
+    rule_based_cards: tuple[int, ...]
+    rule_based_score: int
+    opponent_score: int
+    max_achievable_score: int
+
+
+def enumerate_game_space(n_cards: int = N_CARDS) -> tuple[GameSpaceRecord, ...]:
+    """Every one of the ``n_cards!`` possible games against the fixed opponent, enumerated
+    directly over prize orders rather than sampled from seeds (see ``GameSpaceRecord``). For
+    each prize order this computes the rule-based policy's own score and, by brute force over
+    the ``n_cards!`` ways the player's own hand could be assigned to the turns, the maximum
+    score any player policy could possibly achieve against that same fixed opponent sequence --
+    cheap enough (``n_cards! ** 2`` evaluations) to run exhaustively for the ``n_cards`` this
+    recipe uses, which is what lets a reader check "optimal, not merely unbeaten" directly
+    rather than from a sample of seeded games."""
+    all_cards = tuple(range(1, n_cards + 1))
+    records = []
+    for prize_order in itertools.permutations(all_cards):
+        opponent_hand = all_cards
+        opponent_cards: list[int] = []
+        for prize in prize_order:
+            card = _opponent_card(opponent_hand, prize)
+            opponent_cards.append(card)
+            opponent_hand = tuple(c for c in opponent_hand if c != card)
+        fixed_opponent_cards = tuple(opponent_cards)
+
+        hand = all_cards
+        rule_based_cards: list[int] = []
+        rule_based_score = 0
+        opponent_score = 0
+        for prize, opponent_card in zip(prize_order, fixed_opponent_cards, strict=True):
+            bid = rule_based_action(prize, list(hand))
+            card = int(bid.split("_", 1)[1])
+            hand = tuple(c for c in hand if c != card)
+            rule_based_cards.append(card)
+            if card > opponent_card:
+                rule_based_score += prize
+            elif opponent_card > card:
+                opponent_score += prize
+
+        max_achievable_score = max(
+            sum(
+                prize
+                for prize, card, opponent_card in zip(
+                    prize_order, assignment, fixed_opponent_cards, strict=True
+                )
+                if card > opponent_card
+            )
+            for assignment in itertools.permutations(all_cards)
+        )
+        records.append(
+            GameSpaceRecord(
+                prize_order=prize_order,
+                opponent_cards=fixed_opponent_cards,
+                rule_based_cards=tuple(rule_based_cards),
+                rule_based_score=rule_based_score,
+                opponent_score=opponent_score,
+                max_achievable_score=max_achievable_score,
+            )
+        )
+    return tuple(records)
 
 
 SEED = 0  # the scripted backend's own seed; committed so the offline run is reproducible
