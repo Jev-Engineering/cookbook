@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from jev_cookbook import NoulAnswer, Provenance, get_backend, load_helpers, replay_key
-from jev_cookbook.evaluation import pool_label_decisions
+from jev_cookbook.evaluation import pool_label_decisions, select_confidence_threshold
 from jev_cookbook.fixtures import load_inputs, load_labels, responses_path, select_split
 
 RECIPE = Path(__file__).resolve().parent.parent
@@ -544,13 +544,13 @@ def test_confidence_outcome_never_changes_the_feature_vector():
 
 
 def test_stored_answers_are_not_all_right():
-    """Strong form: re-derive the pooled confidence gate from validation with
-    helpers.select_pooled_confidence_gate (select_confidence_threshold under the hood,
-    preferring it over the plain per-feature business threshold, as it is a stricter cut) and
-    require a wrong, confidently-scored test (text, feature) decision at or above it -- not
-    merely "some wrong answer exists somewhere", which a gate that happened to catch every
-    mistake would still pass. Uses the same two helpers.py procedures the notebook calls, so
-    this test and the notebook's own choice cannot silently diverge."""
+    """Strong form: re-derive the pooled confidence gate independently from validation --
+    pool_label_decisions then select_confidence_threshold, called directly here rather than
+    through helpers.select_pooled_confidence_gate, so this test is a genuine second
+    computation of the gate and not merely a call into the same production path the notebook
+    uses -- and require a wrong, confidently-scored test (text, feature) decision at or above
+    it, not merely "some wrong answer exists somewhere", which a gate that happened to catch
+    every mistake would still pass."""
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
     examples = load_inputs(RECIPE)
@@ -559,9 +559,14 @@ def test_stored_answers_are_not_all_right():
     val_gold_by_label, val_noul_by_label, val_thresholds = _thresholds_from_validation(
         backend, questions, labels, validation
     )
-    confidence_gate = helpers.select_pooled_confidence_gate(
-        [e.id for e in validation], val_gold_by_label, val_noul_by_label, val_thresholds
+    val_correct, val_confidence, _val_keys = pool_label_decisions(
+        [e.id for e in validation],
+        list(EXPECTED_FEATURES),
+        val_gold_by_label,
+        val_noul_by_label,
+        val_thresholds,
     )
+    confidence_gate = select_confidence_threshold(val_correct, val_confidence, min_coverage=0.5)
 
     def decide(e):
         return backend.decide(helpers.build_state(e.fields), questions)
