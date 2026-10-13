@@ -378,7 +378,7 @@ def test_stored_answers_are_not_all_right():
 
 
 # --------------------------------------------------------------------------------------------
-# the threshold-selection objective is pinned (M3): a swap that keeps every other test and
+# the threshold-selection objective is pinned: a swap that keeps every other test and
 # guard check green must still turn something here red
 # --------------------------------------------------------------------------------------------
 
@@ -431,7 +431,7 @@ def test_the_notebooks_threshold_objective_matches_this_files_pinned_keywords():
 
 
 # --------------------------------------------------------------------------------------------
-# a per-domain F1 actually moves when a real wrong answer is corrected (M4): the
+# a per-domain F1 actually moves when a real wrong answer is corrected: the
 # consequentiality claim in the notebook's "Evaluation" section needs a test that computes an
 # F1, not only one that flips a DomainTag's outcome
 # --------------------------------------------------------------------------------------------
