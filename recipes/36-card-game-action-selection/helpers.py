@@ -161,11 +161,9 @@ def build_state(fields: dict[str, Any]) -> dict[str, Any]:
 
 
 def legal_actions_from_hand(hand: list[int]) -> list[str]:
-    """The fixed action-name convention (``bid_<card>``), reused everywhere a hand becomes a
-    legal-action list: by ``CardDuel._legal_actions`` (as plain cards, mapped here) is not
-    reused directly since the simulator already returns the ``bid_<card>`` strings -- this
-    helper exists for building the same option list from fixture ``fields`` (where only the
-    hand, not a live simulator, is available)."""
+    """The fixed action-name convention (``bid_<card>``) that ``CardDuel._legal_actions`` also
+    builds, exposed here so fixture ``fields`` (which hold only the hand, not a live simulator)
+    can build the identical option list."""
     return [f"bid_{card}" for card in hand]
 
 
