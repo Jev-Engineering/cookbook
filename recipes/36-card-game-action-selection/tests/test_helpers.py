@@ -228,11 +228,13 @@ def test_flipping_one_gold_label_changes_measured_accuracy_on_committed_fixtures
 
 def test_scripted_answers_are_not_all_right_above_the_frozen_confidence_gate():
     # Independent of the notebook's own threshold selection on purpose (docs/evaluation.md,
-    # "Choose on validation, report on test"; the Wave 3 guidance on this guard's ast shape):
-    # re-derives the confidence gate here, from validation turns alone, with the same
-    # min_coverage objective and keyword the notebook uses, then requires at least one wrong
-    # test-split turn whose confidence still clears that gate -- so this fixture set is not
-    # merely "mostly right" but actually exercises the gate's risk on `test`.
+    # "Choose on validation, report on test"): this re-derives the confidence gate locally,
+    # from validation turns alone, with the same min_coverage objective and keyword the
+    # notebook uses, rather than importing the notebook's own frozen value or routing through a
+    # shared helper -- either of those would make this test agree with the notebook by
+    # construction instead of checking it. It then requires at least one wrong test-split turn
+    # whose confidence still clears that gate, so this fixture set is not merely "mostly right"
+    # but actually exercises the gate's risk on `test`.
     _, val_answers, val_gold = _turns("validation")
     val_correct = [a.choice == g for a, g in zip(val_answers, val_gold, strict=True)]
     val_confidence = [a.confidence for a in val_answers]
