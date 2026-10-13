@@ -6,7 +6,7 @@ Assign independently judged research-domain labels to evidence passages while Py
 
 ## What it teaches
 
-Jev answers three independent `Noul` propositions over one evidence passage, one per research domain in a fixed list Python builds (`biomedical`, `computational`, `economics`), all sent together in a single request because they share the same state. Python filters passages by access control before any request is built, so a passage marked `restricted` is never sent and never appears in output; for every accessible passage, Python turns the three yes-or-no answers into a tagged domain set with a threshold chosen separately for each domain, gates every domain behind a shared confidence gate, and sends anything it is not confident enough about to an explicit review outcome instead of guessing. The notebook shows a passage that raises all three domains at once, a benign look-alike that raises none, and one that fools a stored answer into a confident, wrong domain tag, then evaluates the frozen rule per domain (precision, recall, F1) and at task level (the share of passages tagged exactly right), alongside a direct proof that the access-control filter is load-bearing.
+Jev answers three independent `Noul` propositions over one evidence passage, one per research domain in a fixed list Python builds (`biomedical`, `computational`, `economics`), all sent together in a single request because they share the same state. Python filters passages by access control before any request is built, so a passage marked `restricted` is never sent: no state is built for it, no request is made, and no tag, review-queue entry, or printed line in the committed notebook ever names its id. For every accessible passage, Python turns the three yes-or-no answers into a tagged domain set with a threshold chosen separately for each domain, gates every domain behind a shared confidence gate, and sends anything it is not confident enough about to an explicit review outcome instead of guessing. The notebook shows a passage that raises all three domains at once, a benign look-alike that raises none, and one that fools a stored answer into a confident, wrong domain tag, then evaluates the frozen rule per domain (precision, recall, F1) and at task level (the share of passages tagged exactly right), alongside a direct proof that the access-control filter is load-bearing. The filter itself is a deterministic Python rule of this recipe's own fabricated access scheme, not a security feature or an access-control system in its own right.
 
 ## Run it offline
 
@@ -37,9 +37,10 @@ and always runs offline. In live mode this notebook makes exactly one request fo
 accessible examples in `fixtures/` (each example is decided once, through a cache every decide
 call shares, and the stored answer is reused wherever it is shown again); every request carries
 all three domains' propositions together, so it answers 111 individual yes-or-no decisions (37
-passages times three domains) in those 37 requests, not 111 requests. The four `restricted`
-passages in `fixtures/` are never sent, in any mode, and so never count against this budget at
-all. 37 is more than the live backend's default request budget of 25
+passages times three domains) in those 37 requests, not 111 requests. The five `restricted`
+passages in `fixtures/` (four `validation`/`test`, one `demo`) are never sent, in any mode, and
+so never count against this budget at all. 37 is more than the live backend's default request
+budget of 25
 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)), so set
 `JEV_COOKBOOK_LIVE_MAX_REQUESTS=37` or higher before running this notebook live, or it stops
 partway through with `BudgetExceeded`. Every attempt counts against that budget, including each
@@ -59,8 +60,10 @@ retry. Never put a key in a notebook, a fixture, or any other committed file.
 A recorded recipe states the model version the API returned, the capture date and N for every number
 it reports, here and in the notebook.
 
-The committed run replays 42 invented research passages with hand-written (synthetic) answers,
-several wrong on purpose: six benign look-alikes that use a domain's vocabulary ("cost",
+`fixtures/` holds 42 invented research passages in total; 37 of them are actually decided
+(replayed) with hand-written (synthetic) answers, several wrong on purpose, and the remaining 5
+are `restricted` and never decided at all (see "Switch to live" above). Among the 37 decided
+passages: six benign look-alikes that use a domain's vocabulary ("cost",
 "algorithm", "patient") without a passage actually raising that domain's research question
 (`v04-biomedical-lookalike`, `t04-biomedical-lookalike`, `v19-economics-biomedical-wrong`,
 `v20-economics-computational-wrong`, `t19-economics-biomedical-wrong`,

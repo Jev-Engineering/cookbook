@@ -101,6 +101,33 @@ def restricted_examples(examples: Any) -> tuple[Any, ...]:
     return tuple(e for e in examples if not is_accessible(e.fields["access"]))
 
 
+class CountingBackend:
+    """Wraps a backend and records the state of every request it is actually asked to decide,
+    so a reader can verify what was sent rather than inferring it from where a filter happens
+    to sit in the code.
+
+    Every attribute other than ``decide`` is forwarded to the wrapped backend (``mode``,
+    ``model``, and, for a recorded backend, ``recorded_dates``), so this wrapper is transparent
+    to ``run_header`` and to anything else that reads a backend's own attributes -- it can wrap
+    the single backend a notebook builds in "Setup and run mode" and be used everywhere that
+    backend is, rather than becoming a second backend of its own. ``sent_states`` grows across
+    every call this wrapper ever makes, for as long as the wrapper lives, so wrapping the one
+    real backend once, early, turns on a running count for the whole notebook rather than a
+    one-off snapshot taken later.
+    """
+
+    def __init__(self, inner: Any) -> None:
+        self._inner = inner
+        self.sent_states: list[Any] = []
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)
+
+    def decide(self, state: Any, questions: Any) -> Any:
+        self.sent_states.append(state)
+        return self._inner.decide(state, questions)
+
+
 def decide_passages(
     examples: Any,
     backend: Any,

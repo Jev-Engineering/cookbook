@@ -1,5 +1,6 @@
 """Tests for recipe 37's helpers. They load the helpers by file path."""
 
+import json
 from dataclasses import replace
 from pathlib import Path
 
@@ -8,6 +9,7 @@ import pytest
 from jev_cookbook import NoulAnswer, Provenance, get_backend, load_helpers, replay_key
 from jev_cookbook.evaluation import (
     multilabel_from_noul,
+    multilabel_metrics,
     pool_label_decisions,
     select_confidence_threshold,
     select_threshold,
@@ -34,21 +36,9 @@ def answers(**by_domain):
     return {domain: answer(by_domain.get(domain, 0.05)) for domain in DOMAINS}
 
 
-class _CountingBackend:
-    """Wraps a backend and records the state of every request it is actually asked to decide.
-    Used only to prove what was sent, rather than inferring it from where a filter happens to
-    sit in the code: a backend has no `.sent_states` of its own, so this is the instrument, not
-    the thing under test."""
-
-    def __init__(self, inner):
-        self._inner = inner
-        self.sent_states = []
-        self.mode = inner.mode
-        self.model = inner.model
-
-    def decide(self, state, questions):
-        self.sent_states.append(state)
-        return self._inner.decide(state, questions)
+# `helpers.CountingBackend` is the shared instrument the notebook also uses (not redefined
+# here): one copy of this wrapper, used by both, so the notebook's own access-control proof and
+# this test's are the same mechanism, not two implementations that could silently disagree.
 
 
 # --------------------------------------------------------------------------------------------
@@ -284,12 +274,15 @@ def test_a_restricted_passage_is_never_sent():
 
     Deleting the ``accessible_examples(examples)`` call inside `decide_passages` (replacing it
     with the bare `examples`) makes this test fail: that substitution was run by hand while
-    writing this test, and the failure was a `ReplayMiss` whose state is `v17-restricted`'s own
-    text verbatim -- fixtures/responses.json holds no stored answer for a restricted passage, so
-    attempting to send one fails loudly rather than silently succeeding -- before the filter was
-    restored.
+    writing this test. Against the fixtures as committed, where no restricted passage has a
+    stored response, the failure is a `ReplayMiss` whose state is `v17-restricted`'s own text
+    verbatim -- attempting to send a passage with no stored answer fails loudly rather than
+    silently succeeding. That failure's *shape* depends on the fixtures (a world where every
+    restricted passage also had a stored response would raise nothing); the `leaked` assertion
+    below is what holds either way, which is why it is checked, and named, before the plain
+    count comparison that follows it.
     """
-    counting = _CountingBackend(get_backend(fixtures=responses_path(RECIPE)))
+    counting = helpers.CountingBackend(get_backend(fixtures=responses_path(RECIPE)))
     questions = helpers.build_questions()
     examples = load_inputs(RECIPE)
     candidates = [e for e in examples if e.split not in ("train", "demo")]
@@ -300,12 +293,17 @@ def test_a_restricted_passage_is_never_sent():
 
     decisions = helpers.decide_passages(candidates, counting, questions)
 
-    assert len(counting.sent_states) == len(accessible)
-    assert set(decisions) == {e.id for e in accessible}
-
+    # The identifying check runs FIRST: if a restricted passage's state is ever sent, this
+    # names it directly. A world where every restricted passage also has a stored response (so
+    # no ReplayMiss is reachable) would otherwise fail on the count assertion below first, with
+    # no passage named at all -- `len(counting.sent_states) == len(accessible)` alone cannot
+    # say which extra request was the problem, only that there was one.
     restricted_states = {e.id: helpers.build_state(e.fields) for e in restricted}
     leaked = [eid for eid, state in restricted_states.items() if state in counting.sent_states]
     assert not leaked, f"a restricted passage's state was sent to decide(): {leaked}"
+
+    assert len(counting.sent_states) == len(accessible)
+    assert set(decisions) == {e.id for e in accessible}
 
 
 def test_a_restricted_passage_never_appears_in_the_composed_output():
@@ -357,12 +355,13 @@ def test_stored_answers_are_not_all_right():
     val_gold_by_domain = {d: [d in labels[e.id] for e in validation] for d in DOMAINS}
     val_noul_by_domain = {d: [decide(e)[d].noul for e in validation] for d in DOMAINS}
     thresholds = {
-        d: select_threshold(val_gold_by_domain[d], val_noul_by_domain[d], "f1") for d in DOMAINS
+        d: select_threshold(val_gold_by_domain[d], val_noul_by_domain[d], objective="f1")
+        for d in DOMAINS
     }
     val_correct, val_confidence, _ = pool_label_decisions(
         [e.id for e in validation], DOMAINS, val_gold_by_domain, val_noul_by_domain, thresholds
     )
-    confidence_gate = select_confidence_threshold(val_correct, val_confidence, min_coverage=0.7)
+    confidence_gate = select_confidence_threshold(val_correct, val_confidence, min_coverage=0.70)
 
     test = [e for e in accessible if e.split == "test" and e.id in labels]
     test_gold_by_domain = {d: [d in labels[e.id] for e in test] for d in DOMAINS}
@@ -376,3 +375,159 @@ def test_stored_answers_are_not_all_right():
         if not ok and conf >= confidence_gate
     ]
     assert wrong_and_confident, "expected at least one confidently wrong (passage, domain) pair"
+
+
+# --------------------------------------------------------------------------------------------
+# the threshold-selection objective is pinned (M3): a swap that keeps every other test and
+# guard check green must still turn something here red
+# --------------------------------------------------------------------------------------------
+
+
+def test_the_threshold_objective_is_pinned():
+    """Pin the per-domain business-threshold objective (`select_threshold(...,
+    objective="f1")`) and the pooled confidence-gate objective
+    (`select_confidence_threshold(..., min_coverage=0.70)`) to the specific numbers they
+    produce on real fixtures, so a change to either objective or parameter -- even one that
+    leaves every other test and guard check in this recipe green -- is caught here. Measured:
+    swapping the gate's objective to `target_accuracy=...`-style selection, or changing
+    `min_coverage`, changes the resulting frozen numbers asserted below."""
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    labels = load_labels(RECIPE)
+    examples = load_inputs(RECIPE)
+    candidates = [e for e in examples if e.split not in ("train", "demo")]
+    accessible = helpers.accessible_examples(candidates)
+    validation = [e for e in accessible if e.split == "validation"]
+
+    def decide(example):
+        return backend.decide(helpers.build_state(example.fields), questions)
+
+    val_gold_by_domain = {d: [d in labels[e.id] for e in validation] for d in DOMAINS}
+    val_noul_by_domain = {d: [decide(e)[d].noul for e in validation] for d in DOMAINS}
+    thresholds = {
+        d: select_threshold(val_gold_by_domain[d], val_noul_by_domain[d], objective="f1")
+        for d in DOMAINS
+    }
+    assert thresholds == {"biomedical": 0.8, "computational": 0.79, "economics": 0.8}
+
+    val_correct, val_confidence, _ = pool_label_decisions(
+        [e.id for e in validation], DOMAINS, val_gold_by_domain, val_noul_by_domain, thresholds
+    )
+    confidence_gate = select_confidence_threshold(val_correct, val_confidence, min_coverage=0.70)
+    assert confidence_gate == pytest.approx(0.6399999999999999)
+
+
+def test_the_notebooks_threshold_objective_matches_this_files_pinned_keywords():
+    """Nothing ties a notebook cell's source to an importable value: an edit that changed only
+    the notebook's own objective or parameter (swapping `objective="f1"` for `"accuracy"`, or
+    `min_coverage=0.70` for a different value) would otherwise leave every test in this file
+    green while the notebook ran a different selection than the one they describe. Parse the
+    committed notebook's own cells and pin the exact keyword text, not only the value it
+    produces."""
+    notebook = json.loads((RECIPE / "notebook.ipynb").read_text("utf-8"))
+    cells = {c.get("id"): "".join(c["source"]) for c in notebook["cells"]}
+    assert 'objective="f1"' in cells["python-thresholds"]
+    assert "min_coverage=0.70" in cells["python-cutoff-choose"]
+
+
+# --------------------------------------------------------------------------------------------
+# a per-domain F1 actually moves when a real wrong answer is corrected (M4): the
+# consequentiality claim in the notebook's "Evaluation" section needs a test that computes an
+# F1, not only one that flips a DomainTag's outcome
+# --------------------------------------------------------------------------------------------
+
+
+def _test_noul_and_gold(backend, questions, labels, accessible):
+    validation = [e for e in accessible if e.split == "validation"]
+    test = [e for e in accessible if e.split == "test"]
+
+    def decide(example):
+        return backend.decide(helpers.build_state(example.fields), questions)
+
+    val_gold_by_domain = {d: [d in labels[e.id] for e in validation] for d in DOMAINS}
+    val_noul_by_domain = {d: [decide(e)[d].noul for e in validation] for d in DOMAINS}
+    thresholds = {
+        d: select_threshold(val_gold_by_domain[d], val_noul_by_domain[d], objective="f1")
+        for d in DOMAINS
+    }
+    test_noul_by_domain = {d: [decide(e)[d].noul for e in test] for d in DOMAINS}
+    test_gold_sets = [frozenset(labels[e.id]) for e in test]
+    return test, thresholds, test_noul_by_domain, test_gold_sets
+
+
+@pytest.mark.parametrize(
+    "example_id, domain, corrected_noul",
+    [
+        ("t19-economics-biomedical-wrong", "biomedical", 0.10),
+        ("t20-economics-computational-wrong", "computational", 0.10),
+        ("t04-biomedical-lookalike", "economics", 0.10),
+    ],
+)
+def test_correcting_a_real_wrong_answer_changes_its_domains_f1(example_id, domain, corrected_noul):
+    """The notebook's "Evaluation" section claims that each of the three domains' `test` F1 is
+    falsifiable: flipping any one of the real, committed wrong stored probabilities named there
+    to the other side of its domain's threshold would change that domain's own F1. This test is
+    what actually establishes that claim by computing `multilabel_metrics` twice -- once on the
+    real stored `test` probabilities, once with exactly one real row's one probability
+    corrected to the right side of its domain's frozen threshold -- and asserting the resulting
+    F1 differs, for each of the three domains in turn. (`tests/test_helpers.py`'s own
+    `test_each_domain_is_independently_consequential_on_a_real_fixture` proves a related but
+    different claim -- that `compose`'s tag set changes -- and does not itself compute an F1;
+    this test is the one the notebook's F1 claim actually needs.)"""
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    labels = load_labels(RECIPE)
+    examples = load_inputs(RECIPE)
+    candidates = [e for e in examples if e.split not in ("train", "demo")]
+    accessible = helpers.accessible_examples(candidates)
+
+    test, thresholds, test_noul_by_domain, test_gold_sets = _test_noul_and_gold(
+        backend, questions, labels, accessible
+    )
+
+    def f1_for(noul_by_domain):
+        predicted = multilabel_from_noul(noul_by_domain, thresholds)
+        metrics = multilabel_metrics(test_gold_sets, predicted, labels=DOMAINS)
+        return metrics["per_label"][domain].f1
+
+    baseline_f1 = f1_for(test_noul_by_domain)
+
+    corrected = {d: list(values) for d, values in test_noul_by_domain.items()}
+    index = next(i for i, e in enumerate(test) if e.id == example_id)
+    corrected[domain][index] = corrected_noul
+    corrected_f1 = f1_for(corrected)
+
+    assert corrected_f1 != pytest.approx(baseline_f1), (
+        f"correcting {example_id}'s {domain} probability did not change {domain}'s own F1"
+    )
+
+
+def test_t04s_economics_probability_sits_exactly_at_the_frozen_threshold():
+    """`t04-biomedical-lookalike`'s false positive is not merely wrong, it is wrong by the
+    narrowest possible margin: its stored `economics` probability (0.80) sits exactly at the
+    frozen `economics` threshold (also 0.80), the inclusive boundary `tag_domains`'s `noul >=
+    threshold` comparison resolves in favor of a tag. Pin both numbers directly, on the real
+    committed fixture, so a future fixture edit that moves either one off the boundary -- and
+    so changes the lesson this specific row teaches -- is caught here rather than silently."""
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    labels = load_labels(RECIPE)
+    examples = load_inputs(RECIPE)
+    candidates = [e for e in examples if e.split not in ("train", "demo")]
+    accessible = helpers.accessible_examples(candidates)
+    validation = [e for e in accessible if e.split == "validation"]
+    val_gold_by_domain = {d: [d in labels[e.id] for e in validation] for d in DOMAINS}
+    val_noul_by_domain = {
+        d: [backend.decide(helpers.build_state(e.fields), questions)[d].noul for e in validation]
+        for d in DOMAINS
+    }
+    threshold = select_threshold(
+        val_gold_by_domain["economics"], val_noul_by_domain["economics"], objective="f1"
+    )
+    assert threshold == 0.8
+
+    t04 = next(e for e in accessible if e.id == "t04-biomedical-lookalike")
+    t04_economics = backend.decide(helpers.build_state(t04.fields), questions)["economics"].noul
+    assert t04_economics == 0.8
+    assert t04_economics == threshold
+    assert "economics" not in labels["t04-biomedical-lookalike"]  # the tag is a false positive
