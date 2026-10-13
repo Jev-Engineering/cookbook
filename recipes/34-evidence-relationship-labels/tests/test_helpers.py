@@ -1,6 +1,7 @@
 """Tests for recipe 34's helpers. They load the helpers by file path."""
 
 import importlib.util
+import json
 from pathlib import Path
 
 import pytest
@@ -19,6 +20,23 @@ EXPECTED_OPTIONS = (
     "supplier_of",
     "no_supported_relation",
 )
+
+
+def test_the_notebook_selects_the_gate_by_min_coverage_not_target_accuracy():
+    """The frozen gate's objective is chosen once, in the notebook's own `python-threshold`
+    cell, by calling ``select_confidence_threshold(..., min_coverage=MIN_COVERAGE)``. Nothing
+    ties a notebook cell's source to an importable value, so an edit that swapped only that
+    call to ``target_accuracy=1.0`` -- which is feasible on this validation pool and returns a
+    real threshold, forcing validation accuracy to 1.0000 by construction -- would otherwise
+    leave every other test in this file green while the notebook ran a different selection than
+    the one these tests describe. Parse the committed notebook's cell directly and pin both the
+    objective and its keyword, not just the pinned constant's value."""
+    notebook = json.loads((RECIPE / "notebook.ipynb").read_text("utf-8"))
+    cell = next(c for c in notebook["cells"] if c.get("id") == "python-threshold")
+    source = "".join(cell["source"])
+    assert "min_coverage=MIN_COVERAGE" in source
+    assert "target_accuracy" not in source
+    assert helpers.MIN_COVERAGE == pytest.approx(0.85)
 
 
 def test_options_are_the_fixed_set_the_use_case_names():
@@ -71,11 +89,14 @@ def test_every_stored_answers_top_choice_is_the_one_its_row_names():
     # Rule: in any fixture-spec shorthand, the label-bearing argument is required, never
     # defaulted. build_fixtures.py's ``_passage`` takes ``predicted`` as a required positional
     # argument and ``_probs`` puts the given ``p_top`` on exactly that option, so this checks the
-    # generator did not silently mislabel a row: for every passage in every row, the committed
-    # response's own choice (recomputed from the probabilities ChoiceAnswer.from_probabilities
-    # would derive, independent of whatever build_responses happens to do) equals the row's
-    # ``predicted``, never its ``gold`` (which may legitimately differ -- that is how a
-    # deliberately wrong stored answer is written).
+    # generator's own spec did not silently mislabel a row: for every passage in every row of
+    # ``ROWS``, the choice ``ChoiceAnswer.from_probabilities`` derives from that row's own
+    # ``probs`` (independent of whatever ``build_responses`` happens to do with them) equals
+    # the row's ``predicted``, never its ``gold`` (which may legitimately differ -- that is how
+    # a deliberately wrong stored answer is written). This checks the generator's spec, not the
+    # committed ``fixtures/responses.json`` file itself; that file's byte-identity to what this
+    # same ``ROWS`` produces is what ``tests/test_build_fixtures.py`` separately guards, so the
+    # two tests together cover both halves.
     module = _load_build_fixtures()
     assert len(module.ROWS) > 1
     checked = 0
