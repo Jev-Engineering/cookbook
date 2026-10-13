@@ -38,7 +38,7 @@ and always runs offline. The live backend's default request budget is 25
 against that budget, including each retry. In live mode this notebook makes exactly one request
 for each of the 50 texts in `fixtures/` (16 `train`, 16 `validation`, 16 `test`, 2 `demo`), and no
 other: each text is decided once, in the "One answer up close" section, and every later section
-reuses that same stored answer rather than asking again (the setup cell counts and prints the
+reuses that same stored answer rather than asking again (the answer cell counts and prints the
 real request total, instrumented at the one place requests are made). Each request carries all
 six features' propositions together, so it answers 300 individual true-or-false judgments (50
 texts times six features) in those 50 requests, not 300 requests. 50 is more than the live
@@ -61,17 +61,18 @@ stops partway through with `BudgetExceeded`. Never put a key in a notebook or a 
   per feature.
 
 The committed run replays 50 invented feedback messages with hand-written (synthetic) answers,
-several wrong on purpose: eight (text, feature) pairs across `train`, `validation` and `test` are
-deliberately mis-scored (a stated feature's answer sits on the wrong side of the frozen threshold
-from its own gold label), spread across all six features so every one of them has at least one
-real mistake to be measured against. Per-feature precision, recall and F1 on `validation` and
-`test`, the pooled accuracy across all (text, feature) pairs, and the classifier's and baseline's
+several wrong on purpose: of the 192 scored (`validation` and `test`) (text, feature) pairs, 9
+sit on the wrong side of the frozen business threshold from their own gold label (3 of 96 on
+`validation`, 6 of 96 on `test` — the complements of the pooled accuracy figures the notebook
+prints), spread across all six features so every one of them has at least one real mistake to be
+measured against on `test`. Per-feature precision, recall and F1 on `validation` and `test`, the
+pooled accuracy across all (text, feature) pairs, and the classifier's and baseline's
 held-out accuracy all check that the pipeline works; they say nothing about how Jev performs, how
 fast it is, or what it costs. The classifier (a small Naive Bayes model over the six composed
 features) outperforms the fixed majority-class baseline on both `validation` and `test` in this
 run, but neither reaches perfect accuracy: several `test` texts (a long-time customer leaving with
 none of the six features present, among others) are missed by the classifier and the baseline
-alike, because a fixed boolean feature list cannot capture every signal a human reader would use --
+alike, because a fixed boolean feature list cannot capture every signal a human reader would use —
 see the notebook's "Evaluation" section for which texts and why. This recipe has no recorded
 fixtures.
 

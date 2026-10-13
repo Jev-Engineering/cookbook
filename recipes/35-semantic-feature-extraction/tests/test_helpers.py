@@ -12,11 +12,7 @@ from pathlib import Path
 import pytest
 
 from jev_cookbook import NoulAnswer, Provenance, get_backend, load_helpers, replay_key
-from jev_cookbook.evaluation import (
-    pool_label_decisions,
-    select_confidence_threshold,
-    select_threshold,
-)
+from jev_cookbook.evaluation import pool_label_decisions
 from jev_cookbook.fixtures import load_inputs, load_labels, responses_path, select_split
 
 RECIPE = Path(__file__).resolve().parent.parent
@@ -92,8 +88,10 @@ def test_the_split_assignment_is_frozen():
 def test_every_train_validation_and_test_example_has_both_gold_labels():
     # Two independent gold sets, each from an explicit argument, never one derived
     # from the other. This checks both are present (and shaped right) for every scored
-    # example; test_naive_bayes_matches_hand_computed_posterior below checks they can
-    # genuinely disagree.
+    # example; test_every_feature_has_all_four_present_absent_by_escalate_cases below checks
+    # they can genuinely disagree (every feature has a committed example where it is True with
+    # escalate False and one where it is False with escalate True, so escalate is provably not
+    # a function of the six features).
     labels = load_labels(RECIPE)
     examples = load_inputs(RECIPE)
     for split in ("train", "validation", "test"):
@@ -230,18 +228,20 @@ def test_majority_baseline_rejects_empty_targets():
 
 
 def test_the_baseline_fit_on_committed_train_matches_trains_own_majority():
+    # A literal expected value, not a restatement of fit_majority_baseline's own
+    # n_true >= n_false expression: committed train is 7 escalate / 9 not, so the majority is
+    # False. test_majority_baseline_ties_go_to_true (above) is what proves the tie rule itself;
+    # this one is not tied (9 != 7), so it could not catch a >= -> > regression on its own.
     labels = load_labels(RECIPE)
     examples = load_inputs(RECIPE)
     train_targets = [labels[e.id]["escalate"] for e in select_split(examples, "train")]
+    assert (sum(train_targets), len(train_targets)) == (7, 16)
     baseline = helpers.fit_majority_baseline(train_targets)
-    n_true = sum(train_targets)
-    n_false = len(train_targets) - n_true
-    assert baseline.majority == (n_true >= n_false)
+    assert baseline.majority is False
     # Not construction-perfect: the two classes are not tied and neither is unanimous, so the
     # baseline's own accuracy on train itself is below 1.0: what would make this number come
     # out differently is simply a different mix of train examples, which is worth naming beside
     # a number that otherwise looks construction-perfect.
-    assert 0 < n_true < len(train_targets)
 
 
 # --------------------------------------------------------------------------- the classifier
@@ -318,8 +318,10 @@ def test_naive_bayes_predict_rejects_a_mismatched_vector_length():
 
 
 def _fit_from_fixtures():
-    """Thresholds (chosen on validation) and a classifier (fit on train), from the real
-    committed fixtures -- the same two frozen objects the notebook builds."""
+    """Thresholds, the pooled confidence gate (both chosen on validation) and a classifier (fit
+    on train), from the real committed fixtures -- the same frozen objects the notebook builds,
+    via the same helpers.select_feature_thresholds / helpers.select_pooled_confidence_gate the
+    notebook calls, so a test here and the notebook's own choice cannot silently diverge."""
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
     examples = load_inputs(RECIPE)
@@ -330,21 +332,23 @@ def _fit_from_fixtures():
 
     validation = select_split(examples, "validation")
     val_answers = {e.id: decide(e) for e in validation}
-    thresholds = {
-        name: select_threshold(
-            [labels[e.id]["features"][name] for e in validation],
-            [val_answers[e.id][name].noul for e in validation],
-            "f1",
-        )
-        for name in EXPECTED_FEATURES
+    val_gold_by_label = {
+        name: [labels[e.id]["features"][name] for e in validation] for name in EXPECTED_FEATURES
     }
+    val_noul_by_label = {
+        name: [val_answers[e.id][name].noul for e in validation] for name in EXPECTED_FEATURES
+    }
+    thresholds = helpers.select_feature_thresholds(val_gold_by_label, val_noul_by_label)
+    confidence_gate = helpers.select_pooled_confidence_gate(
+        [e.id for e in validation], val_gold_by_label, val_noul_by_label, thresholds
+    )
     train = select_split(examples, "train")
     train_vectors = [
         helpers.feature_vector(helpers.compose_features(decide(e), thresholds)) for e in train
     ]
     train_targets = [labels[e.id]["escalate"] for e in train]
     model = helpers.fit_naive_bayes(train_vectors, train_targets)
-    return thresholds, model, decide
+    return thresholds, confidence_gate, model, decide
 
 
 @pytest.mark.parametrize("name", EXPECTED_FEATURES)
@@ -356,7 +360,7 @@ def test_each_feature_is_independently_consequential_for_the_trained_classifier(
     # feature's own tag, which is true by construction of compose_features). This fits the
     # classifier fresh from the committed train/validation fixtures, so an edit to either
     # split that removed the feature's effect would fail this test.
-    thresholds, model, decide = _fit_from_fixtures()
+    thresholds, _confidence_gate, model, decide = _fit_from_fixtures()
     examples = load_inputs(RECIPE)
     candidates = select_split(examples, "validation") + select_split(examples, "test")
     for e in candidates:
@@ -375,7 +379,7 @@ def test_classifier_and_baseline_disagree_on_at_least_one_real_test_example():
     # If they never disagreed, the comparison the notebook reports could not come out any
     # other way than "tied", and a comparison that could not come out any other way is worth
     # naming rather than presenting as a finding.
-    thresholds, model, decide = _fit_from_fixtures()
+    thresholds, _confidence_gate, model, decide = _fit_from_fixtures()
     examples = load_inputs(RECIPE)
     labels = load_labels(RECIPE)
     train_targets = [labels[e.id]["escalate"] for e in select_split(examples, "train")]
@@ -396,32 +400,92 @@ def test_classifier_and_baseline_disagree_on_at_least_one_real_test_example():
 # --------------------------------------------------------------------------- all right on test
 
 
+def _thresholds_from_validation(backend, questions, labels, validation):
+    gold_by_label = {
+        name: [labels[e.id]["features"][name] for e in validation] for name in EXPECTED_FEATURES
+    }
+    noul_by_label = {
+        name: [
+            backend.decide(helpers.build_state(e.fields), questions)[name].noul for e in validation
+        ]
+        for name in EXPECTED_FEATURES
+    }
+    return (
+        gold_by_label,
+        noul_by_label,
+        helpers.select_feature_thresholds(gold_by_label, noul_by_label),
+    )
+
+
 @pytest.mark.parametrize("name", EXPECTED_FEATURES)
 def test_each_features_frozen_threshold_is_not_all_right_on_test(name):
-    # Mirrors the notebook's own threshold selection: chosen on validation with select_threshold
-    # (objective "f1"), then frozen and applied to test. A Noul has no confidence field
-    # (CONTRIBUTING.md section 3), so unlike a confidence-gated recipe this is the plain
-    # business-threshold comparison, not a separate review gate -- requiring a wrong test
-    # answer here is what stands in for that recipe pattern's stronger guard: a fixture set
-    # that is merely "not all correct" but happens to have every mistake land on the same side
-    # of this frozen threshold as the gold label would still pass a weaker check.
+    # Mirrors the notebook's own threshold selection (helpers.select_feature_thresholds:
+    # select_threshold on validation, objective "f1"), then frozen and applied to test. A Noul
+    # has no confidence field (CONTRIBUTING.md section 3), so unlike a confidence-gated recipe
+    # this is the plain business-threshold comparison, not a separate review gate -- requiring
+    # a wrong test answer here is what stands in for that recipe pattern's stronger guard: a
+    # fixture set that is merely "not all correct" but happens to have every mistake land on the
+    # same side of this frozen threshold as the gold label would still pass a weaker check.
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
     examples = load_inputs(RECIPE)
     labels = load_labels(RECIPE)
+    validation = select_split(examples, "validation")
+    _gold_by_label, _noul_by_label, thresholds = _thresholds_from_validation(
+        backend, questions, labels, validation
+    )
+    threshold = thresholds[name]
 
     def noul(e):
         return backend.decide(helpers.build_state(e.fields), questions)[name].noul
 
-    validation = select_split(examples, "validation")
-    threshold = select_threshold(
-        [labels[e.id]["features"][name] for e in validation],
-        [noul(e) for e in validation],
-        "f1",
-    )
     test = select_split(examples, "test")
     wrong = [e.id for e in test if (noul(e) >= threshold) != labels[e.id]["features"][name]]
     assert wrong, f"{name}: expected at least one wrong test answer at the frozen threshold"
+
+
+def test_the_scored_feature_pair_error_count_is_pinned():
+    # README.md states how many (text, feature) pairs are wrong at the frozen business
+    # thresholds, restricted to the two SCORED splits (validation and test; train fits the
+    # classifier and is never scored, consistent with "N counts scored examples only"
+    # elsewhere in this cookbook). That count is exactly the two pooled-accuracy complements
+    # the notebook already prints (96 - correct, per split), so it is pinned here independently
+    # through the same shared helper the notebook calls, not retyped by hand -- a fixture edit
+    # that changed it would fail this test rather than leaving a stale number in prose.
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    examples = load_inputs(RECIPE)
+    labels = load_labels(RECIPE)
+    validation = select_split(examples, "validation")
+    val_gold_by_label, val_noul_by_label, thresholds = _thresholds_from_validation(
+        backend, questions, labels, validation
+    )
+    val_correct, _c, _k = pool_label_decisions(
+        [e.id for e in validation],
+        list(EXPECTED_FEATURES),
+        val_gold_by_label,
+        val_noul_by_label,
+        thresholds,
+    )
+    test = select_split(examples, "test")
+    test_gold_by_label = {
+        name: [labels[e.id]["features"][name] for e in test] for name in EXPECTED_FEATURES
+    }
+    test_noul_by_label = {
+        name: [backend.decide(helpers.build_state(e.fields), questions)[name].noul for e in test]
+        for name in EXPECTED_FEATURES
+    }
+    test_correct, _c2, _k2 = pool_label_decisions(
+        [e.id for e in test],
+        list(EXPECTED_FEATURES),
+        test_gold_by_label,
+        test_noul_by_label,
+        thresholds,
+    )
+    wrong_validation = len(val_correct) - sum(val_correct)
+    wrong_test = len(test_correct) - sum(test_correct)
+    assert (wrong_validation, wrong_test) == (3, 6)
+    assert wrong_validation + wrong_test == 9
 
 
 # --------------------------------------------------------------------------- the confidence gate,
@@ -448,6 +512,21 @@ def test_confidence_outcome_rejects_out_of_range_input():
         helpers.confidence_outcome(0.5, -0.1)
 
 
+def test_confidence_outcome_boundary_counts_an_exact_match_as_confident():
+    # Pins "<" rather than "<=": the committed pooled gate is 0.78, and noul_confidence(0.89)
+    # is exactly 0.78 (|2*0.89 - 1|) -- the same value as the gate itself, and the value at
+    # least one real committed test pair sits at. "At or above the threshold" (the reason
+    # string's own wording) must count that exact match as confident, matching the ">="
+    # convention select_threshold and evaluate_threshold both use for the business threshold
+    # elsewhere in this file: a tie goes to the more automated outcome, not to review.
+    outcome, reason = helpers.confidence_outcome(0.89, 0.78)
+    assert outcome == helpers.CONFIDENT
+    assert reason == "confidence at or above the threshold"
+    # One tick below the gate: now it is a review.
+    outcome, reason = helpers.confidence_outcome(0.885, 0.78)
+    assert outcome == helpers.REVIEW
+
+
 def test_confidence_outcome_never_changes_the_feature_vector():
     # The diagnostic is read-only with respect to the classifier's own input: compose_features
     # and feature_vector never call confidence_outcome, and a feature's business tag is the
@@ -466,37 +545,26 @@ def test_confidence_outcome_never_changes_the_feature_vector():
 
 def test_stored_answers_are_not_all_right():
     """Strong form: re-derive the pooled confidence gate from validation with
-    select_confidence_threshold (preferring it over the plain per-feature business threshold,
-    as it is a stricter cut) and require a wrong, confidently-scored test (text, feature)
-    decision at or above it -- not merely "some wrong answer exists somewhere", which a gate
-    that happened to catch every mistake would still pass."""
+    helpers.select_pooled_confidence_gate (select_confidence_threshold under the hood,
+    preferring it over the plain per-feature business threshold, as it is a stricter cut) and
+    require a wrong, confidently-scored test (text, feature) decision at or above it -- not
+    merely "some wrong answer exists somewhere", which a gate that happened to catch every
+    mistake would still pass. Uses the same two helpers.py procedures the notebook calls, so
+    this test and the notebook's own choice cannot silently diverge."""
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
     examples = load_inputs(RECIPE)
     labels = load_labels(RECIPE)
+    validation = select_split(examples, "validation")
+    val_gold_by_label, val_noul_by_label, val_thresholds = _thresholds_from_validation(
+        backend, questions, labels, validation
+    )
+    confidence_gate = helpers.select_pooled_confidence_gate(
+        [e.id for e in validation], val_gold_by_label, val_noul_by_label, val_thresholds
+    )
 
     def decide(e):
         return backend.decide(helpers.build_state(e.fields), questions)
-
-    validation = select_split(examples, "validation")
-    val_gold_by_label = {
-        name: [labels[e.id]["features"][name] for e in validation] for name in EXPECTED_FEATURES
-    }
-    val_noul_by_label = {
-        name: [decide(e)[name].noul for e in validation] for name in EXPECTED_FEATURES
-    }
-    val_thresholds = {
-        name: select_threshold(val_gold_by_label[name], val_noul_by_label[name], "f1")
-        for name in EXPECTED_FEATURES
-    }
-    val_correct, val_confidence, _val_keys = pool_label_decisions(
-        [e.id for e in validation],
-        list(EXPECTED_FEATURES),
-        val_gold_by_label,
-        val_noul_by_label,
-        val_thresholds,
-    )
-    confidence_gate = select_confidence_threshold(val_correct, val_confidence, min_coverage=0.5)
 
     test = select_split(examples, "test")
     test_gold_by_label = {

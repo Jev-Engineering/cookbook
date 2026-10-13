@@ -7,11 +7,17 @@ The fixture generator, the notebook and the tests all load this file with
 """
 
 import math
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
 from jev_cookbook import Noul
-from jev_cookbook.evaluation import noul_confidence
+from jev_cookbook.evaluation import (
+    noul_confidence,
+    pool_label_decisions,
+    select_confidence_threshold,
+    select_threshold,
+)
 
 # No ``from __future__ import annotations`` here: load_helpers removes this module from
 # ``sys.modules``, so typing.get_type_hints cannot resolve postponed annotations on a dataclass.
@@ -98,10 +104,11 @@ def build_questions() -> dict[str, Noul]:
 @dataclass(frozen=True)
 class FeatureDecision:
     """What Python decided for one (example, feature) pair: the raw Noul probability and the
-    business tag it crosses to, a plain ``noul >= threshold`` comparison with no further gate.
-    Noul has no confidence field (CONTRIBUTING.md section 3), so unlike a three-path Noul recipe
-    this rule has nothing to send to review: every feature decision is a direct, deterministic
-    composition of the model's probability and a threshold chosen from examples."""
+    business tag it crosses to, a plain ``noul >= threshold`` comparison. This composition
+    itself has no further gate and nothing to send to review -- it is total and two-valued, by
+    design, because the vector it builds feeds a classifier, not a person. A separate pooled
+    confidence gate exists below (:func:`confidence_outcome`) as a diagnostic alongside this
+    composition, not inside it: it reports, it never changes, what this function decides."""
 
     name: str
     noul: float
@@ -114,9 +121,10 @@ def compose_features(answers: Any, thresholds: dict[str, float]) -> dict[str, Fe
     ``answers`` is a mapping from feature name to a Noul answer (or anything with a ``.noul``,
     or a plain probability). For every feature in ``FEATURES``: ``present`` is
     ``noul >= thresholds[name]``, the one condition this function ever applies -- the composition
-    is deterministic and total, not a three-path rule, because a semantic feature has nothing to
-    defer to a person: there is no third outcome here, only "present" or "absent", chosen from
-    examples the same way CONTRIBUTING.md's confidence page describes any business threshold.
+    is deterministic and total, not a three-path rule, because a semantic feature destined for a
+    classifier's input vector has nothing to defer to a person: there is no third outcome here,
+    only "present" or "absent", chosen from examples the same way CONTRIBUTING.md's confidence
+    page describes any business threshold.
 
     Args:
         answers: ``{feature name: NoulAnswer-like or probability}``, one per name in
@@ -157,6 +165,69 @@ def feature_vector(decisions: dict[str, FeatureDecision]) -> tuple[bool, ...]:
     name in ``FEATURES`` (insertion order), so every caller of the classifier below agrees on
     which position means which feature."""
     return tuple(decisions[name].present for name in FEATURES)
+
+
+# --------------------------------------------------------------------------- Choosing the thresholds and the
+# --------------------------------------------------------------------------- pooled gate, in one place
+
+
+def select_feature_thresholds(
+    gold_by_label: Mapping[str, Sequence[Any]], noul_by_label: Mapping[str, Sequence[Any]]
+) -> dict[str, float]:
+    """The six per-feature business thresholds, chosen on ``validation`` with
+    ``jev_cookbook.evaluation.select_threshold`` (objective ``"f1"``), one independent choice
+    per feature in ``FEATURES``. The one procedure the notebook and every test that needs a
+    frozen threshold call, so the notebook's own choice and a test's re-derivation of it cannot
+    silently diverge.
+
+    Args:
+        gold_by_label: ``{feature name: gold truth per validation example}``, one entry per
+            name in ``FEATURES``.
+        noul_by_label: ``{feature name: Noul probability per validation example}``, aligned
+            with ``gold_by_label``.
+
+    Returns:
+        ``{feature name: threshold}``, one entry per name in ``FEATURES``.
+
+    Raises:
+        ValueError: either mapping does not name exactly ``FEATURES``.
+    """
+    if set(gold_by_label) != set(FEATURES) or set(noul_by_label) != set(FEATURES):
+        raise ValueError(
+            f"gold_by_label and noul_by_label must both name exactly {sorted(FEATURES)}"
+        )
+    return {
+        name: select_threshold(gold_by_label[name], noul_by_label[name], "f1") for name in FEATURES
+    }
+
+
+def select_pooled_confidence_gate(
+    example_ids: Sequence[Any],
+    gold_by_label: Mapping[str, Sequence[Any]],
+    noul_by_label: Mapping[str, Sequence[Any]],
+    thresholds: Mapping[str, float],
+) -> float:
+    """The pooled confidence gate "Python's part" freezes on ``validation``: every (example,
+    feature) pair's correctness and confidence, pooled with
+    ``jev_cookbook.evaluation.pool_label_decisions``, then
+    ``jev_cookbook.evaluation.select_confidence_threshold(..., min_coverage=0.5)`` over the
+    pooled arrays. One procedure, called everywhere a frozen gate is needed, for the same reason
+    :func:`select_feature_thresholds` is.
+
+    Args:
+        example_ids: One identifier per validation example, in a fixed order shared by every
+            feature.
+        gold_by_label: As in :func:`select_feature_thresholds`.
+        noul_by_label: As in :func:`select_feature_thresholds`.
+        thresholds: The frozen per-feature thresholds from :func:`select_feature_thresholds`.
+
+    Returns:
+        The pooled confidence gate, in ``[0, 1]``.
+    """
+    correct, confidence, _keys = pool_label_decisions(
+        example_ids, list(FEATURES), gold_by_label, noul_by_label, thresholds
+    )
+    return select_confidence_threshold(correct, confidence, min_coverage=0.5)
 
 
 # --------------------------------------------------------------------------- A confidence gate, as a
