@@ -242,3 +242,57 @@ def test_stored_answers_are_not_all_right():
         if test_answers[e.id].choice != labels[e.id] and test_answers[e.id].confidence >= threshold
     ]
     assert wrong_and_confident, "expected at least one confidently wrong test answer"
+
+
+def test_validation_accuracy_of_the_raw_choice_is_not_perfect():
+    """The notebook's "Python's part" section gives a reason for preferring ``min_coverage``
+    over ``target_accuracy=1.0``: that a perfect-accuracy target is not guaranteed to hold by
+    construction here, because the raw choice is not perfect on ``validation`` either. That is
+    a property of the fixture pool, not a number the notebook merely prints, so a future edit to
+    the validation fixtures could silently make it false while every other check stays green.
+    Pinning it here is what keeps that specific prose claim honest."""
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    labels = load_labels(RECIPE)
+    examples = load_inputs(RECIPE)
+    validation = [e for e in examples if e.split == "validation" and e.id in labels]
+    correct = [
+        backend.decide(helpers.build_state(e.fields), questions)["queue"].choice == labels[e.id]
+        for e in validation
+    ]
+    assert not all(correct), "expected at least one wrong validation answer"
+
+
+def test_t08_and_t16_are_the_deliberately_wrong_test_examples_the_notebook_names():
+    """The notebook's evaluation cells name two specific test tickets by id:
+    ``t08-ambiguous-tier1-tier2`` as wrong and confident (so the gate lets it through, which is
+    where the reported task-level risk comes from) and
+    ``t16-ss-trial-length-lowconf-wrong`` as wrong but low-confidence (so the gate catches it).
+    Both are properties of the fixture pool a future edit could silently break while every other
+    check stays green (the aggregate "some confidently wrong answer exists" guard above would
+    still pass as long as *some* example took over the role, even a different one from the pair
+    the notebook's prose names) -- so this test pins the two specific ids and the specific
+    confidence/threshold relationship the prose relies on, independent of the notebook's own
+    frozen threshold value."""
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    labels = load_labels(RECIPE)
+    examples = load_inputs(RECIPE)
+
+    def decide(ident):
+        example = next(e for e in examples if e.id == ident)
+        return backend.decide(helpers.build_state(example.fields), questions)["queue"]
+
+    validation = [e for e in examples if e.split == "validation" and e.id in labels]
+    val_answers = {e.id: decide(e.id) for e in validation}
+    named = [e for e in validation if val_answers[e.id].choice in helpers.REAL_QUEUES]
+    correct = [val_answers[e.id].choice == labels[e.id] for e in named]
+    confidence = [val_answers[e.id].confidence for e in named]
+    threshold = select_confidence_threshold(correct, confidence, min_coverage=0.75)
+
+    confident_wrong = decide("t08-ambiguous-tier1-tier2")
+    low_confidence_wrong = decide("t16-ss-trial-length-lowconf-wrong")
+    assert confident_wrong.choice != labels["t08-ambiguous-tier1-tier2"]
+    assert confident_wrong.confidence >= threshold
+    assert low_confidence_wrong.choice != labels["t16-ss-trial-length-lowconf-wrong"]
+    assert low_confidence_wrong.confidence < threshold
