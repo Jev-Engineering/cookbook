@@ -12,7 +12,11 @@ from pathlib import Path
 import pytest
 
 from jev_cookbook import NoulAnswer, Provenance, get_backend, load_helpers, replay_key
-from jev_cookbook.evaluation import select_threshold
+from jev_cookbook.evaluation import (
+    pool_label_decisions,
+    select_confidence_threshold,
+    select_threshold,
+)
 from jev_cookbook.fixtures import load_inputs, load_labels, responses_path, select_split
 
 RECIPE = Path(__file__).resolve().parent.parent
@@ -418,3 +422,97 @@ def test_each_features_frozen_threshold_is_not_all_right_on_test(name):
     test = select_split(examples, "test")
     wrong = [e.id for e in test if (noul(e) >= threshold) != labels[e.id]["features"][name]]
     assert wrong, f"{name}: expected at least one wrong test answer at the frozen threshold"
+
+
+# --------------------------------------------------------------------------- the confidence gate,
+# --------------------------------------------------------------------------- a diagnostic alongside the vector
+
+
+def test_confidence_outcome_names_review_below_the_gate():
+    outcome, reason = helpers.confidence_outcome(0.5, 0.5)  # noul_confidence(0.5) == 0.0
+    assert outcome == helpers.REVIEW
+    assert outcome == "review"
+    assert reason == "confidence below the threshold"
+
+
+def test_confidence_outcome_names_confident_at_or_above_the_gate():
+    outcome, reason = helpers.confidence_outcome(0.95, 0.5)  # noul_confidence(0.95) == 0.9
+    assert outcome == helpers.CONFIDENT
+    assert reason == "confidence at or above the threshold"
+
+
+def test_confidence_outcome_rejects_out_of_range_input():
+    with pytest.raises(ValueError):
+        helpers.confidence_outcome(1.5, 0.5)
+    with pytest.raises(ValueError):
+        helpers.confidence_outcome(0.5, -0.1)
+
+
+def test_confidence_outcome_never_changes_the_feature_vector():
+    # The diagnostic is read-only with respect to the classifier's own input: compose_features
+    # and feature_vector never call confidence_outcome, and a feature's business tag is the
+    # same whatever confidence_outcome would separately report for it.
+    answers = _answers({name: 0.95 for name in EXPECTED_FEATURES})
+    decisions = helpers.compose_features(
+        answers, dict(_FLAT_THRESHOLDS, **{EXPECTED_FEATURES[0]: 0.99})
+    )
+    # EXPECTED_FEATURES[0] is present=False here (0.95 < 0.99) despite being highly confident,
+    # which is exactly the case confidence_outcome and compose_features must answer
+    # independently: a confident answer on the wrong side of its own business threshold.
+    assert decisions[EXPECTED_FEATURES[0]].present is False
+    outcome, _reason = helpers.confidence_outcome(0.95, 0.5)
+    assert outcome == helpers.CONFIDENT
+
+
+def test_stored_answers_are_not_all_right():
+    """Strong form: re-derive the pooled confidence gate from validation with
+    select_confidence_threshold (preferring it over the plain per-feature business threshold,
+    as it is a stricter cut) and require a wrong, confidently-scored test (text, feature)
+    decision at or above it -- not merely "some wrong answer exists somewhere", which a gate
+    that happened to catch every mistake would still pass."""
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    examples = load_inputs(RECIPE)
+    labels = load_labels(RECIPE)
+
+    def decide(e):
+        return backend.decide(helpers.build_state(e.fields), questions)
+
+    validation = select_split(examples, "validation")
+    val_gold_by_label = {
+        name: [labels[e.id]["features"][name] for e in validation] for name in EXPECTED_FEATURES
+    }
+    val_noul_by_label = {
+        name: [decide(e)[name].noul for e in validation] for name in EXPECTED_FEATURES
+    }
+    val_thresholds = {
+        name: select_threshold(val_gold_by_label[name], val_noul_by_label[name], "f1")
+        for name in EXPECTED_FEATURES
+    }
+    val_correct, val_confidence, _val_keys = pool_label_decisions(
+        [e.id for e in validation],
+        list(EXPECTED_FEATURES),
+        val_gold_by_label,
+        val_noul_by_label,
+        val_thresholds,
+    )
+    confidence_gate = select_confidence_threshold(val_correct, val_confidence, min_coverage=0.5)
+
+    test = select_split(examples, "test")
+    test_gold_by_label = {
+        name: [labels[e.id]["features"][name] for e in test] for name in EXPECTED_FEATURES
+    }
+    test_noul_by_label = {name: [decide(e)[name].noul for e in test] for name in EXPECTED_FEATURES}
+    test_correct, test_confidence, test_keys = pool_label_decisions(
+        [e.id for e in test],
+        list(EXPECTED_FEATURES),
+        test_gold_by_label,
+        test_noul_by_label,
+        val_thresholds,
+    )
+    wrong_above_gate = [
+        key
+        for key, correct, confidence in zip(test_keys, test_correct, test_confidence, strict=True)
+        if confidence >= confidence_gate and not correct
+    ]
+    assert wrong_above_gate, "expected at least one wrong, confidently-scored test answer"

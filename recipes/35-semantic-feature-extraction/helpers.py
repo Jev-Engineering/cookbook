@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from jev_cookbook import Noul
+from jev_cookbook.evaluation import noul_confidence
 
 # No ``from __future__ import annotations`` here: load_helpers removes this module from
 # ``sys.modules``, so typing.get_type_hints cannot resolve postponed annotations on a dataclass.
@@ -156,6 +157,51 @@ def feature_vector(decisions: dict[str, FeatureDecision]) -> tuple[bool, ...]:
     name in ``FEATURES`` (insertion order), so every caller of the classifier below agrees on
     which position means which feature."""
     return tuple(decisions[name].present for name in FEATURES)
+
+
+# --------------------------------------------------------------------------- A confidence gate, as a
+# --------------------------------------------------------------------------- diagnostic alongside the vector
+
+# The outcome a feature decision is routed to when its own confidence is too low to trust
+# automatically. By convention (see docs/glossary.md#review) the value itself is the string
+# "review", whatever a recipe's own sub-reasons are named.
+REVIEW = "review"
+CONFIDENT = "confident"
+
+
+def confidence_outcome(noul: float, confidence_gate: float) -> tuple[str, str]:
+    """Whether one feature decision is confident enough to trust automatically, using the
+    pooled confidence gate "Python's part" chooses on ``validation`` -- a second, independent
+    cut beside the business threshold :func:`compose_features` already applies (Noul has no
+    confidence field of its own; :func:`jev_cookbook.evaluation.noul_confidence` derives one,
+    ``|2p - 1|``, from the probability, per S03).
+
+    This is a diagnostic only: :func:`feature_vector` always uses the business tag
+    (``present``/absent), whatever this function reports, because the classifier below can
+    weigh a noisy boolean feature itself and does not need one withheld the way an answer shown
+    directly to a person would be. The notebook reports how many (text, feature) decisions this
+    gate would send to review, without ever changing what the classifier is trained or run on.
+
+    Args:
+        noul: A feature's Noul probability, in [0, 1].
+        confidence_gate: The frozen, pooled confidence gate (chosen on ``validation`` with
+            ``jev_cookbook.evaluation.select_confidence_threshold``), in [0, 1].
+
+    Returns:
+        ``(REVIEW, "confidence below the threshold")`` when ``noul_confidence(noul) <
+        confidence_gate``, else ``(CONFIDENT, "confidence at or above the threshold")``.
+
+    Raises:
+        ValueError: ``noul`` or ``confidence_gate`` lies outside ``[0, 1]``.
+    """
+    if not 0.0 <= noul <= 1.0:
+        raise ValueError(f"noul must lie in [0, 1], got {noul!r}")
+    if not 0.0 <= confidence_gate <= 1.0:
+        raise ValueError(f"confidence_gate must lie in [0, 1], got {confidence_gate!r}")
+    confidence = noul_confidence([noul])[0]
+    if confidence < confidence_gate:
+        return REVIEW, "confidence below the threshold"
+    return CONFIDENT, "confidence at or above the threshold"
 
 
 # --------------------------------------------------------------------------- The fixed baseline

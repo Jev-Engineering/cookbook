@@ -6,7 +6,7 @@ Convert text into predefined semantic features with independent judgments and co
 
 ## What it teaches
 
-Jev answers six independent `Noul` propositions over one piece of customer feedback, one per predefined semantic feature (mentions a price, expresses frustration, asks for a refund or cancellation, names a competitor, reports a technical issue, expresses satisfaction), all sent together in a single request because they share the same state. Python applies a business threshold chosen separately for each feature on `validation`, composes the six into a feature vector, and trains a small Naive Bayes classifier on those vectors against a second, independently-authored gold label (whether the feedback should be escalated to a human specialist) -- compared against a fixed majority-class baseline, both frozen on `train` before `test` is ever touched. The lesson is as much methodological as technical: the feature list, the split assignment and the baseline are all fixed in code before any `test`-split number is computed, and the notebook's own order of cells shows that discipline rather than merely stating it.
+Jev answers six independent `Noul` propositions over one piece of customer feedback, one per predefined semantic feature (mentions a price, expresses frustration, asks for a refund or cancellation, names a competitor, reports a technical issue, expresses satisfaction), all sent together in a single request because they share the same state. Python applies a business threshold chosen separately for each feature on `validation`, composes the six into a feature vector, and trains a small Naive Bayes classifier on those vectors against a second, independently-authored gold label (whether the feedback should be escalated to a human specialist) — compared against a fixed majority-class baseline, both frozen on `train` before `test` is ever touched. The lesson is as much methodological as technical: the feature list, the split assignment and the baseline are all fixed in code before any `test`-split number is computed, and the notebook's own order of cells shows that discipline rather than merely stating it.
 
 ## Run it offline
 
@@ -56,7 +56,7 @@ stops partway through with `BudgetExceeded`. Never put a key in a notebook or a 
   classifier but are never themselves scored, and the 2 `demo` texts are shown in the notebook
   but never scored). Each scored text carries six feature decisions, so the per-feature and
   pooled numbers cover 96 **(text, feature) pairs** per split (192 total). The task-level
-  classifier-versus-baseline comparison covers 16 **classifier examples** per split -- the same
+  classifier-versus-baseline comparison covers 16 **classifier examples** per split — the same
   16 texts as the scored count, but a different quantity: one escalation decision per text, not
   per feature.
 
