@@ -73,7 +73,7 @@ _NOT_FOUND_DESCRIPTION = {
     ),
 }
 
-_STAGE1_INSTRUCTIONS = {
+_STAGE_1_INSTRUCTIONS = {
     "invoice_number": (
         "Which one of the candidate spans below, if any, states this document's own invoice "
         "number -- not a purchase order number, a tracking number, or a reference to a "
@@ -86,7 +86,7 @@ _STAGE1_INSTRUCTIONS = {
     ),
 }
 
-_STAGE2_INSTRUCTIONS = {
+_STAGE_2_INSTRUCTIONS = {
     "invoice_number": (
         "The text given above for 'invoice_number' was selected as this document's own "
         "invoice number. Does it really state that -- as opposed to a purchase order number, "
@@ -221,7 +221,7 @@ def build_stage1_questions(fields: dict[str, Any], which: list[str]) -> dict[str
     for field in which:
         criteria: dict[str, Any] = {sid: None for sid in spans_by_id(fields, field)}
         criteria[NOT_FOUND] = _NOT_FOUND_DESCRIPTION[field]
-        questions[field] = Choice(instructions=_STAGE1_INSTRUCTIONS[field], criteria=criteria)
+        questions[field] = Choice(instructions=_STAGE_1_INSTRUCTIONS[field], criteria=criteria)
     return questions
 
 
@@ -250,7 +250,7 @@ def build_stage2_questions(which: list[str]) -> dict[str, Noul]:
     """The stage-2 request's questions: one ``Noul`` per field in ``which``, each a fixed,
     reusable proposition -- the candidate text being verified lives in the state (below), not
     in the instructions, so the question itself never changes from one document to the next."""
-    return {field: Noul(instructions=_STAGE2_INSTRUCTIONS[field]) for field in which}
+    return {field: Noul(instructions=_STAGE_2_INSTRUCTIONS[field]) for field in which}
 
 
 def build_stage2_state(
