@@ -1,0 +1,24 @@
+{"id": "v01", "label": {"task": "works_for", "passages": {"v01-ev1": "works_for"}}}
+{"id": "v02", "label": {"task": "founder_of", "passages": {"v02-ev1": "founder_of"}}}
+{"id": "v03", "label": {"task": "acquired_by", "passages": {"v03-ev1": "acquired_by"}}}
+{"id": "v04", "label": {"task": "supplier_of", "passages": {"v04-ev1": "supplier_of"}}}
+{"id": "v05-hard", "label": {"task": "no_supported_relation", "passages": {"v05-ev1": "no_supported_relation"}}}
+{"id": "v06", "label": {"task": "works_for", "passages": {"v06-ev1": "works_for"}}}
+{"id": "v07-wrong", "label": {"task": "works_for", "passages": {"v07-ev1": "works_for"}}}
+{"id": "v08-agree", "label": {"task": "founder_of", "passages": {"v08-ev1": "founder_of", "v08-ev2": "founder_of"}}}
+{"id": "v09-low", "label": {"task": "acquired_by", "passages": {"v09-ev1": "acquired_by"}}}
+{"id": "v10", "label": {"task": "supplier_of", "passages": {"v10-ev1": "supplier_of"}}}
+{"id": "v11-disagree", "label": {"task": "founder_of", "passages": {"v11-ev1": "founder_of", "v11-ev2": "no_supported_relation"}}}
+{"id": "v12-fallback-wrong", "label": {"task": "founder_of", "passages": {"v12-ev1": "founder_of"}}}
+{"id": "t01", "label": {"task": "works_for", "passages": {"t01-ev1": "works_for"}}}
+{"id": "t02", "label": {"task": "founder_of", "passages": {"t02-ev1": "founder_of"}}}
+{"id": "t03", "label": {"task": "acquired_by", "passages": {"t03-ev1": "acquired_by"}}}
+{"id": "t04", "label": {"task": "supplier_of", "passages": {"t04-ev1": "supplier_of"}}}
+{"id": "t05-hard", "label": {"task": "no_supported_relation", "passages": {"t05-ev1": "no_supported_relation"}}}
+{"id": "t06", "label": {"task": "works_for", "passages": {"t06-ev1": "works_for"}}}
+{"id": "t07-wrong", "label": {"task": "works_for", "passages": {"t07-ev1": "works_for"}}}
+{"id": "t08-agree", "label": {"task": "founder_of", "passages": {"t08-ev1": "founder_of", "t08-ev2": "founder_of"}}}
+{"id": "t09-low", "label": {"task": "acquired_by", "passages": {"t09-ev1": "acquired_by"}}}
+{"id": "t10", "label": {"task": "supplier_of", "passages": {"t10-ev1": "supplier_of"}}}
+{"id": "t11-disagree", "label": {"task": "founder_of", "passages": {"t11-ev1": "founder_of", "t11-ev2": "no_supported_relation"}}}
+{"id": "t12-fallback-wrong", "label": {"task": "supplier_of", "passages": {"t12-ev1": "supplier_of"}}}
