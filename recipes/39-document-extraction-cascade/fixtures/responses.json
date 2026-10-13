@@ -1,0 +1,1622 @@
+{
+  "1361c19612bb59ea2a547fb0e513c85655d953d7c83f5a0d0d41c7287a51a721": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.86,
+          "not_found": 0.14
+        },
+        "confidence": 0.72,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "choice",
+        "choice": "s2",
+        "probabilities": {
+          "s1": 0.14,
+          "s2": 0.76,
+          "not_found": 0.1
+        },
+        "confidence": 0.64,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "19c50d4d55ff968a9b662c6e3475ef8ea4f3e1567500a15947a6c7983fb62884": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1ef47487ad1ffb69495e344d8a7cab39f87f7227cfd3b204b0f752babca92568": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.86,
+          "not_found": 0.14
+        },
+        "confidence": 0.72,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.9,
+          "not_found": 0.1
+        },
+        "confidence": 0.8,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "20598fec5c26a94517e3dd3b09dfbc61cf7ce18789918f9cd387d36f9c156c83": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "choice",
+        "choice": "s2",
+        "probabilities": {
+          "s1": 0.15,
+          "s2": 0.75,
+          "not_found": 0.1
+        },
+        "confidence": 0.625,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3085426916efd7ae04b6ed71759476613694eef67618c88a67b530b755ff1958": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.84,
+          "not_found": 0.16
+        },
+        "confidence": 0.6799999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "choice",
+        "choice": "s3",
+        "probabilities": {
+          "s1": 0.06,
+          "s2": 0.08,
+          "s3": 0.78,
+          "not_found": 0.08
+        },
+        "confidence": 0.7066666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "30f1403cb9aa61abd125c2544881bf5fec73a91128bdc1370eb5d6550d95b50e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "noul",
+        "noul": 0.86,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "30fae83372a74e64d75f64e3140a305ce109134ae832a4936c5446cb9e2d8f88": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "32c4e201b4d21cf91b541cb730b579b3727dbdae3dfcc336d8e03c9a40c9f4ed": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.85,
+          "not_found": 0.15
+        },
+        "confidence": 0.7,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "choice",
+        "choice": "s3",
+        "probabilities": {
+          "s1": 0.07,
+          "s2": 0.07,
+          "s3": 0.78,
+          "not_found": 0.08
+        },
+        "confidence": 0.7066666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "333ab9da29c6efc556f2cb6e06365bb0e57faf045f53b5a7d08cae2b06fca214": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "369cb40f50dd579c83fc112e6cf2b8ed81b0040d224371a8312d237a779f792a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "38ff0a926a9bb587e756a8eca52b673a2f18f7f5357590ee8e2a42515a3d0827": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "noul",
+        "noul": 0.86,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4371edcd95392ecec8d00a3d3b13e0edb9f437d6741a9dbb1f3239b24f2ad95f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "noul",
+        "noul": 0.48,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4c747173912c90a2a051c67939b5f90db52c82b0e5f5787604ad8f3366f72fb1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4f63f0d4aa572b17c79e04550a715a83ff9de748e47b8ef8a560831e996367e5": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "choice",
+        "choice": "not_found",
+        "probabilities": {
+          "s1": 0.15,
+          "not_found": 0.85
+        },
+        "confidence": 0.7,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.88,
+          "not_found": 0.12
+        },
+        "confidence": 0.76,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "503e2581de2245e2086d20465e4a9384922b743f4885cd163afa74b518e20841": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "noul",
+        "noul": 0.85,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5309f29c479d06eb703c7bd9e3d21fbacbaaaa999446701d6a4611328a7657c1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "total_amount": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "59eb7bd0caf9644254315124756a97c7ab39b6bc0ce9096275b190ec5755356e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "choice",
+        "choice": "s3",
+        "probabilities": {
+          "s1": 0.08,
+          "s2": 0.08,
+          "s3": 0.74,
+          "not_found": 0.1
+        },
+        "confidence": 0.6533333333333333,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "choice",
+        "choice": "s3",
+        "probabilities": {
+          "s1": 0.05,
+          "s2": 0.05,
+          "s3": 0.82,
+          "not_found": 0.08
+        },
+        "confidence": 0.7599999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5bf512b24592ff25e52bc625444f27d094a3655650e5ad50bc04d2cf91e26f20": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.78,
+          "s2": 0.12,
+          "not_found": 0.1
+        },
+        "confidence": 0.67,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.9,
+          "not_found": 0.1
+        },
+        "confidence": 0.8,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "62d0b6966907a7c5ea8cd0b9692018a6da840c8736bda5cacebf65a2cfd2f35e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "noul",
+        "noul": 0.85,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "noul",
+        "noul": 0.85,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6d033f2371eba508fa209086d2f1ad9d5f7058f944639ac29430b4b065a33c4f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "total_amount": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.88,
+          "not_found": 0.12
+        },
+        "confidence": 0.76,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7087ff53eb2b0f0a0e7c3626baf58014f173f0f8059ebd4637ca79c93df4f272": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "723d8a44e6032c4a308525cc9e5b6efca04da78273222fa9c1acb846c3f87219": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.84,
+          "not_found": 0.16
+        },
+        "confidence": 0.6799999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "choice",
+        "choice": "s2",
+        "probabilities": {
+          "s1": 0.15,
+          "s2": 0.75,
+          "not_found": 0.1
+        },
+        "confidence": 0.625,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7432435d8737c52f554df9250324cbfdb00c00f0ab98c8406d0fc9161ad931f9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.86,
+          "not_found": 0.14
+        },
+        "confidence": 0.72,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "choice",
+        "choice": "s3",
+        "probabilities": {
+          "s1": 0.06,
+          "s2": 0.06,
+          "s3": 0.8,
+          "not_found": 0.08
+        },
+        "confidence": 0.7333333333333334,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8258ba51cbb4824ea02c36166d02e68261d765113fce6c58b6e4793c3a3fd799": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8f1560f0734a081d39250add32bc8e7b392420957b50f6be01da0a432ccba123": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8fd019a6c2f4a5be1ff4c3090af072adb71036ae86047d08f45318719b3b7f0f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "noul",
+        "noul": 0.85,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "96cefdf988f4566c4516069f0ad7e92bce2cb4ae6938d8fc918fecc7970f742d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.78,
+          "s2": 0.12,
+          "not_found": 0.1
+        },
+        "confidence": 0.67,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.85,
+          "not_found": 0.15
+        },
+        "confidence": 0.7,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9c57b84dc049db1f41076aff286e6672c811c63d5ca0e6e47634b64fb6cca88c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "noul",
+        "noul": 0.85,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9caabe4283452207b1b9853b90a8a3f74a420b5e51f8ce7a8c96cfaf7709f3f7": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a22a1699b49480a288a7ac32cd27cff4ef7b33ee27abda4677ba2212543d9652": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a6b0f28705d6f6eb09a9adba85637384f6772412eae0480a1a014db52de2c6ab": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.85,
+          "not_found": 0.15
+        },
+        "confidence": 0.7,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "choice",
+        "choice": "s2",
+        "probabilities": {
+          "s1": 0.1,
+          "s2": 0.78,
+          "s3": 0.06,
+          "not_found": 0.06
+        },
+        "confidence": 0.7066666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a6f8a85d36de52c57a83a444d0772e1b1b98926ab81592550505a7ac645a95f1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.88,
+          "not_found": 0.12
+        },
+        "confidence": 0.76,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.9,
+          "not_found": 0.1
+        },
+        "confidence": 0.8,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a911f0f0fdbece8df10e3af5dbd46fc5140ed296a3c4ed317ce007974664435d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "afd4132f48d9c333a23369c2cefa298b87ec6e808ac0e6c4884d94e5d11236c1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.82,
+          "not_found": 0.18
+        },
+        "confidence": 0.6399999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "choice",
+        "choice": "s3",
+        "probabilities": {
+          "s1": 0.06,
+          "s2": 0.08,
+          "s3": 0.78,
+          "not_found": 0.08
+        },
+        "confidence": 0.7066666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b00fc4501c0f0fc3571f0299ed8033da822ad98221a4e8c311b0480f19bf7b8d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b715110ec7cb29268b3e9331376155382beca8996bd886838ba0aca5dba29586": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "total_amount": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b881b0432eb4a566fc3fbb69a4ab219dec873a91e82566db39523d503cdb5233": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "noul",
+        "noul": 0.85,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "noul",
+        "noul": 0.85,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b8a4e39688e483d1dd7e15ca34db128c069075ea68d6781ded11b99274e673b9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.85,
+          "not_found": 0.15
+        },
+        "confidence": 0.7,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "choice",
+        "choice": "s2",
+        "probabilities": {
+          "s1": 0.1,
+          "s2": 0.8,
+          "not_found": 0.1
+        },
+        "confidence": 0.7000000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c2fedaf2ceb82cc8c00b5cf176ad09dec753c7536f98c13282a4c6164164056e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.9,
+          "not_found": 0.1
+        },
+        "confidence": 0.8,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.92,
+          "not_found": 0.08
+        },
+        "confidence": 0.8400000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c70fe7513585412e6755a6c273a61ad01ed9e5d06cfce790ff9bc5543114378b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "choice",
+        "choice": "s3",
+        "probabilities": {
+          "s1": 0.08,
+          "s2": 0.08,
+          "s3": 0.74,
+          "not_found": 0.1
+        },
+        "confidence": 0.6533333333333333,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "choice",
+        "choice": "s3",
+        "probabilities": {
+          "s1": 0.05,
+          "s2": 0.05,
+          "s3": 0.82,
+          "not_found": 0.08
+        },
+        "confidence": 0.7599999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ccd568f15f603c8cf5cbc9bc00f73b12f62db1a1ea1103e53184556fc4f20355": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.76,
+          "s2": 0.14,
+          "not_found": 0.1
+        },
+        "confidence": 0.64,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.88,
+          "not_found": 0.12
+        },
+        "confidence": 0.76,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "cf7cf859ae79191a10567f4f5b198075c3dc563a64dbea87f9a98d46678bcd26": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.87,
+          "not_found": 0.13
+        },
+        "confidence": 0.74,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.9,
+          "not_found": 0.1
+        },
+        "confidence": 0.8,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d3c5ebe88992f0a4e7c94bf0ab65067b7615976b09cb05f6d15e94651ede4538": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "choice",
+        "choice": "s2",
+        "probabilities": {
+          "s1": 0.15,
+          "s2": 0.75,
+          "not_found": 0.1
+        },
+        "confidence": 0.625,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d8a16a685ebfd0e20e476a0163cb825f1e3f961a29b265ec3cfe8137f3f96749": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.72,
+          "s2": 0.18,
+          "not_found": 0.1
+        },
+        "confidence": 0.58,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.85,
+          "not_found": 0.15
+        },
+        "confidence": 0.7,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "de9a8132cac11f6b9d061e972fd8811ab0ee9a6075171b3bd847c3c39bf1d72d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.85,
+          "not_found": 0.15
+        },
+        "confidence": 0.7,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "choice",
+        "choice": "s2",
+        "probabilities": {
+          "s1": 0.1,
+          "s2": 0.8,
+          "not_found": 0.1
+        },
+        "confidence": 0.7000000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e895cab3225b3deaf36219f47a29f4f4c52074b818f17c412883c5291afa9717": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "noul",
+        "noul": 0.85,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f279b009364e60ca332daa1e4664f0da32fac2d309e8fdcb7ef9f897cd26b148": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "noul",
+        "noul": 0.85,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "noul",
+        "noul": 0.85,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f3cb5269509160f151467c9c6b37c1caee4493a8e2dbbd07589ef3f23fbe8891": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.88,
+          "not_found": 0.12
+        },
+        "confidence": 0.76,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "choice",
+        "choice": "s3",
+        "probabilities": {
+          "s1": 0.05,
+          "s2": 0.07,
+          "s3": 0.8,
+          "not_found": 0.08
+        },
+        "confidence": 0.7333333333333334,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "faf6b0b9f3afcebe1445e8fe85fb8aa8d3819a4f2fcf5ef64c7d7ffbe2d3a16d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "choice",
+        "choice": "s3",
+        "probabilities": {
+          "s1": 0.08,
+          "s2": 0.08,
+          "s3": 0.74,
+          "not_found": 0.1
+        },
+        "confidence": 0.6533333333333333,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "choice",
+        "choice": "s3",
+        "probabilities": {
+          "s1": 0.05,
+          "s2": 0.05,
+          "s3": 0.82,
+          "not_found": 0.08
+        },
+        "confidence": 0.7599999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "fb0036d58eb29a7a759cbb78b892adf58b064d9358d1b338e440b823bc862beb": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.85,
+          "not_found": 0.15
+        },
+        "confidence": 0.7,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "choice",
+        "choice": "s1",
+        "probabilities": {
+          "s1": 0.88,
+          "not_found": 0.12
+        },
+        "confidence": 0.76,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "fb60002c4f75af16848dcd93289f03d7c5e4211131abd0a5daacda7a38c458f1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "fc7196d5dfaab6e3aebe8e68c7c48c8912cd8989973386a4819edfd6d9899f87": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "invoice_number": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "total_amount": {
+        "type": "noul",
+        "noul": 0.86,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
