@@ -1,5 +1,6 @@
 """Tests for recipe 38's helpers. They load the helpers by file path."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -245,12 +246,13 @@ def test_stored_answers_are_not_all_right():
 
 
 def test_validation_accuracy_of_the_raw_choice_is_not_perfect():
-    """The notebook's "Python's part" section gives a reason for preferring ``min_coverage``
-    over ``target_accuracy=1.0``: that a perfect-accuracy target is not guaranteed to hold by
-    construction here, because the raw choice is not perfect on ``validation`` either. That is
+    """The "Evaluation" section's ``evaluation-validation`` cell prints the raw choice's
+    whole-split per-question accuracy on ``validation``, and that number is not 1.0000. That is
     a property of the fixture pool, not a number the notebook merely prints, so a future edit to
     the validation fixtures could silently make it false while every other check stays green.
-    Pinning it here is what keeps that specific prose claim honest."""
+    Pinning it here keeps that printed number honest, independent of any argument about which
+    threshold-selection objective the notebook prefers (see
+    ``test_min_coverage_and_target_accuracy_select_the_same_threshold_here`` for that)."""
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
     labels = load_labels(RECIPE)
@@ -261,6 +263,57 @@ def test_validation_accuracy_of_the_raw_choice_is_not_perfect():
         for e in validation
     ]
     assert not all(correct), "expected at least one wrong validation answer"
+
+
+def test_min_coverage_and_target_accuracy_select_the_same_threshold_here():
+    """The notebook's "Python's part" section states the real reason ``min_coverage=0.75`` is
+    used instead of ``target_accuracy=1.0``: on this pool the two objectives coincide, not that
+    one is feasible and the other is not. Measured here, independent of the notebook:
+    ``target_accuracy=1.0`` does not raise, and it selects exactly the threshold
+    ``min_coverage=0.75`` does, because that threshold's answered subset (the validation answers
+    naming a real queue, at or above it) is already perfectly accurate. This is a property of
+    the fixture pool, not a number the notebook merely prints, so a future edit to the validation
+    fixtures could silently make it false -- making one objective infeasible, or making the two
+    diverge -- while every other check stays green."""
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    labels = load_labels(RECIPE)
+    examples = load_inputs(RECIPE)
+
+    def decide(example):
+        return backend.decide(helpers.build_state(example.fields), questions)["queue"]
+
+    validation = [e for e in examples if e.split == "validation" and e.id in labels]
+    val_answers = {e.id: decide(e) for e in validation}
+    named = [e for e in validation if val_answers[e.id].choice in helpers.REAL_QUEUES]
+    correct = [val_answers[e.id].choice == labels[e.id] for e in named]
+    confidence = [val_answers[e.id].confidence for e in named]
+
+    by_coverage = select_confidence_threshold(correct, confidence, min_coverage=0.75)
+    by_accuracy = select_confidence_threshold(correct, confidence, target_accuracy=1.0)
+    assert by_coverage == by_accuracy
+
+    answered = [ok for ok, c in zip(correct, confidence, strict=True) if c >= by_coverage]
+    assert answered, "expected at least one validation answer to clear the threshold"
+    assert all(answered), "expected the answered subset to be perfectly accurate"
+
+
+def test_the_notebook_selects_the_threshold_by_min_coverage_not_target_accuracy():
+    """Printing ``objective: select_confidence_threshold(..., min_coverage=0.75)`` beside the
+    call does not pin anything: the literal is hand-written, nothing compares it to the call it
+    describes, and a test that merely re-derives the frozen *value* elsewhere does not notice if
+    the call itself is swapped to a different objective that happens to land on the same number
+    -- or, on this pool, happens to disagree with no committed output at all (see
+    ``test_min_coverage_and_target_accuracy_select_the_same_threshold_here`` above: the two
+    objectives select the same threshold here, so the printed value alone cannot distinguish
+    them). Parse the committed ``python-rule`` cell's own source directly and require both the
+    keyword and the value it calls ``select_confidence_threshold`` with."""
+    notebook = json.loads((RECIPE / "notebook.ipynb").read_text("utf-8"))
+    cell = next(c for c in notebook["cells"] if c.get("id") == "python-rule")
+    source = "".join(cell["source"])
+    assert "min_coverage = 0.75" in source
+    assert "min_coverage=min_coverage" in source
+    assert "target_accuracy" not in source
 
 
 def test_t08_and_t16_are_the_deliberately_wrong_test_examples_the_notebook_names():
