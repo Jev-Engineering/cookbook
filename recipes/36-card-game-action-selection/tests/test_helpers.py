@@ -102,8 +102,8 @@ def test_card_duel_trajectories_replay_byte_identically():
         action = legal[-1]
         trajectory.append(sim.step(action))
     fresh = helpers.CardDuel(seed=42, n_cards=5)
-    snapshot = fresh.replay(trajectory, seed=42)  # raises ReplayMismatch/IllegalActionError on
-    # any divergence; see docs/simulation.md, "Simulator"
+    snapshot = fresh.replay(trajectory, seed=42)  # raises on any divergence (ReplayMismatch
+    # or IllegalActionError); see docs/simulation.md, "Simulator"
     assert snapshot == sim.snapshot()
 
 
