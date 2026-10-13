@@ -1,0 +1,3152 @@
+{
+  "01cb5210c4ef638a492e78c66e2fa449d257ddb4a690a0bc4614f1e414832c19": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0d71c352876f663444601c59d018a63e1248162d81e3747ff075be63d5378284": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0ebdae388215695e2fc455ba20f64e2c7092bccb43f1d3618f1d7de9ce73033b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "13430b476f89613cb58e44f4ce6c70e22e17886b0c497c5feec2dcd4d937307e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.89,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "156edcc44fd219e891ebf9db8c4244a40a6f270180ee62f67b10d336d6937373": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "213b59c45d807862adb3f3c651629b0458a797796cb5febf3ea8055eb5df9722": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3430290e5f0b5e3ec68a1eb98e6cc1b7fdedef8ef6b1f7d8c271d95c61c4de8f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4564f0441b0184dd27427c66eac60eede66883f7e2a832409e6b3ef7b78234a6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.89,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "48a4f5c8934b391fb53cbf90902fb7272ed030c485b832bf734f95f125df1e1d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4c8376b8c9b5aa583fdba79f669a3df2f087d958769d64cc3ce984dabc56d031": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.89,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4d015c372946b403fd1904fc37839ac08cc8562118539cfc6ec59b2e11906e50": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4dfb2c04164b1ad79c9bae3549e5a3688b7985be3e1f3c657501dd0da2525bcd": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "529e120922864d867f496577aeb4c97d20ab8a0f3c9334e4590a14529966f31b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.89,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5a4d6ded4b3807bb22ef0ae38acab1baa3c5beb1d8b070ab76fb863fb693be4e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.89,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6669f652976ce991a45672843e106329568e47cfcd9b0b27443b210c2da755c0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6737aad0967e1dd44bca71e9d21c3d11536d14e6b2833a116e6d4a22b908fde1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "817e14277785d945d024cd03c1844900580ae329393bb207461153fbd79bc5ff": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "81b69bad82ef7054eae9e80017aeabc0dbf0ef539932f58233f4d039083f1572": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8ccbf6c3bfa925f4fdbf26dcbc1a96aa8d23f5558abae363b75f0c56c5a3b123": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8e3538fd9ff5c2ce2b79e06cb781debc766824a2b89086b382eb5f46e70c68f9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8ef0db3898c5a3a10609f5ce492f4bf7121863fd05564d9bdcd4cf96ec886130": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "90192b08298ca5b8c4cb970586376d3b0f25d226ac9afd192be6660eb15b4af7": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.89,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "90545ae903d9bb7be5b9e03493be2a4f88211d0111eaa5e575dd41657dc4bde8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "923ce64993b78afc8f4b70ee2a1d46b155d728db69f7ec9f139964f46baa72f2": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9509b993e0103d67740f51f18204dcf45c33e78c94a44d12e97bf854970dea1e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9a0222bacc8d51c5a24b023cae67ced60feb109e5bf156775f924da0c0b91fc8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9a058430e602b076ee1155c7da439a4836fef2886420010553f036b1b2e8a96d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9d06a74a3e1c4bdb4d1e95d98f0102e7f6b4420c8371e8116a2bce002aff43ea": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9da16ca581d13b6ea76ddbf79e1112d8b9e1d106b78f92717ca334b0a33cc12b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.89,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a5dc8cb8489980b56ec72382da5e54e25c16749cf3376b0e1fd4537c93b01e61": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.89,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b0ef4004b5bb37215274a3e07e5ab59283f5737bf108921679e2259862bedcfd": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.89,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b4acff388c103e0a158f69942a15d7aedcc1210534ae9613029c424b780328b4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b54f52ed180a5e50753ef1220d5a0230924d7aa3f105420cb106fb3a36813940": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b84b89000997258a6d5e9e42cb903821bc7d8878cbe4f16089d4c7afbd71b20f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.89,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c13c4236dd26da26d64d7547a12778dd615f2da13d80f833f5e99b1eed91f8be": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c6d83013e6d657c0cc224e579adaec76d06a69354eda327c401e43357969f8e1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.89,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c7c0d04dd010f4f072ccf925fc6d8b2c594387424b683a83897d4f172d9c37b9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "cc88f4447f0013b1fc92e56bccbbe9eb3151028037568c246f57eab4b9386dba": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.89,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ccbc15189388cb2201bc267a674aca8afe60c2389138ac792d787e733730822a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d12fe009651501f2940a6f6d7fab60db60de41731a0cde4fffb9796d40df0c5b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d7493d285bc3f4629ae063babbe4b6522812fd687a110063aa0fc214e007f1c6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e528d4c886ac24517b55256565911c542e25b0321ca7351fffa5fdf825933f1a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e71d65b6192d0dacd23957b553306fd23e267c345e40263a283584541c7a38fc": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f0b6eb3337b049e20264c0cf3df746e7132280b72ae586a49393ce95014c91be": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f16b8532c25a6f64cf822c8467c539376dbc4ff0491fafc487bb5f767811682b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f52ae04ef0f69474341da768e0dafbab2a034c6b9c990cfca9c9825ce8a8cdd8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f55a0982cdd276c0e21c6afac54a9ea9a6f957d1d44f042aff0d7af0a233d9d6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f6d195bed253da39c68fa1306daa15c34162119b688b62a777be034e8963b2c7": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f9418a1bd9e24194f73ff2d7e9cadeb9dee75599297185cd0541d0d0d007ff28": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ff998d542f09e70d9b9d722618eab09cf6b89d64a3a3860e395eb27a331f20be": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "mentions_price": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_frustration": {
+        "type": "noul",
+        "noul": 0.89,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "requests_refund_or_cancellation": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "mentions_competitor": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "reports_technical_issue": {
+        "type": "noul",
+        "noul": 0.89,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "expresses_satisfaction": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
