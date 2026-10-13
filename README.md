@@ -9,7 +9,7 @@
 **Sixty notebook recipes for typed decisions with Jev, ordered from a first `Choice` question to closed-loop factory control.**
 
 <!-- catalog:progress:start -->
-![Recipes: 35 of 60 published](https://img.shields.io/badge/Recipes-35%20of%2060%20published-F386A1?style=flat-square&labelColor=1E1E1E) ![Status: in progress](https://img.shields.io/badge/Status-in%20progress-E551BA?style=flat-square&labelColor=1E1E1E) ![Categories: 10](https://img.shields.io/badge/Categories-10-F386A1?style=flat-square&labelColor=1E1E1E) ![Levels: 5](https://img.shields.io/badge/Levels-5-F386A1?style=flat-square&labelColor=1E1E1E)
+![Recipes: 37 of 60 published](https://img.shields.io/badge/Recipes-37%20of%2060%20published-F386A1?style=flat-square&labelColor=1E1E1E) ![Status: in progress](https://img.shields.io/badge/Status-in%20progress-E551BA?style=flat-square&labelColor=1E1E1E) ![Categories: 10](https://img.shields.io/badge/Categories-10-F386A1?style=flat-square&labelColor=1E1E1E) ![Levels: 5](https://img.shields.io/badge/Levels-5-F386A1?style=flat-square&labelColor=1E1E1E)
 <!-- catalog:progress:end -->
 ![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-F386A1?style=flat-square&labelColor=1E1E1E) [![License: MIT](https://img.shields.io/badge/License-MIT-DEDEDE?style=flat-square&labelColor=1E1E1E)](LICENSE)
 
@@ -196,8 +196,8 @@ Multiple judgments or stages, structured evidence, deterministic composition, an
 | 34 | **Evidence relationship labels**<br>Label candidate entity pairs with an allowed relationship type or no-supported-relation using provided evidence passages. | Data quality & knowledge graphs | `Choice` | [Open notebook](recipes/34-evidence-relationship-labels/notebook.ipynb) |
 | 35 | **Semantic feature extraction**<br>Convert text into predefined semantic features with independent judgments and compare a classifier trained on those features with a fixed baseline. | Evaluation & optimization | `Noul` | [Open notebook](recipes/35-semantic-feature-extraction/notebook.ipynb) |
 | 36 | **Card-game action selection**<br>Select a legal action in a turn-based card-game simulator using structured state and fixed action descriptions while Python enforces game rules. | Games & simulation | `Choice` | Coming soon · [#36](https://github.com/Jev-Engineering/cookbook/issues/36) |
-| 37 | **Research domain tagging**<br>Assign independently judged research-domain labels to evidence passages while Python preserves provenance and enforces access controls. | Data quality & knowledge graphs | `Noul` | Coming soon · [#37](https://github.com/Jev-Engineering/cookbook/issues/37) |
-| 38 | **Abstention and review queues**<br>Route uncertain ticket classifications to review using thresholds selected from validation examples and measure accuracy versus coverage on a held-out set. | Evaluation & optimization | `Choice` | Coming soon · [#38](https://github.com/Jev-Engineering/cookbook/issues/38) |
+| 37 | **Research domain tagging**<br>Assign independently judged research-domain labels to evidence passages while Python preserves provenance and enforces access controls. | Data quality & knowledge graphs | `Noul` | [Open notebook](recipes/37-research-domain-tagging/notebook.ipynb) |
+| 38 | **Abstention and review queues**<br>Route uncertain ticket classifications to review using thresholds selected from validation examples and measure accuracy versus coverage on a held-out set. | Evaluation & optimization | `Choice` | [Open notebook](recipes/38-abstention-and-review-queues/notebook.ipynb) |
 | 39 | **Document extraction cascade**<br>Select candidate values for document fields, verify each selection against its source span, and route uncertain or inconsistent records to review. | Data quality & knowledge graphs | `Choice` + `Noul` | Coming soon · [#39](https://github.com/Jev-Engineering/cookbook/issues/39) |
 
 ### Level 4 · Advanced

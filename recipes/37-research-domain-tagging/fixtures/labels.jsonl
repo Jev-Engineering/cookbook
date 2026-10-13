@@ -1,0 +1,40 @@
+{"id": "v01-none-clean", "label": []}
+{"id": "v02-none-lookalike", "label": []}
+{"id": "v03-biomedical-clean", "label": ["biomedical"]}
+{"id": "v04-biomedical-lookalike", "label": ["biomedical"]}
+{"id": "v05-computational-clean", "label": ["computational"]}
+{"id": "v06-computational-lookalike", "label": ["computational"]}
+{"id": "v07-economics-clean", "label": ["economics"]}
+{"id": "v08-economics-lookalike", "label": ["economics"]}
+{"id": "v09-biocomp-clean", "label": ["biomedical", "computational"]}
+{"id": "v10-biocomp-lookalike", "label": ["biomedical", "computational"]}
+{"id": "v11-bioecon-clean", "label": ["biomedical", "economics"]}
+{"id": "v12-bioecon-lookalike", "label": ["biomedical", "economics"]}
+{"id": "v13-compecon-clean", "label": ["computational", "economics"]}
+{"id": "v14-compecon-lookalike", "label": ["computational", "economics"]}
+{"id": "v15-all-clean", "label": ["biomedical", "computational", "economics"]}
+{"id": "v16-all-lookalike", "label": ["biomedical", "computational", "economics"]}
+{"id": "v19-economics-biomedical-wrong", "label": ["economics"]}
+{"id": "v20-economics-computational-wrong", "label": ["economics"]}
+{"id": "v17-restricted", "label": ["biomedical"]}
+{"id": "v18-restricted", "label": ["computational", "economics"]}
+{"id": "t01-none-clean", "label": []}
+{"id": "t02-none-lookalike", "label": []}
+{"id": "t03-biomedical-clean", "label": ["biomedical"]}
+{"id": "t04-biomedical-lookalike", "label": ["biomedical"]}
+{"id": "t05-computational-clean", "label": ["computational"]}
+{"id": "t06-computational-lookalike", "label": ["computational"]}
+{"id": "t07-economics-clean", "label": ["economics"]}
+{"id": "t08-economics-lookalike", "label": ["economics"]}
+{"id": "t09-biocomp-clean", "label": ["biomedical", "computational"]}
+{"id": "t10-biocomp-lookalike", "label": ["biomedical", "computational"]}
+{"id": "t11-bioecon-clean", "label": ["biomedical", "economics"]}
+{"id": "t12-bioecon-lookalike", "label": ["biomedical", "economics"]}
+{"id": "t13-compecon-clean", "label": ["computational", "economics"]}
+{"id": "t14-compecon-lookalike", "label": ["computational", "economics"]}
+{"id": "t15-all-clean", "label": ["biomedical", "computational", "economics"]}
+{"id": "t16-all-lookalike", "label": ["biomedical", "computational", "economics"]}
+{"id": "t19-economics-biomedical-wrong", "label": ["economics"]}
+{"id": "t20-economics-computational-wrong", "label": ["economics"]}
+{"id": "t17-restricted", "label": []}
+{"id": "t18-restricted", "label": ["biomedical", "economics"]}
