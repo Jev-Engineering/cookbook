@@ -165,6 +165,55 @@ def test_every_replay_key_in_the_fixtures_matches_the_current_request_sequence()
         assert tuple(example.replay_keys) == tuple(expected), example.id
 
 
+def test_deciding_every_document_once_each_makes_one_backend_decide_call_per_stored_response():
+    """Count every attempt the backend actually makes, not how many documents get cached -- a
+    counter that only reported cache size would not catch a document being decided twice, which
+    is exactly the bug this guards against. Deciding every document in ``fixtures/`` once each,
+    through the shared ``helpers.decide_document_cached`` the notebook also uses, must call
+    ``backend.decide`` exactly once per request ``fixtures/responses.json`` stores an answer
+    for -- the same count the README's live-mode budget note promises."""
+    examples = load_inputs(RECIPE)
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    calls = 0
+    real_decide = backend.decide
+
+    def counting_decide(state, questions):
+        nonlocal calls
+        calls += 1
+        return real_decide(state, questions)
+
+    backend.decide = counting_decide
+    cache: dict = {}
+    for example in examples:
+        helpers.decide_document_cached(backend, cache, example.id, example.fields)
+
+    responses = json.loads((RECIPE / "fixtures" / "responses.json").read_text("utf-8"))
+    assert calls == len(responses) == 52
+
+
+def test_decide_document_cached_decides_each_document_at_most_once():
+    """``decide_document_cached`` must not merely return the right answer -- it must not call
+    ``backend.decide`` again for a document already in its cache. Calling it twice for the same
+    document (``v01``, which makes one stage-1 and one stage-2 request) must make exactly 2
+    ``backend.decide`` calls in total, not 4."""
+    fields = _document_fields("v01")
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    calls = 0
+    real_decide = backend.decide
+
+    def counting_decide(state, questions):
+        nonlocal calls
+        calls += 1
+        return real_decide(state, questions)
+
+    backend.decide = counting_decide
+    cache: dict = {}
+    first = helpers.decide_document_cached(backend, cache, "v01", fields)
+    second = helpers.decide_document_cached(backend, cache, "v01", fields)
+    assert first == second
+    assert calls == 2
+
+
 # --------------------------------------------------------------------------------------------
 # Rule: a fixture-spec shorthand must never default the label-bearing field. Assert every
 # committed stored answer's top choice (Choice) or exact value (Noul) matches its own row's
@@ -302,21 +351,36 @@ def _document_fields(doc_id):
     raise KeyError(doc_id)
 
 
+def _stage2_noul_and_confidence(doc_id: str, field: str) -> tuple[float, float]:
+    """The real, committed stage-2 ``noul`` for ``(doc_id, field)`` and its derived
+    confidence, read from the stored fixtures through ``helpers.decide_document`` -- the same
+    production path the notebook calls -- rather than a literal that merely happens to match
+    today's stored answer."""
+    fields = _document_fields(doc_id)
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    _s1, _a1, _s2, a2 = helpers.decide_document(backend, fields)
+    noul = a2[field].noul
+    return noul, noul_confidence([noul])[0]
+
+
 def test_flipping_stage1s_choice_changes_whether_the_field_is_correct():
     """``v11`` (real id ``D11``) has three invoice-number candidates: two decoys and the real
     one, which stage 1 actually names. Swapping only the stage-1 CHOICE to a decoy -- the same
-    document, the same stage-2 noul value, nothing else touched -- flips the field (and so the
-    document) from correct to wrong, because the decoy's own text never contains the gold
-    invoice number. This isolates stage 1's own contribution from stage 2's."""
+    document, the same (real, committed) stage-2 noul value, nothing else touched -- flips the
+    field (and so the document) from correct to wrong, because the decoy's own text never
+    contains the gold invoice number. This isolates stage 1's own contribution from stage 2's."""
     fields = _document_fields("v11")
     spans = helpers.spans_by_id(fields, "invoice_number")
     gold = "5126"
     real_choice = next(sid for sid, text in spans.items() if gold in text)
     decoy_choice = next(sid for sid in spans if sid != real_choice)
+    noul, confidence = _stage2_noul_and_confidence("v11", "invoice_number")
 
-    real = helpers.finalize_field("v11", "invoice_number", real_choice, spans, 0.85, 0.7, 0.85, 0.7)
+    real = helpers.finalize_field(
+        "v11", "invoice_number", real_choice, spans, noul, confidence, 0.85, 0.7
+    )
     decoy = helpers.finalize_field(
-        "v11", "invoice_number", decoy_choice, spans, 0.85, 0.7, 0.85, 0.7
+        "v11", "invoice_number", decoy_choice, spans, noul, confidence, 0.85, 0.7
     )
     assert helpers.matches_gold(real, gold)
     assert not helpers.matches_gold(decoy, gold)
@@ -330,35 +394,63 @@ def test_flipping_stage1s_choice_changes_the_amount_field_too():
     gold = "97.20"
     real_choice = next(sid for sid, text in spans.items() if gold in text)
     decoy_choice = next(sid for sid in spans if sid != real_choice)
+    noul, confidence = _stage2_noul_and_confidence("v11", "total_amount")
 
-    real = helpers.finalize_field("v11", "total_amount", real_choice, spans, 0.85, 0.7, 0.85, 0.7)
-    decoy = helpers.finalize_field("v11", "total_amount", decoy_choice, spans, 0.85, 0.7, 0.85, 0.7)
+    real = helpers.finalize_field(
+        "v11", "total_amount", real_choice, spans, noul, confidence, 0.85, 0.7
+    )
+    decoy = helpers.finalize_field(
+        "v11", "total_amount", decoy_choice, spans, noul, confidence, 0.85, 0.7
+    )
     assert helpers.matches_gold(real, gold)
     assert not helpers.matches_gold(decoy, gold)
 
 
 def test_flipping_stage2s_verification_changes_whether_the_document_is_accepted():
     """``v01`` (real id ``D01``) is, as committed, fully accepted: both fields extracted and
-    verified. Flipping only the stage-2 noul for ``invoice_number`` from confidently-verified to
-    confidently-not -- the same stage-1 choice, the same document -- sends that field to review
-    and so withholds the whole document, with ``total_amount`` untouched. This isolates stage
-    2's own contribution from stage 1's."""
+    verified. Flipping only the stage-2 noul for ``invoice_number`` away from its real,
+    committed value (confidently verified) to confidently-not -- the same stage-1 choice, the
+    same document, ``total_amount`` built from its own real stored answer -- sends that field
+    to review and so withholds the whole document. This isolates stage 2's own contribution
+    from stage 1's."""
     fields = _document_fields("v01")
     spans = helpers.spans_by_id(fields, "invoice_number")
-    choice = next(iter(spans))
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    _s1, a1, _s2, a2 = helpers.decide_document(backend, fields)
+    choice = a1["invoice_number"].choice
     t, gate = 0.85, 0.70
 
-    verified = helpers.finalize_field("v01", "invoice_number", choice, spans, 0.90, 0.80, t, gate)
-    not_verified = helpers.finalize_field(
-        "v01", "invoice_number", choice, spans, 0.10, 0.80, t, gate
+    invoice_noul = a2["invoice_number"].noul
+    verified = helpers.finalize_field(
+        "v01",
+        "invoice_number",
+        choice,
+        spans,
+        invoice_noul,
+        noul_confidence([invoice_noul])[0],
+        t,
+        gate,
     )
+    not_verified_noul = 0.10
+    not_verified = helpers.finalize_field(
+        "v01",
+        "invoice_number",
+        choice,
+        spans,
+        not_verified_noul,
+        noul_confidence([not_verified_noul])[0],
+        t,
+        gate,
+    )
+    amount_spans = helpers.spans_by_id(fields, "total_amount")
+    amount_noul = a2["total_amount"].noul
     amount = helpers.finalize_field(
         "v01",
         "total_amount",
-        next(iter(helpers.spans_by_id(fields, "total_amount"))),
-        helpers.spans_by_id(fields, "total_amount"),
-        0.90,
-        0.80,
+        a1["total_amount"].choice,
+        amount_spans,
+        amount_noul,
+        noul_confidence([amount_noul])[0],
         t,
         gate,
     )
@@ -377,15 +469,46 @@ def test_flipping_stage2s_verification_changes_the_amount_field_too():
     """The same isolation as above, for ``total_amount`` on ``v01``."""
     fields = _document_fields("v01")
     spans = helpers.spans_by_id(fields, "total_amount")
-    choice = next(iter(spans))
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    _s1, a1, _s2, a2 = helpers.decide_document(backend, fields)
+    choice = a1["total_amount"].choice
     t, gate = 0.85, 0.70
+
     invoice_spans = helpers.spans_by_id(fields, "invoice_number")
+    invoice_noul = a2["invoice_number"].noul
     invoice = helpers.finalize_field(
-        "v01", "invoice_number", next(iter(invoice_spans)), invoice_spans, 0.90, 0.80, t, gate
+        "v01",
+        "invoice_number",
+        a1["invoice_number"].choice,
+        invoice_spans,
+        invoice_noul,
+        noul_confidence([invoice_noul])[0],
+        t,
+        gate,
     )
 
-    verified = helpers.finalize_field("v01", "total_amount", choice, spans, 0.90, 0.80, t, gate)
-    not_verified = helpers.finalize_field("v01", "total_amount", choice, spans, 0.10, 0.80, t, gate)
+    amount_noul = a2["total_amount"].noul
+    verified = helpers.finalize_field(
+        "v01",
+        "total_amount",
+        choice,
+        spans,
+        amount_noul,
+        noul_confidence([amount_noul])[0],
+        t,
+        gate,
+    )
+    not_verified_noul = 0.10
+    not_verified = helpers.finalize_field(
+        "v01",
+        "total_amount",
+        choice,
+        spans,
+        not_verified_noul,
+        noul_confidence([not_verified_noul])[0],
+        t,
+        gate,
+    )
 
     accepted_before = helpers.compose_document_outcome(
         "v01", {"invoice_number": invoice, "total_amount": verified}
@@ -468,7 +591,9 @@ def test_pooling_order_does_not_change_attribution_or_metrics():
 
 
 # --------------------------------------------------------------------------------------------
-# Rule 16: measure both scored examples (per field) and task-level units (per document).
+# Scored (document, field) pairs and scored documents are two different quantities -- the
+# field-level and task-level metrics are each computed over one of them -- and a fixture edit
+# must not be able to silently collapse the two without a test noticing.
 # --------------------------------------------------------------------------------------------
 
 
@@ -510,8 +635,9 @@ def test_each_field_has_at_least_one_fallible_committed_row():
 
 
 # --------------------------------------------------------------------------------------------
-# Rule 12: pin the threshold-selection objective (min_coverage, not target_accuracy=1.0) and
-# the exact frozen values both the notebook and this test re-derive.
+# Pin the threshold-selection objective itself (min_coverage, not target_accuracy=1.0), not
+# only the frozen values both the notebook and this test re-derive from it -- the value alone
+# does not pin which objective produced it.
 # --------------------------------------------------------------------------------------------
 
 
@@ -522,6 +648,61 @@ def test_business_threshold_and_confidence_gate_objectives_and_values():
     t, gate = _frozen_thresholds(backend, examples, labels)
     assert t == pytest.approx(0.85)
     assert gate == pytest.approx(0.70)
+
+
+def test_the_notebook_selects_the_confidence_gate_by_min_coverage_not_target_accuracy():
+    """The confidence gate's objective is chosen once, in the notebook's own ``evaluation-gate``
+    cell, by calling ``select_confidence_threshold(..., min_coverage=0.85)``. Nothing ties a
+    notebook cell's source to an importable constant, so an edit that swapped only that call to
+    ``target_accuracy=0.90`` -- which still re-executes clean and still prints ``0.7000`` on this
+    pool, with every other test in this file staying green -- would otherwise leave the notebook
+    running a different selection than the one the tests above describe. Parse the committed
+    notebook's own cell and pin the objective's keyword, not only the value it currently
+    produces."""
+    notebook = json.loads((RECIPE / "notebook.ipynb").read_text("utf-8"))
+    cell = next(c for c in notebook["cells"] if c.get("id") == "evaluation-gate")
+    source = "".join(cell["source"])
+    assert "min_coverage=0.85" in source
+    assert "target_accuracy" not in source
+
+
+def test_v12_total_amount_is_the_unique_maximum_validation_confidence():
+    """The notebook justifies choosing ``min_coverage`` over ``target_accuracy=1.0`` by one
+    fact about this fixture pool: the validation split's sole verification error
+    (``v12``/``total_amount``) carries the pool's uniquely highest confidence, so no confidence
+    gate can exclude it without excluding the whole validation pool, and
+    ``target_accuracy=1.0`` is infeasible. Pinned here so a fixture edit that moved that error
+    away from the top of the confidence ranking -- which would make the claim false while
+    leaving the two frozen values unchanged -- cannot pass silently."""
+    examples = load_inputs(RECIPE)
+    labels = load_labels(RECIPE)
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    validation = select_split(examples, "validation")
+    keys: list[tuple[str, str]] = []
+    truth: list[bool] = []
+    noul: list[float] = []
+    for example in validation:
+        _s1, a1, s2, a2 = helpers.decide_document(backend, example.fields)
+        gold = labels[example.id]
+        for field in s2:
+            spans = helpers.spans_by_id(example.fields, field)
+            is_right = gold[field] != helpers.NOT_FOUND and gold[field] in spans[a1[field].choice]
+            keys.append((example.id, field))
+            truth.append(is_right)
+            noul.append(a2[field].noul)
+    business_threshold = select_threshold(truth, noul, "f1")
+    correct = [(n >= business_threshold) == t for n, t in zip(noul, truth, strict=True)]
+    confidence = noul_confidence(noul)
+
+    wrong_keys = [k for k, c in zip(keys, correct, strict=True) if not c]
+    assert wrong_keys == [("v12", "total_amount")]
+
+    max_confidence = max(confidence)
+    at_max = [k for k, c in zip(keys, confidence, strict=True) if c == max_confidence]
+    assert at_max == [("v12", "total_amount")]
+
+    with pytest.raises(ValueError):
+        select_confidence_threshold(correct, confidence, target_accuracy=1.0)
 
 
 # --------------------------------------------------------------------------------------------

@@ -35,15 +35,17 @@ of this repository), or record answers with the recorder described in
 [docs/live.md](../../docs/live.md). `tools/execute_notebook.py` removes those variables on purpose
 and always runs offline. The live backend's default request budget is 25
 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)); every attempt counts
-against that budget, including each retry. In live mode this notebook makes exactly **52**
-requests in total across both stages: one stage-1 request per document that has a candidate
-for at least one field (bundling every such field's `Choice` question together), and one
-stage-2 request per document where stage 1 named a real candidate for at least one field
-(bundling every such field's `Noul` question together) — never more than two requests for one
-document, and none at all for a document where neither field has a candidate. 52 is above the
-default budget of 25 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`), so set it to 52 or higher before running
-this notebook live, or it stops partway through with `BudgetExceeded`. Never put a key in a
-notebook or a fixture.
+against that budget, including each retry. This notebook decides every document once and reuses
+the answer wherever it is shown again (the demo cells, the flip comparisons, both evaluation
+passes all read from the same cache), so no document is ever decided twice. In live mode it
+therefore makes exactly **52** requests in total across both stages: one stage-1 request per
+document that has a candidate for at least one field (bundling every such field's `Choice`
+question together), and one stage-2 request per document where stage 1 named a real candidate
+for at least one field (bundling every such field's `Noul` question together) — never more than
+two requests for one document, and none at all for a document where neither field has a
+candidate. 52 is above the default budget of 25 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`), so set it to
+52 or higher before running this notebook live, or it stops partway through with
+`BudgetExceeded`. Never put a key in a notebook or a fixture.
 
 ## What was and was not measured
 

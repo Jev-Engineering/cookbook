@@ -446,6 +446,19 @@ def decide_document(backend: Any, fields: dict[str, Any]):
     return s1, stage1_answers, s2, stage2_answers
 
 
+def decide_document_cached(
+    backend: Any, cache: dict[str, tuple[Any, ...]], doc_id: str, fields: dict[str, Any]
+):
+    """``decide_document(backend, fields)``, reusing ``cache[doc_id]`` when this document has
+    already been decided -- so a document shown individually and later scored (or shown more
+    than once) issues no second request for it. ``cache`` is a plain ``{doc_id:
+    decide_document(...)}`` dict the caller owns and shares across every call it makes, so a
+    whole notebook run decides each document at most once."""
+    if doc_id not in cache:
+        cache[doc_id] = decide_document(backend, fields)
+    return cache[doc_id]
+
+
 def field_result(
     doc_id: str,
     field: str,
