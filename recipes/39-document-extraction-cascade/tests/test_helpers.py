@@ -651,19 +651,40 @@ def test_business_threshold_and_confidence_gate_objectives_and_values():
 
 
 def test_the_notebook_selects_the_confidence_gate_by_min_coverage_not_target_accuracy():
-    """The confidence gate's objective is chosen once, in the notebook's own ``evaluation-gate``
-    cell, by calling ``select_confidence_threshold(..., min_coverage=0.85)``. Nothing ties a
-    notebook cell's source to an importable constant, so an edit that swapped only that call to
-    ``target_accuracy=0.90`` -- which still re-executes clean and still prints ``0.7000`` on this
-    pool, with every other test in this file staying green -- would otherwise leave the notebook
-    running a different selection than the one the tests above describe. Parse the committed
-    notebook's own cell and pin the objective's keyword, not only the value it currently
-    produces."""
+    """The confidence gate's objective and parameter are chosen once, in the notebook's own
+    ``evaluation-gate`` cell, by calling
+    ``select_confidence_threshold(val_correct, val_confidence, min_coverage=0.85)``. Nothing ties
+    a notebook cell's source to an importable constant, so an edit that swapped only that call's
+    keyword to ``target_accuracy=0.90`` -- which still re-executes clean and still prints
+    ``0.7000`` on this pool, with every other test in this file staying green -- would otherwise
+    leave the notebook running a different selection than the one the tests above describe. Parse
+    the committed notebook's own cell and pin the objective's keyword against the *call itself*,
+    not a hand-written literal printed beside it: the cell also contains the string
+    ``min_coverage=0.85`` inside its own printed label
+    (``f"chosen confidence gate (min_coverage=0.85 on validation): ..."``), so a check that only
+    looks for that substring anywhere in the cell is satisfied by the label even when the call's
+    own parameter has moved -- asserting on the exact call expression closes that gap."""
     notebook = json.loads((RECIPE / "notebook.ipynb").read_text("utf-8"))
     cell = next(c for c in notebook["cells"] if c.get("id") == "evaluation-gate")
     source = "".join(cell["source"])
-    assert "min_coverage=0.85" in source
+    assert "select_confidence_threshold(val_correct, val_confidence, min_coverage=0.85)" in source
     assert "target_accuracy" not in source
+
+
+def test_the_notebook_selects_the_business_threshold_by_f1_not_recall_at_precision():
+    """The business threshold's objective and parameter are chosen once, in the notebook's own
+    ``evaluation-threshold`` cell, by calling ``select_threshold(val_truth, val_noul, "f1")``.
+    ``select_threshold`` also accepts ``"recall_at_precision"`` and ``"precision_at_recall"``
+    (each with a ``target``), and on this pool ``select_threshold(val_truth, val_noul,
+    "recall_at_precision", target=1.0)`` returns the same ``0.85`` -- so swapping only the call's
+    objective leaves every value-pinning test in this file green and the committed printed label
+    (``"chosen business threshold (max f1 on validation): 0.8500"``) false. Parse the committed
+    notebook's own cell and pin the objective's keyword against the call itself."""
+    notebook = json.loads((RECIPE / "notebook.ipynb").read_text("utf-8"))
+    cell = next(c for c in notebook["cells"] if c.get("id") == "evaluation-threshold")
+    source = "".join(cell["source"])
+    assert 'select_threshold(val_truth, val_noul, "f1")' in source
+    assert "recall_at_precision" not in source
 
 
 def test_v12_total_amount_is_the_unique_maximum_validation_confidence():

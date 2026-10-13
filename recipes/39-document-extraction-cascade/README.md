@@ -6,7 +6,7 @@ Select candidate values for document fields, verify each selection against its s
 
 ## What it teaches
 
-A two-stage extraction cascade over a short purchase document with two fields, `invoice_number` and `total_amount`. Stage 1 is a `Choice` per field, over candidate spans Python extracts from the document text plus a shared `not_found` fallback; stage 2, in a later request, is a `Noul` per field that verifies the chosen span really states that field rather than a related but different figure (a purchase order number, a subtotal, a previous balance). Python composes the two stages into a field result (`not_found`, `extracted`, or sent to review for being uncertain or inconsistent) and then a document result (accepted only when neither field is in review), and evaluates both levels: field-level accuracy, review rate and error rate among records not sent to review, and task-level accuracy, coverage and risk over whole documents.
+A two-stage extraction cascade over a short purchase document with two fields, `invoice_number` and `total_amount`. Stage 1 is a `Choice` per field, over candidate spans Python extracts from the document text plus a shared `not_found` fallback; stage 2, in a later request, is a `Noul` per field that verifies the chosen span really states that field rather than a related but different figure (a purchase order number, a subtotal, a previous balance). Python composes the two stages into a field result (`not_found`, `extracted`, or sent to review for being uncertain or inconsistent) and then a document result (accepted only when neither field is in review), and evaluates both levels: field-level accuracy, review rate and error rate among records not sent to review, and task-level accuracy, coverage and risk over whole documents. On this fixture pool the two review reasons are not two independent safeguards: the confidence gate sits exactly at the lowest confidence any accepted verification can reach, so it only ever relabels which reason a withheld field carries and never changes which fields are withheld — the notebook demonstrates this directly rather than asking a reader to take it on trust.
 
 ## Run it offline
 
@@ -57,6 +57,14 @@ candidate. 52 is above the default budget of 25 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS
   the field-level evaluation covers 26 `validation` and 28 `test` (document, field) pairs — twice
   as many scored examples as there are documents, because this cascade asks up to two questions
   per field and up to two fields per document.
+- **Confidence gate:** on this fixture pool, the frozen confidence gate (`0.7000`) is exactly the
+  lowest confidence any verification clearing the business threshold can have, so it can never
+  withhold a field the business threshold would not already withhold. The notebook sweeps every
+  possible verification confidence (1001 values) and finds the gate changes the composed outcome
+  0 times and only the review reason 699 times, then removes the gate from the rule entirely and
+  recomputes `test`'s field-level numbers, which come back identical. A gate drawn from above that
+  bound would still act, but only as the business threshold restated in different units — never as
+  a second, independent safeguard.
 
 The committed run replays 29 invented purchase documents (27 of them scored) with hand-written
 (synthetic) answers, several wrong on purpose: `v04`, `v06`, `v12` on `validation` and `t12` on
