@@ -1,5 +1,6 @@
 """Tests for the template's helpers. A recipe's tests load its helpers like this."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -103,3 +104,25 @@ def test_stored_answers_are_not_all_right():
         e.id for e in test if decide(e).choice != labels[e.id] and decide(e).confidence >= threshold
     ]
     assert wrong_and_confident, "expected at least one confidently wrong test answer"
+
+
+def test_the_notebook_selects_the_threshold_by_target_accuracy_not_min_coverage():
+    """Neither of the two things that look like a pin on a threshold's OBJECTIVE actually is
+    one. A printed f-string literal beside the call (``print(f"objective: ...")``) is
+    hand-written and nothing compares it to the call it describes -- it can go stale silently.
+    A test asserting only the resulting threshold *value* (as ``test_stored_answers_are_not_all_
+    right`` above re-derives) pins the objective only if no other objective can reach that same
+    value on this pool, which a value-only test never checks -- two objectives coinciding on a
+    recipe's own data is exactly the case ``min_coverage`` and ``target_accuracy`` demonstrated
+    on recipe 38's pool, where swapping the call's keyword left every value-pinning test green.
+
+    What pins the objective is the committed notebook CELL SOURCE itself: parse the committed
+    ``python-rule`` cell (never re-executed here) and require the exact keyword and value its
+    real ``select_confidence_threshold(...)`` call uses. A keyword swap to ``min_coverage=...``
+    changes this cell's source, so this test -- unlike a value-only re-derivation -- notices
+    regardless of what value the swapped-in objective happens to select."""
+    notebook = json.loads((RECIPE / "notebook.ipynb").read_text("utf-8"))
+    cell = next(c for c in notebook["cells"] if c.get("id") == "python-rule")
+    source = "".join(cell["source"])
+    assert "target_accuracy=1.0" in source
+    assert "min_coverage" not in source
