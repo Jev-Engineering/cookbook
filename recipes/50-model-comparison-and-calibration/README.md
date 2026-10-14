@@ -51,31 +51,56 @@ of this repository), or record answers with the recorder described in
 [docs/live.md](../../docs/live.md). `tools/execute_notebook.py` removes those variables on purpose
 and always runs offline.
 
-**Request count.** In live mode this notebook makes exactly **41** calls to `jev`, and no other:
-23 examples (3 `demo`, 10 `validation`, 10 `test`) each ask request A once, and the 18 of those
-23 that are worth a second request (for `demo`, whenever any backend's own category is not
-`other`; for `validation` and `test`, whenever the gold category is not `other`) also ask
-request B once, for 23 + 18 = 41. Every example is decided once per request it needs, never twice: a repeated
-`decide()` on the same state and questions would be a second request, and this notebook does not
-make one. The other two backends are never called live at all, so they contribute nothing to
-this count.
+**Request count, and what it is a count of.** Replaying the committed fixtures, this notebook
+makes exactly **41** requests to `jev`, and no other: 23 examples (3 `demo`, 10 `validation`,
+10 `test`) each ask request A once, and the 18 of those 23 whose design asks a dependent second
+request also ask request B once, for 23 + 18 = 41. That figure is not asserted in prose: the
+notebook's "What a live run of this notebook would cost" cell counts it, prints it and asserts
+it, so it cannot drift away from what the notebook does.
 
-**That is above the live backend's default request budget of 25**
+Two quantities both get called "requests", and sizing a budget from the wrong one is how a live
+run stops partway through with `BudgetExceeded`:
+
+- **Distinct requests** -- distinct `(state, questions)` pairs, keyed by `replay_key`: the 41
+  above, and what `fixtures/responses.json` holds one entry per. Offline a repeat of one is
+  free, because replay is a dict lookup on that key.
+- **Forwarded `decide()` calls** -- what the live path actually bills. `LiveBackend.decide`
+  spends budget on every attempt it makes and caches nothing, so live a repeat is not free.
+  Every backend here is dispatched through `helpers.MemoisingBackend`, which forwards each
+  distinct request exactly once; that is what makes the two counts equal for this notebook, and
+  the cell asserts the equality, so a cell that re-decided a state would fail instead of
+  quietly multiplying a real bill.
+
+**Even an exact call count is a floor, not a bill**, and live the count is a range rather than
+41:
+
+- Retries bill on top. `jev_cookbook.live`'s own budget error puts it exactly: "retries and
+  timed-out requests count".
+- Which rows ask request B is decided live by the live `category` answer, not by the stored
+  design, so the live count lies between **23** (request A for all 23 examples) and **46**
+  (request B for all of them too) -- the bound the notebook asserts. Today's fixtures sit at 41
+  because 18 rows' design asks request B; the 5 that do not are the 4 scored rows whose gold
+  category is `other` and the `d02` demo, and a live answer naming a real category on any of
+  them adds a request.
+
+**Both ends of that range are above the live backend's default request budget of 25**
 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)); every attempt counts
-against that budget, including each retry. Raise it before running this notebook live:
+against that budget, including each retry. Size it from the upper bound rather than from 41:
 
 ```bash
-export JEV_COOKBOOK_LIVE_MAX_REQUESTS=45
+export JEV_COOKBOOK_LIVE_MAX_REQUESTS=50
 ```
 
-45 rather than 41 leaves headroom for a retried request (a 429 or a transient connection error)
-to still complete inside the budget; 41 exactly would abort the final request after 40 succeeded
-if even one earlier attempt needed a retry. Never put a key in a notebook or a fixture.
+50 rather than 46 leaves headroom for a few retried requests (a 429 or a transient connection
+error) to still complete inside the budget; 41 exactly would abort partway through the moment a
+live `category` answer sent request B to one more row than the stored design does, or one
+attempt needed a retry. Never put a key in a notebook or a fixture.
 
-**What would actually be measured.** A recorded run would answer the same 41 requests from the
-real API, with a pinned model (`jev-1.13.0`, never an alias) and the UTC date of the call, and
-the recorder would write those responses into `fixtures/responses.json` in place of the
-synthetic ones there now. The notebook's questions, state, and calibration code would not
+**What would actually be measured.** A recorded run would answer the same requests from the real
+API (the 41 above, or as many as 46 -- a recorded run writes one response per request it
+actually makes), with a pinned model (`jev-1.13.0`, never an alias) and the UTC date of the
+call, and the recorder would write those responses into `fixtures/responses.json` in place of
+the synthetic ones there now. The notebook's questions, state, and calibration code would not
 change at all -- only the backend. Reporting a real comparison after that would still need a
 second step this recipe does not take: recording `atlas-compact` and `northstar-7b` from their
 own real APIs is out of scope here (they are fabricated stand-ins, not real services this
@@ -85,16 +110,25 @@ repository can call), so a live run of this recipe can only ever produce a recor
 ## What was and was not measured
 
 - **Mode:** synthetic, for all three backends (offline replay of hand-written answers). Not
-  measured live.
+  measured live. Every printed number carries the label of the backend that produced it, derived
+  from that backend's own mode: recording `jev` would relabel `jev`'s rows and leave
+  `atlas-compact`'s and `northstar-7b`'s saying what they are, because this recipe never calls
+  either of them live.
 - **Model, capture date:** not applicable; no answer in this run came from a model. A recorded
   recipe names the model the API returned and the capture date or dates.
 - **N:** 10 `validation` and 10 `test` examples are scored, per backend (3 `demo` examples are
   shown but never scored). Four quantities this recipe's evaluation mixes, named separately so
   none is read as another:
   - **Input rows:** 10 per scored split (20 total; 23 with the 3 `demo` rows).
-  - **Requests** (what a live run bills, `len(fixtures/responses.json)`): 41, for `jev` alone --
-    one per row for request A (23), plus one more for each of the 18 rows worth a second
-    request. `atlas-compact` and `northstar-7b` each also have 41 *stored* responses (the
+  - **Requests** (distinct `(state, questions)` pairs, `len(fixtures/responses.json)`): 41, for
+    `jev` alone -- one per row for request A (23), plus one more for each of the 18 rows whose
+    design asks a second request. Because every backend is dispatched through
+    `helpers.MemoisingBackend`, each distinct request is forwarded to the backend exactly once,
+    so this is also the number of `decide()` calls a live run would bill -- as a floor, with
+    retried and timed-out attempts on top and up to 46 if the live gate asks request B more
+    often than the stored design does (see "Switch to live"). The notebook's `request-count`
+    cell prints and asserts both counts; this bullet quotes that cell rather than standing on
+    its own. `atlas-compact` and `northstar-7b` each also have 41 *stored* responses (the
     comparison format requires every backend to answer the same requests), but neither backend
     is ever billed against a live budget, because neither is ever called live.
   - **Questions:** 3 in every request A (`category`, `verifiable`, `names_control`) plus 1 in

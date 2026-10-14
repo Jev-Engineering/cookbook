@@ -13,11 +13,15 @@ inputs.jsonl must be present in every responses file"): ``jev`` (the default, un
 ``responses.json``), ``atlas-compact`` (``responses-atlas.json``) and ``northstar-7b``
 (``responses-north.json``), two fabricated decision-adapter stand-ins (CONTRIBUTING.md
 section 5: fabricated names only). Each row asks request A (always: a category Choice and two
-Noul propositions, together) and, when the row's task design calls for it (its gold category is
-not ``other``), request B (a Score rating specificity). All three backends get a stored answer
-for every key the row's design calls for, even on a row where one backend's OWN category answer
-would not have asked for it -- the notebook, not the fixtures, decides at run time whether a
-given backend's own path actually fetches request B (see ``helpers.needs_followup``).
+Noul propositions, together) and, when the row's task design calls for it, request B (a Score
+rating specificity). Whether request B exists for a row is a property of that row, authored once
+in ROWS and agreed by every backend's own spec (``_row_needs_b``) -- it is never read off the
+gold label: a scored row's design happens to ask for request B exactly when its gold category is
+not ``other``, but ``d03`` is a demo row with no gold at all and does ask for one. All three
+backends get a stored answer for every key the row's design calls for, even on a row where one
+backend's OWN category answer would not have asked for it -- the notebook, not the fixtures,
+decides at run time whether a given backend's own path actually fetches request B (see
+``helpers.needs_followup``).
 
 Generating inputs and labels is kept separate from generating responses, on purpose: once a
 responses file holds even one recorded answer (provenance "recorded", captured from a real Jev

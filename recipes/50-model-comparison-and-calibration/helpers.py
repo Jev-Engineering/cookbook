@@ -14,7 +14,7 @@ earlier answer: see ``needs_followup``.
 from dataclasses import dataclass
 from typing import Any
 
-from jev_cookbook import Choice, Noul, Score
+from jev_cookbook import Choice, Noul, Score, replay_key
 from jev_cookbook.evaluation import score_level
 
 # No ``from __future__ import annotations`` here: load_helpers removes this module from
@@ -78,8 +78,8 @@ SPECIFICITY_CUTOFF = 2
 def build_state(fields: dict[str, Any]) -> dict[str, str]:
     """The state Jev sees for one statement: its text, nothing else.
 
-    ``fields`` also carries ``vendor_id`` and ``resubmission``, which Python keeps for itself
-    (the stateful rule in ``triage`` below) and never sends to the model.
+    ``fields`` also carries ``resubmission``, which Python keeps for itself (the stateful rule
+    in ``triage`` below) and never sends to the model.
     """
     return {"statement": fields["statement"]}
 
@@ -121,6 +121,60 @@ def needs_followup(category_answer: Any) -> bool:
     return category_answer.choice != OTHER
 
 
+class MemoisingBackend:
+    """One backend, wrapped so that an identical request is sent once and then reused.
+
+    Two different quantities get confused whenever a recipe says what a live run of it costs,
+    so this wrapper counts both and the notebook prints both:
+
+    * ``requests`` -- distinct ``(state, questions)`` pairs asked, keyed by ``replay_key``, the
+      same key a stored responses file is keyed on. ``fixtures/responses.json`` holds exactly
+      one entry per distinct request, so this is the quantity that file's length measures.
+    * ``calls`` -- ``decide()`` calls actually forwarded to the wrapped backend. A live backend
+      bills one request per forwarded call and caches nothing: ``LiveBackend.decide`` spends
+      budget on every attempt it makes (its own budget error says "retries and timed-out
+      requests count"), and the skip-what-is-already-stored deduplication in
+      ``jev_cookbook.live.record_responses`` applies to a recorder run, which running this
+      notebook is not. So a notebook that decides the same row again to fill a second table
+      pays for it again, and this count -- not ``requests`` -- is the one a reader needs to
+      size ``JEV_COOKBOOK_LIVE_MAX_REQUESTS``, as a floor, since each retried attempt bills on
+      top of it.
+
+    ``repeats`` is the requests answered from this wrapper's own memo instead of being
+    forwarded; without the memo each would have been another forwarded call. Memoising cannot
+    change what a request means (the key is the whole request), and it makes every table in
+    this notebook read the same answer for the same request rather than a fresh sample of it.
+
+    Every other attribute (``mode``, ``model``, ``recorded_dates``) is forwarded to the wrapped
+    backend, so this reads as the backend it wraps everywhere else in the harness.
+    """
+
+    def __init__(self, backend: Any) -> None:
+        self.backend = backend
+        self.calls = 0
+        self.repeats = 0
+        self._answers: dict[str, Any] = {}
+
+    @property
+    def requests(self) -> int:
+        """Distinct requests asked through this wrapper (one per ``replay_key``)."""
+        return len(self._answers)
+
+    def decide(self, state: Any, questions: dict[str, Any]) -> Any:
+        key = replay_key(state, questions)
+        if key in self._answers:
+            self.repeats += 1
+            return self._answers[key]
+        self.calls += 1
+        self._answers[key] = self.backend.decide(state, questions)
+        return self._answers[key]
+
+    def __getattr__(self, name: str) -> Any:
+        # Reached only for attributes this wrapper does not define itself; ``backend`` is set
+        # first in __init__, so this never recurses on it.
+        return getattr(self.backend, name)
+
+
 def noul_gate(probability: float, width: float) -> str:
     """Where ``probability`` (a Noul's probability of yes) falls in the two-sided confidence
     band of half-width ``width``, ``width`` in ``[0, 1]``.
@@ -132,7 +186,8 @@ def noul_gate(probability: float, width: float) -> str:
         "false"  if probability <= (1 - width) / 2    (confidently no)
         "review" otherwise
 
-    ``width`` is chosen on ``validation`` with ``select_threshold`` and frozen; whether a given
+    ``width`` is chosen on ``validation`` with ``select_confidence_threshold`` and frozen (the
+    notebook's "Calibrating each backend separately" names the same function); whether a given
     ``width`` ever changes an outcome is not derivable from ``width`` and a business threshold
     alone -- it depends on how a rule wires the gate into its own composition, so it has to be
     measured against this module's own ``triage``, not assumed (see the notebook's "Where the

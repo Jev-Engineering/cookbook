@@ -9,7 +9,10 @@ defect in the extraction rather than in this recipe. Keeping every test here und
 sidesteps it entirely rather than relying on ordering.
 """
 
+import importlib.util
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 from jev_cookbook import (
@@ -23,6 +26,7 @@ from jev_cookbook import (
 )
 from jev_cookbook.evaluation import select_confidence_threshold
 from jev_cookbook.fixtures import load_inputs, load_labels, responses_path
+from jev_cookbook.live import _dump
 
 RECIPE = Path(__file__).resolve().parent.parent
 helpers = load_helpers(RECIPE)
@@ -448,3 +452,117 @@ def test_the_notebook_calibration_cells_pin_min_coverage_not_target_accuracy():
     assert "min_coverage=CHOICE_MIN_COVERAGE" in source
     assert "min_coverage=GATE_MIN_COVERAGE" in source
     assert "target_accuracy" not in source
+
+
+# --------------------------------------------------------------------------------------------
+# Every committed fixture file is pinned to the generator, not only responses.json. Two thirds
+# of every row in every table in this notebook come from the two tagged files, and
+# tests/test_build_fixtures.py is held byte-identical to the shared scaffold (the recipe
+# guard's G1(a)), which knows nothing about a comparison recipe's extra files -- so the pin for
+# those belongs here.
+# --------------------------------------------------------------------------------------------
+
+
+def load_build_fixtures(path, name):
+    """build_fixtures.py as a module, by file path, so ROWS and build_responses are plain
+    Python objects rather than a re-dump of the file the script wrote."""
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_every_committed_responses_file_is_byte_identical_to_the_recorders_writer():
+    """Over BACKEND_TAGS, not over responses.json alone. A tagged file whose stored probability
+    no longer follows from ROWS is a desync nothing else here can see: a probability that moves
+    inside its own gate's band changes no printed number, so the notebook-freshness check stays
+    green over it too.
+
+    Compared against ``_dump(build_responses(ROWS, backend))`` computed from ROWS -- never
+    against a re-dump of the file's own parsed content, which would agree with whatever the
+    file happens to hold."""
+    module = load_build_fixtures(RECIPE / "build_fixtures.py", "recipe50_build_fixtures_pin")
+    assert len(module.BACKEND_TAGS) == 3
+    for name, tag in module.BACKEND_TAGS.items():
+        raw = responses_path(RECIPE, tag=tag).read_text("utf-8")
+        assert raw == _dump(module.build_responses(module.ROWS, name)), name
+
+
+def test_the_generator_reproduces_every_committed_fixture_file(tmp_path):
+    """The scaffolded test checks inputs.jsonl, labels.jsonl and responses.json; this one adds
+    the two tagged files and also asserts the fixtures folder holds nothing else, so a new
+    fixture file cannot arrive with nothing pinning it."""
+    copy = tmp_path / RECIPE.name
+    copy.mkdir()
+    for name in ("helpers.py", "build_fixtures.py"):
+        (copy / name).write_bytes((RECIPE / name).read_bytes())
+    done = subprocess.run(
+        [sys.executable, str(copy / "build_fixtures.py")], capture_output=True, text=True
+    )
+    assert done.returncode == 0, done.stderr
+    committed = sorted(path.name for path in (RECIPE / "fixtures").iterdir())
+    assert committed == [
+        "inputs.jsonl",
+        "labels.jsonl",
+        "responses-atlas.json",
+        "responses-north.json",
+        "responses.json",
+    ]
+    for name in committed:
+        expected = (RECIPE / "fixtures" / name).read_bytes()
+        assert (copy / "fixtures" / name).read_bytes() == expected, name
+
+
+# --------------------------------------------------------------------------------------------
+# The memoising wrapper the notebook dispatches every backend through: what a live run bills is
+# forwarded decide() calls, not distinct requests, so the wrapper has to count both and forward
+# a repeated request zero extra times.
+# --------------------------------------------------------------------------------------------
+
+
+def test_the_memoising_backend_forwards_each_distinct_request_exactly_once():
+    class Recording:
+        mode = "synthetic"
+        model = "a-fixture"
+
+        def __init__(self):
+            self.seen = []
+
+        def decide(self, state, questions):
+            self.seen.append(replay_key(state, questions))
+            return {"category": choice_answer(helpers.DATA_HANDLING)}
+
+    inner = Recording()
+    backend = helpers.MemoisingBackend(inner)
+    questions_a = helpers.build_questions_a()
+    questions_b = helpers.build_questions_b()
+    state = helpers.build_state({"statement": "A statement.", "resubmission": False})
+    other = helpers.build_state({"statement": "Another statement.", "resubmission": False})
+
+    first = backend.decide(state, questions_a)
+    assert backend.decide(state, questions_a) is first  # the same answer, not a second request
+    backend.decide(state, questions_b)  # same state, other questions: a different request
+    backend.decide(other, questions_a)
+    backend.decide(other, questions_a)
+
+    assert len(inner.seen) == 3, inner.seen  # three distinct requests reached the backend
+    assert len(set(inner.seen)) == 3
+    assert backend.calls == 3  # what a live run would bill, before any retry
+    assert backend.requests == 3
+    assert backend.repeats == 2  # the two repeats, each of which would have been billed
+    assert backend.mode == "synthetic"  # forwarded to the wrapped backend, not shadowed
+    assert backend.model == "a-fixture"
+
+
+def test_the_notebook_pins_its_own_request_count():
+    """The request count is computed, printed and asserted by the notebook itself (the pattern
+    recipes 39 and 44 use), so it cannot drift away from a sentence in a README. This pins that
+    the pin exists: the memo every backend is dispatched through, and the three assertions the
+    request-count cell makes about what a live run would bill."""
+    notebook = json.loads((RECIPE / "notebook.ipynb").read_text("utf-8"))
+    cells = {cell.get("id"): "".join(cell["source"]) for cell in notebook["cells"]}
+    assert "helpers.MemoisingBackend(" in cells["setup"]
+    request_count = cells["request-count"]
+    assert "assert jev.calls == jev.requests" in request_count
+    assert "assert len(examples) <= jev.calls <= 2 * len(examples)" in request_count
+    assert 'assert jev.calls == stored["jev"]' in request_count
