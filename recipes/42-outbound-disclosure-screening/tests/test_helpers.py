@@ -478,3 +478,43 @@ def test_notebook_pins_the_confidence_gate_keyword_and_value():
     assert min_coverage is not None, "no min_coverage= keyword on select_confidence_threshold("
     # Value pin, independent of the keyword pin above: the exact coverage floor.
     assert min_coverage == pytest.approx(0.75)
+
+
+# --------------------------------------------------------------------------- request count
+
+
+def test_each_message_is_decided_at_most_once_even_when_shown_twice():
+    """The notebook's own decide() cache (its setup cell) is what keeps the live request count
+    at one per message, however many times a cell reuses an id (recipe 15's `v18-partial` and
+    `v22-adversarial` pattern: shown once "up close", then scored again in its split). A
+    deduplicating counter (``len(answered)``) could pass even if the cache had a bug that still
+    called the backend twice and only kept the last answer, so this instruments the backend's
+    own ``decide`` with a counting wrapper -- the thing that actually costs a live request --
+    and replays every example id twice, exactly mimicking the up-close/scored reuse shape, not
+    merely trusting the cache's own bookkeeping."""
+    examples = load_inputs(RECIPE)
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    attempts = 0
+    real_decide = backend.decide
+
+    def counting_decide(state, qs):
+        nonlocal attempts
+        attempts += 1
+        return real_decide(state, qs)
+
+    backend.decide = counting_decide
+
+    answered = {}
+
+    def decide(example):
+        if example.id not in answered:
+            answered[example.id] = backend.decide(helpers.build_state(example.fields), questions)
+        return answered[example.id]
+
+    for example in examples:
+        decide(example)
+    for example in examples:  # every id shown a second time, as some are in the notebook
+        decide(example)
+
+    assert attempts == len(examples) == 35
