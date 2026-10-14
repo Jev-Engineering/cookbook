@@ -133,6 +133,7 @@ import importlib.util
 import io
 import json
 import re
+import shutil
 import tokenize
 from pathlib import Path
 from types import ModuleType
@@ -1867,35 +1868,51 @@ def test_probe():
     assert "min_coverage" in pinned, "the genuine extraction idiom was not credited"
 
 
-def test_import_alias_is_resolved_across_notebook_cells_not_per_cell():
-    """A notebook's ``from jev_cookbook.evaluation import select_threshold as X`` import and
-    the cell that calls ``X(...)`` are essentially never the same cell in practice (the import
-    lives in an early setup cell; the call lives in the evaluation cell). A reviewer measured
-    that resolving aliases against one cell's own parse tree alone -- what an earlier version
-    of ``_threshold_pin_obligations`` did -- means the alias route can never actually fire for
-    any notebook: 0 of 46 published recipes have the import and the call in the same cell.
-    This proves the fix directly, at the two functions involved, without needing a real
-    notebook file: build the alias map from one "cell" (the import) and resolve a call found
-    in a DIFFERENT "cell" (which has no import statement of its own at all) against that
-    merged map, the same two-step ``_threshold_pin_obligations`` now performs."""
-    import_cell_tree = ast.parse(
-        "from jev_cookbook.evaluation import select_confidence_threshold as _sct\n"
-    )
-    call_cell_tree = ast.parse("threshold = _sct(correct, confidence, min_coverage=0.75)\n")
+def test_import_alias_is_resolved_across_notebook_cells_not_per_cell(tmp_path):
+    """A notebook's ``from jev_cookbook.evaluation import select_confidence_threshold as X``
+    import and the cell that calls ``X(...)`` are essentially never the same cell in practice
+    (the import lives in an early setup cell; the call lives in the evaluation cell). A
+    reviewer measured that resolving aliases against one cell's own parse tree alone -- what an
+    earlier version of ``_threshold_pin_obligations`` did -- means the alias route can never
+    actually fire for any notebook: 0 of 46 published recipes have the import and the call in
+    the same cell.
 
-    aliases_from_this_cell_alone = _import_aliases(call_cell_tree)
-    assert not _real_threshold_calls(call_cell_tree, aliases_from_this_cell_alone), (
-        "sanity check: the call cell alone, with no import, must not resolve anything -- "
-        "otherwise this test would not be exercising the merge at all"
-    )
+    This goes through ``_threshold_pin_obligations`` itself, on a throwaway copy of a real
+    recipe's notebook, rather than composing ``_import_aliases``/``_real_threshold_calls`` by
+    hand -- an earlier version of this test did exactly that, which meant it kept passing when
+    a reviewer reverted the merged-alias loop in ``_threshold_pin_obligations`` (the function
+    the bug actually lived in) and replaced it with the old per-cell resolution: the hand-
+    composed functions still worked correctly in isolation, so the test proved nothing about
+    whether the fix was actually wired into the code path CI runs. Mutating recipe 38's own
+    ``setup`` cell (the import) and ``python-rule`` cell (the call) into exactly this alias
+    shape, on a throwaway copy, exercises the real function end to end."""
+    recipe_dir = tmp_path / "38-abstention-and-review-queues"
+    shutil.copytree(REPO / "recipes" / "38-abstention-and-review-queues", recipe_dir)
+    nb_path = recipe_dir / "notebook.ipynb"
+    notebook = json.loads(nb_path.read_text("utf-8"))
+    setup_cell = next(c for c in notebook["cells"] if c.get("id") == "setup")
+    rule_cell = next(c for c in notebook["cells"] if c.get("id") == "python-rule")
 
-    merged_aliases = _import_aliases(import_cell_tree)
-    assert merged_aliases == {"_sct": "select_confidence_threshold"}
-    found = _real_threshold_calls(call_cell_tree, merged_aliases)
-    assert len(found) == 1
-    call, resolved = found[0]
-    assert resolved == "select_confidence_threshold"
-    assert _threshold_call_objective(call, resolved) == "min_coverage"
+    import_source = cell_source(setup_cell)
+    aliased_import = import_source.replace(
+        "select_confidence_threshold,", "select_confidence_threshold as _sct,"
+    )
+    assert aliased_import != import_source, "mutation did not take -- the replace found nothing"
+    setup_cell["source"] = [aliased_import]
+
+    call_source = cell_source(rule_cell)
+    aliased_call = call_source.replace(
+        "threshold = select_confidence_threshold(", "threshold = _sct("
+    )
+    assert aliased_call != call_source, "mutation did not take -- the replace found nothing"
+    rule_cell["source"] = [aliased_call]
+
+    nb_path.write_text(json.dumps(notebook), encoding="utf-8")
+
+    obligations = _threshold_pin_obligations(recipe_dir)
+    assert ("cell python-rule", "select_confidence_threshold", "min_coverage") in obligations, (
+        f"the aliased call was not resolved by _threshold_pin_obligations itself: {obligations}"
+    )
 
 
 @pytest.mark.parametrize("recipe", guarded_with_template("threshold_objective_pin")())
@@ -1950,6 +1967,11 @@ def test_the_threshold_objective_is_pinned_by_source_spelling(recipe):
         if not any(_objective_token_present(objective, needle) for needle in pinned):
             violations.append(
                 f"{location} {func_name}(...): objective {objective!r} is not pinned by any "
-                "assertion in tests/ that this check can tie to the real committed call"
+                "assertion in tests/ that this check can tie to the real committed call -- "
+                "either compare a string naming it against a real read of the committed "
+                "source (notebook.ipynb's cell source, or inspect.getsource(helpers.<fn>)), "
+                "or, if you extracted it via a local helper (name = _your_helper(source, ...)), "
+                "check the extracted value with `assert name is not None` specifically -- a "
+                "bare `assert name` or any other truthiness check is not credited"
             )
     assert not violations, f"{recipe['slug']}: " + "; ".join(violations)
