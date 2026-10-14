@@ -6,6 +6,8 @@ evaluation.md, "Noul three-path pattern", S03). Tests that need a value near 0.5
 formula is ever revisited.
 """
 
+import ast
+import json
 import math
 from pathlib import Path
 
@@ -424,3 +426,55 @@ def test_stored_answers_are_not_all_right():
         if conf >= gate and not ok
     ]
     assert wrong_above_gate, "expected at least one confidently wrong (example, rule) test pair"
+
+
+# --------------------------------------------------------------------------- notebook pins
+#
+# A printed f-string literal beside a call is a decoration, not a pin: nothing compares it to
+# the call that actually produced the frozen value, so a keyword swap (``min_coverage=`` ->
+# ``target_accuracy=``) or a changed value can slip through with every other test green (see
+# docs/evaluation.md's "Multi-label" discussion of threshold selection; the same trap applies to
+# the per-rule business threshold here). These two tests instead parse the COMMITTED notebook
+# cell's own source and assert against the call expression itself -- the keyword pins which
+# objective, the value pins which answer, and a mutation of either is proven (in the pull
+# request's own report, not here) to turn exactly one of the two assertions red.
+
+
+def _notebook_cell_source(cell_id):
+    nb = json.loads((RECIPE / "notebook.ipynb").read_text("utf-8"))
+    for cell in nb["cells"]:
+        if cell.get("id") == cell_id:
+            source = cell["source"]
+            return "".join(source) if isinstance(source, list) else source
+    raise AssertionError(f"no cell with id {cell_id!r} in notebook.ipynb")
+
+
+def _call_keyword_value(source, call_name, keyword):
+    """The literal value of ``keyword=`` on the first top-level call to ``call_name(`` found by
+    walking ``source``'s AST, or ``None`` if no such call or keyword exists."""
+    tree = ast.parse(source)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and getattr(node.func, "id", None) == call_name:
+            for kw in node.keywords:
+                if kw.arg == keyword:
+                    return ast.literal_eval(kw.value)
+    return None
+
+
+def test_notebook_pins_the_business_threshold_objective():
+    # Keyword pin: select_threshold is called with objective="f1" (not, say, a default or a
+    # different objective string), for the per-rule business threshold.
+    source = _notebook_cell_source("python-rule")
+    objective = _call_keyword_value(source, "select_threshold", "objective")
+    assert objective == "f1"
+
+
+def test_notebook_pins_the_confidence_gate_keyword_and_value():
+    # Keyword pin: the shared confidence gate is chosen with min_coverage=..., not
+    # target_accuracy=... (CONTRIBUTING-adjacent guidance: a coverage floor, not a target
+    # accuracy, is preferred unless the use case demands perfect validation accuracy).
+    source = _notebook_cell_source("python-rule")
+    min_coverage = _call_keyword_value(source, "select_confidence_threshold", "min_coverage")
+    assert min_coverage is not None, "no min_coverage= keyword on select_confidence_threshold("
+    # Value pin, independent of the keyword pin above: the exact coverage floor.
+    assert min_coverage == pytest.approx(0.75)
