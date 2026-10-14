@@ -1,0 +1,2141 @@
+{
+  "022aa13fafbd813d6cfb8d455d691a3ec1b835b8dd79d4b5206bfef43e5433ab": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.4775220654953394,
+        "probabilities": {
+          "0": 0.6599026643570074,
+          "1": 0.23096593252495257,
+          "2": 0.08083807638373339,
+          "3": 0.028293326734306685
+        },
+        "confidence": 0.5224779345046606,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "02e2e13d81cdb69b9c470d73577e4b73716f699a9dd39f6d3e6617593de6ffdf": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.913207324972031,
+        "probabilities": {
+          "0": 0.00047105929458870637,
+          "1": 0.005888241182358829,
+          "2": 0.07360301477948536,
+          "3": 0.9200376847435671
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "04951f0893586c8bcb66c378ab8fbc1d325228b566c722d0a3e05b88e1e6441d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.08679267502796914,
+        "probabilities": {
+          "0": 0.9200376847435671,
+          "1": 0.07360301477948536,
+          "2": 0.005888241182358829,
+          "3": 0.00047105929458870637
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "083e39320327cbfe85007a1df265fc3fd4c55842b021135dd2394296ad1f2edf": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.08679267502796914,
+        "probabilities": {
+          "0": 0.9200376847435671,
+          "1": 0.07360301477948536,
+          "2": 0.005888241182358829,
+          "3": 0.00047105929458870637
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1a1bf86bc27008a03831ef1ffcce3229274acca2523ddcd533bd1cbd56dfb524": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.08679267502796914,
+        "probabilities": {
+          "0": 0.9200376847435671,
+          "1": 0.07360301477948536,
+          "2": 0.005888241182358829,
+          "3": 0.00047105929458870637
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1e04ff2dab663c3de23c8eb95954de93c2a67c0cf0dbefda4e8f0266ca65f56b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.4775220654953394,
+        "probabilities": {
+          "0": 0.6599026643570074,
+          "1": 0.23096593252495257,
+          "2": 0.08083807638373339,
+          "3": 0.028293326734306685
+        },
+        "confidence": 0.5224779345046606,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "23d9490943d58788cafde7214cf3dccaf728b43ce1417b84df738c9861ae9f91": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.4775220654953394,
+        "probabilities": {
+          "0": 0.6599026643570074,
+          "1": 0.23096593252495257,
+          "2": 0.08083807638373339,
+          "3": 0.028293326734306685
+        },
+        "confidence": 0.5224779345046606,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2425bf1842fd026d36cae8fbd9140acc2f6316b7c633448607bb4609f3ca5bb6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.913207324972031,
+        "probabilities": {
+          "0": 0.00047105929458870637,
+          "1": 0.005888241182358829,
+          "2": 0.07360301477948536,
+          "3": 0.9200376847435671
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "26f9facaa7109e3521f0c32f4443df31f9e5f7c965fb2cca8cd846f1d235ae2f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.08679267502796914,
+        "probabilities": {
+          "0": 0.9200376847435671,
+          "1": 0.07360301477948536,
+          "2": 0.005888241182358829,
+          "3": 0.00047105929458870637
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2be3e049a87fb9cc847ea33b9b69300765e334211dac16b5150fcfd4c4011fcf": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.08679267502796914,
+        "probabilities": {
+          "0": 0.9200376847435671,
+          "1": 0.07360301477948536,
+          "2": 0.005888241182358829,
+          "3": 0.00047105929458870637
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2ec3f16270cb88d8f9ad49dbac669a6d8ae19fd9816f32665bb9cbabf29bc05b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.4775220654953394,
+        "probabilities": {
+          "0": 0.6599026643570074,
+          "1": 0.23096593252495257,
+          "2": 0.08083807638373339,
+          "3": 0.028293326734306685
+        },
+        "confidence": 0.5224779345046606,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "31eb387a77ae5df3473148cffdc0c537f44b09fd3123b96ee2953c3cabdb21a9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.1344307270233196,
+        "probabilities": {
+          "0": 0.19204389574759945,
+          "1": 0.5486968449931413,
+          "2": 0.19204389574759945,
+          "3": 0.0672153635116598
+        },
+        "confidence": 0.4814814814814815,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "36f6124456589a1f6c0b2624ee14897273a9df12c6c1ad6fe1377d62c3239315": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.913207324972031,
+        "probabilities": {
+          "0": 0.00047105929458870637,
+          "1": 0.005888241182358829,
+          "2": 0.07360301477948536,
+          "3": 0.9200376847435671
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3a98015ad1272bdffd396ea82b67d1a831fd6dad519be7b7f7eee18e78c46a88": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.08679267502796914,
+        "probabilities": {
+          "0": 0.9200376847435671,
+          "1": 0.07360301477948536,
+          "2": 0.005888241182358829,
+          "3": 0.00047105929458870637
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "410580c7a88d14344a0d0413d315e63b267b48c3b925abce10e936ffef4ada67": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.913207324972031,
+        "probabilities": {
+          "0": 0.00047105929458870637,
+          "1": 0.005888241182358829,
+          "2": 0.07360301477948536,
+          "3": 0.9200376847435671
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "44efd6bd68e9bd1e71133c4c922e44a5a57df0cb25f04b9e3eaf0ad6e7a66559": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.1344307270233196,
+        "probabilities": {
+          "0": 0.19204389574759945,
+          "1": 0.5486968449931413,
+          "2": 0.19204389574759945,
+          "3": 0.0672153635116598
+        },
+        "confidence": 0.4814814814814815,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "49bf2be2e066df841ddd5ae1dbba474b1a2aca20a913f2a13fc1337b7b9430f8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.8655692729766804,
+        "probabilities": {
+          "0": 0.0672153635116598,
+          "1": 0.19204389574759945,
+          "2": 0.5486968449931413,
+          "3": 0.19204389574759945
+        },
+        "confidence": 0.4814814814814815,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5716914664cbb620ab944b6469ae647ee6683b10a2f7cbebd6a42de660259372": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.913207324972031,
+        "probabilities": {
+          "0": 0.00047105929458870637,
+          "1": 0.005888241182358829,
+          "2": 0.07360301477948536,
+          "3": 0.9200376847435671
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "57ada765c974bea55353edaf2607de51a0218b5bce6157b12034e1db0cdfbb34": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.7777777777777777,
+        "probabilities": {
+          "0": 0.1111111111111111,
+          "1": 0.2222222222222222,
+          "2": 0.4444444444444444,
+          "3": 0.2222222222222222
+        },
+        "confidence": 0.33333333333333337,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "57e29f0104c4a84493a4aa70174f10ccc4b2f2e3765814b56012de119c3f337f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.08679267502796914,
+        "probabilities": {
+          "0": 0.9200376847435671,
+          "1": 0.07360301477948536,
+          "2": 0.005888241182358829,
+          "3": 0.00047105929458870637
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5a29451d442d759417ca581c02319811d15e5dc4ff8bf3c34d58e68f8092dff4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.4775220654953394,
+        "probabilities": {
+          "0": 0.6599026643570074,
+          "1": 0.23096593252495257,
+          "2": 0.08083807638373339,
+          "3": 0.028293326734306685
+        },
+        "confidence": 0.5224779345046606,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5f078ea44cae7f38ebdf9d4bc567ce1ea8f34efe9951c974f2b33b8c6c2f9115": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.913207324972031,
+        "probabilities": {
+          "0": 0.00047105929458870637,
+          "1": 0.005888241182358829,
+          "2": 0.07360301477948536,
+          "3": 0.9200376847435671
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5f49a1b645ac51b5297c5b02e38e29f789732d83f44de69674438f58d0e9209d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.08679267502796914,
+        "probabilities": {
+          "0": 0.9200376847435671,
+          "1": 0.07360301477948536,
+          "2": 0.005888241182358829,
+          "3": 0.00047105929458870637
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "65a180281a17f28dbaf9845c48a09ad9e3fd414afc84f9df0105c606da746761": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.8655692729766804,
+        "probabilities": {
+          "0": 0.0672153635116598,
+          "1": 0.19204389574759945,
+          "2": 0.5486968449931413,
+          "3": 0.19204389574759945
+        },
+        "confidence": 0.4814814814814815,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "69907a4e0421699ada6c15fa7d4b60e14f30cbc1f7b93954942b944fb34d6ebc": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.08679267502796914,
+        "probabilities": {
+          "0": 0.9200376847435671,
+          "1": 0.07360301477948536,
+          "2": 0.005888241182358829,
+          "3": 0.00047105929458870637
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6d8a28032609296eebbc485d73d0cd52672cfe4715ae236e1125f9eb7968560b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.08679267502796914,
+        "probabilities": {
+          "0": 0.9200376847435671,
+          "1": 0.07360301477948536,
+          "2": 0.005888241182358829,
+          "3": 0.00047105929458870637
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "70f2457e2577fb94acb0b390e762ec05e4a53ee8f10a564c47cba26e75964c32": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.08679267502796914,
+        "probabilities": {
+          "0": 0.9200376847435671,
+          "1": 0.07360301477948536,
+          "2": 0.005888241182358829,
+          "3": 0.00047105929458870637
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "731c56f1003c1b10312be9c6e09234b4a8652ce8c1f82f5a23adc324ea12887b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.1344307270233196,
+        "probabilities": {
+          "0": 0.19204389574759945,
+          "1": 0.5486968449931413,
+          "2": 0.19204389574759945,
+          "3": 0.0672153635116598
+        },
+        "confidence": 0.4814814814814815,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "745160c9bee26dc4417326c3cfcdb817a4502b836b482a0452099d5faaa2179a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.8655692729766804,
+        "probabilities": {
+          "0": 0.0672153635116598,
+          "1": 0.19204389574759945,
+          "2": 0.5486968449931413,
+          "3": 0.19204389574759945
+        },
+        "confidence": 0.4814814814814815,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "79531d8d6d3f6733a1ea71b6b19731136ed7f9e8ff7631e9a005997d67cbc4bb": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.913207324972031,
+        "probabilities": {
+          "0": 0.00047105929458870637,
+          "1": 0.005888241182358829,
+          "2": 0.07360301477948536,
+          "3": 0.9200376847435671
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "796582b7f8c93af525c77c6c4526ea1e912088b403d9cde2bc5aa1a448454ee3": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.913207324972031,
+        "probabilities": {
+          "0": 0.00047105929458870637,
+          "1": 0.005888241182358829,
+          "2": 0.07360301477948536,
+          "3": 0.9200376847435671
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7e1f6f03439f3135f72ffee9b8092aef55f6e838281fcc9e03149c9d3bc63313": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.7777777777777777,
+        "probabilities": {
+          "0": 0.1111111111111111,
+          "1": 0.2222222222222222,
+          "2": 0.4444444444444444,
+          "3": 0.2222222222222222
+        },
+        "confidence": 0.33333333333333337,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "80b3c8404264245e1fd32dd26255930499772dd05238eb6858b8b76b0b100de4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.4775220654953394,
+        "probabilities": {
+          "0": 0.6599026643570074,
+          "1": 0.23096593252495257,
+          "2": 0.08083807638373339,
+          "3": 0.028293326734306685
+        },
+        "confidence": 0.5224779345046606,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "88d4cfb0206d22ad029bfcbf3f444fd52a766f3e29a7ea2db1bc393fc17b68f4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.4775220654953394,
+        "probabilities": {
+          "0": 0.6599026643570074,
+          "1": 0.23096593252495257,
+          "2": 0.08083807638373339,
+          "3": 0.028293326734306685
+        },
+        "confidence": 0.5224779345046606,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8b7504e51dbf74c77c64f5e054dca0ce85887d22dc7c6dca2e6de634b2f17e68": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.8655692729766804,
+        "probabilities": {
+          "0": 0.0672153635116598,
+          "1": 0.19204389574759945,
+          "2": 0.5486968449931413,
+          "3": 0.19204389574759945
+        },
+        "confidence": 0.4814814814814815,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "901f26022007ffda5804450a0dbe7b75ab2c7fa659f4e8e3f5f636cfddf3ee73": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.8655692729766804,
+        "probabilities": {
+          "0": 0.0672153635116598,
+          "1": 0.19204389574759945,
+          "2": 0.5486968449931413,
+          "3": 0.19204389574759945
+        },
+        "confidence": 0.4814814814814815,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "92922a3a9472ad991c0a99cb3282915fae83584dfbee8b147013a19b12c817d8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.913207324972031,
+        "probabilities": {
+          "0": 0.00047105929458870637,
+          "1": 0.005888241182358829,
+          "2": 0.07360301477948536,
+          "3": 0.9200376847435671
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "92d859bd51b8c0f6e77088a2979b6352549ecd98990077f202c11230508d74ea": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.4775220654953394,
+        "probabilities": {
+          "0": 0.6599026643570074,
+          "1": 0.23096593252495257,
+          "2": 0.08083807638373339,
+          "3": 0.028293326734306685
+        },
+        "confidence": 0.5224779345046606,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "936679850357321f05502fe90b0699ac89e50473a8a57ece679fc2c26190c88a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.1344307270233196,
+        "probabilities": {
+          "0": 0.19204389574759945,
+          "1": 0.5486968449931413,
+          "2": 0.19204389574759945,
+          "3": 0.0672153635116598
+        },
+        "confidence": 0.4814814814814815,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "950fe9b220b75f194f78e80cf2cef111e0b5d0b257dc66c72a16d48f00b9e3bf": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.913207324972031,
+        "probabilities": {
+          "0": 0.00047105929458870637,
+          "1": 0.005888241182358829,
+          "2": 0.07360301477948536,
+          "3": 0.9200376847435671
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "961bd1bf56e01fee8e6a542ea81b9bd057457698a78a638a8fdc7071c9432335": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.08679267502796914,
+        "probabilities": {
+          "0": 0.9200376847435671,
+          "1": 0.07360301477948536,
+          "2": 0.005888241182358829,
+          "3": 0.00047105929458870637
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a16dc180cfca66c41bf4a622d2481294de85a6ce06bbb65919dd6f91687c16f2": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.1344307270233196,
+        "probabilities": {
+          "0": 0.19204389574759945,
+          "1": 0.5486968449931413,
+          "2": 0.19204389574759945,
+          "3": 0.0672153635116598
+        },
+        "confidence": 0.4814814814814815,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a5aca2318bc60dbe4bf7012f50c63fdd20d2c986dd1502b82b8b912020882452": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.8655692729766804,
+        "probabilities": {
+          "0": 0.0672153635116598,
+          "1": 0.19204389574759945,
+          "2": 0.5486968449931413,
+          "3": 0.19204389574759945
+        },
+        "confidence": 0.4814814814814815,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a68543c5756a74c47c38ed9a31ee674e1be0b99a7f4ad219685f72a63a409b63": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.913207324972031,
+        "probabilities": {
+          "0": 0.00047105929458870637,
+          "1": 0.005888241182358829,
+          "2": 0.07360301477948536,
+          "3": 0.9200376847435671
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "adbaa764b6c9f27620c0bf8db7b4d230e5e7130731ed2e076d5dbd9c115133ab": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.913207324972031,
+        "probabilities": {
+          "0": 0.00047105929458870637,
+          "1": 0.005888241182358829,
+          "2": 0.07360301477948536,
+          "3": 0.9200376847435671
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b2b3640a450410c0b4e04dc7be7f99d74d6c0752587062cfbad242541cc2a459": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.8655692729766804,
+        "probabilities": {
+          "0": 0.0672153635116598,
+          "1": 0.19204389574759945,
+          "2": 0.5486968449931413,
+          "3": 0.19204389574759945
+        },
+        "confidence": 0.4814814814814815,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b3f3c2bf0c8cecf8d58f7261cf07578667a8155c9d3ca7ef1df0d73ed6585234": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.913207324972031,
+        "probabilities": {
+          "0": 0.00047105929458870637,
+          "1": 0.005888241182358829,
+          "2": 0.07360301477948536,
+          "3": 0.9200376847435671
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b988293b50780309449529c19b3ecd1e6918f8613f16ba36e12a60dbbc26f509": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.913207324972031,
+        "probabilities": {
+          "0": 0.00047105929458870637,
+          "1": 0.005888241182358829,
+          "2": 0.07360301477948536,
+          "3": 0.9200376847435671
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bab692fbbee0a547dcbda15e4d2587e0c49ca7fee331150168b003e384ead9d0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.8655692729766804,
+        "probabilities": {
+          "0": 0.0672153635116598,
+          "1": 0.19204389574759945,
+          "2": 0.5486968449931413,
+          "3": 0.19204389574759945
+        },
+        "confidence": 0.4814814814814815,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c4098d1f01a855e89566ff4efc47505ee5260578d977704663461e44e32a5744": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.08679267502796914,
+        "probabilities": {
+          "0": 0.9200376847435671,
+          "1": 0.07360301477948536,
+          "2": 0.005888241182358829,
+          "3": 0.00047105929458870637
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c4a0bb3e23f27f9fd7c24fb6b47cb765271da0be8f879d4d50508317f811d936": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.4775220654953394,
+        "probabilities": {
+          "0": 0.6599026643570074,
+          "1": 0.23096593252495257,
+          "2": 0.08083807638373339,
+          "3": 0.028293326734306685
+        },
+        "confidence": 0.5224779345046606,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c6ceec08bfdd479cd0a1bf8f9aff0034792c46495c79ecb94062a4a25e8583d6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.1344307270233196,
+        "probabilities": {
+          "0": 0.19204389574759945,
+          "1": 0.5486968449931413,
+          "2": 0.19204389574759945,
+          "3": 0.0672153635116598
+        },
+        "confidence": 0.4814814814814815,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c79e8d9a6910c0bc5235187c709890976e718191de7353e2b8198f6a5582a780": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.913207324972031,
+        "probabilities": {
+          "0": 0.00047105929458870637,
+          "1": 0.005888241182358829,
+          "2": 0.07360301477948536,
+          "3": 0.9200376847435671
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c8ce7bf902611b3e3fbd4e40e847fb51c3ac644b6c474b10678110ab7e240ea8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.913207324972031,
+        "probabilities": {
+          "0": 0.00047105929458870637,
+          "1": 0.005888241182358829,
+          "2": 0.07360301477948536,
+          "3": 0.9200376847435671
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ce91926558399daabeb6f3353a0dd08ca4b48a38e9ed74bd1516f818dc3ef0dc": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.08679267502796914,
+        "probabilities": {
+          "0": 0.9200376847435671,
+          "1": 0.07360301477948536,
+          "2": 0.005888241182358829,
+          "3": 0.00047105929458870637
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "cee0e464300fcdb99cbba044f6840dd37d1b63132667d7fc0e8006b1341e2e0b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.8655692729766804,
+        "probabilities": {
+          "0": 0.0672153635116598,
+          "1": 0.19204389574759945,
+          "2": 0.5486968449931413,
+          "3": 0.19204389574759945
+        },
+        "confidence": 0.4814814814814815,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d770971ee629da1d445c79138e5674a7d65b3b0bc6a3970bf8923470e979036b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 2.913207324972031,
+        "probabilities": {
+          "0": 0.00047105929458870637,
+          "1": 0.005888241182358829,
+          "2": 0.07360301477948536,
+          "3": 0.9200376847435671
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d9d174a2aeed27a0e2ed294a4f2618e2f97d6dc3a4e15321b950e738290185e8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.8655692729766804,
+        "probabilities": {
+          "0": 0.0672153635116598,
+          "1": 0.19204389574759945,
+          "2": 0.5486968449931413,
+          "3": 0.19204389574759945
+        },
+        "confidence": 0.4814814814814815,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "df0b984877e7b1c90cedbb3b887463b2854099704117b7e5629e019222683853": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.8655692729766804,
+        "probabilities": {
+          "0": 0.0672153635116598,
+          "1": 0.19204389574759945,
+          "2": 0.5486968449931413,
+          "3": 0.19204389574759945
+        },
+        "confidence": 0.4814814814814815,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "df88c820624bd89bb9473018861f8004fdcb48ff132b732f1663f660dcacb282": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.1344307270233196,
+        "probabilities": {
+          "0": 0.19204389574759945,
+          "1": 0.5486968449931413,
+          "2": 0.19204389574759945,
+          "3": 0.0672153635116598
+        },
+        "confidence": 0.4814814814814815,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e0e5c1ff605b4401ffb057b56a7908fadfc1c97c9f5e32d51ef2bb7bdfd600ff": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.4775220654953394,
+        "probabilities": {
+          "0": 0.6599026643570074,
+          "1": 0.23096593252495257,
+          "2": 0.08083807638373339,
+          "3": 0.028293326734306685
+        },
+        "confidence": 0.5224779345046606,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e230d8377065c73f32ea1d16117931fb682986eb186894dbe3bd0a07527b10cc": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.8655692729766804,
+        "probabilities": {
+          "0": 0.0672153635116598,
+          "1": 0.19204389574759945,
+          "2": 0.5486968449931413,
+          "3": 0.19204389574759945
+        },
+        "confidence": 0.4814814814814815,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e3d7c2113403a517c7e43fe2b9739739be9cdf4e45b7345763aa7116bf7d66ec": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.1344307270233196,
+        "probabilities": {
+          "0": 0.19204389574759945,
+          "1": 0.5486968449931413,
+          "2": 0.19204389574759945,
+          "3": 0.0672153635116598
+        },
+        "confidence": 0.4814814814814815,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e79c41f0b0faf47620a65173ad2d25663d3bad8d75cbcd81733e625bdb3fc254": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.8655692729766804,
+        "probabilities": {
+          "0": 0.0672153635116598,
+          "1": 0.19204389574759945,
+          "2": 0.5486968449931413,
+          "3": 0.19204389574759945
+        },
+        "confidence": 0.4814814814814815,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ed219dec1827958500c033d402bb28463660e155496a69da0d0bf0bdf6c96ac4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.8655692729766804,
+        "probabilities": {
+          "0": 0.0672153635116598,
+          "1": 0.19204389574759945,
+          "2": 0.5486968449931413,
+          "3": 0.19204389574759945
+        },
+        "confidence": 0.4814814814814815,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ee016d1d56abb7cee0b7fb1179dc652ad12d9d1de56cba717814d1a195df3efb": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.8655692729766804,
+        "probabilities": {
+          "0": 0.0672153635116598,
+          "1": 0.19204389574759945,
+          "2": 0.5486968449931413,
+          "3": 0.19204389574759945
+        },
+        "confidence": 0.4814814814814815,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "eeea58a02a3f828672794fbc77f94be05efbcc42d8e3c5f0fe698a2e5b055409": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 0.08679267502796914,
+        "probabilities": {
+          "0": 0.9200376847435671,
+          "1": 0.07360301477948536,
+          "2": 0.005888241182358829,
+          "3": 0.00047105929458870637
+        },
+        "confidence": 0.9132073249720308,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ef0e46bbb4e3230137c89530616e04a6fa13bbabb20d1ddca6afb9cedff54cf3": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.1344307270233196,
+        "probabilities": {
+          "0": 0.19204389574759945,
+          "1": 0.5486968449931413,
+          "2": 0.19204389574759945,
+          "3": 0.0672153635116598
+        },
+        "confidence": 0.4814814814814815,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "fa516ab474b1915bd1198429ecaa6e5af19b840c016eaaa7a635b771eec24b97": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "relevance": {
+        "type": "score",
+        "score": 1.1344307270233196,
+        "probabilities": {
+          "0": 0.19204389574759945,
+          "1": 0.5486968449931413,
+          "2": 0.19204389574759945,
+          "3": 0.0672153635116598
+        },
+        "confidence": 0.4814814814814815,
+        "legend": {
+          "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
+          "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
+          "2": "The chunk states something the task's answer or action depends on, but only part of it: a reader also needs another chunk to complete the task correctly.",
+          "3": "The chunk states, on its own, the specific fact, value, or step the task's answer or action depends on. Nothing else is needed to act on it correctly."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
