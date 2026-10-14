@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from jev_cookbook import Provenance, ScoreAnswer, get_backend, load_helpers, replay_key
-from jev_cookbook.evaluation import score_level, select_confidence_threshold
+from jev_cookbook.evaluation import score_level, select_confidence_threshold, selective_curve
 from jev_cookbook.fixtures import load_inputs, load_labels, responses_path
 from jev_cookbook.simulation import Store
 
@@ -122,9 +122,9 @@ def test_stored_answers_are_not_all_right():
 
 
 # --------------------------------------------------------------------------------------------
-# classify_chunk: a grid of synthesized Score answers across every rubric level and a spread of
-# confidences, not only the committed fixtures (the brief's own words: "driven by synthesised
-# Score answers across the rubric levels and a grid of confidences").
+# classify_chunk: a policy rule has to hold whatever the model answers, not only on the
+# committed fixtures -- so this is a grid of synthesized Score answers across every rubric level
+# and a spread of confidences, independent of anything build_fixtures.py wrote.
 #
 # test_classify_chunk_rejects_a_gate_outside_zero_one is deliberately placed here, immediately
 # after the strong-form test above and before the first @pytest.mark.parametrize-decorated
@@ -176,18 +176,36 @@ def _random_answer(rng: random.Random) -> ScoreAnswer:
 
 
 def test_allocate_budget_never_exceeds_its_slots_for_any_model_answer():
+    # The gate passed to classify_chunk here is 0.0, not this recipe's own frozen gate, and that
+    # is deliberate and load-bearing: at a stricter gate (0.3 was tried first), 83.8% of the
+    # probability vectors this fuzz generates land below it, 154 of 300 iterations produce zero
+    # `candidate` chunks at all, and not one of the 300 ever produces more than the 3 slots this
+    # recipe budgets -- so the cap this test claims to cover is never actually exercised, and
+    # the test would read as thorough (300 iterations) while testing nothing about it. At 0.0,
+    # every chunk whose level clears the retention cutoff becomes a candidate regardless of how
+    # unsure the answer is, and more than 3 candidates compete for 3 slots on a measured 180 of
+    # 300 iterations with this seed -- asserted at the end of this test, so a future edit that
+    # quietly narrows the fuzz back into the same blind spot is caught here rather than by
+    # nothing at all.
     rng = random.Random(20261014)
     chunk_ids = [f"c{i}" for i in range(8)]
+    iterations_where_the_cap_binds = 0
     for _ in range(300):
         answers = {cid: _random_answer(rng) for cid in chunk_ids}
         classifications = [
-            helpers.classify_chunk(cid, a, confidence_gate=0.3) for cid, a in answers.items()
+            helpers.classify_chunk(cid, a, confidence_gate=0.0) for cid, a in answers.items()
         ]
+        if sum(1 for c in classifications if c.outcome == helpers.CANDIDATE) > 3:
+            iterations_where_the_cap_binds += 1
         expected_scores = {cid: a.score for cid, a in answers.items()}
         decisions, budget = helpers.allocate_budget(classifications, expected_scores, {}, slots=3)
         assert budget.used("slots") <= 3
         assert sum(1 for d in decisions if d.status == helpers.RETAINED) == budget.used("slots")
         assert {d.chunk_id for d in decisions} == set(chunk_ids)
+    assert iterations_where_the_cap_binds > 100, (
+        f"the cap bound on only {iterations_where_the_cap_binds} of 300 iterations; this fuzz "
+        "is not exercising the condition it claims to cover"
+    )
 
 
 def test_allocate_budget_never_exceeds_slots_over_every_fixture_task():
@@ -278,10 +296,11 @@ def test_content_preserved_rejects_empty_history():
 
 # --------------------------------------------------------------------------------------------
 # The stateful session: a round trip through JSON serialisation, over the real fixtures, that
-# includes a chunk being paged out and later rehydrated. This is the test the house rules warn
-# a recipe can get wrong by comparing a live store object to itself -- it does not: it rebuilds
-# a fresh Store from JSON-dumped-and-reloaded write records, and it tampers with that JSON
-# before the final assertion to prove the comparison can actually disagree.
+# includes a chunk being paged out and later rehydrated. A round trip that kept the live store
+# object and compared it to itself would be lossless by construction and would pass even if
+# apply_to_store silently dropped every source link, so this rebuilds a fresh Store from
+# JSON-dumped-and-reloaded write records instead, and tampers with that JSON before the final
+# assertion to prove the comparison can actually disagree.
 # --------------------------------------------------------------------------------------------
 
 SESSION_TASKS = ("s-t1", "s-t2", "s-t3")
@@ -364,6 +383,45 @@ def test_the_session_round_trips_losslessly_through_serialisation_including_a_re
     assert tampered_store.snapshot() != store.snapshot()
 
 
+def test_target_accuracy_one_point_oh_is_unreachable_on_this_pool():
+    # Three validation chunks are rated wrong, not two: two at low confidence (the genuinely
+    # ambiguous ones "Python's part" discusses) and one -- the lexical-overlap trap from "One
+    # answer up close" -- at the pool's own highest observed confidence, tied with the chunks
+    # correctly rated at that same confidence. No gate can exclude that one without excluding
+    # every tied-confidence chunk that is actually right, so accuracy 1.0 is not merely hard to
+    # reach on this pool, it is unreachable at every threshold -- select_confidence_threshold
+    # raises ValueError rather than returning a looser-than-expected number.
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    examples = load_inputs(RECIPE)
+    labels = load_labels(RECIPE)
+    validation = [e for e in examples if e.split == "validation" and e.id in labels]
+    answers = {
+        e.id: backend.decide(helpers.build_state(e.fields), questions)["relevance"]
+        for e in validation
+    }
+    correct = [score_level(answers[e.id]) == labels[e.id] for e in validation]
+    confidence = [answers[e.id].confidence for e in validation]
+
+    wrong = [e.id for e in validation if score_level(answers[e.id]) != labels[e.id]]
+    assert len(wrong) == 3
+    highest_confidence = max(confidence)
+    # The binding chunk ties the pool's maximum confidence, so even the strictest gate includes
+    # it: accuracy at that gate is below 1.0, which is what makes target_accuracy=1.0
+    # unreachable rather than merely costly.
+    at_strictest_gate = [
+        ok for ok, c in zip(correct, confidence, strict=True) if c >= highest_confidence - 1e-9
+    ]
+    assert not all(at_strictest_gate)
+
+    with pytest.raises(ValueError, match="no threshold reaches accuracy 1.0"):
+        select_confidence_threshold(correct, confidence, target_accuracy=1.0)
+
+    # The best any gate reaches, for the record this notebook's prose states the number from.
+    curve = selective_curve(correct, confidence)
+    assert round(max(curve.accuracy), 4) == 0.9643
+
+
 # --------------------------------------------------------------------------------------------
 # Pin the confidence-gate objective, two ways. A printed f-string literal or a pinned numeric
 # RESULT is not a pin on its own: nothing compares the printed text to the real call, and the
@@ -402,13 +460,13 @@ def test_the_notebook_pins_the_min_coverage_objective_in_its_own_source():
 
 
 def test_the_min_coverage_objective_is_not_flat_everywhere_on_this_pool():
-    # The response measurement rule-12's house note asks for: select_confidence_threshold is
-    # piecewise constant in general, so a single value-change mutation (0.85 -> some other
-    # value) can land in the same flat band and move nothing, which would look like a pin but
-    # prove nothing. Measuring a grid shows where this pool's curve actually bends: everything
-    # up to 0.93 lands on the same gate and numbers as 0.85 (the pinned value is not special
-    # within that band), and crossing 0.9333 (the coverage the two low-confidence validation
-    # rows would cost if excluded) moves the gate, the coverage and the accuracy together.
+    # select_confidence_threshold is piecewise constant in general: a single value-change
+    # mutation (0.85 -> some other value) can land in the same flat band and move nothing,
+    # which would look like a pin but prove nothing about whether the objective is load-bearing.
+    # Measuring a grid instead shows where this pool's curve actually bends: everything up to
+    # 0.93 lands on the same gate and numbers as 0.85 (the pinned value is not special within
+    # that band), and crossing 0.9333 (the coverage the two low-confidence validation rows would
+    # cost if excluded) moves the gate, the coverage and the accuracy together.
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
     examples = load_inputs(RECIPE)
@@ -429,7 +487,8 @@ def test_the_min_coverage_objective_is_not_flat_everywhere_on_this_pool():
     # The pinned value (0.85) and everything below the real bend (0.93) agree with it.
     for min_coverage in (0.5, 0.7, 0.85, 0.9, 0.93):
         assert seen[min_coverage] == seen[MIN_COVERAGE]
-    # Past the bend, the gate genuinely moves: this is the measurement that would have caught a
-    # flat-everywhere pool, which a single mutation (rule 12's house note) cannot rule out alone.
+    # Past the bend, the gate genuinely moves: this is the measurement that catches a
+    # flat-everywhere pool, which a single value-change mutation cannot rule out on its own,
+    # since that one mutation might simply have landed back inside the same flat band.
     for min_coverage in (0.95, 0.97, 1.0):
         assert seen[min_coverage] != seen[MIN_COVERAGE]
