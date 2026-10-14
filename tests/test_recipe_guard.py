@@ -120,10 +120,49 @@ Scope decisions (see the pull request body for the full reasoning):
   check's entries (there are none today) can only go stale between close-outs, not between
   pull requests -- see that file's own docstring for the allowlist protocol, which this
   narrows by exactly one check.
-* A recipe with no ``fixtures/responses.json`` (a scripted recipe; none are published yet) is
-  skipped, not failed, by every check that reads stored responses
-  (``build_fixtures_scaffold``, ``stored_answers_strong_form``,
-  ``readme_budget_note_matches_stored_answers``): there is nothing for them to guard.
+* A scripted recipe (``fixtures/responses.json`` does not exist; answers are computed by a
+  seeded script in ``helpers.py`` rather than replayed from a stored file -- recipe 36 is the
+  first and, as of this writing, only published one) is skipped by three of the checks above,
+  for three DIFFERENT reasons (#249). Two early revisions of this module keyed all three skips
+  on the same proxy -- "does ``responses.json`` exist" -- which is a correlate of "are this
+  recipe's answers stored" and not of what each check actually means; PR #246's review verified
+  each skip by hand and found that proxy wrong for one of the three. So each skip below is now
+  keyed on the property its own check is about, and the three no longer share one skip
+  condition:
+
+  - ``build_fixtures_scaffold`` (G1(a)) is about ``tools/new_recipe.py``'s *replay-mode*
+    scaffold for ``tests/test_build_fixtures.py``, and a scripted recipe has no such file by
+    construction (``tools/new_recipe.py::build_scripted_fixtures_text`` writes a different
+    docstring and never writes ``responses.json`` at all) -- there is nothing for a scripted
+    recipe to hold byte-identical, so the skip here is genuinely vacuous and stays keyed on
+    ``responses.json``'s absence, which **is** the property for this one check alone.
+  - ``stored_answers_strong_form`` (G1(c)) is about whether a recipe re-derives a frozen
+    confidence or business threshold independently -- a property of whether the recipe
+    *freezes a threshold*, which has nothing to do with whether its answers are stored or
+    computed. Keying this skip on ``responses.json`` was the defect #249 found: recipe 36 has
+    no stored responses and freezes a confidence gate, so the check was applicable, silently
+    skipped, and (before a same-PR fix round renamed the test function the check anchors on)
+    would have failed. The skip is now keyed on
+    ``_threshold_pin_obligations(recipe_dir(recipe))`` -- the same real-call detector
+    ``threshold_objective_pin`` uses to find every genuine ``select_confidence_threshold(``/
+    ``select_threshold(`` call in the recipe's committed notebook or ``helpers.py`` -- so a
+    scripted recipe with a gate is checked and one without a gate (scripted or not) is skipped
+    on the actual absence of anything to re-derive.
+  - ``readme_budget_note_matches_stored_answers`` is about whether the README's stated live
+    request count matches the number of real ``decide()`` calls the notebook makes. Today it
+    checks that via ``len(responses.json)`` (one stored response per *distinct* decided state,
+    by construction of ``build_fixtures.py``) as a proxy, which already undercounts whenever
+    one state is decided more than once (#213) -- a gap this issue's review measured directly
+    on recipe 36's own data (96 scored rows, 290 real ``decide()`` calls, only 72 distinct
+    states). A scripted recipe has no ``responses.json`` for even that proxy to read, and the
+    real count cannot be recovered from anything committed statically: it is a property of
+    *executing* the notebook (or the recipe's own control flow) with a counting backend, which
+    is what PR #246's reviewer did by hand. This module's own suite does not execute notebooks
+    (the per-recipe ``Notebook (<slug>)`` CI job does that); see the pull request body for the
+    investigation into whether a static or committed-output route could stand in, and why none
+    does today. So this skip remains, but is keyed on and worded for that property -- "no
+    committed artifact this check can read a real call count from" -- rather than on
+    ``responses.json`` read as if its mere absence were the whole explanation.
 """
 
 from __future__ import annotations
@@ -280,10 +319,20 @@ def test_build_fixtures_guard_matches_the_current_scaffold(recipe):
     (rather than, say, checking for the regeneration assertion alone) is the precise signature:
     it also catches a stray issue number in the docstring (R9) and any other drift in the same
     motion, and it is exactly what ``tests/test_template.py`` already proves for the template
-    itself (reversing the substitution the other way)."""
+    itself (reversing the substitution the other way).
+
+    The property this check is about is replay-mode fixture scaffolding, which only exists for
+    a replay-mode recipe: a scripted recipe's ``tools/new_recipe.py --mode scripted`` scaffold
+    (``build_scripted_fixtures_text``) never writes ``responses.json`` and never writes a
+    ``tests/test_build_fixtures.py`` for this check to hold byte-identical to anything, so the
+    skip below is genuinely vacuous for one, not a proxy standing in for a different property
+    (#249)."""
     path = recipe_dir(recipe) / "fixtures" / "responses.json"
     if not path.is_file():
-        pytest.skip("scripted recipe: no responses.json, no test_build_fixtures.py to guard")
+        pytest.skip(
+            "scripted recipe: replay-mode scaffold does not apply, no test_build_fixtures.py "
+            "to guard (see #249)"
+        )
     new_recipe = load_tool("new_recipe.py")
     expected = new_recipe.build_fixtures_test_text(recipe)
     actual_path = recipe_dir(recipe) / "tests" / "test_build_fixtures.py"
@@ -473,11 +522,23 @@ def test_stored_answers_are_not_all_right_is_the_strong_form(recipe):
     require at least one ``assert`` whose own test expression names one of those. A recipe that
     keeps an old weak assertion *alongside* a working strong one (18, 22) still passes, because
     the strong assertion is what actually binds; deleting only the strong assertion and leaving
-    the weak one (proven on recipe 14 in scratch) correctly fails this check."""
-    path = recipe_dir(recipe) / "fixtures" / "responses.json"
-    if recipe["slug"] != "_template" and not path.is_file():
+    the weak one (proven on recipe 14 in scratch) correctly fails this check.
+
+    The property this check is *about* is whether the recipe freezes a confidence or business
+    threshold at all -- not whether its answers happen to be stored in ``responses.json``
+    (#249). A scripted recipe (no ``fixtures/responses.json``, answers computed instead of
+    replayed) that freezes a gate has exactly the same obligation to re-derive it as a recipe
+    whose answers are stored; whether the answers came from a file or a function says nothing
+    about whether a threshold exists to re-derive. So the skip below is keyed on
+    ``_threshold_pin_obligations`` -- the same real-call detector ``threshold_objective_pin``
+    already uses to find every genuine ``select_confidence_threshold(``/``select_threshold(``
+    call in this recipe's committed notebook or ``helpers.py`` -- rather than on
+    ``responses.json``'s existence, which is a correlate of "has stored answers", not of "has a
+    threshold"."""
+    if recipe["slug"] != "_template" and not _threshold_pin_obligations(recipe_dir(recipe)):
         pytest.skip(
-            "scripted recipe: no stored answers for this guard to re-derive a threshold over"
+            "no real select_confidence_threshold(/select_threshold( call in this recipe's "
+            "notebook or helpers.py: this recipe freezes no threshold for G1(c) to re-derive"
         )
     tests_dir = recipe_dir(recipe) / "tests"
     bodies = [
@@ -497,6 +558,59 @@ def test_stored_answers_are_not_all_right_is_the_strong_form(recipe):
     assert confirmed, f"{recipe['slug']}: nothing is derived from a '>= {target}' comparison"
     assert _an_assert_depends_on(tree, confirmed), (
         f"{recipe['slug']}: no assert's own test expression names {sorted(confirmed)}"
+    )
+
+
+def test_stored_answers_strong_form_skip_fires_only_when_no_threshold_is_frozen(tmp_path):
+    """#249: the skip above is keyed on ``_threshold_pin_obligations`` finding no real
+    ``select_confidence_threshold(``/``select_threshold(`` call in the recipe's notebook or
+    ``helpers.py`` -- the property G1(c) is about -- rather than on whether
+    ``fixtures/responses.json`` exists. Proving a skip condition needs both directions (a skip
+    that never skips is as wrong as one that always does):
+
+    1. **Fires when no threshold is frozen.** On a throwaway copy of recipe 36 (the one
+       published scripted recipe, chosen because it has no ``responses.json`` and would have
+       been silently skipped by the OLD condition regardless of this property), deleting its
+       one real ``select_confidence_threshold(`` call and import leaves
+       ``_threshold_pin_obligations`` empty -- the input the skip's ``not ...`` branches on.
+    2. **Does not fire when a threshold is frozen.** The unmodified recipe 36 is used elsewhere
+       in this module's own parametrized run
+       (``test_stored_answers_are_not_all_right_is_the_strong_form[36-card-game-action-
+       selection]``) and is observed there to PASS, not skip -- it has a confidence gate and
+       the strong-form test re-derives it, so the property is true and the check runs for real.
+       That parametrized case is the live, continuously-run proof for this direction; this test
+       supplies the complementary one a synthetic mutation is needed for."""
+    recipe_dir_copy = tmp_path / "36-card-game-action-selection"
+    shutil.copytree(REPO / "recipes" / "36-card-game-action-selection", recipe_dir_copy)
+
+    assert _threshold_pin_obligations(recipe_dir_copy), (
+        "sanity check failed: the unmodified copy already has no threshold obligations"
+    )
+
+    nb_path = recipe_dir_copy / "notebook.ipynb"
+    notebook = json.loads(nb_path.read_text("utf-8"))
+    setup_cell = next(c for c in notebook["cells"] if c.get("id") == "setup")
+    rule_cell = next(c for c in notebook["cells"] if c.get("id") == "python-rule")
+
+    import_source = cell_source(setup_cell)
+    stripped_import = import_source.replace("    select_confidence_threshold,\n", "")
+    assert stripped_import != import_source, "mutation did not take -- the replace found nothing"
+    setup_cell["source"] = [stripped_import]
+
+    rule_source = cell_source(rule_cell)
+    stripped_call = rule_source.replace(
+        "threshold = select_confidence_threshold(val_correct, val_confidence, "
+        "min_coverage=MIN_COVERAGE)",
+        "threshold = 0.5  # no real threshold-selection call left",
+    )
+    assert stripped_call != rule_source, "mutation did not take -- the replace found nothing"
+    rule_cell["source"] = [stripped_call]
+
+    nb_path.write_text(json.dumps(notebook), encoding="utf-8")
+
+    obligations = _threshold_pin_obligations(recipe_dir_copy)
+    assert obligations == [], (
+        f"expected no threshold obligations once the real call is gone, got {obligations}"
     )
 
 
@@ -1055,10 +1169,25 @@ def test_the_live_budget_note_matches_the_stored_answer_count(recipe):
     tolerant of a line wrap (``\\s+`` for every space) and of "call" or "request" (recipe 06 says
     the latter). A recipe whose README states the count some other way is not something this
     regex can see and is a gap in the check, not necessarily in the recipe; see the pull request
-    body."""
+    body.
+
+    The property this check is about is "does the README's stated count equal the number of
+    real ``decide()`` calls the notebook makes" -- ``len(responses.json)`` is only a PROXY for
+    that (one stored response per distinct decided *state*, which already undercounts a real
+    call count whenever the same state is decided more than once, #213). A scripted recipe has
+    no ``responses.json`` for even that proxy to read, and the real count is recoverable only by
+    executing the notebook (or the recipe's own control flow) with a counting backend -- which
+    this module's suite does not do (see its own docstring, and the pull request body for why a
+    static or committed-output route was investigated and found not to generalise: a recipe
+    whose decision count depends on simulation dynamics, such as recipe 36's card-game turns,
+    has no closed form over its committed fixtures). So this remains a skip for a scripted
+    recipe, not a check this module can satisfy today (#249)."""
     path = recipe_dir(recipe) / "fixtures" / "responses.json"
     if not path.is_file():
-        pytest.skip("scripted recipe: no responses.json to derive a stored-answer count from")
+        pytest.skip(
+            "scripted recipe: no responses.json for even the len()-proxy to read, and the "
+            "real decide() call count needs execution this suite does not perform (see #249)"
+        )
     stored = len(json.loads(path.read_text("utf-8")))
     readme = (recipe_dir(recipe) / "README.md").read_text("utf-8")
     assert "## Switch to live" in readme
