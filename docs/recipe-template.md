@@ -82,15 +82,15 @@ own first use the same way.
   printed literal is hand-written and nothing compares it to the call, and a value-only test pins
   the objective only if no other objective can reach that same value on this recipe's own pool —
   which is not something a value-only test checks, and two objectives have been found to coincide
-  on a real recipe's data. Parse the committed cell source instead (`tests/test_helpers.py::test_
-  the_notebook_selects_the_threshold_by_target_accuracy_not_min_coverage` below does this for the
-  template) and assert that the keyword or objective string the call actually uses is present in
-  it: a keyword swap then changes the cell's committed source, so the test notices regardless of
-  what value the swapped-in objective happens to select on this pool. If the selection lives
-  behind a `helpers.py` wrapper rather than inline in the notebook cell, pin the wrapper function's
-  own source instead (`inspect.getsource(helpers.<wrapper>)`), for the same reason. `tests/test_
-  recipe_guard.py`'s `threshold_objective_pin` check enforces this over every recipe with a
-  threshold selection, fail closed.
+  on a real recipe's data. Parse the committed cell source instead -- the template's own
+  `tests/test_helpers.py` has a worked example (its last test function, named for exactly this)
+  -- and tie an assertion to the keyword or objective string the call actually uses: a keyword
+  swap then changes the cell's committed source, so the assertion notices regardless of what
+  value the swapped-in objective happens to select on this pool. If the selection lives behind
+  a `helpers.py` wrapper rather than inline in the notebook cell, pin the wrapper function's own
+  source instead (`inspect.getsource(helpers.<wrapper>)`), for the same reason. The guard check
+  `threshold_objective_pin` enforces this, fail closed, over every recipe with a threshold
+  selection.
 - **`evaluate_selective` reports the same split as the rule only when the rule's only review
   branch is that confidence gate — `route` here has three, so it is not that rule.**
   `helpers.py::route` sends a ticket to `review` for any of three reasons, in this order:

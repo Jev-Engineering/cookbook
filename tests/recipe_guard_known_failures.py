@@ -5,7 +5,9 @@ PR #186 review's additions (issue #165 comments) over every published recipe at 
 the day it lands finds real, pre-existing contract drift in merged recipes -- that drift is
 #163's work list, not something this guard, or the recipe that happens to trip it next, may fix
 by weakening the check. Each entry below marks one (recipe, check) pair ``xfail(strict=True)``
-so CI stays green today without hiding the drift: the reason always names the #163 sweep.
+so CI stays green today without hiding the drift: the reason names the sweep that owns clearing
+it (#163's own debt for most entries here; a different issue's own newly-revealed drift for a
+later check's entries -- see the third and fourth bullets below).
 
 The protocol, so later readers do not have to reconstruct it from a diff:
 
@@ -35,11 +37,20 @@ The protocol, so later readers do not have to reconstruct it from a diff:
   ``see #244`` instead: that check is #244's own addition, the drift it reveals is #244's own
   scope (its acceptance criteria ask for exactly this per-recipe audit), and #163's sweep has no
   mandate over a check #163 never named -- grepping for ``#163`` must not silently swallow
-  another issue's work list, and grepping for ``#244`` must find these 35 entries. (A corollary,
+  another issue's work list, and grepping for ``#244`` must find these entries. (A corollary,
   not yet exercised: `tests/test_recipe_guard.py::guarded`'s xfail `reason=` no longer prepends a
   hardcoded ``"#163: "`` to every entry regardless of which issue it names -- it now shows the
   reason string's own citation unchanged, since that assumption stopped being true the moment a
   check other than #165's own could add entries.)
+* **A `threshold_objective_pin` entry's reason is per-recipe, not shared**, because several
+  recipes this check once wrongly flagged (28, 41, 42, 44) turned out to already carry a real
+  pin in a shape an earlier version of this check did not recognise -- a shared reason string
+  cannot distinguish "genuinely unpinned" from "pinned in a shape this check used to miss", and
+  the second kind is exactly the information a sweep worker needs before spending time on a
+  recipe that needs no fix at all. None of the entries below are of the second kind as of this
+  writing (28, 41, 42 and 44 were removed once the check was corrected to recognise their real
+  pins), but a future entry that is should say so in its own reason rather than sharing the
+  generic one.
 
 Keyed by ``(slug, check_id)``; `check_id` values are documented at the top of
 `tests/test_recipe_guard.py`. A `strict=True` xfail turns an unexpected pass (the sweep fixed it
@@ -84,13 +95,9 @@ KNOWN_FAILURES: dict[tuple[str, str], str] = {
         "25-change-evidence-review",
         "26-prompt-injection-screening",
         "27-function-selection",
-        "28-skill-selection",
         "29-tool-outcome-verification",
         "30-citation-verification",
         "33-schema-field-mapping",
         "35-semantic-feature-extraction",
-        "41-approval-scope-review",
-        "42-outbound-disclosure-screening",
-        "44-plan-constraint-assessment",
     )
 }

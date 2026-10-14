@@ -78,11 +78,12 @@ check id                              rule -> detection
                                        branch.
 ``threshold_objective_pin``           for every real ``select_confidence_threshold(``/
                                        ``select_threshold(`` call in the committed notebook or
-                                       ``helpers.py``, the objective keyword/value it actually
-                                       uses is asserted present in a recipe test that
-                                       demonstrably reads the real committed source -- not a
-                                       hand-written literal beside the call, and not the
-                                       resulting threshold value alone.
+                                       ``helpers.py``, the objective it actually selects is
+                                       PINNED by some assertion in that recipe's tests, traced
+                                       by data flow back to the real committed call or a real
+                                       production call (not merely co-located with a string
+                                       naming the spelling) -- not a hand-written literal beside
+                                       the call, and not the resulting threshold value alone.
 ====================================  =====================================================
 
 Scope decisions (see the pull request body for the full reasoning):
@@ -960,9 +961,10 @@ def test_review_outcome_value_is_review_where_it_exists(recipe):
     wearing a disguise). It is named here, once, as the one exemption the trace does not itself
     decide. 06 (``UNCERTAIN``) and 21 (``NEEDS_REVIEW``, value literally ``"needs_review"``) have
     no such claim: both read as a plain rename of the same review-queue outcome the glossary
-    names, so the trace reports them as real failures -- recorded in the allowlist with a
-    ``see #163`` reason, not hidden behind a skip whose stated reason would not be the truth
-    about them."""
+    names, so the trace reports them as real failures -- recorded in the allowlist (their own
+    reason naming #163, the sweep issue that owns this drift) rather than hidden behind a skip
+    whose stated reason would not be the truth about them. (Not every check's allowlist entries
+    name #163: see ``tests/recipe_guard_known_failures.py``'s own docstring.)"""
     helpers = load_helpers(recipe_dir(recipe))
     if hasattr(helpers, "REVIEW"):
         assert helpers.REVIEW == "review"
@@ -1198,19 +1200,63 @@ THRESHOLD_OBJECTIVE_SPELLINGS = {
 }
 
 
-def _threshold_call_objective(call: ast.Call) -> str | None:
-    """The objective actually selected by one real ``select_confidence_threshold(...)`` or
-    ``select_threshold(...)`` call: the keyword-argument NAME present for the former
-    (``target_accuracy`` or ``min_coverage`` -- whichever the call actually binds), or the
-    string VALUE of the latter's ``objective`` argument, given positionally (3rd argument) or
-    as the keyword ``objective=``. Parsed from the already-parsed ``ast.Call`` node, not by
-    regex on text: a value that merely contains a keyword's spelling as a substring elsewhere
-    in the call (inside an unrelated string argument, say) cannot be mistaken for the argument
-    binding itself. Returns ``None`` for a call shape this cannot identify an objective for (not
-    observed in the published set; such a call is still flagged, as an unidentifiable
-    objective, by the check below rather than silently skipped)."""
-    fn = call.func.id  # type: ignore[union-attr]
-    if fn == "select_confidence_threshold":
+def _import_aliases(tree: ast.AST) -> dict[str, str]:
+    """``{alias: real_name}`` for ``from jev_cookbook.evaluation import select_threshold as X``
+    style renames of either threshold function, so a call made *through* the alias is not
+    silently invisible to the rest of this check (a reviewer measured this on a throwaway
+    mutation of recipe 38: ``import ... as _sct`` then ``_sct(...)`` made the unmodified check
+    below report "no threshold call here" -- fail OPEN, the wrong default for a check whose
+    whole purpose is to fail closed). No published recipe does this today; this exists so the
+    guard does not silently stop seeing a recipe that starts to."""
+    aliases: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                if alias.name in THRESHOLD_OBJECTIVE_SPELLINGS and alias.asname:
+                    aliases[alias.asname] = alias.name
+    return aliases
+
+
+def _resolved_call_name(call: ast.Call, aliases: dict[str, str]) -> str | None:
+    """The real function name ``call`` resolves to -- ``select_confidence_threshold`` or
+    ``select_threshold``, by direct name or via ``aliases`` -- or ``None`` for anything else
+    (including a call through an attribute such as ``jev_cookbook.evaluation.select_threshold
+    (...)``, which no published recipe uses and which this does not attempt to resolve; that
+    residual gap is disclosed rather than silently assumed away)."""
+    if not isinstance(call.func, ast.Name):
+        return None
+    name = call.func.id
+    if name in THRESHOLD_OBJECTIVE_SPELLINGS:
+        return name
+    return aliases.get(name)
+
+
+def _call_func_name(call: ast.Call) -> str | None:
+    """The bare name one call is made through -- ``f(...)`` or ``x.f(...)`` -- or ``None`` for
+    a callee shape with no simple name (``(lambda: ...)()``). Used only to check membership in
+    a *name-based* set (a recipe's own taint-producing helper functions, or a ``helpers.py``
+    production wrapper); it is not the same resolution ``_resolved_call_name`` does for the two
+    specific threshold functions themselves."""
+    if isinstance(call.func, ast.Name):
+        return call.func.id
+    if isinstance(call.func, ast.Attribute):
+        return call.func.attr
+    return None
+
+
+def _threshold_call_objective(call: ast.Call, resolved_name: str) -> str | None:
+    """The objective actually selected by one real call already known (via
+    ``_resolved_call_name``) to resolve to ``resolved_name``: the keyword-argument NAME present
+    for ``select_confidence_threshold`` (``target_accuracy`` or ``min_coverage`` -- whichever
+    the call actually binds), or the string VALUE of ``select_threshold``'s ``objective``
+    argument, given positionally (3rd argument) or as the keyword ``objective=``. Parsed from
+    the already-parsed ``ast.Call`` node, not by regex on text: a value that merely contains a
+    keyword's spelling as a substring elsewhere in the call (inside an unrelated string
+    argument, say) cannot be mistaken for the argument binding itself. Returns ``None`` for a
+    call shape this cannot identify an objective for (not observed in the published set; such a
+    call is still flagged, as an unidentifiable objective, by the check below rather than
+    silently skipped)."""
+    if resolved_name == "select_confidence_threshold":
         for kw in call.keywords:
             if kw.arg in ("target_accuracy", "min_coverage"):
                 return kw.arg
@@ -1231,31 +1277,36 @@ def _threshold_call_objective(call: ast.Call) -> str | None:
     return None
 
 
-def _real_threshold_calls(tree: ast.AST) -> list[ast.Call]:
-    """Genuine ``ast.Call`` nodes to ``select_confidence_threshold``/``select_threshold`` --
-    real code, never text that merely looks like a call inside a string literal (an f-string's
-    hand-written decoration quoting the call shape beside it, exactly the pattern #244 found
-    inert). A plain substring/paren-balance scan over the cell's raw text, as this module's own
-    ``extract_calls`` does for other checks, cannot tell the two apart; walking the already-
-    parsed AST can, because a string constant is never an ``ast.Call`` node regardless of what
-    text it contains."""
-    return [
-        node
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Name)
-        and node.func.id in THRESHOLD_OBJECTIVE_SPELLINGS
-    ]
+def _real_threshold_calls(tree: ast.AST, aliases: dict[str, str]) -> list[tuple[ast.Call, str]]:
+    """``(call, resolved_function_name)`` for every genuine ``ast.Call`` node resolving to
+    ``select_confidence_threshold``/``select_threshold`` -- real code, never text that merely
+    looks like a call inside a string literal (an f-string's hand-written decoration quoting
+    the call shape beside it, exactly the pattern #244 found inert). A plain substring/paren-
+    balance scan over the cell's raw text, as this module's own ``extract_calls`` does for
+    other checks, cannot tell the two apart; walking the already-parsed AST can, because a
+    string constant is never an ``ast.Call`` node regardless of what text it contains."""
+    found = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            resolved = _resolved_call_name(node, aliases)
+            if resolved is not None:
+                found.append((node, resolved))
+    return found
 
 
 def _threshold_pin_obligations(recipe_dir_: Path) -> list[tuple[str, str, str | None]]:
     """``(location, function_name, objective)`` for every real threshold-selection call in this
     recipe's committed ``notebook.ipynb`` code cells or its ``helpers.py`` -- both are scanned
-    (not the notebook alone) because three published recipes (31, 35, and the template's own
-    sibling pattern) route the call through a ``helpers.py`` wrapper the notebook merely calls
-    by name, and checking only the notebook would silently skip them rather than reveal that
-    they, too, lack the pin -- the same blind spot #222's ``G1(c)`` already has for exactly this
-    shape, which this check must not repeat (see the pull request body)."""
+    (not the notebook alone) because three published recipes (28, 31, 35) route the call
+    through a ``helpers.py`` wrapper the notebook merely calls by name, and checking only the
+    notebook would silently *skip* them rather than reveal that they, too, lack the pin -- the
+    same blind spot #222's ``G1(c)`` already has for exactly this shape, which this check must
+    not repeat (see the pull request body).
+
+    A code cell or ``helpers.py`` that does not parse as plain Python (an IPython magic, or any
+    other syntax error) is reported as its own obligation, with function name
+    ``"<unparseable>"`` and objective ``None`` -- a hard failure naming what is wrong, never a
+    silent skip and never a raw ``SyntaxError`` traceback blamed on the recipe."""
     obligations: list[tuple[str, str, str | None]] = []
     notebook = recipe_dir_ / "notebook.ipynb"
     if notebook.is_file():
@@ -1263,16 +1314,27 @@ def _threshold_pin_obligations(recipe_dir_: Path) -> list[tuple[str, str, str | 
             if cell["cell_type"] != "code":
                 continue
             source = cell_source(cell)
-            for call in _real_threshold_calls(ast.parse(source)):
-                func_name = call.func.id  # type: ignore[union-attr]
-                obligations.append(
-                    (f"cell {cell.get('id', '?')}", func_name, _threshold_call_objective(call))
-                )
+            location = f"cell {cell.get('id', '?')}"
+            try:
+                tree = ast.parse(source)
+            except SyntaxError:
+                obligations.append((location, "<unparseable>", None))
+                continue
+            aliases = _import_aliases(tree)
+            for call, resolved in _real_threshold_calls(tree, aliases):
+                obligations.append((location, resolved, _threshold_call_objective(call, resolved)))
     helpers_path = recipe_dir_ / "helpers.py"
     if helpers_path.is_file():
-        for call in _real_threshold_calls(ast.parse(helpers_path.read_text("utf-8"))):
-            func_name = call.func.id  # type: ignore[union-attr]
-            obligations.append(("helpers.py", func_name, _threshold_call_objective(call)))
+        try:
+            tree = ast.parse(helpers_path.read_text("utf-8"))
+        except SyntaxError:
+            obligations.append(("helpers.py", "<unparseable>", None))
+        else:
+            aliases = _import_aliases(tree)
+            for call, resolved in _real_threshold_calls(tree, aliases):
+                obligations.append(
+                    ("helpers.py", resolved, _threshold_call_objective(call, resolved))
+                )
     return obligations
 
 
@@ -1297,79 +1359,295 @@ def _test_function_defs(tree: ast.AST) -> list[ast.FunctionDef]:
 
 
 def _reads_real_committed_source(segment: str) -> bool:
-    """True if a test function's own source text gives real evidence that it reads the
-    *actual committed* notebook or ``helpers.py`` -- not a hand-typed duplicate of either -- so
-    that an ``assert <spelling> in <name>`` found inside it is tied to something that would
-    really change if the real call were edited. Two routes, matching the two places a real
-    threshold-selection call can live (see ``_threshold_pin_obligations``):
-
-    * the notebook route: the function's text names ``notebook.ipynb`` and subscripts a cell's
-      ``"source"`` (recipes 37, 38, 39, 43, 45's own pins all do exactly this);
-    * the helpers route: the function's text calls ``inspect.getsource(`` on something named
-      ``helpers`` (recipe 31's pin), or reads ``helpers.py``'s own text directly.
-
-    This is deliberately a text heuristic rather than a full data-flow trace (the existing
-    ``_labelled_names``/``_derived_from`` machinery in this module does that for other checks,
-    at real cost): it is scoped to one function at a time (``ast.get_source_segment`` on a
-    single ``def test_...``, never the whole file), so it cannot credit one test's real read to
-    a different, unrelated test's hand-rolled string -- which is the specific evasion this
-    check exists to close, see the pull request body's mutation proof."""
-    notebook_route = "notebook.ipynb" in segment and (
-        '"source"' in segment or "'source'" in segment
-    )
+    """True if one piece of source text (a single statement's own segment -- see
+    ``_tainted_names_in_function`` below, which calls this once per assignment, not once per
+    whole function) is the actual FILE READ of the *actual committed* notebook or
+    ``helpers.py`` -- not a hand-typed duplicate of either, and not a later step of the same
+    chain (extracting one cell, then joining its ``"source"``) that never itself mentions the
+    file at all. Two routes, matching the two places a real threshold-selection call can live
+    (see ``_threshold_pin_obligations``): the notebook route (``notebook.ipynb`` with
+    ``read_text`` -- the parse step, which the generic name-reference propagation in
+    ``_tainted_names_in_function`` then carries forward through every later ``cell = ...``/
+    ``source = ...`` step without this function needing to see the word ``"source"`` at all)
+    and the helpers route (``inspect.getsource(`` on something named ``helpers``, or a direct
+    read of ``helpers.py``'s own text). Deliberately a text heuristic for the one, single,
+    file-opening statement rather than a full data-flow trace of its own (the data-flow tracing
+    is ``_tainted_names_in_function``'s job): this used to also require ``"source"`` to appear
+    in the SAME statement as ``"notebook.ipynb"``, which is false for the template's own three-
+    line chain (``notebook = json.loads(...)``; ``cell = next(... notebook["cells"] ...)``;
+    ``source = "".join(cell["source"])``) -- no single line of that chain contains both, so the
+    whole chain went untainted. Seeding only on the read itself and letting propagation do the
+    rest fixes that without weakening anything: the three-line chain, and each of 41's, 42's,
+    and 44's one-line or module-level-helper variants, all seed correctly either way."""
+    notebook_route = "notebook.ipynb" in segment and "read_text" in segment
     helpers_route = ("inspect.getsource(" in segment and "helpers" in segment) or (
         "helpers.py" in segment and "read_text" in segment
     )
     return notebook_route or helpers_route
 
 
-def _asserted_present_spellings(func: ast.FunctionDef) -> set[str]:
-    """String constants asserted present (``assert <literal> in <name>``, on either side of the
-    comparison) anywhere in ``func``'s body. Only the ``In`` operator: this check is concerned
-    with what a recipe's tests claim IS in the committed source, not what they claim is absent
-    (a recipe may use either shape, or both, to pin an objective; see the pull request body for
-    why only presence is required here and not also a negative exclusion of every alternative)."""
-    present: set[str] = set()
+def _production_wrapper_names(helpers_path: Path) -> set[str]:
+    """Top-level function names defined in ``helpers.py`` whose own body makes a real
+    threshold-selection call -- calling one of these from a test exercises the real objective,
+    whatever it is, even though the test itself never reads ``helpers.py``'s text at all
+    (recipe 28's ``helpers.select_margin_threshold``, used only through
+    ``_spellings_pinned_by_production_discrimination`` below, since a bare call with no
+    accompanying non-degeneracy check proves nothing by itself)."""
+    if not helpers_path.is_file():
+        return set()
+    try:
+        tree = ast.parse(helpers_path.read_text("utf-8"))
+    except SyntaxError:
+        return set()
+    aliases = _import_aliases(tree)
+    return {
+        node.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and _real_threshold_calls(node, aliases)
+    }
+
+
+def _locally_source_reading_function_names(tree: ast.Module, text: str) -> set[str]:
+    """Names of functions DEFINED IN THIS TEST FILE whose own body reads the real committed
+    notebook or ``helpers.py`` (``_reads_real_committed_source`` on the function's own source
+    segment) -- a module-level helper like recipes 42's ``_notebook_cell_source`` or 44's
+    ``_notebook_code_source``, which several recipes factor the read into so more than one test
+    can reuse it. Calling such a function taints the result wherever it is called from, not only
+    from inside its own definition -- the fix for recipes 42 and 44, whose pin a reviewer found
+    this check previously missed entirely because the read lived outside the one test
+    function's own segment."""
+    names = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef):
+            segment = ast.get_source_segment(text, node) or ""
+            if _reads_real_committed_source(segment):
+                names.add(node.name)
+    return names
+
+
+def _tainted_names_in_function(
+    func: ast.FunctionDef, text: str, taint_producing_names: set[str]
+) -> set[str]:
+    """Fixed-point taint set, local to one test function: a name is tainted if the statement
+    assigning it (a) itself reads the real committed source (``_reads_real_committed_source`` on
+    that one assignment's own text -- the inline case: recipes 38, 39, 41, 43, 45, the template),
+    (b) calls a function named in ``taint_producing_names`` (a source-reading helper defined
+    anywhere in this file, or a ``helpers.py`` wrapper that itself makes the real selection call
+    -- recipes 28, 42, 44), or (c) its value expression references an already-tainted name
+    anywhere, including as a call argument (plain data-flow propagation -- recipe 42's
+    ``_call_keyword_value(source, ...)``, whose own definition never mentions
+    ``notebook.ipynb`` at all, but whose result still structurally depends on it because its
+    argument, ``source``, does). Scoped to one function at a time (never a whole-file flat
+    namespace): a name is only ever compared against taint computed within the SAME function,
+    so an unrelated function's own local variable sharing a common name (``source``, ``cell``)
+    can never borrow another function's taint."""
+    tainted: set[str] = set()
+    changed = True
+    while changed:
+        changed = False
+        for node in ast.walk(func):
+            if not (
+                isinstance(node, ast.Assign)
+                and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)
+            ):
+                continue
+            target = node.targets[0].id
+            if target in tainted:
+                continue
+            value_text = ast.get_source_segment(text, node.value) or ""
+            calls_taint_producing = any(
+                isinstance(n, ast.Call) and _call_func_name(n) in taint_producing_names
+                for n in ast.walk(node.value)
+            )
+            if (
+                _reads_real_committed_source(value_text)
+                or calls_taint_producing
+                or (tainted & _ast_names(node.value))
+            ):
+                tainted.add(target)
+                changed = True
+    return tainted
+
+
+NEGATIVE_COMPARISONS = (ast.NotIn, ast.NotEq, ast.IsNot)
+
+
+def _positively_compared_constants(test: ast.expr) -> set[str]:
+    """String constants found inside a comparison's own operands, for every ``ast.Compare``
+    node in ``test`` whose operator is NOT one of ``NEGATIVE_COMPARISONS`` -- deliberately
+    excluding ``not in``/``!=``/``is not``, whose own meaning is "this string must be ABSENT".
+    An earlier version of this check collected a string constant from ANY comparison touching
+    a tainted name, operator included -- a reviewer's own mutation on recipe 38 showed the
+    cost directly: the untouched test's ``assert "target_accuracy" not in source`` credited
+    ``"target_accuracy"`` as PINNED the moment a notebook-side swap made ``source`` (correctly)
+    reference that spelling, which is exactly backwards -- the assertion says that spelling must
+    not appear, not that it is the pinned one, and crediting it let a real keyword-swap mutation
+    on a genuinely-passing recipe slip through uncaught. Only a comparison's positive meaning
+    (``in``, ``==``, or no comparison at all restricting it) may contribute a spelling."""
+    found: set[str] = set()
+    for compare in ast.walk(test):
+        if not isinstance(compare, ast.Compare):
+            continue
+        if any(isinstance(op, NEGATIVE_COMPARISONS) for op in compare.ops):
+            continue
+        for side in (compare.left, *compare.comparators):
+            for const in ast.walk(side):
+                if isinstance(const, ast.Constant) and isinstance(const.value, str):
+                    found.add(const.value)
+    return found
+
+
+def _spellings_pinned_by_assertions(func: ast.FunctionDef, tainted: set[str]) -> set[str]:
+    """Objective spellings this one function's assertions pin, by two routes:
+
+    * **Direct.** An ``assert`` whose test expression references a tainted name AND contains,
+      anywhere within a POSITIVE comparison in that same expression (``_positively_compared_
+      constants``: an ``In`` operand, an ``==`` comparison, inside a ``.count(...)`` call
+      nested in either, or a literal piece of an f-string -- the nesting does not matter, only
+      that the string sits inside a comparison whose own sense is positive) -- a string
+      constant naming the spelling. This is what a reviewer's ``.count('objective="f1"') == 2``
+      (41, 44), ``objective == "f1"`` (42), and ``f"min_coverage={MIN_COVERAGE}"`` f-string (46)
+      all needed that an earlier version of this check, which only looked at a direct ``In``
+      comparison's own operands, could not see -- and excluding ``NotIn``/``NotEq``/``IsNot``
+      is what stops a *different* earlier version from crediting the wrong spelling (see
+      ``_positively_compared_constants``'s own docstring for the mutation that caught it).
+    * **Extraction.** An assignment ``name = <tainted call>`` whose call's own arguments already
+      name the spelling being extracted (recipe 42's ``min_coverage = _call_keyword_value
+      (source, "select_confidence_threshold", "min_coverage")``) -- the keyword being pinned is
+      a Python identifier, never re-stated as a literal in the later assert (``assert
+      min_coverage is not None``), so the direct route alone misses it. Credited only when the
+      assigned name is later referenced in at least one ``assert`` in this function (an
+      extraction performed but never checked pins nothing) and the call chain is itself tainted
+      (so a hand-typed duplicate of the extraction call cannot qualify)."""
+    pinned: set[str] = set()
+
     for node in ast.walk(func):
         if not isinstance(node, ast.Assert):
             continue
-        test = node.test
-        if (
-            not isinstance(test, ast.Compare)
-            or len(test.ops) != 1
-            or not isinstance(test.ops[0], ast.In)
+        if not (_ast_names(node.test) & tainted):
+            continue
+        pinned |= _positively_compared_constants(node.test)
+
+    asserted_names: set[str] = set()
+    for node in ast.walk(func):
+        if isinstance(node, ast.Assert):
+            asserted_names |= _ast_names(node.test)
+    for node in ast.walk(func):
+        if not (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and node.targets[0].id in tainted
+            and node.targets[0].id in asserted_names
         ):
             continue
-        for side in (test.left, *test.comparators):
-            if isinstance(side, ast.Constant) and isinstance(side.value, str):
-                present.add(side.value)
-    return present
+        for const in ast.walk(node.value):
+            if isinstance(const, ast.Constant) and isinstance(const.value, str):
+                pinned.add(const.value)
+
+    return pinned
+
+
+def _spellings_pinned_by_production_discrimination(
+    func: ast.FunctionDef, production_wrapper_names: set[str], aliases: dict[str, str]
+) -> set[str]:
+    """Recipe 28's shape, which fits neither route in ``_spellings_pinned_by_assertions``: no
+    source text is read at all, and the real call is made inline
+    (``helpers.select_margin_threshold(safe, margin)``), never bound to a name the taint tracer
+    above can see at all. Pins an objective by tying the REAL production call's own result, via
+    ``==``, to a LOCAL re-derivation computed with an explicit keyword -- valid only once a
+    separate ``!=`` assert proves that re-derivation differs from a sibling computed with a
+    DIFFERENT objective, so the equality could not hold under a keyword swap to that sibling's
+    objective (recipe 28's own ``assert by_min_coverage != by_target_accuracy``, immediately
+    followed by ``assert helpers.select_margin_threshold(safe, margin) == by_min_coverage``, is
+    exactly this non-degeneracy-then-tie shape)."""
+    re_derivations: dict[str, str] = {}
+    for node in ast.walk(func):
+        if not (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and isinstance(node.value, ast.Call)
+        ):
+            continue
+        resolved = _resolved_call_name(node.value, aliases)
+        if resolved is None:
+            continue
+        objective = _threshold_call_objective(node.value, resolved)
+        if objective:
+            re_derivations[node.targets[0].id] = objective
+
+    distinguished: set[str] = set()
+    for node in ast.walk(func):
+        if not (
+            isinstance(node, ast.Assert)
+            and isinstance(node.test, ast.Compare)
+            and len(node.test.ops) == 1
+            and isinstance(node.test.ops[0], ast.NotEq)
+        ):
+            continue
+        left_objs = {re_derivations[n] for n in _ast_names(node.test.left) if n in re_derivations}
+        right_objs = {
+            re_derivations[n] for n in _ast_names(node.test.comparators[0]) if n in re_derivations
+        }
+        if left_objs and right_objs and left_objs != right_objs:
+            distinguished |= left_objs | right_objs
+
+    pinned: set[str] = set()
+    for node in ast.walk(func):
+        if not (
+            isinstance(node, ast.Assert)
+            and isinstance(node.test, ast.Compare)
+            and len(node.test.ops) == 1
+            and isinstance(node.test.ops[0], ast.Eq)
+        ):
+            continue
+        sides = (node.test.left, node.test.comparators[0])
+        has_production_call = any(
+            isinstance(n, ast.Call) and _call_func_name(n) in production_wrapper_names
+            for side in sides
+            for n in ast.walk(side)
+        )
+        if not has_production_call:
+            continue
+        for side in sides:
+            for name in _ast_names(side):
+                if name in re_derivations and re_derivations[name] in distinguished:
+                    pinned.add(re_derivations[name])
+    return pinned
 
 
 def _pinned_objective_spellings(recipe_dir_: Path) -> set[str]:
-    """Every string a recipe's ``tests/*.py`` asserts is present in a real read of the
-    committed notebook or ``helpers.py`` (``_reads_real_committed_source``), pooled across every
-    qualifying test function in every test file. Pooling recipe-wide rather than per-obligation
-    is a deliberate scope simplification: every published recipe's own threshold calls use one
-    objective per function consistently (no recipe mixes, say, ``min_coverage`` in one
-    ``select_confidence_threshold`` call with ``target_accuracy`` in another), so there is no
-    live case where pooling lets one call's pin stand in for a different call's missing one --
-    see the pull request body for how this was checked."""
-    present: set[str] = set()
+    """Every objective spelling this recipe's ``tests/*.py`` pin, by any of the shapes this
+    check recognises, pooled across every test function in every test file. Pooling recipe-wide
+    rather than per-obligation is a deliberate scope simplification: every published recipe's
+    own threshold calls use one objective per function consistently (no recipe mixes, say,
+    ``min_coverage`` in one ``select_confidence_threshold`` call with ``target_accuracy`` in
+    another), so there is no live case where pooling lets one call's pin stand in for a
+    different call's missing one -- see the pull request body for how this was checked."""
+    pinned: set[str] = set()
     tests_dir = recipe_dir_ / "tests"
     if not tests_dir.is_dir():
-        return present
+        return pinned
+    production_wrapper_names = _production_wrapper_names(recipe_dir_ / "helpers.py")
     for path in sorted(tests_dir.glob("*.py")):
         text = path.read_text("utf-8")
         try:
             tree = ast.parse(text)
         except SyntaxError:
             continue
+        aliases = _import_aliases(tree)
+        taint_producing_names = (
+            _locally_source_reading_function_names(tree, text) | production_wrapper_names
+        )
         for func in _test_function_defs(tree):
-            segment = ast.get_source_segment(text, func) or ""
-            if _reads_real_committed_source(segment):
-                present |= _asserted_present_spellings(func)
-    return present
+            tainted = _tainted_names_in_function(func, text, taint_producing_names)
+            pinned |= _spellings_pinned_by_assertions(func, tainted)
+            pinned |= _spellings_pinned_by_production_discrimination(
+                func, production_wrapper_names, aliases
+            )
+    return pinned
 
 
 @pytest.mark.parametrize("recipe", guarded_with_template("threshold_objective_pin")())
@@ -1383,15 +1661,24 @@ def test_the_threshold_objective_is_pinned_by_source_spelling(recipe):
     and leaving the value-pinning test in place left the full suite, the recipe guard, and the
     notebook-freshness check all green with the committed, printed objective line now false).
 
-    What this check requires instead: for every real ``select_confidence_threshold(``/
+    What this check requires: for every real ``select_confidence_threshold(``/
     ``select_threshold(`` call this recipe's committed notebook or ``helpers.py`` actually makes
     (``_threshold_pin_obligations``, AST-found so a call-shaped string inside an unrelated
-    f-string decoration is never mistaken for the real call), the objective it actually
-    selects -- the keyword name, or the objective string -- must be asserted present somewhere
-    in this recipe's tests, in a test function that demonstrably reads the real committed
-    source rather than a hand-typed duplicate of it (``_reads_real_committed_source``). A
-    recipe whose call this check cannot identify an objective for (not observed in the
-    published set) fails here too, rather than being silently skipped."""
+    f-string decoration is never mistaken for the real call, and resolved through a straight
+    import alias so an aliased call is never silently invisible either), the objective it
+    actually selects -- the keyword name, or the objective string -- must be PINNED somewhere in
+    this recipe's tests: an assertion whose truth depends on a value that is, by data-flow
+    tracing, really tied to the committed call (``_pinned_objective_spellings`` and the
+    functions above it), not merely co-located with a string that happens to name the spelling.
+    This recognises every shape the published set currently uses (a direct ``in``/``not in``
+    against a read of the real source; an AST-extracted keyword value compared with ``==``; a
+    ``.count(...) == n``; an f-string literal; a real production call tied, with a
+    non-degeneracy check, to a local re-derivation) because it traces the PROPERTY -- "this
+    assertion's truth depends on the real committed call" -- rather than enumerating spellings
+    of it, which is exactly the defence CONTRIBUTING.md section 6 shows failing five times over
+    for the same reason. A call this check cannot identify an objective for (not observed in the
+    published set), or a cell/``helpers.py`` that does not parse as plain Python at all, fails
+    here too, rather than being silently skipped."""
     obligations = _threshold_pin_obligations(recipe_dir(recipe))
     if not obligations:
         pytest.skip(
@@ -1401,6 +1688,12 @@ def test_the_threshold_objective_is_pinned_by_source_spelling(recipe):
     pinned = _pinned_objective_spellings(recipe_dir(recipe))
     violations = []
     for location, func_name, objective in obligations:
+        if func_name == "<unparseable>":
+            violations.append(
+                f"{location}: does not parse as plain Python -- this check cannot verify any "
+                "threshold call here (an IPython magic, or a real syntax error?)"
+            )
+            continue
         if objective is None:
             violations.append(
                 f"{location} {func_name}(...): objective not identifiable by this check"
@@ -1408,7 +1701,7 @@ def test_the_threshold_objective_is_pinned_by_source_spelling(recipe):
             continue
         if not any(objective in needle for needle in pinned):
             violations.append(
-                f"{location} {func_name}(...): objective {objective!r} is not asserted "
-                "present, tied to a real read of the committed source, anywhere in tests/"
+                f"{location} {func_name}(...): objective {objective!r} is not pinned by any "
+                "assertion in tests/ that this check can tie to the real committed call"
             )
     assert not violations, f"{recipe['slug']}: " + "; ".join(violations)

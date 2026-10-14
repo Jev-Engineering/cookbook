@@ -642,16 +642,19 @@ hand instead at each wave close-out (`pytest -m catalog_audit tests/test_recipe_
 [development.md](development.md#continuous-integration)). Running it the day
 it landed found real, pre-existing drift in recipes merged before the guard existed; that drift
 is recorded once, in `tests/recipe_guard_known_failures.py`, as a `(recipe slug, check id)`
-allowlist that marks the pair `xfail(strict=True)` with a reason naming `#163`, the sweep issue
-that owns fixing it. The protocol: a recipe pull request never adds an entry (fixing a check it
+allowlist that marks the pair `xfail(strict=True)` with a reason naming the issue that owns
+fixing it — `#163`, the original sweep issue, for the drift `#165`'s own checks found; a later
+foundation pull request's stricter check names its own issue instead when it reveals its own new
+drift (`threshold_objective_pin`'s entries name `#244`, whose own acceptance criteria asked for
+exactly that audit). The protocol: a recipe pull request never adds an entry (fixing a check it
 newly fails belongs in the recipe itself, not in the allowlist, and the path is outside its scope
-check allowlist in any case); only a `#163` sweep pull request removes one, by making the
-underlying recipe pass the check for real — `strict=True` turns a sweep that fixes the recipe but
-forgets to remove the entry into a hard failure, so the allowlist cannot go stale in that
-direction either (one check narrower since #203: a `next_steps_inbound_links` entry is now caught
-only at the next close-out, not by per-PR CI); and a foundation pull request that adds a stricter
-guard check may add the entries that check newly reveals, never one for a check that already
-existed and already passed.
+check allowlist in any case); only a sweep pull request against the entry's own named issue
+removes one, by making the underlying recipe pass the check for real — `strict=True` turns a
+sweep that fixes the recipe but forgets to remove the entry into a hard failure, so the allowlist
+cannot go stale in that direction either (one check narrower since #203: a
+`next_steps_inbound_links` entry is now caught only at the next close-out, not by per-PR CI); and
+a foundation pull request that adds a stricter guard check may add the entries that check newly
+reveals, never one for a check that already existed and already passed.
 
 ## Local commands
 
