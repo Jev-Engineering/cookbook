@@ -175,7 +175,14 @@ def test_request_count_equals_one_decide_per_example_not_per_reference():
 
 
 # --------------------------------------------------------------------------------------------
-# Baselines: on real, balanced fixture counts (not a formula), and that neither matches Jev.
+# Baselines: on real, balanced fixture counts (not a formula). Two of the three baselines are
+# constant predictions; on a pool balanced k ways a constant prediction scores exactly 1/k by
+# arithmetic alone, so a test asserting that figure is pinning a STRUCTURAL FLOOR, not guarding
+# against a baseline that could have matched or beaten Jev -- nothing cheaper-and-constant ever
+# could, on a balanced pool, whatever the mechanism's own accuracy is. The one baseline capable
+# of actually tying or beating Jev is keyword_overlap_baseline, whose accuracy is earned from
+# the statements' own text rather than fixed by the label distribution; the test that follows it
+# below is the one that can fail, and is the real rule-19 guard.
 # --------------------------------------------------------------------------------------------
 
 
@@ -194,8 +201,8 @@ def test_always_unrelated_baseline_is_constant():
 
 def test_fixture_gold_counts_are_four_per_outcome_per_scored_split():
     """Pins the balanced-class design the baseline comparison depends on: if a future fixture
-    edit skews the class balance, the majority-class baseline stops being a fair comparison
-    point and this test is what would catch it."""
+    edit skews the class balance, the constant baselines stop sitting at a shared 1/k floor and
+    this test is what would catch it."""
     labels = load_labels(RECIPE)
     examples = {e.id: e for e in load_inputs(RECIPE)}
     for split in ("validation", "test"):
@@ -205,11 +212,36 @@ def test_fixture_gold_counts_are_four_per_outcome_per_scored_split():
         assert counts == {CORROB: 4, SUPER: 4, CONTRA: 4, UNREL: 4}
 
 
-def test_neither_baseline_beats_jev_on_test():
-    """Rule-19 shape: a baseline that matches or beats the mechanism on its own metric, for
-    fewer (here, zero) requests, is a dominated headline, not a draw. Both baselines read
-    nothing and cost 0 requests; this proves Jev's raw accuracy on `test` strictly beats both,
-    so the comparison in the notebook is a real win, not a tie dressed up as one."""
+def test_constant_baselines_sit_at_the_structural_floor_not_a_checked_comparison():
+    """On a pool balanced k ways (k=4 here, pinned by the test above), every constant-prediction
+    baseline scores exactly 1/k: this is arithmetic, true of ANY mechanism's own accuracy and
+    any constant prediction, so it cannot distinguish an above-chance mechanism from one at
+    chance. Swept here over every constant option, not only the two the notebook names, to show
+    the floor is not particular to `corroborating`/`unrelated`: every one of the four scores the
+    same 0.2500 on both scored splits, because that is what "balanced four ways" means."""
+    labels = load_labels(RECIPE)
+    examples = {e.id: e for e in load_inputs(RECIPE)}
+    for split in ("validation", "test"):
+        gold = [labels[e.id] for e in examples.values() if e.split == split and e.id in labels]
+        for option in helpers.RECONCILE_OPTIONS:
+            accuracy = sum(g == option for g in gold) / len(gold)
+            assert accuracy == 0.25, (split, option)
+    # And the two baselines the notebook prints are exactly two readings of that one floor:
+    majority = helpers.majority_class_baseline(
+        [labels[e.id] for e in examples.values() if e.id in labels]
+    )
+    assert majority == helpers.CORROBORATING  # first in RECONCILE_OPTIONS, a genuine four-way tie
+
+
+def test_keyword_overlap_baseline_does_not_beat_jev_on_test():
+    """The one baseline here whose score is NOT fixed by the pool's balance: it is capable of
+    tying or beating Jev in principle (a mechanism that just restates cue-words could score
+    arbitrarily well or badly depending on the fixtures), so this assertion is a real guard
+    against a dominated headline, not a floor check. Computed by counting over the real
+    committed `test` split, both sides: a tamper that made `keyword_overlap_baseline` score 1.0
+    (for example, by reading `fields` for the gold label directly) would turn this red, which is
+    the property `test_constant_baselines_sit_at_the_structural_floor_not_a_checked_comparison`
+    structurally cannot show for either constant baseline."""
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
     labels = load_labels(RECIPE)
@@ -224,13 +256,31 @@ def test_neither_baseline_beats_jev_on_test():
     ]
     jev_accuracy = sum(jev_correct) / len(jev_correct)
 
-    majority = helpers.majority_class_baseline(gold)
-    majority_accuracy = sum(g == majority for g in gold) / len(gold)
-    always_unrelated_accuracy = sum(g == UNREL for g in gold) / len(gold)
+    overlap_correct = [
+        helpers.keyword_overlap_baseline(e.fields) == g for e, g in zip(test, gold, strict=True)
+    ]
+    overlap_accuracy = sum(overlap_correct) / len(overlap_correct)
 
-    assert majority_accuracy == always_unrelated_accuracy == 0.25  # four-way, perfectly balanced
-    assert jev_accuracy > majority_accuracy
-    assert jev_accuracy > always_unrelated_accuracy
+    assert 0.0 < overlap_accuracy < 1.0  # a real, non-degenerate baseline on this split
+    assert jev_accuracy > overlap_accuracy
+
+
+def test_keyword_overlap_baseline_predicts_superseding_on_an_explicit_correction_cue():
+    fields = {
+        "topic": "x",
+        "existing_statement": "The value is one.",
+        "new_statement": "Correction: the value is two.",
+    }
+    assert helpers.keyword_overlap_baseline(fields) == SUPER
+
+
+def test_keyword_overlap_baseline_predicts_unrelated_on_disjoint_statements():
+    fields = {
+        "topic": "x",
+        "existing_statement": "The parking garage charges eight dollars on weekends.",
+        "new_statement": "The orientation starts at ten on Wednesday.",
+    }
+    assert helpers.keyword_overlap_baseline(fields) == UNREL
 
 
 # --------------------------------------------------------------------------------------------

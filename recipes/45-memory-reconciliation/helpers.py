@@ -17,6 +17,7 @@ using only ``Store``'s own public write API (``put``/``delete``), never a parall
 machine and never anything that reimplements ``Store`` itself.
 """
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -311,12 +312,25 @@ def rebuild_store_from_writes(writes: list[WriteRecord]) -> Store:
 
 # --------------------------------------------------------------------------------------------
 # Baselines.
+#
+# The two constant baselines below read no statement and are useful to print, but on a pool
+# balanced k ways (every scored split here is four-per-outcome, pinned by
+# test_fixture_gold_counts_are_four_per_outcome_per_scored_split) every constant prediction
+# scores exactly 1/k by arithmetic alone -- that is a structural floor, true of any above-chance
+# mechanism on a balanced pool, not a comparison that could go the other way. A floor worth
+# printing is not the same thing as a guard against a baseline that matches or beats the
+# mechanism, which is what rule 19's "dominated headline" concern is actually about: it needs a
+# baseline whose score is NOT fixed by the pool's balance, so it could in principle tie or beat
+# Jev. keyword_overlap_baseline below is that comparison: still zero requests, but its accuracy
+# is earned from the statements' own text, not fixed by how the labels happen to be distributed.
 # --------------------------------------------------------------------------------------------
 
 
 def majority_class_baseline(gold_labels: list[str]) -> str:
     """The most frequent label in ``gold_labels`` (ties broken by ``RECONCILE_OPTIONS`` order,
-    so the result is deterministic). Reads no statement at all; spends no request."""
+    so the result is deterministic). Reads no statement at all; spends no request. On a pool
+    balanced k ways this is one of the k options at accuracy exactly 1/k -- a structural floor,
+    not evidence that nothing cheaper could compete (see ``keyword_overlap_baseline``)."""
     counts = {name: 0 for name in RECONCILE_OPTIONS}
     for label in gold_labels:
         counts[label] += 1
@@ -325,6 +339,58 @@ def majority_class_baseline(gold_labels: list[str]) -> str:
 
 def always_unrelated_baseline(_fields: dict[str, Any]) -> str:
     """The simplest possible baseline: always answer ``unrelated``, reading nothing. Spends no
-    request and no judgment; shown beside the majority-class baseline and Jev's own accuracy so
-    a reader can see what, if anything, each extra piece of information buys."""
+    request and no judgment. On a pool balanced k ways this scores the same 1/k as
+    ``majority_class_baseline``, for the same arithmetic reason -- both are constant
+    predictions, so the two numbers are one structural floor reported twice, not two
+    independent comparisons."""
     return UNRELATED
+
+
+_SUPERSEDING_CUES = ("correction", "actually", "update:", "updated to", "changed to", "now ")
+
+_STOPWORDS = frozenset(
+    "a an the is are was were be been being to of in on at for with and or but not no so "
+    "that this these those it its as by from has have had do does did will would can could "
+    "should".split()
+)
+
+
+def _content_words(text: str) -> set[str]:
+    """The lowercase alphanumeric tokens of ``text`` longer than two characters, minus a short
+    stopword list. Used only by ``keyword_overlap_baseline``, never by the question or the
+    policy: Jev reads the statements themselves, never a bag of words Python extracted from
+    them."""
+    words = re.findall(r"[a-z0-9']+", text.lower())
+    return {w for w in words if w not in _STOPWORDS and len(w) > 2}
+
+
+def keyword_overlap_baseline(fields: dict[str, Any]) -> str:
+    """A non-constant, zero-request baseline: no model call, just two surface cues read from the
+    statements themselves. Unlike the two constant baselines above, its accuracy is earned from
+    the text and is not fixed by the pool's class balance, so it is capable of tying or beating
+    Jev -- which is what makes it an actual guard against a dominated headline rather than a
+    floor that cannot be anything else.
+
+    1. If the new statement contains an explicit correction cue (``"correction"``, ``"actually"``,
+       ``"update:"``, ``"updated to"``, ``"changed to"``, or ``"now "``), predict ``superseding``.
+    2. Otherwise, compare the new statement's content words against the existing memory's: no
+       overlap at all predicts ``unrelated``, mostly-overlapping predicts ``corroborating``
+       (restating the same fact tends to reuse most of its words), and anything in between
+       predicts ``contradicting`` (sharing the topic's words without an explicit correction cue).
+
+    This is deliberately simple and reads nothing Jev was not already given; its accuracy on the
+    committed fixtures is computed in the notebook by counting, not asserted here.
+    """
+    new_text = fields["new_statement"].lower()
+    if any(cue in new_text for cue in _SUPERSEDING_CUES):
+        return SUPERSEDING
+    new_words = _content_words(fields["new_statement"])
+    existing_words = _content_words(fields["existing_statement"])
+    if not new_words or not existing_words:
+        return UNRELATED
+    overlap = len(new_words & existing_words) / len(existing_words)
+    if overlap < 0.2:
+        return UNRELATED
+    if overlap >= 0.5:
+        return CORROBORATING
+    return CONTRADICTING

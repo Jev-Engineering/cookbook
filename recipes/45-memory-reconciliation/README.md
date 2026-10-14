@@ -64,9 +64,14 @@ risk of "answer when confidence clears the threshold `select_confidence_threshol
 `superseding` keep the superseded value reachable in history; `contradicting` leaves the live
 value untouched and records a conflict; the write log alone reconstructs the final snapshot) --
 proven exhaustively in `tests/test_helpers.py` over every outcome and a grid of confidences, and
-shown as a pipeline check over the real `test` split in the notebook; and two zero-request
-baselines (majority class; always `unrelated`), both at 0.2500 accuracy on this exactly-balanced
-test split, well below Jev's own raw accuracy.
+shown as a pipeline check over the real `test` split in the notebook; and three zero-request
+baselines. Two are constant predictions (majority class; always `unrelated`), which on this
+exactly-balanced, four-way test split both sit at exactly 0.2500 by arithmetic alone -- a
+structural floor, not two independent comparisons, since no constant prediction can ever score
+otherwise on a balanced pool. The third, `helpers.keyword_overlap_baseline`, is not constant --
+it earns its answer from the statements' own text (an explicit correction cue, then word
+overlap with the existing memory) -- and is the one capable of actually tying or beating Jev; on
+`test` it does not (0.8125 against Jev's 0.9375).
 
 ## Pull request rules
 
