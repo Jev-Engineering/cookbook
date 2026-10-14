@@ -1,0 +1,87 @@
+# Approval scope review
+
+**Recipe 41** · Level 4 (Advanced) · Decision type: `Noul`
+
+Flag semantic mismatches between an approved task and a proposed tool action while Python enforces exact permissions and approval bindings.
+
+## What it teaches
+
+A proposed tool action carries a binding -- the approval it claims to act under -- and Python checks that binding exactly: the approval must be the one actually on file for the action, active, with a use remaining, naming the right actor, the right tool and the right resource. That check reads no model answer and can refuse an action before one is ever asked for. Only once the binding holds does Jev answer two independent `Noul` propositions about whether the action's own text is a semantic fit for its approval's task; Python composes the binding check and the two propositions into one outcome, and the whole point of the recipe is the order: the model's answer can only ever add a hold, never grant an action Python has already refused, which a breakpoint-exact sweep of the full `[0, 1]` answer space proves rather than asserts.
+
+## Run it offline
+
+From the repository root, in an environment with `pip install -e ".[dev]"`:
+
+```bash
+python -m jev_cookbook.fixtures validate recipes/41-approval-scope-review
+python tools/execute_notebook.py recipes/41-approval-scope-review
+pytest recipes/41-approval-scope-review
+```
+
+The notebook runs from this folder with no network and no API key, replaying `fixtures/`.
+
+Reproducing the committed notebook outputs byte for byte needs the exact stack CI installs for the
+`Notebook (<recipe>)` job: `pip install -e ".[ml]" -c .github/constraints-notebooks.txt` (Python
+3.14; `nbclient` and `ipykernel` are core dependencies, so this alone is enough to execute the
+notebook — `.[dev]` above is for `ruff` and `pytest`, which that job does not run; see
+[docs/recipe-template.md](../../docs/recipe-template.md) step 6).
+
+## Switch to live
+
+Live calls are opt-in and change nothing but the backend. Install the SDK
+(`pip install -e ".[live]"`) and set `TYPESAFE_API_KEY`, `JEV_COOKBOOK_LIVE=1` and
+`JEV_COOKBOOK_LIVE_MODEL`; then open `notebook.ipynb` from this folder in Jupyter (not a dependency
+of this repository), or record answers with the recorder described in
+[docs/live.md](../../docs/live.md). `tools/execute_notebook.py` removes those variables on purpose
+and always runs offline. The live backend's default request budget is 25
+(`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)); every attempt counts
+against that budget, including each retry. In live mode this notebook makes exactly **35**
+calls, one for each of the 35 examples in `fixtures/` — the 5 `demo` examples plus the 15
+`validation` and 15 `test` requests, each decided once and the stored answer reused wherever it
+is shown again. That is **above** the live backend's default request budget of 25: set
+`JEV_COOKBOOK_LIVE_MAX_REQUESTS=35` (or higher, to allow for a retry) before running this
+notebook live, or it stops partway through with `BudgetExceeded`. Never put a key in a notebook
+or a fixture.
+
+## What was and was not measured
+
+- **Mode:** synthetic (offline replay of hand-written answers). Not measured live.
+- **Model, capture date:** not applicable while every answer is synthetic. A recorded recipe
+  would replace this line with the model the API returned and the capture date or dates.
+- **N:** 15 `validation` and 15 `test` examples are scored (30 total; the 5 `demo` examples are
+  shown but never scored).
+
+A recorded recipe states the model version the API returned, the capture date and N for every number
+it reports, here and in the notebook.
+
+The offline run replays 35 hand-written (synthetic) requests with synthetic answers, some wrong
+on purpose: one on `test` confidently reads `intent_mismatch` as clear when gold says it is a
+mismatch, and because that reading clears both the business threshold and the confidence gate,
+it is confidently, wrongly executed — the one `test` mistake the task-level risk (`0.1000`)
+reports, alongside two of thirty pooled business-rule decisions on `validation` that are wrong
+without ever being confidently executed. The business thresholds, the confidence gate, the
+precision and recall on each proposition, the task-level coverage, accuracy and risk, the
+baseline comparison and the exhaustive safety sweep are all checks that the pipeline works; they
+say nothing about how Jev performs, how fast it is, or what it costs.
+
+## Pull request rules
+
+This recipe's pull request changes only `recipes/41-approval-scope-review/`. The root `README.md` is generated; per
+the generated-README exception in
+[CONTRIBUTING.md](../../CONTRIBUTING.md#the-generated-readme-exception), a designated integration
+worker regenerates it **inside this same pull request**, after this branch is handed over, by
+updating against current `main` and running `tools/render_catalog.py`; it is never regenerated by
+a separate pull request, and this recipe's own builder never runs the renderer. While this recipe
+remains unpublished and that integration step has not yet run, `Catalog (README is current)` is
+expected to be red on its pull request, which is not a defect to fix here; once the catalog is
+regenerated for it, the check turns green and stays that way. No sentence anywhere in this
+folder states or implies Jev's real quality, latency, or cost: every number above is a synthetic
+pipeline check. The full contract is
+[CONTRIBUTING.md](../../CONTRIBUTING.md).
+
+## Sources
+
+- S02: [TypeSafe AI: Primitives (Questions)](https://docs.typesafe.ai/primitives)
+- S03: [TypeSafe AI: Confidence](https://docs.typesafe.ai/confidence)
+- S04: [TypeSafe AI: How to build with TypeSafe](https://docs.typesafe.ai/concepts/how-to-build-with-system-one)
+- S07: [TypeSafe AI: Jev 1.13 jaggedness](https://docs.typesafe.ai/model-jaggedness/jev-1.13)
