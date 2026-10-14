@@ -68,6 +68,27 @@ def test_the_flat_question_covers_every_full_path_plus_the_fallback():
     assert list(helpers.FLAT_LEAVES) == expected
 
 
+def test_the_staged_policys_widest_question_is_smaller_than_the_flat_questions():
+    """The structural case for staging, independent of any one measurement: for ``D``
+    departments of ``T`` topics each, the flat question's option count grows as ``D * T + 1``
+    (every full path plus the fallback), while the staged design never asks a single question
+    wider than ``max(D + 1, T)`` -- the department question (``D`` real departments plus the
+    fallback) or the largest department's own topic question, whichever has more options. On
+    this taxonomy ``D = 3`` and the largest department has ``T = 3`` topics, so the staged
+    design's widest question has 4 options against the flat question's 9 -- small enough on
+    both sides that one combined question stays practical to write and to answer, which is
+    exactly why the flat baseline ties the hierarchy rather than losing to it here. The gap
+    between the two counts grows with ``T``; it does not close as ``T`` shrinks."""
+    staged_widest = max(
+        len(helpers.DEPARTMENTS),
+        max(len(helpers.LEAVES_BY_DEPARTMENT[d]) for d in helpers.REAL_DEPARTMENTS),
+    )
+    flat_count = len(helpers.FLAT_LEAVES)
+    assert staged_widest == 4
+    assert flat_count == 9
+    assert staged_widest < flat_count
+
+
 # --------------------------------------------------------------------------------------------
 # department_of: reads the department out of a full path, never derives one label from another
 # --------------------------------------------------------------------------------------------
@@ -455,29 +476,43 @@ def test_a_department_correct_fixture_can_still_have_the_wrong_full_path():
 # the notebook pools several lists built from the same test_examples list (gold, resolved
 # paths, greedy paths, flat answers) with plain list comprehensions and zip(..., strict=True),
 # never a dict keyed by id -- so the claim that index i of every list describes the same
-# document needs checking, not assuming. Reconstructed here against the real fixtures the
-# notebook replays, confirming by doc_id at every index rather than merely trusting that four
-# comprehensions over the same source list stay aligned.
+# document needs checking against the committed notebook cell itself, not against a
+# reconstruction that uses the very comprehensions it is supposed to distrust (a rebuild in
+# this file would hold any resolve_path's own doc_id-passthrough by construction, whatever the
+# notebook's cell actually does -- it is a property of resolve_path, not of the notebook).
 # --------------------------------------------------------------------------------------------
 
 
-def test_the_pooled_evaluation_lists_stay_aligned_by_document():
-    backend = get_backend(fixtures=responses_path(RECIPE))
-    flat_question = helpers.build_flat_question()
-    examples = load_inputs(RECIPE)
-    test = [e for e in examples if e.split == "test"]
+def test_the_notebooks_pooled_evaluation_lists_share_one_unreordered_source():
+    """The notebook's ``evaluation-test`` cell pools four lists over the test split --
+    ``test_gold``, ``test_resolved``, ``test_greedy`` and ``test_flat`` -- and the rest of the
+    evaluation section indexes all four in parallel, trusting that index i of each describes
+    the same document. The committed cell makes that true by construction, and this test
+    checks the committed cell's own source for exactly that construction: ``test_fetched`` is
+    built directly from ``test_examples``, in order; ``test_gold`` is built directly from
+    ``test_examples``, in the same order; ``test_resolved`` and ``test_greedy`` are each built
+    from ``zip(test_examples, test_fetched, strict=True)``, pairing them index-for-index with
+    those same two already-aligned lists; and ``test_flat`` is built directly from
+    ``test_fetched``, in its order. None of the four comprehensions reorders its source.
 
-    def flat_answer(example):
-        return _decide(backend, {"flat_topic": flat_question}, "flat_topic", example)
+    A reorder actually committed to this cell is what turns this red: mutating the committed
+    ``test_gold`` line to iterate ``reversed(test_examples)`` instead of ``test_examples`` --
+    a real misalignment between gold and the other three pooled lists -- removes the exact
+    substring this test asserts and fails only this assertion."""
+    notebook = json.loads((RECIPE / "notebook.ipynb").read_text("utf-8"))
+    cells = {c.get("id"): "".join(c["source"]) for c in notebook["cells"]}
+    source = cells["evaluation-test"]
+    normalized = " ".join(source.split())
 
-    resolved = [_resolve(backend, e, FROZEN_BRANCH_MARGIN) for e in test]
-    greedy = [_resolve(backend, e, 0.0) for e in test]
-    flat = [flat_answer(e) for e in test]
+    assert "reversed(" not in source
 
-    assert len(test) == len(resolved) == len(greedy) == len(flat)
-    for example, r, g in zip(test, resolved, greedy, strict=True):
-        assert r.doc_id == example.id
-        assert g.doc_id == example.id
+    assert "test_fetched = [fetch(e) for e in test_examples]" in normalized
+    assert "test_gold = [labels[e.id] for e in test_examples]" in normalized
+    assert normalized.count("in zip( test_examples, test_fetched, strict=True )") == 2
+    assert (
+        "test_flat = [flat_answer.choice for _department_answer, _topic_answers, "
+        "flat_answer in test_fetched]"
+    ) in normalized
 
 
 # --------------------------------------------------------------------------------------------
@@ -600,3 +635,38 @@ def test_the_notebooks_threshold_objectives_match_this_files_pinned_keywords():
     assert "branch_min_coverage = 0.65" in cells["python-rule"]
     assert "min_coverage=review_min_coverage" in cells["python-rule"]
     assert "review_min_coverage = 0.75" in cells["python-rule"]
+
+
+# --------------------------------------------------------------------------------------------
+# select_confidence_threshold's min_coverage is a floor on coverage, not on the threshold
+# itself (see its own docstring in src/jev_cookbook/evaluation.py): demanding that MORE
+# validation examples clear the returned threshold can only be satisfied by a LOWER-or-equal
+# threshold, never a higher one. "Next steps" sends a reader back to raise
+# branch_min_coverage and watch branch_margin move -- pinned here, on this recipe's own
+# validation pool, so the direction cannot go stale silently.
+# --------------------------------------------------------------------------------------------
+
+
+def test_a_higher_min_coverage_can_only_select_a_lower_or_equal_threshold():
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    department_question = helpers.build_department_question()
+    labels = load_labels(RECIPE)
+    examples = load_inputs(RECIPE)
+
+    def department_answer(example):
+        return _decide(backend, {"department": department_question}, "department", example)
+
+    validation = [e for e in examples if e.split == "validation"]
+    val_department_correct = [
+        department_answer(e).choice == helpers.department_of(labels[e.id]) for e in validation
+    ]
+    val_department_confidence = [department_answer(e).confidence for e in validation]
+
+    lower_floor = select_confidence_threshold(
+        val_department_correct, val_department_confidence, min_coverage=0.65
+    )
+    higher_floor = select_confidence_threshold(
+        val_department_correct, val_department_confidence, min_coverage=0.85
+    )
+    assert higher_floor <= lower_floor
+    assert higher_floor < lower_floor, "expected a real move on this pool, not a tie"

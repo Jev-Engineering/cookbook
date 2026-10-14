@@ -217,10 +217,15 @@ def resolve_path(
     branch_margin: float,
 ) -> ResolvedPath:
     """The composed routing decision: ask the department question once; if its own confidence
-    clears ``branch_margin``, commit to the single top-ranked department (greedy, one further
-    request unless that department is the fallback); otherwise, carry the top two real
-    departments forward and ask the topic question for each of them, so an early, uncertain
-    judgment never forecloses a department the model was not sure to rule out.
+    clears ``branch_margin``, commit to the single top-ranked REAL department (greedy, one
+    further request for its topic -- ``rank_real_departments`` ranks only the real
+    departments, so the department this commits to is never the fallback); otherwise, carry
+    the top two real departments forward and ask the topic question for each of them, so an
+    early, uncertain judgment never forecloses a department the model was not sure to rule
+    out. Either way, at least one topic request is always spent: the fallback is an additional
+    candidate, scored at no request of its own from the department answer's own probability
+    for it, but it never substitutes for the topic request already spent on a real
+    department, so no document resolves in fewer than two requests.
 
     ``branch_margin = 0.0`` makes this never branch (confidence is never less than 0), which is
     exactly the greedy single-path baseline this use case names -- the same tested function, not a
