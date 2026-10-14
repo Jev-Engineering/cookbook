@@ -14,7 +14,7 @@ differing scope, or the named fallback, `not_conflicting`, for a pair that was n
 conflict. Python owns the state (including the computed temporal relationship), the confidence
 gate that decides which diagnoses are reported, and two zero-request baselines that show exactly
 where Jev earns its keep against cheaper alternatives — and where, on this recipe's own
-fixtures, a cheap feature ties it instead.
+fixtures, a cheap feature beats it instead.
 
 ## Run it offline
 

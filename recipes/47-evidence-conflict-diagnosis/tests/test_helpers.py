@@ -472,13 +472,14 @@ def test_name_pattern_baseline_predicts_entity_on_exactly_the_entity_rows_and_no
     assert len(predicted_entity_ids) == 8
 
 
-def test_name_pattern_baseline_ties_jev_on_both_scored_splits():
+def test_name_pattern_baseline_beats_jev_on_both_scored_splits():
     """Derived by counting over the real committed fixtures, both splits: adding the two-word
-    personal-name feature to ``structured_field_baseline`` closes its entire gap with Jev here --
-    1.0000 accuracy on both `validation` and `test`, at zero requests. Reported plainly rather
-    than hidden: see the notebook's Baselines section for why this does not generalise past
-    these fixtures (every `entity` excerpt pair was generated from one surface template that no
-    other category uses, which is what the feature is actually keying on)."""
+    personal-name feature to ``structured_field_baseline`` closes its entire gap with Jev and
+    then exceeds it -- 1.0000 accuracy on both `validation` and `test`, beating Jev's own 0.9375
+    raw accuracy by 0.0625, at zero requests. Reported plainly rather than hidden: see the
+    notebook's Baselines section for why this does not generalise past these fixtures (every
+    `entity` excerpt pair was generated from one surface template that no other category uses,
+    which is what the feature is actually keying on)."""
     labels = load_labels(RECIPE)
     examples = load_inputs(RECIPE)
     for split in ("validation", "test"):
