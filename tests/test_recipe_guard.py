@@ -76,6 +76,13 @@ check id                              rule -> detection
 ``measured_cell_prints_n_offline``    CONTRIBUTING.md section 2 (#215): the "measured" cell's
                                        offline branch prints N, not only its live/recorded
                                        branch.
+``threshold_objective_pin``           for every real ``select_confidence_threshold(``/
+                                       ``select_threshold(`` call in the committed notebook or
+                                       ``helpers.py``, the objective keyword/value it actually
+                                       uses is asserted present in a recipe test that
+                                       demonstrably reads the real committed source -- not a
+                                       hand-written literal beside the call, and not the
+                                       resulting threshold value alone.
 ====================================  =====================================================
 
 Scope decisions (see the pull request body for the full reasoning):
@@ -183,7 +190,12 @@ def guarded(check_id):
         for recipe in recipes:
             slug = _slug(recipe)
             reason = KNOWN_FAILURES.get((slug, check_id))
-            marks = [pytest.mark.xfail(reason=f"#163: {reason}", strict=True)] if reason else []
+            # The reason string itself carries its own citation (see that file's docstring):
+            # historically always "... see #163", but #244's own guard adds entries for drift
+            # that check newly reveals, which is #244's own work list, not #163's -- so this no
+            # longer hardcodes a "#163:" prefix onto every entry regardless of which issue it
+            # actually tracks (see the pull request body for #244's reasoning).
+            marks = [pytest.mark.xfail(reason=reason, strict=True)] if reason else []
             out.append(pytest.param(recipe, id=slug, marks=marks))
         return out
 
@@ -1170,3 +1182,221 @@ def test_the_measured_cell_prints_n_in_the_offline_branch(recipe):
             f"{recipe['slug']}: cell {cell.get('id', '?')}'s committed stdout has no line "
             "starting with N:"
         )
+
+
+# --------------------------------------------------------------------------------------------
+# check 11: the threshold-selection OBJECTIVE is pinned by source spelling (#244)
+# --------------------------------------------------------------------------------------------
+
+# For each function, the complete set of spellings its objective can take: the keyword
+# argument name for select_confidence_threshold (mutually exclusive, no default -- exactly one
+# is given), or the string value of select_threshold's `objective` argument (positional or
+# keyword; defaults to "f1" when omitted entirely).
+THRESHOLD_OBJECTIVE_SPELLINGS = {
+    "select_confidence_threshold": ("target_accuracy", "min_coverage"),
+    "select_threshold": ("f1", "recall_at_precision", "precision_at_recall"),
+}
+
+
+def _threshold_call_objective(call: ast.Call) -> str | None:
+    """The objective actually selected by one real ``select_confidence_threshold(...)`` or
+    ``select_threshold(...)`` call: the keyword-argument NAME present for the former
+    (``target_accuracy`` or ``min_coverage`` -- whichever the call actually binds), or the
+    string VALUE of the latter's ``objective`` argument, given positionally (3rd argument) or
+    as the keyword ``objective=``. Parsed from the already-parsed ``ast.Call`` node, not by
+    regex on text: a value that merely contains a keyword's spelling as a substring elsewhere
+    in the call (inside an unrelated string argument, say) cannot be mistaken for the argument
+    binding itself. Returns ``None`` for a call shape this cannot identify an objective for (not
+    observed in the published set; such a call is still flagged, as an unidentifiable
+    objective, by the check below rather than silently skipped)."""
+    fn = call.func.id  # type: ignore[union-attr]
+    if fn == "select_confidence_threshold":
+        for kw in call.keywords:
+            if kw.arg in ("target_accuracy", "min_coverage"):
+                return kw.arg
+        return None
+    for kw in call.keywords:
+        if (
+            kw.arg == "objective"
+            and isinstance(kw.value, ast.Constant)
+            and isinstance(kw.value.value, str)
+        ):
+            return kw.value.value
+    if (
+        len(call.args) >= 3
+        and isinstance(call.args[2], ast.Constant)
+        and isinstance(call.args[2].value, str)
+    ):
+        return call.args[2].value
+    return None
+
+
+def _real_threshold_calls(tree: ast.AST) -> list[ast.Call]:
+    """Genuine ``ast.Call`` nodes to ``select_confidence_threshold``/``select_threshold`` --
+    real code, never text that merely looks like a call inside a string literal (an f-string's
+    hand-written decoration quoting the call shape beside it, exactly the pattern #244 found
+    inert). A plain substring/paren-balance scan over the cell's raw text, as this module's own
+    ``extract_calls`` does for other checks, cannot tell the two apart; walking the already-
+    parsed AST can, because a string constant is never an ``ast.Call`` node regardless of what
+    text it contains."""
+    return [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id in THRESHOLD_OBJECTIVE_SPELLINGS
+    ]
+
+
+def _threshold_pin_obligations(recipe_dir_: Path) -> list[tuple[str, str, str | None]]:
+    """``(location, function_name, objective)`` for every real threshold-selection call in this
+    recipe's committed ``notebook.ipynb`` code cells or its ``helpers.py`` -- both are scanned
+    (not the notebook alone) because three published recipes (31, 35, and the template's own
+    sibling pattern) route the call through a ``helpers.py`` wrapper the notebook merely calls
+    by name, and checking only the notebook would silently skip them rather than reveal that
+    they, too, lack the pin -- the same blind spot #222's ``G1(c)`` already has for exactly this
+    shape, which this check must not repeat (see the pull request body)."""
+    obligations: list[tuple[str, str, str | None]] = []
+    notebook = recipe_dir_ / "notebook.ipynb"
+    if notebook.is_file():
+        for cell in notebook_cells(recipe_dir_):
+            if cell["cell_type"] != "code":
+                continue
+            source = cell_source(cell)
+            for call in _real_threshold_calls(ast.parse(source)):
+                func_name = call.func.id  # type: ignore[union-attr]
+                obligations.append(
+                    (f"cell {cell.get('id', '?')}", func_name, _threshold_call_objective(call))
+                )
+    helpers_path = recipe_dir_ / "helpers.py"
+    if helpers_path.is_file():
+        for call in _real_threshold_calls(ast.parse(helpers_path.read_text("utf-8"))):
+            func_name = call.func.id  # type: ignore[union-attr]
+            obligations.append(("helpers.py", func_name, _threshold_call_objective(call)))
+    return obligations
+
+
+def _test_function_defs(tree: ast.AST) -> list[ast.FunctionDef]:
+    return [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")
+    ]
+
+
+def _reads_real_committed_source(segment: str) -> bool:
+    """True if a test function's own source text gives real evidence that it reads the
+    *actual committed* notebook or ``helpers.py`` -- not a hand-typed duplicate of either -- so
+    that an ``assert <spelling> in <name>`` found inside it is tied to something that would
+    really change if the real call were edited. Two routes, matching the two places a real
+    threshold-selection call can live (see ``_threshold_pin_obligations``):
+
+    * the notebook route: the function's text names ``notebook.ipynb`` and subscripts a cell's
+      ``"source"`` (recipes 37, 38, 39, 43, 45's own pins all do exactly this);
+    * the helpers route: the function's text calls ``inspect.getsource(`` on something named
+      ``helpers`` (recipe 31's pin), or reads ``helpers.py``'s own text directly.
+
+    This is deliberately a text heuristic rather than a full data-flow trace (the existing
+    ``_labelled_names``/``_derived_from`` machinery in this module does that for other checks,
+    at real cost): it is scoped to one function at a time (``ast.get_source_segment`` on a
+    single ``def test_...``, never the whole file), so it cannot credit one test's real read to
+    a different, unrelated test's hand-rolled string -- which is the specific evasion this
+    check exists to close, see the pull request body's mutation proof."""
+    notebook_route = "notebook.ipynb" in segment and (
+        '"source"' in segment or "'source'" in segment
+    )
+    helpers_route = ("inspect.getsource(" in segment and "helpers" in segment) or (
+        "helpers.py" in segment and "read_text" in segment
+    )
+    return notebook_route or helpers_route
+
+
+def _asserted_present_spellings(func: ast.FunctionDef) -> set[str]:
+    """String constants asserted present (``assert <literal> in <name>``, on either side of the
+    comparison) anywhere in ``func``'s body. Only the ``In`` operator: this check is concerned
+    with what a recipe's tests claim IS in the committed source, not what they claim is absent
+    (a recipe may use either shape, or both, to pin an objective; see the pull request body for
+    why only presence is required here and not also a negative exclusion of every alternative)."""
+    present: set[str] = set()
+    for node in ast.walk(func):
+        if not isinstance(node, ast.Assert):
+            continue
+        test = node.test
+        if (
+            not isinstance(test, ast.Compare)
+            or len(test.ops) != 1
+            or not isinstance(test.ops[0], ast.In)
+        ):
+            continue
+        for side in (test.left, *test.comparators):
+            if isinstance(side, ast.Constant) and isinstance(side.value, str):
+                present.add(side.value)
+    return present
+
+
+def _pinned_objective_spellings(recipe_dir_: Path) -> set[str]:
+    """Every string a recipe's ``tests/*.py`` asserts is present in a real read of the
+    committed notebook or ``helpers.py`` (``_reads_real_committed_source``), pooled across every
+    qualifying test function in every test file. Pooling recipe-wide rather than per-obligation
+    is a deliberate scope simplification: every published recipe's own threshold calls use one
+    objective per function consistently (no recipe mixes, say, ``min_coverage`` in one
+    ``select_confidence_threshold`` call with ``target_accuracy`` in another), so there is no
+    live case where pooling lets one call's pin stand in for a different call's missing one --
+    see the pull request body for how this was checked."""
+    present: set[str] = set()
+    tests_dir = recipe_dir_ / "tests"
+    if not tests_dir.is_dir():
+        return present
+    for path in sorted(tests_dir.glob("*.py")):
+        text = path.read_text("utf-8")
+        try:
+            tree = ast.parse(text)
+        except SyntaxError:
+            continue
+        for func in _test_function_defs(tree):
+            segment = ast.get_source_segment(text, func) or ""
+            if _reads_real_committed_source(segment):
+                present |= _asserted_present_spellings(func)
+    return present
+
+
+@pytest.mark.parametrize("recipe", guarded_with_template("threshold_objective_pin")())
+def test_the_threshold_objective_is_pinned_by_source_spelling(recipe):
+    """#244: nothing pins a notebook's threshold-selection OBJECTIVE. A printed f-string literal
+    beside the call (``print(f"objective: select_confidence_threshold(..., min_coverage=0.75)")``)
+    is hand-written and nothing compares it to the call; a test asserting the resulting
+    threshold *value* only pins the objective if no other objective can produce that value,
+    which recipe 38's own pool demonstrated is not reliable (``min_coverage=0.75`` and
+    ``target_accuracy=1.0`` select the identical threshold there, so swapping the call's keyword
+    and leaving the value-pinning test in place left the full suite, the recipe guard, and the
+    notebook-freshness check all green with the committed, printed objective line now false).
+
+    What this check requires instead: for every real ``select_confidence_threshold(``/
+    ``select_threshold(`` call this recipe's committed notebook or ``helpers.py`` actually makes
+    (``_threshold_pin_obligations``, AST-found so a call-shaped string inside an unrelated
+    f-string decoration is never mistaken for the real call), the objective it actually
+    selects -- the keyword name, or the objective string -- must be asserted present somewhere
+    in this recipe's tests, in a test function that demonstrably reads the real committed
+    source rather than a hand-typed duplicate of it (``_reads_real_committed_source``). A
+    recipe whose call this check cannot identify an objective for (not observed in the
+    published set) fails here too, rather than being silently skipped."""
+    obligations = _threshold_pin_obligations(recipe_dir(recipe))
+    if not obligations:
+        pytest.skip(
+            f"{recipe['slug']}: no select_confidence_threshold/select_threshold call in the "
+            "committed notebook or helpers.py"
+        )
+    pinned = _pinned_objective_spellings(recipe_dir(recipe))
+    violations = []
+    for location, func_name, objective in obligations:
+        if objective is None:
+            violations.append(
+                f"{location} {func_name}(...): objective not identifiable by this check"
+            )
+            continue
+        if not any(objective in needle for needle in pinned):
+            violations.append(
+                f"{location} {func_name}(...): objective {objective!r} is not asserted "
+                "present, tied to a real read of the committed source, anywhere in tests/"
+            )
+    assert not violations, f"{recipe['slug']}: " + "; ".join(violations)
