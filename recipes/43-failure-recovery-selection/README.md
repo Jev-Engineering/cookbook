@@ -6,7 +6,7 @@ Select retry, alternative method, or escalation from a bounded recovery catalog 
 
 ## What it teaches
 
-TODO: two or three sentences: the decision, what Jev is asked, what Python owns.
+An agent's tool call has already failed. Jev picks one option from a fixed, bounded recovery catalog -- `retry`, `alternative_method`, or `escalate` -- given the execution history so far. Python owns every side effect and every limit: a `jev_cookbook.simulation.Budget` enforces a retry budget and a one-slot alternative-method budget, and a stop condition ends the episode the moment it escalates, whatever Jev answers and in whatever order. The property this recipe shows is that no sequence of answers can ever spend more of either budget than the limit allows, proved by an exhaustive sweep of every possible sequence rather than a sample.
 
 ## Run it offline
 
@@ -36,26 +36,32 @@ of this repository), or record answers with the recorder described in
 and always runs offline. The live backend's default request budget is 25
 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)); every attempt counts
 against that budget, including each retry.
-TODO: state how many calls this notebook makes in live mode (one per example it decides,
-each example decided once, never twice); if that count is more than 25, or close to it once
-retries are counted, tell the reader here to raise `JEV_COOKBOOK_LIVE_MAX_REQUESTS` to at least
-it before running this notebook live, or it stops partway through with `BudgetExceeded`. Never
-put a key in a notebook or a fixture.
+This notebook makes exactly **44** calls in live mode: 42 scored examples (21 validation, 21 test)
+plus 2 demo examples, each decided exactly once (the notebook's own `decide_once` cache guard,
+pinned by `tests/test_helpers.py::test_the_request_cache_guard_is_pinned_in_the_notebook`, is what
+makes that true). 44 is above the default budget of 25, so raise `JEV_COOKBOOK_LIVE_MAX_REQUESTS`
+to at least 44 before running this notebook live, or it stops partway through with
+`BudgetExceeded`. Never put a key in a notebook or a fixture.
 
 ## What was and was not measured
 
 - **Mode:** synthetic (offline replay of hand-written answers). Not measured live.
 - **Model, capture date:** not applicable while every answer is synthetic.
-  TODO: if this recipe records real inference, replace the mode, model and date lines
-  with the mode (`recorded` or `live`), the model the API returned, and the capture date or
-  dates; state N for every reported metric. Leave them as they are for a synthetic recipe.
-- **N:** TODO: the number of scored examples per split (the `demo` examples are not scored).
+- **N:** 42 scored examples (21 validation, 21 test); 2 further demo examples are shown but not
+  scored. 44 total requests across the whole notebook (see "Switch to live" above), one per
+  example, never repeated.
 
 A recorded recipe states the model version the API returned, the capture date and N for every number
 it reports, here and in the notebook.
 
-TODO: while every answer is synthetic, keep this: the offline run replays synthetic answers written for this recipe, so its numbers check that the pipeline works. For a recorded recipe,
-replace it with the model, the capture dates and N. Then state what the evaluation covers.
+The offline run replays synthetic answers written for this recipe, so its numbers check that the
+pipeline works, not how Jev performs. The evaluation covers: raw per-question agreement with the
+gold recovery label; the confidence-only selective-prediction view; the task-level view of what
+the budget-enforced system actually did (`retry`/`alternative_method` counted as answered,
+`escalate` -- chosen or forced -- and any low-confidence answer counted as review); and two
+zero-request baselines (always answer `retry`; a budget-only heuristic that reads the retry and
+alternative-method budget already used but nothing else) reported at the same cost-and-accuracy
+footing as Jev's own answers.
 
 ## Pull request rules
 
@@ -69,7 +75,7 @@ remains unpublished and that integration step has not yet run, `Catalog (README 
 expected to be red on its pull request, which is not a defect to fix here; once the catalog is
 regenerated for it, the check turns green and stays that way. No sentence anywhere in this
 folder states or implies Jev's real quality, latency, or cost: every number above is a synthetic
-pipeline check (see the TODO markers above). The full contract is
+pipeline check. The full contract is
 [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ## Sources

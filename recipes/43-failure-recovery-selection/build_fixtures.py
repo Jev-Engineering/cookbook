@@ -728,7 +728,7 @@ def main() -> None:
     )
     args = parser.parse_args()
     if not ROWS:
-        raise SystemExit("TODO: add examples to ROWS in build_fixtures.py")
+        raise SystemExit("add examples to ROWS in build_fixtures.py")
     folder = HERE / "fixtures"
     folder.mkdir(exist_ok=True)
     inputs, labels = build_inputs_and_labels(ROWS)
