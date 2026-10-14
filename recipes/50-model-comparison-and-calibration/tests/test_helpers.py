@@ -12,8 +12,16 @@ sidesteps it entirely rather than relying on ordering.
 import json
 from pathlib import Path
 
-from jev_cookbook import ChoiceAnswer, NoulAnswer, Provenance, ScoreAnswer, get_backend, load_helpers, replay_key
-from jev_cookbook.evaluation import noul_confidence, score_level, select_confidence_threshold
+from jev_cookbook import (
+    ChoiceAnswer,
+    NoulAnswer,
+    Provenance,
+    ScoreAnswer,
+    get_backend,
+    load_helpers,
+    replay_key,
+)
+from jev_cookbook.evaluation import select_confidence_threshold
 from jev_cookbook.fixtures import load_inputs, load_labels, responses_path
 
 RECIPE = Path(__file__).resolve().parent.parent
@@ -303,13 +311,21 @@ def test_flipping_the_category_answer_changes_the_composed_outcome():
     answers_a, answer_b = _decide_row(backend, "t07", questions_a, questions_b)
     kwargs = dict(choice_threshold=0.5, gate_width=0.3, resubmission=False)
     original = helpers.triage(
-        "t07", answers_a["category"], answers_a["verifiable"], answers_a["names_control"],
-        answer_b, **kwargs,
+        "t07",
+        answers_a["category"],
+        answers_a["verifiable"],
+        answers_a["names_control"],
+        answer_b,
+        **kwargs,
     )
     flipped_category = choice_answer(helpers.OTHER, 0.9)
     mutated = helpers.triage(
-        "t07", flipped_category, answers_a["verifiable"], answers_a["names_control"],
-        answer_b, **kwargs,
+        "t07",
+        flipped_category,
+        answers_a["verifiable"],
+        answers_a["names_control"],
+        answer_b,
+        **kwargs,
     )
     assert mutated.outcome != original.outcome
 
@@ -320,16 +336,28 @@ def test_flipping_verifiable_or_names_control_changes_the_composed_outcome():
     answers_a, answer_b = _decide_row(backend, "t07", questions_a, questions_b)
     kwargs = dict(choice_threshold=0.5, gate_width=0.3, resubmission=False)
     original = helpers.triage(
-        "t07", answers_a["category"], answers_a["verifiable"], answers_a["names_control"],
-        answer_b, **kwargs,
+        "t07",
+        answers_a["category"],
+        answers_a["verifiable"],
+        answers_a["names_control"],
+        answer_b,
+        **kwargs,
     )
     flipped_verifiable = helpers.triage(
-        "t07", answers_a["category"], noul_answer(0.05), answers_a["names_control"],
-        answer_b, **kwargs,
+        "t07",
+        answers_a["category"],
+        noul_answer(0.05),
+        answers_a["names_control"],
+        answer_b,
+        **kwargs,
     )
     flipped_names = helpers.triage(
-        "t07", answers_a["category"], answers_a["verifiable"], noul_answer(0.05),
-        answer_b, **kwargs,
+        "t07",
+        answers_a["category"],
+        answers_a["verifiable"],
+        noul_answer(0.05),
+        answer_b,
+        **kwargs,
     )
     assert flipped_verifiable.outcome != original.outcome
     assert flipped_names.outcome != original.outcome
@@ -342,12 +370,20 @@ def test_flipping_the_specificity_answer_changes_the_composed_outcome():
     assert answer_b is not None
     kwargs = dict(choice_threshold=0.5, gate_width=0.3, resubmission=False)
     flagged = helpers.triage(
-        "t07", answers_a["category"], answers_a["verifiable"], answers_a["names_control"],
-        score_answer(helpers.SPECIFICITY_CUTOFF), **kwargs,
+        "t07",
+        answers_a["category"],
+        answers_a["verifiable"],
+        answers_a["names_control"],
+        score_answer(helpers.SPECIFICITY_CUTOFF),
+        **kwargs,
     )
     needs_detail = helpers.triage(
-        "t07", answers_a["category"], answers_a["verifiable"], answers_a["names_control"],
-        score_answer(0), **kwargs,
+        "t07",
+        answers_a["category"],
+        answers_a["verifiable"],
+        answers_a["names_control"],
+        score_answer(0),
+        **kwargs,
     )
     assert flagged.outcome != needs_detail.outcome
 
