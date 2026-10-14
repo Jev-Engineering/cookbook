@@ -14,8 +14,8 @@ for it, a dependent second request: a `Score` rubric rating how specific the sta
 Python combines the typed answers into one outcome, and each backend is calibrated separately,
 on its own validation answers, never on a value borrowed from another backend.
 
-**This recipe draws no comparison.** No live run has been recorded (coverage: 0 of 60 live
-requests made), so every number the notebook prints is a pipeline check on synthetic fixtures:
+**This recipe draws no comparison.** No live run has been recorded for it, so every number
+the notebook prints is a pipeline check on synthetic fixtures:
 proof that the harness wires the questions, dispatches them identically to all three backends,
 and turns the typed answers into a composed outcome without crashing. It is not evidence that
 any one backend is more accurate, faster, or cheaper than another -- see "What was and was not
