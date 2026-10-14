@@ -130,33 +130,6 @@
       }
     }
   },
-  "3a22bd33822af48c719bac6dd3cc3b45c8bd29ab137218bfededf7428e489e24": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "introduces_new_fact": {
-        "type": "noul",
-        "noul": 0.1,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      },
-      "breaks_reference": {
-        "type": "noul",
-        "noul": 0.07,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
   "3ed7c768c0a679de0a6b7b449d6fd3b8e50334c941414af914a29f2d84fb17f6": {
     "model": "synthetic",
     "usage": {
@@ -484,33 +457,6 @@
       "breaks_reference": {
         "type": "noul",
         "noul": 0.09,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      }
-    }
-  },
-  "8b112072e57c3f7af0772f25e5942e8b7f9578c1ceb4d0764b53fa51a85e9d09": {
-    "model": "synthetic",
-    "usage": {
-      "input_tokens": null,
-      "output_tokens": null
-    },
-    "answers": {
-      "introduces_new_fact": {
-        "type": "noul",
-        "noul": 0.1,
-        "provenance": {
-          "source": "synthetic",
-          "model": null,
-          "date": null
-        }
-      },
-      "breaks_reference": {
-        "type": "noul",
-        "noul": 0.07,
         "provenance": {
           "source": "synthetic",
           "model": null,

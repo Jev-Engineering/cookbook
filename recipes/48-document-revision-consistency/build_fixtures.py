@@ -58,7 +58,14 @@ import argparse
 import json
 from pathlib import Path
 
-from jev_cookbook import ChoiceAnswer, DecisionResult, NoulAnswer, Provenance, load_helpers, replay_key
+from jev_cookbook import (
+    ChoiceAnswer,
+    DecisionResult,
+    NoulAnswer,
+    Provenance,
+    load_helpers,
+    replay_key,
+)
 
 HERE = Path(__file__).resolve().parent
 helpers = load_helpers(HERE)
@@ -176,7 +183,10 @@ ROWS = [
             ),
         ),
         {"revision": C1, "introduces_new_fact": False, "breaks_reference": False},
-        {"choice": _choice_near_uniform(C2), "consistency": _consistency_spec(0.10, 0.07)},
+        {
+            "choice": _choice_near_uniform(C2),
+            "consistency": None,
+        },  # choice never clears any plausible gate; stage two is never asked
     ),
     (
         "v-cand1-clean-2",
@@ -362,7 +372,10 @@ ROWS = [
             ),
         ),
         {"revision": C1, "introduces_new_fact": False, "breaks_reference": False},
-        {"choice": _choice_near_uniform(C2), "consistency": _consistency_spec(0.10, 0.07)},
+        {
+            "choice": _choice_near_uniform(C2),
+            "consistency": None,
+        },  # choice never clears any plausible gate; stage two is never asked
     ),
     (
         "t-cand1-wrongconsistency",
