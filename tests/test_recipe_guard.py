@@ -1277,6 +1277,18 @@ def _threshold_pin_obligations(recipe_dir_: Path) -> list[tuple[str, str, str | 
 
 
 def _test_function_defs(tree: ast.AST) -> list[ast.FunctionDef]:
+    """Every ``def test_...`` in an already-parsed test file, found by walking the module's own
+    AST -- deliberately not a text scan that locates one function by name and then regexes
+    forward to the next ``\\n(?:def |class )`` to find where it ends (``_find_function_body``,
+    above, does that for a single named function). That scan-forward shape is unsound in
+    general: a decorator line is neither ``def`` nor ``class``, so a decorated neighbour
+    (``@pytest.mark.parametrize`` on the very next function, common in this codebase) folds into
+    the "body" it returns, and parsing that text then raises a ``SyntaxError`` that is really a
+    bug in the extraction, not in the recipe (#272). Finding every function with ``ast.walk`` and
+    bounding each one with ``ast.get_source_segment`` (used below) sidesteps the whole class:
+    the parser's own ``end_lineno`` is exact regardless of what decorator, comment, or blank line
+    follows, so this check can never misreport a recipe's test file as broken when the guard's
+    own extraction is what is wrong."""
     return [
         node
         for node in ast.walk(tree)
