@@ -693,7 +693,7 @@ def test_scope_creep_is_independently_consequential_on_the_fixtures():
 
 # --------------------------------------------------------------------------------------------
 # the strong form: a confidently wrong test answer the frozen gate does not catch, and the
-# use case's sharpest hard case (denied, but confidently clear on both propositions) present on
+# use case's sharpest hard case (denied, but semantically clear on both propositions) present on
 # real, committed data
 # --------------------------------------------------------------------------------------------
 
@@ -844,10 +844,14 @@ def test_notebook_pins_the_frozen_threshold_and_gate_values():
 
 
 # --------------------------------------------------------------------------------------------
-# The confidence gate is either inert or equivalent to a stricter threshold. This recipe's own
-# frozen numbers: gate 0.8400000000000001 against |2*0.6-1|=0.2 and |2*0.88-1|=0.76. Since
-# 0.84 > both, the gate is NOT inert for either proposition -- it is strictly stricter than
-# both business thresholds, which this test pins directly.
+# A confidence gate always carves out a review band around 0.5; since each business threshold
+# here only flags noul's high side (noul >= t), the gate's effect depends on gate vs |2t-1|: at
+# or below, it still adds a review band below the threshold without moving the flag cut-off --
+# never inert, only quieter; above, the gate IS the flag cut-off, a stricter pair of cut-offs
+# replacing the threshold's single one. This recipe's own frozen numbers: gate
+# 0.8400000000000001 against |2*0.6-1|=0.2 and |2*0.88-1|=0.76. Since 0.84 > both, the gate is
+# the flag cut-off for both propositions here -- strictly stricter than both business
+# thresholds, which this test pins directly.
 # --------------------------------------------------------------------------------------------
 
 
