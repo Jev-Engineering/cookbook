@@ -23,10 +23,36 @@ MIN_COVERAGE = 0.85
 _TIER_DECAY = {"high": 0.08, "medium": 0.35, "low": 0.5}
 
 
+def _int_pow(base: float, exponent: int) -> float:
+    """Same construction as build_fixtures.py's own ``_int_pow``: repeated multiplication only,
+    never Python's ``**`` (CPython routes ``float ** int`` through the platform libm ``pow()``,
+    not guaranteed bit-identical across interpreter builds -- see build_fixtures.py for the full
+    reasoning). Not load-bearing for a committed comparison here, since this grid is synthesized
+    fresh on whatever interpreter runs the test rather than compared against a stored file; kept
+    identical anyway so this file carries no second, differently-built copy of the same formula.
+    """
+    result = 1.0
+    for _ in range(exponent):
+        result *= base
+    return result
+
+
+def _float_sum(values: list[float]) -> float:
+    """Same construction as build_fixtures.py's own ``_float_sum``: a left-to-right loop, never
+    the builtin ``sum()`` (CPython changed the builtin's float-summation algorithm between the
+    Python versions this repository tests -- see build_fixtures.py for the measured example).
+    Not load-bearing here for the same reason ``_int_pow`` above is not; kept identical anyway.
+    """
+    total = 0.0
+    for v in values:
+        total += v
+    return total
+
+
 def _level_probs(peak: int, tier: str) -> list[float]:
     decay = _TIER_DECAY[tier]
-    raw = [decay ** abs(i - peak) for i in range(4)]
-    total = sum(raw)
+    raw = [_int_pow(decay, abs(i - peak)) for i in range(4)]
+    total = _float_sum(raw)
     return [r / total for r in raw]
 
 

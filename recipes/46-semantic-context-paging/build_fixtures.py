@@ -39,17 +39,49 @@ QUESTIONS = helpers.build_questions()
 LEVELS = list(helpers.RELEVANCE_LEVELS)
 
 
+def _int_pow(base: float, exponent: int) -> float:
+    """``base ** exponent`` for a non-negative int ``exponent``, by repeated multiplication
+    only, never Python's ``**``: CPython routes ``float.__pow__`` to the platform's libm
+    ``pow()``, whose last-bit result is not guaranteed stable across interpreter builds or
+    libm versions, where a single IEEE-754 multiply has no such gap."""
+    result = 1.0
+    for _ in range(exponent):
+        result *= base
+    return result
+
+
+def _float_sum(values: list[float]) -> float:
+    """Left-to-right ``a + b + c + ...``, by hand, never the builtin ``sum()``.
+
+    Verified directly (not merely argued) to matter here: for the raw, un-normalized levels
+    this recipe's "medium", peak-0 tier produces (``[1.0, 0.35, 0.1225, 0.042875]``), Python
+    3.10's ``sum()`` returns ``1.5153750000000001`` while 3.14's returns ``1.515375`` -- CPython
+    changed the builtin's float-summation algorithm between those versions, and a plain
+    left-to-right loop (confirmed identical on both) is what ``build_fixtures.py``'s own
+    comment, before this fix, mistakenly assumed ``sum`` already was. ``float ** int`` (see
+    :func:`_int_pow`) was a real, necessary fix for a second, independent nondeterminism and is
+    not sufficient on its own: both had to go for the committed fixtures to reproduce byte for
+    byte across the Python versions this repository tests
+    (``tests/test_build_fixtures.py``'s byte-identical check, run on both).
+    """
+    total = 0.0
+    for v in values:
+        total += v
+    return total
+
+
 def level_probs(peak: int, tier: str) -> list[float]:
     """A probability distribution over the 4 rubric levels, peaked at ``peak``, shaped by
     ``tier`` ("high", "medium" or "low") through a geometric decay away from the peak: probs[i]
-    is proportional to ``decay ** |i - peak|``. This lands the published Score confidence
-    formula (``1 - spread/even``, ``even == 1.0`` for 4 levels) in a predictable band per tier
-    without hand-solving the formula for every row: roughly 0.85-0.91 for "high", 0.48-0.52 for
-    "medium", 0.27-0.33 for "low", over the four possible peaks.
+    is proportional to ``decay ** |i - peak|`` (computed by :func:`_int_pow` and
+    :func:`_float_sum`, never Python's ``**`` or builtin ``sum``). This lands the published
+    Score confidence formula (``1 - spread/even``, ``even == 1.0`` for 4 levels) in a
+    predictable band per tier without hand-solving the formula for every row: roughly 0.85-0.91
+    for "high", 0.48-0.52 for "medium", 0.27-0.33 for "low", over the four possible peaks.
     """
     decay = {"high": 0.08, "medium": 0.35, "low": 0.5}[tier]
-    raw = [decay ** abs(i - peak) for i in range(4)]
-    total = sum(raw)
+    raw = [_int_pow(decay, abs(i - peak)) for i in range(4)]
+    total = _float_sum(raw)
     return [r / total for r in raw]
 
 

@@ -10,10 +10,10 @@
         "type": "score",
         "score": 0.4775220654953394,
         "probabilities": {
-          "0": 0.6599026643570074,
-          "1": 0.23096593252495257,
+          "0": 0.6599026643570073,
+          "1": 0.23096593252495254,
           "2": 0.08083807638373339,
-          "3": 0.028293326734306685
+          "3": 0.02829332673430668
         },
         "confidence": 0.5224779345046606,
         "legend": {
@@ -165,10 +165,10 @@
         "type": "score",
         "score": 0.4775220654953394,
         "probabilities": {
-          "0": 0.6599026643570074,
-          "1": 0.23096593252495257,
+          "0": 0.6599026643570073,
+          "1": 0.23096593252495254,
           "2": 0.08083807638373339,
-          "3": 0.028293326734306685
+          "3": 0.02829332673430668
         },
         "confidence": 0.5224779345046606,
         "legend": {
@@ -196,10 +196,10 @@
         "type": "score",
         "score": 0.4775220654953394,
         "probabilities": {
-          "0": 0.6599026643570074,
-          "1": 0.23096593252495257,
+          "0": 0.6599026643570073,
+          "1": 0.23096593252495254,
           "2": 0.08083807638373339,
-          "3": 0.028293326734306685
+          "3": 0.02829332673430668
         },
         "confidence": 0.5224779345046606,
         "legend": {
@@ -320,10 +320,10 @@
         "type": "score",
         "score": 0.4775220654953394,
         "probabilities": {
-          "0": 0.6599026643570074,
-          "1": 0.23096593252495257,
+          "0": 0.6599026643570073,
+          "1": 0.23096593252495254,
           "2": 0.08083807638373339,
-          "3": 0.028293326734306685
+          "3": 0.02829332673430668
         },
         "confidence": 0.5224779345046606,
         "legend": {
@@ -349,14 +349,14 @@
     "answers": {
       "relevance": {
         "type": "score",
-        "score": 1.1344307270233196,
+        "score": 1.1344307270233194,
         "probabilities": {
-          "0": 0.19204389574759945,
-          "1": 0.5486968449931413,
-          "2": 0.19204389574759945,
-          "3": 0.0672153635116598
+          "0": 0.19204389574759942,
+          "1": 0.5486968449931412,
+          "2": 0.19204389574759942,
+          "3": 0.06721536351165978
         },
-        "confidence": 0.4814814814814815,
+        "confidence": 0.4814814814814816,
         "legend": {
           "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
           "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
@@ -473,14 +473,14 @@
     "answers": {
       "relevance": {
         "type": "score",
-        "score": 1.1344307270233196,
+        "score": 1.1344307270233194,
         "probabilities": {
-          "0": 0.19204389574759945,
-          "1": 0.5486968449931413,
-          "2": 0.19204389574759945,
-          "3": 0.0672153635116598
+          "0": 0.19204389574759942,
+          "1": 0.5486968449931412,
+          "2": 0.19204389574759942,
+          "3": 0.06721536351165978
         },
-        "confidence": 0.4814814814814815,
+        "confidence": 0.4814814814814816,
         "legend": {
           "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
           "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
@@ -506,12 +506,12 @@
         "type": "score",
         "score": 1.8655692729766804,
         "probabilities": {
-          "0": 0.0672153635116598,
-          "1": 0.19204389574759945,
+          "0": 0.06721536351165981,
+          "1": 0.19204389574759947,
           "2": 0.5486968449931413,
-          "3": 0.19204389574759945
+          "3": 0.19204389574759947
         },
-        "confidence": 0.4814814814814815,
+        "confidence": 0.4814814814814814,
         "legend": {
           "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
           "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
@@ -630,10 +630,10 @@
         "type": "score",
         "score": 0.4775220654953394,
         "probabilities": {
-          "0": 0.6599026643570074,
-          "1": 0.23096593252495257,
+          "0": 0.6599026643570073,
+          "1": 0.23096593252495254,
           "2": 0.08083807638373339,
-          "3": 0.028293326734306685
+          "3": 0.02829332673430668
         },
         "confidence": 0.5224779345046606,
         "legend": {
@@ -723,12 +723,12 @@
         "type": "score",
         "score": 1.8655692729766804,
         "probabilities": {
-          "0": 0.0672153635116598,
-          "1": 0.19204389574759945,
+          "0": 0.06721536351165981,
+          "1": 0.19204389574759947,
           "2": 0.5486968449931413,
-          "3": 0.19204389574759945
+          "3": 0.19204389574759947
         },
-        "confidence": 0.4814814814814815,
+        "confidence": 0.4814814814814814,
         "legend": {
           "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
           "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
@@ -845,14 +845,14 @@
     "answers": {
       "relevance": {
         "type": "score",
-        "score": 1.1344307270233196,
+        "score": 1.1344307270233194,
         "probabilities": {
-          "0": 0.19204389574759945,
-          "1": 0.5486968449931413,
-          "2": 0.19204389574759945,
-          "3": 0.0672153635116598
+          "0": 0.19204389574759942,
+          "1": 0.5486968449931412,
+          "2": 0.19204389574759942,
+          "3": 0.06721536351165978
         },
-        "confidence": 0.4814814814814815,
+        "confidence": 0.4814814814814816,
         "legend": {
           "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
           "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
@@ -878,12 +878,12 @@
         "type": "score",
         "score": 1.8655692729766804,
         "probabilities": {
-          "0": 0.0672153635116598,
-          "1": 0.19204389574759945,
+          "0": 0.06721536351165981,
+          "1": 0.19204389574759947,
           "2": 0.5486968449931413,
-          "3": 0.19204389574759945
+          "3": 0.19204389574759947
         },
-        "confidence": 0.4814814814814815,
+        "confidence": 0.4814814814814814,
         "legend": {
           "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
           "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
@@ -1002,10 +1002,10 @@
         "type": "score",
         "score": 0.4775220654953394,
         "probabilities": {
-          "0": 0.6599026643570074,
-          "1": 0.23096593252495257,
+          "0": 0.6599026643570073,
+          "1": 0.23096593252495254,
           "2": 0.08083807638373339,
-          "3": 0.028293326734306685
+          "3": 0.02829332673430668
         },
         "confidence": 0.5224779345046606,
         "legend": {
@@ -1033,10 +1033,10 @@
         "type": "score",
         "score": 0.4775220654953394,
         "probabilities": {
-          "0": 0.6599026643570074,
-          "1": 0.23096593252495257,
+          "0": 0.6599026643570073,
+          "1": 0.23096593252495254,
           "2": 0.08083807638373339,
-          "3": 0.028293326734306685
+          "3": 0.02829332673430668
         },
         "confidence": 0.5224779345046606,
         "legend": {
@@ -1064,12 +1064,12 @@
         "type": "score",
         "score": 1.8655692729766804,
         "probabilities": {
-          "0": 0.0672153635116598,
-          "1": 0.19204389574759945,
+          "0": 0.06721536351165981,
+          "1": 0.19204389574759947,
           "2": 0.5486968449931413,
-          "3": 0.19204389574759945
+          "3": 0.19204389574759947
         },
-        "confidence": 0.4814814814814815,
+        "confidence": 0.4814814814814814,
         "legend": {
           "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
           "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
@@ -1095,12 +1095,12 @@
         "type": "score",
         "score": 1.8655692729766804,
         "probabilities": {
-          "0": 0.0672153635116598,
-          "1": 0.19204389574759945,
+          "0": 0.06721536351165981,
+          "1": 0.19204389574759947,
           "2": 0.5486968449931413,
-          "3": 0.19204389574759945
+          "3": 0.19204389574759947
         },
-        "confidence": 0.4814814814814815,
+        "confidence": 0.4814814814814814,
         "legend": {
           "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
           "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
@@ -1157,10 +1157,10 @@
         "type": "score",
         "score": 0.4775220654953394,
         "probabilities": {
-          "0": 0.6599026643570074,
-          "1": 0.23096593252495257,
+          "0": 0.6599026643570073,
+          "1": 0.23096593252495254,
           "2": 0.08083807638373339,
-          "3": 0.028293326734306685
+          "3": 0.02829332673430668
         },
         "confidence": 0.5224779345046606,
         "legend": {
@@ -1186,14 +1186,14 @@
     "answers": {
       "relevance": {
         "type": "score",
-        "score": 1.1344307270233196,
+        "score": 1.1344307270233194,
         "probabilities": {
-          "0": 0.19204389574759945,
-          "1": 0.5486968449931413,
-          "2": 0.19204389574759945,
-          "3": 0.0672153635116598
+          "0": 0.19204389574759942,
+          "1": 0.5486968449931412,
+          "2": 0.19204389574759942,
+          "3": 0.06721536351165978
         },
-        "confidence": 0.4814814814814815,
+        "confidence": 0.4814814814814816,
         "legend": {
           "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
           "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
@@ -1279,14 +1279,14 @@
     "answers": {
       "relevance": {
         "type": "score",
-        "score": 1.1344307270233196,
+        "score": 1.1344307270233194,
         "probabilities": {
-          "0": 0.19204389574759945,
-          "1": 0.5486968449931413,
-          "2": 0.19204389574759945,
-          "3": 0.0672153635116598
+          "0": 0.19204389574759942,
+          "1": 0.5486968449931412,
+          "2": 0.19204389574759942,
+          "3": 0.06721536351165978
         },
-        "confidence": 0.4814814814814815,
+        "confidence": 0.4814814814814816,
         "legend": {
           "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
           "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
@@ -1312,12 +1312,12 @@
         "type": "score",
         "score": 1.8655692729766804,
         "probabilities": {
-          "0": 0.0672153635116598,
-          "1": 0.19204389574759945,
+          "0": 0.06721536351165981,
+          "1": 0.19204389574759947,
           "2": 0.5486968449931413,
-          "3": 0.19204389574759945
+          "3": 0.19204389574759947
         },
-        "confidence": 0.4814814814814815,
+        "confidence": 0.4814814814814814,
         "legend": {
           "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
           "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
@@ -1405,12 +1405,12 @@
         "type": "score",
         "score": 1.8655692729766804,
         "probabilities": {
-          "0": 0.0672153635116598,
-          "1": 0.19204389574759945,
+          "0": 0.06721536351165981,
+          "1": 0.19204389574759947,
           "2": 0.5486968449931413,
-          "3": 0.19204389574759945
+          "3": 0.19204389574759947
         },
-        "confidence": 0.4814814814814815,
+        "confidence": 0.4814814814814814,
         "legend": {
           "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
           "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
@@ -1498,12 +1498,12 @@
         "type": "score",
         "score": 1.8655692729766804,
         "probabilities": {
-          "0": 0.0672153635116598,
-          "1": 0.19204389574759945,
+          "0": 0.06721536351165981,
+          "1": 0.19204389574759947,
           "2": 0.5486968449931413,
-          "3": 0.19204389574759945
+          "3": 0.19204389574759947
         },
-        "confidence": 0.4814814814814815,
+        "confidence": 0.4814814814814814,
         "legend": {
           "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
           "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
@@ -1560,10 +1560,10 @@
         "type": "score",
         "score": 0.4775220654953394,
         "probabilities": {
-          "0": 0.6599026643570074,
-          "1": 0.23096593252495257,
+          "0": 0.6599026643570073,
+          "1": 0.23096593252495254,
           "2": 0.08083807638373339,
-          "3": 0.028293326734306685
+          "3": 0.02829332673430668
         },
         "confidence": 0.5224779345046606,
         "legend": {
@@ -1589,14 +1589,14 @@
     "answers": {
       "relevance": {
         "type": "score",
-        "score": 1.1344307270233196,
+        "score": 1.1344307270233194,
         "probabilities": {
-          "0": 0.19204389574759945,
-          "1": 0.5486968449931413,
-          "2": 0.19204389574759945,
-          "3": 0.0672153635116598
+          "0": 0.19204389574759942,
+          "1": 0.5486968449931412,
+          "2": 0.19204389574759942,
+          "3": 0.06721536351165978
         },
-        "confidence": 0.4814814814814815,
+        "confidence": 0.4814814814814816,
         "legend": {
           "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
           "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
@@ -1715,12 +1715,12 @@
         "type": "score",
         "score": 1.8655692729766804,
         "probabilities": {
-          "0": 0.0672153635116598,
-          "1": 0.19204389574759945,
+          "0": 0.06721536351165981,
+          "1": 0.19204389574759947,
           "2": 0.5486968449931413,
-          "3": 0.19204389574759945
+          "3": 0.19204389574759947
         },
-        "confidence": 0.4814814814814815,
+        "confidence": 0.4814814814814814,
         "legend": {
           "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
           "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
@@ -1777,12 +1777,12 @@
         "type": "score",
         "score": 1.8655692729766804,
         "probabilities": {
-          "0": 0.0672153635116598,
-          "1": 0.19204389574759945,
+          "0": 0.06721536351165981,
+          "1": 0.19204389574759947,
           "2": 0.5486968449931413,
-          "3": 0.19204389574759945
+          "3": 0.19204389574759947
         },
-        "confidence": 0.4814814814814815,
+        "confidence": 0.4814814814814814,
         "legend": {
           "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
           "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
@@ -1808,12 +1808,12 @@
         "type": "score",
         "score": 1.8655692729766804,
         "probabilities": {
-          "0": 0.0672153635116598,
-          "1": 0.19204389574759945,
+          "0": 0.06721536351165981,
+          "1": 0.19204389574759947,
           "2": 0.5486968449931413,
-          "3": 0.19204389574759945
+          "3": 0.19204389574759947
         },
-        "confidence": 0.4814814814814815,
+        "confidence": 0.4814814814814814,
         "legend": {
           "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
           "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
@@ -1837,14 +1837,14 @@
     "answers": {
       "relevance": {
         "type": "score",
-        "score": 1.1344307270233196,
+        "score": 1.1344307270233194,
         "probabilities": {
-          "0": 0.19204389574759945,
-          "1": 0.5486968449931413,
-          "2": 0.19204389574759945,
-          "3": 0.0672153635116598
+          "0": 0.19204389574759942,
+          "1": 0.5486968449931412,
+          "2": 0.19204389574759942,
+          "3": 0.06721536351165978
         },
-        "confidence": 0.4814814814814815,
+        "confidence": 0.4814814814814816,
         "legend": {
           "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
           "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
@@ -1870,10 +1870,10 @@
         "type": "score",
         "score": 0.4775220654953394,
         "probabilities": {
-          "0": 0.6599026643570074,
-          "1": 0.23096593252495257,
+          "0": 0.6599026643570073,
+          "1": 0.23096593252495254,
           "2": 0.08083807638373339,
-          "3": 0.028293326734306685
+          "3": 0.02829332673430668
         },
         "confidence": 0.5224779345046606,
         "legend": {
@@ -1901,12 +1901,12 @@
         "type": "score",
         "score": 1.8655692729766804,
         "probabilities": {
-          "0": 0.0672153635116598,
-          "1": 0.19204389574759945,
+          "0": 0.06721536351165981,
+          "1": 0.19204389574759947,
           "2": 0.5486968449931413,
-          "3": 0.19204389574759945
+          "3": 0.19204389574759947
         },
-        "confidence": 0.4814814814814815,
+        "confidence": 0.4814814814814814,
         "legend": {
           "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
           "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
@@ -1930,14 +1930,14 @@
     "answers": {
       "relevance": {
         "type": "score",
-        "score": 1.1344307270233196,
+        "score": 1.1344307270233194,
         "probabilities": {
-          "0": 0.19204389574759945,
-          "1": 0.5486968449931413,
-          "2": 0.19204389574759945,
-          "3": 0.0672153635116598
+          "0": 0.19204389574759942,
+          "1": 0.5486968449931412,
+          "2": 0.19204389574759942,
+          "3": 0.06721536351165978
         },
-        "confidence": 0.4814814814814815,
+        "confidence": 0.4814814814814816,
         "legend": {
           "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
           "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
@@ -1963,12 +1963,12 @@
         "type": "score",
         "score": 1.8655692729766804,
         "probabilities": {
-          "0": 0.0672153635116598,
-          "1": 0.19204389574759945,
+          "0": 0.06721536351165981,
+          "1": 0.19204389574759947,
           "2": 0.5486968449931413,
-          "3": 0.19204389574759945
+          "3": 0.19204389574759947
         },
-        "confidence": 0.4814814814814815,
+        "confidence": 0.4814814814814814,
         "legend": {
           "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
           "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
@@ -1994,12 +1994,12 @@
         "type": "score",
         "score": 1.8655692729766804,
         "probabilities": {
-          "0": 0.0672153635116598,
-          "1": 0.19204389574759945,
+          "0": 0.06721536351165981,
+          "1": 0.19204389574759947,
           "2": 0.5486968449931413,
-          "3": 0.19204389574759945
+          "3": 0.19204389574759947
         },
-        "confidence": 0.4814814814814815,
+        "confidence": 0.4814814814814814,
         "legend": {
           "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
           "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
@@ -2025,12 +2025,12 @@
         "type": "score",
         "score": 1.8655692729766804,
         "probabilities": {
-          "0": 0.0672153635116598,
-          "1": 0.19204389574759945,
+          "0": 0.06721536351165981,
+          "1": 0.19204389574759947,
           "2": 0.5486968449931413,
-          "3": 0.19204389574759945
+          "3": 0.19204389574759947
         },
-        "confidence": 0.4814814814814815,
+        "confidence": 0.4814814814814814,
         "legend": {
           "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
           "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
@@ -2085,14 +2085,14 @@
     "answers": {
       "relevance": {
         "type": "score",
-        "score": 1.1344307270233196,
+        "score": 1.1344307270233194,
         "probabilities": {
-          "0": 0.19204389574759945,
-          "1": 0.5486968449931413,
-          "2": 0.19204389574759945,
-          "3": 0.0672153635116598
+          "0": 0.19204389574759942,
+          "1": 0.5486968449931412,
+          "2": 0.19204389574759942,
+          "3": 0.06721536351165978
         },
-        "confidence": 0.4814814814814815,
+        "confidence": 0.4814814814814816,
         "legend": {
           "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
           "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
@@ -2116,14 +2116,14 @@
     "answers": {
       "relevance": {
         "type": "score",
-        "score": 1.1344307270233196,
+        "score": 1.1344307270233194,
         "probabilities": {
-          "0": 0.19204389574759945,
-          "1": 0.5486968449931413,
-          "2": 0.19204389574759945,
-          "3": 0.0672153635116598
+          "0": 0.19204389574759942,
+          "1": 0.5486968449931412,
+          "2": 0.19204389574759942,
+          "3": 0.06721536351165978
         },
-        "confidence": 0.4814814814814815,
+        "confidence": 0.4814814814814816,
         "legend": {
           "0": "The chunk has nothing to do with the current task: a different file, ticket, person, or topic than the task names. Nothing in it bears on the task at all.",
           "1": "The chunk is about the same file, ticket, or topic as the task, but it does not state anything the task's own answer or action depends on.",
