@@ -717,6 +717,33 @@ def test_cut_stem_inconsistent_baseline_matches_the_whole_word_only():
     assert helpers.cut_stem_inconsistent_baseline(fields, C3) is False
 
 
+def test_cut_stem_fires_exactly_once_per_split_on_the_real_fixtures():
+    """Pins the notebook's own leak-check finding locally, rather than leaving the 0.8333
+    baseline accuracy protected only by notebook freshness: on both splits' gold-candidate
+    text (the chosen candidate for every row whose gold revision is a real candidate), the
+    "cut" stem fires on exactly one row, and that row is always the split's own
+    ``introduces_new_fact`` positive -- zero false positives, zero false negatives. A fixture
+    edit that removed the leak, widened it to a false positive, or lost it to a false negative
+    would change this count and turn this test red, independently of whether anyone re-runs
+    the notebook."""
+    labels = load_labels(RECIPE)
+    examples = load_inputs(RECIPE)
+    for split in ("validation", "test"):
+        rows = [
+            e
+            for e in examples
+            if e.split == split and e.id in labels and labels[e.id]["revision"] != KEEP
+        ]
+        fires = [
+            e.id
+            for e in rows
+            if helpers.cut_stem_inconsistent_baseline(e.fields, labels[e.id]["revision"])
+        ]
+        assert len(fires) == 1, f"{split}: expected exactly one row to fire, got {fires}"
+        assert labels[fires[0]]["introduces_new_fact"] is True
+        assert labels[fires[0]]["breaks_reference"] is False
+
+
 def test_always_consistent_baseline_is_constant():
     assert helpers.always_consistent_baseline() is False
 
