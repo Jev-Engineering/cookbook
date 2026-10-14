@@ -476,8 +476,10 @@ def accepted_and_correct(
 
 # --------------------------------------------------------------------------------------------
 # Baselines. See the notebook's "Baselines" section and tests/test_helpers.py for which of
-# these is a structural floor (a constant prediction) and which could, in principle, tie or
-# beat Jev (the rule-19 guard that actually matters).
+# these is a structural floor (a constant prediction, fixed by the pool's own balance no
+# matter how Jev answers) and which is non-constant and could, in principle, tie or beat Jev --
+# the comparison that actually guards against reporting a mechanism whose requests were never
+# earning anything over a baseline that could have been beaten but was not tried.
 # --------------------------------------------------------------------------------------------
 
 

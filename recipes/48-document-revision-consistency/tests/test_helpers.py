@@ -220,7 +220,6 @@ def test_the_gate_grid_measurement_reaches_both_a_changed_and_an_unchanged_point
     grid = [i / 100 for i in range(101)]
     changed = 0
     unchanged = 0
-    accept_side_changed = 0
     for p_fact in grid:
         for p_ref in grid:
             values = {FACT: p_fact, REF: p_ref}
@@ -229,17 +228,47 @@ def test_the_gate_grid_measurement_reaches_both_a_changed_and_an_unchanged_point
             send_with = any(d.tag or d.gated for d in with_gate.values())
             send_without = any(d.tag for d in without_gate.values())
             if send_with != send_without:
-                changed += 1
-                if send_without:  # the gate only ever ADDS a review, never removes one
-                    accept_side_changed += 1
+                changed += 1  # the gate only ever ADDS a review here; see the note below
             else:
                 unchanged += 1
     assert changed > 0, "the gate grid never changed an outcome: this measurement is vacuous"
     assert unchanged > 0, "the gate grid always changed the outcome: this measurement is vacuous"
-    # The accept side (a confidently-flagged business tag) is never made MORE lenient by the
-    # gate -- the gate only ever turns a confident "clear" into a review, never the reverse --
-    # which is the asymmetry this recipe's README reports.
-    assert accept_side_changed == 0
+    # Every one of the `changed` points here is on the reject side (a confident "clear" turned
+    # to review by low confidence), never the accept side (a confident flag turned lenient).
+    # That the accept side is unreachable is a STRUCTURAL fact, not a measured one: send_with =
+    # any(tag or gated) is a superset test of send_without = any(tag), so send_with cannot read
+    # False while send_without reads True, for any gate or threshold -- this sweep could not
+    # have found a nonzero accept-side count no matter what the real composition did, so
+    # asserting one here would be unfalsifiable. See
+    # test_an_alternative_wiring_would_show_an_accept_side_change_proving_the_zero_is_real
+    # below for the test that actually exercises this, by sweeping a composition that gates the
+    # accept side too and confirming it changes outcomes on the same values -- the genuine
+    # result is that helpers.decide_consistency's own wiring is not that composition.
+
+
+def test_an_alternative_wiring_would_show_an_accept_side_change_proving_the_zero_is_real():
+    """The zero above is only informative if the grid could have found a nonzero value for some
+    composition. This sweeps an alternative wiring -- honour a business tag only when it is NOT
+    also low-confidence (gates the accept side too, rather than only ever adding a review) --
+    and confirms it DOES change outcomes relative to the gate-off reading, on the same grid and
+    the same gate. That makes the real `helpers.decide_consistency == any(tag or gated)` wiring's
+    own accept-side zero a fact about its own `or`, not a blind spot in how either sweep looks."""
+    gate = 0.06
+    grid = [i / 100 for i in range(101)]
+    alternative_accept_side_changed = 0
+    for p_fact in grid:
+        for p_ref in grid:
+            values = {FACT: p_fact, REF: p_ref}
+            with_gate = helpers.decide_consistency(values, THRESHOLDS, gate)
+            without_gate = helpers.decide_consistency(values, THRESHOLDS, 0.0)
+            send_with_alternative = any(d.tag and not d.gated for d in with_gate.values())
+            send_without = any(d.tag for d in without_gate.values())
+            if send_without and not send_with_alternative:
+                alternative_accept_side_changed += 1
+    assert alternative_accept_side_changed > 0, (
+        "the alternative wiring never changed the accept side either: this grid cannot tell "
+        "the two compositions apart, so it proves nothing about helpers.decide_consistency"
+    )
 
 
 def test_decide_consistency_flags_either_proposition_independently():
@@ -628,8 +657,8 @@ def test_fixture_consistency_gold_is_not_balanced_either():
         ]
         assert len(applied_eligible) == 7
         # A real, non-50/50 majority share -- the "always consistent" baseline's score is a
-        # measurement of this split's own imbalance, not a 1/k floor (k=2 would be the
-        # suspicious case this recipe's build notes deliberately avoid).
+        # measurement of this split's own imbalance, not a 1/k floor (an exact 50/50 split on
+        # a two-way flag is the one count this recipe's fixtures are built to avoid).
         assert len(inconsistent) in (1, 2)
         assert len(inconsistent) != len(applied_eligible) - len(inconsistent)
 
@@ -758,7 +787,8 @@ def test_the_consistency_gate_objective_is_pinned_in_the_notebook():
 def test_the_request_cache_guard_is_pinned_in_the_notebook():
     """Pin the notebook's own caching guard against drift: without it, re-deciding an example
     already seen in the demo walkthrough would silently inflate the request count past the
-    number of requests this recipe's own rule-16 accounting reports."""
+    number of requests this recipe's own live-budget accounting reports (README.md's "Switch
+    to live" section, and the notebook's own closing print of requests versus questions)."""
     notebook = json.loads((RECIPE / "notebook.ipynb").read_text("utf-8"))
     sources = ["".join(cell["source"]) for cell in notebook["cells"] if cell["cell_type"] == "code"]
     cache_source = "\n".join(src for src in sources if "def decide_choice_once" in src)
