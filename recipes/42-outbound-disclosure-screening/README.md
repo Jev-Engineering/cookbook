@@ -58,10 +58,14 @@ The committed run replays 35 invented messages with hand-written (synthetic) ans
 on purpose: a message that embeds an instruction trying to steer the screen into clearing it
 despite stating an unpublished price (one per split, stored confidently wrong, well clear of the
 confidence gate -- the gate cannot catch a confident mistake, only genuine ambiguity), a genuine
-business-rule miss on each rule (one per split per rule), two messages that merely resemble a
-violation without being one (one per split per rule, close enough to the gate's band that it
-reviews them), two messages per split (four in total) held only because their confidence sits
-inside the gate's band, and a two-message thread per split where the second message is clean on its own
+business-rule miss on each rule (one per split per rule), two messages per split that merely
+resemble a violation without being one, one on each rule -- the `contact` lookalikes
+(`v11-lookalike`/`t11-lookalike`, contact noul 0.56/0.55) sit close enough to the gate's band that
+it reviews them, while the `pricing` lookalikes (`v10-lookalike`/`t10-lookalike`, pricing noul
+0.57/0.59) sit far below the 0.86 `pricing` threshold and clear outright, so they are not false
+positives under that threshold at all -- one message per split held only because its confidence
+sits inside the gate's band (`v16-uncertain`/`t16-uncertain`, contact noul 0.48/0.47), and a
+two-message thread per split where the second message is clean on its own
 content and held only because the first message in its thread already was. Its missed-disclosure
 rate, false-hold rate, hold rate, and the pooled confidence-gate curve check that the pipeline
 works; they say nothing about how Jev performs, how fast it is, or what it costs. This recipe has

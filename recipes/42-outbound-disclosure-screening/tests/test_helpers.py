@@ -257,9 +257,9 @@ def test_thread_escalation_on_the_committed_v_thread_fixture():
 
 # --------------------------------------------------------------------------- consequentiality
 #
-# Each rule must be independently able to change the composed outcome (rule 2 of the house
-# briefing on multi-label Noul recipes): flipping one stored decision changes the result, shown
-# on real committed fixtures rather than an in-test row built from scratch.
+# Each rule must be independently able to change the composed outcome: flipping one stored
+# decision changes the result, shown on real committed fixtures rather than an in-test row built
+# from scratch.
 
 
 def test_pricing_alone_is_consequential_on_a_real_fixture():
@@ -434,10 +434,10 @@ def test_stored_answers_are_not_all_right():
 # the call that actually produced the frozen value, so a keyword swap (``min_coverage=`` ->
 # ``target_accuracy=``) or a changed value can slip through with every other test green (see
 # docs/evaluation.md's "Multi-label" discussion of threshold selection; the same trap applies to
-# the per-rule business threshold here). These two tests instead parse the COMMITTED notebook
-# cell's own source and assert against the call expression itself -- the keyword pins which
-# objective, the value pins which answer, and a mutation of either is proven (in the pull
-# request's own report, not here) to turn exactly one of the two assertions red.
+# the per-rule business threshold here). These tests instead parse the COMMITTED notebook cell's
+# own source and assert against the call (or, for the cache guard below, the ``if`` statement)
+# itself, so that changing just the keyword, just the value, or just the guard turns exactly one
+# assertion red and leaves the others green -- each half of a pin is independently falsifiable.
 
 
 def _notebook_cell_source(cell_id):
@@ -478,6 +478,46 @@ def test_notebook_pins_the_confidence_gate_keyword_and_value():
     assert min_coverage is not None, "no min_coverage= keyword on select_confidence_threshold("
     # Value pin, independent of the keyword pin above: the exact coverage floor.
     assert min_coverage == pytest.approx(0.75)
+
+
+def _decide_cache_guard_present(source):
+    """True iff ``setup``'s ``decide`` function opens with ``if <id> not in answered:`` -- the
+    membership guard the README's live-budget note depends on (every message decided at most
+    once, however many cells reuse its id). Keyed on the guard's own shape, a ``not in``
+    comparison whose right side is the name ``answered`` and whose left side is an ``.id``
+    attribute access, not on a comment or a printed count beside it -- so a cell edit that keeps
+    every surrounding line but drops only the membership check (``if True:``, say) changes the
+    shape this walks and is what this is built to catch."""
+    tree = ast.parse(source)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == "decide":
+            if not node.body or not isinstance(node.body[0], ast.If):
+                return False
+            test = node.body[0].test
+            if not (isinstance(test, ast.Compare) and len(test.ops) == 1):
+                return False
+            if not isinstance(test.ops[0], ast.NotIn):
+                return False
+            comparators = test.comparators
+            if not (len(comparators) == 1 and getattr(comparators[0], "id", None) == "answered"):
+                return False
+            left = test.left
+            return isinstance(left, ast.Attribute) and left.attr == "id"
+    return False
+
+
+def test_notebook_pins_the_decide_cache_membership_guard():
+    """``setup`` caches every ``decide(example)`` result in ``answered``, guarded by
+    ``if example.id not in answered:`` -- the one line standing between the README's "one
+    request per message" budget and a silent multiple every time a later cell reuses an id.
+    ``test_each_message_is_decided_at_most_once_even_when_shown_twice`` below counts real
+    backend attempts correctly, but it reimplements this cache rather than reading it, so a
+    notebook edit that keeps the ``answered`` dict and drops only the membership check would
+    still leave that test green. This instead parses the committed ``setup`` cell's own source,
+    the same way the two tests above pin the threshold objectives, and fails the moment the
+    guard's shape changes."""
+    source = _notebook_cell_source("setup")
+    assert _decide_cache_guard_present(source)
 
 
 # --------------------------------------------------------------------------- request count

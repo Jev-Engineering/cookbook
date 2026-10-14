@@ -19,8 +19,12 @@ Hard cases, tagged in the id:
 - ``-miss``: the gold label is true but the stored noul is low, a false negative the business
   threshold alone must miss (recall is what this exercises).
 - ``-lookalike``: the message merely resembles a violation (a tracking number that reads like a
-  price, a company's own published office address) but its gold label is false; the stored noul
-  is a moderate false positive the confidence gate is meant to catch.
+  price, a company's own published office address) but its gold label is false. On the
+  ``contact`` rule the stored noul sits close enough to the gate's band that the gate reviews
+  it; on the ``pricing`` rule the stored noul sits far below the 0.86 business threshold and
+  clears outright, so it is not a false positive under that threshold at all. Both rows are
+  kept because they are benign look-alikes worth having in the set, not because the gate is
+  what clears either of them.
 - ``-adversarial``: the message opens with an instruction trying to talk its own reviewer into
   clearing it, then goes on to violate a rule anyway (CONTRIBUTING.md section 3's jaggedness
   source, S07). The gold label is true regardless of the embedded instruction; the stored noul
