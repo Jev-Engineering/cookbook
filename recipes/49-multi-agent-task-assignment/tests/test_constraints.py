@@ -133,6 +133,12 @@ def _assert_dependency_respected(result, subtasks):
 # scores: three code-needing subtasks and two code-capable agents cannot all succeed); "child"
 # depends on "parent" but needs a different, never-scarce skill, so dependency enforcement is
 # the ONLY thing standing between it and being assigned.
+#
+# "binds on every trial" is not 300 genuine explorations of the dependency branch: "parent"
+# starves for any scores at all, so the only thing random scores can still vary here is which
+# of "a1"/"a2" wins "s1" versus "s2" -- two possible outcomes, not 300. The main fuzz test below
+# measures and prints that distinct-outcome count directly, rather than leaving "300 of 300"
+# to be read as 300 independent trials of the thing being proven.
 DEP_AGENTS = (
     helpers.Agent("a1", frozenset({"code"}), 1, ""),
     helpers.Agent("a2", frozenset({"code"}), 1, ""),
@@ -155,6 +161,7 @@ def test_constraints_hold_for_any_scores_and_each_one_actually_binds():
     capability_binds = 0
     budget_binds = 0
     dependency_binds = 0
+    distinct_dependency_outcomes = set()
 
     for _ in range(N_TRIALS):
         scores = _random_scores(rng)
@@ -197,6 +204,12 @@ def test_constraints_hold_for_any_scores_and_each_one_actually_binds():
         _assert_dependency_respected(dep_real, DEP_SUBTASKS)
         if "child" in dep_mutated.assignment() and "child" not in dep_real.assignment():
             dependency_binds += 1
+        distinct_dependency_outcomes.add(
+            (
+                tuple(sorted(dep_real.assignment().items())),
+                tuple(sorted(dep_mutated.assignment().items())),
+            )
+        )
 
     assert capability_binds > 0, (
         f"the capability constraint never bound across {N_TRIALS} random score matrices: "
@@ -213,6 +226,11 @@ def test_constraints_hold_for_any_scores_and_each_one_actually_binds():
     print(
         f"binding counts of {N_TRIALS} trials: "
         f"capability {capability_binds}, budget {budget_binds}, dependency {dependency_binds}"
+    )
+    print(
+        f"distinct (real, mutated) outcome pairs across those {N_TRIALS} dependency-scenario "
+        f"trials: {len(distinct_dependency_outcomes)} -- 'binds on every trial' is this many "
+        "distinct outcomes, not 300 independent explorations"
     )
 
 
