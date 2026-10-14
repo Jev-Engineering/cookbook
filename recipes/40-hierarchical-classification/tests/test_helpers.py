@@ -68,17 +68,44 @@ def test_the_flat_question_covers_every_full_path_plus_the_fallback():
     assert list(helpers.FLAT_LEAVES) == expected
 
 
+def test_the_real_leaf_count_is_eight_full_paths_plus_one_fallback():
+    """``LEAVES_BY_DEPARTMENT`` is not uniform -- 3 topics in account_billing, 3 in
+    product_technical, 2 in people_policy -- so the real leaves sum to 8, not a tidy ``D * T``
+    for any single ``T``. ``FLAT_LEAVES`` adds the fallback on top of those 8, landing at 9.
+    The two counts (8 real leaves; 9 flat options) are different quantities and
+    evaluation-note-md derives both from this sum, not from substituting into a formula that
+    assumes a uniform taxonomy."""
+    leaf_counts_by_department = {
+        department: len(helpers.LEAVES_BY_DEPARTMENT[department])
+        for department in helpers.REAL_DEPARTMENTS
+    }
+    assert leaf_counts_by_department == {
+        helpers.ACCOUNT_BILLING: 3,
+        helpers.PRODUCT_TECHNICAL: 3,
+        helpers.PEOPLE_POLICY: 2,
+    }
+    total_real_leaves = sum(leaf_counts_by_department.values())
+    assert total_real_leaves == 8
+    assert len(helpers.FLAT_LEAVES) == total_real_leaves + 1 == 9
+
+
 def test_the_staged_policys_widest_question_is_smaller_than_the_flat_questions():
-    """The structural case for staging, independent of any one measurement: for ``D``
-    departments of ``T`` topics each, the flat question's option count grows as ``D * T + 1``
-    (every full path plus the fallback), while the staged design never asks a single question
-    wider than ``max(D + 1, T)`` -- the department question (``D`` real departments plus the
-    fallback) or the largest department's own topic question, whichever has more options. On
-    this taxonomy ``D = 3`` and the largest department has ``T = 3`` topics, so the staged
-    design's widest question has 4 options against the flat question's 9 -- small enough on
-    both sides that one combined question stays practical to write and to answer, which is
-    exactly why the flat baseline ties the hierarchy rather than losing to it here. The gap
-    between the two counts grows with ``T``; it does not close as ``T`` shrinks."""
+    """The structural case for staging, independent of any one measurement: the staged design
+    never asks a single question wider than the larger of the department question (the three
+    real departments plus the fallback) and the widest single department's own topic question,
+    both read off ``LEAVES_BY_DEPARTMENT`` as committed -- 4 here, against the flat question's
+    9 options (see ``test_the_real_leaf_count_is_eight_full_paths_plus_one_fallback`` for where
+    the 9 comes from). Small enough on both sides that one combined question stays practical to
+    write and to answer, which is exactly why the flat baseline ties the hierarchy rather than
+    losing to it here.
+
+    A *uniform* taxonomy of ``D`` departments with ``T`` topics each would instead put the flat
+    question's option count at ``D * T + 1`` and the staged width at ``max(D + 1, T)``. This
+    taxonomy is not uniform (3, 3, 2), so substituting its own ``D = 3`` and largest ``T = 3``
+    into ``D * T + 1`` gives 10, not the 9 actually built -- which is why the flat count is
+    read off ``LEAVES_BY_DEPARTMENT`` directly above rather than from that formula. The formula
+    still shows the shape the gap takes as a taxonomy grows: it widens with ``T`` and does not
+    close as ``T`` shrinks."""
     staged_widest = max(
         len(helpers.DEPARTMENTS),
         max(len(helpers.LEAVES_BY_DEPARTMENT[d]) for d in helpers.REAL_DEPARTMENTS),
