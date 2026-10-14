@@ -95,9 +95,19 @@ def _fields(
 #
 # Every entity row shares a name between two excerpts that are, on a careful reading, about two
 # different people: the hard case the use case names. Every entity row's temporal relationship
-# is `same_period` (a gap of a few days), so the baseline's first check (temporal relationship)
-# never explains the apparent conflict away before its blind spot -- not reading the full
-# excerpt's distinguishing context -- is what actually gets tested.
+# is `same_period` (a gap of a few days), so structured_field_baseline's first check (temporal
+# relationship) never explains the apparent conflict away before that baseline's own feature set
+# -- which does not include anything about the excerpts' distinguishing context -- runs out.
+#
+# A property of THESE fixtures, disclosed rather than hidden: every entity pair's two excerpts
+# follow the surface template "<Name>, <role>, <claim>.", and no other category's excerpts do,
+# so every entity row's subject_label is a bare two-word, Title-case personal name ("Jordan
+# Ames", "Sam Whitfield", ...) and no other row's is. helpers.name_pattern_baseline reads exactly
+# that shape and reaches every entity row these fixtures contain at zero requests -- so
+# structured_field_baseline's blind spot on `entity` is a property of its own three features,
+# not of the entity-diagnosis task in general. See "Baselines" in the notebook for what that
+# means for this recipe's headline comparison. The fixtures are not rewritten to remove the
+# tell: doing so would invalidate the whole evaluation for a narrower gain than disclosing it.
 # ===============================================================================================
 
 ROWS = [

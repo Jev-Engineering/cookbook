@@ -284,14 +284,14 @@ def structured_field_baseline(fields: dict[str, Any], approx_tolerance: float = 
        ``not_conflicting``.
     4. Otherwise predicts ``factual_disagreement``.
 
-    This rule can **never** predict ``entity``: distinguishing two different entities that share
-    a name requires reading the excerpts for the distinguishing context around the shared name
-    (a profession, an employer, a sport), which is exactly the kind of judgment this baseline,
-    by construction, does not make. That is a real, disclosed blind spot, not an oversight: it
-    is what separates this baseline's accuracy from Jev's on the entity rows, and it is why the
-    comparison in the notebook is not a tautology (see
-    ``test_structured_field_baseline_does_not_beat_jev_on_test``, the assertion that can
-    actually fail).
+    This rule's own three features -- temporal relationship, scope cue words, approximate-number
+    closeness -- can **never** predict ``entity``: none of them distinguishes two different
+    entities that share a name. That is a real, disclosed property of *this feature set*, not an
+    oversight, and it is what separates this baseline's accuracy from Jev's on the entity rows
+    (see ``test_structured_field_baseline_does_not_beat_jev_on_test``, the assertion that can
+    actually fail). It is **not** evidence that no cheap, zero-request feature could reach
+    ``entity`` on this recipe's fixtures -- see ``name_pattern_baseline`` below, which adds
+    exactly one more feature and does.
     """
     relationship = compute_temporal_relationship(fields["as_of_a"], fields["as_of_b"])
     if relationship != SAME_PERIOD:
@@ -312,3 +312,33 @@ def structured_field_baseline(fields: dict[str, Any], approx_tolerance: float = 
         if abs(a0 - b0) / denominator <= approx_tolerance:
             return NOT_CONFLICTING
     return FACTUAL_DISAGREEMENT
+
+
+# A bare two-word, Title-case personal name ("Jordan Ames"), and nothing else in the field --
+# used only by name_pattern_baseline below, never by the question or the policy.
+_BARE_PERSONAL_NAME = re.compile(r"^[A-Z][a-z]+ [A-Z][a-z]+$")
+
+
+def name_pattern_baseline(fields: dict[str, Any], approx_tolerance: float = 0.05) -> str:
+    """A second, cheaper zero-request baseline: ``structured_field_baseline`` plus exactly one
+    more feature, whether ``subject_label`` is a bare two-word, Title-case personal name.
+
+    This exists to answer a question ``structured_field_baseline``'s own docstring raises but
+    cannot settle on its own: is that baseline's inability to reach ``entity`` a property of the
+    *diagnosis task*, or of *this recipe's own fixtures*? Every ``entity`` row's
+    ``subject_label`` is a bare two-word personal name ("Jordan Ames", "Sam Whitfield", ...), and
+    no other row's is, because every ``entity`` pair's two excerpts were written to the surface
+    template ``"<Name>, <role>, <claim>."`` while no other category's excerpts were -- see
+    ``build_fixtures.py``. A feature that matches exactly that shape therefore predicts
+    ``entity`` whenever it fires and reproduces ``structured_field_baseline`` otherwise.
+
+    ``tests/test_helpers.py::test_name_pattern_baseline_predicts_entity_on_exactly_the_entity_rows_and_nowhere_else``
+    pins, by counting over every committed fixture (not only the scored ones), that this feature
+    fires on exactly the eight ``entity`` rows and never elsewhere -- so the answer to the
+    question above is: a property of these fixtures, not of the task. See "Baselines" in the
+    notebook for what that means for the recipe's own headline comparison, and why the fixtures
+    are not rebuilt to remove the tell (doing so would invalidate the evaluation above it).
+    """
+    if _BARE_PERSONAL_NAME.fullmatch(fields["subject_label"]):
+        return ENTITY
+    return structured_field_baseline(fields, approx_tolerance=approx_tolerance)

@@ -346,9 +346,11 @@ def test_majority_class_baseline_accuracy_on_the_committed_splits_is_not_a_struc
 
 
 def test_structured_field_baseline_never_predicts_entity():
-    """The disclosed blind spot, swept over the committed fixtures: this baseline, which reads
-    only the computed temporal relationship, scope cue words and approximate numbers, never
-    once names ``entity`` -- the one label it structurally cannot reach."""
+    """The disclosed property of this baseline's own three features, swept over the committed
+    fixtures: a rule that reads only the computed temporal relationship, scope cue words and
+    approximate numbers never once names ``entity``. This is a property of that feature set, not
+    a claim that no cheap feature could reach ``entity`` on this recipe's fixtures -- see
+    ``name_pattern_baseline`` and its own tests below for the feature that does."""
     examples = load_inputs(RECIPE)
     predictions = {helpers.structured_field_baseline(e.fields) for e in examples}
     assert ENTITY not in predictions
@@ -446,21 +448,80 @@ def test_structured_field_baseline_does_not_beat_jev_on_test():
 
 
 # --------------------------------------------------------------------------------------------
+# name_pattern_baseline: structured_field_baseline plus one more zero-request feature, which
+# closes the entity gap entirely on this recipe's own fixtures. Reported here, not hidden,
+# because it answers a real question (is the entity blind spot a property of the task or of
+# these fixtures?) rather than being a cheat: it reads no gold label, only the shape of a field
+# Jev is also given. Every number below is derived by counting over the committed fixtures.
+# --------------------------------------------------------------------------------------------
+
+
+def test_name_pattern_baseline_predicts_entity_on_exactly_the_entity_rows_and_nowhere_else():
+    """Counted over all 36 committed rows (scored and demo alike), not only `test`: the bare
+    two-word personal-name feature fires on exactly the eight `entity` rows (three `validation`,
+    four `test`, one `demo`) and no other row. This is what makes
+    ``test_structured_field_baseline_never_predicts_entity``'s claim a property of *that*
+    baseline's three features specifically, rather than of the entity-diagnosis task."""
+    examples = load_inputs(RECIPE)
+    labels = load_labels(RECIPE)
+    predicted_entity_ids = {
+        e.id for e in examples if helpers.name_pattern_baseline(e.fields) == ENTITY
+    }
+    gold_entity_ids = {e.id for e in examples if labels.get(e.id) == ENTITY}
+    assert predicted_entity_ids == gold_entity_ids | {"demo-entity-01"}
+    assert len(predicted_entity_ids) == 8
+
+
+def test_name_pattern_baseline_ties_jev_on_both_scored_splits():
+    """Derived by counting over the real committed fixtures, both splits: adding the two-word
+    personal-name feature to ``structured_field_baseline`` closes its entire gap with Jev here --
+    1.0000 accuracy on both `validation` and `test`, at zero requests. Reported plainly rather
+    than hidden: see the notebook's Baselines section for why this does not generalise past
+    these fixtures (every `entity` excerpt pair was generated from one surface template that no
+    other category uses, which is what the feature is actually keying on)."""
+    labels = load_labels(RECIPE)
+    examples = load_inputs(RECIPE)
+    for split in ("validation", "test"):
+        rows = [e for e in examples if e.split == split and e.id in labels]
+        gold = [labels[e.id] for e in rows]
+        predicted = [helpers.name_pattern_baseline(e.fields) for e in rows]
+        accuracy = sum(p == g for p, g in zip(predicted, gold, strict=True)) / len(gold)
+        assert accuracy == 1.0
+
+
+def test_name_pattern_baseline_falls_back_to_structured_field_baseline_elsewhere():
+    """Off the two-word-name shape, ``name_pattern_baseline`` reproduces
+    ``structured_field_baseline`` exactly -- it is that baseline plus one feature, not a
+    separate rule with its own independent logic for everything else."""
+    examples = load_inputs(RECIPE)
+    for e in examples:
+        if helpers.name_pattern_baseline(e.fields) != ENTITY:
+            assert helpers.name_pattern_baseline(e.fields) == helpers.structured_field_baseline(
+                e.fields
+            )
+
+
+# --------------------------------------------------------------------------------------------
 # The required hard case and the adversarial case, pinned directly on the committed demo
 # fixtures (not scored, but still asserted correct here, independently of the notebook's prose).
 # --------------------------------------------------------------------------------------------
 
 
-def test_the_entity_hard_case_is_same_period_so_only_the_excerpt_text_resolves_it():
-    """``demo-entity-01``'s two dates are 8 days apart (same_period), so the baseline's first
-    check (temporal relationship) cannot explain the apparent conflict away before its real
-    blind spot -- not reading the excerpts' own distinguishing context -- is what gets tested."""
+def test_the_entity_hard_case_is_same_period_so_structured_field_baseline_misses_it():
+    """``demo-entity-01``'s two dates are 8 days apart (same_period), so
+    ``structured_field_baseline``'s first check (temporal relationship) does not explain the
+    pair away before that baseline's own three features -- none of which distinguishes two
+    different people sharing a name -- run out and it falls through to its
+    ``factual_disagreement`` default. This is a property of that specific feature set, not of
+    the task: ``name_pattern_baseline``, which adds one more feature, gets this same row right,
+    checked on the next line."""
     examples = {e.id: e for e in load_inputs(RECIPE)}
     fields = examples["demo-entity-01"].fields
     assert helpers.compute_temporal_relationship(fields["as_of_a"], fields["as_of_b"]) == (
         helpers.SAME_PERIOD
     )
     assert helpers.structured_field_baseline(fields) != ENTITY
+    assert helpers.name_pattern_baseline(fields) == ENTITY
 
 
 def test_the_entity_hard_case_stored_answer_is_confidently_and_correctly_entity():

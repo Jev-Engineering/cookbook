@@ -12,9 +12,9 @@ between their dates, and makes one `Choice`: a genuine factual disagreement, a d
 explained by time, by the excerpts sharing a name but describing two different entities, by
 differing scope, or the named fallback, `not_conflicting`, for a pair that was never really in
 conflict. Python owns the state (including the computed temporal relationship), the confidence
-gate that decides which diagnoses are reported, and a zero-request baseline built from the same
-computed fields that shows exactly where that gate, and Jev, earn their keep — and where they do
-not.
+gate that decides which diagnoses are reported, and two zero-request baselines that show exactly
+where Jev earns its keep against cheaper alternatives — and where, on this recipe's own
+fixtures, a cheap feature ties it instead.
 
 ## Run it offline
 
