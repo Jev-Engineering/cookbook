@@ -108,6 +108,56 @@ def test_threshold_objective_is_pinned_in_the_notebook():
     assert re.search(r"min_coverage\s*=\s*0\.75\b", call_text)
 
 
+def test_the_request_cache_guard_is_pinned_in_the_notebook():
+    """Pin the notebook's own ``decide_once`` cache guard against drift: removing the
+    membership check (``if example.id not in answer_cache``) is exactly the defect named in this
+    recipe's build notes -- a decide helper with no guard re-decides an example every time it is
+    referenced again, so ``request_count`` (a count of actual backend calls, i.e. attempts, not
+    of distinct example ids) would silently grow past the number of examples the notebook
+    actually has. This test parses the committed cell source for the guard's own call
+    expression -- ``example.id not in answer_cache`` -- rather than inferring it from the
+    printed request count, which a missing guard would not, by itself, make wrong on THIS
+    fixture set unless an example really is referenced twice; the source-level pin catches the
+    mechanism regardless of whether this particular notebook happens to re-reference one.
+    A later edit that deletes the guard (so every call becomes an unconditional cache miss) or
+    that renames ``answer_cache``/``example`` inconsistently must turn this assertion red."""
+    notebook = json.loads((RECIPE / "notebook.ipynb").read_text("utf-8"))
+    sources = ["".join(cell["source"]) for cell in notebook["cells"] if cell["cell_type"] == "code"]
+    decide_once_source = "\n".join(src for src in sources if "def decide_once" in src)
+    assert decide_once_source, "no code cell defines decide_once"
+    assert re.search(r"if\s+example\.id\s+not in\s+answer_cache\s*:", decide_once_source)
+    assert "request_count += 1" in decide_once_source
+
+
+def test_request_count_equals_one_decide_per_example_not_per_reference():
+    """A worked, independent proof of the same property the notebook's own guard enforces:
+    build a ``decide_once``-shaped cache by hand here, reference the same example more than
+    once, and show the underlying backend is only ever called once for it."""
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    examples = load_inputs(RECIPE)
+    demo = [e for e in examples if e.split == "demo"]
+    assert demo  # at least one example to reference twice
+
+    calls = 0
+    cache: dict[str, object] = {}
+
+    def decide_once(example):
+        nonlocal calls
+        if example.id not in cache:
+            calls += 1
+            cache[example.id] = backend.decide(helpers.build_state(example.fields), questions)[
+                "recovery"
+            ]
+        return cache[example.id]
+
+    first = decide_once(demo[0])
+    second = decide_once(demo[0])  # referenced again, exactly as the notebook does
+    third = decide_once(demo[0])
+    assert first is second is third
+    assert calls == 1
+
+
 # --------------------------------------------------------------------------------------------
 # enforce_recovery: the confidence gate, the deferral rule for escalate, and the budget itself.
 # --------------------------------------------------------------------------------------------
