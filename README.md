@@ -9,7 +9,7 @@
 **Sixty notebook recipes for typed decisions with Jev, ordered from a first `Choice` question to closed-loop factory control.**
 
 <!-- catalog:progress:start -->
-![Recipes: 39 of 60 published](https://img.shields.io/badge/Recipes-39%20of%2060%20published-F386A1?style=flat-square&labelColor=1E1E1E) ![Status: in progress](https://img.shields.io/badge/Status-in%20progress-E551BA?style=flat-square&labelColor=1E1E1E) ![Categories: 10](https://img.shields.io/badge/Categories-10-F386A1?style=flat-square&labelColor=1E1E1E) ![Levels: 5](https://img.shields.io/badge/Levels-5-F386A1?style=flat-square&labelColor=1E1E1E)
+![Recipes: 40 of 60 published](https://img.shields.io/badge/Recipes-40%20of%2060%20published-F386A1?style=flat-square&labelColor=1E1E1E) ![Status: in progress](https://img.shields.io/badge/Status-in%20progress-E551BA?style=flat-square&labelColor=1E1E1E) ![Categories: 10](https://img.shields.io/badge/Categories-10-F386A1?style=flat-square&labelColor=1E1E1E) ![Levels: 5](https://img.shields.io/badge/Levels-5-F386A1?style=flat-square&labelColor=1E1E1E)
 <!-- catalog:progress:end -->
 ![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-F386A1?style=flat-square&labelColor=1E1E1E) [![License: MIT](https://img.shields.io/badge/License-MIT-DEDEDE?style=flat-square&labelColor=1E1E1E)](LICENSE)
 
@@ -206,7 +206,7 @@ Stateful workflows, provenance, adversarial cases, model calibration, or several
 
 | # | Recipe | Category | Decision | Status |
 | :---: | --- | --- | --- | --- |
-| 40 | **Hierarchical classification**<br>Route documents through a taxonomy in stages while Python carries competing branches forward when early judgments are uncertain. | Data quality & knowledge graphs | `Choice` | Coming soon · [#40](https://github.com/Jev-Engineering/cookbook/issues/40) |
+| 40 | **Hierarchical classification**<br>Route documents through a taxonomy in stages while Python carries competing branches forward when early judgments are uncertain. | Data quality & knowledge graphs | `Choice` | [Open notebook](recipes/40-hierarchical-classification/notebook.ipynb) |
 | 41 | **Approval scope review**<br>Flag semantic mismatches between an approved task and a proposed tool action while Python enforces exact permissions and approval bindings. | Trust & security | `Noul` | Coming soon · [#41](https://github.com/Jev-Engineering/cookbook/issues/41) |
 | 42 | **Outbound disclosure screening**<br>Screen proposed outbound messages for disclosure concerns against supplied sharing rules while deterministic controls hold flagged or uncertain samples for review. | Trust & security | `Noul` | Coming soon · [#42](https://github.com/Jev-Engineering/cookbook/issues/42) |
 | 43 | **Failure recovery selection**<br>Select retry, alternative method, or escalation from a bounded recovery catalog using execution history while Python enforces retry budgets and stop conditions. | Agent orchestration | `Choice` | Coming soon · [#43](https://github.com/Jev-Engineering/cookbook/issues/43) |

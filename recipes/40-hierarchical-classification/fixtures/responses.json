@@ -1,0 +1,3179 @@
+{
+  "009aa69bc6e8f7399f3260b2a0c2188b305dcf5b64fac2fe8dea96cd07bbccf5": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "general_question",
+        "probabilities": {
+          "general_question": 0.78,
+          "invoice_question": 0.12,
+          "refund_request": 0.1
+        },
+        "confidence": 0.67,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "00dd985a0eede72209eddd5d7041dfe3c5028e7b27efb400153348a518a7af09": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "invoice_question",
+        "probabilities": {
+          "invoice_question": 0.5,
+          "refund_request": 0.25,
+          "general_question": 0.25
+        },
+        "confidence": 0.25,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "019630b612f49d52d66b32f033885ad7a4945c6e763f6b4ed47f8ba42a8e3a4d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "account_billing",
+        "probabilities": {
+          "account_billing": 0.84,
+          "product_technical": 0.053333333333333344,
+          "people_policy": 0.053333333333333344,
+          "unclassified": 0.053333333333333344
+        },
+        "confidence": 0.7866666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "01e7447de78633ed03717edd23435d083002098693918d31dbb7bf88db1cc783": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "unclassified",
+        "probabilities": {
+          "unclassified": 0.8,
+          "account_billing.invoice_question": 0.024999999999999994,
+          "account_billing.refund_request": 0.024999999999999994,
+          "account_billing.general_question": 0.024999999999999994,
+          "product_technical.bug_report": 0.024999999999999994,
+          "product_technical.how_to_question": 0.024999999999999994,
+          "product_technical.general_question": 0.024999999999999994,
+          "people_policy.leave_policy": 0.024999999999999994,
+          "people_policy.security_policy": 0.024999999999999994
+        },
+        "confidence": 0.775,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "02a776b70d805cc778094fe46e708660b8a4c697d48108f17b53555f5336ff79": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "general_question",
+        "probabilities": {
+          "general_question": 0.4,
+          "bug_report": 0.32,
+          "how_to_question": 0.28
+        },
+        "confidence": 0.10000000000000005,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "09827ddbcf4b4f3c671fcef2d0a260bb3a6570075ef8dbd3425220a73099ffcb": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "account_billing",
+        "probabilities": {
+          "account_billing": 0.84,
+          "product_technical": 0.053333333333333344,
+          "people_policy": 0.053333333333333344,
+          "unclassified": 0.053333333333333344
+        },
+        "confidence": 0.7866666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "099a21cb06cb15040bca3ec8cda343f46ce8e87267544b3c647e8e2af1cb41c3": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "people_policy",
+        "probabilities": {
+          "people_policy": 0.84,
+          "account_billing": 0.053333333333333344,
+          "product_technical": 0.053333333333333344,
+          "unclassified": 0.053333333333333344
+        },
+        "confidence": 0.7866666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0b248bde7f5d2d14008ea628a1e34929c8245929846503bb1247c85a96b51f64": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "general_question",
+        "probabilities": {
+          "general_question": 0.81,
+          "invoice_question": 0.11,
+          "refund_request": 0.08
+        },
+        "confidence": 0.7150000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0c3f72b9630ca8f2b7a9c4fd11a6d7049e381cf61b109499975bbd769d88d8b7": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "invoice_question",
+        "probabilities": {
+          "invoice_question": 0.85,
+          "refund_request": 0.07500000000000001,
+          "general_question": 0.07500000000000001
+        },
+        "confidence": 0.7749999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0d02bb5c13d6cbeae59ce81966fa7bf093af90813328b7326af22f0edfcf7327": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "invoice_question",
+        "probabilities": {
+          "invoice_question": 0.5,
+          "refund_request": 0.25,
+          "general_question": 0.25
+        },
+        "confidence": 0.25,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0f594e946f088a43d96b52919c285a80af62daf3bdd1f7276811752d431458f4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "security_policy",
+        "probabilities": {
+          "security_policy": 0.8,
+          "leave_policy": 0.2
+        },
+        "confidence": 0.6000000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0f706f4dc5dd18372f1b5a0c1cd04888b12d923345ebc32ddc683769cf566a60": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "general_question",
+        "probabilities": {
+          "general_question": 0.85,
+          "invoice_question": 0.07500000000000001,
+          "refund_request": 0.07500000000000001
+        },
+        "confidence": 0.7749999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1162b42b412d0c9ae52b7e2f2b524842cfbb3d0902fb9267aa616a72c1a66dfa": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "people_policy.security_policy",
+        "probabilities": {
+          "people_policy.security_policy": 0.4,
+          "product_technical.bug_report": 0.28,
+          "people_policy.leave_policy": 0.08,
+          "account_billing.general_question": 0.06,
+          "account_billing.invoice_question": 0.05,
+          "account_billing.refund_request": 0.05,
+          "product_technical.how_to_question": 0.03,
+          "product_technical.general_question": 0.03,
+          "unclassified": 0.02
+        },
+        "confidence": 0.32500000000000007,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1261679c87142d65fbfbeb509a18a5551fae1088678d0c6ee3439891d2c64f7f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "refund_request",
+        "probabilities": {
+          "refund_request": 0.85,
+          "invoice_question": 0.07500000000000001,
+          "general_question": 0.07500000000000001
+        },
+        "confidence": 0.7749999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "15163c1f1e892ec86055f5b350cab6114b5f5e3c4668d488c23850fc0b87d628": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "account_billing",
+        "probabilities": {
+          "account_billing": 0.85,
+          "product_technical": 0.06,
+          "people_policy": 0.05,
+          "unclassified": 0.04
+        },
+        "confidence": 0.7999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1735d26e716a45c8badd5970c2d575d9ae0606aaa3f86efcc16962fabe227724": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "invoice_question",
+        "probabilities": {
+          "invoice_question": 0.5,
+          "refund_request": 0.25,
+          "general_question": 0.25
+        },
+        "confidence": 0.25,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "17a5ca503918c5e296592b98da82613443091bc52eeaf92a8a06f0dc3ff170c6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "how_to_question",
+        "probabilities": {
+          "how_to_question": 0.85,
+          "bug_report": 0.07500000000000001,
+          "general_question": 0.07500000000000001
+        },
+        "confidence": 0.7749999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "19044a2a2c766a787dae53553f03fd39e5d6105a01774c865cc81f616bce1f51": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "invoice_question",
+        "probabilities": {
+          "invoice_question": 0.5,
+          "refund_request": 0.25,
+          "general_question": 0.25
+        },
+        "confidence": 0.25,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1b089d2ffad4feca51a3623483a71c1fba95b66e41a5d0cdcf345719dbc9744b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "product_technical",
+        "probabilities": {
+          "product_technical": 0.37,
+          "account_billing": 0.35,
+          "people_policy": 0.16,
+          "unclassified": 0.12
+        },
+        "confidence": 0.16,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1c378ba7dc1d630b3c93644d02b282c8aabd3d929bd1c767c24f325ddc3ad907": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "account_billing.invoice_question",
+        "probabilities": {
+          "account_billing.invoice_question": 0.7,
+          "account_billing.refund_request": 0.18,
+          "account_billing.general_question": 0.03,
+          "product_technical.bug_report": 0.02,
+          "product_technical.how_to_question": 0.02,
+          "product_technical.general_question": 0.02,
+          "people_policy.leave_policy": 0.01,
+          "people_policy.security_policy": 0.01,
+          "unclassified": 0.01
+        },
+        "confidence": 0.6625,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1dbecac06975d408670c40fda93174197692f73b7fc1420684c625f36549957c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "general_question",
+        "probabilities": {
+          "general_question": 0.4,
+          "invoice_question": 0.3,
+          "refund_request": 0.3
+        },
+        "confidence": 0.10000000000000005,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1f8280ba35eec1eed027dd66bf49be3ad3230c3655fe4a9060c09e96e953f172": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "product_technical",
+        "probabilities": {
+          "product_technical": 0.84,
+          "account_billing": 0.053333333333333344,
+          "people_policy": 0.053333333333333344,
+          "unclassified": 0.053333333333333344
+        },
+        "confidence": 0.7866666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1f8d82e186e5a0bc282a30a2fadb58cb6ce4a373117724da065211b549c54744": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "bug_report",
+        "probabilities": {
+          "bug_report": 0.5,
+          "how_to_question": 0.3,
+          "general_question": 0.2
+        },
+        "confidence": 0.25,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "25e0f2a78e4f92e21a68aa6b145b4259a46a4ef00ed3d29497cd2fbddfd1af67": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "unclassified",
+        "probabilities": {
+          "unclassified": 0.2,
+          "account_billing.general_question": 0.18,
+          "product_technical.general_question": 0.18,
+          "account_billing.invoice_question": 0.09,
+          "account_billing.refund_request": 0.09,
+          "product_technical.bug_report": 0.09,
+          "product_technical.how_to_question": 0.09,
+          "people_policy.leave_policy": 0.04,
+          "people_policy.security_policy": 0.04
+        },
+        "confidence": 0.10000000000000002,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "26d7bbc7aec74d26176c087177309223def2136d417d60649f97bd67b0cf2b72": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "account_billing.invoice_question",
+        "probabilities": {
+          "account_billing.invoice_question": 0.8,
+          "account_billing.refund_request": 0.024999999999999994,
+          "account_billing.general_question": 0.024999999999999994,
+          "product_technical.bug_report": 0.024999999999999994,
+          "product_technical.how_to_question": 0.024999999999999994,
+          "product_technical.general_question": 0.024999999999999994,
+          "people_policy.leave_policy": 0.024999999999999994,
+          "people_policy.security_policy": 0.024999999999999994,
+          "unclassified": 0.024999999999999994
+        },
+        "confidence": 0.775,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "295f5a53fbf8cc6c03d8d13306326b9f8c1f06cd04517b2154f56e21ad882e76": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "bug_report",
+        "probabilities": {
+          "bug_report": 0.36,
+          "general_question": 0.34,
+          "how_to_question": 0.3
+        },
+        "confidence": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "29ae46555e2a36ebc4acfb06afe75320ae0ce45d3fdd7d1be3834b1a4b98f381": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "security_policy",
+        "probabilities": {
+          "security_policy": 0.85,
+          "leave_policy": 0.15000000000000002
+        },
+        "confidence": 0.7,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2a6a77a8e5724a8257f78be226e0969444d66c175aa2ce844611065aeffc02ae": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "account_billing",
+        "probabilities": {
+          "account_billing": 0.86,
+          "product_technical": 0.06,
+          "people_policy": 0.04,
+          "unclassified": 0.04
+        },
+        "confidence": 0.8133333333333334,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2c17743a01c78500685c056b63dd2d3b7c0ad4261a334d21855c0a9fbb8a13d9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "invoice_question",
+        "probabilities": {
+          "invoice_question": 0.5,
+          "refund_request": 0.25,
+          "general_question": 0.25
+        },
+        "confidence": 0.25,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2d3f6813431c960d8edbd6617479879466406aba50bee1ac4c7eeef3708532a6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "account_billing.refund_request",
+        "probabilities": {
+          "account_billing.refund_request": 0.8,
+          "account_billing.invoice_question": 0.024999999999999994,
+          "account_billing.general_question": 0.024999999999999994,
+          "product_technical.bug_report": 0.024999999999999994,
+          "product_technical.how_to_question": 0.024999999999999994,
+          "product_technical.general_question": 0.024999999999999994,
+          "people_policy.leave_policy": 0.024999999999999994,
+          "people_policy.security_policy": 0.024999999999999994,
+          "unclassified": 0.024999999999999994
+        },
+        "confidence": 0.775,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3136205dc05d621943907a14f0b2c3381c4d45464fbabd69bddbc050f2d427f7": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "product_technical",
+        "probabilities": {
+          "product_technical": 0.84,
+          "account_billing": 0.053333333333333344,
+          "people_policy": 0.053333333333333344,
+          "unclassified": 0.053333333333333344
+        },
+        "confidence": 0.7866666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "31b16447bc09289097cb0d6ce352ffd43beaae59c9c61923a73b25b616349067": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "leave_policy",
+        "probabilities": {
+          "leave_policy": 0.5,
+          "security_policy": 0.5
+        },
+        "confidence": 0.0,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "337549bbb97917399a8cada1b72ca9a321344a76ba4a83e2143bde9ec73186fc": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "invoice_question",
+        "probabilities": {
+          "invoice_question": 0.85,
+          "refund_request": 0.07500000000000001,
+          "general_question": 0.07500000000000001
+        },
+        "confidence": 0.7749999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "34e432dccd2fac3eea2c223c34db95db64016375bc6098340b5c0bdc6ef99e2b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "product_technical",
+        "probabilities": {
+          "product_technical": 0.84,
+          "account_billing": 0.053333333333333344,
+          "people_policy": 0.053333333333333344,
+          "unclassified": 0.053333333333333344
+        },
+        "confidence": 0.7866666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3631f5e695a96daafad45d84143ed2f12f3d43181c37a9aaa8ef25f3822e09c3": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "security_policy",
+        "probabilities": {
+          "security_policy": 0.78,
+          "leave_policy": 0.22
+        },
+        "confidence": 0.56,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "379d260ab60864afebf00c2bf13c255208bd8585e3ae2cee96aa09dca4a223e0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "invoice_question",
+        "probabilities": {
+          "invoice_question": 0.5,
+          "refund_request": 0.25,
+          "general_question": 0.25
+        },
+        "confidence": 0.25,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "37bf1357d9588cd4f86da8d769573a3e6310785b393eabc41573feb1b830213c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "general_question",
+        "probabilities": {
+          "general_question": 0.4,
+          "bug_report": 0.3,
+          "how_to_question": 0.3
+        },
+        "confidence": 0.10000000000000005,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3d3347ada74f75f07f26bf37ac90191409caf7881dc77dae27c0f88a8bc2f5b4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "how_to_question",
+        "probabilities": {
+          "how_to_question": 0.85,
+          "bug_report": 0.07500000000000001,
+          "general_question": 0.07500000000000001
+        },
+        "confidence": 0.7749999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3ed626d5bdbe05e6bcd62af6dacdafef567bb8e03ffca1eb80b64255e264b610": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "invoice_question",
+        "probabilities": {
+          "invoice_question": 0.5,
+          "refund_request": 0.25,
+          "general_question": 0.25
+        },
+        "confidence": 0.25,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3f188f9ae40068fae507b75761c3b77ede71ae8ad9302efd16fa2db9c608af87": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "leave_policy",
+        "probabilities": {
+          "leave_policy": 0.85,
+          "security_policy": 0.15000000000000002
+        },
+        "confidence": 0.7,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "40538fc463e048119718e166d84e859c2c0afbfaa53f478f27c6c360fda3e412": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "account_billing.general_question",
+        "probabilities": {
+          "account_billing.general_question": 0.45,
+          "product_technical.general_question": 0.29,
+          "account_billing.invoice_question": 0.05,
+          "account_billing.refund_request": 0.04,
+          "product_technical.bug_report": 0.04,
+          "product_technical.how_to_question": 0.04,
+          "people_policy.leave_policy": 0.03,
+          "people_policy.security_policy": 0.03,
+          "unclassified": 0.03
+        },
+        "confidence": 0.38125000000000003,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "416e22d1447f4fba66e3218d96b18b5faef7864a49d53442ea3c2995b067313f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "general_question",
+        "probabilities": {
+          "general_question": 0.4,
+          "invoice_question": 0.3,
+          "refund_request": 0.3
+        },
+        "confidence": 0.10000000000000005,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4175732796fc7e476d2e40334f124729b2e9509726eeb43b59552eb93f484310": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "people_policy.leave_policy",
+        "probabilities": {
+          "people_policy.leave_policy": 0.8,
+          "account_billing.invoice_question": 0.024999999999999994,
+          "account_billing.refund_request": 0.024999999999999994,
+          "account_billing.general_question": 0.024999999999999994,
+          "product_technical.bug_report": 0.024999999999999994,
+          "product_technical.how_to_question": 0.024999999999999994,
+          "product_technical.general_question": 0.024999999999999994,
+          "people_policy.security_policy": 0.024999999999999994,
+          "unclassified": 0.024999999999999994
+        },
+        "confidence": 0.775,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "418fc75a7b78d3a5e65f1d146428cc55c954ed63e042cac4f7f29823bfce5917": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "invoice_question",
+        "probabilities": {
+          "invoice_question": 0.5,
+          "refund_request": 0.25,
+          "general_question": 0.25
+        },
+        "confidence": 0.25,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4967d8b2d1df7f73813cba64f6045b26ebeb79971954132723676dde1bed64b7": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "account_billing.refund_request",
+        "probabilities": {
+          "account_billing.refund_request": 0.8,
+          "account_billing.invoice_question": 0.024999999999999994,
+          "account_billing.general_question": 0.024999999999999994,
+          "product_technical.bug_report": 0.024999999999999994,
+          "product_technical.how_to_question": 0.024999999999999994,
+          "product_technical.general_question": 0.024999999999999994,
+          "people_policy.leave_policy": 0.024999999999999994,
+          "people_policy.security_policy": 0.024999999999999994,
+          "unclassified": 0.024999999999999994
+        },
+        "confidence": 0.775,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4e3ce0ccd01f670537eb61f93199374748c474529a817124bfef04c943717925": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "general_question",
+        "probabilities": {
+          "general_question": 0.45,
+          "bug_report": 0.3,
+          "how_to_question": 0.25
+        },
+        "confidence": 0.17500000000000002,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4fe83a07f2c40dff1dacb35440250f9fefdcc0dc05a6d4e365c2cfa7c2bb1c56": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "people_policy.security_policy",
+        "probabilities": {
+          "people_policy.security_policy": 0.42,
+          "product_technical.bug_report": 0.3,
+          "people_policy.leave_policy": 0.07,
+          "account_billing.general_question": 0.05,
+          "account_billing.invoice_question": 0.04,
+          "account_billing.refund_request": 0.04,
+          "product_technical.how_to_question": 0.03,
+          "product_technical.general_question": 0.03,
+          "unclassified": 0.02
+        },
+        "confidence": 0.34750000000000003,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "528e4898151cc52fd9e4fe3cd2bb560b8cbf857fbbc13afaee01487c67fa7fa1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "product_technical",
+        "probabilities": {
+          "product_technical": 0.33,
+          "people_policy": 0.31,
+          "account_billing": 0.2,
+          "unclassified": 0.16
+        },
+        "confidence": 0.10666666666666669,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "53bf6639a33009efa7650184dad40cebdfcc5887edbba5ec7860cad984657ce2": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "account_billing",
+        "probabilities": {
+          "account_billing": 0.84,
+          "product_technical": 0.053333333333333344,
+          "people_policy": 0.053333333333333344,
+          "unclassified": 0.053333333333333344
+        },
+        "confidence": 0.7866666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5455519b72cacfac5c314596047904dc61ba64bdd19ed42e7156512db21af6d0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "unclassified",
+        "probabilities": {
+          "unclassified": 0.84,
+          "account_billing": 0.053333333333333344,
+          "product_technical": 0.053333333333333344,
+          "people_policy": 0.053333333333333344
+        },
+        "confidence": 0.7866666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "55066ac705321d8c8da6e4cfa7a40dcca6a4f483e1bde5902986b7d64bd75880": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "product_technical",
+        "probabilities": {
+          "product_technical": 0.84,
+          "account_billing": 0.053333333333333344,
+          "people_policy": 0.053333333333333344,
+          "unclassified": 0.053333333333333344
+        },
+        "confidence": 0.7866666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5550eeaf247ebc62cd9ce50d80b6806ee5d6b9d21e5b1dce1c004288cd077cef": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "general_question",
+        "probabilities": {
+          "general_question": 0.78,
+          "invoice_question": 0.12,
+          "refund_request": 0.1
+        },
+        "confidence": 0.67,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "57ca0f13b9de4dcc23aaf9158fe65a4bd80980e5700893f8c4cd70a6104c15ed": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "leave_policy",
+        "probabilities": {
+          "leave_policy": 0.5,
+          "security_policy": 0.5
+        },
+        "confidence": 0.0,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5914ee30f0257b9b6dadac13a9d2dcf8c96ea0bf7d8854087f22ef4abec62a1b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "invoice_question",
+        "probabilities": {
+          "invoice_question": 0.5,
+          "refund_request": 0.25,
+          "general_question": 0.25
+        },
+        "confidence": 0.25,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5b1d6368a756782b5239b85c5d814900201da6f70aef96291fe6c9a504b22b56": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "people_policy.security_policy",
+        "probabilities": {
+          "people_policy.security_policy": 0.8,
+          "account_billing.invoice_question": 0.024999999999999994,
+          "account_billing.refund_request": 0.024999999999999994,
+          "account_billing.general_question": 0.024999999999999994,
+          "product_technical.bug_report": 0.024999999999999994,
+          "product_technical.how_to_question": 0.024999999999999994,
+          "product_technical.general_question": 0.024999999999999994,
+          "people_policy.leave_policy": 0.024999999999999994,
+          "unclassified": 0.024999999999999994
+        },
+        "confidence": 0.775,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5d56b2da48d55bc2ad4d3cd007fd44f9b28f9d72b6d6038849f41950f40783a5": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "general_question",
+        "probabilities": {
+          "general_question": 0.4,
+          "invoice_question": 0.3,
+          "refund_request": 0.3
+        },
+        "confidence": 0.10000000000000005,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5ea40dfc2e6086e85547ab58e0cf0bae125277564207aab2cdfd17c047d8a5f9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "bug_report",
+        "probabilities": {
+          "bug_report": 0.5,
+          "how_to_question": 0.3,
+          "general_question": 0.2
+        },
+        "confidence": 0.25,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "60f92bc84c71d2bc593cb38cb0c3ca239098311f7f80b5859f916d9cd4264730": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "bug_report",
+        "probabilities": {
+          "bug_report": 0.85,
+          "how_to_question": 0.07500000000000001,
+          "general_question": 0.07500000000000001
+        },
+        "confidence": 0.7749999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "632f27035a9f5a223fa27a167f3ac87faf46a0ddbcb2019bbd68c61ad7654108": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "general_question",
+        "probabilities": {
+          "general_question": 0.85,
+          "invoice_question": 0.07500000000000001,
+          "refund_request": 0.07500000000000001
+        },
+        "confidence": 0.7749999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6a8fccbb15a8dfd4211fbb171c4b4e33c1d0b75f1d91ec8dad50221241aea5fb": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "account_billing.general_question",
+        "probabilities": {
+          "account_billing.general_question": 0.46,
+          "product_technical.general_question": 0.3,
+          "account_billing.invoice_question": 0.04,
+          "account_billing.refund_request": 0.04,
+          "product_technical.bug_report": 0.04,
+          "product_technical.how_to_question": 0.04,
+          "people_policy.leave_policy": 0.04,
+          "people_policy.security_policy": 0.04,
+          "unclassified": 0.04
+        },
+        "confidence": 0.39250000000000007,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6ec20d361b00720b2ee1bc084f07bb95f0d25ee2c477e63af17daf5d5f4b8071": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "product_technical.general_question",
+        "probabilities": {
+          "product_technical.general_question": 0.8,
+          "account_billing.invoice_question": 0.024999999999999994,
+          "account_billing.refund_request": 0.024999999999999994,
+          "account_billing.general_question": 0.024999999999999994,
+          "product_technical.bug_report": 0.024999999999999994,
+          "product_technical.how_to_question": 0.024999999999999994,
+          "people_policy.leave_policy": 0.024999999999999994,
+          "people_policy.security_policy": 0.024999999999999994,
+          "unclassified": 0.024999999999999994
+        },
+        "confidence": 0.775,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6fc935fc92c90070d3d003f88a9f96f69e49325e2bce3ad8ace567ba17e8550c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "invoice_question",
+        "probabilities": {
+          "invoice_question": 0.5,
+          "refund_request": 0.25,
+          "general_question": 0.25
+        },
+        "confidence": 0.25,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "72344fcf0b2c60267ecbd2cb6d5b46481ce4b69be7238229695f943307882ee6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "people_policy",
+        "probabilities": {
+          "people_policy": 0.84,
+          "account_billing": 0.053333333333333344,
+          "product_technical": 0.053333333333333344,
+          "unclassified": 0.053333333333333344
+        },
+        "confidence": 0.7866666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "761e42115e2cccb2a0b150f637ee94c341c8b8e0c5499741f6e8b5fae60e5623": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "account_billing",
+        "probabilities": {
+          "account_billing": 0.28,
+          "product_technical": 0.27,
+          "unclassified": 0.25,
+          "people_policy": 0.2
+        },
+        "confidence": 0.040000000000000036,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7b1b59210d582c89531b9bb3839d6b957498a7ad5b595c06704a2d4346d064b4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "account_billing.invoice_question",
+        "probabilities": {
+          "account_billing.invoice_question": 0.68,
+          "account_billing.refund_request": 0.2,
+          "account_billing.general_question": 0.03,
+          "product_technical.bug_report": 0.02,
+          "product_technical.how_to_question": 0.02,
+          "product_technical.general_question": 0.02,
+          "people_policy.leave_policy": 0.01,
+          "people_policy.security_policy": 0.01,
+          "unclassified": 0.01
+        },
+        "confidence": 0.6400000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7c725b4e5befa04280733d9f5359c7bace32f70d69e57a21aedeffcafbe3b0cd": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "product_technical.how_to_question",
+        "probabilities": {
+          "product_technical.how_to_question": 0.8,
+          "account_billing.invoice_question": 0.024999999999999994,
+          "account_billing.refund_request": 0.024999999999999994,
+          "account_billing.general_question": 0.024999999999999994,
+          "product_technical.bug_report": 0.024999999999999994,
+          "product_technical.general_question": 0.024999999999999994,
+          "people_policy.leave_policy": 0.024999999999999994,
+          "people_policy.security_policy": 0.024999999999999994,
+          "unclassified": 0.024999999999999994
+        },
+        "confidence": 0.775,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7ebfff61ce0fc3b0a01c2ce7a7a1bca4add2f292aedff10ddbf26034879cd068": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "leave_policy",
+        "probabilities": {
+          "leave_policy": 0.5,
+          "security_policy": 0.5
+        },
+        "confidence": 0.0,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7f8869b2f12ac7fe9e7de53a6ccda724156043214e48b1def6cc786e349f709c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "unclassified",
+        "probabilities": {
+          "unclassified": 0.84,
+          "account_billing": 0.053333333333333344,
+          "product_technical": 0.053333333333333344,
+          "people_policy": 0.053333333333333344
+        },
+        "confidence": 0.7866666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8335fcebf1f615511b0d657a1b3e806bdab1908e91de602deb2142cdf1b7149d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "bug_report",
+        "probabilities": {
+          "bug_report": 0.85,
+          "how_to_question": 0.07500000000000001,
+          "general_question": 0.07500000000000001
+        },
+        "confidence": 0.7749999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8426a1632a27e2bad9bbc767f1379b32ca38e4f06f76ca5d3a1df6cfa2b3bd66": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "unclassified",
+        "probabilities": {
+          "unclassified": 0.8,
+          "account_billing.invoice_question": 0.024999999999999994,
+          "account_billing.refund_request": 0.024999999999999994,
+          "account_billing.general_question": 0.024999999999999994,
+          "product_technical.bug_report": 0.024999999999999994,
+          "product_technical.how_to_question": 0.024999999999999994,
+          "product_technical.general_question": 0.024999999999999994,
+          "people_policy.leave_policy": 0.024999999999999994,
+          "people_policy.security_policy": 0.024999999999999994
+        },
+        "confidence": 0.775,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "87236b9bca5f2cbac8d41e4ab59a8ac734e09abed2f4197108ace5c78276c63d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "leave_policy",
+        "probabilities": {
+          "leave_policy": 0.5,
+          "security_policy": 0.5
+        },
+        "confidence": 0.0,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "88a1cc86fea9613314d58e3d2a67e17406963f4c464574196275c0d229977292": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "people_policy",
+        "probabilities": {
+          "people_policy": 0.84,
+          "account_billing": 0.053333333333333344,
+          "product_technical": 0.053333333333333344,
+          "unclassified": 0.053333333333333344
+        },
+        "confidence": 0.7866666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8cc5ba9b9464078149535169da14b5e027e785a724125f9d64ca15f2658105ca": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "product_technical",
+        "probabilities": {
+          "product_technical": 0.36,
+          "account_billing": 0.34,
+          "people_policy": 0.17,
+          "unclassified": 0.13
+        },
+        "confidence": 0.14666666666666664,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "94a99a0f03e274163839f00402744d4983b661f34f5e32079fc392cda54c7679": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "unclassified",
+        "probabilities": {
+          "unclassified": 0.2,
+          "account_billing.general_question": 0.18,
+          "product_technical.general_question": 0.18,
+          "account_billing.invoice_question": 0.09,
+          "account_billing.refund_request": 0.09,
+          "product_technical.bug_report": 0.09,
+          "product_technical.how_to_question": 0.09,
+          "people_policy.leave_policy": 0.04,
+          "people_policy.security_policy": 0.04
+        },
+        "confidence": 0.10000000000000002,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "958adae18badc9edb5be39b75fc5cbac5ad74cd5f460b0aa832c5ad6e6014460": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "unclassified",
+        "probabilities": {
+          "unclassified": 0.8,
+          "account_billing.invoice_question": 0.024999999999999994,
+          "account_billing.refund_request": 0.024999999999999994,
+          "account_billing.general_question": 0.024999999999999994,
+          "product_technical.bug_report": 0.024999999999999994,
+          "product_technical.how_to_question": 0.024999999999999994,
+          "product_technical.general_question": 0.024999999999999994,
+          "people_policy.leave_policy": 0.024999999999999994,
+          "people_policy.security_policy": 0.024999999999999994
+        },
+        "confidence": 0.775,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "960cab49556d529407cad2f06831ddee1ae499eadb65b5c87a8e92edd6be9aa3": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "account_billing.general_question",
+        "probabilities": {
+          "account_billing.general_question": 0.8,
+          "account_billing.invoice_question": 0.024999999999999994,
+          "account_billing.refund_request": 0.024999999999999994,
+          "product_technical.bug_report": 0.024999999999999994,
+          "product_technical.how_to_question": 0.024999999999999994,
+          "product_technical.general_question": 0.024999999999999994,
+          "people_policy.leave_policy": 0.024999999999999994,
+          "people_policy.security_policy": 0.024999999999999994,
+          "unclassified": 0.024999999999999994
+        },
+        "confidence": 0.775,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9817cdc69cfd7556ef359f661b09af7db378cabacfc4a85dbfa500a81eda50bc": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "account_billing",
+        "probabilities": {
+          "account_billing": 0.28,
+          "product_technical": 0.27,
+          "unclassified": 0.26,
+          "people_policy": 0.19
+        },
+        "confidence": 0.040000000000000036,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9909936306ddb36fa3ff5f8a3857d3427cb470ec91e82e5a1fbe34f76aa2985a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "unclassified",
+        "probabilities": {
+          "unclassified": 0.3,
+          "account_billing": 0.26,
+          "product_technical": 0.25,
+          "people_policy": 0.19
+        },
+        "confidence": 0.06666666666666665,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9cb1801f3e9cbee74a5d454f23a9612db87c95d3a72c7d5e0467b7fe9e64394b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "product_technical",
+        "probabilities": {
+          "product_technical": 0.34,
+          "people_policy": 0.32,
+          "account_billing": 0.19,
+          "unclassified": 0.15
+        },
+        "confidence": 0.12000000000000004,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9dfa216bb03bbdd3a56cee4483dd4a0e3b58fd001f12376234585bb8a7f666d7": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "invoice_question",
+        "probabilities": {
+          "invoice_question": 0.5,
+          "refund_request": 0.25,
+          "general_question": 0.25
+        },
+        "confidence": 0.25,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a03548f13e73018d7d3063c5199e1993683aaa64773d339c7a9623d912dbe179": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "unclassified",
+        "probabilities": {
+          "unclassified": 0.8,
+          "account_billing.invoice_question": 0.024999999999999994,
+          "account_billing.refund_request": 0.024999999999999994,
+          "account_billing.general_question": 0.024999999999999994,
+          "product_technical.bug_report": 0.024999999999999994,
+          "product_technical.how_to_question": 0.024999999999999994,
+          "product_technical.general_question": 0.024999999999999994,
+          "people_policy.leave_policy": 0.024999999999999994,
+          "people_policy.security_policy": 0.024999999999999994
+        },
+        "confidence": 0.775,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a62358871a190448de09c2f3067440c2e01171dee5b4997387fff75beb1c06b8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "product_technical",
+        "probabilities": {
+          "product_technical": 0.84,
+          "account_billing": 0.053333333333333344,
+          "people_policy": 0.053333333333333344,
+          "unclassified": 0.053333333333333344
+        },
+        "confidence": 0.7866666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a704a15740ff1f032f348a448ce4c2708eb8ad1204aa18c3a6e87ad3d5a91fbd": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "product_technical.how_to_question",
+        "probabilities": {
+          "product_technical.how_to_question": 0.8,
+          "account_billing.invoice_question": 0.024999999999999994,
+          "account_billing.refund_request": 0.024999999999999994,
+          "account_billing.general_question": 0.024999999999999994,
+          "product_technical.bug_report": 0.024999999999999994,
+          "product_technical.general_question": 0.024999999999999994,
+          "people_policy.leave_policy": 0.024999999999999994,
+          "people_policy.security_policy": 0.024999999999999994,
+          "unclassified": 0.024999999999999994
+        },
+        "confidence": 0.775,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a88fc84985be95ef2d3c73337bb2161963f3a46776c9438186f5b680dd86882b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "leave_policy",
+        "probabilities": {
+          "leave_policy": 0.85,
+          "security_policy": 0.15000000000000002
+        },
+        "confidence": 0.7,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ac04fd4655464f2d9d6b9f143f8a7746b1ba47941c89839c58333c4d458b2f91": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "invoice_question",
+        "probabilities": {
+          "invoice_question": 0.77,
+          "refund_request": 0.17,
+          "general_question": 0.06
+        },
+        "confidence": 0.655,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ac5d2a5e93cdc332c709ffcac867319b11b4205836273dd4c275a2623db91181": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "account_billing.invoice_question",
+        "probabilities": {
+          "account_billing.invoice_question": 0.8,
+          "account_billing.refund_request": 0.024999999999999994,
+          "account_billing.general_question": 0.024999999999999994,
+          "product_technical.bug_report": 0.024999999999999994,
+          "product_technical.how_to_question": 0.024999999999999994,
+          "product_technical.general_question": 0.024999999999999994,
+          "people_policy.leave_policy": 0.024999999999999994,
+          "people_policy.security_policy": 0.024999999999999994,
+          "unclassified": 0.024999999999999994
+        },
+        "confidence": 0.775,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ade9e05b35162fe06066f562875dd2ddac6fc2fce8cdca3c006bfb8bc2e8b88e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "account_billing.general_question",
+        "probabilities": {
+          "account_billing.general_question": 0.46,
+          "product_technical.general_question": 0.3,
+          "account_billing.invoice_question": 0.04,
+          "account_billing.refund_request": 0.04,
+          "product_technical.bug_report": 0.04,
+          "product_technical.how_to_question": 0.04,
+          "people_policy.leave_policy": 0.04,
+          "people_policy.security_policy": 0.04,
+          "unclassified": 0.04
+        },
+        "confidence": 0.39250000000000007,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b04924f4287a2bb4c2e53d5a2a95821063647718b40ed2dcc10ce299f604b548": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "unclassified",
+        "probabilities": {
+          "unclassified": 0.84,
+          "account_billing": 0.053333333333333344,
+          "product_technical": 0.053333333333333344,
+          "people_policy": 0.053333333333333344
+        },
+        "confidence": 0.7866666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b15575abd5f25763255317092e14f499e5a0adee112e98854b19f221b9df7e61": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "leave_policy",
+        "probabilities": {
+          "leave_policy": 0.5,
+          "security_policy": 0.5
+        },
+        "confidence": 0.0,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b197a8f2534c2200c1353e9560f39360b65b84b54f8703f7b68ee75d0c2a179e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "invoice_question",
+        "probabilities": {
+          "invoice_question": 0.5,
+          "refund_request": 0.25,
+          "general_question": 0.25
+        },
+        "confidence": 0.25,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b1a54916f219f804a6c80bbd6f4afa14a25a70e86787cb6d817b0a4ade1ecc11": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "general_question",
+        "probabilities": {
+          "general_question": 0.85,
+          "bug_report": 0.07500000000000001,
+          "how_to_question": 0.07500000000000001
+        },
+        "confidence": 0.7749999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b34d5f08492eb1cbd091b37422afd09d6a60b1a9b5fb56d232726a5b358385de": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "product_technical",
+        "probabilities": {
+          "product_technical": 0.37,
+          "account_billing": 0.35,
+          "people_policy": 0.16,
+          "unclassified": 0.12
+        },
+        "confidence": 0.16,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bde34143825f2b4b7a86d4be8673cf32b3e1d2eaefba54925234ace316d4e998": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "account_billing",
+        "probabilities": {
+          "account_billing": 0.84,
+          "product_technical": 0.053333333333333344,
+          "people_policy": 0.053333333333333344,
+          "unclassified": 0.053333333333333344
+        },
+        "confidence": 0.7866666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "be55ab983fa01807fd072147903dbb9ee52ca7b746f15966931f71383ca461ea": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "leave_policy",
+        "probabilities": {
+          "leave_policy": 0.5,
+          "security_policy": 0.5
+        },
+        "confidence": 0.0,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c0b4571583089c071c5ed8f36abea2c23aacdd14ddb423b0674efd9956410459": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "bug_report",
+        "probabilities": {
+          "bug_report": 0.37,
+          "general_question": 0.33,
+          "how_to_question": 0.3
+        },
+        "confidence": 0.055000000000000014,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c2f9daeacd4020601ddc96dbb496138ea7571dd2d9742142677a6e334f764804": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "unclassified",
+        "probabilities": {
+          "unclassified": 0.84,
+          "account_billing": 0.053333333333333344,
+          "product_technical": 0.053333333333333344,
+          "people_policy": 0.053333333333333344
+        },
+        "confidence": 0.7866666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c65affb5fe5752a5896b4c91e9d94671a034c6f95638f39e002dd737060cd5d5": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "general_question",
+        "probabilities": {
+          "general_question": 0.4,
+          "bug_report": 0.3,
+          "how_to_question": 0.3
+        },
+        "confidence": 0.10000000000000005,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c7c83afeb1f64d6218f6649c260966e0c87c625f7587d465c428e50756569d4c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "leave_policy",
+        "probabilities": {
+          "leave_policy": 0.5,
+          "security_policy": 0.5
+        },
+        "confidence": 0.0,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c7d00513f1652ef90773b4e223de5d25006361ded5f0a62115d5beab3c9d724b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "invoice_question",
+        "probabilities": {
+          "invoice_question": 0.79,
+          "refund_request": 0.15,
+          "general_question": 0.06
+        },
+        "confidence": 0.685,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c7f711f9620e17d1754bbb2981917f676e15823b45fc3146c3b495a3ce883db3": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "people_policy",
+        "probabilities": {
+          "people_policy": 0.84,
+          "account_billing": 0.053333333333333344,
+          "product_technical": 0.053333333333333344,
+          "unclassified": 0.053333333333333344
+        },
+        "confidence": 0.7866666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c81d0a03b763628f3bed742cf156d7383ed27fd0cea662a31d74f5feec91de86": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "product_technical",
+        "probabilities": {
+          "product_technical": 0.84,
+          "account_billing": 0.053333333333333344,
+          "people_policy": 0.053333333333333344,
+          "unclassified": 0.053333333333333344
+        },
+        "confidence": 0.7866666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c9a8b50f9586ffd9796aa4acf3c8bf7bbed6d3e3c394370968775b315a534bc1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "product_technical.bug_report",
+        "probabilities": {
+          "product_technical.bug_report": 0.8,
+          "account_billing.invoice_question": 0.024999999999999994,
+          "account_billing.refund_request": 0.024999999999999994,
+          "account_billing.general_question": 0.024999999999999994,
+          "product_technical.how_to_question": 0.024999999999999994,
+          "product_technical.general_question": 0.024999999999999994,
+          "people_policy.leave_policy": 0.024999999999999994,
+          "people_policy.security_policy": 0.024999999999999994,
+          "unclassified": 0.024999999999999994
+        },
+        "confidence": 0.775,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "cb904bff90605fc93aab12ca24761c19c0b7ea5ea44e76a3673dba11d9382326": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "product_technical.general_question",
+        "probabilities": {
+          "product_technical.general_question": 0.8,
+          "account_billing.invoice_question": 0.024999999999999994,
+          "account_billing.refund_request": 0.024999999999999994,
+          "account_billing.general_question": 0.024999999999999994,
+          "product_technical.bug_report": 0.024999999999999994,
+          "product_technical.how_to_question": 0.024999999999999994,
+          "people_policy.leave_policy": 0.024999999999999994,
+          "people_policy.security_policy": 0.024999999999999994,
+          "unclassified": 0.024999999999999994
+        },
+        "confidence": 0.775,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ce536fe0723394eed213fce4add7f196d0310eb7feab714c688f4f5204ba3914": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "unclassified",
+        "probabilities": {
+          "unclassified": 0.22,
+          "account_billing.general_question": 0.17,
+          "product_technical.general_question": 0.17,
+          "account_billing.invoice_question": 0.09,
+          "account_billing.refund_request": 0.09,
+          "product_technical.bug_report": 0.09,
+          "product_technical.how_to_question": 0.09,
+          "people_policy.leave_policy": 0.04,
+          "people_policy.security_policy": 0.04
+        },
+        "confidence": 0.12250000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d1297099feb7af19bea79c4c2d1e328ca6b5e97f5ed867f17f85dfdad424c9d2": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "people_policy.leave_policy",
+        "probabilities": {
+          "people_policy.leave_policy": 0.8,
+          "account_billing.invoice_question": 0.024999999999999994,
+          "account_billing.refund_request": 0.024999999999999994,
+          "account_billing.general_question": 0.024999999999999994,
+          "product_technical.bug_report": 0.024999999999999994,
+          "product_technical.how_to_question": 0.024999999999999994,
+          "product_technical.general_question": 0.024999999999999994,
+          "people_policy.security_policy": 0.024999999999999994,
+          "unclassified": 0.024999999999999994
+        },
+        "confidence": 0.775,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d3653949fd3e8eb575d22826d5e3860cba7bf20f6141bc9f38873c6c6bf791ef": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "account_billing",
+        "probabilities": {
+          "account_billing": 0.84,
+          "product_technical": 0.06,
+          "people_policy": 0.05,
+          "unclassified": 0.05
+        },
+        "confidence": 0.7866666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d442e59625ce0dc844d9b369f37382f97105e206fb2072515a88c10dd3a46a8c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "account_billing",
+        "probabilities": {
+          "account_billing": 0.84,
+          "product_technical": 0.053333333333333344,
+          "people_policy": 0.053333333333333344,
+          "unclassified": 0.053333333333333344
+        },
+        "confidence": 0.7866666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d450be62651c6d154ea0de28c42c2d3a718865d6e583d40fc2f5cab6ed7a487d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "account_billing.general_question",
+        "probabilities": {
+          "account_billing.general_question": 0.63,
+          "product_technical.general_question": 0.17,
+          "account_billing.invoice_question": 0.05,
+          "account_billing.refund_request": 0.05,
+          "product_technical.bug_report": 0.03,
+          "product_technical.how_to_question": 0.03,
+          "people_policy.leave_policy": 0.02,
+          "people_policy.security_policy": 0.01,
+          "unclassified": 0.01
+        },
+        "confidence": 0.5837500000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d5eca71681fec9339afcb4e7bdd4d87ff77a940d5d16c84cd52451ee92f5e167": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "product_technical.bug_report",
+        "probabilities": {
+          "product_technical.bug_report": 0.8,
+          "account_billing.invoice_question": 0.024999999999999994,
+          "account_billing.refund_request": 0.024999999999999994,
+          "account_billing.general_question": 0.024999999999999994,
+          "product_technical.how_to_question": 0.024999999999999994,
+          "product_technical.general_question": 0.024999999999999994,
+          "people_policy.leave_policy": 0.024999999999999994,
+          "people_policy.security_policy": 0.024999999999999994,
+          "unclassified": 0.024999999999999994
+        },
+        "confidence": 0.775,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d89df4a09f32fad98f67d4547a9f5e06846d5bd1d50a738f34d5e595e81360d0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "general_question",
+        "probabilities": {
+          "general_question": 0.42,
+          "bug_report": 0.3,
+          "how_to_question": 0.28
+        },
+        "confidence": 0.12999999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d9b46915bed401c8fd294edc64d50be3d98a7011ba739185902c4f9f9179083e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "leave_policy",
+        "probabilities": {
+          "leave_policy": 0.5,
+          "security_policy": 0.5
+        },
+        "confidence": 0.0,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "daa71c2a20410391a2a83bf5ce249f9163b2f6ee643ffe29d8927d08b88deb04": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "invoice_question",
+        "probabilities": {
+          "invoice_question": 0.5,
+          "refund_request": 0.25,
+          "general_question": 0.25
+        },
+        "confidence": 0.25,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "dbdddb85502b4fca87956ce1a08f927123ad5facfc199d26abf15190b31157fc": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "department": {
+        "type": "choice",
+        "choice": "account_billing",
+        "probabilities": {
+          "account_billing": 0.84,
+          "product_technical": 0.053333333333333344,
+          "people_policy": 0.053333333333333344,
+          "unclassified": 0.053333333333333344
+        },
+        "confidence": 0.7866666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "de31d7459bb798e120d0a5ddaec1b9c10a103b90443e6754fce827593790fedb": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "general_question",
+        "probabilities": {
+          "general_question": 0.42,
+          "bug_report": 0.3,
+          "how_to_question": 0.28
+        },
+        "confidence": 0.12999999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e048102b628665ec3ece394bcfb2a799d780dcf3bd9f06ec23cc5c5be8aac089": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "general_question",
+        "probabilities": {
+          "general_question": 0.4,
+          "bug_report": 0.3,
+          "how_to_question": 0.3
+        },
+        "confidence": 0.10000000000000005,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e4460512524dee0261985072b7fad68cc00a248141664762746cddadc5ab6e99": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "general_question",
+        "probabilities": {
+          "general_question": 0.85,
+          "bug_report": 0.07500000000000001,
+          "how_to_question": 0.07500000000000001
+        },
+        "confidence": 0.7749999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e4f90f37587c97f466086459514acac8702dc1b9e30a33a5deac7fd680ea3cd1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "general_question",
+        "probabilities": {
+          "general_question": 0.8,
+          "invoice_question": 0.11,
+          "refund_request": 0.09
+        },
+        "confidence": 0.7000000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e8db4ae2576420421057a5b4ec5169bb4f0568efb9eeb22d02b591ef61131340": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "leave_policy",
+        "probabilities": {
+          "leave_policy": 0.5,
+          "security_policy": 0.5
+        },
+        "confidence": 0.0,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e939135ea28c469916b112801f3ad28777fba5f895a96867466f530f2b83ddad": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "leave_policy",
+        "probabilities": {
+          "leave_policy": 0.5,
+          "security_policy": 0.5
+        },
+        "confidence": 0.0,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ee84e46fb2949353bf9a6aece535a7f353746f2143b17d073abfa730a893aca4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "security_policy",
+        "probabilities": {
+          "security_policy": 0.85,
+          "leave_policy": 0.15000000000000002
+        },
+        "confidence": 0.7,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f78d1e4545f5802eaa8959f7d9bbc9fd506d6db7a38acbb1f0261240be569c0c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "account_billing.general_question",
+        "probabilities": {
+          "account_billing.general_question": 0.8,
+          "account_billing.invoice_question": 0.024999999999999994,
+          "account_billing.refund_request": 0.024999999999999994,
+          "product_technical.bug_report": 0.024999999999999994,
+          "product_technical.how_to_question": 0.024999999999999994,
+          "product_technical.general_question": 0.024999999999999994,
+          "people_policy.leave_policy": 0.024999999999999994,
+          "people_policy.security_policy": 0.024999999999999994,
+          "unclassified": 0.024999999999999994
+        },
+        "confidence": 0.775,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f7f4c51fc514aa5debe3611cf0dc8850e07ebb68f9f35435c150e39b6c7458c6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "flat_topic": {
+        "type": "choice",
+        "choice": "people_policy.security_policy",
+        "probabilities": {
+          "people_policy.security_policy": 0.8,
+          "account_billing.invoice_question": 0.024999999999999994,
+          "account_billing.refund_request": 0.024999999999999994,
+          "account_billing.general_question": 0.024999999999999994,
+          "product_technical.bug_report": 0.024999999999999994,
+          "product_technical.how_to_question": 0.024999999999999994,
+          "product_technical.general_question": 0.024999999999999994,
+          "people_policy.leave_policy": 0.024999999999999994,
+          "unclassified": 0.024999999999999994
+        },
+        "confidence": 0.775,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "faa0cd3888acc891a767b666c0b45831485a8419488d88845d995995943adca8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "invoice_question",
+        "probabilities": {
+          "invoice_question": 0.5,
+          "refund_request": 0.25,
+          "general_question": 0.25
+        },
+        "confidence": 0.25,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ffbaf9f30326cc6775e244cf6fd12b38d60ae4eb9cbe6f0d7e14d8e007abfd70": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "topic": {
+        "type": "choice",
+        "choice": "refund_request",
+        "probabilities": {
+          "refund_request": 0.85,
+          "invoice_question": 0.07500000000000001,
+          "general_question": 0.07500000000000001
+        },
+        "confidence": 0.7749999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
