@@ -52,9 +52,11 @@ Each scenario name says what the gold labels are and what the stored answer test
 - ``t-cand2-wrongchoice``: the required confidently-WRONG stage-one case
   (`tests/test_helpers.py::test_stored_answers_are_not_all_right`). Gold names `candidate_2`;
   the stored stage-one answer confidently names `candidate_1` instead, at a confidence that
-  survives the gate selected on `validation` (there is no validation counterpart to this row:
-  every `validation` stage-one answer here is confidently correct). `candidate_1`'s own text is
-  itself unremarkable, so stage two does not additionally flag it: the composed outcome is a
+  survives the gate selected on `validation` (there is no validation counterpart to this
+  specific failure mode: on `validation`, 9 of the 10 stage-one answers clear the 0.6533 gate,
+  and all 9 of those are correct -- `v-cand1-lowconf` is the tenth, wrong at confidence 0.0133,
+  which is why it is gated rather than answered). `candidate_1`'s own text is itself
+  unremarkable, so stage two does not additionally flag it: the composed outcome is a
   confident, wrong `applied`, not a `review` -- the "full-path trap" `helpers.task_correct` is
   written to catch (see its docstring), and the row that keeps `test`'s stage-one risk non-zero.
 - ``t-cand1-wrongconsistency``: the stage-two analogue of the row above. Stage one confidently
@@ -64,7 +66,12 @@ Each scenario name says what the gold labels are and what the stored answer test
 - ``demo-r2``: the one row in this recipe where both propositions are gold-True at once (an
   unsupported new claim and a dangling pronoun in the same candidate), confidently and
   correctly flagged on both, so the battery's `any(...)` composition is exercised with both
-  flags confirmed together, not only one at a time.
+  flags confirmed together, not only one at a time -- but only in the walkthrough. `demo-r2`
+  carries no gold label (`labels.jsonl` has no `demo` entries at all; demo examples are never
+  scored, per `fixtures.md`), so no composed metric below is computed over a both-true case:
+  the SCORED pool has no row where both propositions are gold-True. That is a real limitation
+  of the evaluation, not only of the walkthrough, and is stated again where it matters in the
+  notebook rather than left implicit here.
 """
 
 import argparse

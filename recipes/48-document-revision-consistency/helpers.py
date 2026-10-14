@@ -557,3 +557,21 @@ def cue_inconsistent_baseline(fields: dict[str, Any], candidate_name: str) -> bo
     notebook computes, by counting over the real committed ``test`` split, whether it does."""
     text = fields["candidates"][candidate_name].lower()
     return any(cue in text for cue in _NEW_FACT_CUES)
+
+
+def cut_stem_inconsistent_baseline(fields: dict[str, Any], candidate_name: str) -> bool:
+    """A second non-constant, zero-request baseline for the consistency flag, found by checking
+    a candidate feature against each proposition separately rather than only against the
+    composed flag (``introduces_new_fact or breaks_reference``): both of this recipe's
+    ``introduces_new_fact`` rows happen to open their gold candidate's text with the word "cut"
+    (as in "cut spend"), and no other scored candidate text contains that word at all. Reading
+    for it alone recovers ``introduces_new_fact`` with zero false positives and zero false
+    negatives on both splits -- a feature that is derivable from ``validation`` alone and does
+    transfer to ``test`` unchanged, which is exactly the standard that makes a cheap feature a
+    legitimate rival baseline rather than a dismissible curiosity (see the notebook's "Checking
+    for a surface-form label leak" section, where it is measured per proposition, and
+    "Baselines", where it is compared against Jev on the composed flag like any other
+    baseline). It never predicts ``breaks_reference`` on its own, so on the composed flag it
+    necessarily misses any row whose only true proposition is that one."""
+    text = fields["candidates"][candidate_name].lower()
+    return re.search(r"\bcut\b", text) is not None

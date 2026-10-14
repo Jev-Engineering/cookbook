@@ -702,6 +702,21 @@ def test_cue_inconsistent_baseline_reads_only_the_chosen_candidates_own_text():
     assert helpers.cue_inconsistent_baseline(fields, C2) is False
 
 
+def test_cut_stem_inconsistent_baseline_matches_the_whole_word_only():
+    fields = {
+        "candidates": {
+            C1: "The team cut spend after the review.",
+            C2: "The cutover finished on schedule.",
+            C3: "Nothing changed.",
+        }
+    }
+    assert helpers.cut_stem_inconsistent_baseline(fields, C1) is True
+    # "cutover" contains the substring "cut" but is not the word "cut" -- a whole-word match,
+    # not a bare substring match, is what keeps this baseline from firing on unrelated text.
+    assert helpers.cut_stem_inconsistent_baseline(fields, C2) is False
+    assert helpers.cut_stem_inconsistent_baseline(fields, C3) is False
+
+
 def test_always_consistent_baseline_is_constant():
     assert helpers.always_consistent_baseline() is False
 
