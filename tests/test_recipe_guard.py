@@ -16,8 +16,10 @@ a ``(slug, check_id)`` allowlist that marks the pair ``xfail(strict=True)``: CI 
 and a sweep pull request that actually fixes a recipe turns its xfail into an unexpected pass,
 which ``strict=True`` turns back into a hard failure until the entry is removed. See that file's
 own docstring for the allowlist protocol (a recipe pull request may never add an entry; only a
-#163 sweep removes one) and ``docs/notebook-ci.md`` ("The recipe guard allowlist") for the
-condensed version aimed at a builder reading CI output.
+sweep against the entry's own named issue removes one -- #163 for most entries here, a
+different issue's own number for a later check's own newly-revealed drift) and
+``docs/notebook-ci.md`` ("The recipe guard allowlist") for the condensed version aimed at a
+builder reading CI output.
 
 Check ids, the rule each enforces, and how it is detected (also the per-check docstring below):
 
@@ -1306,22 +1308,40 @@ def _threshold_pin_obligations(recipe_dir_: Path) -> list[tuple[str, str, str | 
     A code cell or ``helpers.py`` that does not parse as plain Python (an IPython magic, or any
     other syntax error) is reported as its own obligation, with function name
     ``"<unparseable>"`` and objective ``None`` -- a hard failure naming what is wrong, never a
-    silent skip and never a raw ``SyntaxError`` traceback blamed on the recipe."""
+    silent skip and never a raw ``SyntaxError`` traceback blamed on the recipe.
+
+    Import aliases are resolved across the WHOLE notebook, not cell by cell: a notebook's
+    ``from jev_cookbook.evaluation import select_threshold as X`` import and the cell that
+    calls ``X(...)`` are essentially never the same cell (the import lives in an early setup
+    cell; the call lives in the evaluation cell), and ``ast.parse`` on one cell's own source
+    can never see an import statement written in a different cell. Parsing each cell on its
+    own and resolving aliases against that one cell's tree alone -- an earlier version of this
+    function did exactly that -- means the alias fix below cannot actually fire for any
+    notebook: 0 of 46 published recipes have the import and the call in the same cell, so a
+    reviewer's recipe-38 alias mutation still returned ``SKIP (no obligations)`` under it,
+    silently, which is worse than not attempting the fix at all. Building one merged
+    ``{alias: real_name}`` map from every code cell first, then resolving every cell's own
+    calls against that merged map, is what makes the alias route actually reachable."""
     obligations: list[tuple[str, str, str | None]] = []
     notebook = recipe_dir_ / "notebook.ipynb"
     if notebook.is_file():
-        for cell in notebook_cells(recipe_dir_):
-            if cell["cell_type"] != "code":
-                continue
-            source = cell_source(cell)
-            location = f"cell {cell.get('id', '?')}"
+        code_cells = [c for c in notebook_cells(recipe_dir_) if c["cell_type"] == "code"]
+        parsed: list[tuple[dict, ast.Module | None]] = []
+        merged_aliases: dict[str, str] = {}
+        for cell in code_cells:
             try:
-                tree = ast.parse(source)
+                tree = ast.parse(cell_source(cell))
             except SyntaxError:
+                parsed.append((cell, None))
+                continue
+            parsed.append((cell, tree))
+            merged_aliases.update(_import_aliases(tree))
+        for cell, tree in parsed:
+            location = f"cell {cell.get('id', '?')}"
+            if tree is None:
                 obligations.append((location, "<unparseable>", None))
                 continue
-            aliases = _import_aliases(tree)
-            for call, resolved in _real_threshold_calls(tree, aliases):
+            for call, resolved in _real_threshold_calls(tree, merged_aliases):
                 obligations.append((location, resolved, _threshold_call_objective(call, resolved)))
     helpers_path = recipe_dir_ / "helpers.py"
     if helpers_path.is_file():
@@ -1473,74 +1493,135 @@ def _tainted_names_in_function(
 NEGATIVE_COMPARISONS = (ast.NotIn, ast.NotEq, ast.IsNot)
 
 
-def _positively_compared_constants(test: ast.expr) -> set[str]:
-    """String constants found inside a comparison's own operands, for every ``ast.Compare``
-    node in ``test`` whose operator is NOT one of ``NEGATIVE_COMPARISONS`` -- deliberately
-    excluding ``not in``/``!=``/``is not``, whose own meaning is "this string must be ABSENT".
-    An earlier version of this check collected a string constant from ANY comparison touching
-    a tainted name, operator included -- a reviewer's own mutation on recipe 38 showed the
-    cost directly: the untouched test's ``assert "target_accuracy" not in source`` credited
-    ``"target_accuracy"`` as PINNED the moment a notebook-side swap made ``source`` (correctly)
-    reference that spelling, which is exactly backwards -- the assertion says that spelling must
-    not appear, not that it is the pinned one, and crediting it let a real keyword-swap mutation
-    on a genuinely-passing recipe slip through uncaught. Only a comparison's positive meaning
-    (``in``, ``==``, or no comparison at all restricting it) may contribute a spelling."""
+def _effective_comparisons(expr: ast.expr, negated: bool = False):
+    """Yield ``(compare, effective_positive)`` for every ``ast.Compare`` reachable from
+    ``expr``, tracking sign through any enclosing ``not`` (``ast.UnaryOp``/``ast.Not``, which
+    flips the running sign) and through ``and``/``or`` (``ast.BoolOp``, which does NOT flip
+    anything -- it only distributes the current sign unchanged to each of its own operands).
+    ``effective_positive`` folds the enclosing-``not`` count together with the compare's own
+    operator: a ``NotIn``/``NotEq``/``IsNot`` compare is itself negative, so an even total
+    number of negations (a positive op under zero enclosing nots, or a negative op under one)
+    reads positive overall -- ``not ("x" in source)`` and ``not ("x" not in source)`` land on
+    opposite sides of this, correctly: the first says "x" must be absent, the second says it
+    must be present. A reviewer's own synthetic probe established the missing case directly:
+    this module previously had no handling for ``UnaryOp``/``Not`` at all, so ``assert not
+    ("target_accuracy" in source)`` -- which asserts the spelling is ABSENT -- credited it as
+    PINNED, the same backwards mistake the earlier ``NotIn``/``NotEq`` fix closed one level up
+    the tree from."""
+    if isinstance(expr, ast.UnaryOp) and isinstance(expr.op, ast.Not):
+        yield from _effective_comparisons(expr.operand, not negated)
+        return
+    if isinstance(expr, ast.BoolOp):
+        for value in expr.values:
+            yield from _effective_comparisons(value, negated)
+        return
+    if isinstance(expr, ast.Compare):
+        own_negative = any(isinstance(op, NEGATIVE_COMPARISONS) for op in expr.ops)
+        yield (expr, negated == own_negative)
+        return
+    for child in ast.iter_child_nodes(expr):
+        if isinstance(child, ast.expr):
+            yield from _effective_comparisons(child, negated)
+
+
+def _tainted_operand_constants(compare: ast.Compare, tainted: set[str]) -> set[str]:
+    """String constants found in ``compare``'s own operands (``compare.left`` and every
+    ``compare.comparators``), gated on at least ONE of those SAME operands referencing a
+    tainted name -- not merely on some unrelated tainted name appearing anywhere else in the
+    enclosing statement, which is the gap a reviewer isolated synthetically: ``assert
+    len(source) > 0 and "min_coverage" in "<hand-typed literal>"`` has a tainted name
+    (``source``) in its first half and the spelling in its second, but the two never touch
+    each other -- the ``"min_coverage" in "<hand-typed literal>"`` comparison's own two
+    operands are a bare string constant and a different, hand-typed string constant, neither
+    of which is ``source`` or anything derived from it. Gating per-comparison on its own
+    operands, not per-statement on the statement's full name set, is what closes this: this
+    specific ``Compare`` node's operands reference no tainted name, so it contributes nothing,
+    regardless of what the sibling half of the ``and`` does."""
+    operands = (compare.left, *compare.comparators)
+    if not any(tainted & _ast_names(operand) for operand in operands):
+        return set()
     found: set[str] = set()
-    for compare in ast.walk(test):
-        if not isinstance(compare, ast.Compare):
-            continue
-        if any(isinstance(op, NEGATIVE_COMPARISONS) for op in compare.ops):
-            continue
-        for side in (compare.left, *compare.comparators):
-            for const in ast.walk(side):
-                if isinstance(const, ast.Constant) and isinstance(const.value, str):
-                    found.add(const.value)
+    for operand in operands:
+        for const in ast.walk(operand):
+            if isinstance(const, ast.Constant) and isinstance(const.value, str):
+                found.add(const.value)
     return found
 
 
-def _spellings_pinned_by_assertions(func: ast.FunctionDef, tainted: set[str]) -> set[str]:
+def _locally_defined_function_names(tree: ast.AST) -> set[str]:
+    return {node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)}
+
+
+def _extraction_checked(name: str, func: ast.FunctionDef) -> bool:
+    """True if ``name`` is checked, anywhere in ``func``, by the ONE narrow idiom the
+    extraction route (below) trusts: ``assert <name> is not None`` (either operand order) --
+    not merely referenced in some assert, which a reviewer showed is satisfied by an unrelated
+    ``not in`` comparison or a wholly disconnected ``assert len(x) > 0``. ``is not None``
+    specifically claims "the extraction for this keyword actually matched something in the
+    real call"; that is the one fact this idiom can honestly stand for, so it is the only one
+    this route accepts."""
+    for node in ast.walk(func):
+        if not (isinstance(node, ast.Assert) and isinstance(node.test, ast.Compare)):
+            continue
+        test = node.test
+        if len(test.ops) != 1 or not isinstance(test.ops[0], ast.IsNot):
+            continue
+        sides = (test.left, test.comparators[0])
+        if name not in {n for side in sides for n in _ast_names(side)}:
+            continue
+        if any(isinstance(side, ast.Constant) and side.value is None for side in sides):
+            return True
+    return False
+
+
+def _spellings_pinned_by_assertions(
+    func: ast.FunctionDef, tainted: set[str], locally_defined: set[str]
+) -> set[str]:
     """Objective spellings this one function's assertions pin, by two routes:
 
-    * **Direct.** An ``assert`` whose test expression references a tainted name AND contains,
-      anywhere within a POSITIVE comparison in that same expression (``_positively_compared_
-      constants``: an ``In`` operand, an ``==`` comparison, inside a ``.count(...)`` call
-      nested in either, or a literal piece of an f-string -- the nesting does not matter, only
-      that the string sits inside a comparison whose own sense is positive) -- a string
-      constant naming the spelling. This is what a reviewer's ``.count('objective="f1"') == 2``
-      (41, 44), ``objective == "f1"`` (42), and ``f"min_coverage={MIN_COVERAGE}"`` f-string (46)
-      all needed that an earlier version of this check, which only looked at a direct ``In``
-      comparison's own operands, could not see -- and excluding ``NotIn``/``NotEq``/``IsNot``
-      is what stops a *different* earlier version from crediting the wrong spelling (see
-      ``_positively_compared_constants``'s own docstring for the mutation that caught it).
-    * **Extraction.** An assignment ``name = <tainted call>`` whose call's own arguments already
-      name the spelling being extracted (recipe 42's ``min_coverage = _call_keyword_value
-      (source, "select_confidence_threshold", "min_coverage")``) -- the keyword being pinned is
-      a Python identifier, never re-stated as a literal in the later assert (``assert
-      min_coverage is not None``), so the direct route alone misses it. Credited only when the
-      assigned name is later referenced in at least one ``assert`` in this function (an
-      extraction performed but never checked pins nothing) and the call chain is itself tainted
-      (so a hand-typed duplicate of the extraction call cannot qualify)."""
+    * **Direct.** An ``assert`` whose test expression contains an EFFECTIVELY POSITIVE
+      comparison (``_effective_comparisons``, which tracks sign through any enclosing ``not``)
+      whose OWN operands include both a reference to a tainted name and a string constant
+      naming the spelling (``_tainted_operand_constants`` -- gated per comparison, not per
+      statement, so an unrelated tainted reference elsewhere in the same ``assert`` cannot
+      license a hand-typed literal comparison that never touches it). This is what a
+      reviewer's ``.count('objective="f1"') == 2`` (41, 44), ``objective == "f1"`` (42), and
+      ``f"min_coverage={MIN_COVERAGE}"`` f-string (46) all need, and what the two mutation
+      findings above this function exist to close: crediting the wrong side of a negative
+      comparison, and crediting a spelling that merely co-occurs with taint rather than being
+      compared against it.
+    * **Extraction.** An assignment ``name = <tainted call>`` to a LOCALLY DEFINED function
+      (``locally_defined`` -- never a built-in string/list method such as ``.replace(...)`` or
+      ``.count(...)``, which would otherwise let an unrelated tainted expression, such as a
+      mutation-proof's own ``source.replace(pinned, "target_accuracy=1.0")``, donate its
+      literal argument as if it were a real pin) whose call's own arguments already name the
+      spelling being extracted (recipe 42's ``min_coverage = _call_keyword_value(source,
+      "select_confidence_threshold", "min_coverage")``) -- the keyword being pinned is a Python
+      identifier, never re-stated as a literal in the later assert (``assert min_coverage is
+      not None``), so the direct route alone misses it. Credited only when the extracted name
+      is checked by the one idiom ``_extraction_checked`` trusts."""
     pinned: set[str] = set()
 
     for node in ast.walk(func):
         if not isinstance(node, ast.Assert):
             continue
-        if not (_ast_names(node.test) & tainted):
-            continue
-        pinned |= _positively_compared_constants(node.test)
+        for compare, positive in _effective_comparisons(node.test):
+            if positive:
+                pinned |= _tainted_operand_constants(compare, tainted)
 
-    asserted_names: set[str] = set()
-    for node in ast.walk(func):
-        if isinstance(node, ast.Assert):
-            asserted_names |= _ast_names(node.test)
     for node in ast.walk(func):
         if not (
             isinstance(node, ast.Assign)
             and len(node.targets) == 1
             and isinstance(node.targets[0], ast.Name)
             and node.targets[0].id in tainted
-            and node.targets[0].id in asserted_names
+            and isinstance(node.value, ast.Call)
+            and isinstance(node.value.func, ast.Name)
+            and node.value.func.id in locally_defined
         ):
+            continue
+        target = node.targets[0].id
+        if not _extraction_checked(target, func):
             continue
         for const in ast.walk(node.value):
             if isinstance(const, ast.Constant) and isinstance(const.value, str):
@@ -1641,13 +1722,180 @@ def _pinned_objective_spellings(recipe_dir_: Path) -> set[str]:
         taint_producing_names = (
             _locally_source_reading_function_names(tree, text) | production_wrapper_names
         )
+        locally_defined = _locally_defined_function_names(tree)
         for func in _test_function_defs(tree):
             tainted = _tainted_names_in_function(func, text, taint_producing_names)
-            pinned |= _spellings_pinned_by_assertions(func, tainted)
+            pinned |= _spellings_pinned_by_assertions(func, tainted, locally_defined)
             pinned |= _spellings_pinned_by_production_discrimination(
                 func, production_wrapper_names, aliases
             )
     return pinned
+
+
+def _objective_token_present(objective: str, needle: str) -> bool:
+    """True if ``objective`` appears in ``needle`` as a whole token -- bounded by the start/end
+    of the string or a non-identifier character on either side -- not merely as a substring.
+    Bare ``objective in needle`` would credit ``"min_coverage"`` from a needle that happens to
+    contain it inside a longer, unrelated identifier; no published recipe does this today, but
+    the obligation match should not rely on that remaining true by accident, especially for a
+    short spelling like ``"f1"``."""
+    return re.search(rf"(?<!\w){re.escape(objective)}(?!\w)", needle) is not None
+
+
+# --------------------------------------------------------------------------------------------
+# regression tests for the threshold_objective_pin detection itself, each proving a property
+# a recipe's own test suite cannot see: the pin detector's own correctness. All four were
+# found by a reviewer's synthetic probes, each isolating one way an earlier draft of the
+# detector could be fooled; each is reproduced here as a committed test, not only a hand-run
+# probe, per the standing house rule that a fixed defect needs its own regression test.
+# --------------------------------------------------------------------------------------------
+
+
+def _single_test_function(source: str) -> ast.FunctionDef:
+    tree = ast.parse(source)
+    return next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef))
+
+
+def test_a_credited_spelling_must_be_compared_against_a_tainted_operand():
+    """A reviewer isolated the gap synthetically: an earlier version of this detector credited
+    a spelling the moment ANY tainted name appeared ANYWHERE in the same ``assert`` statement,
+    not specifically compared against it. ``assert len(source) > 0 and "min_coverage" in
+    "<hand-typed literal>"`` has a tainted name (``source``) in its first half and the spelling
+    in its second, but the two never touch: the ``in`` comparison's own two operands are a bare
+    string constant and an unrelated hand-typed string, neither derived from ``source`` at all.
+    That must NOT be credited. The positive control alongside it -- ``"min_coverage" in
+    source`` -- must still be, so this also proves the fix does not merely refuse everything."""
+    func = _single_test_function(
+        """
+def test_probe():
+    source = read_the_real_notebook()
+    assert len(source) > 0 and "min_coverage" in "<hand-typed literal>"
+"""
+    )
+    tainted = {"source"}
+    pinned = _spellings_pinned_by_assertions(func, tainted, locally_defined=set())
+    assert "min_coverage" not in pinned, "credited a spelling never compared against taint"
+
+    func = _single_test_function(
+        """
+def test_probe():
+    source = read_the_real_notebook()
+    assert len(source) > 0 and "min_coverage" in source
+"""
+    )
+    pinned = _spellings_pinned_by_assertions(func, tainted, locally_defined=set())
+    assert "min_coverage" in pinned, "the positive control (genuinely compared) was not credited"
+
+
+def test_polarity_through_not_is_tracked():
+    """``assert not ("target_accuracy" in source)`` asserts the spelling is ABSENT -- a
+    reviewer's synthetic probe found an earlier version of this detector had no handling for
+    ``not`` at all, so it credited the spelling as PINNED regardless, exactly backwards and
+    exactly the mistake the ``NotIn``/``NotEq`` exclusion exists to prevent one level up the
+    tree. Double negation must flip back to positive: ``not ("target_accuracy" not in
+    source)`` asserts the spelling IS present, so it must be credited the same as a bare ``in``
+    would be."""
+    func = _single_test_function(
+        """
+def test_probe():
+    source = read_the_real_notebook()
+    assert not ("target_accuracy" in source)
+"""
+    )
+    tainted = {"source"}
+    pinned = _spellings_pinned_by_assertions(func, tainted, locally_defined=set())
+    assert "target_accuracy" not in pinned, "credited a spelling asserted ABSENT via not(x in y)"
+
+    func = _single_test_function(
+        """
+def test_probe():
+    source = read_the_real_notebook()
+    assert not ("target_accuracy" not in source)
+"""
+    )
+    pinned = _spellings_pinned_by_assertions(func, tainted, locally_defined=set())
+    assert "target_accuracy" in pinned, "double negation should read positive and be credited"
+
+
+def test_the_extraction_route_requires_a_locally_defined_function_and_a_real_check():
+    """Two findings, both from the same reviewer, about ``_spellings_pinned_by_assertions``'s
+    extraction route:
+
+    1. **Not any referencing assert.** An earlier version credited an extracted, tainted name
+       the moment it was referenced in ANY assert -- satisfied by an unrelated ``not in`` check
+       or a wholly disconnected ``assert len(x) > 0``, neither of which actually verifies the
+       extraction succeeded. Only ``assert <name> is not None`` is trusted.
+    2. **Not any tainted call.** A recipe's own mutation-proof code can legitimately build a
+       tainted string via a built-in method (``source.replace(pinned, "target_accuracy=1.0")``)
+       for the specific purpose of testing what a keyword swap *would* look like -- that literal
+       must never be credited as a real pin. Restricting the route to calls through a LOCALLY
+       DEFINED function (never a bare attribute/method call like ``.replace(``) closes this."""
+    tainted = {"source", "extracted", "swapped"}
+
+    func = _single_test_function(
+        """
+def test_probe():
+    source = read_the_real_notebook()
+    extracted = _call_keyword_value(source, "select_confidence_threshold", "min_coverage")
+    assert "nope" not in extracted
+    assert len(extracted) > 0
+"""
+    )
+    pinned = _spellings_pinned_by_assertions(func, tainted, locally_defined={"_call_keyword_value"})
+    assert "min_coverage" not in pinned, "credited an extraction checked only by unrelated asserts"
+
+    func = _single_test_function(
+        """
+def test_probe():
+    source = read_the_real_notebook()
+    swapped = source.replace("min_coverage=min_coverage", "target_accuracy=1.0")
+    assert swapped != source
+"""
+    )
+    pinned = _spellings_pinned_by_assertions(func, tainted, locally_defined=set())
+    assert "target_accuracy" not in pinned, "credited a literal built via a built-in method call"
+
+    func = _single_test_function(
+        """
+def test_probe():
+    source = read_the_real_notebook()
+    extracted = _call_keyword_value(source, "select_confidence_threshold", "min_coverage")
+    assert extracted is not None
+"""
+    )
+    pinned = _spellings_pinned_by_assertions(func, tainted, locally_defined={"_call_keyword_value"})
+    assert "min_coverage" in pinned, "the genuine extraction idiom was not credited"
+
+
+def test_import_alias_is_resolved_across_notebook_cells_not_per_cell():
+    """A notebook's ``from jev_cookbook.evaluation import select_threshold as X`` import and
+    the cell that calls ``X(...)`` are essentially never the same cell in practice (the import
+    lives in an early setup cell; the call lives in the evaluation cell). A reviewer measured
+    that resolving aliases against one cell's own parse tree alone -- what an earlier version
+    of ``_threshold_pin_obligations`` did -- means the alias route can never actually fire for
+    any notebook: 0 of 46 published recipes have the import and the call in the same cell.
+    This proves the fix directly, at the two functions involved, without needing a real
+    notebook file: build the alias map from one "cell" (the import) and resolve a call found
+    in a DIFFERENT "cell" (which has no import statement of its own at all) against that
+    merged map, the same two-step ``_threshold_pin_obligations`` now performs."""
+    import_cell_tree = ast.parse(
+        "from jev_cookbook.evaluation import select_confidence_threshold as _sct\n"
+    )
+    call_cell_tree = ast.parse("threshold = _sct(correct, confidence, min_coverage=0.75)\n")
+
+    aliases_from_this_cell_alone = _import_aliases(call_cell_tree)
+    assert not _real_threshold_calls(call_cell_tree, aliases_from_this_cell_alone), (
+        "sanity check: the call cell alone, with no import, must not resolve anything -- "
+        "otherwise this test would not be exercising the merge at all"
+    )
+
+    merged_aliases = _import_aliases(import_cell_tree)
+    assert merged_aliases == {"_sct": "select_confidence_threshold"}
+    found = _real_threshold_calls(call_cell_tree, merged_aliases)
+    assert len(found) == 1
+    call, resolved = found[0]
+    assert resolved == "select_confidence_threshold"
+    assert _threshold_call_objective(call, resolved) == "min_coverage"
 
 
 @pytest.mark.parametrize("recipe", guarded_with_template("threshold_objective_pin")())
@@ -1699,7 +1947,7 @@ def test_the_threshold_objective_is_pinned_by_source_spelling(recipe):
                 f"{location} {func_name}(...): objective not identifiable by this check"
             )
             continue
-        if not any(objective in needle for needle in pinned):
+        if not any(_objective_token_present(objective, needle) for needle in pinned):
             violations.append(
                 f"{location} {func_name}(...): objective {objective!r} is not pinned by any "
                 "assertion in tests/ that this check can tie to the real committed call"
