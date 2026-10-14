@@ -452,6 +452,35 @@ def test_a_department_correct_fixture_can_still_have_the_wrong_full_path():
 
 
 # --------------------------------------------------------------------------------------------
+# the notebook pools several lists built from the same test_examples list (gold, resolved
+# paths, greedy paths, flat answers) with plain list comprehensions and zip(..., strict=True),
+# never a dict keyed by id -- so the claim that index i of every list describes the same
+# document needs checking, not assuming. Reconstructed here against the real fixtures the
+# notebook replays, confirming by doc_id at every index rather than merely trusting that four
+# comprehensions over the same source list stay aligned.
+# --------------------------------------------------------------------------------------------
+
+
+def test_the_pooled_evaluation_lists_stay_aligned_by_document():
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    flat_question = helpers.build_flat_question()
+    examples = load_inputs(RECIPE)
+    test = [e for e in examples if e.split == "test"]
+
+    def flat_answer(example):
+        return _decide(backend, {"flat_topic": flat_question}, "flat_topic", example)
+
+    resolved = [_resolve(backend, e, FROZEN_BRANCH_MARGIN) for e in test]
+    greedy = [_resolve(backend, e, 0.0) for e in test]
+    flat = [flat_answer(e) for e in test]
+
+    assert len(test) == len(resolved) == len(greedy) == len(flat)
+    for example, r, g in zip(test, resolved, greedy, strict=True):
+        assert r.doc_id == example.id
+        assert g.doc_id == example.id
+
+
+# --------------------------------------------------------------------------------------------
 # stored answers are not all right -- the strong form (G1(c)): re-derive both frozen
 # thresholds the way the notebook does and require a wrong test decision at or above each one.
 # ``branch_margin`` (the department-level threshold) is re-derived FIRST: the mechanical guard
