@@ -336,3 +336,74 @@ def test_the_session_round_trips_losslessly_through_serialisation_including_a_re
     tampered_store = helpers.rebuild_store(tampered)
     assert tampered_store.get("s-c3")["content"] != store.get("s-c3")["content"]
     assert tampered_store.snapshot() != store.snapshot()
+
+
+# --------------------------------------------------------------------------------------------
+# Pin the confidence-gate objective, two ways. A printed f-string literal or a pinned numeric
+# RESULT is not a pin on its own: nothing compares the printed text to the real call, and the
+# gate's own value is reachable by more than one objective. What holds is (1) the committed
+# notebook cell's own SOURCE spells the objective, so a keyword or value swap there is a diff a
+# reader sees, and (2) a measured response over a grid of candidate values, so the pinned value
+# is shown to be one point on a real (not flat-everywhere) curve rather than an arbitrary choice
+# nothing would have caught moving.
+# --------------------------------------------------------------------------------------------
+
+
+def _notebook_cell_source(cell_id: str) -> str:
+    nb = json.loads((RECIPE / "notebook.ipynb").read_text("utf-8"))
+    for cell in nb["cells"]:
+        if cell.get("id") == cell_id:
+            source = cell["source"]
+            return "".join(source) if isinstance(source, list) else source
+    raise AssertionError(f"no cell with id {cell_id!r} in the committed notebook")
+
+
+def test_the_notebook_pins_the_min_coverage_objective_in_its_own_source():
+    # The source-spelling pin: parse the actual committed cell, not a copy of it kept here. A
+    # keyword swap (to target_accuracy=...) or a value swap (to a different min_coverage) in the
+    # notebook changes this cell's source and so fails this assertion -- proved by mutation
+    # directly below, on a copy of the same text, rather than merely asserted.
+    source = _notebook_cell_source("python-rule")
+    assert f"min_coverage={MIN_COVERAGE}" in source
+
+    # Prove the pin can fail: a keyword swap and a value swap must both be visible as a changed
+    # source, which is what "the committed cell's source spells the objective" is a claim about.
+    pinned = f"min_coverage={MIN_COVERAGE}"
+    keyword_swapped = source.replace(pinned, "target_accuracy=1.0")
+    assert pinned not in keyword_swapped
+    value_swapped = source.replace(pinned, "min_coverage=0.95")
+    assert pinned not in value_swapped
+
+
+def test_the_min_coverage_objective_is_not_flat_everywhere_on_this_pool():
+    # The response measurement rule-12's house note asks for: select_confidence_threshold is
+    # piecewise constant in general, so a single value-change mutation (0.85 -> some other
+    # value) can land in the same flat band and move nothing, which would look like a pin but
+    # prove nothing. Measuring a grid shows where this pool's curve actually bends: everything
+    # up to 0.93 lands on the same gate and numbers as 0.85 (the pinned value is not special
+    # within that band), and crossing 0.9333 (the coverage the two low-confidence validation
+    # rows would cost if excluded) moves the gate, the coverage and the accuracy together.
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    examples = load_inputs(RECIPE)
+    labels = load_labels(RECIPE)
+    validation = [e for e in examples if e.split == "validation" and e.id in labels]
+    answers = {
+        e.id: backend.decide(helpers.build_state(e.fields), questions)["relevance"]
+        for e in validation
+    }
+    correct = [score_level(answers[e.id]) == labels[e.id] for e in validation]
+    confidence = [answers[e.id].confidence for e in validation]
+
+    seen = {}
+    for min_coverage in (0.5, 0.7, 0.85, 0.9, 0.93, 0.95, 0.97, 1.0):
+        gate = select_confidence_threshold(correct, confidence, min_coverage=min_coverage)
+        seen[min_coverage] = round(gate, 4)
+
+    # The pinned value (0.85) and everything below the real bend (0.93) agree with it.
+    for min_coverage in (0.5, 0.7, 0.85, 0.9, 0.93):
+        assert seen[min_coverage] == seen[MIN_COVERAGE]
+    # Past the bend, the gate genuinely moves: this is the measurement that would have caught a
+    # flat-everywhere pool, which a single mutation (rule 12's house note) cannot rule out alone.
+    for min_coverage in (0.95, 0.97, 1.0):
+        assert seen[min_coverage] != seen[MIN_COVERAGE]
