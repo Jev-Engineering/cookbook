@@ -110,8 +110,8 @@ def test_threshold_objective_is_pinned_in_the_notebook():
 
 def test_the_request_cache_guard_is_pinned_in_the_notebook():
     """Pin the notebook's own ``decide_once`` cache guard against drift: removing the
-    membership check (``if example.id not in answer_cache``) is exactly the defect named in this
-    recipe's build notes -- a decide helper with no guard re-decides an example every time it is
+    membership check (``if example.id not in answer_cache``) is the defect this pin exists to
+    catch: a decide helper with no guard re-decides an example every time it is
     referenced again, so ``request_count`` (a count of actual backend calls, i.e. attempts, not
     of distinct example ids) would silently grow past the number of examples the notebook
     actually has. This test parses the committed cell source for the guard's own call

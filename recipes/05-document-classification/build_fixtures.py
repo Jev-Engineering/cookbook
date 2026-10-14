@@ -30,8 +30,8 @@ OPTIONS = list(
 # (id, split, fields, gold label or None for demo, stored probabilities in OPTIONS order)
 #
 # Probabilities sum to 1. Most documents are clear and get a high probability on the right
-# label. A few are deliberately borderline: a document plausibly fitting two of the five types
-# (the build notes' hard case), written with a middling probability on the correct label and
+# label. A few are deliberately borderline: a document plausibly fitting two of the five types,
+# written with a middling probability on the correct label and
 # real mass on the type it is easiest to confuse with. Two are wrong on purpose and confident
 # about it anyway: "t15-reset" (gold technical_guide, stored answer calls it policy at 0.62) and
 # "v12-deploy" (gold policy, stored answer calls it technical_guide at 0.58), so the frozen
