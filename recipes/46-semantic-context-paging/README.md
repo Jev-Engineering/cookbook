@@ -1,0 +1,73 @@
+# Semantic context paging
+
+**Recipe 46** · Level 4 (Advanced) · Decision type: `Score`
+
+Judge stored context chunks for relevance to the current task so Python can retain, page out, or rehydrate them while preserving original content and source links.
+
+## What it teaches
+
+A context store keeps small chunks (ticket messages, runbook steps, code comments, monitoring alerts) that an assistant might need for the task in front of it right now, but only a few can stay "hot" at once. Jev rates every chunk's relevance to the current task on a four-level `Score` rubric; Python turns that rating, plus a fixed retention budget, into a retain / page-out / rehydrate decision, enforced in `helpers.py`. The budget cap is proven never to be exceeded over hundreds of synthesized Score answers built so the cap is actually exercised — more than the 3-slot budget's worth of candidates compete for it on 180 of 300 fuzzed iterations, not merely generated and left unexercised — and content and source links are proven to survive paging losslessly through an actual JSON serialise/rebuild round trip, including a chunk paged out twice and rehydrated once. The notebook compares the resulting recall of the chunks a task actually needs, under the budget, against the baseline the use case names — keeping the most recently added chunks — and walks through a three-turn session where a chunk is paged out and later rehydrated.
+
+## Run it offline
+
+From the repository root, in an environment with `pip install -e ".[dev]"`:
+
+```bash
+python -m jev_cookbook.fixtures validate recipes/46-semantic-context-paging
+python tools/execute_notebook.py recipes/46-semantic-context-paging
+pytest recipes/46-semantic-context-paging
+```
+
+The notebook runs from this folder with no network and no API key, replaying `fixtures/`.
+
+Reproducing the committed notebook outputs byte for byte needs the exact stack CI installs for the
+`Notebook (<recipe>)` job: `pip install -e ".[ml]" -c .github/constraints-notebooks.txt` (Python
+3.14; `nbclient` and `ipykernel` are core dependencies, so this alone is enough to execute the
+notebook — `.[dev]` above is for `ruff` and `pytest`, which that job does not run; see
+[docs/recipe-template.md](../../docs/recipe-template.md) step 6).
+
+## Switch to live
+
+Live calls are opt-in and change nothing but the backend. Install the SDK
+(`pip install -e ".[live]"`) and set `TYPESAFE_API_KEY`, `JEV_COOKBOOK_LIVE=1` and
+`JEV_COOKBOOK_LIVE_MODEL`; then open `notebook.ipynb` from this folder in Jupyter (not a dependency
+of this repository), or record answers with the recorder described in
+[docs/live.md](../../docs/live.md). `tools/execute_notebook.py` removes those variables on purpose
+and always runs offline. The live backend's default request budget is 25
+(`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)); every attempt counts
+against that budget, including each retry.
+
+This notebook makes exactly **69** calls in live mode: one request for each of the 69 (task, chunk) pairs in `fixtures/` (65 scored validation and test chunks, plus 4 demo chunks shown individually), each decided exactly once and cached, never twice. 69 is above the live backend's default budget of 25, so raise `JEV_COOKBOOK_LIVE_MAX_REQUESTS` to at least 69 before running this notebook live, or it stops partway through with `BudgetExceeded`. Never put a key in a notebook or a fixture.
+
+## What was and was not measured
+
+- **Mode:** synthetic (offline replay of hand-written answers). Not measured live.
+- **Model, capture date:** not applicable while every answer is synthetic.
+- **N:** 65 scored chunk ratings (30 validation across 6 tasks, 35 test across 7 task-level units: 4 independent tasks plus a 3-turn session), plus 4 demo chunks shown individually and never scored.
+
+A recorded recipe states the model version the API returned, the capture date and N for every number
+it reports, here and in the notebook.
+
+Every answer in this recipe is synthetic: the offline run replays hand-written answers written for this recipe, so every number the notebook reports — the recall comparison against the recency baseline, the rubric-level agreement, the retention-decision accuracy — is a check that the pipeline works, not evidence about how Jev actually performs. The notebook labels each such number accordingly next to where it is printed. The recency baseline itself makes zero model calls by construction; it is a fixed, non-constant Python rule (rank by how recently a chunk was added), not a thing this notebook measures Jev against unfairly — the fixture pools are built so the baseline genuinely wins on some tasks and loses on others, and the notebook's evaluation section states which.
+
+## Pull request rules
+
+This recipe's pull request changes only `recipes/46-semantic-context-paging/`. The root `README.md` is generated; per
+the generated-README exception in
+[CONTRIBUTING.md](../../CONTRIBUTING.md#the-generated-readme-exception), a designated integration
+worker regenerates it **inside this same pull request**, after this branch is handed over, by
+updating against current `main` and running `tools/render_catalog.py`; it is never regenerated by
+a separate pull request, and this recipe's own builder never runs the renderer. While this recipe
+remains unpublished and that integration step has not yet run, `Catalog (README is current)` is
+expected to be red on its pull request, which is not a defect to fix here; once the catalog is
+regenerated for it, the check turns green and stays that way. No sentence anywhere in this
+folder states or implies Jev's real quality, latency, or cost: every number above is a synthetic
+pipeline check. The full contract is
+[CONTRIBUTING.md](../../CONTRIBUTING.md).
+
+## Sources
+
+- S01: [TypeSafe AI: Introduction](https://docs.typesafe.ai/introduction)
+- S02: [TypeSafe AI: Primitives (Questions)](https://docs.typesafe.ai/primitives)
+- S03: [TypeSafe AI: Confidence](https://docs.typesafe.ai/confidence)
+- S04: [TypeSafe AI: How to build with TypeSafe](https://docs.typesafe.ai/concepts/how-to-build-with-system-one)
