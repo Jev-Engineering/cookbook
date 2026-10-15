@@ -1,0 +1,1614 @@
+{
+  "05b9bc0f910a64b74bc453b8deb00159d07714564c9c2ea7394a2a5cac4ced46": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "condition": {
+        "type": "choice",
+        "choice": "normal",
+        "probabilities": {
+          "corrosion": 0.0325,
+          "leak": 0.0325,
+          "disconnected_cabling": 0.0325,
+          "normal": 0.87,
+          "unclear": 0.0325
+        },
+        "confidence": 0.8374999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "visible": {
+        "type": "noul",
+        "noul": 0.93,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "corrosion": {
+        "type": "noul",
+        "noul": 0.05,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "leak": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "disconnected_cabling": {
+        "type": "noul",
+        "noul": 0.05,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "11571cefe008c01f2e7973cf2c5ccea3c9fead04d186c964a3ed71aad0655dce": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "condition": {
+        "type": "choice",
+        "choice": "leak",
+        "probabilities": {
+          "corrosion": 0.07999999999999999,
+          "leak": 0.68,
+          "disconnected_cabling": 0.07999999999999999,
+          "normal": 0.07999999999999999,
+          "unclear": 0.07999999999999999
+        },
+        "confidence": 0.6,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "visible": {
+        "type": "noul",
+        "noul": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "corrosion": {
+        "type": "noul",
+        "noul": 0.05,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "leak": {
+        "type": "noul",
+        "noul": 0.72,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "disconnected_cabling": {
+        "type": "noul",
+        "noul": 0.05,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "17b4b720e93d31de4b98c358494d9a31aa4616f269e38f773c18c370dc68a187": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "condition": {
+        "type": "choice",
+        "choice": "normal",
+        "probabilities": {
+          "corrosion": 0.027499999999999997,
+          "leak": 0.027499999999999997,
+          "disconnected_cabling": 0.027499999999999997,
+          "normal": 0.89,
+          "unclear": 0.027499999999999997
+        },
+        "confidence": 0.8624999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "visible": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "corrosion": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "leak": {
+        "type": "noul",
+        "noul": 0.11,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "disconnected_cabling": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1a1729b8a09f8a08824086d51e823647f8b38dce23117d89a088238ecaf9d53e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "condition": {
+        "type": "choice",
+        "choice": "leak",
+        "probabilities": {
+          "corrosion": 0.01999999999999999,
+          "leak": 0.92,
+          "disconnected_cabling": 0.01999999999999999,
+          "normal": 0.01999999999999999,
+          "unclear": 0.01999999999999999
+        },
+        "confidence": 0.8999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "visible": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "corrosion": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "leak": {
+        "type": "noul",
+        "noul": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "disconnected_cabling": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1d9013b18b97f024cfd1fb4010df8e45f5aa950969aeabdbe44d3b5176031419": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "condition": {
+        "type": "choice",
+        "choice": "disconnected_cabling",
+        "probabilities": {
+          "corrosion": 0.015000000000000013,
+          "leak": 0.015000000000000013,
+          "disconnected_cabling": 0.94,
+          "normal": 0.015000000000000013,
+          "unclear": 0.015000000000000013
+        },
+        "confidence": 0.9249999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "visible": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "corrosion": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "leak": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "disconnected_cabling": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "24ea25cfb7fcfbd220f5fc4b7bba572af71d62bb5fcf71075e1232683145d995": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "condition": {
+        "type": "choice",
+        "choice": "unclear",
+        "probabilities": {
+          "corrosion": 0.017499999999999988,
+          "leak": 0.017499999999999988,
+          "disconnected_cabling": 0.017499999999999988,
+          "normal": 0.017499999999999988,
+          "unclear": 0.93
+        },
+        "confidence": 0.9125,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "visible": {
+        "type": "noul",
+        "noul": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "corrosion": {
+        "type": "noul",
+        "noul": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "leak": {
+        "type": "noul",
+        "noul": 0.93,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "disconnected_cabling": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "300ec4513b77d9b831530f0a09ef026a25ac59e589286ceaaa209aa7e8bdf3d1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "condition": {
+        "type": "choice",
+        "choice": "leak",
+        "probabilities": {
+          "corrosion": 0.022499999999999992,
+          "leak": 0.91,
+          "disconnected_cabling": 0.022499999999999992,
+          "normal": 0.022499999999999992,
+          "unclear": 0.022499999999999992
+        },
+        "confidence": 0.8875,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "visible": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "corrosion": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "leak": {
+        "type": "noul",
+        "noul": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "disconnected_cabling": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "304d0f944bf722e0cce43e91321bc832318017537eecc511c140f1c6d229de50": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "condition": {
+        "type": "choice",
+        "choice": "normal",
+        "probabilities": {
+          "corrosion": 0.03,
+          "leak": 0.03,
+          "disconnected_cabling": 0.03,
+          "normal": 0.88,
+          "unclear": 0.03
+        },
+        "confidence": 0.8499999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "visible": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "corrosion": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "leak": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "disconnected_cabling": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "31bf4b2a6fe8b38f1fa02ce302bed20eb2c611c085d501b118fdaa6346aa0ccb": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "condition": {
+        "type": "choice",
+        "choice": "disconnected_cabling",
+        "probabilities": {
+          "corrosion": 0.04999999999999999,
+          "leak": 0.04999999999999999,
+          "disconnected_cabling": 0.8,
+          "normal": 0.04999999999999999,
+          "unclear": 0.04999999999999999
+        },
+        "confidence": 0.7500000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "visible": {
+        "type": "noul",
+        "noul": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "corrosion": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "leak": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "disconnected_cabling": {
+        "type": "noul",
+        "noul": 0.77,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "48d6aa94769f7db50eae1fe9c7a844cfd50ae93efdad03ca9cd84a20070cfc73": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "condition": {
+        "type": "choice",
+        "choice": "unclear",
+        "probabilities": {
+          "corrosion": 0.015000000000000013,
+          "leak": 0.015000000000000013,
+          "disconnected_cabling": 0.015000000000000013,
+          "normal": 0.015000000000000013,
+          "unclear": 0.94
+        },
+        "confidence": 0.9249999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "visible": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "corrosion": {
+        "type": "noul",
+        "noul": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "leak": {
+        "type": "noul",
+        "noul": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "disconnected_cabling": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "56ef88891333356455921ac03d97eeec7872149b0ff62761d131a544a1f041cc": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "condition": {
+        "type": "choice",
+        "choice": "leak",
+        "probabilities": {
+          "corrosion": 0.07500000000000001,
+          "leak": 0.7,
+          "disconnected_cabling": 0.07500000000000001,
+          "normal": 0.07500000000000001,
+          "unclear": 0.07500000000000001
+        },
+        "confidence": 0.6249999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "visible": {
+        "type": "noul",
+        "noul": 0.93,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "corrosion": {
+        "type": "noul",
+        "noul": 0.05,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "leak": {
+        "type": "noul",
+        "noul": 0.69,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "disconnected_cabling": {
+        "type": "noul",
+        "noul": 0.05,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "67480816402d9264ead669685218dcf2b0fc078efd0ed4977c3b963f6f684469": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "condition": {
+        "type": "choice",
+        "choice": "corrosion",
+        "probabilities": {
+          "corrosion": 0.94,
+          "leak": 0.015000000000000013,
+          "disconnected_cabling": 0.015000000000000013,
+          "normal": 0.015000000000000013,
+          "unclear": 0.015000000000000013
+        },
+        "confidence": 0.9249999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "visible": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "corrosion": {
+        "type": "noul",
+        "noul": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "leak": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "disconnected_cabling": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6858db2dfa42f408cdd89db157afab8736869368478588ce0ade21b59dd7b610": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "condition": {
+        "type": "choice",
+        "choice": "normal",
+        "probabilities": {
+          "corrosion": 0.095,
+          "leak": 0.095,
+          "disconnected_cabling": 0.095,
+          "normal": 0.62,
+          "unclear": 0.095
+        },
+        "confidence": 0.5249999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "visible": {
+        "type": "noul",
+        "noul": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "corrosion": {
+        "type": "noul",
+        "noul": 0.35,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "leak": {
+        "type": "noul",
+        "noul": 0.05,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "disconnected_cabling": {
+        "type": "noul",
+        "noul": 0.05,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6ca19e82cde74dd8ca44583bc8c1e7652d98787896bad42750fafe2b8f9e6271": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "condition": {
+        "type": "choice",
+        "choice": "leak",
+        "probabilities": {
+          "corrosion": 0.09,
+          "leak": 0.64,
+          "disconnected_cabling": 0.09,
+          "normal": 0.09,
+          "unclear": 0.09
+        },
+        "confidence": 0.5499999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "visible": {
+        "type": "noul",
+        "noul": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "corrosion": {
+        "type": "noul",
+        "noul": 0.05,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "leak": {
+        "type": "noul",
+        "noul": 0.63,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "disconnected_cabling": {
+        "type": "noul",
+        "noul": 0.05,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7de77eb16a18a7e2d8789bf82d5387e0f56bb5f8c0e6cd218f4d85c87c15c08d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "condition": {
+        "type": "choice",
+        "choice": "normal",
+        "probabilities": {
+          "corrosion": 0.024999999999999994,
+          "leak": 0.024999999999999994,
+          "disconnected_cabling": 0.024999999999999994,
+          "normal": 0.9,
+          "unclear": 0.024999999999999994
+        },
+        "confidence": 0.8749999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "visible": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "corrosion": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "leak": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "disconnected_cabling": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a01dd318fc490cfc2db52716d704188d6da739b083cb42e99f8130d825ac0747": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "condition": {
+        "type": "choice",
+        "choice": "corrosion",
+        "probabilities": {
+          "corrosion": 0.92,
+          "leak": 0.01999999999999999,
+          "disconnected_cabling": 0.01999999999999999,
+          "normal": 0.01999999999999999,
+          "unclear": 0.01999999999999999
+        },
+        "confidence": 0.8999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "visible": {
+        "type": "noul",
+        "noul": 0.93,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "corrosion": {
+        "type": "noul",
+        "noul": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "leak": {
+        "type": "noul",
+        "noul": 0.05,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "disconnected_cabling": {
+        "type": "noul",
+        "noul": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a39257a503737254535712a1ac45398728ed39db9b870892edbc5071ebae6936": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "condition": {
+        "type": "choice",
+        "choice": "normal",
+        "probabilities": {
+          "corrosion": 0.012500000000000011,
+          "leak": 0.012500000000000011,
+          "disconnected_cabling": 0.012500000000000011,
+          "normal": 0.95,
+          "unclear": 0.012500000000000011
+        },
+        "confidence": 0.9375,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "visible": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "corrosion": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "leak": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "disconnected_cabling": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a49f077d33b4a78046439c6016c5c1f762408bfbf6ef7b531dc0cd59925d0369": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "condition": {
+        "type": "choice",
+        "choice": "corrosion",
+        "probabilities": {
+          "corrosion": 0.94,
+          "leak": 0.015000000000000013,
+          "disconnected_cabling": 0.015000000000000013,
+          "normal": 0.015000000000000013,
+          "unclear": 0.015000000000000013
+        },
+        "confidence": 0.9249999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "visible": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "corrosion": {
+        "type": "noul",
+        "noul": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "leak": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "disconnected_cabling": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bbecb0fefd3cd29029f600f92ba892d5884f8c9c71c335b6a189027daafda578": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "condition": {
+        "type": "choice",
+        "choice": "disconnected_cabling",
+        "probabilities": {
+          "corrosion": 0.035,
+          "leak": 0.035,
+          "disconnected_cabling": 0.86,
+          "normal": 0.035,
+          "unclear": 0.035
+        },
+        "confidence": 0.8249999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "visible": {
+        "type": "noul",
+        "noul": 0.93,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "corrosion": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "leak": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "disconnected_cabling": {
+        "type": "noul",
+        "noul": 0.86,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bdc0b6dee0850ae66c8ddb774c82db33a5a690bab0631d27c48aee0c4306c983": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "condition": {
+        "type": "choice",
+        "choice": "normal",
+        "probabilities": {
+          "corrosion": 0.022499999999999992,
+          "leak": 0.022499999999999992,
+          "disconnected_cabling": 0.022499999999999992,
+          "normal": 0.91,
+          "unclear": 0.022499999999999992
+        },
+        "confidence": 0.8875,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "visible": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "corrosion": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "leak": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "disconnected_cabling": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e19fd5a04d2715fccee04f420bc3131054459fb7aed57aed48e5e69863fbfe59": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "condition": {
+        "type": "choice",
+        "choice": "disconnected_cabling",
+        "probabilities": {
+          "corrosion": 0.017499999999999988,
+          "leak": 0.017499999999999988,
+          "disconnected_cabling": 0.93,
+          "normal": 0.017499999999999988,
+          "unclear": 0.017499999999999988
+        },
+        "confidence": 0.9125,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "visible": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "corrosion": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "leak": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "disconnected_cabling": {
+        "type": "noul",
+        "noul": 0.93,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e8ff6f03335fd3abca87eb83af5c9626c449467af7338d5746730eb3295aabbf": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "condition": {
+        "type": "choice",
+        "choice": "unclear",
+        "probabilities": {
+          "corrosion": 0.010000000000000009,
+          "leak": 0.010000000000000009,
+          "disconnected_cabling": 0.010000000000000009,
+          "normal": 0.010000000000000009,
+          "unclear": 0.96
+        },
+        "confidence": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "visible": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "corrosion": {
+        "type": "noul",
+        "noul": 0.49,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "leak": {
+        "type": "noul",
+        "noul": 0.5,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "disconnected_cabling": {
+        "type": "noul",
+        "noul": 0.52,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ed2b94b67cf17438b24c759759f81ca4ffb72339d4213dedd05e82e45dc5cdb9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "condition": {
+        "type": "choice",
+        "choice": "normal",
+        "probabilities": {
+          "corrosion": 0.01999999999999999,
+          "leak": 0.01999999999999999,
+          "disconnected_cabling": 0.01999999999999999,
+          "normal": 0.92,
+          "unclear": 0.01999999999999999
+        },
+        "confidence": 0.8999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "visible": {
+        "type": "noul",
+        "noul": 0.14,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "corrosion": {
+        "type": "noul",
+        "noul": 0.2,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "leak": {
+        "type": "noul",
+        "noul": 0.2,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "disconnected_cabling": {
+        "type": "noul",
+        "noul": 0.2,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f4bc4d6fd7f7f7a3b0b7dc4cc12d455c2c661df4c89e82e4698da69ef06ee96a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "condition": {
+        "type": "choice",
+        "choice": "unclear",
+        "probabilities": {
+          "corrosion": 0.015000000000000013,
+          "leak": 0.015000000000000013,
+          "disconnected_cabling": 0.015000000000000013,
+          "normal": 0.015000000000000013,
+          "unclear": 0.94
+        },
+        "confidence": 0.9249999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "visible": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "corrosion": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "leak": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "disconnected_cabling": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "fc30db6b51484877bce4581a94fd8f6c4ab05323b0270aeecfbdff187ea754b9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "condition": {
+        "type": "choice",
+        "choice": "disconnected_cabling",
+        "probabilities": {
+          "corrosion": 0.022499999999999992,
+          "leak": 0.022499999999999992,
+          "disconnected_cabling": 0.91,
+          "normal": 0.022499999999999992,
+          "unclear": 0.022499999999999992
+        },
+        "confidence": 0.8875,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "visible": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "corrosion": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "leak": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "disconnected_cabling": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "fea0d6c6b7095b7195b8d057d735945a9fafc1a8950f0151494cc8ff53e8cdae": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "condition": {
+        "type": "choice",
+        "choice": "corrosion",
+        "probabilities": {
+          "corrosion": 0.93,
+          "leak": 0.017499999999999988,
+          "disconnected_cabling": 0.017499999999999988,
+          "normal": 0.017499999999999988,
+          "unclear": 0.017499999999999988
+        },
+        "confidence": 0.9125,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "visible": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "corrosion": {
+        "type": "noul",
+        "noul": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "leak": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "disconnected_cabling": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
