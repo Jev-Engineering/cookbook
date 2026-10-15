@@ -30,6 +30,54 @@ result.model, result.usage  # model string and token counts
 result["tone"].provenance.source  # "synthetic" or "recorded"
 ```
 
+## Actual calls and distinct requests
+
+A replay fixture map stores one response per distinct request key. Calling `decide` twice
+with the same state, questions and assets makes two logical calls but uses one fixture key.
+In a live comparison those calls may produce different answers; the audit never deduplicates
+them or changes their state, questions, assets, answers, or replay keys.
+
+Wrap the notebook's sole backend when its actual call count needs execution evidence:
+
+```python
+from jev_cookbook import AuditedBackend, get_backend
+
+backend = AuditedBackend(get_backend(fixtures="fixtures/responses.json"))
+```
+
+Pass this wrapper through every helper that makes decisions. Settings such as `max_retries`,
+mode, returned model, recorded dates, and the live recorder's attributes remain attached to the
+wrapped backend. At the end of the notebook, add a standalone final code cell:
+
+```python
+print(backend.audit_json())
+```
+
+The `JEV_REQUEST_AUDIT ` line contains schema version 1, `decide_calls`, `distinct_requests`,
+and an ordered `calls` list with each `replay_key` and whether the delegate `returned`.
+Counts derive from this list; repeated keys remain repeated. A delegated exception propagates
+unchanged and leaves `returned: false`. A request rejected by the wrapper's replay-key
+validation never reaches the delegate and is not counted. `backend.audit()` returns a fresh
+dictionary snapshot if code needs to inspect the ledger.
+
+The recipe budget guard ties the final output to the shared wrapper's direct construction and
+print, recomputes both counts, rejects failed calls, and compares the exact distinct key set
+with `fixtures/responses.json`. Extra unused fixtures and missing fixtures both fail this
+audited route. Scripted runs can print the same evidence without a fixture inventory.
+The README's existing “makes exactly N calls” sentence names the actual call count.
+The separate fresh-kernel notebook check verifies that committed output is current; the unit
+guard does not execute the notebook or prove arbitrary helper behavior. Use the direct imports
+and construction above, one backend binding, and the final standalone print: extra backend
+construction, protected-name rebinding, or detached summary strings are rejected.
+
+Unaudited recipes retain the existing strict fixture-count check. It remains a proxy and cannot
+distinguish repeated calls or unused fixture inventory. An attempted but malformed audit fails
+instead of falling back to that proxy.
+
+This audit describes logical calls on the executed path. It contains no response contents or
+HTTP-attempt evidence, and is not a measurement of live usage, latency, cost, or model quality.
+See [live request accounting](live.md#budget-guard) for retry budgets.
+
 ## Questions
 
 They mirror `typesafe_sdk`, and every constructor takes keyword arguments only. `instructions` is

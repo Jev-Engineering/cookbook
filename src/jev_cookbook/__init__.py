@@ -12,6 +12,7 @@ Typical notebook use (see ``docs/backends.md``)::
     result["billing"].noul
 """
 
+from .accounting import AuditedBackend
 from .answers import (
     Answer,
     BoxAnswer,
@@ -51,6 +52,7 @@ __version__ = "0.1.0"
 
 __all__ = [
     "Answer",
+    "AuditedBackend",
     "Backend",
     "Box",
     "BoxAnswer",
