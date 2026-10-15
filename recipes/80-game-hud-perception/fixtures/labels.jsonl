@@ -1,0 +1,20 @@
+{"id": "v01", "label": {"phase": "combat", "presence": "visible", "enabled": "not_applicable", "box": {"top": 0.6875, "bottom": 0.8875, "left": 0.040625, "right": 0.18125}, "energy": 2, "event": "observe_energy"}}
+{"id": "v02", "label": {"phase": "combat", "presence": "visible", "enabled": "enabled", "box": {"top": 0.525, "bottom": 0.83, "left": 0.0859375, "right": 0.2734375}, "energy": null, "event": "select_card"}}
+{"id": "v03", "label": {"phase": "menu", "presence": "visible", "enabled": "enabled", "box": {"top": 0.775, "bottom": 0.915, "left": 0.734375, "right": 0.953125}, "energy": null, "event": "no_action"}}
+{"id": "v04", "label": {"phase": "combat", "presence": "absent", "enabled": "not_applicable", "box": null, "energy": null, "event": "no_action"}}
+{"id": "v05", "label": {"phase": "combat", "presence": "uncertain", "enabled": "not_applicable", "box": null, "energy": null, "event": "review"}}
+{"id": "v06", "label": {"phase": "combat", "presence": "visible", "enabled": "disabled", "box": {"top": 0.775, "bottom": 0.915, "left": 0.734375, "right": 0.953125}, "energy": null, "event": "no_action"}}
+{"id": "v07", "label": {"phase": "combat", "presence": "visible", "enabled": "enabled", "box": {"top": 0.62, "bottom": 0.925, "left": 0.28125, "right": 0.46875}, "energy": null, "event": "select_card"}}
+{"id": "v08", "label": {"phase": "combat", "presence": "visible", "enabled": "not_applicable", "box": {"top": 0.275, "bottom": 0.4375, "left": 0.3828125, "right": 0.5984375}, "energy": null, "event": "inspect_enemy"}}
+{"id": "t01", "label": {"phase": "combat", "presence": "visible", "enabled": "not_applicable", "box": {"top": 0.225, "bottom": 0.425, "left": 0.796875, "right": 0.9375}, "energy": 3, "event": "observe_energy"}}
+{"id": "t02", "label": {"phase": "combat", "presence": "visible", "enabled": "enabled", "box": {"top": 0.62, "bottom": 0.925, "left": 0.28125, "right": 0.46875}, "energy": null, "event": "select_card"}}
+{"id": "t03", "label": {"phase": "combat", "presence": "visible", "enabled": "enabled", "box": {"top": 0.5625, "bottom": 0.7025, "left": 0.65625, "right": 0.875}, "energy": null, "event": "end_turn"}}
+{"id": "t04", "label": {"phase": "combat", "presence": "visible", "enabled": "not_applicable", "box": {"top": 0.2375, "bottom": 0.4, "left": 0.71875, "right": 0.934375}, "energy": null, "event": "inspect_enemy"}}
+{"id": "t05", "label": {"phase": "combat", "presence": "absent", "enabled": "not_applicable", "box": null, "energy": null, "event": "no_action"}}
+{"id": "t06", "label": {"phase": "combat", "presence": "uncertain", "enabled": "uncertain", "box": null, "energy": null, "event": "review"}}
+{"id": "t07", "label": {"phase": "reward", "presence": "visible", "enabled": "enabled", "box": {"top": 0.775, "bottom": 0.915, "left": 0.734375, "right": 0.953125}, "energy": null, "event": "no_action"}}
+{"id": "t08", "label": {"phase": "combat", "presence": "visible", "enabled": "disabled", "box": {"top": 0.62, "bottom": 0.925, "left": 0.28125, "right": 0.46875}, "energy": null, "event": "no_action"}}
+{"id": "t09", "label": {"phase": "ambiguous", "presence": "visible", "enabled": "not_applicable", "box": {"top": 0.2375, "bottom": 0.4, "left": 0.71875, "right": 0.934375}, "energy": null, "event": "review"}}
+{"id": "t10", "label": {"phase": "combat", "presence": "visible", "enabled": "not_applicable", "box": {"top": 0.6875, "bottom": 0.8875, "left": 0.040625, "right": 0.18125}, "energy": 1, "event": "observe_energy"}}
+{"id": "t11", "label": {"phase": "reward", "presence": "visible", "enabled": "enabled", "box": {"top": 0.5625, "bottom": 0.7025, "left": 0.65625, "right": 0.875}, "energy": null, "event": "no_action"}}
+{"id": "t12", "label": {"phase": "combat", "presence": "visible", "enabled": "not_applicable", "box": {"top": 0.2375, "bottom": 0.4, "left": 0.71875, "right": 0.934375}, "energy": null, "event": "inspect_enemy"}}

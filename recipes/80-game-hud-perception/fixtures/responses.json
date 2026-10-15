@@ -1,0 +1,1534 @@
+{
+  "07fc17d7f6ecb657b0ee8dbf147d93431fa5a992633756a549d46bdbfb7ed97d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.97,
+          "menu": 0.010000000000000009,
+          "reward": 0.010000000000000009,
+          "ambiguous": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "presence": {
+        "type": "choice",
+        "choice": "visible",
+        "probabilities": {
+          "visible": 0.97,
+          "absent": 0.015000000000000013,
+          "uncertain": 0.015000000000000013
+        },
+        "confidence": 0.955,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "enabled": {
+        "type": "choice",
+        "choice": "not_applicable",
+        "probabilities": {
+          "enabled": 0.010000000000000009,
+          "disabled": 0.010000000000000009,
+          "not_applicable": 0.97,
+          "uncertain": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0867311cfec005a65d42ca2df0d7aa23e2f7752f87a20371be90f646f596fb72": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase": {
+        "type": "choice",
+        "choice": "reward",
+        "probabilities": {
+          "combat": 0.010000000000000009,
+          "menu": 0.010000000000000009,
+          "reward": 0.97,
+          "ambiguous": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "presence": {
+        "type": "choice",
+        "choice": "visible",
+        "probabilities": {
+          "visible": 0.97,
+          "absent": 0.015000000000000013,
+          "uncertain": 0.015000000000000013
+        },
+        "confidence": 0.955,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "enabled": {
+        "type": "choice",
+        "choice": "enabled",
+        "probabilities": {
+          "enabled": 0.97,
+          "disabled": 0.010000000000000009,
+          "not_applicable": 0.010000000000000009,
+          "uncertain": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "086934c8da350e828af687a318e0ab9aa4651254ac32ba8c760adc0bd110539f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.97,
+          "menu": 0.010000000000000009,
+          "reward": 0.010000000000000009,
+          "ambiguous": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "presence": {
+        "type": "choice",
+        "choice": "visible",
+        "probabilities": {
+          "visible": 0.97,
+          "absent": 0.015000000000000013,
+          "uncertain": 0.015000000000000013
+        },
+        "confidence": 0.955,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "enabled": {
+        "type": "choice",
+        "choice": "enabled",
+        "probabilities": {
+          "enabled": 0.97,
+          "disabled": 0.010000000000000009,
+          "not_applicable": 0.010000000000000009,
+          "uncertain": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "17099f85dddbc70c585ce24e91bd54cf580bdb5a6884b9d39c7f353fcfe56bd1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.97,
+          "menu": 0.010000000000000009,
+          "reward": 0.010000000000000009,
+          "ambiguous": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "presence": {
+        "type": "choice",
+        "choice": "absent",
+        "probabilities": {
+          "visible": 0.015000000000000013,
+          "absent": 0.97,
+          "uncertain": 0.015000000000000013
+        },
+        "confidence": 0.955,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "enabled": {
+        "type": "choice",
+        "choice": "not_applicable",
+        "probabilities": {
+          "enabled": 0.010000000000000009,
+          "disabled": 0.010000000000000009,
+          "not_applicable": 0.97,
+          "uncertain": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1eeb8ae733d55210c6384aebc571446354bbb495f0527b38717a52a81268a68f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase": {
+        "type": "choice",
+        "choice": "menu",
+        "probabilities": {
+          "combat": 0.010000000000000009,
+          "menu": 0.97,
+          "reward": 0.010000000000000009,
+          "ambiguous": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "presence": {
+        "type": "choice",
+        "choice": "visible",
+        "probabilities": {
+          "visible": 0.97,
+          "absent": 0.015000000000000013,
+          "uncertain": 0.015000000000000013
+        },
+        "confidence": 0.955,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "enabled": {
+        "type": "choice",
+        "choice": "enabled",
+        "probabilities": {
+          "enabled": 0.97,
+          "disabled": 0.010000000000000009,
+          "not_applicable": 0.010000000000000009,
+          "uncertain": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "292c717e9fcaf1d72fe56d4bb479f93b13f73199403c32b70ab771f28c9cf2df": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.97,
+          "menu": 0.010000000000000009,
+          "reward": 0.010000000000000009,
+          "ambiguous": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "presence": {
+        "type": "choice",
+        "choice": "visible",
+        "probabilities": {
+          "visible": 0.97,
+          "absent": 0.015000000000000013,
+          "uncertain": 0.015000000000000013
+        },
+        "confidence": 0.955,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "enabled": {
+        "type": "choice",
+        "choice": "not_applicable",
+        "probabilities": {
+          "enabled": 0.010000000000000009,
+          "disabled": 0.010000000000000009,
+          "not_applicable": 0.97,
+          "uncertain": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2f9a425aecc9eb483220c56236ec3582be4dca2b52eda1b69ae495e44814b4c6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target_box": {
+        "type": "box",
+        "box": {
+          "top": 0.5625,
+          "bottom": 0.7025,
+          "left": 0.65625,
+          "right": 0.875
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3510353b00edef5b0f1d2ed3b78f7bc80639e1182ec7b866e9c874422b9220ee": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.97,
+          "menu": 0.010000000000000009,
+          "reward": 0.010000000000000009,
+          "ambiguous": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "presence": {
+        "type": "choice",
+        "choice": "visible",
+        "probabilities": {
+          "visible": 0.97,
+          "absent": 0.015000000000000013,
+          "uncertain": 0.015000000000000013
+        },
+        "confidence": 0.955,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "enabled": {
+        "type": "choice",
+        "choice": "enabled",
+        "probabilities": {
+          "enabled": 0.97,
+          "disabled": 0.010000000000000009,
+          "not_applicable": 0.010000000000000009,
+          "uncertain": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3d5a8c6cf1d7bb5bf2a4e30b8c410bced6167778fe0424c5348f70eb0628b41c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.97,
+          "menu": 0.010000000000000009,
+          "reward": 0.010000000000000009,
+          "ambiguous": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "presence": {
+        "type": "choice",
+        "choice": "visible",
+        "probabilities": {
+          "visible": 0.97,
+          "absent": 0.015000000000000013,
+          "uncertain": 0.015000000000000013
+        },
+        "confidence": 0.955,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "enabled": {
+        "type": "choice",
+        "choice": "not_applicable",
+        "probabilities": {
+          "enabled": 0.010000000000000009,
+          "disabled": 0.010000000000000009,
+          "not_applicable": 0.97,
+          "uncertain": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "41ef7dbf892fac020b86849341ac561b3f3237c247fa94a67f128aa42992c551": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target_box": {
+        "type": "box",
+        "box": {
+          "top": 0.6875,
+          "bottom": 0.8875,
+          "left": 0.040625,
+          "right": 0.18125
+        },
+        "confidence": null,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "energy": {
+        "type": "choice",
+        "choice": "1",
+        "probabilities": {
+          "0": 0.007500000000000007,
+          "1": 0.97,
+          "2": 0.007500000000000007,
+          "3": 0.007500000000000007,
+          "unreadable": 0.007500000000000007
+        },
+        "confidence": 0.9625,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4b4737ce341962d97da50dd36937a60f7415722cd654665693766c70cb02587c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.97,
+          "menu": 0.010000000000000009,
+          "reward": 0.010000000000000009,
+          "ambiguous": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "presence": {
+        "type": "choice",
+        "choice": "visible",
+        "probabilities": {
+          "visible": 0.97,
+          "absent": 0.015000000000000013,
+          "uncertain": 0.015000000000000013
+        },
+        "confidence": 0.955,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "enabled": {
+        "type": "choice",
+        "choice": "disabled",
+        "probabilities": {
+          "enabled": 0.010000000000000009,
+          "disabled": 0.97,
+          "not_applicable": 0.010000000000000009,
+          "uncertain": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4e3daef3fc9a1b042d9187da287b3fa7c6e1d1564b56b2bd6a3e438b5db91621": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.97,
+          "menu": 0.010000000000000009,
+          "reward": 0.010000000000000009,
+          "ambiguous": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "presence": {
+        "type": "choice",
+        "choice": "uncertain",
+        "probabilities": {
+          "visible": 0.015000000000000013,
+          "absent": 0.015000000000000013,
+          "uncertain": 0.97
+        },
+        "confidence": 0.955,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "enabled": {
+        "type": "choice",
+        "choice": "uncertain",
+        "probabilities": {
+          "enabled": 0.010000000000000009,
+          "disabled": 0.010000000000000009,
+          "not_applicable": 0.010000000000000009,
+          "uncertain": 0.97
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5b6823bd0a92dc9f5a837cb436513a8c9018da484a29ea1bf6a2c94178ae1664": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.97,
+          "menu": 0.010000000000000009,
+          "reward": 0.010000000000000009,
+          "ambiguous": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "presence": {
+        "type": "choice",
+        "choice": "visible",
+        "probabilities": {
+          "visible": 0.97,
+          "absent": 0.015000000000000013,
+          "uncertain": 0.015000000000000013
+        },
+        "confidence": 0.955,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "enabled": {
+        "type": "choice",
+        "choice": "enabled",
+        "probabilities": {
+          "enabled": 0.97,
+          "disabled": 0.010000000000000009,
+          "not_applicable": 0.010000000000000009,
+          "uncertain": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "66ec386522b0759f5bcfbf309b2a79c05c5a95aece0a203bcfd5e5b4dca4bef8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.97,
+          "menu": 0.010000000000000009,
+          "reward": 0.010000000000000009,
+          "ambiguous": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "presence": {
+        "type": "choice",
+        "choice": "visible",
+        "probabilities": {
+          "visible": 0.97,
+          "absent": 0.015000000000000013,
+          "uncertain": 0.015000000000000013
+        },
+        "confidence": 0.955,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "enabled": {
+        "type": "choice",
+        "choice": "disabled",
+        "probabilities": {
+          "enabled": 0.010000000000000009,
+          "disabled": 0.97,
+          "not_applicable": 0.010000000000000009,
+          "uncertain": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7263d084ae899aabdbc0a4714887a75d1c7caba92059a3919ef04859e33c46b6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target_box": {
+        "type": "box",
+        "box": {
+          "top": 0.525,
+          "bottom": 0.83,
+          "left": 0.0859375,
+          "right": 0.2734375
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "72793fbbcbffcd71fec6072c3352c4cabd46d8e67cd009a09e9f2eb5f0ca18b7": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target_box": {
+        "type": "box",
+        "box": {
+          "top": 0.5625,
+          "bottom": 0.7025,
+          "left": 0.65625,
+          "right": 0.875
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "727968b6bdb86d4170f3f40b348d966df0fc58052208c55410ae5c1d6124250e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target_box": {
+        "type": "box",
+        "box": {
+          "top": 0.225,
+          "bottom": 0.425,
+          "left": 0.796875,
+          "right": 0.9375
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "energy": {
+        "type": "choice",
+        "choice": "3",
+        "probabilities": {
+          "0": 0.007500000000000007,
+          "1": 0.007500000000000007,
+          "2": 0.007500000000000007,
+          "3": 0.97,
+          "unreadable": 0.007500000000000007
+        },
+        "confidence": 0.9625,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "73b9502fc1766cfddc3b3ce7361d24f4bc6d497d1ad16c4f0dda7fdae85c65c1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.97,
+          "menu": 0.010000000000000009,
+          "reward": 0.010000000000000009,
+          "ambiguous": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "presence": {
+        "type": "choice",
+        "choice": "visible",
+        "probabilities": {
+          "visible": 0.97,
+          "absent": 0.015000000000000013,
+          "uncertain": 0.015000000000000013
+        },
+        "confidence": 0.955,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "enabled": {
+        "type": "choice",
+        "choice": "not_applicable",
+        "probabilities": {
+          "enabled": 0.010000000000000009,
+          "disabled": 0.010000000000000009,
+          "not_applicable": 0.97,
+          "uncertain": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "74d44199da3223e1d634decf262d32c19f8f640edb91a3a9a52bf683c0c430aa": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.97,
+          "menu": 0.010000000000000009,
+          "reward": 0.010000000000000009,
+          "ambiguous": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "presence": {
+        "type": "choice",
+        "choice": "uncertain",
+        "probabilities": {
+          "visible": 0.015000000000000013,
+          "absent": 0.015000000000000013,
+          "uncertain": 0.97
+        },
+        "confidence": 0.955,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "enabled": {
+        "type": "choice",
+        "choice": "not_applicable",
+        "probabilities": {
+          "enabled": 0.010000000000000009,
+          "disabled": 0.010000000000000009,
+          "not_applicable": 0.97,
+          "uncertain": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "81184c85f7d503f41b96ccd8480ea1f5e98d4a5788510bdd3a8069f360a0e9b6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target_box": {
+        "type": "box",
+        "box": {
+          "top": 0.275,
+          "bottom": 0.4375,
+          "left": 0.3828125,
+          "right": 0.5984375
+        },
+        "confidence": 0.83,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8124f98a30e84a733dbaf77cfde7b82ec62b5a6f561fa83511f504d7d7392dcf": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target_box": {
+        "type": "box",
+        "box": {
+          "top": 0.2375,
+          "bottom": 0.4,
+          "left": 0.71875,
+          "right": 0.934375
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "887d82648ca6e96dd8e4e88b100da3403edc723423968cfb234856f087b49401": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.97,
+          "menu": 0.010000000000000009,
+          "reward": 0.010000000000000009,
+          "ambiguous": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "presence": {
+        "type": "choice",
+        "choice": "visible",
+        "probabilities": {
+          "visible": 0.97,
+          "absent": 0.015000000000000013,
+          "uncertain": 0.015000000000000013
+        },
+        "confidence": 0.955,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "enabled": {
+        "type": "choice",
+        "choice": "enabled",
+        "probabilities": {
+          "enabled": 0.97,
+          "disabled": 0.010000000000000009,
+          "not_applicable": 0.010000000000000009,
+          "uncertain": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8bb0acbcb00b0ef2765e9b93956c809f356a0955c51e63261aa24b4e355ca4f9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase": {
+        "type": "choice",
+        "choice": "ambiguous",
+        "probabilities": {
+          "combat": 0.010000000000000009,
+          "menu": 0.010000000000000009,
+          "reward": 0.010000000000000009,
+          "ambiguous": 0.97
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "presence": {
+        "type": "choice",
+        "choice": "visible",
+        "probabilities": {
+          "visible": 0.97,
+          "absent": 0.015000000000000013,
+          "uncertain": 0.015000000000000013
+        },
+        "confidence": 0.955,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "enabled": {
+        "type": "choice",
+        "choice": "not_applicable",
+        "probabilities": {
+          "enabled": 0.010000000000000009,
+          "disabled": 0.010000000000000009,
+          "not_applicable": 0.97,
+          "uncertain": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "975afee6db01cd652506325cac2e87527a39989fa857f2b48cf1770bb9b6cbdb": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target_box": {
+        "type": "box",
+        "box": {
+          "top": 0.62,
+          "bottom": 0.925,
+          "left": 0.28125,
+          "right": 0.46875
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a08ad3100b8455580864f4469b8b3f0b401b3651ee326484863c364499758d55": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target_box": {
+        "type": "box",
+        "box": {
+          "top": 0.55,
+          "bottom": 0.855,
+          "left": 0.184375,
+          "right": 0.371875
+        },
+        "confidence": 0.67,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a2f63859dab6f24a9d6c38999f55c844eccf1ed918855ab2032caf20a0f45484": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target_box": {
+        "type": "box",
+        "box": {
+          "top": 0.225,
+          "bottom": 0.425,
+          "left": 0.796875,
+          "right": 0.9375
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "energy": {
+        "type": "choice",
+        "choice": "1",
+        "probabilities": {
+          "0": 0.007500000000000007,
+          "1": 0.97,
+          "2": 0.007500000000000007,
+          "3": 0.007500000000000007,
+          "unreadable": 0.007500000000000007
+        },
+        "confidence": 0.9625,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a7e8231e2f3cfe1182eb8d0b28ff208a0f2b7dea4da0fb96db473135933f7d71": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target_box": {
+        "type": "box",
+        "box": {
+          "top": 0.1675,
+          "bottom": 0.33,
+          "left": 0.621875,
+          "right": 0.8375
+        },
+        "confidence": 0.99,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b11baaef4eaf61d1422284b40a3f4bb157c16b93eeb540e778c3a0f80e2d2e83": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "target_box": {
+        "type": "box",
+        "box": {
+          "top": 0.6875,
+          "bottom": 0.8875,
+          "left": 0.040625,
+          "right": 0.18125
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "energy": {
+        "type": "choice",
+        "choice": "2",
+        "probabilities": {
+          "0": 0.007500000000000007,
+          "1": 0.007500000000000007,
+          "2": 0.97,
+          "3": 0.007500000000000007,
+          "unreadable": 0.007500000000000007
+        },
+        "confidence": 0.9625,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c0878f6f8706f38bab3a5023ae07331a5eb2fc7d34b96e7fca8002c37053c6b2": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.97,
+          "menu": 0.010000000000000009,
+          "reward": 0.010000000000000009,
+          "ambiguous": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "presence": {
+        "type": "choice",
+        "choice": "absent",
+        "probabilities": {
+          "visible": 0.015000000000000013,
+          "absent": 0.97,
+          "uncertain": 0.015000000000000013
+        },
+        "confidence": 0.955,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "enabled": {
+        "type": "choice",
+        "choice": "not_applicable",
+        "probabilities": {
+          "enabled": 0.010000000000000009,
+          "disabled": 0.010000000000000009,
+          "not_applicable": 0.97,
+          "uncertain": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d2bd1000ce8f80ab6a479f49b78b63ee021a345c0d02975e487289c05f7a8fda": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.97,
+          "menu": 0.010000000000000009,
+          "reward": 0.010000000000000009,
+          "ambiguous": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "presence": {
+        "type": "choice",
+        "choice": "visible",
+        "probabilities": {
+          "visible": 0.97,
+          "absent": 0.015000000000000013,
+          "uncertain": 0.015000000000000013
+        },
+        "confidence": 0.955,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "enabled": {
+        "type": "choice",
+        "choice": "not_applicable",
+        "probabilities": {
+          "enabled": 0.010000000000000009,
+          "disabled": 0.010000000000000009,
+          "not_applicable": 0.97,
+          "uncertain": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e49bfab76974450fa525c46e0f7f836c214f5f0ff1117b7079a9ae952650e61f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.97,
+          "menu": 0.010000000000000009,
+          "reward": 0.010000000000000009,
+          "ambiguous": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "presence": {
+        "type": "choice",
+        "choice": "visible",
+        "probabilities": {
+          "visible": 0.97,
+          "absent": 0.015000000000000013,
+          "uncertain": 0.015000000000000013
+        },
+        "confidence": 0.955,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "enabled": {
+        "type": "choice",
+        "choice": "not_applicable",
+        "probabilities": {
+          "enabled": 0.010000000000000009,
+          "disabled": 0.010000000000000009,
+          "not_applicable": 0.97,
+          "uncertain": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "eb4506edaa54fdcdc867590e111a64119d980b9e3182adbfb95000beb65016ce": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.97,
+          "menu": 0.010000000000000009,
+          "reward": 0.010000000000000009,
+          "ambiguous": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "presence": {
+        "type": "choice",
+        "choice": "visible",
+        "probabilities": {
+          "visible": 0.97,
+          "absent": 0.015000000000000013,
+          "uncertain": 0.015000000000000013
+        },
+        "confidence": 0.955,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "enabled": {
+        "type": "choice",
+        "choice": "not_applicable",
+        "probabilities": {
+          "enabled": 0.010000000000000009,
+          "disabled": 0.010000000000000009,
+          "not_applicable": 0.97,
+          "uncertain": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f38b1ea39827db6f2e8d7f43605d5a98644c2a6f37eea9b09f64bdf241906e67": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.97,
+          "menu": 0.010000000000000009,
+          "reward": 0.010000000000000009,
+          "ambiguous": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "presence": {
+        "type": "choice",
+        "choice": "visible",
+        "probabilities": {
+          "visible": 0.97,
+          "absent": 0.015000000000000013,
+          "uncertain": 0.015000000000000013
+        },
+        "confidence": 0.955,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "enabled": {
+        "type": "choice",
+        "choice": "enabled",
+        "probabilities": {
+          "enabled": 0.97,
+          "disabled": 0.010000000000000009,
+          "not_applicable": 0.010000000000000009,
+          "uncertain": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
