@@ -1,0 +1,782 @@
+{
+  "0527552a0a3e4ba9715603f16d6ece0dfe3f97cbd91dfe0263a36e52145459e3": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "loading",
+        "probabilities": {
+          "crash": 0.022499999999999992,
+          "loading": 0.91,
+          "authentication_failure": 0.022499999999999992,
+          "normal": 0.022499999999999992,
+          "uncertain": 0.022499999999999992
+        },
+        "confidence": 0.8875,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0545b71f7b68e7166c642ddd3d5649feb4e581cffabf60acd87fc4745246f3a0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "uncertain",
+        "probabilities": {
+          "crash": 0.017499999999999988,
+          "loading": 0.017499999999999988,
+          "authentication_failure": 0.017499999999999988,
+          "normal": 0.017499999999999988,
+          "uncertain": 0.93
+        },
+        "confidence": 0.9125,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0ce5809dcc93ce26fe56fe12eddff9d6dad58eb0273794ecec9a692a2bbac157": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "normal",
+        "probabilities": {
+          "crash": 0.04500000000000001,
+          "loading": 0.04500000000000001,
+          "authentication_failure": 0.04500000000000001,
+          "normal": 0.82,
+          "uncertain": 0.04500000000000001
+        },
+        "confidence": 0.7749999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0fc97ca2ab62f08706cd4d640978b1e47c9e7c051684d29d00185b2fad93b5f7": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "normal",
+        "probabilities": {
+          "crash": 0.01999999999999999,
+          "loading": 0.01999999999999999,
+          "authentication_failure": 0.01999999999999999,
+          "normal": 0.92,
+          "uncertain": 0.01999999999999999
+        },
+        "confidence": 0.8999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1184dc075132b84d68914fbcce5a1ad8742fb9086b26d78defd32159d0a10bed": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "loading",
+        "probabilities": {
+          "crash": 0.01999999999999999,
+          "loading": 0.92,
+          "authentication_failure": 0.01999999999999999,
+          "normal": 0.01999999999999999,
+          "uncertain": 0.01999999999999999
+        },
+        "confidence": 0.8999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1552c669391d4a77f50849b5211dcd9b1fe017e00589ae3fcdf9389cadac38ca": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "crash",
+        "probabilities": {
+          "crash": 0.56,
+          "loading": 0.10999999999999999,
+          "authentication_failure": 0.10999999999999999,
+          "normal": 0.10999999999999999,
+          "uncertain": 0.10999999999999999
+        },
+        "confidence": 0.45,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "16af7bc9fcad599833919df79a60de886a45d9b1fb72ef459b2ba44ea61c820b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "normal",
+        "probabilities": {
+          "crash": 0.0975,
+          "loading": 0.0975,
+          "authentication_failure": 0.0975,
+          "normal": 0.61,
+          "uncertain": 0.0975
+        },
+        "confidence": 0.5125,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "30436e19f8cee04235270b94935b08a84047c3e5656422ddbc599d911ef9f758": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "normal",
+        "probabilities": {
+          "crash": 0.05249999999999999,
+          "loading": 0.05249999999999999,
+          "authentication_failure": 0.05249999999999999,
+          "normal": 0.79,
+          "uncertain": 0.05249999999999999
+        },
+        "confidence": 0.7375,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "35d735b08bfa3f6e719ee46f3b7f18196b687f077f125958e773dffc8162034d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "normal",
+        "probabilities": {
+          "crash": 0.0625,
+          "loading": 0.0625,
+          "authentication_failure": 0.0625,
+          "normal": 0.75,
+          "uncertain": 0.0625
+        },
+        "confidence": 0.6875,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3ea25138b49775d46ad6d22b661c4f41c6a4ad7a9740599efb011411cd7bc550": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "uncertain",
+        "probabilities": {
+          "crash": 0.1225,
+          "loading": 0.1225,
+          "authentication_failure": 0.1225,
+          "normal": 0.1225,
+          "uncertain": 0.51
+        },
+        "confidence": 0.38749999999999996,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4088d7051b9beff4cdfd92fb8e1a18ebd3d0422c1d49cfe10ccf750c44d22bd0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "uncertain",
+        "probabilities": {
+          "crash": 0.015000000000000013,
+          "loading": 0.015000000000000013,
+          "authentication_failure": 0.015000000000000013,
+          "normal": 0.015000000000000013,
+          "uncertain": 0.94
+        },
+        "confidence": 0.9249999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "42c210609798ff43973ba8b7ccc5ef9be216864add76e18aa7b7debe27b564bd": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "normal",
+        "probabilities": {
+          "crash": 0.13,
+          "loading": 0.13,
+          "authentication_failure": 0.13,
+          "normal": 0.48,
+          "uncertain": 0.13
+        },
+        "confidence": 0.3499999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "62cf3b8f8c79f59f50a917de0da9d9131bc9536cf3d23e80d882476f5bd3c34b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "authentication_failure",
+        "probabilities": {
+          "crash": 0.012500000000000011,
+          "loading": 0.012500000000000011,
+          "authentication_failure": 0.95,
+          "normal": 0.012500000000000011,
+          "uncertain": 0.012500000000000011
+        },
+        "confidence": 0.9375,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "64fbaee51f0ecc6ba48dbee74b58c74d209fced1fc3d16e5b419dc1975c6ab2c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "loading",
+        "probabilities": {
+          "crash": 0.0325,
+          "loading": 0.87,
+          "authentication_failure": 0.0325,
+          "normal": 0.0325,
+          "uncertain": 0.0325
+        },
+        "confidence": 0.8374999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "686a5ecc333592a83444a2368fc6fc88c879615fbe212347b94dd8afc27e3310": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "crash",
+        "probabilities": {
+          "crash": 0.96,
+          "loading": 0.010000000000000009,
+          "authentication_failure": 0.010000000000000009,
+          "normal": 0.010000000000000009,
+          "uncertain": 0.010000000000000009
+        },
+        "confidence": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7c8711a667ba8fbe0b569a351b4e6fbd8762e9964d1e9400bed8e5df2ad8a6da": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "normal",
+        "probabilities": {
+          "crash": 0.04500000000000001,
+          "loading": 0.04500000000000001,
+          "authentication_failure": 0.04500000000000001,
+          "normal": 0.82,
+          "uncertain": 0.04500000000000001
+        },
+        "confidence": 0.7749999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a86aaafbc25e84aca31fda72c00aec62c7b76f43adc879ecd455691af7769828": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "loading",
+        "probabilities": {
+          "crash": 0.04000000000000001,
+          "loading": 0.84,
+          "authentication_failure": 0.04000000000000001,
+          "normal": 0.04000000000000001,
+          "uncertain": 0.04000000000000001
+        },
+        "confidence": 0.7999999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b27937650092d212d14c94ab77cb2d169c156df019b8b047235f7013acda12a5": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "crash",
+        "probabilities": {
+          "crash": 0.94,
+          "loading": 0.015000000000000013,
+          "authentication_failure": 0.015000000000000013,
+          "normal": 0.015000000000000013,
+          "uncertain": 0.015000000000000013
+        },
+        "confidence": 0.9249999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b55d88c17b432d7f2d9fd5b1da3378d870071e7bc9261dff1fdb95fcd3009afb": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "loading",
+        "probabilities": {
+          "crash": 0.024999999999999994,
+          "loading": 0.9,
+          "authentication_failure": 0.024999999999999994,
+          "normal": 0.024999999999999994,
+          "uncertain": 0.024999999999999994
+        },
+        "confidence": 0.8749999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bd76139e9147f5d2e284ac0635f5cd73371902bb350ab133634da02db81b8a9d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "crash",
+        "probabilities": {
+          "crash": 0.95,
+          "loading": 0.012500000000000011,
+          "authentication_failure": 0.012500000000000011,
+          "normal": 0.012500000000000011,
+          "uncertain": 0.012500000000000011
+        },
+        "confidence": 0.9375,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c14fe6a747d1270dad7ba940e3761e866e73d5805452512d85ab4c3b91331ba0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "authentication_failure",
+        "probabilities": {
+          "crash": 0.095,
+          "loading": 0.095,
+          "authentication_failure": 0.62,
+          "normal": 0.095,
+          "uncertain": 0.095
+        },
+        "confidence": 0.5249999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c94d7c9e0128aca22776e601b68511755064b875c171dd995d7b30a65e821652": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "normal",
+        "probabilities": {
+          "crash": 0.024999999999999994,
+          "loading": 0.024999999999999994,
+          "authentication_failure": 0.024999999999999994,
+          "normal": 0.9,
+          "uncertain": 0.024999999999999994
+        },
+        "confidence": 0.8749999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "dd875dc37d17f6f3cfa7327da5702bdf0eccddd62ceed2ce80e2f81b15f79c39": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "authentication_failure",
+        "probabilities": {
+          "crash": 0.017499999999999988,
+          "loading": 0.017499999999999988,
+          "authentication_failure": 0.93,
+          "normal": 0.017499999999999988,
+          "uncertain": 0.017499999999999988
+        },
+        "confidence": 0.9125,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e6051eae9c9cde4a14c5027289eb3bc1d8e1ab3e960b09e8079f311bb80952b1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "normal",
+        "probabilities": {
+          "crash": 0.035,
+          "loading": 0.035,
+          "authentication_failure": 0.035,
+          "normal": 0.86,
+          "uncertain": 0.035
+        },
+        "confidence": 0.8249999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e6d42c3451fc418a49a7dcc78f34d07b259071ea01c901c5c2f76bbdc216e401": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "normal",
+        "probabilities": {
+          "crash": 0.04749999999999999,
+          "loading": 0.04749999999999999,
+          "authentication_failure": 0.04749999999999999,
+          "normal": 0.81,
+          "uncertain": 0.04749999999999999
+        },
+        "confidence": 0.7625000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ed74dd9911f207b50707bdf769159210af81c8e97423eac46b18513d89810195": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "authentication_failure",
+        "probabilities": {
+          "crash": 0.017499999999999988,
+          "loading": 0.017499999999999988,
+          "authentication_failure": 0.93,
+          "normal": 0.017499999999999988,
+          "uncertain": 0.017499999999999988
+        },
+        "confidence": 0.9125,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f205db409351647abe412f645fe43878444d37c2ffcc4dad198ecb2dafa588c0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "normal",
+        "probabilities": {
+          "crash": 0.015000000000000013,
+          "loading": 0.015000000000000013,
+          "authentication_failure": 0.015000000000000013,
+          "normal": 0.94,
+          "uncertain": 0.015000000000000013
+        },
+        "confidence": 0.9249999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f79080db32bf49ea225510b6a297d6a5297f7541bb605acd0e64c24d8475a753": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "normal",
+        "probabilities": {
+          "crash": 0.04250000000000001,
+          "loading": 0.04250000000000001,
+          "authentication_failure": 0.04250000000000001,
+          "normal": 0.83,
+          "uncertain": 0.04250000000000001
+        },
+        "confidence": 0.7874999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f984cba4956d393d7d352cfe43f08caf7ce6368fa0d01274e131358bd52a6012": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "normal",
+        "probabilities": {
+          "crash": 0.027499999999999997,
+          "loading": 0.027499999999999997,
+          "authentication_failure": 0.027499999999999997,
+          "normal": 0.89,
+          "uncertain": 0.027499999999999997
+        },
+        "confidence": 0.8624999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "fd0e7f10d0a0c6f9cc0916851674822afea4ffcb58388d0af7e2d043b56386f4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "screen_state": {
+        "type": "choice",
+        "choice": "loading",
+        "probabilities": {
+          "crash": 0.035,
+          "loading": 0.86,
+          "authentication_failure": 0.035,
+          "normal": 0.035,
+          "uncertain": 0.035
+        },
+        "confidence": 0.8249999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
