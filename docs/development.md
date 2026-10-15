@@ -33,6 +33,14 @@ carry its own `tests/`, and test files with the same name in different folders d
 How a recipe's tests import its `helpers.py` is defined in #68 (every recipe has a top-level
 `helpers` module, so that convention must avoid name collisions).
 
+`catalog/recipes.json` contains the original track (ranks 01–60) and the multimodal track
+(61–100). In paths such as `recipes/NN-slug/`, the prefix is zero-padded through `99` and is
+three digits for `100`. `python tools/new_recipe.py NN` accepts ranks 1–100 and uses the catalog
+slug. A rank is not an issue number: the `issue` field records the assigned repository issue.
+The new multimodal entries have `issue: null`; the scaffolder prints a notice and creates a local
+skeleton, but opening a recipe pull request must wait for a real issue assignment in the trusted
+base catalog. See [recipe-template.md](recipe-template.md) for the workflow.
+
 The README tables are generated: after a catalog change run
 `python tools/render_catalog.py`, and `python tools/render_catalog.py --check` to verify.
 
@@ -238,13 +246,20 @@ sudo env "PATH=$PATH" unshare --net -- sh -c \
 which must fail with an `OSError` (`Network is unreachable`), as your user and with your `python`
 (add `import os; print(os.getuid())` to the payload to check). `sudo -n true` run from inside it
 must fail too. To check a pull
-request description and diff against the allowlist, put the description in a file:
+request description and diff against the allowlist, put the description in a file. This example
+uses recipe 01's assigned issue 1; substitute the actual slug and its assigned positive `issue`
+from `origin/main:catalog/recipes.json`, never a number inferred from the recipe rank:
 
 ```bash
-printf 'Closes #NN\n' > /tmp/pr-body.txt
+printf 'Closes #1\n' > /tmp/pr-body.txt
 python tools/check_recipe_scope.py --base origin/main --head HEAD \
-    --branch recipe/NN-slug --body-file /tmp/pr-body.txt
+    --branch recipe/01-sentiment-classification --body-file /tmp/pr-body.txt
 ```
+
+The scope check resolves recipe identities from the trusted base catalog. An unknown slug or an
+entry with `issue: null` fails closed on a `recipe/` branch; editing the head catalog cannot
+supply the missing assignment. The description must close that one assigned issue of this
+repository and no other.
 
 A fresh scaffold has no `fixtures/` folder until you run `python recipes/NN-slug/build_fixtures.py`,
 and `Fixtures (validate)` fails a recipe folder without one.

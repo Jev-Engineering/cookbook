@@ -31,4 +31,4 @@ def test_a_template_folder_changes_nothing_in_the_rendered_readme(tmp_path, monk
     (template / "notebook.ipynb").write_text("{}", encoding="utf-8")
     assert not any(tool.is_published(r) for r in catalog["recipes"])
     assert tool.render(readme, catalog) == before
-    assert "published" in before and "0 of 60" in before
+    assert "published" in before and "0 of 100" in before

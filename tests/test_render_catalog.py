@@ -4,6 +4,7 @@ The tool locates the project through its module-level ROOT. Every test points RO
 temporary directory, so nothing here reads or writes the real README.md, catalog/ or recipes/.
 """
 
+import copy
 import importlib.util
 import json
 import sys
@@ -96,12 +97,72 @@ def test_render_fills_every_region_and_keeps_prose(project, tool_module):
     assert "| S01 | [Docs](https://example.test/docs) | Facts |" in out
     assert "`Choice` + `Score`" in out
     assert (
-        "| **1** | [Beginner](#level-1--beginner) | One bounded judgment. | 1<br><sub>01 to 01</sub> |"
+        "| **1** | [Beginner](#level-1--beginner) | One bounded judgment. | 1<br><sub>01</sub> |"
         in out
     )
     assert "| **2** | [Intermediate](#level-2--intermediate) | Several judgments. |" in out
     assert "Categories-2-" in out
     assert "Levels-2-" in out
+
+
+def test_separate_tracks_show_recipe_100_without_a_fictional_issue_or_publication(
+    project, tool_module
+):
+    catalog = copy.deepcopy(CATALOG)
+    catalog["tracks"] = [
+        {
+            "id": "original",
+            "title": "Original track",
+            "first_rank": 1,
+            "last_rank": 60,
+            "description": "Original curriculum.",
+        },
+        {
+            "id": "multimodal",
+            "title": "Multimodal track",
+            "first_rank": 61,
+            "last_rank": 100,
+            "description": "Image and spatial judgments.",
+        },
+    ]
+    recipe100 = {
+        **catalog["recipes"][0],
+        "rank": 100,
+        "slug": "100-handoff",
+        "title": "Handoff",
+        "decision_types": ["Box", "Noul"],
+        "issue": None,
+    }
+    catalog["recipes"].append(recipe100)
+    out = tool_module.render(make_readme(), catalog)
+    original, multimodal = out.split("### Multimodal track (61–100)")
+    assert "### Original track (01–60)" in original
+    assert "**Alpha**" in original and "**Beta**" in original
+    assert "**Handoff**" not in original
+    assert "**Handoff**" in multimodal and "**Alpha**" not in multimodal
+    assert "#### Multimodal level 1 · Beginner" in multimodal
+    assert "`Box` + `Noul` | Coming soon |" in multimodal
+    assert "issues/100" not in out
+    assert "0 of 3 published" in out
+    assert "2<br><sub>01, 100</sub>" in out
+    assert "01 to 100" not in out
+    publish(project, recipe100["slug"])
+    published = tool_module.render(make_readme(), catalog)
+    assert "[Open notebook](recipes/100-handoff/notebook.ipynb)" in published
+    assert "1 of 3 published" in published
+
+
+def test_noncontiguous_level_ranges_do_not_claim_intervening_recipes(project, tool_module):
+    catalog = copy.deepcopy(CATALOG)
+    catalog["recipes"].extend(
+        {**catalog["recipes"][0], "rank": rank, "level": 1} for rank in [4, 5, 69, 70, 100]
+    )
+    out = tool_module.render_levels(catalog)
+    assert "<sub>01, 04 to 05, 69 to 70, 100</sub>" in out
+    assert "01 to 100" not in out
+    catalog["recipes"][1]["category"] = "Cat A"
+    catalog["recipes"][1]["level"] = 5
+    assert "| **Cat A** | 7 | 1, 5 |" in tool_module.render_categories(catalog)
 
 
 def test_render_replaces_stale_region_content(project, tool_module):

@@ -11,6 +11,7 @@ catalog data on its own, independent of what has been published: every row's ran
 decision_types and sources.
 """
 
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -22,8 +23,8 @@ CATALOG = json.loads((REPO / "catalog" / "recipes.json").read_text("utf-8"))
 RECIPES = CATALOG["recipes"]
 
 SOURCE_ID_RE = re.compile(r"^S\d+$")
-SLUG_RE = re.compile(r"^(\d{2})-[a-z0-9]+(?:-[a-z0-9]+)*$")
-KNOWN_DECISION_TYPES = {"Choice", "Noul", "Score"}
+SLUG_RE = re.compile(r"^([0-9]{2}|100)-[a-z0-9]+(?:-[a-z0-9]+)*$")
+KNOWN_DECISION_TYPES = {"Choice", "Noul", "Score", "Box"}
 REQUIRED_SOURCES = {"S02", "S03"}  # Primitives and Confidence: every recipe asks a typed
 # question (S02) and every recipe's helpers derive or threshold a confidence (S03), even one
 # that does not report it, because jev_cookbook.evaluation.noul_confidence and the Choice
@@ -50,13 +51,54 @@ def test_readme_sources_region_is_not_empty():
     assert README_SOURCE_IDS
 
 
-def test_catalog_has_sixty_recipes():
-    assert len(RECIPES) == 60
+def test_catalog_has_one_hundred_recipes():
+    assert len(RECIPES) == 100
 
 
-def test_ranks_are_one_to_sixty_contiguous_and_in_order():
+def test_ranks_are_one_to_one_hundred_contiguous_and_in_order():
     ranks = [r["rank"] for r in RECIPES]
-    assert ranks == list(range(1, 61))
+    assert ranks == list(range(1, 101))
+
+
+def test_original_sixty_rows_are_preserved_exactly():
+    # Frozen before the multimodal expansion (b4e39ce); includes rank/slug/issue mappings,
+    # titles, use cases, levels and sources. Reordering JSON object keys is harmless.
+    encoded = json.dumps(RECIPES[:60], sort_keys=True, separators=(",", ":")).encode()
+    assert hashlib.sha256(encoded).hexdigest() == (
+        "78b5452c5d4bb5f9a47d205bf92aee9562c34bfb4e52e2f7df70894439b4ac80"
+    )
+
+
+def test_tracks_partition_the_catalog_without_changing_recipe_numbers():
+    tracks = CATALOG["tracks"]
+    assert [(t["id"], t["first_rank"], t["last_rank"]) for t in tracks] == [
+        ("original", 1, 60),
+        ("multimodal", 61, 100),
+    ]
+    for recipe in RECIPES:
+        assert sum(t["first_rank"] <= recipe["rank"] <= t["last_rank"] for t in tracks) == 1
+
+
+def test_issue_assignments_are_unique_positive_integers_or_explicitly_unassigned():
+    assigned = []
+    for recipe in RECIPES:
+        issue = recipe["issue"]
+        assert issue is None or (type(issue) is int and issue > 0)
+        if issue is not None:
+            assigned.append(issue)
+    assert len(assigned) == len(set(assigned))
+    # Existing 61–100 issues track foundation work, not these new recipe ranks.
+    assert not set(assigned) & set(range(61, 101))
+
+
+def test_multimodal_rows_cite_images_and_box_rows_cite_box():
+    by_url = {s["url"]: s["id"] for s in CATALOG["sources"]}
+    images = by_url["https://docs.typesafe.ai/images"]
+    box = by_url["https://docs.typesafe.ai/primitives/box"]
+    for recipe in RECIPES[60:]:
+        assert images in recipe["sources"]
+        if "Box" in recipe["decision_types"]:
+            assert box in recipe["sources"]
 
 
 def test_slugs_are_unique():
@@ -71,6 +113,7 @@ def test_slug_matches_the_nn_slug_convention_and_its_own_rank(recipe):
     assert int(match.group(1)) == recipe["rank"], (
         f"{recipe['slug']!r}'s numeric prefix does not match its rank {recipe['rank']}"
     )
+    assert match.group(1) == f"{recipe['rank']:02d}"
 
 
 @pytest.mark.parametrize("recipe", RECIPES, ids=lambda r: r["slug"])

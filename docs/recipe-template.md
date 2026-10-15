@@ -6,10 +6,14 @@ folder for it. This page is the reference and the walkthrough; the template's ow
 [README](../recipes/_template/README.md) carries the same steps on one page.
 
 ```bash
-python tools/new_recipe.py NN                 # create recipes/NN-slug/ from the catalog (NN is 1 to 60)
+python tools/new_recipe.py NN                 # create recipes/NN-slug/ from the catalog (NN is 1 to 100)
 python tools/new_recipe.py NN --mode scripted # the same for a scripted or simulator recipe
 python tools/execute_notebook.py recipes/X    # run X/notebook.ipynb offline, write the outputs back
 ```
+
+The catalog has an original track (01–60) and a separate multimodal track (61–100). `NN` denotes
+the recipe's rank, not its issue number; slugs use zero-padded prefixes through `99` and the
+three-digit prefix `100`. Use the catalog's exact slug.
 
 ```python
 from jev_cookbook import load_helpers
@@ -21,7 +25,12 @@ helpers = load_helpers(Path(__file__).resolve().parent.parent)  # in recipe/test
 ## What the template is
 
 A router for support messages: one `Choice` (`billing`, `bug`, `account`, `none`) and one rule in
-Python. It is deliberately small, so that it can be read in a few minutes and copied sixty times.
+Python. It is deliberately small, so that it can be read in a few minutes and adapted to a recipe.
+For the multimodal track it supplies the notebook structure and offline workflow. A builder must
+still write visual questions, image or frame fixtures, deterministic Python rules and an
+evaluation suited to the recipe's decisions.
+Scaffolding makes no live API calls, and the completed notebook remains offline by default with
+live inference explicitly opt-in under the [contract](../CONTRIBUTING.md).
 
 | File | Role |
 | - | - |
@@ -281,10 +290,16 @@ writes) is accepted.
   nothing here is a `TODO`. A `--mode scripted` scaffold does not get this file.
 
 Every place you must write is marked `TODO`, so `grep -rn TODO recipes/NN-slug` lists what remains;
-a finished recipe prints nothing. The command validates that `NN` is a whole number from 1 to 60
+a finished recipe prints nothing. The command validates that `NN` is a whole number from 1 to 100
 (exit status 2 otherwise), exits with status 1 and a message when the recipe is not in the catalog,
 and **never overwrites**: if `recipes/<slug>/` exists it changes nothing and exits with status 1.
 `--catalog` and `--recipes-dir` point it elsewhere; the tests use them with temporary copies.
+
+An entry with `issue: null` can be scaffolded locally. The command prints a notice that a real
+issue must be assigned in the trusted base catalog before opening a recipe pull request. It does
+not invent an issue link: ranks 61–100 are multimodal recipe positions, while repository issues
+61–100 already serve foundation and tracking work. Assigning an issue in a recipe branch's head
+catalog is insufficient; the scope guard reads assignments from the base.
 
 ## From scaffold to a running notebook
 
@@ -310,8 +325,11 @@ and **never overwrites**: if `recipes/<slug>/` exists it changes nothing and exi
    and read the outputs.
 7. Run it twice: the second run must change nothing (`git diff --stat` empty after `git add`).
 8. `ruff check .`, `ruff format --check .`, `pytest`, `python tools/check_hygiene.py`.
-9. Open the pull request. Do not run `tools/render_catalog.py` or edit the root `README.md`: the
-   `Catalog (README is current)` check is expected to be red until the integration worker has run
+9. Once the slug has a real assigned issue in the trusted base catalog, open the pull request
+   with `Closes #N` naming that issue, not the recipe rank. If `issue` is still `null`, keep the
+   work local until the assignment is available. Do not run `tools/render_catalog.py` or edit
+   the root `README.md`: the `Catalog (README is current)` check is expected to be red until the
+   integration worker has run
    (see "The generated-README exception" in [CONTRIBUTING.md](../CONTRIBUTING.md)).
 
 ## Scripted and simulator recipes

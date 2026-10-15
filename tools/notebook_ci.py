@@ -41,7 +41,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 NOTEBOOK = "notebook.ipynb"
 # A recipe folder name ends up in a workflow matrix and a command line: refuse anything else.
-RECIPE_NAME = re.compile(r"(?:_template|[0-9]{2}-[a-z0-9]+(?:-[a-z0-9]+)*)")
+RECIPE_NAME = re.compile(r"(?:_template|(?:[0-9]{2}|100)-[a-z0-9]+(?:-[a-z0-9]+)*)")
 
 
 def recipe_dirs(root: Path) -> list[Path]:
@@ -55,7 +55,9 @@ def with_notebooks(root: Path) -> list[str]:
     names = [p.name for p in recipe_dirs(root) if (p / NOTEBOOK).is_file()]
     for name in names:
         if not RECIPE_NAME.fullmatch(name):
-            raise SystemExit(f"recipe folder name {name!r} is not NN-slug or _template")
+            raise SystemExit(
+                f"recipe folder name {name!r} is not NN-slug (01–99), 100-slug or _template"
+            )
     return names
 
 

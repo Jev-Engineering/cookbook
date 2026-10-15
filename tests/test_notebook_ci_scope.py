@@ -434,9 +434,9 @@ def test_recipe_branch_closing_only_a_non_recipe_issue_is_rejected(repo):
 def test_branch_slug_must_match_the_catalog_slug_for_the_issue(repo):
     repo.put(f"recipes/{SLUG1}/README.md", "x\n")
     rejected(run_check(repo, branch=f"recipe/{SLUG2}"), f"is not recipe/{SLUG1}")
-    rejected(run_check(repo, branch="recipe/made-up"), f"is not recipe/{SLUG1}")
-    rejected(run_check(repo, branch="recipe/"), f"is not recipe/{SLUG1}")
-    rejected(run_check(repo, branch=BRANCH1 + "-2"), f"is not recipe/{SLUG1}")
+    rejected(run_check(repo, branch="recipe/made-up"), "unknown recipe slug")
+    rejected(run_check(repo, branch="recipe/"), "unknown recipe slug")
+    rejected(run_check(repo, branch=BRANCH1 + "-2"), "unknown recipe slug")
 
 
 def test_slug_is_resolved_from_the_issue_not_the_branch(repo):
@@ -680,7 +680,7 @@ def test_check_fails_closed_when_the_catalog_has_no_entry_for_the_issue(repo):
     repo.commit("catalog without issue 1")
     repo.git("branch", "-f", "main", "HEAD")
     repo.put(f"recipes/{SLUG1}/README.md", "x\n")
-    rejected(run_check(repo), "has no recipe in the catalog")
+    rejected(run_check(repo), "has no assigned issue in the base catalog")
 
 
 def test_raw_diff_reports_modes_that_name_status_hides(repo):
@@ -701,5 +701,84 @@ def test_raw_diff_lists_both_sides_of_a_rename(repo):
     assert entry.paths == (f"recipes/{SLUG1}/helpers.py", "docs/helpers.py")
 
 
-def test_the_real_catalog_numbers_recipes_one_to_sixty_by_issue():
-    assert [r["issue"] for r in CATALOG["recipes"]] == list(range(1, 61))
+def test_the_original_sixty_issue_assignments_are_preserved():
+    assert [r["issue"] for r in CATALOG["recipes"][:60]] == list(range(1, 61))
+    assert all(r["issue"] is None for r in CATALOG["recipes"][60:])
+
+
+def test_issue_61_remains_foundation_when_not_assigned_in_base_catalog(repo):
+    repo.put("src/jev_cookbook/new.py", "x = 1\n")
+    problems, note = run_check(repo, branch="foundation/visual-backend", body="Closes #61")
+    assert problems == []
+    assert note.startswith("foundation pull request")
+
+
+@pytest.mark.parametrize("body", ["Closes #100", "Closes #401", "Closes #1", "No issue assigned"])
+def test_unassigned_recipe_100_fails_closed(repo, body):
+    slug = CATALOG["recipes"][-1]["slug"]
+    repo.put(f"recipes/{slug}/notebook.ipynb", NOTEBOOK)
+    rejected(run_check(repo, branch=f"recipe/{slug}", body=body), "no assigned issue")
+
+
+def assign_in_base(repo, rank, issue):
+    """Synthetic mapping only; no actual issue creation or guessed production assignment."""
+    catalog = json.loads(json.dumps(CATALOG))
+    recipe = next(r for r in catalog["recipes"] if r["rank"] == rank)
+    recipe["issue"] = issue
+    repo.put("catalog/recipes.json", json.dumps(catalog))
+    repo.commit("synthetic assigned base")
+    repo.git("branch", "-f", "main", "HEAD")
+    return recipe["slug"], catalog
+
+
+def test_recipe_100_closing_an_assigned_issue_above_300_passes_with_rendered_readme(repo):
+    slug, catalog = assign_in_base(repo, 100, 401)
+    repo.put(f"recipes/{slug}/notebook.ipynb", NOTEBOOK)
+    repo.put("README.md", rendered_readme({SLUG2, slug}, catalog=catalog))
+    problems, note = run_check(repo, branch=f"recipe/{slug}", body="Closes #401")
+    assert problems == []
+    assert note.startswith(f"recipe pull request for #401 ({slug})")
+
+
+def test_high_assigned_issue_requires_recipe_branch_and_exactly_one_closed_issue(repo):
+    slug, _ = assign_in_base(repo, 100, 401)
+    rejected(
+        run_check(repo, branch="foundation/sneaky", body="Closes #401"),
+        "only one recipe marker holds",
+    )
+    rejected(
+        run_check(repo, branch=f"recipe/{slug}", body="Closes #401\nCloses #61"),
+        "exactly one issue",
+    )
+
+
+def test_high_assigned_issue_preserves_path_and_readme_prose_guards(repo):
+    slug, catalog = assign_in_base(repo, 100, 401)
+    repo.put("README.md", "unauthorized prose\n" + rendered_readme({SLUG2}, catalog=catalog))
+    rejected(
+        run_check(repo, branch=f"recipe/{slug}", body="Closes #401"),
+        "does not equal the renderer's output",
+    )
+    repo.put("src/jev_cookbook/new.py", "x = 1\n")
+    rejected(
+        run_check(repo, branch=f"recipe/{slug}", body="Closes #401"),
+        "is outside recipes/",
+    )
+
+
+def test_head_catalog_cannot_assign_itself_a_recipe_issue(repo):
+    catalog = json.loads(json.dumps(CATALOG))
+    recipe = catalog["recipes"][-1]
+    recipe["issue"] = 401
+    repo.put("catalog/recipes.json", json.dumps(catalog))
+    rejected(
+        run_check(repo, branch=f"recipe/{recipe['slug']}", body="Closes #401"),
+        "no assigned issue in the base catalog",
+    )
+
+
+@pytest.mark.parametrize("issue", [1, True, 0, -1, "401"])
+def test_ambiguous_or_invalid_base_assignments_fail_closed(repo, issue):
+    assign_in_base(repo, 100, issue)
+    with pytest.raises(scope.CannotRun, match="base catalog assignments"):
+        run_check(repo, branch="foundation/anything", body="Closes #61")

@@ -55,6 +55,23 @@ def render_progress(catalog: dict) -> str:
     return " ".join(badges)
 
 
+def number_ranges(numbers: list[int], width: int = 1) -> str:
+    """Describe only actual contiguous runs, never the gaps between tracks."""
+    runs: list[list[int]] = []
+    for number in sorted(set(numbers)):
+        if runs and number == runs[-1][-1] + 1:
+            runs[-1].append(number)
+        else:
+            runs.append([number])
+    return (
+        ", ".join(
+            f"{run[0]:0{width}d}" if len(run) == 1 else f"{run[0]:0{width}d} to {run[-1]:0{width}d}"
+            for run in runs
+        )
+        or "—"
+    )
+
+
 def render_levels(catalog: dict) -> str:
     lines = [
         "| Level | Name | What a notebook at this level involves | Recipes |",
@@ -65,7 +82,7 @@ def render_levels(catalog: dict) -> str:
         anchor = f"#level-{level['level']}--{level['name'].lower()}"
         lines.append(
             f"| **{level['level']}** | [{level['name']}]({anchor}) | {level['scope']} | "
-            f"{len(ranks)}<br><sub>{ranks[0]:02d} to {ranks[-1]:02d}</sub> |"
+            f"{len(ranks)}<br><sub>{number_ranges(ranks, width=2)}</sub> |"
         )
     return "\n".join(lines)
 
@@ -77,7 +94,7 @@ def render_categories(catalog: dict) -> str:
     lines = ["| Category | Recipes | Levels | Recipe numbers |", "| --- | :---: | :---: | --- |"]
     for name, items in sorted(groups.items(), key=lambda kv: (-len(kv[1]), kv[0])):
         levels = sorted({r["level"] for r in items})
-        span = str(levels[0]) if len(levels) == 1 else f"{levels[0]} to {levels[-1]}"
+        span = number_ranges(levels)
         numbers = " ".join(f"`{r['rank']:02d}`" for r in items)
         lines.append(f"| **{name}** | {len(items)} | {span} | {numbers} |")
     return "\n".join(lines)
@@ -85,22 +102,35 @@ def render_categories(catalog: dict) -> str:
 
 def render_recipes(catalog: dict) -> str:
     blocks = []
-    for level in catalog["levels"]:
-        items = [r for r in catalog["recipes"] if r["level"] == level["level"]]
-        lines = [
-            f"### Level {level['level']} · {level['name']}",
-            "",
-            f"{level['scope']}",
-            "",
-            "| # | Recipe | Category | Decision | Status |",
-            "| :---: | --- | --- | --- | --- |",
-        ]
-        for r in items:
-            lines.append(
-                f"| {r['rank']:02d} | **{r['title']}**<br>{r['use_case']} | {r['category']} | "
-                f"{decision_cell(r)} | {status_cell(r)} |"
+    # Catalog fixtures predating tracks retain the original single-track layout.
+    for track in catalog.get("tracks", [None]):
+        recipes = catalog["recipes"]
+        if track is not None:
+            recipes = [r for r in recipes if track["first_rank"] <= r["rank"] <= track["last_rank"]]
+            blocks.append(
+                f"### {track['title']} ({track['first_rank']:02d}–{track['last_rank']:02d})"
+                f"\n\n{track['description']}"
             )
-        blocks.append("\n".join(lines))
+        for level in catalog["levels"]:
+            items = [r for r in recipes if r["level"] == level["level"]]
+            if not items:
+                continue
+            heading = "###" if track is None else "####"
+            prefix = "Multimodal level" if track and track["id"] == "multimodal" else "Level"
+            lines = [
+                f"{heading} {prefix} {level['level']} · {level['name']}",
+                "",
+                f"{level['scope']}",
+                "",
+                "| # | Recipe | Category | Decision | Status |",
+                "| :---: | --- | --- | --- | --- |",
+            ]
+            for r in items:
+                lines.append(
+                    f"| {r['rank']:02d} | **{r['title']}**<br>{r['use_case']} | {r['category']} | "
+                    f"{decision_cell(r)} | {status_cell(r)} |"
+                )
+            blocks.append("\n".join(lines))
     return "\n\n".join(blocks)
 
 
