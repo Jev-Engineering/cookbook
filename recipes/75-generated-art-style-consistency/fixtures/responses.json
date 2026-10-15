@@ -1,0 +1,2966 @@
+{
+  "08e77357267ef38cac9b9ac054ad9aa12266628c4b703a58b63b0a19fc81609b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "palette": {
+        "type": "score",
+        "score": 2.8400000000000003,
+        "probabilities": {
+          "0": 0.026666666666666655,
+          "1": 0.026666666666666655,
+          "2": 0.026666666666666655,
+          "3": 0.92
+        },
+        "confidence": 0.8400000000000001,
+        "legend": {
+          "0": {
+            "observable_level": "Dominant filled shapes use saturated or unrelated hues, with essentially none of the muted clay, sage and charcoal family shown on the cream moodboard."
+          },
+          "1": {
+            "observable_level": "One target hue is recognizable, but most filled shape area uses unrelated or saturated hues. Ignore the cream background when deciding what dominates."
+          },
+          "2": {
+            "observable_level": "Most filled shape area uses the muted moodboard family, with one limited discordant accent. The accent is visibly a minority of the shape area."
+          },
+          "3": {
+            "observable_level": "All substantial filled shapes use the restricted muted cream, clay, sage and charcoal family shown here. Different proportions and layouts are allowed.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "surface": {
+        "type": "score",
+        "score": 1.0533333333333332,
+        "probabilities": {
+          "0": 0.026666666666666655,
+          "1": 0.92,
+          "2": 0.026666666666666655,
+          "3": 0.026666666666666655
+        },
+        "confidence": 0.8933333333333334,
+        "legend": {
+          "0": {
+            "observable_level": "Most shapes have heavy dark contour lines, or dense speckle/hatching dominates the surfaces. These treatments visibly compete with the flat filled silhouettes."
+          },
+          "1": {
+            "observable_level": "Several shapes have visible contour lines or broad textured patches, but the flat fill remains readable. More than one localized surface departure is visible."
+          },
+          "2": {
+            "observable_level": "Predominantly clean flat fills, with only one subtle contour or a small localized textured accent. Most boundaries are made by adjacent color, not drawn strokes."
+          },
+          "3": {
+            "observable_level": "Clean uniform flat fills throughout, without visible outline strokes, grain, hatching or shading, as in the moodboard. Ignore hue and arrangement here.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "composition": {
+        "type": "score",
+        "score": 2.8400000000000003,
+        "probabilities": {
+          "0": 0.026666666666666655,
+          "1": 0.026666666666666655,
+          "2": 0.026666666666666655,
+          "3": 0.92
+        },
+        "confidence": 0.8400000000000001,
+        "legend": {
+          "0": {
+            "observable_level": "No readable group of major geometric shapes, or an all-over field of tiny fragments without a clear focal grouping or breathing room."
+          },
+          "1": {
+            "observable_level": "A single tiny isolated motif, a crowded group of roughly nine or more major shapes, or a strongly compressed corner cluster with no balanced focal grouping."
+          },
+          "2": {
+            "observable_level": "A readable group that is somewhat sparse (roughly two major shapes), somewhat dense (roughly seven or eight), or has moderate crowding or uneven margins."
+          },
+          "3": {
+            "observable_level": "Roughly three to six readable major geometric shapes make an asymmetrically balanced focal group, with open cream margins and room between major forms. Accept different positions, sizes and motifs from all three examples.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0dd8d9b37c5589fd58cb1bc7a92e940cb663bccf770e3e17f795442eb87d966e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "palette": {
+        "type": "score",
+        "score": 2.92,
+        "probabilities": {
+          "0": 0.013333333333333345,
+          "1": 0.013333333333333345,
+          "2": 0.013333333333333345,
+          "3": 0.96
+        },
+        "confidence": 0.9199999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "Dominant filled shapes use saturated or unrelated hues, with essentially none of the muted clay, sage and charcoal family shown on the cream moodboard."
+          },
+          "1": {
+            "observable_level": "One target hue is recognizable, but most filled shape area uses unrelated or saturated hues. Ignore the cream background when deciding what dominates."
+          },
+          "2": {
+            "observable_level": "Most filled shape area uses the muted moodboard family, with one limited discordant accent. The accent is visibly a minority of the shape area."
+          },
+          "3": {
+            "observable_level": "All substantial filled shapes use the restricted muted cream, clay, sage and charcoal family shown here. Different proportions and layouts are allowed.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "surface": {
+        "type": "score",
+        "score": 2.92,
+        "probabilities": {
+          "0": 0.013333333333333345,
+          "1": 0.013333333333333345,
+          "2": 0.013333333333333345,
+          "3": 0.96
+        },
+        "confidence": 0.9199999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "Most shapes have heavy dark contour lines, or dense speckle/hatching dominates the surfaces. These treatments visibly compete with the flat filled silhouettes."
+          },
+          "1": {
+            "observable_level": "Several shapes have visible contour lines or broad textured patches, but the flat fill remains readable. More than one localized surface departure is visible."
+          },
+          "2": {
+            "observable_level": "Predominantly clean flat fills, with only one subtle contour or a small localized textured accent. Most boundaries are made by adjacent color, not drawn strokes."
+          },
+          "3": {
+            "observable_level": "Clean uniform flat fills throughout, without visible outline strokes, grain, hatching or shading, as in the moodboard. Ignore hue and arrangement here.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "composition": {
+        "type": "score",
+        "score": 2.92,
+        "probabilities": {
+          "0": 0.013333333333333345,
+          "1": 0.013333333333333345,
+          "2": 0.013333333333333345,
+          "3": 0.96
+        },
+        "confidence": 0.9199999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "No readable group of major geometric shapes, or an all-over field of tiny fragments without a clear focal grouping or breathing room."
+          },
+          "1": {
+            "observable_level": "A single tiny isolated motif, a crowded group of roughly nine or more major shapes, or a strongly compressed corner cluster with no balanced focal grouping."
+          },
+          "2": {
+            "observable_level": "A readable group that is somewhat sparse (roughly two major shapes), somewhat dense (roughly seven or eight), or has moderate crowding or uneven margins."
+          },
+          "3": {
+            "observable_level": "Roughly three to six readable major geometric shapes make an asymmetrically balanced focal group, with open cream margins and room between major forms. Accept different positions, sizes and motifs from all three examples.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1546937681fc0c1f07f96248b152fca90d2c7b648b81c784030df28573326f1e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "palette": {
+        "type": "score",
+        "score": 1.9466666666666668,
+        "probabilities": {
+          "0": 0.026666666666666655,
+          "1": 0.026666666666666655,
+          "2": 0.92,
+          "3": 0.026666666666666655
+        },
+        "confidence": 0.8933333333333334,
+        "legend": {
+          "0": {
+            "observable_level": "Dominant filled shapes use saturated or unrelated hues, with essentially none of the muted clay, sage and charcoal family shown on the cream moodboard."
+          },
+          "1": {
+            "observable_level": "One target hue is recognizable, but most filled shape area uses unrelated or saturated hues. Ignore the cream background when deciding what dominates."
+          },
+          "2": {
+            "observable_level": "Most filled shape area uses the muted moodboard family, with one limited discordant accent. The accent is visibly a minority of the shape area."
+          },
+          "3": {
+            "observable_level": "All substantial filled shapes use the restricted muted cream, clay, sage and charcoal family shown here. Different proportions and layouts are allowed.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "surface": {
+        "type": "score",
+        "score": 2.8400000000000003,
+        "probabilities": {
+          "0": 0.026666666666666655,
+          "1": 0.026666666666666655,
+          "2": 0.026666666666666655,
+          "3": 0.92
+        },
+        "confidence": 0.8400000000000001,
+        "legend": {
+          "0": {
+            "observable_level": "Most shapes have heavy dark contour lines, or dense speckle/hatching dominates the surfaces. These treatments visibly compete with the flat filled silhouettes."
+          },
+          "1": {
+            "observable_level": "Several shapes have visible contour lines or broad textured patches, but the flat fill remains readable. More than one localized surface departure is visible."
+          },
+          "2": {
+            "observable_level": "Predominantly clean flat fills, with only one subtle contour or a small localized textured accent. Most boundaries are made by adjacent color, not drawn strokes."
+          },
+          "3": {
+            "observable_level": "Clean uniform flat fills throughout, without visible outline strokes, grain, hatching or shading, as in the moodboard. Ignore hue and arrangement here.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "composition": {
+        "type": "score",
+        "score": 2.8400000000000003,
+        "probabilities": {
+          "0": 0.026666666666666655,
+          "1": 0.026666666666666655,
+          "2": 0.026666666666666655,
+          "3": 0.92
+        },
+        "confidence": 0.8400000000000001,
+        "legend": {
+          "0": {
+            "observable_level": "No readable group of major geometric shapes, or an all-over field of tiny fragments without a clear focal grouping or breathing room."
+          },
+          "1": {
+            "observable_level": "A single tiny isolated motif, a crowded group of roughly nine or more major shapes, or a strongly compressed corner cluster with no balanced focal grouping."
+          },
+          "2": {
+            "observable_level": "A readable group that is somewhat sparse (roughly two major shapes), somewhat dense (roughly seven or eight), or has moderate crowding or uneven margins."
+          },
+          "3": {
+            "observable_level": "Roughly three to six readable major geometric shapes make an asymmetrically balanced focal group, with open cream margins and room between major forms. Accept different positions, sizes and motifs from all three examples.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "16e8b07920a7e3981ffb91832d1446d5a1eacfda97fa073abd777fb99f4a0ad7": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "palette": {
+        "type": "score",
+        "score": 0.08000000000000007,
+        "probabilities": {
+          "0": 0.96,
+          "1": 0.013333333333333345,
+          "2": 0.013333333333333345,
+          "3": 0.013333333333333345
+        },
+        "confidence": 0.9199999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "Dominant filled shapes use saturated or unrelated hues, with essentially none of the muted clay, sage and charcoal family shown on the cream moodboard."
+          },
+          "1": {
+            "observable_level": "One target hue is recognizable, but most filled shape area uses unrelated or saturated hues. Ignore the cream background when deciding what dominates."
+          },
+          "2": {
+            "observable_level": "Most filled shape area uses the muted moodboard family, with one limited discordant accent. The accent is visibly a minority of the shape area."
+          },
+          "3": {
+            "observable_level": "All substantial filled shapes use the restricted muted cream, clay, sage and charcoal family shown here. Different proportions and layouts are allowed.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "surface": {
+        "type": "score",
+        "score": 2.92,
+        "probabilities": {
+          "0": 0.013333333333333345,
+          "1": 0.013333333333333345,
+          "2": 0.013333333333333345,
+          "3": 0.96
+        },
+        "confidence": 0.9199999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "Most shapes have heavy dark contour lines, or dense speckle/hatching dominates the surfaces. These treatments visibly compete with the flat filled silhouettes."
+          },
+          "1": {
+            "observable_level": "Several shapes have visible contour lines or broad textured patches, but the flat fill remains readable. More than one localized surface departure is visible."
+          },
+          "2": {
+            "observable_level": "Predominantly clean flat fills, with only one subtle contour or a small localized textured accent. Most boundaries are made by adjacent color, not drawn strokes."
+          },
+          "3": {
+            "observable_level": "Clean uniform flat fills throughout, without visible outline strokes, grain, hatching or shading, as in the moodboard. Ignore hue and arrangement here.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "composition": {
+        "type": "score",
+        "score": 2.92,
+        "probabilities": {
+          "0": 0.013333333333333345,
+          "1": 0.013333333333333345,
+          "2": 0.013333333333333345,
+          "3": 0.96
+        },
+        "confidence": 0.9199999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "No readable group of major geometric shapes, or an all-over field of tiny fragments without a clear focal grouping or breathing room."
+          },
+          "1": {
+            "observable_level": "A single tiny isolated motif, a crowded group of roughly nine or more major shapes, or a strongly compressed corner cluster with no balanced focal grouping."
+          },
+          "2": {
+            "observable_level": "A readable group that is somewhat sparse (roughly two major shapes), somewhat dense (roughly seven or eight), or has moderate crowding or uneven margins."
+          },
+          "3": {
+            "observable_level": "Roughly three to six readable major geometric shapes make an asymmetrically balanced focal group, with open cream margins and room between major forms. Accept different positions, sizes and motifs from all three examples.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1f1020bab442b673e1a8ff6617c5a1c7f0590f0a0766841da068768f8cd62f32": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "palette": {
+        "type": "score",
+        "score": 2.88,
+        "probabilities": {
+          "0": 0.020000000000000018,
+          "1": 0.020000000000000018,
+          "2": 0.020000000000000018,
+          "3": 0.94
+        },
+        "confidence": 0.8799999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "Dominant filled shapes use saturated or unrelated hues, with essentially none of the muted clay, sage and charcoal family shown on the cream moodboard."
+          },
+          "1": {
+            "observable_level": "One target hue is recognizable, but most filled shape area uses unrelated or saturated hues. Ignore the cream background when deciding what dominates."
+          },
+          "2": {
+            "observable_level": "Most filled shape area uses the muted moodboard family, with one limited discordant accent. The accent is visibly a minority of the shape area."
+          },
+          "3": {
+            "observable_level": "All substantial filled shapes use the restricted muted cream, clay, sage and charcoal family shown here. Different proportions and layouts are allowed.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "surface": {
+        "type": "score",
+        "score": 0.1200000000000001,
+        "probabilities": {
+          "0": 0.94,
+          "1": 0.020000000000000018,
+          "2": 0.020000000000000018,
+          "3": 0.020000000000000018
+        },
+        "confidence": 0.8799999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "Most shapes have heavy dark contour lines, or dense speckle/hatching dominates the surfaces. These treatments visibly compete with the flat filled silhouettes."
+          },
+          "1": {
+            "observable_level": "Several shapes have visible contour lines or broad textured patches, but the flat fill remains readable. More than one localized surface departure is visible."
+          },
+          "2": {
+            "observable_level": "Predominantly clean flat fills, with only one subtle contour or a small localized textured accent. Most boundaries are made by adjacent color, not drawn strokes."
+          },
+          "3": {
+            "observable_level": "Clean uniform flat fills throughout, without visible outline strokes, grain, hatching or shading, as in the moodboard. Ignore hue and arrangement here.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "composition": {
+        "type": "score",
+        "score": 2.88,
+        "probabilities": {
+          "0": 0.020000000000000018,
+          "1": 0.020000000000000018,
+          "2": 0.020000000000000018,
+          "3": 0.94
+        },
+        "confidence": 0.8799999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "No readable group of major geometric shapes, or an all-over field of tiny fragments without a clear focal grouping or breathing room."
+          },
+          "1": {
+            "observable_level": "A single tiny isolated motif, a crowded group of roughly nine or more major shapes, or a strongly compressed corner cluster with no balanced focal grouping."
+          },
+          "2": {
+            "observable_level": "A readable group that is somewhat sparse (roughly two major shapes), somewhat dense (roughly seven or eight), or has moderate crowding or uneven margins."
+          },
+          "3": {
+            "observable_level": "Roughly three to six readable major geometric shapes make an asymmetrically balanced focal group, with open cream margins and room between major forms. Accept different positions, sizes and motifs from all three examples.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "25aa8adc29b8bea955ffd3963f7908673e225f5666fdf6be37166ee4c60ac97a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "palette": {
+        "type": "score",
+        "score": 2.8400000000000003,
+        "probabilities": {
+          "0": 0.026666666666666655,
+          "1": 0.026666666666666655,
+          "2": 0.026666666666666655,
+          "3": 0.92
+        },
+        "confidence": 0.8400000000000001,
+        "legend": {
+          "0": {
+            "observable_level": "Dominant filled shapes use saturated or unrelated hues, with essentially none of the muted clay, sage and charcoal family shown on the cream moodboard."
+          },
+          "1": {
+            "observable_level": "One target hue is recognizable, but most filled shape area uses unrelated or saturated hues. Ignore the cream background when deciding what dominates."
+          },
+          "2": {
+            "observable_level": "Most filled shape area uses the muted moodboard family, with one limited discordant accent. The accent is visibly a minority of the shape area."
+          },
+          "3": {
+            "observable_level": "All substantial filled shapes use the restricted muted cream, clay, sage and charcoal family shown here. Different proportions and layouts are allowed.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "surface": {
+        "type": "score",
+        "score": 1.0533333333333332,
+        "probabilities": {
+          "0": 0.026666666666666655,
+          "1": 0.92,
+          "2": 0.026666666666666655,
+          "3": 0.026666666666666655
+        },
+        "confidence": 0.8933333333333334,
+        "legend": {
+          "0": {
+            "observable_level": "Most shapes have heavy dark contour lines, or dense speckle/hatching dominates the surfaces. These treatments visibly compete with the flat filled silhouettes."
+          },
+          "1": {
+            "observable_level": "Several shapes have visible contour lines or broad textured patches, but the flat fill remains readable. More than one localized surface departure is visible."
+          },
+          "2": {
+            "observable_level": "Predominantly clean flat fills, with only one subtle contour or a small localized textured accent. Most boundaries are made by adjacent color, not drawn strokes."
+          },
+          "3": {
+            "observable_level": "Clean uniform flat fills throughout, without visible outline strokes, grain, hatching or shading, as in the moodboard. Ignore hue and arrangement here.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "composition": {
+        "type": "score",
+        "score": 2.8400000000000003,
+        "probabilities": {
+          "0": 0.026666666666666655,
+          "1": 0.026666666666666655,
+          "2": 0.026666666666666655,
+          "3": 0.92
+        },
+        "confidence": 0.8400000000000001,
+        "legend": {
+          "0": {
+            "observable_level": "No readable group of major geometric shapes, or an all-over field of tiny fragments without a clear focal grouping or breathing room."
+          },
+          "1": {
+            "observable_level": "A single tiny isolated motif, a crowded group of roughly nine or more major shapes, or a strongly compressed corner cluster with no balanced focal grouping."
+          },
+          "2": {
+            "observable_level": "A readable group that is somewhat sparse (roughly two major shapes), somewhat dense (roughly seven or eight), or has moderate crowding or uneven margins."
+          },
+          "3": {
+            "observable_level": "Roughly three to six readable major geometric shapes make an asymmetrically balanced focal group, with open cream margins and room between major forms. Accept different positions, sizes and motifs from all three examples.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "37c178b5f5965f6558e961f491ebb5519f19db8e14c1ee78ec0f57dca4542677": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "palette": {
+        "type": "score",
+        "score": 2.88,
+        "probabilities": {
+          "0": 0.020000000000000018,
+          "1": 0.020000000000000018,
+          "2": 0.020000000000000018,
+          "3": 0.94
+        },
+        "confidence": 0.8799999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "Dominant filled shapes use saturated or unrelated hues, with essentially none of the muted clay, sage and charcoal family shown on the cream moodboard."
+          },
+          "1": {
+            "observable_level": "One target hue is recognizable, but most filled shape area uses unrelated or saturated hues. Ignore the cream background when deciding what dominates."
+          },
+          "2": {
+            "observable_level": "Most filled shape area uses the muted moodboard family, with one limited discordant accent. The accent is visibly a minority of the shape area."
+          },
+          "3": {
+            "observable_level": "All substantial filled shapes use the restricted muted cream, clay, sage and charcoal family shown here. Different proportions and layouts are allowed.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "surface": {
+        "type": "score",
+        "score": 2.88,
+        "probabilities": {
+          "0": 0.020000000000000018,
+          "1": 0.020000000000000018,
+          "2": 0.020000000000000018,
+          "3": 0.94
+        },
+        "confidence": 0.8799999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "Most shapes have heavy dark contour lines, or dense speckle/hatching dominates the surfaces. These treatments visibly compete with the flat filled silhouettes."
+          },
+          "1": {
+            "observable_level": "Several shapes have visible contour lines or broad textured patches, but the flat fill remains readable. More than one localized surface departure is visible."
+          },
+          "2": {
+            "observable_level": "Predominantly clean flat fills, with only one subtle contour or a small localized textured accent. Most boundaries are made by adjacent color, not drawn strokes."
+          },
+          "3": {
+            "observable_level": "Clean uniform flat fills throughout, without visible outline strokes, grain, hatching or shading, as in the moodboard. Ignore hue and arrangement here.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "composition": {
+        "type": "score",
+        "score": 1.04,
+        "probabilities": {
+          "0": 0.020000000000000018,
+          "1": 0.94,
+          "2": 0.020000000000000018,
+          "3": 0.020000000000000018
+        },
+        "confidence": 0.9199999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "No readable group of major geometric shapes, or an all-over field of tiny fragments without a clear focal grouping or breathing room."
+          },
+          "1": {
+            "observable_level": "A single tiny isolated motif, a crowded group of roughly nine or more major shapes, or a strongly compressed corner cluster with no balanced focal grouping."
+          },
+          "2": {
+            "observable_level": "A readable group that is somewhat sparse (roughly two major shapes), somewhat dense (roughly seven or eight), or has moderate crowding or uneven margins."
+          },
+          "3": {
+            "observable_level": "Roughly three to six readable major geometric shapes make an asymmetrically balanced focal group, with open cream margins and room between major forms. Accept different positions, sizes and motifs from all three examples.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "37f71f6ed6bed21665c641a1212183353f3bdd38e0d902f4f070b99fce2d285d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "palette": {
+        "type": "score",
+        "score": 1.9466666666666668,
+        "probabilities": {
+          "0": 0.026666666666666655,
+          "1": 0.026666666666666655,
+          "2": 0.92,
+          "3": 0.026666666666666655
+        },
+        "confidence": 0.8933333333333334,
+        "legend": {
+          "0": {
+            "observable_level": "Dominant filled shapes use saturated or unrelated hues, with essentially none of the muted clay, sage and charcoal family shown on the cream moodboard."
+          },
+          "1": {
+            "observable_level": "One target hue is recognizable, but most filled shape area uses unrelated or saturated hues. Ignore the cream background when deciding what dominates."
+          },
+          "2": {
+            "observable_level": "Most filled shape area uses the muted moodboard family, with one limited discordant accent. The accent is visibly a minority of the shape area."
+          },
+          "3": {
+            "observable_level": "All substantial filled shapes use the restricted muted cream, clay, sage and charcoal family shown here. Different proportions and layouts are allowed.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "surface": {
+        "type": "score",
+        "score": 2.8400000000000003,
+        "probabilities": {
+          "0": 0.026666666666666655,
+          "1": 0.026666666666666655,
+          "2": 0.026666666666666655,
+          "3": 0.92
+        },
+        "confidence": 0.8400000000000001,
+        "legend": {
+          "0": {
+            "observable_level": "Most shapes have heavy dark contour lines, or dense speckle/hatching dominates the surfaces. These treatments visibly compete with the flat filled silhouettes."
+          },
+          "1": {
+            "observable_level": "Several shapes have visible contour lines or broad textured patches, but the flat fill remains readable. More than one localized surface departure is visible."
+          },
+          "2": {
+            "observable_level": "Predominantly clean flat fills, with only one subtle contour or a small localized textured accent. Most boundaries are made by adjacent color, not drawn strokes."
+          },
+          "3": {
+            "observable_level": "Clean uniform flat fills throughout, without visible outline strokes, grain, hatching or shading, as in the moodboard. Ignore hue and arrangement here.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "composition": {
+        "type": "score",
+        "score": 2.8400000000000003,
+        "probabilities": {
+          "0": 0.026666666666666655,
+          "1": 0.026666666666666655,
+          "2": 0.026666666666666655,
+          "3": 0.92
+        },
+        "confidence": 0.8400000000000001,
+        "legend": {
+          "0": {
+            "observable_level": "No readable group of major geometric shapes, or an all-over field of tiny fragments without a clear focal grouping or breathing room."
+          },
+          "1": {
+            "observable_level": "A single tiny isolated motif, a crowded group of roughly nine or more major shapes, or a strongly compressed corner cluster with no balanced focal grouping."
+          },
+          "2": {
+            "observable_level": "A readable group that is somewhat sparse (roughly two major shapes), somewhat dense (roughly seven or eight), or has moderate crowding or uneven margins."
+          },
+          "3": {
+            "observable_level": "Roughly three to six readable major geometric shapes make an asymmetrically balanced focal group, with open cream margins and room between major forms. Accept different positions, sizes and motifs from all three examples.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3fc450675e5106b93c286e3f05d09be05c3ebdef67d00e211d07cf043572306b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "palette": {
+        "type": "score",
+        "score": 2.88,
+        "probabilities": {
+          "0": 0.020000000000000018,
+          "1": 0.020000000000000018,
+          "2": 0.020000000000000018,
+          "3": 0.94
+        },
+        "confidence": 0.8799999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "Dominant filled shapes use saturated or unrelated hues, with essentially none of the muted clay, sage and charcoal family shown on the cream moodboard."
+          },
+          "1": {
+            "observable_level": "One target hue is recognizable, but most filled shape area uses unrelated or saturated hues. Ignore the cream background when deciding what dominates."
+          },
+          "2": {
+            "observable_level": "Most filled shape area uses the muted moodboard family, with one limited discordant accent. The accent is visibly a minority of the shape area."
+          },
+          "3": {
+            "observable_level": "All substantial filled shapes use the restricted muted cream, clay, sage and charcoal family shown here. Different proportions and layouts are allowed.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "surface": {
+        "type": "score",
+        "score": 2.88,
+        "probabilities": {
+          "0": 0.020000000000000018,
+          "1": 0.020000000000000018,
+          "2": 0.020000000000000018,
+          "3": 0.94
+        },
+        "confidence": 0.8799999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "Most shapes have heavy dark contour lines, or dense speckle/hatching dominates the surfaces. These treatments visibly compete with the flat filled silhouettes."
+          },
+          "1": {
+            "observable_level": "Several shapes have visible contour lines or broad textured patches, but the flat fill remains readable. More than one localized surface departure is visible."
+          },
+          "2": {
+            "observable_level": "Predominantly clean flat fills, with only one subtle contour or a small localized textured accent. Most boundaries are made by adjacent color, not drawn strokes."
+          },
+          "3": {
+            "observable_level": "Clean uniform flat fills throughout, without visible outline strokes, grain, hatching or shading, as in the moodboard. Ignore hue and arrangement here.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "composition": {
+        "type": "score",
+        "score": 2.88,
+        "probabilities": {
+          "0": 0.020000000000000018,
+          "1": 0.020000000000000018,
+          "2": 0.020000000000000018,
+          "3": 0.94
+        },
+        "confidence": 0.8799999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "No readable group of major geometric shapes, or an all-over field of tiny fragments without a clear focal grouping or breathing room."
+          },
+          "1": {
+            "observable_level": "A single tiny isolated motif, a crowded group of roughly nine or more major shapes, or a strongly compressed corner cluster with no balanced focal grouping."
+          },
+          "2": {
+            "observable_level": "A readable group that is somewhat sparse (roughly two major shapes), somewhat dense (roughly seven or eight), or has moderate crowding or uneven margins."
+          },
+          "3": {
+            "observable_level": "Roughly three to six readable major geometric shapes make an asymmetrically balanced focal group, with open cream margins and room between major forms. Accept different positions, sizes and motifs from all three examples.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "47cf2dbc3ed5704492e2aacffdb17ca47e2601e404e9e610b661dcff8845da54": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "palette": {
+        "type": "score",
+        "score": 2.88,
+        "probabilities": {
+          "0": 0.020000000000000018,
+          "1": 0.020000000000000018,
+          "2": 0.020000000000000018,
+          "3": 0.94
+        },
+        "confidence": 0.8799999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "Dominant filled shapes use saturated or unrelated hues, with essentially none of the muted clay, sage and charcoal family shown on the cream moodboard."
+          },
+          "1": {
+            "observable_level": "One target hue is recognizable, but most filled shape area uses unrelated or saturated hues. Ignore the cream background when deciding what dominates."
+          },
+          "2": {
+            "observable_level": "Most filled shape area uses the muted moodboard family, with one limited discordant accent. The accent is visibly a minority of the shape area."
+          },
+          "3": {
+            "observable_level": "All substantial filled shapes use the restricted muted cream, clay, sage and charcoal family shown here. Different proportions and layouts are allowed.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "surface": {
+        "type": "score",
+        "score": 0.1200000000000001,
+        "probabilities": {
+          "0": 0.94,
+          "1": 0.020000000000000018,
+          "2": 0.020000000000000018,
+          "3": 0.020000000000000018
+        },
+        "confidence": 0.8799999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "Most shapes have heavy dark contour lines, or dense speckle/hatching dominates the surfaces. These treatments visibly compete with the flat filled silhouettes."
+          },
+          "1": {
+            "observable_level": "Several shapes have visible contour lines or broad textured patches, but the flat fill remains readable. More than one localized surface departure is visible."
+          },
+          "2": {
+            "observable_level": "Predominantly clean flat fills, with only one subtle contour or a small localized textured accent. Most boundaries are made by adjacent color, not drawn strokes."
+          },
+          "3": {
+            "observable_level": "Clean uniform flat fills throughout, without visible outline strokes, grain, hatching or shading, as in the moodboard. Ignore hue and arrangement here.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "composition": {
+        "type": "score",
+        "score": 2.88,
+        "probabilities": {
+          "0": 0.020000000000000018,
+          "1": 0.020000000000000018,
+          "2": 0.020000000000000018,
+          "3": 0.94
+        },
+        "confidence": 0.8799999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "No readable group of major geometric shapes, or an all-over field of tiny fragments without a clear focal grouping or breathing room."
+          },
+          "1": {
+            "observable_level": "A single tiny isolated motif, a crowded group of roughly nine or more major shapes, or a strongly compressed corner cluster with no balanced focal grouping."
+          },
+          "2": {
+            "observable_level": "A readable group that is somewhat sparse (roughly two major shapes), somewhat dense (roughly seven or eight), or has moderate crowding or uneven margins."
+          },
+          "3": {
+            "observable_level": "Roughly three to six readable major geometric shapes make an asymmetrically balanced focal group, with open cream margins and room between major forms. Accept different positions, sizes and motifs from all three examples.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4a529ee9d442537c5f319080d82c76f3763d7194da86d1eff562f261dd74926e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "palette": {
+        "type": "score",
+        "score": 2.8400000000000003,
+        "probabilities": {
+          "0": 0.026666666666666655,
+          "1": 0.026666666666666655,
+          "2": 0.026666666666666655,
+          "3": 0.92
+        },
+        "confidence": 0.8400000000000001,
+        "legend": {
+          "0": {
+            "observable_level": "Dominant filled shapes use saturated or unrelated hues, with essentially none of the muted clay, sage and charcoal family shown on the cream moodboard."
+          },
+          "1": {
+            "observable_level": "One target hue is recognizable, but most filled shape area uses unrelated or saturated hues. Ignore the cream background when deciding what dominates."
+          },
+          "2": {
+            "observable_level": "Most filled shape area uses the muted moodboard family, with one limited discordant accent. The accent is visibly a minority of the shape area."
+          },
+          "3": {
+            "observable_level": "All substantial filled shapes use the restricted muted cream, clay, sage and charcoal family shown here. Different proportions and layouts are allowed.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "surface": {
+        "type": "score",
+        "score": 2.8400000000000003,
+        "probabilities": {
+          "0": 0.026666666666666655,
+          "1": 0.026666666666666655,
+          "2": 0.026666666666666655,
+          "3": 0.92
+        },
+        "confidence": 0.8400000000000001,
+        "legend": {
+          "0": {
+            "observable_level": "Most shapes have heavy dark contour lines, or dense speckle/hatching dominates the surfaces. These treatments visibly compete with the flat filled silhouettes."
+          },
+          "1": {
+            "observable_level": "Several shapes have visible contour lines or broad textured patches, but the flat fill remains readable. More than one localized surface departure is visible."
+          },
+          "2": {
+            "observable_level": "Predominantly clean flat fills, with only one subtle contour or a small localized textured accent. Most boundaries are made by adjacent color, not drawn strokes."
+          },
+          "3": {
+            "observable_level": "Clean uniform flat fills throughout, without visible outline strokes, grain, hatching or shading, as in the moodboard. Ignore hue and arrangement here.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "composition": {
+        "type": "score",
+        "score": 2.8400000000000003,
+        "probabilities": {
+          "0": 0.026666666666666655,
+          "1": 0.026666666666666655,
+          "2": 0.026666666666666655,
+          "3": 0.92
+        },
+        "confidence": 0.8400000000000001,
+        "legend": {
+          "0": {
+            "observable_level": "No readable group of major geometric shapes, or an all-over field of tiny fragments without a clear focal grouping or breathing room."
+          },
+          "1": {
+            "observable_level": "A single tiny isolated motif, a crowded group of roughly nine or more major shapes, or a strongly compressed corner cluster with no balanced focal grouping."
+          },
+          "2": {
+            "observable_level": "A readable group that is somewhat sparse (roughly two major shapes), somewhat dense (roughly seven or eight), or has moderate crowding or uneven margins."
+          },
+          "3": {
+            "observable_level": "Roughly three to six readable major geometric shapes make an asymmetrically balanced focal group, with open cream margins and room between major forms. Accept different positions, sizes and motifs from all three examples.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4c4f550efa8ad9b6cd57907a7ccc57e4bacb0b98fa888daf685684ef849fe0f9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "palette": {
+        "type": "score",
+        "score": 1.5,
+        "probabilities": {
+          "0": 0.25,
+          "1": 0.25,
+          "2": 0.25,
+          "3": 0.25
+        },
+        "confidence": 0.0,
+        "legend": {
+          "0": {
+            "observable_level": "Dominant filled shapes use saturated or unrelated hues, with essentially none of the muted clay, sage and charcoal family shown on the cream moodboard."
+          },
+          "1": {
+            "observable_level": "One target hue is recognizable, but most filled shape area uses unrelated or saturated hues. Ignore the cream background when deciding what dominates."
+          },
+          "2": {
+            "observable_level": "Most filled shape area uses the muted moodboard family, with one limited discordant accent. The accent is visibly a minority of the shape area."
+          },
+          "3": {
+            "observable_level": "All substantial filled shapes use the restricted muted cream, clay, sage and charcoal family shown here. Different proportions and layouts are allowed.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "surface": {
+        "type": "score",
+        "score": 1.5,
+        "probabilities": {
+          "0": 0.25,
+          "1": 0.25,
+          "2": 0.25,
+          "3": 0.25
+        },
+        "confidence": 0.0,
+        "legend": {
+          "0": {
+            "observable_level": "Most shapes have heavy dark contour lines, or dense speckle/hatching dominates the surfaces. These treatments visibly compete with the flat filled silhouettes."
+          },
+          "1": {
+            "observable_level": "Several shapes have visible contour lines or broad textured patches, but the flat fill remains readable. More than one localized surface departure is visible."
+          },
+          "2": {
+            "observable_level": "Predominantly clean flat fills, with only one subtle contour or a small localized textured accent. Most boundaries are made by adjacent color, not drawn strokes."
+          },
+          "3": {
+            "observable_level": "Clean uniform flat fills throughout, without visible outline strokes, grain, hatching or shading, as in the moodboard. Ignore hue and arrangement here.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "composition": {
+        "type": "score",
+        "score": 1.5,
+        "probabilities": {
+          "0": 0.25,
+          "1": 0.25,
+          "2": 0.25,
+          "3": 0.25
+        },
+        "confidence": 0.0,
+        "legend": {
+          "0": {
+            "observable_level": "No readable group of major geometric shapes, or an all-over field of tiny fragments without a clear focal grouping or breathing room."
+          },
+          "1": {
+            "observable_level": "A single tiny isolated motif, a crowded group of roughly nine or more major shapes, or a strongly compressed corner cluster with no balanced focal grouping."
+          },
+          "2": {
+            "observable_level": "A readable group that is somewhat sparse (roughly two major shapes), somewhat dense (roughly seven or eight), or has moderate crowding or uneven margins."
+          },
+          "3": {
+            "observable_level": "Roughly three to six readable major geometric shapes make an asymmetrically balanced focal group, with open cream margins and room between major forms. Accept different positions, sizes and motifs from all three examples.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "603d119d4068bd5be3c9e9430e5e5fa536c722009fdd05761517bb7ce4c99151": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "palette": {
+        "type": "score",
+        "score": 0.1200000000000001,
+        "probabilities": {
+          "0": 0.94,
+          "1": 0.020000000000000018,
+          "2": 0.020000000000000018,
+          "3": 0.020000000000000018
+        },
+        "confidence": 0.8799999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "Dominant filled shapes use saturated or unrelated hues, with essentially none of the muted clay, sage and charcoal family shown on the cream moodboard."
+          },
+          "1": {
+            "observable_level": "One target hue is recognizable, but most filled shape area uses unrelated or saturated hues. Ignore the cream background when deciding what dominates."
+          },
+          "2": {
+            "observable_level": "Most filled shape area uses the muted moodboard family, with one limited discordant accent. The accent is visibly a minority of the shape area."
+          },
+          "3": {
+            "observable_level": "All substantial filled shapes use the restricted muted cream, clay, sage and charcoal family shown here. Different proportions and layouts are allowed.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "surface": {
+        "type": "score",
+        "score": 0.1200000000000001,
+        "probabilities": {
+          "0": 0.94,
+          "1": 0.020000000000000018,
+          "2": 0.020000000000000018,
+          "3": 0.020000000000000018
+        },
+        "confidence": 0.8799999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "Most shapes have heavy dark contour lines, or dense speckle/hatching dominates the surfaces. These treatments visibly compete with the flat filled silhouettes."
+          },
+          "1": {
+            "observable_level": "Several shapes have visible contour lines or broad textured patches, but the flat fill remains readable. More than one localized surface departure is visible."
+          },
+          "2": {
+            "observable_level": "Predominantly clean flat fills, with only one subtle contour or a small localized textured accent. Most boundaries are made by adjacent color, not drawn strokes."
+          },
+          "3": {
+            "observable_level": "Clean uniform flat fills throughout, without visible outline strokes, grain, hatching or shading, as in the moodboard. Ignore hue and arrangement here.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "composition": {
+        "type": "score",
+        "score": 0.1200000000000001,
+        "probabilities": {
+          "0": 0.94,
+          "1": 0.020000000000000018,
+          "2": 0.020000000000000018,
+          "3": 0.020000000000000018
+        },
+        "confidence": 0.8799999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "No readable group of major geometric shapes, or an all-over field of tiny fragments without a clear focal grouping or breathing room."
+          },
+          "1": {
+            "observable_level": "A single tiny isolated motif, a crowded group of roughly nine or more major shapes, or a strongly compressed corner cluster with no balanced focal grouping."
+          },
+          "2": {
+            "observable_level": "A readable group that is somewhat sparse (roughly two major shapes), somewhat dense (roughly seven or eight), or has moderate crowding or uneven margins."
+          },
+          "3": {
+            "observable_level": "Roughly three to six readable major geometric shapes make an asymmetrically balanced focal group, with open cream margins and room between major forms. Accept different positions, sizes and motifs from all three examples.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "64960bd50376bc85f7d03d567111b39c863c1620e76fefd21eb8b166e45f6115": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "palette": {
+        "type": "score",
+        "score": 2.5599999999999996,
+        "probabilities": {
+          "0": 0.07333333333333332,
+          "1": 0.07333333333333332,
+          "2": 0.07333333333333332,
+          "3": 0.78
+        },
+        "confidence": 0.56,
+        "legend": {
+          "0": {
+            "observable_level": "Dominant filled shapes use saturated or unrelated hues, with essentially none of the muted clay, sage and charcoal family shown on the cream moodboard."
+          },
+          "1": {
+            "observable_level": "One target hue is recognizable, but most filled shape area uses unrelated or saturated hues. Ignore the cream background when deciding what dominates."
+          },
+          "2": {
+            "observable_level": "Most filled shape area uses the muted moodboard family, with one limited discordant accent. The accent is visibly a minority of the shape area."
+          },
+          "3": {
+            "observable_level": "All substantial filled shapes use the restricted muted cream, clay, sage and charcoal family shown here. Different proportions and layouts are allowed.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "surface": {
+        "type": "score",
+        "score": 2.5599999999999996,
+        "probabilities": {
+          "0": 0.07333333333333332,
+          "1": 0.07333333333333332,
+          "2": 0.07333333333333332,
+          "3": 0.78
+        },
+        "confidence": 0.56,
+        "legend": {
+          "0": {
+            "observable_level": "Most shapes have heavy dark contour lines, or dense speckle/hatching dominates the surfaces. These treatments visibly compete with the flat filled silhouettes."
+          },
+          "1": {
+            "observable_level": "Several shapes have visible contour lines or broad textured patches, but the flat fill remains readable. More than one localized surface departure is visible."
+          },
+          "2": {
+            "observable_level": "Predominantly clean flat fills, with only one subtle contour or a small localized textured accent. Most boundaries are made by adjacent color, not drawn strokes."
+          },
+          "3": {
+            "observable_level": "Clean uniform flat fills throughout, without visible outline strokes, grain, hatching or shading, as in the moodboard. Ignore hue and arrangement here.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "composition": {
+        "type": "score",
+        "score": 1.8533333333333333,
+        "probabilities": {
+          "0": 0.07333333333333332,
+          "1": 0.07333333333333332,
+          "2": 0.78,
+          "3": 0.07333333333333332
+        },
+        "confidence": 0.7066666666666668,
+        "legend": {
+          "0": {
+            "observable_level": "No readable group of major geometric shapes, or an all-over field of tiny fragments without a clear focal grouping or breathing room."
+          },
+          "1": {
+            "observable_level": "A single tiny isolated motif, a crowded group of roughly nine or more major shapes, or a strongly compressed corner cluster with no balanced focal grouping."
+          },
+          "2": {
+            "observable_level": "A readable group that is somewhat sparse (roughly two major shapes), somewhat dense (roughly seven or eight), or has moderate crowding or uneven margins."
+          },
+          "3": {
+            "observable_level": "Roughly three to six readable major geometric shapes make an asymmetrically balanced focal group, with open cream margins and room between major forms. Accept different positions, sizes and motifs from all three examples.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6529404366a2dba21d4ed5dd0ef6d196fc9edb8db8c0c9ccc4ff4ec48a98d35b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "palette": {
+        "type": "score",
+        "score": 1.5,
+        "probabilities": {
+          "0": 0.25,
+          "1": 0.25,
+          "2": 0.25,
+          "3": 0.25
+        },
+        "confidence": 0.0,
+        "legend": {
+          "0": {
+            "observable_level": "Dominant filled shapes use saturated or unrelated hues, with essentially none of the muted clay, sage and charcoal family shown on the cream moodboard."
+          },
+          "1": {
+            "observable_level": "One target hue is recognizable, but most filled shape area uses unrelated or saturated hues. Ignore the cream background when deciding what dominates."
+          },
+          "2": {
+            "observable_level": "Most filled shape area uses the muted moodboard family, with one limited discordant accent. The accent is visibly a minority of the shape area."
+          },
+          "3": {
+            "observable_level": "All substantial filled shapes use the restricted muted cream, clay, sage and charcoal family shown here. Different proportions and layouts are allowed.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "surface": {
+        "type": "score",
+        "score": 1.5,
+        "probabilities": {
+          "0": 0.25,
+          "1": 0.25,
+          "2": 0.25,
+          "3": 0.25
+        },
+        "confidence": 0.0,
+        "legend": {
+          "0": {
+            "observable_level": "Most shapes have heavy dark contour lines, or dense speckle/hatching dominates the surfaces. These treatments visibly compete with the flat filled silhouettes."
+          },
+          "1": {
+            "observable_level": "Several shapes have visible contour lines or broad textured patches, but the flat fill remains readable. More than one localized surface departure is visible."
+          },
+          "2": {
+            "observable_level": "Predominantly clean flat fills, with only one subtle contour or a small localized textured accent. Most boundaries are made by adjacent color, not drawn strokes."
+          },
+          "3": {
+            "observable_level": "Clean uniform flat fills throughout, without visible outline strokes, grain, hatching or shading, as in the moodboard. Ignore hue and arrangement here.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "composition": {
+        "type": "score",
+        "score": 1.5,
+        "probabilities": {
+          "0": 0.25,
+          "1": 0.25,
+          "2": 0.25,
+          "3": 0.25
+        },
+        "confidence": 0.0,
+        "legend": {
+          "0": {
+            "observable_level": "No readable group of major geometric shapes, or an all-over field of tiny fragments without a clear focal grouping or breathing room."
+          },
+          "1": {
+            "observable_level": "A single tiny isolated motif, a crowded group of roughly nine or more major shapes, or a strongly compressed corner cluster with no balanced focal grouping."
+          },
+          "2": {
+            "observable_level": "A readable group that is somewhat sparse (roughly two major shapes), somewhat dense (roughly seven or eight), or has moderate crowding or uneven margins."
+          },
+          "3": {
+            "observable_level": "Roughly three to six readable major geometric shapes make an asymmetrically balanced focal group, with open cream margins and room between major forms. Accept different positions, sizes and motifs from all three examples.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "741d0727461d7f86d015d98dabbc65b4e3e133b07c5b7820495c97151bc18917": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "palette": {
+        "type": "score",
+        "score": 2.8000000000000003,
+        "probabilities": {
+          "0": 0.033333333333333326,
+          "1": 0.033333333333333326,
+          "2": 0.033333333333333326,
+          "3": 0.9
+        },
+        "confidence": 0.8,
+        "legend": {
+          "0": {
+            "observable_level": "Dominant filled shapes use saturated or unrelated hues, with essentially none of the muted clay, sage and charcoal family shown on the cream moodboard."
+          },
+          "1": {
+            "observable_level": "One target hue is recognizable, but most filled shape area uses unrelated or saturated hues. Ignore the cream background when deciding what dominates."
+          },
+          "2": {
+            "observable_level": "Most filled shape area uses the muted moodboard family, with one limited discordant accent. The accent is visibly a minority of the shape area."
+          },
+          "3": {
+            "observable_level": "All substantial filled shapes use the restricted muted cream, clay, sage and charcoal family shown here. Different proportions and layouts are allowed.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "surface": {
+        "type": "score",
+        "score": 2.8000000000000003,
+        "probabilities": {
+          "0": 0.033333333333333326,
+          "1": 0.033333333333333326,
+          "2": 0.033333333333333326,
+          "3": 0.9
+        },
+        "confidence": 0.8,
+        "legend": {
+          "0": {
+            "observable_level": "Most shapes have heavy dark contour lines, or dense speckle/hatching dominates the surfaces. These treatments visibly compete with the flat filled silhouettes."
+          },
+          "1": {
+            "observable_level": "Several shapes have visible contour lines or broad textured patches, but the flat fill remains readable. More than one localized surface departure is visible."
+          },
+          "2": {
+            "observable_level": "Predominantly clean flat fills, with only one subtle contour or a small localized textured accent. Most boundaries are made by adjacent color, not drawn strokes."
+          },
+          "3": {
+            "observable_level": "Clean uniform flat fills throughout, without visible outline strokes, grain, hatching or shading, as in the moodboard. Ignore hue and arrangement here.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "composition": {
+        "type": "score",
+        "score": 1.0666666666666667,
+        "probabilities": {
+          "0": 0.033333333333333326,
+          "1": 0.9,
+          "2": 0.033333333333333326,
+          "3": 0.033333333333333326
+        },
+        "confidence": 0.8666666666666667,
+        "legend": {
+          "0": {
+            "observable_level": "No readable group of major geometric shapes, or an all-over field of tiny fragments without a clear focal grouping or breathing room."
+          },
+          "1": {
+            "observable_level": "A single tiny isolated motif, a crowded group of roughly nine or more major shapes, or a strongly compressed corner cluster with no balanced focal grouping."
+          },
+          "2": {
+            "observable_level": "A readable group that is somewhat sparse (roughly two major shapes), somewhat dense (roughly seven or eight), or has moderate crowding or uneven margins."
+          },
+          "3": {
+            "observable_level": "Roughly three to six readable major geometric shapes make an asymmetrically balanced focal group, with open cream margins and room between major forms. Accept different positions, sizes and motifs from all three examples.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "756f7b1d09cd30b4091572c2cad6c58f473c4b56c1f2f942c0df70fc91601648": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "palette": {
+        "type": "score",
+        "score": 2.92,
+        "probabilities": {
+          "0": 0.013333333333333345,
+          "1": 0.013333333333333345,
+          "2": 0.013333333333333345,
+          "3": 0.96
+        },
+        "confidence": 0.9199999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "Dominant filled shapes use saturated or unrelated hues, with essentially none of the muted clay, sage and charcoal family shown on the cream moodboard."
+          },
+          "1": {
+            "observable_level": "One target hue is recognizable, but most filled shape area uses unrelated or saturated hues. Ignore the cream background when deciding what dominates."
+          },
+          "2": {
+            "observable_level": "Most filled shape area uses the muted moodboard family, with one limited discordant accent. The accent is visibly a minority of the shape area."
+          },
+          "3": {
+            "observable_level": "All substantial filled shapes use the restricted muted cream, clay, sage and charcoal family shown here. Different proportions and layouts are allowed.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "surface": {
+        "type": "score",
+        "score": 2.92,
+        "probabilities": {
+          "0": 0.013333333333333345,
+          "1": 0.013333333333333345,
+          "2": 0.013333333333333345,
+          "3": 0.96
+        },
+        "confidence": 0.9199999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "Most shapes have heavy dark contour lines, or dense speckle/hatching dominates the surfaces. These treatments visibly compete with the flat filled silhouettes."
+          },
+          "1": {
+            "observable_level": "Several shapes have visible contour lines or broad textured patches, but the flat fill remains readable. More than one localized surface departure is visible."
+          },
+          "2": {
+            "observable_level": "Predominantly clean flat fills, with only one subtle contour or a small localized textured accent. Most boundaries are made by adjacent color, not drawn strokes."
+          },
+          "3": {
+            "observable_level": "Clean uniform flat fills throughout, without visible outline strokes, grain, hatching or shading, as in the moodboard. Ignore hue and arrangement here.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "composition": {
+        "type": "score",
+        "score": 2.92,
+        "probabilities": {
+          "0": 0.013333333333333345,
+          "1": 0.013333333333333345,
+          "2": 0.013333333333333345,
+          "3": 0.96
+        },
+        "confidence": 0.9199999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "No readable group of major geometric shapes, or an all-over field of tiny fragments without a clear focal grouping or breathing room."
+          },
+          "1": {
+            "observable_level": "A single tiny isolated motif, a crowded group of roughly nine or more major shapes, or a strongly compressed corner cluster with no balanced focal grouping."
+          },
+          "2": {
+            "observable_level": "A readable group that is somewhat sparse (roughly two major shapes), somewhat dense (roughly seven or eight), or has moderate crowding or uneven margins."
+          },
+          "3": {
+            "observable_level": "Roughly three to six readable major geometric shapes make an asymmetrically balanced focal group, with open cream margins and room between major forms. Accept different positions, sizes and motifs from all three examples.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7e841f145db63837c810133938f35962fc7480c3c9b3cacb2de612369c4e3afb": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "palette": {
+        "type": "score",
+        "score": 0.1200000000000001,
+        "probabilities": {
+          "0": 0.94,
+          "1": 0.020000000000000018,
+          "2": 0.020000000000000018,
+          "3": 0.020000000000000018
+        },
+        "confidence": 0.8799999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "Dominant filled shapes use saturated or unrelated hues, with essentially none of the muted clay, sage and charcoal family shown on the cream moodboard."
+          },
+          "1": {
+            "observable_level": "One target hue is recognizable, but most filled shape area uses unrelated or saturated hues. Ignore the cream background when deciding what dominates."
+          },
+          "2": {
+            "observable_level": "Most filled shape area uses the muted moodboard family, with one limited discordant accent. The accent is visibly a minority of the shape area."
+          },
+          "3": {
+            "observable_level": "All substantial filled shapes use the restricted muted cream, clay, sage and charcoal family shown here. Different proportions and layouts are allowed.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "surface": {
+        "type": "score",
+        "score": 0.1200000000000001,
+        "probabilities": {
+          "0": 0.94,
+          "1": 0.020000000000000018,
+          "2": 0.020000000000000018,
+          "3": 0.020000000000000018
+        },
+        "confidence": 0.8799999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "Most shapes have heavy dark contour lines, or dense speckle/hatching dominates the surfaces. These treatments visibly compete with the flat filled silhouettes."
+          },
+          "1": {
+            "observable_level": "Several shapes have visible contour lines or broad textured patches, but the flat fill remains readable. More than one localized surface departure is visible."
+          },
+          "2": {
+            "observable_level": "Predominantly clean flat fills, with only one subtle contour or a small localized textured accent. Most boundaries are made by adjacent color, not drawn strokes."
+          },
+          "3": {
+            "observable_level": "Clean uniform flat fills throughout, without visible outline strokes, grain, hatching or shading, as in the moodboard. Ignore hue and arrangement here.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "composition": {
+        "type": "score",
+        "score": 0.1200000000000001,
+        "probabilities": {
+          "0": 0.94,
+          "1": 0.020000000000000018,
+          "2": 0.020000000000000018,
+          "3": 0.020000000000000018
+        },
+        "confidence": 0.8799999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "No readable group of major geometric shapes, or an all-over field of tiny fragments without a clear focal grouping or breathing room."
+          },
+          "1": {
+            "observable_level": "A single tiny isolated motif, a crowded group of roughly nine or more major shapes, or a strongly compressed corner cluster with no balanced focal grouping."
+          },
+          "2": {
+            "observable_level": "A readable group that is somewhat sparse (roughly two major shapes), somewhat dense (roughly seven or eight), or has moderate crowding or uneven margins."
+          },
+          "3": {
+            "observable_level": "Roughly three to six readable major geometric shapes make an asymmetrically balanced focal group, with open cream margins and room between major forms. Accept different positions, sizes and motifs from all three examples.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "986d5ef71803d05c942e6e6f831d8d642799d0bcc67bafa4a66f4c5429f8c15d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "palette": {
+        "type": "score",
+        "score": 0.1200000000000001,
+        "probabilities": {
+          "0": 0.94,
+          "1": 0.020000000000000018,
+          "2": 0.020000000000000018,
+          "3": 0.020000000000000018
+        },
+        "confidence": 0.8799999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "Dominant filled shapes use saturated or unrelated hues, with essentially none of the muted clay, sage and charcoal family shown on the cream moodboard."
+          },
+          "1": {
+            "observable_level": "One target hue is recognizable, but most filled shape area uses unrelated or saturated hues. Ignore the cream background when deciding what dominates."
+          },
+          "2": {
+            "observable_level": "Most filled shape area uses the muted moodboard family, with one limited discordant accent. The accent is visibly a minority of the shape area."
+          },
+          "3": {
+            "observable_level": "All substantial filled shapes use the restricted muted cream, clay, sage and charcoal family shown here. Different proportions and layouts are allowed.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "surface": {
+        "type": "score",
+        "score": 2.88,
+        "probabilities": {
+          "0": 0.020000000000000018,
+          "1": 0.020000000000000018,
+          "2": 0.020000000000000018,
+          "3": 0.94
+        },
+        "confidence": 0.8799999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "Most shapes have heavy dark contour lines, or dense speckle/hatching dominates the surfaces. These treatments visibly compete with the flat filled silhouettes."
+          },
+          "1": {
+            "observable_level": "Several shapes have visible contour lines or broad textured patches, but the flat fill remains readable. More than one localized surface departure is visible."
+          },
+          "2": {
+            "observable_level": "Predominantly clean flat fills, with only one subtle contour or a small localized textured accent. Most boundaries are made by adjacent color, not drawn strokes."
+          },
+          "3": {
+            "observable_level": "Clean uniform flat fills throughout, without visible outline strokes, grain, hatching or shading, as in the moodboard. Ignore hue and arrangement here.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "composition": {
+        "type": "score",
+        "score": 2.88,
+        "probabilities": {
+          "0": 0.020000000000000018,
+          "1": 0.020000000000000018,
+          "2": 0.020000000000000018,
+          "3": 0.94
+        },
+        "confidence": 0.8799999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "No readable group of major geometric shapes, or an all-over field of tiny fragments without a clear focal grouping or breathing room."
+          },
+          "1": {
+            "observable_level": "A single tiny isolated motif, a crowded group of roughly nine or more major shapes, or a strongly compressed corner cluster with no balanced focal grouping."
+          },
+          "2": {
+            "observable_level": "A readable group that is somewhat sparse (roughly two major shapes), somewhat dense (roughly seven or eight), or has moderate crowding or uneven margins."
+          },
+          "3": {
+            "observable_level": "Roughly three to six readable major geometric shapes make an asymmetrically balanced focal group, with open cream margins and room between major forms. Accept different positions, sizes and motifs from all three examples.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9ce10d486d6dec2bffe538805b211ff64be20cf95856a3abde3725125bb0da06": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "palette": {
+        "type": "score",
+        "score": 1.5,
+        "probabilities": {
+          "0": 0.25,
+          "1": 0.25,
+          "2": 0.25,
+          "3": 0.25
+        },
+        "confidence": 0.0,
+        "legend": {
+          "0": {
+            "observable_level": "Dominant filled shapes use saturated or unrelated hues, with essentially none of the muted clay, sage and charcoal family shown on the cream moodboard."
+          },
+          "1": {
+            "observable_level": "One target hue is recognizable, but most filled shape area uses unrelated or saturated hues. Ignore the cream background when deciding what dominates."
+          },
+          "2": {
+            "observable_level": "Most filled shape area uses the muted moodboard family, with one limited discordant accent. The accent is visibly a minority of the shape area."
+          },
+          "3": {
+            "observable_level": "All substantial filled shapes use the restricted muted cream, clay, sage and charcoal family shown here. Different proportions and layouts are allowed.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "surface": {
+        "type": "score",
+        "score": 1.5,
+        "probabilities": {
+          "0": 0.25,
+          "1": 0.25,
+          "2": 0.25,
+          "3": 0.25
+        },
+        "confidence": 0.0,
+        "legend": {
+          "0": {
+            "observable_level": "Most shapes have heavy dark contour lines, or dense speckle/hatching dominates the surfaces. These treatments visibly compete with the flat filled silhouettes."
+          },
+          "1": {
+            "observable_level": "Several shapes have visible contour lines or broad textured patches, but the flat fill remains readable. More than one localized surface departure is visible."
+          },
+          "2": {
+            "observable_level": "Predominantly clean flat fills, with only one subtle contour or a small localized textured accent. Most boundaries are made by adjacent color, not drawn strokes."
+          },
+          "3": {
+            "observable_level": "Clean uniform flat fills throughout, without visible outline strokes, grain, hatching or shading, as in the moodboard. Ignore hue and arrangement here.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "composition": {
+        "type": "score",
+        "score": 1.5,
+        "probabilities": {
+          "0": 0.25,
+          "1": 0.25,
+          "2": 0.25,
+          "3": 0.25
+        },
+        "confidence": 0.0,
+        "legend": {
+          "0": {
+            "observable_level": "No readable group of major geometric shapes, or an all-over field of tiny fragments without a clear focal grouping or breathing room."
+          },
+          "1": {
+            "observable_level": "A single tiny isolated motif, a crowded group of roughly nine or more major shapes, or a strongly compressed corner cluster with no balanced focal grouping."
+          },
+          "2": {
+            "observable_level": "A readable group that is somewhat sparse (roughly two major shapes), somewhat dense (roughly seven or eight), or has moderate crowding or uneven margins."
+          },
+          "3": {
+            "observable_level": "Roughly three to six readable major geometric shapes make an asymmetrically balanced focal group, with open cream margins and room between major forms. Accept different positions, sizes and motifs from all three examples.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bedb733af4f5f12af6876ffa03e64733bc97baaacfeb21d65ddfbd5b2c9ad8b0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "palette": {
+        "type": "score",
+        "score": 2.28,
+        "probabilities": {
+          "0": 0.12,
+          "1": 0.12,
+          "2": 0.12,
+          "3": 0.64
+        },
+        "confidence": 0.28,
+        "legend": {
+          "0": {
+            "observable_level": "Dominant filled shapes use saturated or unrelated hues, with essentially none of the muted clay, sage and charcoal family shown on the cream moodboard."
+          },
+          "1": {
+            "observable_level": "One target hue is recognizable, but most filled shape area uses unrelated or saturated hues. Ignore the cream background when deciding what dominates."
+          },
+          "2": {
+            "observable_level": "Most filled shape area uses the muted moodboard family, with one limited discordant accent. The accent is visibly a minority of the shape area."
+          },
+          "3": {
+            "observable_level": "All substantial filled shapes use the restricted muted cream, clay, sage and charcoal family shown here. Different proportions and layouts are allowed.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "surface": {
+        "type": "score",
+        "score": 2.28,
+        "probabilities": {
+          "0": 0.12,
+          "1": 0.12,
+          "2": 0.12,
+          "3": 0.64
+        },
+        "confidence": 0.28,
+        "legend": {
+          "0": {
+            "observable_level": "Most shapes have heavy dark contour lines, or dense speckle/hatching dominates the surfaces. These treatments visibly compete with the flat filled silhouettes."
+          },
+          "1": {
+            "observable_level": "Several shapes have visible contour lines or broad textured patches, but the flat fill remains readable. More than one localized surface departure is visible."
+          },
+          "2": {
+            "observable_level": "Predominantly clean flat fills, with only one subtle contour or a small localized textured accent. Most boundaries are made by adjacent color, not drawn strokes."
+          },
+          "3": {
+            "observable_level": "Clean uniform flat fills throughout, without visible outline strokes, grain, hatching or shading, as in the moodboard. Ignore hue and arrangement here.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "composition": {
+        "type": "score",
+        "score": 2.28,
+        "probabilities": {
+          "0": 0.12,
+          "1": 0.12,
+          "2": 0.12,
+          "3": 0.64
+        },
+        "confidence": 0.28,
+        "legend": {
+          "0": {
+            "observable_level": "No readable group of major geometric shapes, or an all-over field of tiny fragments without a clear focal grouping or breathing room."
+          },
+          "1": {
+            "observable_level": "A single tiny isolated motif, a crowded group of roughly nine or more major shapes, or a strongly compressed corner cluster with no balanced focal grouping."
+          },
+          "2": {
+            "observable_level": "A readable group that is somewhat sparse (roughly two major shapes), somewhat dense (roughly seven or eight), or has moderate crowding or uneven margins."
+          },
+          "3": {
+            "observable_level": "Roughly three to six readable major geometric shapes make an asymmetrically balanced focal group, with open cream margins and room between major forms. Accept different positions, sizes and motifs from all three examples.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d0942b39c56a62b7ce8aee3a5d0b2cef7bf7b09d2ee51a7c3b94737d65ab4087": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "palette": {
+        "type": "score",
+        "score": 2.8400000000000003,
+        "probabilities": {
+          "0": 0.026666666666666655,
+          "1": 0.026666666666666655,
+          "2": 0.026666666666666655,
+          "3": 0.92
+        },
+        "confidence": 0.8400000000000001,
+        "legend": {
+          "0": {
+            "observable_level": "Dominant filled shapes use saturated or unrelated hues, with essentially none of the muted clay, sage and charcoal family shown on the cream moodboard."
+          },
+          "1": {
+            "observable_level": "One target hue is recognizable, but most filled shape area uses unrelated or saturated hues. Ignore the cream background when deciding what dominates."
+          },
+          "2": {
+            "observable_level": "Most filled shape area uses the muted moodboard family, with one limited discordant accent. The accent is visibly a minority of the shape area."
+          },
+          "3": {
+            "observable_level": "All substantial filled shapes use the restricted muted cream, clay, sage and charcoal family shown here. Different proportions and layouts are allowed.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "surface": {
+        "type": "score",
+        "score": 2.8400000000000003,
+        "probabilities": {
+          "0": 0.026666666666666655,
+          "1": 0.026666666666666655,
+          "2": 0.026666666666666655,
+          "3": 0.92
+        },
+        "confidence": 0.8400000000000001,
+        "legend": {
+          "0": {
+            "observable_level": "Most shapes have heavy dark contour lines, or dense speckle/hatching dominates the surfaces. These treatments visibly compete with the flat filled silhouettes."
+          },
+          "1": {
+            "observable_level": "Several shapes have visible contour lines or broad textured patches, but the flat fill remains readable. More than one localized surface departure is visible."
+          },
+          "2": {
+            "observable_level": "Predominantly clean flat fills, with only one subtle contour or a small localized textured accent. Most boundaries are made by adjacent color, not drawn strokes."
+          },
+          "3": {
+            "observable_level": "Clean uniform flat fills throughout, without visible outline strokes, grain, hatching or shading, as in the moodboard. Ignore hue and arrangement here.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "composition": {
+        "type": "score",
+        "score": 1.0533333333333332,
+        "probabilities": {
+          "0": 0.026666666666666655,
+          "1": 0.92,
+          "2": 0.026666666666666655,
+          "3": 0.026666666666666655
+        },
+        "confidence": 0.8933333333333334,
+        "legend": {
+          "0": {
+            "observable_level": "No readable group of major geometric shapes, or an all-over field of tiny fragments without a clear focal grouping or breathing room."
+          },
+          "1": {
+            "observable_level": "A single tiny isolated motif, a crowded group of roughly nine or more major shapes, or a strongly compressed corner cluster with no balanced focal grouping."
+          },
+          "2": {
+            "observable_level": "A readable group that is somewhat sparse (roughly two major shapes), somewhat dense (roughly seven or eight), or has moderate crowding or uneven margins."
+          },
+          "3": {
+            "observable_level": "Roughly three to six readable major geometric shapes make an asymmetrically balanced focal group, with open cream margins and room between major forms. Accept different positions, sizes and motifs from all three examples.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "dc3389b6460bcb642c0ae8cdd657b483256e62cc50968c9405b86439b035ccb7": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "palette": {
+        "type": "score",
+        "score": 2.88,
+        "probabilities": {
+          "0": 0.020000000000000018,
+          "1": 0.020000000000000018,
+          "2": 0.020000000000000018,
+          "3": 0.94
+        },
+        "confidence": 0.8799999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "Dominant filled shapes use saturated or unrelated hues, with essentially none of the muted clay, sage and charcoal family shown on the cream moodboard."
+          },
+          "1": {
+            "observable_level": "One target hue is recognizable, but most filled shape area uses unrelated or saturated hues. Ignore the cream background when deciding what dominates."
+          },
+          "2": {
+            "observable_level": "Most filled shape area uses the muted moodboard family, with one limited discordant accent. The accent is visibly a minority of the shape area."
+          },
+          "3": {
+            "observable_level": "All substantial filled shapes use the restricted muted cream, clay, sage and charcoal family shown here. Different proportions and layouts are allowed.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "surface": {
+        "type": "score",
+        "score": 2.88,
+        "probabilities": {
+          "0": 0.020000000000000018,
+          "1": 0.020000000000000018,
+          "2": 0.020000000000000018,
+          "3": 0.94
+        },
+        "confidence": 0.8799999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "Most shapes have heavy dark contour lines, or dense speckle/hatching dominates the surfaces. These treatments visibly compete with the flat filled silhouettes."
+          },
+          "1": {
+            "observable_level": "Several shapes have visible contour lines or broad textured patches, but the flat fill remains readable. More than one localized surface departure is visible."
+          },
+          "2": {
+            "observable_level": "Predominantly clean flat fills, with only one subtle contour or a small localized textured accent. Most boundaries are made by adjacent color, not drawn strokes."
+          },
+          "3": {
+            "observable_level": "Clean uniform flat fills throughout, without visible outline strokes, grain, hatching or shading, as in the moodboard. Ignore hue and arrangement here.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "composition": {
+        "type": "score",
+        "score": 1.04,
+        "probabilities": {
+          "0": 0.020000000000000018,
+          "1": 0.94,
+          "2": 0.020000000000000018,
+          "3": 0.020000000000000018
+        },
+        "confidence": 0.9199999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "No readable group of major geometric shapes, or an all-over field of tiny fragments without a clear focal grouping or breathing room."
+          },
+          "1": {
+            "observable_level": "A single tiny isolated motif, a crowded group of roughly nine or more major shapes, or a strongly compressed corner cluster with no balanced focal grouping."
+          },
+          "2": {
+            "observable_level": "A readable group that is somewhat sparse (roughly two major shapes), somewhat dense (roughly seven or eight), or has moderate crowding or uneven margins."
+          },
+          "3": {
+            "observable_level": "Roughly three to six readable major geometric shapes make an asymmetrically balanced focal group, with open cream margins and room between major forms. Accept different positions, sizes and motifs from all three examples.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e2d26fe4056e531c3df98c9c4bdea5441db9d2c75fa07ff0255ddf73bfa7c0e5": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "palette": {
+        "type": "score",
+        "score": 2.5599999999999996,
+        "probabilities": {
+          "0": 0.07333333333333332,
+          "1": 0.07333333333333332,
+          "2": 0.07333333333333332,
+          "3": 0.78
+        },
+        "confidence": 0.56,
+        "legend": {
+          "0": {
+            "observable_level": "Dominant filled shapes use saturated or unrelated hues, with essentially none of the muted clay, sage and charcoal family shown on the cream moodboard."
+          },
+          "1": {
+            "observable_level": "One target hue is recognizable, but most filled shape area uses unrelated or saturated hues. Ignore the cream background when deciding what dominates."
+          },
+          "2": {
+            "observable_level": "Most filled shape area uses the muted moodboard family, with one limited discordant accent. The accent is visibly a minority of the shape area."
+          },
+          "3": {
+            "observable_level": "All substantial filled shapes use the restricted muted cream, clay, sage and charcoal family shown here. Different proportions and layouts are allowed.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "surface": {
+        "type": "score",
+        "score": 2.5599999999999996,
+        "probabilities": {
+          "0": 0.07333333333333332,
+          "1": 0.07333333333333332,
+          "2": 0.07333333333333332,
+          "3": 0.78
+        },
+        "confidence": 0.56,
+        "legend": {
+          "0": {
+            "observable_level": "Most shapes have heavy dark contour lines, or dense speckle/hatching dominates the surfaces. These treatments visibly compete with the flat filled silhouettes."
+          },
+          "1": {
+            "observable_level": "Several shapes have visible contour lines or broad textured patches, but the flat fill remains readable. More than one localized surface departure is visible."
+          },
+          "2": {
+            "observable_level": "Predominantly clean flat fills, with only one subtle contour or a small localized textured accent. Most boundaries are made by adjacent color, not drawn strokes."
+          },
+          "3": {
+            "observable_level": "Clean uniform flat fills throughout, without visible outline strokes, grain, hatching or shading, as in the moodboard. Ignore hue and arrangement here.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "composition": {
+        "type": "score",
+        "score": 1.8533333333333333,
+        "probabilities": {
+          "0": 0.07333333333333332,
+          "1": 0.07333333333333332,
+          "2": 0.78,
+          "3": 0.07333333333333332
+        },
+        "confidence": 0.7066666666666668,
+        "legend": {
+          "0": {
+            "observable_level": "No readable group of major geometric shapes, or an all-over field of tiny fragments without a clear focal grouping or breathing room."
+          },
+          "1": {
+            "observable_level": "A single tiny isolated motif, a crowded group of roughly nine or more major shapes, or a strongly compressed corner cluster with no balanced focal grouping."
+          },
+          "2": {
+            "observable_level": "A readable group that is somewhat sparse (roughly two major shapes), somewhat dense (roughly seven or eight), or has moderate crowding or uneven margins."
+          },
+          "3": {
+            "observable_level": "Roughly three to six readable major geometric shapes make an asymmetrically balanced focal group, with open cream margins and room between major forms. Accept different positions, sizes and motifs from all three examples.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f77979d3f12658cc4184aa5d68af7b9e1d753788903062ef946ed744daa0deb9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "palette": {
+        "type": "score",
+        "score": 2.32,
+        "probabilities": {
+          "0": 0.11333333333333333,
+          "1": 0.11333333333333333,
+          "2": 0.11333333333333333,
+          "3": 0.66
+        },
+        "confidence": 0.32000000000000006,
+        "legend": {
+          "0": {
+            "observable_level": "Dominant filled shapes use saturated or unrelated hues, with essentially none of the muted clay, sage and charcoal family shown on the cream moodboard."
+          },
+          "1": {
+            "observable_level": "One target hue is recognizable, but most filled shape area uses unrelated or saturated hues. Ignore the cream background when deciding what dominates."
+          },
+          "2": {
+            "observable_level": "Most filled shape area uses the muted moodboard family, with one limited discordant accent. The accent is visibly a minority of the shape area."
+          },
+          "3": {
+            "observable_level": "All substantial filled shapes use the restricted muted cream, clay, sage and charcoal family shown here. Different proportions and layouts are allowed.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "surface": {
+        "type": "score",
+        "score": 2.32,
+        "probabilities": {
+          "0": 0.11333333333333333,
+          "1": 0.11333333333333333,
+          "2": 0.11333333333333333,
+          "3": 0.66
+        },
+        "confidence": 0.32000000000000006,
+        "legend": {
+          "0": {
+            "observable_level": "Most shapes have heavy dark contour lines, or dense speckle/hatching dominates the surfaces. These treatments visibly compete with the flat filled silhouettes."
+          },
+          "1": {
+            "observable_level": "Several shapes have visible contour lines or broad textured patches, but the flat fill remains readable. More than one localized surface departure is visible."
+          },
+          "2": {
+            "observable_level": "Predominantly clean flat fills, with only one subtle contour or a small localized textured accent. Most boundaries are made by adjacent color, not drawn strokes."
+          },
+          "3": {
+            "observable_level": "Clean uniform flat fills throughout, without visible outline strokes, grain, hatching or shading, as in the moodboard. Ignore hue and arrangement here.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "composition": {
+        "type": "score",
+        "score": 1.7733333333333334,
+        "probabilities": {
+          "0": 0.11333333333333333,
+          "1": 0.11333333333333333,
+          "2": 0.66,
+          "3": 0.11333333333333333
+        },
+        "confidence": 0.5466666666666666,
+        "legend": {
+          "0": {
+            "observable_level": "No readable group of major geometric shapes, or an all-over field of tiny fragments without a clear focal grouping or breathing room."
+          },
+          "1": {
+            "observable_level": "A single tiny isolated motif, a crowded group of roughly nine or more major shapes, or a strongly compressed corner cluster with no balanced focal grouping."
+          },
+          "2": {
+            "observable_level": "A readable group that is somewhat sparse (roughly two major shapes), somewhat dense (roughly seven or eight), or has moderate crowding or uneven margins."
+          },
+          "3": {
+            "observable_level": "Roughly three to six readable major geometric shapes make an asymmetrically balanced focal group, with open cream margins and room between major forms. Accept different positions, sizes and motifs from all three examples.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "fb9164aba6acb75aae1d319f2e99bd598ce8555886e91bfba5ac229b9debe6ee": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "palette": {
+        "type": "score",
+        "score": 2.92,
+        "probabilities": {
+          "0": 0.013333333333333345,
+          "1": 0.013333333333333345,
+          "2": 0.013333333333333345,
+          "3": 0.96
+        },
+        "confidence": 0.9199999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "Dominant filled shapes use saturated or unrelated hues, with essentially none of the muted clay, sage and charcoal family shown on the cream moodboard."
+          },
+          "1": {
+            "observable_level": "One target hue is recognizable, but most filled shape area uses unrelated or saturated hues. Ignore the cream background when deciding what dominates."
+          },
+          "2": {
+            "observable_level": "Most filled shape area uses the muted moodboard family, with one limited discordant accent. The accent is visibly a minority of the shape area."
+          },
+          "3": {
+            "observable_level": "All substantial filled shapes use the restricted muted cream, clay, sage and charcoal family shown here. Different proportions and layouts are allowed.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "surface": {
+        "type": "score",
+        "score": 2.92,
+        "probabilities": {
+          "0": 0.013333333333333345,
+          "1": 0.013333333333333345,
+          "2": 0.013333333333333345,
+          "3": 0.96
+        },
+        "confidence": 0.9199999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "Most shapes have heavy dark contour lines, or dense speckle/hatching dominates the surfaces. These treatments visibly compete with the flat filled silhouettes."
+          },
+          "1": {
+            "observable_level": "Several shapes have visible contour lines or broad textured patches, but the flat fill remains readable. More than one localized surface departure is visible."
+          },
+          "2": {
+            "observable_level": "Predominantly clean flat fills, with only one subtle contour or a small localized textured accent. Most boundaries are made by adjacent color, not drawn strokes."
+          },
+          "3": {
+            "observable_level": "Clean uniform flat fills throughout, without visible outline strokes, grain, hatching or shading, as in the moodboard. Ignore hue and arrangement here.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "composition": {
+        "type": "score",
+        "score": 2.92,
+        "probabilities": {
+          "0": 0.013333333333333345,
+          "1": 0.013333333333333345,
+          "2": 0.013333333333333345,
+          "3": 0.96
+        },
+        "confidence": 0.9199999999999999,
+        "legend": {
+          "0": {
+            "observable_level": "No readable group of major geometric shapes, or an all-over field of tiny fragments without a clear focal grouping or breathing room."
+          },
+          "1": {
+            "observable_level": "A single tiny isolated motif, a crowded group of roughly nine or more major shapes, or a strongly compressed corner cluster with no balanced focal grouping."
+          },
+          "2": {
+            "observable_level": "A readable group that is somewhat sparse (roughly two major shapes), somewhat dense (roughly seven or eight), or has moderate crowding or uneven margins."
+          },
+          "3": {
+            "observable_level": "Roughly three to six readable major geometric shapes make an asymmetrically balanced focal group, with open cream margins and room between major forms. Accept different positions, sizes and motifs from all three examples.",
+            "moodboard_examples": [
+              "image:sha256:f071fd6ad0c71653fc3d565f66f13ddbef2a0edacd9d787779da1100ee6e5c78",
+              "image:sha256:6e595f90dc97b79d74c1613c1f2b9b2ce1d1352d75bec0a13073cef15ba34b9c",
+              "image:sha256:2cf575df0a3d13a93ceba299745ca83ac1c23cfbe5199f3791ab089b8745a901"
+            ]
+          }
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
