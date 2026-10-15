@@ -350,7 +350,7 @@ cookbook/
 
 ## Sources
 
-The use cases are proposed applications. Their ranks are curriculum judgments, not ratings published by the sources. The references below were reviewed on 6 October 2026, and each recipe issue lists the ones that apply to it. S07 describes limitations of the documented Jev 1.13 model specifically.
+The use cases are proposed applications. Their ranks are curriculum judgments, not ratings published by the sources. The catalog records each source's review date: S01–S08 were reviewed on 6 October 2026, and S09–S12 on 15 October 2026, after the 14 October Jev 1.14 release. Each recipe's catalog entry lists the references that apply to it. S07 describes limitations of the documented Jev 1.13 model specifically.
 
 <!-- catalog:sources:start -->
 | ID | Reference | What it supports |
@@ -371,7 +371,7 @@ The use cases are proposed applications. Their ranks are curriculum judgments, n
 
 ## Contributing
 
-Recipes are built against one contract, described in [CONTRIBUTING.md](CONTRIBUTING.md): offline by default, synthetic fixtures, Python in control of every side effect, and no quality claim without a measured run. Progress is tracked in [issues](https://github.com/Jev-Engineering/cookbook/issues) and [milestones](https://github.com/Jev-Engineering/cookbook/milestones), one issue per recipe, where issue number and recipe number match.
+Recipes are built against one contract, described in [CONTRIBUTING.md](CONTRIBUTING.md): offline by default, synthetic fixtures, Python in control of every side effect, and no quality claim without a measured run. Progress is tracked in [issues](https://github.com/Jev-Engineering/cookbook/issues) and [milestones](https://github.com/Jev-Engineering/cookbook/milestones). Original recipes 01–60 retain their matching issue numbers. Multimodal recipe ranks are separate from issue identities: use the assigned `issue` in the trusted base catalog, and keep work with `issue: null` local until a real recipe issue is assigned.
 
 <p align="center">
 <sub>An independent project by <a href="https://github.com/Jev-Engineering">Jev-Engineering</a> · Steward: Complete Tech LLC · MIT licensed<br>
