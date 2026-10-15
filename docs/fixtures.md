@@ -288,6 +288,37 @@ per-item order is derived the same documented-stable way; recipe 12's `shuffled_
 
 ## Writing fixtures
 
+### Image fixtures
+
+Keep small synthetic PNG/JPEG files in the recipe's `assets/` directory, beside `fixtures/`.
+The fixture directory continues to contain only its documented JSON/JSONL files; image bytes
+and base64 do not belong in those files.
+
+An image example uses `fields` containing relative image paths and any other request inputs.
+The recipe loads those files with `jev_cookbook.vision.image_asset(path, root=RECIPE_DIR)`
+(or `image_assets` / `load_frames` with the same `root=`, or `resolve_asset_path` directly),
+where `RECIPE_DIR` is the recipe folder. A path read from a fixture is data, not code: with
+`root=` an absolute path, a URL, a `..` that leaves the folder, or a symlink pointing outside it
+raises `AssetPathError` (a `ValueError`) instead of being opened. Never pass a fixture-supplied
+path to `image_asset` without `root=`. The recipe then constructs stable
+references with `image_reference`, and calls
+`replay_key(state, questions, assets=assets)` when writing `replay_keys`.
+The notebook builds the same state and assets and calls
+`backend.decide(state, questions, assets=assets)`.
+Store image paths in `fields` even when the textual state is otherwise identical: the
+validator compares fields for split leakage, while the replay key covers the actual image
+content. Recipe tests must also check image content and lineage across splits, since different
+paths can contain identical pixels and the fixture validator does not open image files.
+
+The input row schema is unchanged; do not add a top-level `assets` field. Labels can contain
+normalized gold boxes or an explicit absent-target label. A response's `BoxAnswer.to_dict()`
+stores `type`, the four-edge `box`, nullable `confidence`, and the ordinary provenance.
+`DecisionResult` and the fixture validator reject malformed geometry and confidence.
+Missing confidence means unknown, never certainty. A Box is still returned for an absent
+target, so labels and tests should exercise a separate presence/review rule.
+
+### Generators
+
 The fixtures are data written by a script, so the keys cannot drift from the questions. Keep
 the questions and the function that builds a state in one module that both the generator and the
 notebook import, so they cannot disagree (a mismatch only shows up as a replay miss at run

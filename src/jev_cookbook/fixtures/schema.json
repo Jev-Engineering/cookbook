@@ -30,7 +30,7 @@
           "type": "object"
         },
         "replay_keys": {
-          "description": "replay_key(state, questions) of every request made for this example, as 64 lowercase hex characters. Empty when the notebook answers this example without replaying anything (a scripted or simulated recipe). More than one when a later request depends on an earlier answer.",
+          "description": "replay_key(state, questions, assets=assets) of every request made for this example (omit assets for text-only requests), as 64 lowercase hex characters. Image paths belong in fields; image bytes are not stored here. Empty when the notebook answers this example without replaying anything (a scripted or simulated recipe). More than one when a later request depends on an earlier answer.",
           "type": "array",
           "uniqueItems": true,
           "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}

@@ -22,6 +22,7 @@ from .questions import SINGLE_OPTION_MESSAGE
 
 __all__ = [
     "Answer",
+    "BoxAnswer",
     "ChoiceAnswer",
     "DecisionResult",
     "NoulAnswer",
@@ -401,7 +402,42 @@ class ScoreAnswer:
         }
 
 
-Answer = NoulAnswer | ChoiceAnswer | ScoreAnswer
+@dataclass(frozen=True)
+class BoxAnswer:
+    """Normalized edges of one rectangle, with reported confidence or ``None``.
+
+    A rectangle is returned even for an absent target. Its existence is not a presence
+    check, and missing confidence must not be interpreted as certainty.
+    """
+
+    box: Mapping[str, float]
+    confidence: float | None
+    provenance: Provenance
+    type: ClassVar[str] = "box"
+
+    def __post_init__(self) -> None:
+        raw = _require_object(self.box, "box")
+        edges = ("top", "bottom", "left", "right")
+        if set(raw) != set(edges):
+            raise ValueError("box must contain exactly top, bottom, left and right")
+        box = {name: _unit(raw[name], f"box.{name}") for name in edges}
+        if box["left"] >= box["right"] or box["top"] >= box["bottom"]:
+            raise ValueError("box requires left < right and top < bottom")
+        confidence = None if self.confidence is None else _unit(self.confidence, "confidence")
+        object.__setattr__(self, "box", MappingProxyType(box))
+        object.__setattr__(self, "confidence", confidence)
+        _check_provenance(self.provenance)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "type": "box",
+            "box": dict(self.box),
+            "confidence": self.confidence,
+            "provenance": self.provenance.to_dict(),
+        }
+
+
+Answer = NoulAnswer | ChoiceAnswer | ScoreAnswer | BoxAnswer
 
 
 def answer_from_dict(data: Mapping[str, Any]) -> Answer:
@@ -428,6 +464,9 @@ def answer_from_dict(data: Mapping[str, Any]) -> Answer:
             data.get("legend"),
             prov,
         )
+    if kind == "box":
+        _reject_unknown(data, {"box", "confidence"}, "box answer")
+        return BoxAnswer(data.get("box"), data.get("confidence"), prov)
     raise ValueError(f"unknown answer type: {kind!r}")
 
 
@@ -473,7 +512,7 @@ class DecisionResult:
         for name, answer in self.answers.items():
             if type(name) is not str or not name:
                 raise ValueError(f"answer names must be non-empty str, got {name!r}")
-            if not isinstance(answer, (NoulAnswer, ChoiceAnswer, ScoreAnswer)):
+            if not isinstance(answer, (NoulAnswer, ChoiceAnswer, ScoreAnswer, BoxAnswer)):
                 raise TypeError(f"answer {name!r} must be an answer object, got {type(answer)}")
         sources = {a.provenance.source for a in self.answers.values()}
         if len(sources) > 1:
@@ -511,6 +550,10 @@ class DecisionResult:
     @property
     def scores(self) -> dict[str, ScoreAnswer]:
         return {k: v for k, v in self.answers.items() if isinstance(v, ScoreAnswer)}
+
+    @property
+    def boxes(self) -> dict[str, BoxAnswer]:
+        return {k: v for k, v in self.answers.items() if isinstance(v, BoxAnswer)}
 
     def to_dict(self) -> dict[str, Any]:
         return {

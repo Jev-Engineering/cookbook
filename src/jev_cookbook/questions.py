@@ -1,4 +1,4 @@
-"""Question definitions mirroring the TypeSafe ``Noul``, ``Choice`` and ``Score`` requests.
+"""Question definitions mirroring TypeSafe ``Noul``, ``Choice``, ``Score`` and ``Box``.
 
 Shapes follow ``typesafe_sdk``: ``instructions`` is text, a JSON object or an array (or
 ``None``); ``Choice.criteria`` is a mapping of option name to an optional description;
@@ -6,6 +6,7 @@ Shapes follow ``typesafe_sdk``: ``instructions`` is text, a JSON object or an ar
 non-empty JSON object or a non-empty JSON array;
 ``Choice`` allows 2 to 255 options; constructors take keyword arguments only;
 ``Noul.criteria`` optionally describes the ``true`` and ``false`` outcomes.
+``Box`` takes instructions only and locates one target in an image.
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ from typing import Any, ClassVar
 
 from ._canonical import plain_json
 
-__all__ = ["Choice", "Noul", "Question", "Score", "question_from_dict"]
+__all__ = ["Box", "Choice", "Noul", "Question", "Score", "question_from_dict"]
 
 
 MIN_CHOICE_OPTIONS = 2
@@ -135,14 +136,28 @@ class Score:
         return {"type": "score", "instructions": self.instructions, "criteria": self.criteria}
 
 
-Question = Noul | Choice | Score
+@dataclass(frozen=True, kw_only=True)
+class Box:
+    """Locate one target in an image. Box has instructions and no criteria."""
+
+    instructions: Any = None
+    type: ClassVar[str] = "box"
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "instructions", _instructions(self.instructions))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"type": "box", "instructions": self.instructions}
+
+
+Question = Noul | Choice | Score | Box
 
 
 def question_from_dict(data: Mapping[str, Any]) -> Question:
     """Inverse of ``to_dict``. Unknown keys are rejected."""
     data = dict(data)
     kind = data.pop("type", None)
-    allowed = {"instructions", "criteria"}
+    allowed = {"instructions"} if kind == "box" else {"instructions", "criteria"}
     if set(data) - allowed:
         raise ValueError(f"unknown question keys: {sorted(set(data) - allowed)}")
     if kind == "noul":
@@ -151,4 +166,6 @@ def question_from_dict(data: Mapping[str, Any]) -> Question:
         return Choice(criteria=data.get("criteria"), instructions=data.get("instructions"))
     if kind == "score":
         return Score(criteria=data.get("criteria"), instructions=data.get("instructions"))
+    if kind == "box":
+        return Box(instructions=data.get("instructions"))
     raise ValueError(f"unknown question type: {kind!r}")
