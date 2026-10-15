@@ -181,9 +181,11 @@ TASK_SPECS = [
             # instead (gold level 1: the same general area, mentioned by name, but the task
             # never asks to book anything) -- and under-scores doc_search to match. The wrong
             # pick's own distribution is also written spread enough to read as genuinely unsure
-            # (confidence 0.16), so this is one of the examples the margin threshold is chosen
-            # from -- descriptive only, since this rule has no confidence gate and nothing in
-            # select_skill reads an answer's own confidence.
+            # (confidence 0.16), and this is also one of the examples the margin threshold is
+            # chosen from -- two independent facts, not one causing the other.
+            # pool_for_margin_selection's only filter is the top skill's modal level clearing
+            # BUSINESS_CUTOFF; it reads no confidence at all, this rule has no confidence gate,
+            # and nothing in select_skill reads an answer's own confidence.
             "travel_booking": (1, 3, IDEAL_LOW_CONFIDENCE),
             "doc_search": (3, 1, RELATED_A),
             "code_review_summary": (0, 0, NOT_SUITABLE_CONFIDENT),

@@ -58,8 +58,9 @@ it reports, here and in the notebook.
 
 The committed run replays 35 invented source fields with hand-written (synthetic) answers, some
 wrong on purpose: a deliberately unconfident mistake (caught by the confidence gate, on
-`validation`) and a one-to-one collision (caught by the one-to-one check, one on each split) are
-both caught by Python's validation; a confident mistake on `test` that neither mechanism catches is
+`validation`) is caught by Python's validation, and so is a one-to-one collision, one on each
+split -- which is not itself one of the wrong answers, but two fields proposing the same target,
+neither of them identifiable as the wrong one from its own answer; a confident mistake on `test` that neither mechanism catches is
 not, which is where this recipe's non-zero risk on `test` comes from. Its mapping accuracy, the
 field- and task-level coverage/accuracy/risk, and the number of conflicts caught check that the
 pipeline works; they say nothing about how Jev performs, how fast it is, or what it costs.
