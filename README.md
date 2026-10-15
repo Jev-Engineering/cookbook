@@ -9,7 +9,7 @@
 **One hundred planned notebook recipes for typed decisions with Jev: the original 01–60 curriculum and a separate multimodal track, 61–100.**
 
 <!-- catalog:progress:start -->
-![Recipes: 55 of 100 published](https://img.shields.io/badge/Recipes-55%20of%20100%20published-F386A1?style=flat-square&labelColor=1E1E1E) ![Status: in progress](https://img.shields.io/badge/Status-in%20progress-E551BA?style=flat-square&labelColor=1E1E1E) ![Categories: 15](https://img.shields.io/badge/Categories-15-F386A1?style=flat-square&labelColor=1E1E1E) ![Levels: 5](https://img.shields.io/badge/Levels-5-F386A1?style=flat-square&labelColor=1E1E1E)
+![Recipes: 59 of 100 published](https://img.shields.io/badge/Recipes-59%20of%20100%20published-F386A1?style=flat-square&labelColor=1E1E1E) ![Status: in progress](https://img.shields.io/badge/Status-in%20progress-E551BA?style=flat-square&labelColor=1E1E1E) ![Categories: 15](https://img.shields.io/badge/Categories-15-F386A1?style=flat-square&labelColor=1E1E1E) ![Levels: 5](https://img.shields.io/badge/Levels-5-F386A1?style=flat-square&labelColor=1E1E1E)
 <!-- catalog:progress:end -->
 ![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-F386A1?style=flat-square&labelColor=1E1E1E) [![License: MIT](https://img.shields.io/badge/License-MIT-DEDEDE?style=flat-square&labelColor=1E1E1E)](LICENSE)
 
@@ -264,7 +264,7 @@ One bounded judgment over a short prepared input with direct inspection of typed
 
 | # | Recipe | Category | Decision | Status |
 | :---: | --- | --- | --- | --- |
-| 61 | **Screenshot error-state recognition**<br>Classify an application screenshot as a crash, loading state, authentication failure, normal operation, or unknown using fixed visual categories. | Image understanding & visual judgments | `Choice` | Coming soon |
+| 61 | **Screenshot error-state recognition**<br>Classify an application screenshot as a crash, loading state, authentication failure, normal operation, or unknown using fixed visual categories. | Image understanding & visual judgments | `Choice` | [Open notebook](recipes/61-screenshot-error-state-recognition/notebook.ipynb) |
 
 #### Multimodal level 2 · Easy
 
@@ -292,7 +292,7 @@ Multiple judgments or stages, structured evidence, deterministic composition, an
 | :---: | --- | --- | --- | --- |
 | 62 | **Visual regression detection**<br>Compare before-and-after screenshots for missing elements, misalignment, clipping, and other predefined visual changes, then score each change against an explicit severity rubric. | Image understanding & visual judgments | `Noul` + `Score` | [Open notebook](recipes/62-visual-regression-detection/notebook.ipynb) |
 | 63 | **Manufacturing defect inspection**<br>Check synthetic product photographs for scratches, dents, missing components, and incorrect assembly with independent judgments and a defined defect-severity rubric. | Image understanding & visual judgments | `Noul` + `Score` | Coming soon |
-| 64 | **Field maintenance photo triage**<br>Classify predefined equipment conditions in maintenance photographs and independently flag visible corrosion, leaks, or disconnected cabling for a simulated review queue. | Image understanding & visual judgments | `Choice` + `Noul` | Coming soon |
+| 64 | **Field maintenance photo triage**<br>Classify predefined equipment conditions in maintenance photographs and independently flag visible corrosion, leaks, or disconnected cabling for a simulated review queue. | Image understanding & visual judgments | `Choice` + `Noul` | [Open notebook](recipes/64-field-maintenance-photo-triage/notebook.ipynb) |
 | 65 | **Retail shelf compliance**<br>Compare shelf photographs with an approved planogram image using independent checks for misplaced or missing product groups while Python combines the findings. | Image understanding & visual judgments | `Noul` | Coming soon |
 | 67 | **Product finish verification**<br>Compare a product photograph with a visual reference using separate color, material, and finish checks and explicit similarity rubrics under controlled imaging conditions. | Image understanding & visual judgments | `Noul` + `Score` | Coming soon |
 | 68 | **Visual accessibility screening**<br>Flag apparent text clipping, low contrast, crowding, and overlapping UI components with independent screenshot judgments to identify candidates for further accessibility testing. | Image understanding & visual judgments | `Noul` | Coming soon |
@@ -319,7 +319,7 @@ Stateful workflows, provenance, adversarial cases, model calibration, or several
 | 83 | **Hierarchical visual search**<br>Select among Python-generated image tiles, retaining no-match and uncertain outcomes, then progressively localize a small target while Python maps the final rectangle back to the full image. | Bounding boxes & spatial reasoning | `Choice` + `Box` | [Open notebook](recipes/83-hierarchical-visual-search/notebook.ipynb) |
 | 84 | **Bounding-box self-verification**<br>Check target presence, localize it, and ask independent questions about whether it continues past each crop edge so Python can adjust the rectangle within fixed retry and size limits. | Bounding boxes & spatial reasoning | `Box` + `Noul` | Coming soon |
 | 94 | **Long-form visual evidence audit**<br>Compare inspection photographs with individual statements in an extended report or maintenance history using opt-in long context while Python preserves evidence provenance and review outcomes. | Multimodal & long context | `Noul` | Coming soon |
-| 95 | **AI livestream overlay verification**<br>Compare gameplay frames and recorded agent state with displayed strategy, phase, and action overlays to flag unsupported status claims in a simulated livestream review. | Multimodal & long context | `Noul` | Coming soon |
+| 95 | **AI livestream overlay verification**<br>Compare gameplay frames and recorded agent state with displayed strategy, phase, and action overlays to flag unsupported status claims in a simulated livestream review. | Multimodal & long context | `Noul` | [Open notebook](recipes/95-ai-livestream-overlay-verification/notebook.ipynb) |
 | 96 | **Multilingual visual instruction verification**<br>Classify whether photographs and signage support instructions across languages, comparing pinned Jev 1.13 and 1.14 versions on identical labeled tasks with an uncertain outcome. | Multimodal & long context | `Choice` | Coming soon |
 | 97 | **Photo-based equipment troubleshooting**<br>Combine a photographed symptom, equipment model information, and a long troubleshooting manual to select candidate diagnostic checks from a supplied catalog for simulated review. | Multimodal & long context | `Choice` | Coming soon |
 | 99 | **Historical screenshot sequence analysis**<br>Check candidate state transitions against a long sequence of screenshots and textual test logs so Python can identify the earliest supported visible transition associated with a defect. | Multimodal & long context | `Noul` | Coming soon |
@@ -331,7 +331,7 @@ Controlled optimization studies or closed-loop simulations requiring budgets, ba
 
 | # | Recipe | Category | Decision | Status |
 | :---: | --- | --- | --- | --- |
-| 98 | **Long-context versus focused-context evaluation**<br>Compare judgments using contexts up to the opt-in 262k-token limit with retrieval and staged decisions across all four decision types on identical labeled tasks, with frozen policies, held-out evaluation, and measured resource use. | Multimodal & long context | `Choice` + `Noul` + `Score` + `Box` | Coming soon |
+| 98 | **Long-context versus focused-context evaluation**<br>Compare judgments using contexts up to the opt-in 262k-token limit with retrieval and staged decisions across all four decision types on identical labeled tasks, with frozen policies, held-out evaluation, and measured resource use. | Multimodal & long context | `Choice` + `Noul` + `Score` + `Box` | [Open notebook](recipes/98-long-context-versus-focused-context-evaluation/notebook.ipynb) |
 <!-- catalog:recipes:end -->
 
 ## Repository layout
