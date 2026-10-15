@@ -1,0 +1,704 @@
+{
+  "0ce1bc070eb752f2bc5eedf528aaa86fdb4b182acab969069aa9ea58f51700ec": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "piece": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "sun_token": 0.010000000000000009,
+          "ring_token": 0.010000000000000009,
+          "bridge_tile": 0.010000000000000009,
+          "scout_figurine": 0.010000000000000009,
+          "river_card": 0.010000000000000009,
+          "unknown": 0.95
+        },
+        "confidence": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1854680dd2ffbf685c4d602702fa855678c0e56f41af4640a8cd6b6f1923a1d0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "piece": {
+        "type": "choice",
+        "choice": "sun_token",
+        "probabilities": {
+          "sun_token": 0.84,
+          "ring_token": 0.03200000000000001,
+          "bridge_tile": 0.03200000000000001,
+          "scout_figurine": 0.03200000000000001,
+          "river_card": 0.03200000000000001,
+          "unknown": 0.03200000000000001
+        },
+        "confidence": 0.8079999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2da489c3b7694088694d53ad97a9f57afa8a1d03804b45b091a2cac8837b7f6d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "piece": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "sun_token": 0.006000000000000005,
+          "ring_token": 0.006000000000000005,
+          "bridge_tile": 0.006000000000000005,
+          "scout_figurine": 0.006000000000000005,
+          "river_card": 0.006000000000000005,
+          "unknown": 0.97
+        },
+        "confidence": 0.964,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3656053630950d102163a8a5989d5a924e98f0d3433aebee9928272d2613f9b0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "piece": {
+        "type": "choice",
+        "choice": "sun_token",
+        "probabilities": {
+          "sun_token": 0.74,
+          "ring_token": 0.052000000000000005,
+          "bridge_tile": 0.052000000000000005,
+          "scout_figurine": 0.052000000000000005,
+          "river_card": 0.052000000000000005,
+          "unknown": 0.052000000000000005
+        },
+        "confidence": 0.6880000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3805620f3313f2f7a092bed911637ec6b71adffcbc697d5dde94b45c111d2682": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "piece": {
+        "type": "choice",
+        "choice": "sun_token",
+        "probabilities": {
+          "sun_token": 0.65,
+          "ring_token": 0.06999999999999999,
+          "bridge_tile": 0.06999999999999999,
+          "scout_figurine": 0.06999999999999999,
+          "river_card": 0.06999999999999999,
+          "unknown": 0.06999999999999999
+        },
+        "confidence": 0.5800000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "38f069224e16b9b1f7e4a9e90fa8e3762713953d4dcc60fcd3afe39244ee3d71": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "piece": {
+        "type": "choice",
+        "choice": "ring_token",
+        "probabilities": {
+          "sun_token": 0.078,
+          "ring_token": 0.61,
+          "bridge_tile": 0.078,
+          "scout_figurine": 0.078,
+          "river_card": 0.078,
+          "unknown": 0.078
+        },
+        "confidence": 0.532,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4035727727d8851f74ab8edda33ba98bdf795e4e57fbc98dc82911ed887b118a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "piece": {
+        "type": "choice",
+        "choice": "sun_token",
+        "probabilities": {
+          "sun_token": 0.94,
+          "ring_token": 0.01200000000000001,
+          "bridge_tile": 0.01200000000000001,
+          "scout_figurine": 0.01200000000000001,
+          "river_card": 0.01200000000000001,
+          "unknown": 0.01200000000000001
+        },
+        "confidence": 0.9279999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "465827321d144f2e4bee9ef8b41e106950cb45e95bde63d34c11bd9c983577a1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "piece": {
+        "type": "choice",
+        "choice": "sun_token",
+        "probabilities": {
+          "sun_token": 0.96,
+          "ring_token": 0.008000000000000007,
+          "bridge_tile": 0.008000000000000007,
+          "scout_figurine": 0.008000000000000007,
+          "river_card": 0.008000000000000007,
+          "unknown": 0.008000000000000007
+        },
+        "confidence": 0.952,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "47f3d4f43a5f811fbb4b544feaccd305df924b076ca91e927fec01e700892cfc": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "piece": {
+        "type": "choice",
+        "choice": "scout_figurine",
+        "probabilities": {
+          "sun_token": 0.022,
+          "ring_token": 0.022,
+          "bridge_tile": 0.022,
+          "scout_figurine": 0.89,
+          "river_card": 0.022,
+          "unknown": 0.022
+        },
+        "confidence": 0.868,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5aa80febca8051101df150e82d43c13fc3f6d2fb018915d613b6af9c6cca57d7": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "piece": {
+        "type": "choice",
+        "choice": "bridge_tile",
+        "probabilities": {
+          "sun_token": 0.01200000000000001,
+          "ring_token": 0.01200000000000001,
+          "bridge_tile": 0.94,
+          "scout_figurine": 0.01200000000000001,
+          "river_card": 0.01200000000000001,
+          "unknown": 0.01200000000000001
+        },
+        "confidence": 0.9279999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "64ce61f976d8514a653f9bc192bd7ef81a2b8fc07a336cfde12ed0ef141cd4e9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "piece": {
+        "type": "choice",
+        "choice": "river_card",
+        "probabilities": {
+          "sun_token": 0.044,
+          "ring_token": 0.044,
+          "bridge_tile": 0.044,
+          "scout_figurine": 0.044,
+          "river_card": 0.78,
+          "unknown": 0.044
+        },
+        "confidence": 0.7360000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6e2384378c117ee7a192d67d012788eba3972be1ebc507739c662a1ed87797bb": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "piece": {
+        "type": "choice",
+        "choice": "ring_token",
+        "probabilities": {
+          "sun_token": 0.015999999999999993,
+          "ring_token": 0.92,
+          "bridge_tile": 0.015999999999999993,
+          "scout_figurine": 0.015999999999999993,
+          "river_card": 0.015999999999999993,
+          "unknown": 0.015999999999999993
+        },
+        "confidence": 0.904,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7046264a8e00f6384ad654f56e6a997d241ed11c36132255d038a9526bb8ee07": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "piece": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "sun_token": 0.019999999999999997,
+          "ring_token": 0.019999999999999997,
+          "bridge_tile": 0.019999999999999997,
+          "scout_figurine": 0.019999999999999997,
+          "river_card": 0.019999999999999997,
+          "unknown": 0.9
+        },
+        "confidence": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7c21ee76ac3a99278c6fc494859db8fc5a85fb6489b9096fe94dcbd05e2cbced": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "piece": {
+        "type": "choice",
+        "choice": "bridge_tile",
+        "probabilities": {
+          "sun_token": 0.019999999999999997,
+          "ring_token": 0.019999999999999997,
+          "bridge_tile": 0.9,
+          "scout_figurine": 0.019999999999999997,
+          "river_card": 0.019999999999999997,
+          "unknown": 0.019999999999999997
+        },
+        "confidence": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8e2994821110a6cae7833a3816096d0077e84914a0893221e0017b051e9689ff": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "piece": {
+        "type": "choice",
+        "choice": "sun_token",
+        "probabilities": {
+          "sun_token": 0.57,
+          "ring_token": 0.08600000000000001,
+          "bridge_tile": 0.08600000000000001,
+          "scout_figurine": 0.08600000000000001,
+          "river_card": 0.08600000000000001,
+          "unknown": 0.08600000000000001
+        },
+        "confidence": 0.484,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8ecfed80c1aaf6a9b4a42566f01b36d8104ee52851205e4b5f36a33707a77916": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "piece": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "sun_token": 0.028000000000000004,
+          "ring_token": 0.028000000000000004,
+          "bridge_tile": 0.028000000000000004,
+          "scout_figurine": 0.028000000000000004,
+          "river_card": 0.028000000000000004,
+          "unknown": 0.86
+        },
+        "confidence": 0.832,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9026988f31a22bdda8b3bc87e745144a2e2f44735ee7e7ae4e8cbc235cca0a8d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "piece": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "sun_token": 0.01200000000000001,
+          "ring_token": 0.01200000000000001,
+          "bridge_tile": 0.01200000000000001,
+          "scout_figurine": 0.01200000000000001,
+          "river_card": 0.01200000000000001,
+          "unknown": 0.94
+        },
+        "confidence": 0.9279999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "af495ca619009ee558e7c201b4fa12a56cf7ca6f0b808cc2e6b5fdcce623bd37": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "piece": {
+        "type": "choice",
+        "choice": "scout_figurine",
+        "probabilities": {
+          "sun_token": 0.028000000000000004,
+          "ring_token": 0.028000000000000004,
+          "bridge_tile": 0.028000000000000004,
+          "scout_figurine": 0.86,
+          "river_card": 0.028000000000000004,
+          "unknown": 0.028000000000000004
+        },
+        "confidence": 0.832,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bddb77f08e32c1170ac9defe2971a4016560ad87c79eac35a0961a5b28a9c844": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "piece": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "sun_token": 0.008000000000000007,
+          "ring_token": 0.008000000000000007,
+          "bridge_tile": 0.008000000000000007,
+          "scout_figurine": 0.008000000000000007,
+          "river_card": 0.008000000000000007,
+          "unknown": 0.96
+        },
+        "confidence": 0.952,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c0878f57d58197a15c204544371911e2dea0388077efa0cafe872426ebe276e4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "piece": {
+        "type": "choice",
+        "choice": "river_card",
+        "probabilities": {
+          "sun_token": 0.015999999999999993,
+          "ring_token": 0.015999999999999993,
+          "bridge_tile": 0.015999999999999993,
+          "scout_figurine": 0.015999999999999993,
+          "river_card": 0.92,
+          "unknown": 0.015999999999999993
+        },
+        "confidence": 0.904,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "cf9f47acc46ad01aa0b2d0b04e82eed478556a972f70b8c47ea54d7cb2ece000": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "piece": {
+        "type": "choice",
+        "choice": "ring_token",
+        "probabilities": {
+          "sun_token": 0.017999999999999995,
+          "ring_token": 0.91,
+          "bridge_tile": 0.017999999999999995,
+          "scout_figurine": 0.017999999999999995,
+          "river_card": 0.017999999999999995,
+          "unknown": 0.017999999999999995
+        },
+        "confidence": 0.892,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d9780ed8f9761f7cb4cb82d3f3c9c6ee1c22f9dd78f4502a2ef1fa2ec1c097ca": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "piece": {
+        "type": "choice",
+        "choice": "bridge_tile",
+        "probabilities": {
+          "sun_token": 0.015999999999999993,
+          "ring_token": 0.015999999999999993,
+          "bridge_tile": 0.92,
+          "scout_figurine": 0.015999999999999993,
+          "river_card": 0.015999999999999993,
+          "unknown": 0.015999999999999993
+        },
+        "confidence": 0.904,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "df80726209b185d103846cd1fde54924de2b4deac6723dc3c0cd075216d3b96e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "piece": {
+        "type": "choice",
+        "choice": "sun_token",
+        "probabilities": {
+          "sun_token": 0.93,
+          "ring_token": 0.01399999999999999,
+          "bridge_tile": 0.01399999999999999,
+          "scout_figurine": 0.01399999999999999,
+          "river_card": 0.01399999999999999,
+          "unknown": 0.01399999999999999
+        },
+        "confidence": 0.916,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e015aa3a796eb73815fb373155a8edf31c9b9d78023507ac658fc2368a2fedde": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "piece": {
+        "type": "choice",
+        "choice": "ring_token",
+        "probabilities": {
+          "sun_token": 0.06399999999999999,
+          "ring_token": 0.68,
+          "bridge_tile": 0.06399999999999999,
+          "scout_figurine": 0.06399999999999999,
+          "river_card": 0.06399999999999999,
+          "unknown": 0.06399999999999999
+        },
+        "confidence": 0.6160000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e4ca4ea84477f98b56806cc1febdafb5ca8a035ce383e5e115a2845534152367": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "piece": {
+        "type": "choice",
+        "choice": "river_card",
+        "probabilities": {
+          "sun_token": 0.01399999999999999,
+          "ring_token": 0.01399999999999999,
+          "bridge_tile": 0.01399999999999999,
+          "scout_figurine": 0.01399999999999999,
+          "river_card": 0.93,
+          "unknown": 0.01399999999999999
+        },
+        "confidence": 0.916,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ea65a2902aa88b11627bb0591bc362aa8cd14044d3251abae96c1e60386599df": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "piece": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "sun_token": 0.019999999999999997,
+          "ring_token": 0.019999999999999997,
+          "bridge_tile": 0.019999999999999997,
+          "scout_figurine": 0.019999999999999997,
+          "river_card": 0.019999999999999997,
+          "unknown": 0.9
+        },
+        "confidence": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
