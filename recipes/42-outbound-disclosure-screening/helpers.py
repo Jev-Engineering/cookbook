@@ -18,9 +18,9 @@ from jev_cookbook.evaluation import noul_confidence
 # Two sharing rules, supplied by Python, each written as a statement that is true or false of a
 # proposed outbound message (CONTRIBUTING.md section 3: "Noul propositions are written as
 # statements that can be true or false"). Both are asked together, in one request, about every
-# message (CONTRIBUTING.md section 3: "Independent questions go in one request"; the build note
-# for this recipe: "One independent Noul per supplied sharing rule for each proposed outbound
-# message"). Jev never sees the rule names below, only the ``instructions`` text each one carries.
+# message -- one independent Noul per supplied sharing rule for each proposed outbound message
+# (CONTRIBUTING.md section 3: "Independent questions go in one request"). Jev never sees the
+# rule names below, only the ``instructions`` text each one carries.
 PRICING = "pricing"
 CONTACT = "contact"
 RULES = (PRICING, CONTACT)
