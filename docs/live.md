@@ -121,6 +121,14 @@ images=False, long_context=False)`.
   failed attempts, token sums, calls that did not report both counts, request ids). It holds no
   key, state or answers.
 
+`AuditedBackend` can wrap the same instance to count logical `decide()` invocations and emit
+offline execution evidence for a recipe's README budget note; see
+[actual calls and distinct requests](backends.md#actual-calls-and-distinct-requests).
+Its count includes repeated identical requests and failed delegated calls. It is separate from
+`requests_made`: one logical call can retry several HTTP attempts, or spend zero attempts when
+the budget is already exhausted. Distinct fixture keys count neither of those quantities.
+The wrapper forwards the live recorder's attributes and settings to this same backend instance.
+
 An injected `client` is yours: any object with `system_one(state=..., questions=..., model=...)`
 returning an SDK-style response. The backend requires no opt-in or key for it (it reads
 `TYPESAFE_API_KEY` only to scrub that text from error messages). If the client's `system_one` takes
