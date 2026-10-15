@@ -30,16 +30,20 @@ pytest recipes/98-long-context-versus-focused-context-evaluation
 The executor always runs offline. See [development](../../docs/development.md) and
 [notebook setup](../../docs/recipe-template.md) for the pinned environment. Run
 `python build_fixtures.py` from this folder to reproduce the authored data and images.
-The builder checks for recorded responses before changing any file and refuses to overwrite them
-without `--force`. Assets live beside `fixtures/`; only the three fixture JSON files live inside it.
+The builder regenerates inputs, labels, and authored assets from `ROWS` on every run. It refuses
+to overwrite recorded responses without `--force`; a refused run preserves that response file.
+Changing the authored rows can therefore leave regenerated inputs awaiting matching responses.
+Assets live beside `fixtures/`; only the three fixture JSON files live inside it.
 
-## Record an opt-in comparison
+## Switch to live
 
 No live calls were made to build this recipe. A reader who chooses to record installs `.[live]`,
 provides `TYPESAFE_API_KEY` through their environment, and sets `JEV_COOKBOOK_LIVE=1`.
 The notebook pins `jev-1.14.0` and enables the experimental images and long-context headers.
-Set `JEV_COOKBOOK_LIVE_MAX_REQUESTS` deliberately: the small complete run needs **73 logical
-requests** with no retries (1 demo + 40 validation + 32 test), above the backend default of 25.
+Set `JEV_COOKBOOK_LIVE_MAX_REQUESTS` deliberately: the complete small run makes exactly **73**
+requests without retries (1 demo + 40 validation + 32 test), above the backend default of 25.
+The response fixture contains **70 unique replay keys**. Three requests recur across comparison
+arms and remain independent calls; unique-key count is not the live request budget.
 `JEV_RECIPE98_MAX_RETRIES` defaults to 0 and is configurable; retries consume the same backend's
 attempt cap. A capped or failed run stops and preserves its paid-call evidence.
 
@@ -91,14 +95,14 @@ counts only when recorded; those counts, including the actual distance from the 
 are necessary before describing a near-262K comparison. This recipe supplies no unofficial
 token estimator and makes no token claim from character length.
 
-## Sources and related recipes
+## Sources
 
-- [S02 · Primitives](https://docs.typesafe.ai/primitives)
-- [S03 · Confidence](https://docs.typesafe.ai/confidence)
-- [S09 · Images](https://docs.typesafe.ai/images)
-- [S10 · Box](https://docs.typesafe.ai/primitives/box)
-- [S11 · Models and long context](https://docs.typesafe.ai/models)
-- [S12 · Jev 1.14 release](https://typesafe.ai/blog/jev-1-14)
+- S02: [Primitives](https://docs.typesafe.ai/primitives)
+- S03: [Confidence](https://docs.typesafe.ai/confidence)
+- S09: [Images](https://docs.typesafe.ai/images)
+- S10: [Box](https://docs.typesafe.ai/primitives/box)
+- S11: [Models and long context](https://docs.typesafe.ai/models)
+- S12: [Jev 1.14 release](https://typesafe.ai/blog/jev-1-14)
 
 Continue with [semantic context paging](../46-semantic-context-paging/) and
 [multi-agent task assignment](../49-multi-agent-task-assignment/). The

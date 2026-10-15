@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
 from PIL import Image, ImageDraw
@@ -40,6 +41,14 @@ SUBJECTS = {
     "test": ("Heron", "Birch", "Saffron", "Cobalt", "Finch", "Linden", "Wren", "Quartz"),
     "demo": ("Juniper",),
 }
+ROWS = (
+    ("demo", 0, ("ordinary", 1, True)),
+    *(
+        (split, number, case)
+        for split in ("validation", "test")
+        for number, case in enumerate(CASES)
+    ),
+)
 
 
 def bounds(level, offset):
@@ -230,17 +239,11 @@ def final_response(fields, ids, label, case):
     )
 
 
-def build(folder):
+def build(folder, rows=ROWS):
     assets = folder / "assets"
     assets.mkdir(parents=True, exist_ok=True)
     inputs, labels, responses = [], [], {}
-    specs = [("demo", 0, ("ordinary", 1, True))]
-    specs += [
-        (split, number, case)
-        for split in ("validation", "test")
-        for number, case in enumerate(CASES)
-    ]
-    for split, number, (case, level, note_present) in specs:
+    for split, number, (case, level, note_present) in rows:
         task_id = (
             f"{'d' if split == 'demo' else 'v' if split == 'validation' else 't'}{number + 1:02d}"
         )
@@ -332,21 +335,42 @@ def build(folder):
     return inputs, labels, {key: value for key, value in responses.items() if key in used}
 
 
+def build_inputs_and_labels(rows):
+    """Construct inputs/labels independently of any stored response file.
+
+    Replay traces include the validation-selected focused arm, so construction applies
+    the same authored validation pass as the notebook before emitting held-out keys.
+    Images needed to hash those requests are rendered in temporary scratch space.
+    """
+    with TemporaryDirectory(prefix="recipe98-inputs-") as temporary:
+        inputs, labels, _ = build(Path(temporary), rows)
+    return inputs, labels
+
+
+def build_responses(rows):
+    """Construct synthetic responses from authored rows, never by re-dumping fixtures."""
+    with TemporaryDirectory(prefix="recipe98-responses-") as temporary:
+        _, _, responses = build(Path(temporary), rows)
+    return responses
+
+
 def write_fixtures(folder=HERE, *, force=False):
     folder = Path(folder)
     fixture_dir = folder / "fixtures"
     fixture_dir.mkdir(parents=True, exist_ok=True)
     response_path = fixture_dir / "responses.json"
-    # Check before rewriting inputs or assets, keeping a recorded dataset coherent.
-    if response_path.exists() and not force:
-        existing = json.loads(response_path.read_text(encoding="utf-8"))
-        if not existing or any(item.get("model") != "synthetic" for item in existing.values()):
-            raise ValueError("refusing to overwrite recorded or unknown responses; use --force")
     inputs, labels, responses = build(folder)
     for name, rows in (("inputs.jsonl", inputs), ("labels.jsonl", labels)):
         (fixture_dir / name).write_text(
             "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows), encoding="utf-8"
         )
+    if response_path.exists() and not force:
+        existing = json.loads(response_path.read_text(encoding="utf-8"))
+        if not existing or any(item.get("model") != "synthetic" for item in existing.values()):
+            raise ValueError(
+                "refusing to overwrite recorded or unknown responses; use --force. "
+                "Inputs, labels, and authored assets were regenerated; responses were preserved."
+            )
     response_path.write_text(
         json.dumps(dict(sorted(responses.items())), indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
