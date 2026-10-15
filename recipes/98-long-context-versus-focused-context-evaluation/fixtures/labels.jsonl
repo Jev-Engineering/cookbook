@@ -1,0 +1,16 @@
+{"id": "v01", "label": {"audit": "consistent", "present": false, "obstruction": 0, "box": null, "evidence_ids": ["note-d"]}}
+{"id": "v02", "label": {"audit": "contradicted", "present": true, "obstruction": 1, "box": {"left": 0.390625, "right": 0.5442708333333334, "top": 0.440625, "bottom": 0.6}, "evidence_ids": ["note-d"]}}
+{"id": "v03", "label": {"audit": "consistent", "present": true, "obstruction": 2, "box": {"left": 0.2864583333333333, "right": 0.7109375, "top": 0.325, "bottom": 0.746875}, "evidence_ids": ["note-d"]}}
+{"id": "v04", "label": {"audit": "consistent", "present": true, "obstruction": 3, "box": {"left": 0.19270833333333334, "right": 0.4739583333333333, "top": 0.45, "bottom": 0.653125}, "evidence_ids": ["note-d"]}}
+{"id": "v05", "label": {"audit": "unresolved", "present": true, "obstruction": 1, "box": {"left": 0.3932291666666667, "right": 0.546875, "top": 0.440625, "bottom": 0.6}, "evidence_ids": ["note-d", "note-b"]}}
+{"id": "v06", "label": {"audit": "unresolved", "present": false, "obstruction": 0, "box": null, "evidence_ids": []}}
+{"id": "v07", "label": {"audit": "consistent", "present": true, "obstruction": 2, "box": {"left": 0.2942708333333333, "right": 0.71875, "top": 0.325, "bottom": 0.746875}, "evidence_ids": ["note-d"]}}
+{"id": "v08", "label": {"audit": "consistent", "present": true, "obstruction": 1, "box": {"left": 0.4010416666666667, "right": 0.5546875, "top": 0.440625, "bottom": 0.6}, "evidence_ids": ["note-d"]}}
+{"id": "t01", "label": {"audit": "consistent", "present": false, "obstruction": 0, "box": null, "evidence_ids": ["note-d"]}}
+{"id": "t02", "label": {"audit": "contradicted", "present": true, "obstruction": 1, "box": {"left": 0.390625, "right": 0.5442708333333334, "top": 0.440625, "bottom": 0.6}, "evidence_ids": ["note-d"]}}
+{"id": "t03", "label": {"audit": "consistent", "present": true, "obstruction": 2, "box": {"left": 0.2890625, "right": 0.7135416666666666, "top": 0.325, "bottom": 0.746875}, "evidence_ids": ["note-d"]}}
+{"id": "t04", "label": {"audit": "consistent", "present": true, "obstruction": 3, "box": {"left": 0.19270833333333334, "right": 0.4739583333333333, "top": 0.45, "bottom": 0.653125}, "evidence_ids": ["note-d"]}}
+{"id": "t05", "label": {"audit": "unresolved", "present": true, "obstruction": 1, "box": {"left": 0.390625, "right": 0.5442708333333334, "top": 0.440625, "bottom": 0.6}, "evidence_ids": ["note-d", "note-b"]}}
+{"id": "t06", "label": {"audit": "unresolved", "present": false, "obstruction": 0, "box": null, "evidence_ids": []}}
+{"id": "t07", "label": {"audit": "consistent", "present": true, "obstruction": 2, "box": {"left": 0.2942708333333333, "right": 0.71875, "top": 0.325, "bottom": 0.746875}, "evidence_ids": ["note-d"]}}
+{"id": "t08", "label": {"audit": "consistent", "present": true, "obstruction": 1, "box": {"left": 0.3932291666666667, "right": 0.546875, "top": 0.440625, "bottom": 0.6}, "evidence_ids": ["note-d"]}}
