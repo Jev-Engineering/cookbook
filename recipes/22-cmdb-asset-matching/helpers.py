@@ -22,11 +22,11 @@ from jev_cookbook import Choice
 # CMDB-11 to CMDB-15 are each a same-vendor sibling of one of CMDB-06 to CMDB-10, so that an
 # observed asset for any of those five also retrieves a real second candidate instead of standing
 # alone against no_match -- without them, half this catalog would always offer exactly one real
-# candidate, which does not exercise genuine discrimination between options the way the use
-# case's bounded candidate list is meant to. CMDB-16 is a second sibling of CMDB-08: same vendor,
-# product and major version, differing only by edition (Workstation, not Server) -- the
-# instructions' "a different edition ... is not a match" clause has no fixture to exercise it
-# otherwise.
+# candidate, which does not exercise genuine discrimination between options the way
+# the use case's bounded candidate list is meant to. CMDB-16 is a second sibling of CMDB-08:
+# same vendor, product and major version, differing only by edition (Workstation, not Server) --
+# the instructions' "a different edition ... is not a match" clause has no fixture to exercise
+# it otherwise.
 # --------------------------------------------------------------------------------------------
 
 CMDB_RECORDS: dict[str, dict[str, str]] = {
