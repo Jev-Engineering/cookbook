@@ -1,0 +1,24 @@
+{"id": "v01", "label": {"flags": [], "assessable": true, "rationale": "Clear text and separated controls."}}
+{"id": "v02", "label": {"flags": ["clipping"], "assessable": true, "rationale": "Main sentence is cut at the right boundary."}}
+{"id": "v03", "label": {"flags": ["low_contrast"], "assessable": true, "rationale": "Pale main text blends into the paper."}}
+{"id": "v04", "label": {"flags": ["crowding"], "assessable": true, "rationale": "Only two pixels separate the controls."}}
+{"id": "v05", "label": {"flags": ["crowding", "overlap"], "assessable": true, "rationale": "Blue control covers the pink control and its label."}}
+{"id": "v06", "label": {"flags": ["clipping", "low_contrast"], "assessable": true, "rationale": "Faint long text is also visibly cut off."}}
+{"id": "v07", "label": {"flags": [], "assessable": true, "rationale": "Intentional ellipsis is complete; no cut letter strokes."}}
+{"id": "v08", "label": {"flags": [], "assessable": true, "rationale": "Dark theme still has clear bright text."}}
+{"id": "v09", "label": {"flags": [], "assessable": true, "rationale": "Nine-pixel gap is compact but labels and edges remain clear."}}
+{"id": "v10", "label": {"flags": [], "assessable": true, "rationale": "Vertically stacked controls have a clear nine-pixel gap."}}
+{"id": "v11", "label": {"flags": [], "assessable": false, "rationale": "Blur prevents reliable character and boundary judgments."}}
+{"id": "v12", "label": {"flags": [], "assessable": true, "rationale": "Unfamiliar icons are visible; their accessible names cannot be inferred."}}
+{"id": "t01", "label": {"flags": [], "assessable": true, "rationale": "Large bright text and separated controls."}}
+{"id": "t02", "label": {"flags": ["clipping"], "assessable": true, "rationale": "Right edge truncates the longer explanatory text."}}
+{"id": "t03", "label": {"flags": ["low_contrast"], "assessable": true, "rationale": "Grey main text has weak separation from the dark background."}}
+{"id": "t04", "label": {"flags": ["crowding"], "assessable": true, "rationale": "Near-touching controls have cramped labels."}}
+{"id": "t05", "label": {"flags": ["crowding", "overlap"], "assessable": true, "rationale": "One control obscures the other's label."}}
+{"id": "t06", "label": {"flags": ["clipping", "low_contrast"], "assessable": true, "rationale": "Both text defects are visible, but the synthetic clipping answer is unsure."}}
+{"id": "t07", "label": {"flags": [], "assessable": true, "rationale": "The ellipsis is intentional; the synthetic answer is uncertain."}}
+{"id": "t08", "label": {"flags": [], "assessable": true, "rationale": "Benign compact spacing; the stored answer confidently overflags crowding."}}
+{"id": "t09", "label": {"flags": ["low_contrast"], "assessable": true, "rationale": "Faint text; the stored answer confidently misses it."}}
+{"id": "t10", "label": {"flags": [], "assessable": false, "rationale": "Opaque help panel hides the controls; no complete screen can be assessed."}}
+{"id": "t11", "label": {"flags": [], "assessable": false, "rationale": "Blur obscures evidence, despite confident negative flag answers."}}
+{"id": "t12", "label": {"flags": [], "assessable": true, "rationale": "Ambiguous icon meaning is not one of the four visible defect labels."}}
