@@ -1,0 +1,1042 @@
+{
+  "01708f83c200dada318d7eb0f4d0e8e2879b16b50601f745969b067c45983c4b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "conformity": {
+        "type": "score",
+        "score": 1.96,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.05,
+          "2": 0.91,
+          "3": 0.03
+        },
+        "confidence": 0.9,
+        "legend": {
+          "0": "0: No recognizable assembly is present: an empty work area or only a loose base plate. Visual examples: image:sha256:0a24006c555e48f1d4d469e2025986167d8757822073530fae63d7c1445bc3e7",
+          "1": "1: Major nonconformity: the orange keyed slider faces left instead of right, or two or more faults are visible (missing bolts and/or a displaced slider). Visual examples: image:sha256:df8c8fa8d8054194936960ddc1435c8e8ff77d680147a703b506fa7cffef4cb5, image:sha256:f22bfa1f979c73a1dfc23cb78bbe20ea88bd68246d4a8494c58d389750e720f5",
+          "2": "2: One local nonconformity: exactly one bolt is missing OR the right-facing orange slider is displaced from the central guide, with no other visible fault. Visual examples: image:sha256:50e52935b6c8e81533a34aa9c9df511b1a216b4a47a806a7e5788a09d7031b02, image:sha256:bb24156e5ccf3d6c296ba8199567de238ceaede333fef29d9821504bef8a8dc9",
+          "3": "3: Visibly conforming: four bolts are present, the orange keyed slider faces right and sits on the central guide. Changes in lighting and whole-object position are allowed. Visual examples: image:sha256:8815334d368be5ffdf9c7db6d3bd8fd328253dc04416e0c8d71da76cf2859cb8, image:sha256:77eb0a5a4a7d398dc57e06f5bddd7eb3e533c4c0d5ab105ed2e6b3b045205ef1"
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1406d7854587a573be6c54327ea0a4d23ad72946e4eb198b8820e5e6f3e535d0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "conformity": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.91,
+          "2": 0.04,
+          "3": 0.03
+        },
+        "confidence": 0.88,
+        "legend": {
+          "0": "0: No recognizable assembly is present: an empty work area or only a loose base plate. Visual examples: image:sha256:0a24006c555e48f1d4d469e2025986167d8757822073530fae63d7c1445bc3e7",
+          "1": "1: Major nonconformity: the orange keyed slider faces left instead of right, or two or more faults are visible (missing bolts and/or a displaced slider). Visual examples: image:sha256:df8c8fa8d8054194936960ddc1435c8e8ff77d680147a703b506fa7cffef4cb5, image:sha256:f22bfa1f979c73a1dfc23cb78bbe20ea88bd68246d4a8494c58d389750e720f5",
+          "2": "2: One local nonconformity: exactly one bolt is missing OR the right-facing orange slider is displaced from the central guide, with no other visible fault. Visual examples: image:sha256:50e52935b6c8e81533a34aa9c9df511b1a216b4a47a806a7e5788a09d7031b02, image:sha256:bb24156e5ccf3d6c296ba8199567de238ceaede333fef29d9821504bef8a8dc9",
+          "3": "3: Visibly conforming: four bolts are present, the orange keyed slider faces right and sits on the central guide. Changes in lighting and whole-object position are allowed. Visual examples: image:sha256:8815334d368be5ffdf9c7db6d3bd8fd328253dc04416e0c8d71da76cf2859cb8, image:sha256:77eb0a5a4a7d398dc57e06f5bddd7eb3e533c4c0d5ab105ed2e6b3b045205ef1"
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.99,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "17dcc551bce4f6d1db7594b7920e76bcd9c7bc40f5cebff4f594aa41c3b51a90": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "conformity": {
+        "type": "score",
+        "score": 2.21,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.12,
+          "2": 0.43,
+          "3": 0.41
+        },
+        "confidence": 0.39,
+        "legend": {
+          "0": "0: No recognizable assembly is present: an empty work area or only a loose base plate. Visual examples: image:sha256:0a24006c555e48f1d4d469e2025986167d8757822073530fae63d7c1445bc3e7",
+          "1": "1: Major nonconformity: the orange keyed slider faces left instead of right, or two or more faults are visible (missing bolts and/or a displaced slider). Visual examples: image:sha256:df8c8fa8d8054194936960ddc1435c8e8ff77d680147a703b506fa7cffef4cb5, image:sha256:f22bfa1f979c73a1dfc23cb78bbe20ea88bd68246d4a8494c58d389750e720f5",
+          "2": "2: One local nonconformity: exactly one bolt is missing OR the right-facing orange slider is displaced from the central guide, with no other visible fault. Visual examples: image:sha256:50e52935b6c8e81533a34aa9c9df511b1a216b4a47a806a7e5788a09d7031b02, image:sha256:bb24156e5ccf3d6c296ba8199567de238ceaede333fef29d9821504bef8a8dc9",
+          "3": "3: Visibly conforming: four bolts are present, the orange keyed slider faces right and sits on the central guide. Changes in lighting and whole-object position are allowed. Visual examples: image:sha256:8815334d368be5ffdf9c7db6d3bd8fd328253dc04416e0c8d71da76cf2859cb8, image:sha256:77eb0a5a4a7d398dc57e06f5bddd7eb3e533c4c0d5ab105ed2e6b3b045205ef1"
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.4,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "296c08a69c727d459545c39adac349deea9250e981738d4c6357b6f00c4a8598": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "conformity": {
+        "type": "score",
+        "score": 1.98,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.05,
+          "2": 0.89,
+          "3": 0.05
+        },
+        "confidence": 0.88,
+        "legend": {
+          "0": "0: No recognizable assembly is present: an empty work area or only a loose base plate. Visual examples: image:sha256:0a24006c555e48f1d4d469e2025986167d8757822073530fae63d7c1445bc3e7",
+          "1": "1: Major nonconformity: the orange keyed slider faces left instead of right, or two or more faults are visible (missing bolts and/or a displaced slider). Visual examples: image:sha256:df8c8fa8d8054194936960ddc1435c8e8ff77d680147a703b506fa7cffef4cb5, image:sha256:f22bfa1f979c73a1dfc23cb78bbe20ea88bd68246d4a8494c58d389750e720f5",
+          "2": "2: One local nonconformity: exactly one bolt is missing OR the right-facing orange slider is displaced from the central guide, with no other visible fault. Visual examples: image:sha256:50e52935b6c8e81533a34aa9c9df511b1a216b4a47a806a7e5788a09d7031b02, image:sha256:bb24156e5ccf3d6c296ba8199567de238ceaede333fef29d9821504bef8a8dc9",
+          "3": "3: Visibly conforming: four bolts are present, the orange keyed slider faces right and sits on the central guide. Changes in lighting and whole-object position are allowed. Visual examples: image:sha256:8815334d368be5ffdf9c7db6d3bd8fd328253dc04416e0c8d71da76cf2859cb8, image:sha256:77eb0a5a4a7d398dc57e06f5bddd7eb3e533c4c0d5ab105ed2e6b3b045205ef1"
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3aba573632a0e57ab362dc59ebe4e1875d20b32a134a4690f7f9c700654ea298": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "conformity": {
+        "type": "score",
+        "score": 2.8800000000000003,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.02,
+          "2": 0.05,
+          "3": 0.92
+        },
+        "confidence": 0.88,
+        "legend": {
+          "0": "0: No recognizable assembly is present: an empty work area or only a loose base plate. Visual examples: image:sha256:0a24006c555e48f1d4d469e2025986167d8757822073530fae63d7c1445bc3e7",
+          "1": "1: Major nonconformity: the orange keyed slider faces left instead of right, or two or more faults are visible (missing bolts and/or a displaced slider). Visual examples: image:sha256:df8c8fa8d8054194936960ddc1435c8e8ff77d680147a703b506fa7cffef4cb5, image:sha256:f22bfa1f979c73a1dfc23cb78bbe20ea88bd68246d4a8494c58d389750e720f5",
+          "2": "2: One local nonconformity: exactly one bolt is missing OR the right-facing orange slider is displaced from the central guide, with no other visible fault. Visual examples: image:sha256:50e52935b6c8e81533a34aa9c9df511b1a216b4a47a806a7e5788a09d7031b02, image:sha256:bb24156e5ccf3d6c296ba8199567de238ceaede333fef29d9821504bef8a8dc9",
+          "3": "3: Visibly conforming: four bolts are present, the orange keyed slider faces right and sits on the central guide. Changes in lighting and whole-object position are allowed. Visual examples: image:sha256:8815334d368be5ffdf9c7db6d3bd8fd328253dc04416e0c8d71da76cf2859cb8, image:sha256:77eb0a5a4a7d398dc57e06f5bddd7eb3e533c4c0d5ab105ed2e6b3b045205ef1"
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3f60aaa989e577210b14612362969eda3c2f7d13fb323531b2ddde54d286d50f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "conformity": {
+        "type": "score",
+        "score": 2.3200000000000003,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.07,
+          "2": 0.45,
+          "3": 0.45
+        },
+        "confidence": 0.41999999999999993,
+        "legend": {
+          "0": "0: No recognizable assembly is present: an empty work area or only a loose base plate. Visual examples: image:sha256:0a24006c555e48f1d4d469e2025986167d8757822073530fae63d7c1445bc3e7",
+          "1": "1: Major nonconformity: the orange keyed slider faces left instead of right, or two or more faults are visible (missing bolts and/or a displaced slider). Visual examples: image:sha256:df8c8fa8d8054194936960ddc1435c8e8ff77d680147a703b506fa7cffef4cb5, image:sha256:f22bfa1f979c73a1dfc23cb78bbe20ea88bd68246d4a8494c58d389750e720f5",
+          "2": "2: One local nonconformity: exactly one bolt is missing OR the right-facing orange slider is displaced from the central guide, with no other visible fault. Visual examples: image:sha256:50e52935b6c8e81533a34aa9c9df511b1a216b4a47a806a7e5788a09d7031b02, image:sha256:bb24156e5ccf3d6c296ba8199567de238ceaede333fef29d9821504bef8a8dc9",
+          "3": "3: Visibly conforming: four bolts are present, the orange keyed slider faces right and sits on the central guide. Changes in lighting and whole-object position are allowed. Visual examples: image:sha256:8815334d368be5ffdf9c7db6d3bd8fd328253dc04416e0c8d71da76cf2859cb8, image:sha256:77eb0a5a4a7d398dc57e06f5bddd7eb3e533c4c0d5ab105ed2e6b3b045205ef1"
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.35,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4218cb4edaa7abe06a8ad7ac4906c82f16aa71b345411afcc894e881f13ba84d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "conformity": {
+        "type": "score",
+        "score": 1.88,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.17,
+          "2": 0.69,
+          "3": 0.11
+        },
+        "confidence": 0.6599999999999999,
+        "legend": {
+          "0": "0: No recognizable assembly is present: an empty work area or only a loose base plate. Visual examples: image:sha256:0a24006c555e48f1d4d469e2025986167d8757822073530fae63d7c1445bc3e7",
+          "1": "1: Major nonconformity: the orange keyed slider faces left instead of right, or two or more faults are visible (missing bolts and/or a displaced slider). Visual examples: image:sha256:df8c8fa8d8054194936960ddc1435c8e8ff77d680147a703b506fa7cffef4cb5, image:sha256:f22bfa1f979c73a1dfc23cb78bbe20ea88bd68246d4a8494c58d389750e720f5",
+          "2": "2: One local nonconformity: exactly one bolt is missing OR the right-facing orange slider is displaced from the central guide, with no other visible fault. Visual examples: image:sha256:50e52935b6c8e81533a34aa9c9df511b1a216b4a47a806a7e5788a09d7031b02, image:sha256:bb24156e5ccf3d6c296ba8199567de238ceaede333fef29d9821504bef8a8dc9",
+          "3": "3: Visibly conforming: four bolts are present, the orange keyed slider faces right and sits on the central guide. Changes in lighting and whole-object position are allowed. Visual examples: image:sha256:8815334d368be5ffdf9c7db6d3bd8fd328253dc04416e0c8d71da76cf2859cb8, image:sha256:77eb0a5a4a7d398dc57e06f5bddd7eb3e533c4c0d5ab105ed2e6b3b045205ef1"
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "499106c0d9851228f4b6c08c6b531b45e981104e8091bf9c2fd65ddb9309b972": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "conformity": {
+        "type": "score",
+        "score": 1.1,
+        "probabilities": {
+          "0": 0.03,
+          "1": 0.86,
+          "2": 0.09,
+          "3": 0.02
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "0: No recognizable assembly is present: an empty work area or only a loose base plate. Visual examples: image:sha256:0a24006c555e48f1d4d469e2025986167d8757822073530fae63d7c1445bc3e7",
+          "1": "1: Major nonconformity: the orange keyed slider faces left instead of right, or two or more faults are visible (missing bolts and/or a displaced slider). Visual examples: image:sha256:df8c8fa8d8054194936960ddc1435c8e8ff77d680147a703b506fa7cffef4cb5, image:sha256:f22bfa1f979c73a1dfc23cb78bbe20ea88bd68246d4a8494c58d389750e720f5",
+          "2": "2: One local nonconformity: exactly one bolt is missing OR the right-facing orange slider is displaced from the central guide, with no other visible fault. Visual examples: image:sha256:50e52935b6c8e81533a34aa9c9df511b1a216b4a47a806a7e5788a09d7031b02, image:sha256:bb24156e5ccf3d6c296ba8199567de238ceaede333fef29d9821504bef8a8dc9",
+          "3": "3: Visibly conforming: four bolts are present, the orange keyed slider faces right and sits on the central guide. Changes in lighting and whole-object position are allowed. Visual examples: image:sha256:8815334d368be5ffdf9c7db6d3bd8fd328253dc04416e0c8d71da76cf2859cb8, image:sha256:77eb0a5a4a7d398dc57e06f5bddd7eb3e533c4c0d5ab105ed2e6b3b045205ef1"
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4a5c3dc077ffcb1af1faf5e7a7afa3ea227bc26ff9e8cc9cd9e58f609c140f70": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "conformity": {
+        "type": "score",
+        "score": 2.85,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.02,
+          "2": 0.08,
+          "3": 0.89
+        },
+        "confidence": 0.85,
+        "legend": {
+          "0": "0: No recognizable assembly is present: an empty work area or only a loose base plate. Visual examples: image:sha256:0a24006c555e48f1d4d469e2025986167d8757822073530fae63d7c1445bc3e7",
+          "1": "1: Major nonconformity: the orange keyed slider faces left instead of right, or two or more faults are visible (missing bolts and/or a displaced slider). Visual examples: image:sha256:df8c8fa8d8054194936960ddc1435c8e8ff77d680147a703b506fa7cffef4cb5, image:sha256:f22bfa1f979c73a1dfc23cb78bbe20ea88bd68246d4a8494c58d389750e720f5",
+          "2": "2: One local nonconformity: exactly one bolt is missing OR the right-facing orange slider is displaced from the central guide, with no other visible fault. Visual examples: image:sha256:50e52935b6c8e81533a34aa9c9df511b1a216b4a47a806a7e5788a09d7031b02, image:sha256:bb24156e5ccf3d6c296ba8199567de238ceaede333fef29d9821504bef8a8dc9",
+          "3": "3: Visibly conforming: four bolts are present, the orange keyed slider faces right and sits on the central guide. Changes in lighting and whole-object position are allowed. Visual examples: image:sha256:8815334d368be5ffdf9c7db6d3bd8fd328253dc04416e0c8d71da76cf2859cb8, image:sha256:77eb0a5a4a7d398dc57e06f5bddd7eb3e533c4c0d5ab105ed2e6b3b045205ef1"
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4c582a3c5ecf0817c89bfc0a0b40c86b863d67c8c8c17cf74a0734784b088fdd": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "conformity": {
+        "type": "score",
+        "score": 1.98,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.04,
+          "2": 0.91,
+          "3": 0.04
+        },
+        "confidence": 0.9,
+        "legend": {
+          "0": "0: No recognizable assembly is present: an empty work area or only a loose base plate. Visual examples: image:sha256:0a24006c555e48f1d4d469e2025986167d8757822073530fae63d7c1445bc3e7",
+          "1": "1: Major nonconformity: the orange keyed slider faces left instead of right, or two or more faults are visible (missing bolts and/or a displaced slider). Visual examples: image:sha256:df8c8fa8d8054194936960ddc1435c8e8ff77d680147a703b506fa7cffef4cb5, image:sha256:f22bfa1f979c73a1dfc23cb78bbe20ea88bd68246d4a8494c58d389750e720f5",
+          "2": "2: One local nonconformity: exactly one bolt is missing OR the right-facing orange slider is displaced from the central guide, with no other visible fault. Visual examples: image:sha256:50e52935b6c8e81533a34aa9c9df511b1a216b4a47a806a7e5788a09d7031b02, image:sha256:bb24156e5ccf3d6c296ba8199567de238ceaede333fef29d9821504bef8a8dc9",
+          "3": "3: Visibly conforming: four bolts are present, the orange keyed slider faces right and sits on the central guide. Changes in lighting and whole-object position are allowed. Visual examples: image:sha256:8815334d368be5ffdf9c7db6d3bd8fd328253dc04416e0c8d71da76cf2859cb8, image:sha256:77eb0a5a4a7d398dc57e06f5bddd7eb3e533c4c0d5ab105ed2e6b3b045205ef1"
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4d72760998bc9b0f568cf1043daf2325612bbde1bf30523816313b4989f9e1fb": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "conformity": {
+        "type": "score",
+        "score": 0.11,
+        "probabilities": {
+          "0": 0.93,
+          "1": 0.04,
+          "2": 0.02,
+          "3": 0.01
+        },
+        "confidence": 0.89,
+        "legend": {
+          "0": "0: No recognizable assembly is present: an empty work area or only a loose base plate. Visual examples: image:sha256:0a24006c555e48f1d4d469e2025986167d8757822073530fae63d7c1445bc3e7",
+          "1": "1: Major nonconformity: the orange keyed slider faces left instead of right, or two or more faults are visible (missing bolts and/or a displaced slider). Visual examples: image:sha256:df8c8fa8d8054194936960ddc1435c8e8ff77d680147a703b506fa7cffef4cb5, image:sha256:f22bfa1f979c73a1dfc23cb78bbe20ea88bd68246d4a8494c58d389750e720f5",
+          "2": "2: One local nonconformity: exactly one bolt is missing OR the right-facing orange slider is displaced from the central guide, with no other visible fault. Visual examples: image:sha256:50e52935b6c8e81533a34aa9c9df511b1a216b4a47a806a7e5788a09d7031b02, image:sha256:bb24156e5ccf3d6c296ba8199567de238ceaede333fef29d9821504bef8a8dc9",
+          "3": "3: Visibly conforming: four bolts are present, the orange keyed slider faces right and sits on the central guide. Changes in lighting and whole-object position are allowed. Visual examples: image:sha256:8815334d368be5ffdf9c7db6d3bd8fd328253dc04416e0c8d71da76cf2859cb8, image:sha256:77eb0a5a4a7d398dc57e06f5bddd7eb3e533c4c0d5ab105ed2e6b3b045205ef1"
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5ae1bff2966cecc03c9f2e139946cf85a3c432c8ba32fae1964b5d90c36cfcd1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "conformity": {
+        "type": "score",
+        "score": 2.36,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.05,
+          "2": 0.48,
+          "3": 0.45
+        },
+        "confidence": 0.45999999999999996,
+        "legend": {
+          "0": "0: No recognizable assembly is present: an empty work area or only a loose base plate. Visual examples: image:sha256:0a24006c555e48f1d4d469e2025986167d8757822073530fae63d7c1445bc3e7",
+          "1": "1: Major nonconformity: the orange keyed slider faces left instead of right, or two or more faults are visible (missing bolts and/or a displaced slider). Visual examples: image:sha256:df8c8fa8d8054194936960ddc1435c8e8ff77d680147a703b506fa7cffef4cb5, image:sha256:f22bfa1f979c73a1dfc23cb78bbe20ea88bd68246d4a8494c58d389750e720f5",
+          "2": "2: One local nonconformity: exactly one bolt is missing OR the right-facing orange slider is displaced from the central guide, with no other visible fault. Visual examples: image:sha256:50e52935b6c8e81533a34aa9c9df511b1a216b4a47a806a7e5788a09d7031b02, image:sha256:bb24156e5ccf3d6c296ba8199567de238ceaede333fef29d9821504bef8a8dc9",
+          "3": "3: Visibly conforming: four bolts are present, the orange keyed slider faces right and sits on the central guide. Changes in lighting and whole-object position are allowed. Visual examples: image:sha256:8815334d368be5ffdf9c7db6d3bd8fd328253dc04416e0c8d71da76cf2859cb8, image:sha256:77eb0a5a4a7d398dc57e06f5bddd7eb3e533c4c0d5ab105ed2e6b3b045205ef1"
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "66001d6614ddaf98c43a9760505190a51dfd8fff590ed4978b923fe322ad65c8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "conformity": {
+        "type": "score",
+        "score": 2.36,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.03,
+          "2": 0.52,
+          "3": 0.43
+        },
+        "confidence": 0.5,
+        "legend": {
+          "0": "0: No recognizable assembly is present: an empty work area or only a loose base plate. Visual examples: image:sha256:0a24006c555e48f1d4d469e2025986167d8757822073530fae63d7c1445bc3e7",
+          "1": "1: Major nonconformity: the orange keyed slider faces left instead of right, or two or more faults are visible (missing bolts and/or a displaced slider). Visual examples: image:sha256:df8c8fa8d8054194936960ddc1435c8e8ff77d680147a703b506fa7cffef4cb5, image:sha256:f22bfa1f979c73a1dfc23cb78bbe20ea88bd68246d4a8494c58d389750e720f5",
+          "2": "2: One local nonconformity: exactly one bolt is missing OR the right-facing orange slider is displaced from the central guide, with no other visible fault. Visual examples: image:sha256:50e52935b6c8e81533a34aa9c9df511b1a216b4a47a806a7e5788a09d7031b02, image:sha256:bb24156e5ccf3d6c296ba8199567de238ceaede333fef29d9821504bef8a8dc9",
+          "3": "3: Visibly conforming: four bolts are present, the orange keyed slider faces right and sits on the central guide. Changes in lighting and whole-object position are allowed. Visual examples: image:sha256:8815334d368be5ffdf9c7db6d3bd8fd328253dc04416e0c8d71da76cf2859cb8, image:sha256:77eb0a5a4a7d398dc57e06f5bddd7eb3e533c4c0d5ab105ed2e6b3b045205ef1"
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.93,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6c5e04d7a5c1d5789d9addd47861e539ff998f59e5bf60585895eb73ac70b932": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "conformity": {
+        "type": "score",
+        "score": 2.0,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.05,
+          "2": 0.87,
+          "3": 0.07
+        },
+        "confidence": 0.86,
+        "legend": {
+          "0": "0: No recognizable assembly is present: an empty work area or only a loose base plate. Visual examples: image:sha256:0a24006c555e48f1d4d469e2025986167d8757822073530fae63d7c1445bc3e7",
+          "1": "1: Major nonconformity: the orange keyed slider faces left instead of right, or two or more faults are visible (missing bolts and/or a displaced slider). Visual examples: image:sha256:df8c8fa8d8054194936960ddc1435c8e8ff77d680147a703b506fa7cffef4cb5, image:sha256:f22bfa1f979c73a1dfc23cb78bbe20ea88bd68246d4a8494c58d389750e720f5",
+          "2": "2: One local nonconformity: exactly one bolt is missing OR the right-facing orange slider is displaced from the central guide, with no other visible fault. Visual examples: image:sha256:50e52935b6c8e81533a34aa9c9df511b1a216b4a47a806a7e5788a09d7031b02, image:sha256:bb24156e5ccf3d6c296ba8199567de238ceaede333fef29d9821504bef8a8dc9",
+          "3": "3: Visibly conforming: four bolts are present, the orange keyed slider faces right and sits on the central guide. Changes in lighting and whole-object position are allowed. Visual examples: image:sha256:8815334d368be5ffdf9c7db6d3bd8fd328253dc04416e0c8d71da76cf2859cb8, image:sha256:77eb0a5a4a7d398dc57e06f5bddd7eb3e533c4c0d5ab105ed2e6b3b045205ef1"
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8add686a9ac83b604678fce0495877c74c52ba9d27ddb9ac35f946f5f94e0e44": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "conformity": {
+        "type": "score",
+        "score": 2.9099999999999997,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.01,
+          "2": 0.04,
+          "3": 0.94
+        },
+        "confidence": 0.91,
+        "legend": {
+          "0": "0: No recognizable assembly is present: an empty work area or only a loose base plate. Visual examples: image:sha256:0a24006c555e48f1d4d469e2025986167d8757822073530fae63d7c1445bc3e7",
+          "1": "1: Major nonconformity: the orange keyed slider faces left instead of right, or two or more faults are visible (missing bolts and/or a displaced slider). Visual examples: image:sha256:df8c8fa8d8054194936960ddc1435c8e8ff77d680147a703b506fa7cffef4cb5, image:sha256:f22bfa1f979c73a1dfc23cb78bbe20ea88bd68246d4a8494c58d389750e720f5",
+          "2": "2: One local nonconformity: exactly one bolt is missing OR the right-facing orange slider is displaced from the central guide, with no other visible fault. Visual examples: image:sha256:50e52935b6c8e81533a34aa9c9df511b1a216b4a47a806a7e5788a09d7031b02, image:sha256:bb24156e5ccf3d6c296ba8199567de238ceaede333fef29d9821504bef8a8dc9",
+          "3": "3: Visibly conforming: four bolts are present, the orange keyed slider faces right and sits on the central guide. Changes in lighting and whole-object position are allowed. Visual examples: image:sha256:8815334d368be5ffdf9c7db6d3bd8fd328253dc04416e0c8d71da76cf2859cb8, image:sha256:77eb0a5a4a7d398dc57e06f5bddd7eb3e533c4c0d5ab105ed2e6b3b045205ef1"
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "93451120857f2a1981c23c22fadc08b770142cb92547a42a9492a024c7e74cce": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "conformity": {
+        "type": "score",
+        "score": 2.9199999999999995,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.01,
+          "2": 0.03,
+          "3": 0.95
+        },
+        "confidence": 0.92,
+        "legend": {
+          "0": "0: No recognizable assembly is present: an empty work area or only a loose base plate. Visual examples: image:sha256:0a24006c555e48f1d4d469e2025986167d8757822073530fae63d7c1445bc3e7",
+          "1": "1: Major nonconformity: the orange keyed slider faces left instead of right, or two or more faults are visible (missing bolts and/or a displaced slider). Visual examples: image:sha256:df8c8fa8d8054194936960ddc1435c8e8ff77d680147a703b506fa7cffef4cb5, image:sha256:f22bfa1f979c73a1dfc23cb78bbe20ea88bd68246d4a8494c58d389750e720f5",
+          "2": "2: One local nonconformity: exactly one bolt is missing OR the right-facing orange slider is displaced from the central guide, with no other visible fault. Visual examples: image:sha256:50e52935b6c8e81533a34aa9c9df511b1a216b4a47a806a7e5788a09d7031b02, image:sha256:bb24156e5ccf3d6c296ba8199567de238ceaede333fef29d9821504bef8a8dc9",
+          "3": "3: Visibly conforming: four bolts are present, the orange keyed slider faces right and sits on the central guide. Changes in lighting and whole-object position are allowed. Visual examples: image:sha256:8815334d368be5ffdf9c7db6d3bd8fd328253dc04416e0c8d71da76cf2859cb8, image:sha256:77eb0a5a4a7d398dc57e06f5bddd7eb3e533c4c0d5ab105ed2e6b3b045205ef1"
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.12,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a031710ff52cb2f6b26a954453676a51e6aae6c2df1b9573eb7fd4664f82cd51": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "conformity": {
+        "type": "score",
+        "score": 0.14,
+        "probabilities": {
+          "0": 0.91,
+          "1": 0.05,
+          "2": 0.03,
+          "3": 0.01
+        },
+        "confidence": 0.86,
+        "legend": {
+          "0": "0: No recognizable assembly is present: an empty work area or only a loose base plate. Visual examples: image:sha256:0a24006c555e48f1d4d469e2025986167d8757822073530fae63d7c1445bc3e7",
+          "1": "1: Major nonconformity: the orange keyed slider faces left instead of right, or two or more faults are visible (missing bolts and/or a displaced slider). Visual examples: image:sha256:df8c8fa8d8054194936960ddc1435c8e8ff77d680147a703b506fa7cffef4cb5, image:sha256:f22bfa1f979c73a1dfc23cb78bbe20ea88bd68246d4a8494c58d389750e720f5",
+          "2": "2: One local nonconformity: exactly one bolt is missing OR the right-facing orange slider is displaced from the central guide, with no other visible fault. Visual examples: image:sha256:50e52935b6c8e81533a34aa9c9df511b1a216b4a47a806a7e5788a09d7031b02, image:sha256:bb24156e5ccf3d6c296ba8199567de238ceaede333fef29d9821504bef8a8dc9",
+          "3": "3: Visibly conforming: four bolts are present, the orange keyed slider faces right and sits on the central guide. Changes in lighting and whole-object position are allowed. Visual examples: image:sha256:8815334d368be5ffdf9c7db6d3bd8fd328253dc04416e0c8d71da76cf2859cb8, image:sha256:77eb0a5a4a7d398dc57e06f5bddd7eb3e533c4c0d5ab105ed2e6b3b045205ef1"
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.99,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "aba50ea086daafcb96eca00fd4e058b899382d851d25baeb57b70d5d07edfab6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "conformity": {
+        "type": "score",
+        "score": 1.97,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.05,
+          "2": 0.87,
+          "3": 0.06
+        },
+        "confidence": 0.85,
+        "legend": {
+          "0": "0: No recognizable assembly is present: an empty work area or only a loose base plate. Visual examples: image:sha256:0a24006c555e48f1d4d469e2025986167d8757822073530fae63d7c1445bc3e7",
+          "1": "1: Major nonconformity: the orange keyed slider faces left instead of right, or two or more faults are visible (missing bolts and/or a displaced slider). Visual examples: image:sha256:df8c8fa8d8054194936960ddc1435c8e8ff77d680147a703b506fa7cffef4cb5, image:sha256:f22bfa1f979c73a1dfc23cb78bbe20ea88bd68246d4a8494c58d389750e720f5",
+          "2": "2: One local nonconformity: exactly one bolt is missing OR the right-facing orange slider is displaced from the central guide, with no other visible fault. Visual examples: image:sha256:50e52935b6c8e81533a34aa9c9df511b1a216b4a47a806a7e5788a09d7031b02, image:sha256:bb24156e5ccf3d6c296ba8199567de238ceaede333fef29d9821504bef8a8dc9",
+          "3": "3: Visibly conforming: four bolts are present, the orange keyed slider faces right and sits on the central guide. Changes in lighting and whole-object position are allowed. Visual examples: image:sha256:8815334d368be5ffdf9c7db6d3bd8fd328253dc04416e0c8d71da76cf2859cb8, image:sha256:77eb0a5a4a7d398dc57e06f5bddd7eb3e533c4c0d5ab105ed2e6b3b045205ef1"
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b4385eb69fb5926564825118c430f573fe9ec767e794df5c692ee5f232e3ff11": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "conformity": {
+        "type": "score",
+        "score": 2.9299999999999997,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.01,
+          "2": 0.02,
+          "3": 0.96
+        },
+        "confidence": 0.9299999999999999,
+        "legend": {
+          "0": "0: No recognizable assembly is present: an empty work area or only a loose base plate. Visual examples: image:sha256:0a24006c555e48f1d4d469e2025986167d8757822073530fae63d7c1445bc3e7",
+          "1": "1: Major nonconformity: the orange keyed slider faces left instead of right, or two or more faults are visible (missing bolts and/or a displaced slider). Visual examples: image:sha256:df8c8fa8d8054194936960ddc1435c8e8ff77d680147a703b506fa7cffef4cb5, image:sha256:f22bfa1f979c73a1dfc23cb78bbe20ea88bd68246d4a8494c58d389750e720f5",
+          "2": "2: One local nonconformity: exactly one bolt is missing OR the right-facing orange slider is displaced from the central guide, with no other visible fault. Visual examples: image:sha256:50e52935b6c8e81533a34aa9c9df511b1a216b4a47a806a7e5788a09d7031b02, image:sha256:bb24156e5ccf3d6c296ba8199567de238ceaede333fef29d9821504bef8a8dc9",
+          "3": "3: Visibly conforming: four bolts are present, the orange keyed slider faces right and sits on the central guide. Changes in lighting and whole-object position are allowed. Visual examples: image:sha256:8815334d368be5ffdf9c7db6d3bd8fd328253dc04416e0c8d71da76cf2859cb8, image:sha256:77eb0a5a4a7d398dc57e06f5bddd7eb3e533c4c0d5ab105ed2e6b3b045205ef1"
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bfe4e3b9e52aed88c9f2caff70ee7742536b55ffd6be2fba12cec4283d771281": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "conformity": {
+        "type": "score",
+        "score": 2.8400000000000003,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.02,
+          "2": 0.09,
+          "3": 0.88
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "0: No recognizable assembly is present: an empty work area or only a loose base plate. Visual examples: image:sha256:0a24006c555e48f1d4d469e2025986167d8757822073530fae63d7c1445bc3e7",
+          "1": "1: Major nonconformity: the orange keyed slider faces left instead of right, or two or more faults are visible (missing bolts and/or a displaced slider). Visual examples: image:sha256:df8c8fa8d8054194936960ddc1435c8e8ff77d680147a703b506fa7cffef4cb5, image:sha256:f22bfa1f979c73a1dfc23cb78bbe20ea88bd68246d4a8494c58d389750e720f5",
+          "2": "2: One local nonconformity: exactly one bolt is missing OR the right-facing orange slider is displaced from the central guide, with no other visible fault. Visual examples: image:sha256:50e52935b6c8e81533a34aa9c9df511b1a216b4a47a806a7e5788a09d7031b02, image:sha256:bb24156e5ccf3d6c296ba8199567de238ceaede333fef29d9821504bef8a8dc9",
+          "3": "3: Visibly conforming: four bolts are present, the orange keyed slider faces right and sits on the central guide. Changes in lighting and whole-object position are allowed. Visual examples: image:sha256:8815334d368be5ffdf9c7db6d3bd8fd328253dc04416e0c8d71da76cf2859cb8, image:sha256:77eb0a5a4a7d398dc57e06f5bddd7eb3e533c4c0d5ab105ed2e6b3b045205ef1"
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c7f3bc37684262e5b1c8f0dc607e604b8cf89f861866cc8304eebab2d0ffd60e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "conformity": {
+        "type": "score",
+        "score": 2.63,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.04,
+          "2": 0.26,
+          "3": 0.69
+        },
+        "confidence": 0.63,
+        "legend": {
+          "0": "0: No recognizable assembly is present: an empty work area or only a loose base plate. Visual examples: image:sha256:0a24006c555e48f1d4d469e2025986167d8757822073530fae63d7c1445bc3e7",
+          "1": "1: Major nonconformity: the orange keyed slider faces left instead of right, or two or more faults are visible (missing bolts and/or a displaced slider). Visual examples: image:sha256:df8c8fa8d8054194936960ddc1435c8e8ff77d680147a703b506fa7cffef4cb5, image:sha256:f22bfa1f979c73a1dfc23cb78bbe20ea88bd68246d4a8494c58d389750e720f5",
+          "2": "2: One local nonconformity: exactly one bolt is missing OR the right-facing orange slider is displaced from the central guide, with no other visible fault. Visual examples: image:sha256:50e52935b6c8e81533a34aa9c9df511b1a216b4a47a806a7e5788a09d7031b02, image:sha256:bb24156e5ccf3d6c296ba8199567de238ceaede333fef29d9821504bef8a8dc9",
+          "3": "3: Visibly conforming: four bolts are present, the orange keyed slider faces right and sits on the central guide. Changes in lighting and whole-object position are allowed. Visual examples: image:sha256:8815334d368be5ffdf9c7db6d3bd8fd328253dc04416e0c8d71da76cf2859cb8, image:sha256:77eb0a5a4a7d398dc57e06f5bddd7eb3e533c4c0d5ab105ed2e6b3b045205ef1"
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "dd382284ec0aed28b8717d361946fcad360c9d599c8bce5dad950495e8f5cc87": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "conformity": {
+        "type": "score",
+        "score": 1.98,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.12,
+          "2": 0.72,
+          "3": 0.14
+        },
+        "confidence": 0.7,
+        "legend": {
+          "0": "0: No recognizable assembly is present: an empty work area or only a loose base plate. Visual examples: image:sha256:0a24006c555e48f1d4d469e2025986167d8757822073530fae63d7c1445bc3e7",
+          "1": "1: Major nonconformity: the orange keyed slider faces left instead of right, or two or more faults are visible (missing bolts and/or a displaced slider). Visual examples: image:sha256:df8c8fa8d8054194936960ddc1435c8e8ff77d680147a703b506fa7cffef4cb5, image:sha256:f22bfa1f979c73a1dfc23cb78bbe20ea88bd68246d4a8494c58d389750e720f5",
+          "2": "2: One local nonconformity: exactly one bolt is missing OR the right-facing orange slider is displaced from the central guide, with no other visible fault. Visual examples: image:sha256:50e52935b6c8e81533a34aa9c9df511b1a216b4a47a806a7e5788a09d7031b02, image:sha256:bb24156e5ccf3d6c296ba8199567de238ceaede333fef29d9821504bef8a8dc9",
+          "3": "3: Visibly conforming: four bolts are present, the orange keyed slider faces right and sits on the central guide. Changes in lighting and whole-object position are allowed. Visual examples: image:sha256:8815334d368be5ffdf9c7db6d3bd8fd328253dc04416e0c8d71da76cf2859cb8, image:sha256:77eb0a5a4a7d398dc57e06f5bddd7eb3e533c4c0d5ab105ed2e6b3b045205ef1"
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e3fcb0c2b579da7f7f6d8e8a030007fcf8c25171be596b08e7028101eaf507d8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "conformity": {
+        "type": "score",
+        "score": 2.9299999999999997,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.01,
+          "2": 0.02,
+          "3": 0.96
+        },
+        "confidence": 0.9299999999999999,
+        "legend": {
+          "0": "0: No recognizable assembly is present: an empty work area or only a loose base plate. Visual examples: image:sha256:0a24006c555e48f1d4d469e2025986167d8757822073530fae63d7c1445bc3e7",
+          "1": "1: Major nonconformity: the orange keyed slider faces left instead of right, or two or more faults are visible (missing bolts and/or a displaced slider). Visual examples: image:sha256:df8c8fa8d8054194936960ddc1435c8e8ff77d680147a703b506fa7cffef4cb5, image:sha256:f22bfa1f979c73a1dfc23cb78bbe20ea88bd68246d4a8494c58d389750e720f5",
+          "2": "2: One local nonconformity: exactly one bolt is missing OR the right-facing orange slider is displaced from the central guide, with no other visible fault. Visual examples: image:sha256:50e52935b6c8e81533a34aa9c9df511b1a216b4a47a806a7e5788a09d7031b02, image:sha256:bb24156e5ccf3d6c296ba8199567de238ceaede333fef29d9821504bef8a8dc9",
+          "3": "3: Visibly conforming: four bolts are present, the orange keyed slider faces right and sits on the central guide. Changes in lighting and whole-object position are allowed. Visual examples: image:sha256:8815334d368be5ffdf9c7db6d3bd8fd328253dc04416e0c8d71da76cf2859cb8, image:sha256:77eb0a5a4a7d398dc57e06f5bddd7eb3e533c4c0d5ab105ed2e6b3b045205ef1"
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ebd107029ef6e8c6b648438bf1526044efd9472af4566327bcab8920f4aa4c1d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "conformity": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.9,
+          "2": 0.06,
+          "3": 0.02
+        },
+        "confidence": 0.88,
+        "legend": {
+          "0": "0: No recognizable assembly is present: an empty work area or only a loose base plate. Visual examples: image:sha256:0a24006c555e48f1d4d469e2025986167d8757822073530fae63d7c1445bc3e7",
+          "1": "1: Major nonconformity: the orange keyed slider faces left instead of right, or two or more faults are visible (missing bolts and/or a displaced slider). Visual examples: image:sha256:df8c8fa8d8054194936960ddc1435c8e8ff77d680147a703b506fa7cffef4cb5, image:sha256:f22bfa1f979c73a1dfc23cb78bbe20ea88bd68246d4a8494c58d389750e720f5",
+          "2": "2: One local nonconformity: exactly one bolt is missing OR the right-facing orange slider is displaced from the central guide, with no other visible fault. Visual examples: image:sha256:50e52935b6c8e81533a34aa9c9df511b1a216b4a47a806a7e5788a09d7031b02, image:sha256:bb24156e5ccf3d6c296ba8199567de238ceaede333fef29d9821504bef8a8dc9",
+          "3": "3: Visibly conforming: four bolts are present, the orange keyed slider faces right and sits on the central guide. Changes in lighting and whole-object position are allowed. Visual examples: image:sha256:8815334d368be5ffdf9c7db6d3bd8fd328253dc04416e0c8d71da76cf2859cb8, image:sha256:77eb0a5a4a7d398dc57e06f5bddd7eb3e533c4c0d5ab105ed2e6b3b045205ef1"
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f3efa8a29cc2e508c4dd6849284e63cf411ffca879cfdf88d2deff8ee3e75470": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "conformity": {
+        "type": "score",
+        "score": 2.89,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.01,
+          "2": 0.06,
+          "3": 0.92
+        },
+        "confidence": 0.89,
+        "legend": {
+          "0": "0: No recognizable assembly is present: an empty work area or only a loose base plate. Visual examples: image:sha256:0a24006c555e48f1d4d469e2025986167d8757822073530fae63d7c1445bc3e7",
+          "1": "1: Major nonconformity: the orange keyed slider faces left instead of right, or two or more faults are visible (missing bolts and/or a displaced slider). Visual examples: image:sha256:df8c8fa8d8054194936960ddc1435c8e8ff77d680147a703b506fa7cffef4cb5, image:sha256:f22bfa1f979c73a1dfc23cb78bbe20ea88bd68246d4a8494c58d389750e720f5",
+          "2": "2: One local nonconformity: exactly one bolt is missing OR the right-facing orange slider is displaced from the central guide, with no other visible fault. Visual examples: image:sha256:50e52935b6c8e81533a34aa9c9df511b1a216b4a47a806a7e5788a09d7031b02, image:sha256:bb24156e5ccf3d6c296ba8199567de238ceaede333fef29d9821504bef8a8dc9",
+          "3": "3: Visibly conforming: four bolts are present, the orange keyed slider faces right and sits on the central guide. Changes in lighting and whole-object position are allowed. Visual examples: image:sha256:8815334d368be5ffdf9c7db6d3bd8fd328253dc04416e0c8d71da76cf2859cb8, image:sha256:77eb0a5a4a7d398dc57e06f5bddd7eb3e533c4c0d5ab105ed2e6b3b045205ef1"
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f7067b2f62f1a43e47f6b474149c6125f3d543d85c900252e351fd3d32ce10f6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "conformity": {
+        "type": "score",
+        "score": 1.07,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.9,
+          "2": 0.07,
+          "3": 0.01
+        },
+        "confidence": 0.89,
+        "legend": {
+          "0": "0: No recognizable assembly is present: an empty work area or only a loose base plate. Visual examples: image:sha256:0a24006c555e48f1d4d469e2025986167d8757822073530fae63d7c1445bc3e7",
+          "1": "1: Major nonconformity: the orange keyed slider faces left instead of right, or two or more faults are visible (missing bolts and/or a displaced slider). Visual examples: image:sha256:df8c8fa8d8054194936960ddc1435c8e8ff77d680147a703b506fa7cffef4cb5, image:sha256:f22bfa1f979c73a1dfc23cb78bbe20ea88bd68246d4a8494c58d389750e720f5",
+          "2": "2: One local nonconformity: exactly one bolt is missing OR the right-facing orange slider is displaced from the central guide, with no other visible fault. Visual examples: image:sha256:50e52935b6c8e81533a34aa9c9df511b1a216b4a47a806a7e5788a09d7031b02, image:sha256:bb24156e5ccf3d6c296ba8199567de238ceaede333fef29d9821504bef8a8dc9",
+          "3": "3: Visibly conforming: four bolts are present, the orange keyed slider faces right and sits on the central guide. Changes in lighting and whole-object position are allowed. Visual examples: image:sha256:8815334d368be5ffdf9c7db6d3bd8fd328253dc04416e0c8d71da76cf2859cb8, image:sha256:77eb0a5a4a7d398dc57e06f5bddd7eb3e533c4c0d5ab105ed2e6b3b045205ef1"
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
