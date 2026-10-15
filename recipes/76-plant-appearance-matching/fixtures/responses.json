@@ -1,0 +1,678 @@
+{
+  "0384fc79614881cfe5aef397ee0bdaf2e2507312493399fb8fbb52527406663b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "group": {
+        "type": "choice",
+        "choice": "needlelike",
+        "probabilities": {
+          "broadleaf": 0.035,
+          "needlelike": 0.86,
+          "rosette": 0.035,
+          "fernlike": 0.035,
+          "unknown": 0.035
+        },
+        "confidence": 0.8249999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0a9d41442a49bdf84fe22d0fe34bc7a60d1bc2676a2d82ef30b7438f5d9430fa": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "group": {
+        "type": "choice",
+        "choice": "broadleaf",
+        "probabilities": {
+          "broadleaf": 0.9,
+          "needlelike": 0.024999999999999994,
+          "rosette": 0.024999999999999994,
+          "fernlike": 0.024999999999999994,
+          "unknown": 0.024999999999999994
+        },
+        "confidence": 0.8749999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "305a8f32a90a9d2b4a6d2dbf44735592be3c542ee0b153bc4ca7beae2e98bde2": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "group": {
+        "type": "choice",
+        "choice": "rosette",
+        "probabilities": {
+          "broadleaf": 0.03,
+          "needlelike": 0.03,
+          "rosette": 0.88,
+          "fernlike": 0.03,
+          "unknown": 0.03
+        },
+        "confidence": 0.8499999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "35ad194f26b977bcf6b9e571fddc9a2f15effa3914ea45c1fbc73c5f67fdd879": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "group": {
+        "type": "choice",
+        "choice": "broadleaf",
+        "probabilities": {
+          "broadleaf": 0.92,
+          "needlelike": 0.01999999999999999,
+          "rosette": 0.01999999999999999,
+          "fernlike": 0.01999999999999999,
+          "unknown": 0.01999999999999999
+        },
+        "confidence": 0.8999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3bd687d6f8a7020d44fcb61f218adc92c7fab62499fd8902c345875a5aacb7da": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "group": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "broadleaf": 0.01999999999999999,
+          "needlelike": 0.01999999999999999,
+          "rosette": 0.01999999999999999,
+          "fernlike": 0.01999999999999999,
+          "unknown": 0.92
+        },
+        "confidence": 0.8999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5425295503986b2846df612831d97a0ff524e405ee7f37579a3543bda5a6169d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "group": {
+        "type": "choice",
+        "choice": "needlelike",
+        "probabilities": {
+          "broadleaf": 0.027499999999999997,
+          "needlelike": 0.89,
+          "rosette": 0.027499999999999997,
+          "fernlike": 0.027499999999999997,
+          "unknown": 0.027499999999999997
+        },
+        "confidence": 0.8624999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5ce4b0e9b1b22106da52df937d3cf28206aed7011d1a4ba2cb73a7b82e78ffae": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "group": {
+        "type": "choice",
+        "choice": "fernlike",
+        "probabilities": {
+          "broadleaf": 0.03,
+          "needlelike": 0.03,
+          "rosette": 0.03,
+          "fernlike": 0.88,
+          "unknown": 0.03
+        },
+        "confidence": 0.8499999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "74ca12e716ef685d81202cd6038c26786f689cad2bfa6f3cf53007595e9a6ff2": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "group": {
+        "type": "choice",
+        "choice": "broadleaf",
+        "probabilities": {
+          "broadleaf": 0.7,
+          "needlelike": 0.07500000000000001,
+          "rosette": 0.07500000000000001,
+          "fernlike": 0.07500000000000001,
+          "unknown": 0.07500000000000001
+        },
+        "confidence": 0.6249999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "79968f00ca718a80a853b56432920eba655836326823dc02fc444751dfe9d629": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "group": {
+        "type": "choice",
+        "choice": "broadleaf",
+        "probabilities": {
+          "broadleaf": 0.64,
+          "needlelike": 0.09,
+          "rosette": 0.09,
+          "fernlike": 0.09,
+          "unknown": 0.09
+        },
+        "confidence": 0.5499999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8a993f9cb20fd755a419ca35ec276dd9bc064e75584b9ae63b81c272fe9ca137": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "group": {
+        "type": "choice",
+        "choice": "broadleaf",
+        "probabilities": {
+          "broadleaf": 0.84,
+          "needlelike": 0.04000000000000001,
+          "rosette": 0.04000000000000001,
+          "fernlike": 0.04000000000000001,
+          "unknown": 0.04000000000000001
+        },
+        "confidence": 0.7999999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "adad73b77e0577e19db34bc4e91762291803b2fc7d13655abef900e1fee908af": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "group": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "broadleaf": 0.024999999999999994,
+          "needlelike": 0.024999999999999994,
+          "rosette": 0.024999999999999994,
+          "fernlike": 0.024999999999999994,
+          "unknown": 0.9
+        },
+        "confidence": 0.8749999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b2d6f229344f534298148395f8a912367fa414d463950defccdb60cf229c8bbd": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "group": {
+        "type": "choice",
+        "choice": "rosette",
+        "probabilities": {
+          "broadleaf": 0.024999999999999994,
+          "needlelike": 0.024999999999999994,
+          "rosette": 0.9,
+          "fernlike": 0.024999999999999994,
+          "unknown": 0.024999999999999994
+        },
+        "confidence": 0.8749999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bb03c6c07727e94edeb3ae2fb87b8d9cb9d531cf02c236492ef0887b32c28c55": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "group": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "broadleaf": 0.010000000000000009,
+          "needlelike": 0.010000000000000009,
+          "rosette": 0.010000000000000009,
+          "fernlike": 0.010000000000000009,
+          "unknown": 0.96
+        },
+        "confidence": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bf9343e369287d2ded50458d9073a3a5f19676cfce790b0c841e106f10667a22": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "group": {
+        "type": "choice",
+        "choice": "fernlike",
+        "probabilities": {
+          "broadleaf": 0.06,
+          "needlelike": 0.06,
+          "rosette": 0.06,
+          "fernlike": 0.76,
+          "unknown": 0.06
+        },
+        "confidence": 0.7000000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c3b32ebacdcef2f9d2d6f87ec240a519cd8e1d7d69070598b86f86b7cf6fa28e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "group": {
+        "type": "choice",
+        "choice": "rosette",
+        "probabilities": {
+          "broadleaf": 0.1,
+          "needlelike": 0.1,
+          "rosette": 0.6,
+          "fernlike": 0.1,
+          "unknown": 0.1
+        },
+        "confidence": 0.49999999999999994,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c63d269482a0880c8b7b5fbe1660872f3aad21684d4f257d07f6b8e4b2c63d0d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "group": {
+        "type": "choice",
+        "choice": "fernlike",
+        "probabilities": {
+          "broadleaf": 0.04500000000000001,
+          "needlelike": 0.04500000000000001,
+          "rosette": 0.04500000000000001,
+          "fernlike": 0.82,
+          "unknown": 0.04500000000000001
+        },
+        "confidence": 0.7749999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d5e2aed21d9b7acf63e498a56f40ba6479b83099d35a4ef464d013073f13e835": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "group": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "broadleaf": 0.03,
+          "needlelike": 0.03,
+          "rosette": 0.03,
+          "fernlike": 0.03,
+          "unknown": 0.88
+        },
+        "confidence": 0.8499999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "dea181c6abfba5be4102c57ab2264440d02bd8cc6f3302a06151e2c87df0e072": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "group": {
+        "type": "choice",
+        "choice": "needlelike",
+        "probabilities": {
+          "broadleaf": 0.015000000000000013,
+          "needlelike": 0.94,
+          "rosette": 0.015000000000000013,
+          "fernlike": 0.015000000000000013,
+          "unknown": 0.015000000000000013
+        },
+        "confidence": 0.9249999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ded38be8c04230479b62df09db3b653dce5fe0b0a0e4a414da33a81c8325c62a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "group": {
+        "type": "choice",
+        "choice": "fernlike",
+        "probabilities": {
+          "broadleaf": 0.022499999999999992,
+          "needlelike": 0.022499999999999992,
+          "rosette": 0.022499999999999992,
+          "fernlike": 0.91,
+          "unknown": 0.022499999999999992
+        },
+        "confidence": 0.8875,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "dfe93414c1213f27f9b1971ead64257e7d4acbe14f0a16f008c06747b20f882f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "group": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "broadleaf": 0.017499999999999988,
+          "needlelike": 0.017499999999999988,
+          "rosette": 0.017499999999999988,
+          "fernlike": 0.017499999999999988,
+          "unknown": 0.93
+        },
+        "confidence": 0.9125,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e7a3801bb1d691c41a2d0ece6a128baed98f1e604ad58d04b095c38ea2dda71f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "group": {
+        "type": "choice",
+        "choice": "fernlike",
+        "probabilities": {
+          "broadleaf": 0.027499999999999997,
+          "needlelike": 0.027499999999999997,
+          "rosette": 0.027499999999999997,
+          "fernlike": 0.89,
+          "unknown": 0.027499999999999997
+        },
+        "confidence": 0.8624999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "eea0bab15b6c9193aaa29d0251904419c8fe19fb8fef811934b80980fd261433": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "group": {
+        "type": "choice",
+        "choice": "broadleaf",
+        "probabilities": {
+          "broadleaf": 0.66,
+          "needlelike": 0.08499999999999999,
+          "rosette": 0.08499999999999999,
+          "fernlike": 0.08499999999999999,
+          "unknown": 0.08499999999999999
+        },
+        "confidence": 0.575,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "eebc7caefa547c871c2626caf0f5caaa495cdae382adc40d1b596cc88d711752": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "group": {
+        "type": "choice",
+        "choice": "rosette",
+        "probabilities": {
+          "broadleaf": 0.05499999999999999,
+          "needlelike": 0.05499999999999999,
+          "rosette": 0.78,
+          "fernlike": 0.05499999999999999,
+          "unknown": 0.05499999999999999
+        },
+        "confidence": 0.7250000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f8c958c15629525a1fc79658fb229b0db5da642a766ec90d61adb5382fcb2df9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "group": {
+        "type": "choice",
+        "choice": "needlelike",
+        "probabilities": {
+          "broadleaf": 0.022499999999999992,
+          "needlelike": 0.91,
+          "rosette": 0.022499999999999992,
+          "fernlike": 0.022499999999999992,
+          "unknown": 0.022499999999999992
+        },
+        "confidence": 0.8875,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f8e64bf995a271821c31c7894af30c99447aa47d402630b35f29b2e12a2f676e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "group": {
+        "type": "choice",
+        "choice": "broadleaf",
+        "probabilities": {
+          "broadleaf": 0.82,
+          "needlelike": 0.04500000000000001,
+          "rosette": 0.04500000000000001,
+          "fernlike": 0.04500000000000001,
+          "unknown": 0.04500000000000001
+        },
+        "confidence": 0.7749999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "fad1b9c0d6c581ae4a5e262ab90dd077a8bdb670781f9ed4faad8a4a7b529377": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "group": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "broadleaf": 0.015000000000000013,
+          "needlelike": 0.015000000000000013,
+          "rosette": 0.015000000000000013,
+          "fernlike": 0.015000000000000013,
+          "unknown": 0.94
+        },
+        "confidence": 0.9249999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
