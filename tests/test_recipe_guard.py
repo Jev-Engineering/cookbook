@@ -181,9 +181,12 @@ Scope decisions (see the pull request body for the full reasoning):
   builds the questions it sends, so every proposition this finds is one a live run asks about,
   under whatever name the recipe's own code gave it, never a name or spelling this check
   supplies. The converse does not hold: it finds what zero-argument calls reach, not
-  everything the recipe builds (recipe 39, below). Measured against the published set, 51 such calls
-  (the 50 published recipes plus ``recipes/_template``) opened no file, printed nothing, raised
-  nothing, and took 0.2s in total -- a measurement of today's set, not a contract: see
+  everything the recipe builds (recipe 39, below). Measured against the published set, 51
+  such function calls across 49 published recipes plus the template (43 of the 50
+  ``helpers.py`` modules define at least one) opened no file, printed nothing and raised
+  nothing; the calls themselves took about 0.015s, and the whole discovery sweep, including
+  ``load_helpers`` for all 50 modules, about 0.2s -- a measurement of today's set, not a
+  contract: see
   ``_noul_propositions`` for what those calls include besides question builders. Ten published
   recipes expose two or more ``Noul`` propositions to this route (06, 25, 26, 31, 35, 37, 41,
   42, 44, 48) and every one already carries a gold-true and a gold-false row for every
@@ -2168,8 +2171,9 @@ def _noul_propositions(recipe_dir_: Path) -> dict[str, list[str]]:
 
     Calling an arbitrary zero-argument function is safe here only because it was MEASURED to be
     on today's published set, not because any contract says so (CONTRIBUTING.md makes no such
-    promise): 51 calls -- the 50 published recipes plus ``recipes/_template`` -- opened no file,
-    wrote no output, raised nothing, and took 0.2s in total. They are not all question
+    promise): 51 function calls across 49 published recipes plus the template opened no file,
+    wrote no output and raised nothing; the calls took about 0.015s, the whole sweep including
+    ``load_helpers`` for all 50 modules about 0.2s. They are not all question
     builders: 36's ``enumerate_game_space`` (a brute-force search over card permutations, the
     one call that does real work -- 13ms at today's ``N_CARDS``, but its cost is bounded by
     nothing this check controls), 43's private ``_new_budget`` and ``worst_case_step_bound``,
