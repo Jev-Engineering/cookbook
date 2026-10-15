@@ -963,7 +963,9 @@ def record(
         elif len(request) == 3:
             state, questions, assets = request
         else:
-            raise ValueError("record requests must be (state, questions) or (state, questions, assets)")
+            raise ValueError(
+                "record requests must be (state, questions) or (state, questions, assets)"
+            )
         key = replay_key(state, questions, assets=assets)
         if key in seen:
             continue

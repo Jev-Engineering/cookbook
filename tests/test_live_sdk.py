@@ -113,9 +113,7 @@ def test_real_sdk_image_multipart_and_box(confidence):
         seen.append(request)
         return httpx2.Response(200, json=body, headers={"x-typesafe-request-id": "req-image"})
 
-    backend = LiveBackend(
-        "jev-1.14.0", client=client_with(handler), images=True, long_context=True
-    )
+    backend = LiveBackend("jev-1.14.0", client=client_with(handler), images=True, long_context=True)
     result = backend.decide(state, questions, assets=assets)
     request = seen[0]
     assert request.headers["TypeSafe-Danger-Zone-Images"] == "true"
@@ -130,7 +128,9 @@ def test_real_sdk_image_multipart_and_box(confidence):
     assert sent["questions"]["present"]["instructions"] == f"The target matches {ref}."
     assert sent["model"] == "jev-1.14.0"
     part_name = sent["assets"][ref]["part"]
-    image_part = next(p for p in parts if p.get_param("name", header="content-disposition") == part_name)
+    image_part = next(
+        p for p in parts if p.get_param("name", header="content-disposition") == part_name
+    )
     assert image_part.get_payload(decode=True) == content
     assert result["target"].box == edges and result["target"].confidence == confidence
     assert result["present"].noul == 0.9 and backend.last_request_id == "req-image"
