@@ -29,8 +29,10 @@ a 256 × 256 fixture does not. The loader rejects orientation metadata requiring
 rotation: prepare upright pixels explicitly with Pillow's `ImageOps.exif_transpose`
 before saving. Limits follow the experimental [Images documentation](https://docs.typesafe.ai/images).
 
-The reference hashes the complete file bytes with SHA-256. Copies under different
-filenames share a reference; changing a pixel or encoded metadata changes it.
+The reference is `image:sha256:` followed by the full hexadecimal SHA-256 digest
+of the file bytes. Colons keep the content hash separate from its descriptive
+prefix for fixture hygiene checks. Copies under different filenames share a
+reference; changing a pixel or encoded metadata changes it.
 This gives replay a deterministic input identity, not an image-similarity score.
 Keep image files under the recipe's `assets/` directory. Store their relative paths
 and timestamps in the `fields` of `fixtures/inputs.jsonl`, and gold labels in

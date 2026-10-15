@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import base64
+import hashlib
+import json
 import math
+import random
 from dataclasses import is_dataclass
 from types import SimpleNamespace
 
@@ -11,6 +14,7 @@ import pytest
 from PIL import Image
 
 from jev_cookbook import vision
+from jev_cookbook.fixtures._scan import scan_text
 
 FULL = {"top": 0.0, "bottom": 1.0, "left": 0.0, "right": 1.0}
 BOX = {"top": 0.25, "bottom": 0.75, "left": 0.125, "right": 0.625}
@@ -154,6 +158,28 @@ def test_image_references_follow_content_not_path(tmp_path, image_path, asset):
     assert isinstance(ref, str) and ref
     assert ref == vision.image_reference(vision.image_asset(copy))
     assert ref != vision.image_reference(vision.image_asset(changed))
+
+
+def test_image_references_preserve_full_digest_without_fixture_secret_scan_hits(tmp_path):
+    inputs = []
+    legacy_inputs = []
+    for seed in range(16):
+        pixels = random.Random(seed).randbytes(280 * 280 * 3)
+        path = tmp_path / f"random-{seed}.png"
+        Image.frombytes("RGB", (280, 280), pixels).save(path, compress_level=0)
+        asset = vision.image_asset(path)
+        reference = vision.image_reference(asset)
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        assert reference == f"image:sha256:{digest}"
+        assert reference == vision.image_reference(vision.image_asset(path))
+        inputs.append({"id": str(seed), "fields": {"image": reference}})
+        legacy_inputs.append({"id": str(seed), "fields": {"image": f"image-sha256-{digest}"}})
+
+    assert len({row["fields"]["image"] for row in inputs}) == 16
+    assert scan_text("\n".join(json.dumps(row) for row in inputs)) == []
+    # Prove this sample catches the old prefix's combined-alphabet entropy false positive.
+    legacy_text = "\n".join(json.dumps(row) for row in legacy_inputs)
+    assert any(rule == "high-entropy-token" for _, rule, _ in scan_text(legacy_text))
 
 
 def test_image_assets_preserves_requested_references(image_path, asset):

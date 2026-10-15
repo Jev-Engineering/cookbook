@@ -120,12 +120,14 @@ def image_asset(path: str | Path) -> dict[str, str]:
 
 
 def image_reference(asset: Mapping[str, Any]) -> str:
-    """Stable reference containing the SHA-256 of validated, encoded image bytes.
+    """Stable ``image:sha256:<hex>`` reference for validated, encoded image bytes.
 
     Renaming a file keeps its reference. Changing pixels or encoded metadata changes
     it; this hashes the supplied file, not a perceptual or decoded-pixel fingerprint.
+    Colons delimit the hexadecimal digest from its descriptive prefix so fixture
+    hygiene recognizes a content hash rather than a combined high-entropy token.
     """
-    return "image-sha256-" + hashlib.sha256(validate_image_asset(asset)).hexdigest()
+    return "image:sha256:" + hashlib.sha256(validate_image_asset(asset)).hexdigest()
 
 
 def image_assets(paths: Mapping[str, str | Path]) -> dict[str, dict[str, str]]:
