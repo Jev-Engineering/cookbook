@@ -1,0 +1,1978 @@
+{
+  "03ecfa511e2c27cd64f5d7168a93d59f9d25e21b36b4a2cb565af2dae81225fe": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "scratch": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "dent": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "missing_component": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "incorrect_assembly": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.9400000000000004,
+        "probabilities": {
+          "0": 0.010000000000000009,
+          "1": 0.010000000000000009,
+          "2": 0.010000000000000009,
+          "3": 0.97
+        },
+        "confidence": 0.94,
+        "legend": {
+          "0": "No visible defect: intact screws and upright connector; normal seam, light and shadow allowed.",
+          "1": "Minor finish damage: a fine scratch, with no dent, missing hardware or assembly error.",
+          "2": "Substantial visible damage: dent, broad gouge, or reversed/displaced connector; hardware present.",
+          "3": "Missing hardware: at least one specified screw or the connector is visibly absent."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "13046910c7b802497ebbbf133bfc78675051d55bc1571e7dc9eea4969b1cff2f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "scratch": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "dent": {
+        "type": "noul",
+        "noul": 0.65,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "missing_component": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "incorrect_assembly": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 1.98,
+        "probabilities": {
+          "0": 0.010000000000000009,
+          "1": 0.010000000000000009,
+          "2": 0.97,
+          "3": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "legend": {
+          "0": "No visible defect: intact screws and upright connector; normal seam, light and shadow allowed.",
+          "1": "Minor finish damage: a fine scratch, with no dent, missing hardware or assembly error.",
+          "2": "Substantial visible damage: dent, broad gouge, or reversed/displaced connector; hardware present.",
+          "3": "Missing hardware: at least one specified screw or the connector is visibly absent."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1fe7060133970d8a5ec23c6076a1b9224203c51c685bb311099e6e3b666ce4d1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "scratch": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "dent": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "missing_component": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "incorrect_assembly": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 0.06000000000000005,
+        "probabilities": {
+          "0": 0.97,
+          "1": 0.010000000000000009,
+          "2": 0.010000000000000009,
+          "3": 0.010000000000000009
+        },
+        "confidence": 0.94,
+        "legend": {
+          "0": "No visible defect: intact screws and upright connector; normal seam, light and shadow allowed.",
+          "1": "Minor finish damage: a fine scratch, with no dent, missing hardware or assembly error.",
+          "2": "Substantial visible damage: dent, broad gouge, or reversed/displaced connector; hardware present.",
+          "3": "Missing hardware: at least one specified screw or the connector is visibly absent."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "32a045b6d640a212a457dc23b1498e5613e22fdd0530e3a495a1ebbddb24bf0f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "scratch": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "dent": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "missing_component": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "incorrect_assembly": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 1.98,
+        "probabilities": {
+          "0": 0.010000000000000009,
+          "1": 0.010000000000000009,
+          "2": 0.97,
+          "3": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "legend": {
+          "0": "No visible defect: intact screws and upright connector; normal seam, light and shadow allowed.",
+          "1": "Minor finish damage: a fine scratch, with no dent, missing hardware or assembly error.",
+          "2": "Substantial visible damage: dent, broad gouge, or reversed/displaced connector; hardware present.",
+          "3": "Missing hardware: at least one specified screw or the connector is visibly absent."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "51b358c2c4392d3d2f2e1846454a28a735c6b007cf34e40c9890be4d02349752": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "scratch": {
+        "type": "noul",
+        "noul": 0.55,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "dent": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "missing_component": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "incorrect_assembly": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.49,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 1.4,
+        "probabilities": {
+          "0": 0.19999999999999998,
+          "1": 0.4,
+          "2": 0.19999999999999998,
+          "3": 0.19999999999999998
+        },
+        "confidence": 0.20000000000000007,
+        "legend": {
+          "0": "No visible defect: intact screws and upright connector; normal seam, light and shadow allowed.",
+          "1": "Minor finish damage: a fine scratch, with no dent, missing hardware or assembly error.",
+          "2": "Substantial visible damage: dent, broad gouge, or reversed/displaced connector; hardware present.",
+          "3": "Missing hardware: at least one specified screw or the connector is visibly absent."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5f496c9df794b4dcb150478bdb4ecf434388e10471556084f0a2e665e3266a2c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "scratch": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "dent": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "missing_component": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "incorrect_assembly": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.9400000000000004,
+        "probabilities": {
+          "0": 0.010000000000000009,
+          "1": 0.010000000000000009,
+          "2": 0.010000000000000009,
+          "3": 0.97
+        },
+        "confidence": 0.94,
+        "legend": {
+          "0": "No visible defect: intact screws and upright connector; normal seam, light and shadow allowed.",
+          "1": "Minor finish damage: a fine scratch, with no dent, missing hardware or assembly error.",
+          "2": "Substantial visible damage: dent, broad gouge, or reversed/displaced connector; hardware present.",
+          "3": "Missing hardware: at least one specified screw or the connector is visibly absent."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6367c42c9f65f2eea6ad9f6984241a68259fe8ff3e12aa38c235f58f2c698026": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "scratch": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "dent": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "missing_component": {
+        "type": "noul",
+        "noul": 0.5,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "incorrect_assembly": {
+        "type": "noul",
+        "noul": 0.5,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.02,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 1.8,
+        "probabilities": {
+          "0": 0.19999999999999998,
+          "1": 0.19999999999999998,
+          "2": 0.19999999999999998,
+          "3": 0.4
+        },
+        "confidence": 0.0,
+        "legend": {
+          "0": "No visible defect: intact screws and upright connector; normal seam, light and shadow allowed.",
+          "1": "Minor finish damage: a fine scratch, with no dent, missing hardware or assembly error.",
+          "2": "Substantial visible damage: dent, broad gouge, or reversed/displaced connector; hardware present.",
+          "3": "Missing hardware: at least one specified screw or the connector is visibly absent."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7df75ca0701ca5b6dd654dced888906b98738ef9eb538d321ff7804fd092b2c8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "scratch": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "dent": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "missing_component": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "incorrect_assembly": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 1.02,
+        "probabilities": {
+          "0": 0.010000000000000009,
+          "1": 0.97,
+          "2": 0.010000000000000009,
+          "3": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "legend": {
+          "0": "No visible defect: intact screws and upright connector; normal seam, light and shadow allowed.",
+          "1": "Minor finish damage: a fine scratch, with no dent, missing hardware or assembly error.",
+          "2": "Substantial visible damage: dent, broad gouge, or reversed/displaced connector; hardware present.",
+          "3": "Missing hardware: at least one specified screw or the connector is visibly absent."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8397172dd267e2b4b41fc534327edda00b44c8db2d70a18732ae4ca1fd0af785": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "scratch": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "dent": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "missing_component": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "incorrect_assembly": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.9400000000000004,
+        "probabilities": {
+          "0": 0.010000000000000009,
+          "1": 0.010000000000000009,
+          "2": 0.010000000000000009,
+          "3": 0.97
+        },
+        "confidence": 0.94,
+        "legend": {
+          "0": "No visible defect: intact screws and upright connector; normal seam, light and shadow allowed.",
+          "1": "Minor finish damage: a fine scratch, with no dent, missing hardware or assembly error.",
+          "2": "Substantial visible damage: dent, broad gouge, or reversed/displaced connector; hardware present.",
+          "3": "Missing hardware: at least one specified screw or the connector is visibly absent."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "84ddb9a8533b46e093c426aba5a05993de0523c29a08a1cc211d9cfe30cacc0e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "scratch": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "dent": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "missing_component": {
+        "type": "noul",
+        "noul": 0.5,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "incorrect_assembly": {
+        "type": "noul",
+        "noul": 0.5,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 1.6,
+        "probabilities": {
+          "0": 0.19999999999999998,
+          "1": 0.19999999999999998,
+          "2": 0.4,
+          "3": 0.19999999999999998
+        },
+        "confidence": 0.20000000000000007,
+        "legend": {
+          "0": "No visible defect: intact screws and upright connector; normal seam, light and shadow allowed.",
+          "1": "Minor finish damage: a fine scratch, with no dent, missing hardware or assembly error.",
+          "2": "Substantial visible damage: dent, broad gouge, or reversed/displaced connector; hardware present.",
+          "3": "Missing hardware: at least one specified screw or the connector is visibly absent."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8715dc75102c3d5335e1abdcb47c22b57b1e09e658bbeb2d56c2abdde0fb6b80": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "scratch": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "dent": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "missing_component": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "incorrect_assembly": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 0.06000000000000005,
+        "probabilities": {
+          "0": 0.97,
+          "1": 0.010000000000000009,
+          "2": 0.010000000000000009,
+          "3": 0.010000000000000009
+        },
+        "confidence": 0.94,
+        "legend": {
+          "0": "No visible defect: intact screws and upright connector; normal seam, light and shadow allowed.",
+          "1": "Minor finish damage: a fine scratch, with no dent, missing hardware or assembly error.",
+          "2": "Substantial visible damage: dent, broad gouge, or reversed/displaced connector; hardware present.",
+          "3": "Missing hardware: at least one specified screw or the connector is visibly absent."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "90b9bbdc7c60e6c005a5386138fa0d535b93e05b57058f73354273379072f974": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "scratch": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "dent": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "missing_component": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "incorrect_assembly": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 0.06000000000000005,
+        "probabilities": {
+          "0": 0.97,
+          "1": 0.010000000000000009,
+          "2": 0.010000000000000009,
+          "3": 0.010000000000000009
+        },
+        "confidence": 0.94,
+        "legend": {
+          "0": "No visible defect: intact screws and upright connector; normal seam, light and shadow allowed.",
+          "1": "Minor finish damage: a fine scratch, with no dent, missing hardware or assembly error.",
+          "2": "Substantial visible damage: dent, broad gouge, or reversed/displaced connector; hardware present.",
+          "3": "Missing hardware: at least one specified screw or the connector is visibly absent."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "92f843cb2f1f795fbe6090964c83d7da318f623ca097ef74e0f38d5ba067454a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "scratch": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "dent": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "missing_component": {
+        "type": "noul",
+        "noul": 0.5,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "incorrect_assembly": {
+        "type": "noul",
+        "noul": 0.5,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.01,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 1.8,
+        "probabilities": {
+          "0": 0.19999999999999998,
+          "1": 0.19999999999999998,
+          "2": 0.19999999999999998,
+          "3": 0.4
+        },
+        "confidence": 0.0,
+        "legend": {
+          "0": "No visible defect: intact screws and upright connector; normal seam, light and shadow allowed.",
+          "1": "Minor finish damage: a fine scratch, with no dent, missing hardware or assembly error.",
+          "2": "Substantial visible damage: dent, broad gouge, or reversed/displaced connector; hardware present.",
+          "3": "Missing hardware: at least one specified screw or the connector is visibly absent."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "99f4192d0896bd8e58537f6f763fe9d35bdcdb1853ba6dcf128eff832c2db69d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "scratch": {
+        "type": "noul",
+        "noul": 0.51,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "dent": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "missing_component": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "incorrect_assembly": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.45,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 1.4,
+        "probabilities": {
+          "0": 0.19999999999999998,
+          "1": 0.4,
+          "2": 0.19999999999999998,
+          "3": 0.19999999999999998
+        },
+        "confidence": 0.20000000000000007,
+        "legend": {
+          "0": "No visible defect: intact screws and upright connector; normal seam, light and shadow allowed.",
+          "1": "Minor finish damage: a fine scratch, with no dent, missing hardware or assembly error.",
+          "2": "Substantial visible damage: dent, broad gouge, or reversed/displaced connector; hardware present.",
+          "3": "Missing hardware: at least one specified screw or the connector is visibly absent."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ad25fcff1972369fae1b78dbeb03fbbaf3939efea087f06fe56b86514edace96": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "scratch": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "dent": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "missing_component": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "incorrect_assembly": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 1.98,
+        "probabilities": {
+          "0": 0.010000000000000009,
+          "1": 0.010000000000000009,
+          "2": 0.97,
+          "3": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "legend": {
+          "0": "No visible defect: intact screws and upright connector; normal seam, light and shadow allowed.",
+          "1": "Minor finish damage: a fine scratch, with no dent, missing hardware or assembly error.",
+          "2": "Substantial visible damage: dent, broad gouge, or reversed/displaced connector; hardware present.",
+          "3": "Missing hardware: at least one specified screw or the connector is visibly absent."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b981bad78f698499300ff9cf2616d806154e5a0f3a8cd8c8ce69682ad3a71c13": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "scratch": {
+        "type": "noul",
+        "noul": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "dent": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "missing_component": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "incorrect_assembly": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 1.02,
+        "probabilities": {
+          "0": 0.010000000000000009,
+          "1": 0.97,
+          "2": 0.010000000000000009,
+          "3": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "legend": {
+          "0": "No visible defect: intact screws and upright connector; normal seam, light and shadow allowed.",
+          "1": "Minor finish damage: a fine scratch, with no dent, missing hardware or assembly error.",
+          "2": "Substantial visible damage: dent, broad gouge, or reversed/displaced connector; hardware present.",
+          "3": "Missing hardware: at least one specified screw or the connector is visibly absent."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bee094ee07170cd8fafbc9f1dcf152bdf89c0364ef129126a622d448534d53d8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "scratch": {
+        "type": "noul",
+        "noul": 0.73,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "dent": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "missing_component": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "incorrect_assembly": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 1.02,
+        "probabilities": {
+          "0": 0.010000000000000009,
+          "1": 0.97,
+          "2": 0.010000000000000009,
+          "3": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "legend": {
+          "0": "No visible defect: intact screws and upright connector; normal seam, light and shadow allowed.",
+          "1": "Minor finish damage: a fine scratch, with no dent, missing hardware or assembly error.",
+          "2": "Substantial visible damage: dent, broad gouge, or reversed/displaced connector; hardware present.",
+          "3": "Missing hardware: at least one specified screw or the connector is visibly absent."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c952eeb18cd04659da71467622b6643a7b153c1d4a1e6dfd2516375f21fc760a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "scratch": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "dent": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "missing_component": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "incorrect_assembly": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 1.98,
+        "probabilities": {
+          "0": 0.010000000000000009,
+          "1": 0.010000000000000009,
+          "2": 0.97,
+          "3": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "legend": {
+          "0": "No visible defect: intact screws and upright connector; normal seam, light and shadow allowed.",
+          "1": "Minor finish damage: a fine scratch, with no dent, missing hardware or assembly error.",
+          "2": "Substantial visible damage: dent, broad gouge, or reversed/displaced connector; hardware present.",
+          "3": "Missing hardware: at least one specified screw or the connector is visibly absent."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "cb32ede4c6c0cf1e38aa6ce6563b50030c40aa5e27c59386a86eb5f5ad7f22e7": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "scratch": {
+        "type": "noul",
+        "noul": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "dent": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "missing_component": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "incorrect_assembly": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.9400000000000004,
+        "probabilities": {
+          "0": 0.010000000000000009,
+          "1": 0.010000000000000009,
+          "2": 0.010000000000000009,
+          "3": 0.97
+        },
+        "confidence": 0.94,
+        "legend": {
+          "0": "No visible defect: intact screws and upright connector; normal seam, light and shadow allowed.",
+          "1": "Minor finish damage: a fine scratch, with no dent, missing hardware or assembly error.",
+          "2": "Substantial visible damage: dent, broad gouge, or reversed/displaced connector; hardware present.",
+          "3": "Missing hardware: at least one specified screw or the connector is visibly absent."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d847db21a96ff5668d693138a1cee2b0ba0c8376cb60ebbce957533c1f0cb36a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "scratch": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "dent": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "missing_component": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "incorrect_assembly": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 0.06000000000000005,
+        "probabilities": {
+          "0": 0.97,
+          "1": 0.010000000000000009,
+          "2": 0.010000000000000009,
+          "3": 0.010000000000000009
+        },
+        "confidence": 0.94,
+        "legend": {
+          "0": "No visible defect: intact screws and upright connector; normal seam, light and shadow allowed.",
+          "1": "Minor finish damage: a fine scratch, with no dent, missing hardware or assembly error.",
+          "2": "Substantial visible damage: dent, broad gouge, or reversed/displaced connector; hardware present.",
+          "3": "Missing hardware: at least one specified screw or the connector is visibly absent."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d86f043579d5b5fc91b3d09d0e915f7d26a714755e4e398ae82aa2b0e9025061": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "scratch": {
+        "type": "noul",
+        "noul": 0.93,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "dent": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "missing_component": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "incorrect_assembly": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.9400000000000004,
+        "probabilities": {
+          "0": 0.010000000000000009,
+          "1": 0.010000000000000009,
+          "2": 0.010000000000000009,
+          "3": 0.97
+        },
+        "confidence": 0.94,
+        "legend": {
+          "0": "No visible defect: intact screws and upright connector; normal seam, light and shadow allowed.",
+          "1": "Minor finish damage: a fine scratch, with no dent, missing hardware or assembly error.",
+          "2": "Substantial visible damage: dent, broad gouge, or reversed/displaced connector; hardware present.",
+          "3": "Missing hardware: at least one specified screw or the connector is visibly absent."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "dc3b2e6518ef77dd5c13c6eb8907b9d5885c921fbbc00c05f8c86bda831af0a9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "scratch": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "dent": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "missing_component": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "incorrect_assembly": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 1.98,
+        "probabilities": {
+          "0": 0.010000000000000009,
+          "1": 0.010000000000000009,
+          "2": 0.97,
+          "3": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "legend": {
+          "0": "No visible defect: intact screws and upright connector; normal seam, light and shadow allowed.",
+          "1": "Minor finish damage: a fine scratch, with no dent, missing hardware or assembly error.",
+          "2": "Substantial visible damage: dent, broad gouge, or reversed/displaced connector; hardware present.",
+          "3": "Missing hardware: at least one specified screw or the connector is visibly absent."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "de2d249480543dc0dcd2be0b64fcb9c930c065a56bfe9d4ba48fa6278c006abc": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "scratch": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "dent": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "missing_component": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "incorrect_assembly": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 1.02,
+        "probabilities": {
+          "0": 0.010000000000000009,
+          "1": 0.97,
+          "2": 0.010000000000000009,
+          "3": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "legend": {
+          "0": "No visible defect: intact screws and upright connector; normal seam, light and shadow allowed.",
+          "1": "Minor finish damage: a fine scratch, with no dent, missing hardware or assembly error.",
+          "2": "Substantial visible damage: dent, broad gouge, or reversed/displaced connector; hardware present.",
+          "3": "Missing hardware: at least one specified screw or the connector is visibly absent."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e26881ac0ca96977f10d0a8c6cd8aa447b17e3bebf51984a5da4205280b80922": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "scratch": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "dent": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "missing_component": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "incorrect_assembly": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 1.02,
+        "probabilities": {
+          "0": 0.010000000000000009,
+          "1": 0.97,
+          "2": 0.010000000000000009,
+          "3": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "legend": {
+          "0": "No visible defect: intact screws and upright connector; normal seam, light and shadow allowed.",
+          "1": "Minor finish damage: a fine scratch, with no dent, missing hardware or assembly error.",
+          "2": "Substantial visible damage: dent, broad gouge, or reversed/displaced connector; hardware present.",
+          "3": "Missing hardware: at least one specified screw or the connector is visibly absent."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e7c818a62de264b77efac5792c6f6a8fefea2650851ec37205bef3444799e0be": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "scratch": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "dent": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "missing_component": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "incorrect_assembly": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 1.98,
+        "probabilities": {
+          "0": 0.010000000000000009,
+          "1": 0.010000000000000009,
+          "2": 0.97,
+          "3": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "legend": {
+          "0": "No visible defect: intact screws and upright connector; normal seam, light and shadow allowed.",
+          "1": "Minor finish damage: a fine scratch, with no dent, missing hardware or assembly error.",
+          "2": "Substantial visible damage: dent, broad gouge, or reversed/displaced connector; hardware present.",
+          "3": "Missing hardware: at least one specified screw or the connector is visibly absent."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f57cfc5b02d862d1dfab5b4aa0d5ab2b60909843dc55889bf318a56e4636e5d9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "scratch": {
+        "type": "noul",
+        "noul": 0.79,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "dent": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "missing_component": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "incorrect_assembly": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "inspectable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 1.02,
+        "probabilities": {
+          "0": 0.010000000000000009,
+          "1": 0.97,
+          "2": 0.010000000000000009,
+          "3": 0.010000000000000009
+        },
+        "confidence": 0.96,
+        "legend": {
+          "0": "No visible defect: intact screws and upright connector; normal seam, light and shadow allowed.",
+          "1": "Minor finish damage: a fine scratch, with no dent, missing hardware or assembly error.",
+          "2": "Substantial visible damage: dent, broad gouge, or reversed/displaced connector; hardware present.",
+          "3": "Missing hardware: at least one specified screw or the connector is visibly absent."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
