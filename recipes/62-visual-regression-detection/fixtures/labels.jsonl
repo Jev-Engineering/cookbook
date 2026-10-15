@@ -1,0 +1,24 @@
+{"id": "v01", "label": {"defects": [], "severity": 0}}
+{"id": "v02", "label": {"defects": [], "severity": 0}}
+{"id": "v03", "label": {"defects": [], "severity": 0}}
+{"id": "v04", "label": {"defects": [], "severity": 0}}
+{"id": "v05", "label": {"defects": ["missing"], "severity": 3}}
+{"id": "v06", "label": {"defects": ["missing"], "severity": 2}}
+{"id": "v07", "label": {"defects": ["misaligned"], "severity": 1}}
+{"id": "v08", "label": {"defects": ["clipped"], "severity": 2}}
+{"id": "v09", "label": {"defects": ["unexpected"], "severity": 3}}
+{"id": "v10", "label": {"defects": ["misaligned"], "severity": 1}}
+{"id": "v11", "label": {"defects": ["clipped"], "severity": 2}}
+{"id": "v12", "label": {"defects": [], "severity": 0}}
+{"id": "t01", "label": {"defects": [], "severity": 0}}
+{"id": "t02", "label": {"defects": [], "severity": 0}}
+{"id": "t03", "label": {"defects": [], "severity": 0}}
+{"id": "t04", "label": {"defects": [], "severity": 0}}
+{"id": "t05", "label": {"defects": ["missing"], "severity": 3}}
+{"id": "t06", "label": {"defects": ["missing"], "severity": 2}}
+{"id": "t07", "label": {"defects": ["misaligned"], "severity": 1}}
+{"id": "t08", "label": {"defects": ["clipped"], "severity": 2}}
+{"id": "t09", "label": {"defects": ["unexpected"], "severity": 3}}
+{"id": "t10", "label": {"defects": ["clipped"], "severity": 2}}
+{"id": "t11", "label": {"defects": ["missing", "misaligned"], "severity": 3}}
+{"id": "t12", "label": {"defects": ["misaligned"], "severity": 1}}

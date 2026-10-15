@@ -1,0 +1,1744 @@
+{
+  "03f46a846ecce3ec921836c58d98e6a896259fa938477a36fc5eb7c4aa18ad3e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "missing": {
+        "type": "noul",
+        "noul": 0.07,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "misaligned": {
+        "type": "noul",
+        "noul": 0.07,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "clipped": {
+        "type": "noul",
+        "noul": 0.07,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "unexpected": {
+        "type": "noul",
+        "noul": 0.07,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 0.07,
+        "probabilities": {
+          "0": 0.9299999999999999,
+          "1": 0.07,
+          "2": 0.0,
+          "3": 0.0
+        },
+        "confidence": 0.9299999999999999,
+        "legend": {
+          "0": "No regression: unchanged content or allowed theme, accent, or corner-radius variation.",
+          "1": "Minor regression: visible alignment or decorative defect; all content remains readable.",
+          "2": "Major regression: content is missing, clipped, or obscured, but the main action remains usable.",
+          "3": "Blocking regression: the main Save changes action is absent, clipped, or obscured."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "070039ce2c0507c7b24099ff5865b02e5d015fb5bf1af8a37ca2db47714caea8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "missing": {
+        "type": "noul",
+        "noul": 0.020000000000000018,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "misaligned": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "clipped": {
+        "type": "noul",
+        "noul": 0.020000000000000018,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "unexpected": {
+        "type": "noul",
+        "noul": 0.020000000000000018,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 0.020000000000000018,
+        "probabilities": {
+          "0": 0.98,
+          "1": 0.020000000000000018,
+          "2": 0.0,
+          "3": 0.0
+        },
+        "confidence": 0.98,
+        "legend": {
+          "0": "No regression: unchanged content or allowed theme, accent, or corner-radius variation.",
+          "1": "Minor regression: visible alignment or decorative defect; all content remains readable.",
+          "2": "Major regression: content is missing, clipped, or obscured, but the main action remains usable.",
+          "3": "Blocking regression: the main Save changes action is absent, clipped, or obscured."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "19530da219f6fcae87fa6939cbeac1e92661135f61de8377886b7a06d79b9ae6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "missing": {
+        "type": "noul",
+        "noul": 0.09000000000000002,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "misaligned": {
+        "type": "noul",
+        "noul": 0.09000000000000002,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "clipped": {
+        "type": "noul",
+        "noul": 0.09000000000000002,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "unexpected": {
+        "type": "noul",
+        "noul": 0.09000000000000002,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 0.09000000000000002,
+        "probabilities": {
+          "0": 0.9099999999999999,
+          "1": 0.09000000000000002,
+          "2": 0.0,
+          "3": 0.0
+        },
+        "confidence": 0.9099999999999999,
+        "legend": {
+          "0": "No regression: unchanged content or allowed theme, accent, or corner-radius variation.",
+          "1": "Minor regression: visible alignment or decorative defect; all content remains readable.",
+          "2": "Major regression: content is missing, clipped, or obscured, but the main action remains usable.",
+          "3": "Blocking regression: the main Save changes action is absent, clipped, or obscured."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "239ec6314ce5fcf44ca6fd54b6cdb267eb2f55daec8cea479e92cd2f17dd4700": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "missing": {
+        "type": "noul",
+        "noul": 0.04999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "misaligned": {
+        "type": "noul",
+        "noul": 0.04999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "clipped": {
+        "type": "noul",
+        "noul": 0.04999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "unexpected": {
+        "type": "noul",
+        "noul": 0.04999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 0.04999999999999999,
+        "probabilities": {
+          "0": 0.95,
+          "1": 0.04999999999999999,
+          "2": 0.0,
+          "3": 0.0
+        },
+        "confidence": 0.95,
+        "legend": {
+          "0": "No regression: unchanged content or allowed theme, accent, or corner-radius variation.",
+          "1": "Minor regression: visible alignment or decorative defect; all content remains readable.",
+          "2": "Major regression: content is missing, clipped, or obscured, but the main action remains usable.",
+          "3": "Blocking regression: the main Save changes action is absent, clipped, or obscured."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2ab25001b10bc7dce02ca83a9e2085bfe428eaa5c8f08c12ee930e999c75705c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "missing": {
+        "type": "noul",
+        "noul": 0.10999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "misaligned": {
+        "type": "noul",
+        "noul": 0.10999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "clipped": {
+        "type": "noul",
+        "noul": 0.89,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "unexpected": {
+        "type": "noul",
+        "noul": 0.10999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.11,
+        "probabilities": {
+          "0": 0.0,
+          "1": 0.0,
+          "2": 0.89,
+          "3": 0.10999999999999999
+        },
+        "confidence": 0.89,
+        "legend": {
+          "0": "No regression: unchanged content or allowed theme, accent, or corner-radius variation.",
+          "1": "Minor regression: visible alignment or decorative defect; all content remains readable.",
+          "2": "Major regression: content is missing, clipped, or obscured, but the main action remains usable.",
+          "3": "Blocking regression: the main Save changes action is absent, clipped, or obscured."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2f335f3f66c1457744547ab26025979c069917bd67d48ef0f017a779d52e213f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "missing": {
+        "type": "noul",
+        "noul": 0.03999999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "misaligned": {
+        "type": "noul",
+        "noul": 0.03999999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "clipped": {
+        "type": "noul",
+        "noul": 0.03999999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "unexpected": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 1.04,
+        "probabilities": {
+          "0": 0.0,
+          "1": 0.96,
+          "2": 0.03999999999999998,
+          "3": 0.0
+        },
+        "confidence": 0.96,
+        "legend": {
+          "0": "No regression: unchanged content or allowed theme, accent, or corner-radius variation.",
+          "1": "Minor regression: visible alignment or decorative defect; all content remains readable.",
+          "2": "Major regression: content is missing, clipped, or obscured, but the main action remains usable.",
+          "3": "Blocking regression: the main Save changes action is absent, clipped, or obscured."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3deefe43b6f8891f93d0f87856a317c69f135d011c0895c19e1df18672ff3eed": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "missing": {
+        "type": "noul",
+        "noul": 0.10999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "misaligned": {
+        "type": "noul",
+        "noul": 0.89,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "clipped": {
+        "type": "noul",
+        "noul": 0.10999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "unexpected": {
+        "type": "noul",
+        "noul": 0.10999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 1.1099999999999999,
+        "probabilities": {
+          "0": 0.0,
+          "1": 0.89,
+          "2": 0.10999999999999999,
+          "3": 0.0
+        },
+        "confidence": 0.89,
+        "legend": {
+          "0": "No regression: unchanged content or allowed theme, accent, or corner-radius variation.",
+          "1": "Minor regression: visible alignment or decorative defect; all content remains readable.",
+          "2": "Major regression: content is missing, clipped, or obscured, but the main action remains usable.",
+          "3": "Blocking regression: the main Save changes action is absent, clipped, or obscured."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "412186cafdf427820a07834b9bf5597a2fa486fec2a6341ec34f3a7985ddb16e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "missing": {
+        "type": "noul",
+        "noul": 0.26,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "misaligned": {
+        "type": "noul",
+        "noul": 0.26,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "clipped": {
+        "type": "noul",
+        "noul": 0.26,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "unexpected": {
+        "type": "noul",
+        "noul": 0.26,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 0.26,
+        "probabilities": {
+          "0": 0.74,
+          "1": 0.26,
+          "2": 0.0,
+          "3": 0.0
+        },
+        "confidence": 0.74,
+        "legend": {
+          "0": "No regression: unchanged content or allowed theme, accent, or corner-radius variation.",
+          "1": "Minor regression: visible alignment or decorative defect; all content remains readable.",
+          "2": "Major regression: content is missing, clipped, or obscured, but the main action remains usable.",
+          "3": "Blocking regression: the main Save changes action is absent, clipped, or obscured."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "419a08eb7214093abedd49232b810d05f1909f81beb4d696aef788cc1f240e8d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "missing": {
+        "type": "noul",
+        "noul": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "misaligned": {
+        "type": "noul",
+        "noul": 0.06,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "clipped": {
+        "type": "noul",
+        "noul": 0.06,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "unexpected": {
+        "type": "noul",
+        "noul": 0.06,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.94,
+        "probabilities": {
+          "0": 0.0,
+          "1": 0.0,
+          "2": 0.06,
+          "3": 0.94
+        },
+        "confidence": 0.94,
+        "legend": {
+          "0": "No regression: unchanged content or allowed theme, accent, or corner-radius variation.",
+          "1": "Minor regression: visible alignment or decorative defect; all content remains readable.",
+          "2": "Major regression: content is missing, clipped, or obscured, but the main action remains usable.",
+          "3": "Blocking regression: the main Save changes action is absent, clipped, or obscured."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4a41421b78828b3cd5726a7759da5f93d88c32d4e389a2e4b11b2e2fae5bbceb": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "missing": {
+        "type": "noul",
+        "noul": 0.08000000000000002,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "misaligned": {
+        "type": "noul",
+        "noul": 0.9199999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "clipped": {
+        "type": "noul",
+        "noul": 0.08000000000000002,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "unexpected": {
+        "type": "noul",
+        "noul": 0.08000000000000002,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.0,
+          "1": 0.9199999999999999,
+          "2": 0.08000000000000002,
+          "3": 0.0
+        },
+        "confidence": 0.9199999999999999,
+        "legend": {
+          "0": "No regression: unchanged content or allowed theme, accent, or corner-radius variation.",
+          "1": "Minor regression: visible alignment or decorative defect; all content remains readable.",
+          "2": "Major regression: content is missing, clipped, or obscured, but the main action remains usable.",
+          "3": "Blocking regression: the main Save changes action is absent, clipped, or obscured."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "57264f6e8358ae9c4c21df4c51e86582c38cb9ee2d8fa06c8d00adeb2ff526a4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "missing": {
+        "type": "noul",
+        "noul": 0.010000000000000009,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "misaligned": {
+        "type": "noul",
+        "noul": 0.010000000000000009,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "clipped": {
+        "type": "noul",
+        "noul": 0.010000000000000009,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "unexpected": {
+        "type": "noul",
+        "noul": 0.99,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 0.010000000000000009,
+        "probabilities": {
+          "0": 0.99,
+          "1": 0.010000000000000009,
+          "2": 0.0,
+          "3": 0.0
+        },
+        "confidence": 0.99,
+        "legend": {
+          "0": "No regression: unchanged content or allowed theme, accent, or corner-radius variation.",
+          "1": "Minor regression: visible alignment or decorative defect; all content remains readable.",
+          "2": "Major regression: content is missing, clipped, or obscured, but the main action remains usable.",
+          "3": "Blocking regression: the main Save changes action is absent, clipped, or obscured."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "67c555e619d6a57e7a6db1582476657496b803b912402a09477d05385ac14def": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "missing": {
+        "type": "noul",
+        "noul": 0.9199999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "misaligned": {
+        "type": "noul",
+        "noul": 0.08000000000000002,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "clipped": {
+        "type": "noul",
+        "noul": 0.08000000000000002,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "unexpected": {
+        "type": "noul",
+        "noul": 0.08000000000000002,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.08,
+        "probabilities": {
+          "0": 0.0,
+          "1": 0.0,
+          "2": 0.9199999999999999,
+          "3": 0.08000000000000002
+        },
+        "confidence": 0.9199999999999999,
+        "legend": {
+          "0": "No regression: unchanged content or allowed theme, accent, or corner-radius variation.",
+          "1": "Minor regression: visible alignment or decorative defect; all content remains readable.",
+          "2": "Major regression: content is missing, clipped, or obscured, but the main action remains usable.",
+          "3": "Blocking regression: the main Save changes action is absent, clipped, or obscured."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "782390ce1849170693756b9b1aac7d4429933e170df1ff63b7ff998d80253c22": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "missing": {
+        "type": "noul",
+        "noul": 0.06,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "misaligned": {
+        "type": "noul",
+        "noul": 0.06,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "clipped": {
+        "type": "noul",
+        "noul": 0.06,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "unexpected": {
+        "type": "noul",
+        "noul": 0.06,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 0.06,
+        "probabilities": {
+          "0": 0.94,
+          "1": 0.06,
+          "2": 0.0,
+          "3": 0.0
+        },
+        "confidence": 0.94,
+        "legend": {
+          "0": "No regression: unchanged content or allowed theme, accent, or corner-radius variation.",
+          "1": "Minor regression: visible alignment or decorative defect; all content remains readable.",
+          "2": "Major regression: content is missing, clipped, or obscured, but the main action remains usable.",
+          "3": "Blocking regression: the main Save changes action is absent, clipped, or obscured."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7f24ec41a5dcb1df1fe9534e1bb815f01175bb04893528504e4d714aad5a2c2a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "missing": {
+        "type": "noul",
+        "noul": 0.07,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "misaligned": {
+        "type": "noul",
+        "noul": 0.07,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "clipped": {
+        "type": "noul",
+        "noul": 0.07,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "unexpected": {
+        "type": "noul",
+        "noul": 0.07,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 0.07,
+        "probabilities": {
+          "0": 0.9299999999999999,
+          "1": 0.07,
+          "2": 0.0,
+          "3": 0.0
+        },
+        "confidence": 0.9299999999999999,
+        "legend": {
+          "0": "No regression: unchanged content or allowed theme, accent, or corner-radius variation.",
+          "1": "Minor regression: visible alignment or decorative defect; all content remains readable.",
+          "2": "Major regression: content is missing, clipped, or obscured, but the main action remains usable.",
+          "3": "Blocking regression: the main Save changes action is absent, clipped, or obscured."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8ff379c1a165401a5e4455a38d6cbedba3ac7fcf07727dcde2591871f4b5c160": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "missing": {
+        "type": "noul",
+        "noul": 0.04999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "misaligned": {
+        "type": "noul",
+        "noul": 0.04999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "clipped": {
+        "type": "noul",
+        "noul": 0.04999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "unexpected": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.9499999999999997,
+        "probabilities": {
+          "0": 0.0,
+          "1": 0.0,
+          "2": 0.04999999999999999,
+          "3": 0.95
+        },
+        "confidence": 0.95,
+        "legend": {
+          "0": "No regression: unchanged content or allowed theme, accent, or corner-radius variation.",
+          "1": "Minor regression: visible alignment or decorative defect; all content remains readable.",
+          "2": "Major regression: content is missing, clipped, or obscured, but the main action remains usable.",
+          "3": "Blocking regression: the main Save changes action is absent, clipped, or obscured."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "aaf56abecbcf544ff5167c1b9a0b82e62e9dfc4566341ad39a6268b08c1f716e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "missing": {
+        "type": "noul",
+        "noul": 0.030000000000000027,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "misaligned": {
+        "type": "noul",
+        "noul": 0.030000000000000027,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "clipped": {
+        "type": "noul",
+        "noul": 0.030000000000000027,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "unexpected": {
+        "type": "noul",
+        "noul": 0.030000000000000027,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 0.030000000000000027,
+        "probabilities": {
+          "0": 0.97,
+          "1": 0.030000000000000027,
+          "2": 0.0,
+          "3": 0.0
+        },
+        "confidence": 0.97,
+        "legend": {
+          "0": "No regression: unchanged content or allowed theme, accent, or corner-radius variation.",
+          "1": "Minor regression: visible alignment or decorative defect; all content remains readable.",
+          "2": "Major regression: content is missing, clipped, or obscured, but the main action remains usable.",
+          "3": "Blocking regression: the main Save changes action is absent, clipped, or obscured."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b0d9484423a3db557e3daa55d36ec4e23a179e605a0fa00eac0af986501a792d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "missing": {
+        "type": "noul",
+        "noul": 0.29000000000000004,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "misaligned": {
+        "type": "noul",
+        "noul": 0.29000000000000004,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "clipped": {
+        "type": "noul",
+        "noul": 0.29000000000000004,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "unexpected": {
+        "type": "noul",
+        "noul": 0.29000000000000004,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 0.29000000000000004,
+        "probabilities": {
+          "0": 0.71,
+          "1": 0.29000000000000004,
+          "2": 0.0,
+          "3": 0.0
+        },
+        "confidence": 0.71,
+        "legend": {
+          "0": "No regression: unchanged content or allowed theme, accent, or corner-radius variation.",
+          "1": "Minor regression: visible alignment or decorative defect; all content remains readable.",
+          "2": "Major regression: content is missing, clipped, or obscured, but the main action remains usable.",
+          "3": "Blocking regression: the main Save changes action is absent, clipped, or obscured."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "be40e11b2e8e0b4883bef63338eb63ddf3a30a3936da4f8a80a53ecf08328f3d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "missing": {
+        "type": "noul",
+        "noul": 0.21999999999999997,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "misaligned": {
+        "type": "noul",
+        "noul": 0.21999999999999997,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "clipped": {
+        "type": "noul",
+        "noul": 0.21999999999999997,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "unexpected": {
+        "type": "noul",
+        "noul": 0.21999999999999997,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 0.21999999999999997,
+        "probabilities": {
+          "0": 0.78,
+          "1": 0.21999999999999997,
+          "2": 0.0,
+          "3": 0.0
+        },
+        "confidence": 0.78,
+        "legend": {
+          "0": "No regression: unchanged content or allowed theme, accent, or corner-radius variation.",
+          "1": "Minor regression: visible alignment or decorative defect; all content remains readable.",
+          "2": "Major regression: content is missing, clipped, or obscured, but the main action remains usable.",
+          "3": "Blocking regression: the main Save changes action is absent, clipped, or obscured."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c97aa34503fe32608ad60f77c5aec03d1e48fa6f71b88dd8cf27e55ec81a8bce": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "missing": {
+        "type": "noul",
+        "noul": 0.09000000000000002,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "misaligned": {
+        "type": "noul",
+        "noul": 0.09000000000000002,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "clipped": {
+        "type": "noul",
+        "noul": 0.09000000000000002,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "unexpected": {
+        "type": "noul",
+        "noul": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.9099999999999997,
+        "probabilities": {
+          "0": 0.0,
+          "1": 0.0,
+          "2": 0.09000000000000002,
+          "3": 0.9099999999999999
+        },
+        "confidence": 0.9099999999999999,
+        "legend": {
+          "0": "No regression: unchanged content or allowed theme, accent, or corner-radius variation.",
+          "1": "Minor regression: visible alignment or decorative defect; all content remains readable.",
+          "2": "Major regression: content is missing, clipped, or obscured, but the main action remains usable.",
+          "3": "Blocking regression: the main Save changes action is absent, clipped, or obscured."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ca1f915ab386db08e11d487f01beef1beac8a91690d6e2dadbf23df01cf73038": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "missing": {
+        "type": "noul",
+        "noul": 0.04999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "misaligned": {
+        "type": "noul",
+        "noul": 0.04999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "clipped": {
+        "type": "noul",
+        "noul": 0.04999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "unexpected": {
+        "type": "noul",
+        "noul": 0.04999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 0.04999999999999999,
+        "probabilities": {
+          "0": 0.95,
+          "1": 0.04999999999999999,
+          "2": 0.0,
+          "3": 0.0
+        },
+        "confidence": 0.95,
+        "legend": {
+          "0": "No regression: unchanged content or allowed theme, accent, or corner-radius variation.",
+          "1": "Minor regression: visible alignment or decorative defect; all content remains readable.",
+          "2": "Major regression: content is missing, clipped, or obscured, but the main action remains usable.",
+          "3": "Blocking regression: the main Save changes action is absent, clipped, or obscured."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d2403e050f16b584f6c2cff1aeee9c84b40296e8644bb5e7ed2e1da8576b2678": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "missing": {
+        "type": "noul",
+        "noul": 0.76,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "misaligned": {
+        "type": "noul",
+        "noul": 0.76,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "clipped": {
+        "type": "noul",
+        "noul": 0.24,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "unexpected": {
+        "type": "noul",
+        "noul": 0.24,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.7600000000000002,
+        "probabilities": {
+          "0": 0.0,
+          "1": 0.0,
+          "2": 0.24,
+          "3": 0.76
+        },
+        "confidence": 0.76,
+        "legend": {
+          "0": "No regression: unchanged content or allowed theme, accent, or corner-radius variation.",
+          "1": "Minor regression: visible alignment or decorative defect; all content remains readable.",
+          "2": "Major regression: content is missing, clipped, or obscured, but the main action remains usable.",
+          "3": "Blocking regression: the main Save changes action is absent, clipped, or obscured."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e079bb32dcd4c95d0b13f674d6adb66e706f04ef955a250725e13df852c093c7": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "missing": {
+        "type": "noul",
+        "noul": 0.04999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "misaligned": {
+        "type": "noul",
+        "noul": 0.04999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "clipped": {
+        "type": "noul",
+        "noul": 0.04999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "unexpected": {
+        "type": "noul",
+        "noul": 0.04999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 0.04999999999999999,
+        "probabilities": {
+          "0": 0.95,
+          "1": 0.04999999999999999,
+          "2": 0.0,
+          "3": 0.0
+        },
+        "confidence": 0.95,
+        "legend": {
+          "0": "No regression: unchanged content or allowed theme, accent, or corner-radius variation.",
+          "1": "Minor regression: visible alignment or decorative defect; all content remains readable.",
+          "2": "Major regression: content is missing, clipped, or obscured, but the main action remains usable.",
+          "3": "Blocking regression: the main Save changes action is absent, clipped, or obscured."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e8bbf5ca901e731e4301bbe5a1f65bcdc8658225a9951d0cf4d64e6783bf8747": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "missing": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "misaligned": {
+        "type": "noul",
+        "noul": 0.04999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "clipped": {
+        "type": "noul",
+        "noul": 0.04999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "unexpected": {
+        "type": "noul",
+        "noul": 0.04999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.9499999999999997,
+        "probabilities": {
+          "0": 0.0,
+          "1": 0.0,
+          "2": 0.04999999999999999,
+          "3": 0.95
+        },
+        "confidence": 0.95,
+        "legend": {
+          "0": "No regression: unchanged content or allowed theme, accent, or corner-radius variation.",
+          "1": "Minor regression: visible alignment or decorative defect; all content remains readable.",
+          "2": "Major regression: content is missing, clipped, or obscured, but the main action remains usable.",
+          "3": "Blocking regression: the main Save changes action is absent, clipped, or obscured."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e90d4454ec3d8dec6ecd74b1201d36e4ffe1538a5fa2e399ffc28da5efb8bdf4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "missing": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "misaligned": {
+        "type": "noul",
+        "noul": 0.09999999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "clipped": {
+        "type": "noul",
+        "noul": 0.09999999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "unexpected": {
+        "type": "noul",
+        "noul": 0.09999999999999998,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.1,
+        "probabilities": {
+          "0": 0.0,
+          "1": 0.0,
+          "2": 0.9,
+          "3": 0.09999999999999998
+        },
+        "confidence": 0.9,
+        "legend": {
+          "0": "No regression: unchanged content or allowed theme, accent, or corner-radius variation.",
+          "1": "Minor regression: visible alignment or decorative defect; all content remains readable.",
+          "2": "Major regression: content is missing, clipped, or obscured, but the main action remains usable.",
+          "3": "Blocking regression: the main Save changes action is absent, clipped, or obscured."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ed7764a231ab364ea559ffd1b85456c168e34782c722c09d38d088d839e74609": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "missing": {
+        "type": "noul",
+        "noul": 0.13,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "misaligned": {
+        "type": "noul",
+        "noul": 0.13,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "clipped": {
+        "type": "noul",
+        "noul": 0.87,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "unexpected": {
+        "type": "noul",
+        "noul": 0.13,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.13,
+        "probabilities": {
+          "0": 0.0,
+          "1": 0.0,
+          "2": 0.87,
+          "3": 0.13
+        },
+        "confidence": 0.87,
+        "legend": {
+          "0": "No regression: unchanged content or allowed theme, accent, or corner-radius variation.",
+          "1": "Minor regression: visible alignment or decorative defect; all content remains readable.",
+          "2": "Major regression: content is missing, clipped, or obscured, but the main action remains usable.",
+          "3": "Blocking regression: the main Save changes action is absent, clipped, or obscured."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f30e00187e016e5a5e985c2cc4a749397283f40641c17d274e4d74d16781249a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "missing": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "misaligned": {
+        "type": "noul",
+        "noul": 0.04999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "clipped": {
+        "type": "noul",
+        "noul": 0.04999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "unexpected": {
+        "type": "noul",
+        "noul": 0.04999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.9499999999999997,
+        "probabilities": {
+          "0": 0.0,
+          "1": 0.0,
+          "2": 0.04999999999999999,
+          "3": 0.95
+        },
+        "confidence": 0.95,
+        "legend": {
+          "0": "No regression: unchanged content or allowed theme, accent, or corner-radius variation.",
+          "1": "Minor regression: visible alignment or decorative defect; all content remains readable.",
+          "2": "Major regression: content is missing, clipped, or obscured, but the main action remains usable.",
+          "3": "Blocking regression: the main Save changes action is absent, clipped, or obscured."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
