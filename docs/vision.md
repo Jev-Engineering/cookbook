@@ -32,8 +32,9 @@ before saving. Limits follow the experimental [Images documentation](https://doc
 The reference hashes the complete file bytes with SHA-256. Copies under different
 filenames share a reference; changing a pixel or encoded metadata changes it.
 This gives replay a deterministic input identity, not an image-similarity score.
-Keep image files under the recipe's `assets/` directory. Keep their relative paths,
-timestamps and labels in fixture input rows; the strict
+Keep image files under the recipe's `assets/` directory. Store their relative paths
+and timestamps in the `fields` of `fixtures/inputs.jsonl`, and gold labels in
+`fixtures/labels.jsonl`. The strict
 [fixture layout](fixtures.md) does not accept image files inside `fixtures/`.
 Construct base64 descriptors in memory instead of committing them to fixture JSON.
 
