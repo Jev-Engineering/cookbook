@@ -70,11 +70,8 @@ exactly-balanced, four-way test split both sit at exactly 0.2500 by arithmetic a
 structural floor, not two independent comparisons, since no constant prediction can ever score
 otherwise on a balanced pool. The third, `helpers.keyword_overlap_baseline`, is not constant --
 it earns its answer from the statements' own text (an explicit correction cue, then word
-overlap with the existing memory) -- and is the one capable of actually tying or beating Jev; it
-does not, on either split (`validation` 0.7500 and `test` 0.8125, against Jev's 0.9375 on both).
-On `test` that margin is exactly two rows, `t-super-04-lowconf` and `t-contra-02`, both of them
-rows where surface form points away from the relationship; the notebook's baselines cell prints
-which rows each side gets wrong, and the two the margin is made of.
+overlap with the existing memory) -- and is the one capable of actually tying or beating Jev; on
+`test` it does not (0.8125 against Jev's 0.9375).
 
 ## Pull request rules
 
