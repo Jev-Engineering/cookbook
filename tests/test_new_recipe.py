@@ -157,11 +157,38 @@ def test_running_it_twice_refuses_the_second_time(catalog, recipes):
     assert run(5, catalog, recipes) == 1
 
 
-@pytest.mark.parametrize("bad", ["0", "61", "-1", "abc", "1.5", "", "٣"])
-def test_a_number_outside_1_to_60_is_a_usage_error(bad, catalog, recipes):
+@pytest.mark.parametrize("bad", ["0", "101", "-1", "abc", "1.5", "", "٣"])
+def test_a_number_outside_1_to_100_is_a_usage_error(bad, catalog, recipes):
     with pytest.raises(SystemExit) as stop:
         run(bad, catalog, recipes)
     assert stop.value.code == 2
+    assert not recipes.exists()
+
+
+def test_recipe_100_scaffolds_without_inventing_an_issue(catalog, recipes, capsys):
+    _, recipe = entry(catalog, 100)
+    assert recipe["issue"] is None
+    assert run(100, catalog, recipes) == 0
+    assert "No assigned recipe issue" in capsys.readouterr().out
+    folder = recipes / "100-multimodal-agent-handoff-verification"
+    nb = nbformat.read(folder / "notebook.ipynb", as_version=4)
+    nbformat.validate(nb)
+    assert "Recipe 100" in nb.cells[0].source
+    assert "run_header(\n    100," in nb.cells[2].source
+    readme = (folder / "README.md").read_text("utf-8")
+    assert f"recipes/{recipe['slug']}" in readme
+    assert "issues/100" not in readme
+    assert "Closes #100" not in readme
+    assert all(not c.outputs for c in nb.cells if c.cell_type == "code")
+
+
+@pytest.mark.parametrize("slug", ["../escape", "0100-test", "101-test", "99-wrong-rank"])
+def test_invalid_catalog_slug_writes_nothing(catalog, recipes, slug, capsys):
+    data, recipe = entry(catalog, 100)
+    recipe["slug"] = slug
+    catalog.write_text(json.dumps(data), encoding="utf-8")
+    assert run(100, catalog, recipes) == 1
+    assert "invalid catalog slug" in capsys.readouterr().err
     assert not recipes.exists()
 
 
@@ -192,7 +219,7 @@ def test_every_catalog_recipe_scaffolds_to_lint_clean_files(catalog, recipes):
     data, _ = entry(catalog, 1)
     for recipe in data["recipes"]:
         assert run(recipe["rank"], catalog, recipes) == 0
-    assert len(list(recipes.iterdir())) == 60
+    assert len(list(recipes.iterdir())) == 100
     ruff = [sys.executable, "-m", "ruff"]
     config = ["--config", str(REPO / "pyproject.toml"), "--no-cache"]
     subprocess.run([*ruff, "check", *config, str(recipes)], check=True)

@@ -18,11 +18,12 @@ Which kind of pull request is it? A recipe pull request has BOTH markers: the br
 ``recipe/<slug>`` and the description has a closing reference (``Closes``, ``Fixes``,
 ``Resolves`` and their other forms; one inside a fenced code block, an inline code span (even one
 that spans several lines) or an HTML comment does not count, as GitHub renders and links nothing
-written in any of the three) to an issue of this repository numbered 1 to 60. A pull request with
+written in any of the three) to an issue assigned to a recipe in the BASE catalog. A pull request with
 neither marker is a foundation pull request. One marker without the other is rejected, as is a
 ``<slug>`` that is not the catalog slug of the issue, a pull request that closes more than one
-issue of this repository, and a closing reference to an issue of this repository outside 1 to 60
-next to a recipe one.
+issue of this repository, and a closing reference to an unassigned issue of this repository
+next to a recipe one. Recipe ranks are not issue numbers. An unknown branch slug or one with no
+assigned issue fails closed; the head cannot assign itself an issue.
 
 The allowlist, on ``git diff --raw -M -z base...head`` (``--name-status`` hides modes and types):
 
@@ -55,7 +56,6 @@ from typing import Any
 
 HERE = Path(__file__).resolve().parent
 DEFAULT_REPO = "Jev-Engineering/cookbook"
-RECIPE_ISSUES = range(1, 61)
 REGULAR = "100644"
 MISSING = "000000"
 BRANCH_PREFIX = "recipe/"
@@ -307,29 +307,61 @@ def readme_problems(repo: Path, base: str, head: str) -> list[str]:
     return []
 
 
-def catalog_slug(repo: Path, base: str, number: int) -> str | None:
-    catalog = json.loads(git(repo, "show", f"{base}:catalog/recipes.json").decode("utf-8"))
-    for recipe in catalog["recipes"]:
-        if recipe.get("issue") == number:
-            return recipe.get("slug")
-    return None
+def catalog_assignments(repo: Path, base: str) -> tuple[dict[int, str], dict[str, int | None]]:
+    """Read assignments only from trusted base objects; ambiguity is an environment error."""
+    try:
+        catalog = json.loads(git(repo, "show", f"{base}:catalog/recipes.json").decode("utf-8"))
+        recipes = catalog["recipes"]
+        if not isinstance(recipes, list) or not recipes:
+            raise ValueError("recipes must be a nonempty list")
+        by_issue: dict[int, str] = {}
+        by_slug: dict[str, int | None] = {}
+        for recipe in recipes:
+            slug = recipe["slug"]
+            issue = recipe.get("issue")
+            if (
+                not isinstance(slug, str)
+                or not re.fullmatch(r"(?:[0-9]{2}|100)-[a-z0-9]+(?:-[a-z0-9]+)*", slug)
+                or slug in by_slug
+            ):
+                raise ValueError("invalid or duplicate recipe slug")
+            if issue is not None:
+                if type(issue) is not int or issue < 1 or issue in by_issue:
+                    raise ValueError("invalid or duplicate recipe issue assignment")
+                by_issue[issue] = slug
+            by_slug[slug] = issue
+    except (UnicodeDecodeError, json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
+        raise CannotRun(f"cannot read base catalog assignments ({type(error).__name__})") from error
+    return by_issue, by_slug
 
 
 def check(
     repo: Path, base_ref: str, head_ref: str, branch: str, body: str, github_repo: str
 ) -> tuple[list[str], str]:
     """(rejections, note). A note says which kind of pull request this was."""
+    base = resolve(repo, base_ref)
+    by_issue, by_slug = catalog_assignments(repo, base)
     closed = closing_issues(body, github_repo)
-    recipe_numbers = sorted(n for n in closed if n in RECIPE_ISSUES)
+    recipe_numbers = sorted(n for n in closed if n in by_issue)
     branch_marker = branch.startswith(BRANCH_PREFIX)
     ref_marker = bool(recipe_numbers)
+    if branch_marker:
+        branch_slug = branch.removeprefix(BRANCH_PREFIX)
+        if branch_slug not in by_slug:
+            return [f"branch {label(branch)} has an unknown recipe slug in the base catalog"], ""
+        if by_slug[branch_slug] is None:
+            return [f"recipe {label(branch_slug)} has no assigned issue in the base catalog"], ""
     if not branch_marker and not ref_marker:
         return [], "foundation pull request: the recipe allowlist does not apply"
     problems = []
     if branch_marker != ref_marker:
-        have = "the branch is recipe/<slug>" if branch_marker else "a closing reference is #1-#60"
+        have = (
+            "the branch is recipe/<slug>"
+            if branch_marker
+            else "a closing reference names an assigned recipe issue"
+        )
         lack = (
-            "no closing reference to an issue 1 to 60"
+            "no closing reference to an assigned recipe issue in the base catalog"
             if branch_marker
             else "the branch is not recipe/<slug>"
         )
@@ -340,10 +372,8 @@ def check(
             f"a recipe pull request must close exactly one issue, this one closes {listing}"
         ], ""
     number = recipe_numbers[0]
-    base, head = resolve(repo, base_ref), resolve(repo, head_ref)
-    slug = catalog_slug(repo, base, number)
-    if slug is None:
-        return [f"issue #{number} has no recipe in the catalog"], ""
+    head = resolve(repo, head_ref)
+    slug = by_issue[number]
     if branch != BRANCH_PREFIX + slug:
         return [f"branch {label(branch)} is not recipe/{slug}, the recipe closed by #{number}"], ""
     entries = raw_diff(repo, base, head)
