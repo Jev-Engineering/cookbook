@@ -488,5 +488,12 @@ def test_the_committed_notebook_freezes_the_threshold_this_recipe_selects():
         if o.get("output_type") == "stream"
     )
     assert text, "python-rule cell has no committed stdout to check"
-    assert f"{real_threshold():.4f}" in text
+    # Anchored to the threshold line itself rather than matched against the whole cell's
+    # stdout: this cell prints four lines, and a substring match over all of them would be
+    # satisfied by the right number appearing on any one of them.
+    threshold_lines = [
+        line for line in text.splitlines() if line.startswith("chosen threshold, frozen from")
+    ]
+    assert len(threshold_lines) == 1, threshold_lines
+    assert f"{real_threshold():.4f}" in threshold_lines[0]
     assert real_threshold() == pytest.approx(0.45)
