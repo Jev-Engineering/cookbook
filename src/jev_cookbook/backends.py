@@ -19,7 +19,7 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
-from ._canonical import MAX_DEPTH, canonical_json, check_depth, plain_json
+from ._canonical import MAX_DEPTH, canonical_image_format, canonical_json, check_depth, plain_json
 from .answers import (
     RECORDED_SOURCE,
     SYNTHETIC_MODEL,
@@ -140,7 +140,9 @@ def _check_assets(
                 f"asset {ref!r} is not referenced in a state/instructions/criteria value"
             )
         validate_image_asset(asset)
-        checked[ref] = dict(asset)
+        # Canonical format ("jpg" -> "jpeg", lower case) so the replay key and every consumer
+        # see one spelling per set of bytes.
+        checked[ref] = {**asset, "format": canonical_image_format(asset["format"])}
     if reference_bytes > 65536:
         raise ValueError("all asset references together must be at most 65536 UTF-8 bytes")
     return checked
@@ -155,7 +157,8 @@ def replay_key(
     question.to_dict()}}``: question names sorted; every other object key (state keys,
     Choice options) and every array in the order written; no whitespace, ASCII escapes,
     shortest-repr floats. Non-empty ``assets`` adds a sorted map of reference to asset type,
-    format and SHA-256 of its base64 text. Text-only requests retain their original keys.
+    canonical format (``png`` or ``jpeg``; ``jpg`` and case variants are the same key) and
+    SHA-256 of its base64 text. Text-only requests retain their original keys.
     """
     plain_state, checked = _check_request(state, questions)
     questions_json = {}

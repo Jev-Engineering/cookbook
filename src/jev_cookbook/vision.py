@@ -19,10 +19,12 @@ from typing import Any
 
 from PIL import Image, ImageDraw, UnidentifiedImageError
 
+from ._canonical import canonical_image_format
 from .evaluation import sum_usage
 from .style import INK, PAPER, PINK
 
 __all__ = [
+    "AssetPathError",
     "ImageTile",
     "LocalizationMetrics",
     "box_confidence",
@@ -38,6 +40,7 @@ __all__ = [
     "localization_metrics",
     "normalized_box",
     "normalized_to_pixels",
+    "resolve_asset_path",
     "run_record",
     "tile_to_image",
     "validate_image_asset",
@@ -86,8 +89,9 @@ def validate_image_asset(asset: Mapping[str, Any]) -> bytes:
     """
     if not isinstance(asset, Mapping) or set(asset) != {"type", "format", "data_base64"}:
         raise ValueError("image asset needs exactly type, format and data_base64")
-    if asset["type"] != "image" or asset["format"] not in ("png", "jpeg", "jpg"):
-        raise ValueError("image asset type must be image and format must be png or jpeg")
+    if asset["type"] != "image":
+        raise ValueError("image asset type must be image")
+    declared = canonical_image_format(asset["format"])
     encoded = asset["data_base64"]
     if not isinstance(encoded, str):
         raise ValueError("data_base64 must be a base64 string")
@@ -98,21 +102,62 @@ def validate_image_asset(asset: Mapping[str, Any]) -> bytes:
     except (binascii.Error, ValueError) as exc:
         raise ValueError("data_base64 must be standard base64 without whitespace") from exc
     detected = _image_format(data)
-    declared = "jpeg" if asset["format"] == "jpg" else asset["format"]
     if detected != declared:
         raise ValueError("declared image format does not match the image bytes")
     return data
 
 
-def image_asset(path: str | Path) -> dict[str, str]:
+class AssetPathError(ValueError):
+    """An asset path is absolute, a URL, or resolves (through ``..`` or a symlink) outside its root."""
+
+
+def resolve_asset_path(path: str | Path, *, root: str | Path) -> Path:
+    """Resolve ``path`` (relative to ``root``) to a real file path that must stay inside ``root``.
+
+    Use this, or the ``root=`` argument of the loaders that call it, for any path that comes
+    from data such as a fixture ``fields`` value. Absolute paths, drive-qualified paths, URLs,
+    and relative paths that leave ``root`` through ``..`` or through a symlink all raise
+    :class:`AssetPathError` (a ``ValueError``) before any file is opened. Symlinks are followed
+    first and the *real* path is compared to the real ``root``, so a link inside the recipe
+    folder that points outside it is refused; ``assets/../assets/a.png`` stays allowed.
+    A contained path that does not exist is still returned (resolved), so opening it raises
+    ``FileNotFoundError``.
+    """
+    text = str(path)
+    if "://" in text or text.startswith("data:"):
+        raise AssetPathError("image_asset requires a local file path, not a URL")
+    relative = Path(path)
+    if relative.is_absolute() or relative.anchor:
+        raise AssetPathError(f"asset path {text!r} must be relative to the recipe folder")
+    try:
+        base = Path(root).resolve()
+        resolved = (base / relative).resolve()
+    except (OSError, RuntimeError) as exc:  # symlink loop, unreadable component
+        raise AssetPathError(f"asset path {text!r} cannot be resolved") from exc
+    if not resolved.is_relative_to(base):
+        raise AssetPathError(
+            f"asset path {text!r} resolves outside the recipe folder {str(root)!r}"
+        )
+    return resolved
+
+
+def image_asset(path: str | Path, *, root: str | Path | None = None) -> dict[str, str]:
     """Read a local image as ``{type, format, data_base64}``, preserving its bytes.
 
     File extensions do not decide the format. URL fetching, resizing, EXIF rotation
     and re-encoding are deliberately explicit preparation steps outside this loader.
     A missing file raises ``FileNotFoundError``; invalid image content raises ``ValueError``.
+
+    A path read from a fixture or any other data must be loaded with ``root=`` (normally the
+    recipe folder): the path is then resolved by :func:`resolve_asset_path` and an escaping
+    path raises :class:`AssetPathError` instead of being opened. Without ``root`` the path is
+    trusted as written (for literal paths in your own code).
     """
-    if "://" in str(path) or str(path).startswith("data:"):
-        raise ValueError("image_asset requires a local file path, not a URL")
+    if root is None:
+        if "://" in str(path) or str(path).startswith("data:"):
+            raise ValueError("image_asset requires a local file path, not a URL")
+    else:
+        path = resolve_asset_path(path, root=root)
     with Path(path).open("rb") as source:
         data = source.read(_MAX_IMAGE_BYTES + 1)
     fmt = _image_format(data)
@@ -130,8 +175,12 @@ def image_reference(asset: Mapping[str, Any]) -> str:
     return "image:sha256:" + hashlib.sha256(validate_image_asset(asset)).hexdigest()
 
 
-def image_assets(paths: Mapping[str, str | Path]) -> dict[str, dict[str, str]]:
+def image_assets(
+    paths: Mapping[str, str | Path], *, root: str | Path | None = None
+) -> dict[str, dict[str, str]]:
     """Load reusable named assets from a reference-to-local-path mapping.
+
+    ``root`` contains every path exactly as in :func:`image_asset`.
 
     Prefer distinctive references: the API also substitutes references inside sentences.
     Include only assets used by the request's state, instructions or criteria.
@@ -148,7 +197,7 @@ def image_assets(paths: Mapping[str, str | Path]) -> dict[str, dict[str, str]]:
         size += length
     if size > 65_536:
         raise ValueError("image references together must be at most 65,536 UTF-8 bytes")
-    return {reference: image_asset(path) for reference, path in paths.items()}
+    return {reference: image_asset(path, root=root) for reference, path in paths.items()}
 
 
 def _number(value: Any, name: str, *, unit: bool = False) -> float:
@@ -411,13 +460,14 @@ def localization_metrics(gold: Iterable[Any], predicted: Iterable[Any]) -> Local
 
 
 def load_frames(
-    frames: Iterable[tuple[float, str | Path]],
+    frames: Iterable[tuple[float, str | Path]], *, root: str | Path | None = None
 ) -> tuple[list[dict[str, Any]], dict[str, dict[str, str]]]:
     """Load explicitly timestamped stills in strictly increasing elapsed seconds.
 
     Returns ``(state_frames, assets)``. Each state row has ``timestamp_seconds`` and
     ``image`` (the stable reference); identical files share an asset. This neither
     decodes video nor infers timestamps from filenames or a nominal frame rate.
+    ``root`` contains every path exactly as in :func:`image_asset`.
     """
     entries = list(frames)
     if not entries:
@@ -433,7 +483,7 @@ def load_frames(
     state = []
     assets = {}
     for timestamp, path in prepared:
-        asset = image_asset(path)
+        asset = image_asset(path, root=root)
         reference = image_reference(asset)
         assets[reference] = asset
         state.append({"timestamp_seconds": timestamp, "image": reference})

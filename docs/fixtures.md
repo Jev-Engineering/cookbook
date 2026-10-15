@@ -295,7 +295,12 @@ The fixture directory continues to contain only its documented JSON/JSONL files;
 and base64 do not belong in those files.
 
 An image example uses `fields` containing relative image paths and any other request inputs.
-The recipe loads those files with `jev_cookbook.vision.image_asset`, constructs stable
+The recipe loads those files with `jev_cookbook.vision.image_asset(path, root=RECIPE_DIR)`
+(or `image_assets` / `load_frames` with the same `root=`, or `resolve_asset_path` directly),
+where `RECIPE_DIR` is the recipe folder. A path read from a fixture is data, not code: with
+`root=` an absolute path, a URL, a `..` that leaves the folder, or a symlink pointing outside it
+raises `AssetPathError` (a `ValueError`) instead of being opened. Never pass a fixture-supplied
+path to `image_asset` without `root=`. The recipe then constructs stable
 references with `image_reference`, and calls
 `replay_key(state, questions, assets=assets)` when writing `replay_keys`.
 The notebook builds the same state and assets and calls

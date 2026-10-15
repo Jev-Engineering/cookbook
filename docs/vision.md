@@ -20,6 +20,22 @@ state = {"screenshot": reference}
 
 `image_asset(path)` returns exactly `type`, `format` and `data_base64`. It inspects
 the file's bytes, so a misleading suffix cannot change the detected format.
+
+Literal paths in your own code can be passed as written. A path that comes out of data,
+such as the `fields` of a fixture row, must be loaded with `root=` (the recipe folder):
+
+```python
+RECIPE_DIR = Path.cwd()  # notebooks run in their recipe folder
+photo = image_asset(row["fields"]["image"], root=RECIPE_DIR)
+```
+
+`root=` resolves symbolic links and requires the real file to be inside the real root. An
+absolute path, a URL, a `..` that leaves the folder or a symlink that points outside it raises
+`AssetPathError` (a `ValueError`) before anything is opened; `assets/../assets/a.png`
+stays inside and works. `image_assets(paths, root=...)` and `load_frames(frames, root=...)`
+apply the same check to every path, and `resolve_asset_path(path, root=...)` returns the
+contained real path for code that opens files itself.
+
 `validate_image_asset(asset)` validates an existing raw descriptor and returns its
 decoded, still-encoded PNG/JPEG file bytes. Neither function changes those bytes.
 

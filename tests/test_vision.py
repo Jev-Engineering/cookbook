@@ -8,12 +8,14 @@ import json
 import math
 import random
 from dataclasses import is_dataclass
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 from PIL import Image
 
 from jev_cookbook import vision
+from jev_cookbook._canonical import canonical_image_format
 from jev_cookbook.fixtures._scan import scan_text
 
 FULL = {"top": 0.0, "bottom": 1.0, "left": 0.0, "right": 1.0}
@@ -148,6 +150,124 @@ def test_validate_image_asset_accepts_jpg_alias(tmp_path):
     path = save_image(tmp_path, fmt="JPEG")
     asset = vision.image_asset(path)
     assert vision.validate_image_asset({**asset, "format": "jpg"}) == path.read_bytes()
+
+
+def test_the_canonical_format_function_is_the_only_alias_table():
+    assert [canonical_image_format(v) for v in ("png", "PNG", "jpeg", "jpg", "JPG")] == [
+        "png",
+        "png",
+        "jpeg",
+        "jpeg",
+        "jpeg",
+    ]
+    for bad in ("gif", "", " png", "jpe", None, 7, b"png"):
+        with pytest.raises(ValueError):
+            canonical_image_format(bad)
+
+
+def test_validate_image_asset_accepts_every_spelling_of_a_format(tmp_path):
+    path = save_image(tmp_path, fmt="JPEG")
+    asset = vision.image_asset(path)
+    for spelling in ("jpeg", "jpg", "JPEG", "JPG"):
+        assert vision.validate_image_asset({**asset, "format": spelling}) == path.read_bytes()
+    with pytest.raises(ValueError, match="does not match"):
+        vision.validate_image_asset({**asset, "format": "PNG"})
+
+
+@pytest.fixture
+def recipe(tmp_path):
+    """A recipe folder with a nested asset, plus an image and a symlink outside it."""
+    folder = tmp_path / "recipe"
+    (folder / "assets" / "nested").mkdir(parents=True)
+    save_image(folder / "assets" / "nested", name="inside.png")
+    save_image(tmp_path, name="outside.png", color="black")
+    return folder
+
+
+def test_root_loads_a_legitimate_nested_relative_path(recipe):
+    inside = recipe / "assets" / "nested" / "inside.png"
+    expected = vision.image_asset(inside)
+    assert vision.image_asset("assets/nested/inside.png", root=recipe) == expected
+    assert vision.image_asset(Path("assets/nested/inside.png"), root=str(recipe)) == expected
+    # `..` that stays inside the folder is not an escape.
+    assert vision.image_asset("assets/../assets/nested/inside.png", root=recipe) == expected
+    assert vision.resolve_asset_path("assets/nested/inside.png", root=recipe) == inside.resolve()
+    assert vision.image_assets({"a": "assets/nested/inside.png"}, root=recipe) == {"a": expected}
+    state, assets = vision.load_frames([(0.0, "assets/nested/inside.png")], root=recipe)
+    assert list(assets.values()) == [expected] and state[0]["image"] in assets
+
+
+def test_root_refuses_dot_dot_traversal(recipe):
+    for escaping in (
+        "../outside.png",
+        "assets/../../outside.png",
+        "assets/nested/../../../outside.png",
+    ):
+        assert (recipe / escaping).resolve().is_file()  # it is a real, valid image
+        with pytest.raises(vision.AssetPathError, match="outside"):
+            vision.image_asset(escaping, root=recipe)
+        with pytest.raises(vision.AssetPathError):
+            vision.resolve_asset_path(escaping, root=recipe)
+    # Refused before existence is revealed.
+    with pytest.raises(vision.AssetPathError):
+        vision.image_asset("../nothing-here.png", root=recipe)
+
+
+def test_root_refuses_absolute_paths_even_inside_the_root(recipe, tmp_path):
+    for absolute in (tmp_path / "outside.png", recipe / "assets" / "nested" / "inside.png"):
+        assert absolute.is_absolute()
+        with pytest.raises(vision.AssetPathError, match="relative"):
+            vision.image_asset(absolute, root=recipe)
+        with pytest.raises(vision.AssetPathError, match="relative"):
+            vision.image_asset(str(absolute), root=recipe)
+
+
+def test_root_refuses_urls(recipe):
+    for url in ("https://example.invalid/a.png", "data:image/png;base64,AAAA"):
+        with pytest.raises(vision.AssetPathError, match="URL"):
+            vision.image_asset(url, root=recipe)
+
+
+def test_root_refuses_a_symlink_that_escapes(recipe, tmp_path):
+    try:
+        (recipe / "assets" / "link.png").symlink_to(tmp_path / "outside.png")
+        (recipe / "assets" / "dirlink").symlink_to(tmp_path, target_is_directory=True)
+    except (OSError, NotImplementedError):  # pragma: no cover - platform without symlinks
+        pytest.skip("symlinks unavailable")
+    for escaping in ("assets/link.png", "assets/dirlink/outside.png"):
+        with pytest.raises(vision.AssetPathError, match="outside"):
+            vision.image_asset(escaping, root=recipe)
+        with pytest.raises(vision.AssetPathError):
+            vision.image_assets({"x": escaping}, root=recipe)
+        with pytest.raises(vision.AssetPathError):
+            vision.load_frames([(0.0, escaping)], root=recipe)
+    # Without root the caller has opted out, so the same link is followed as written.
+    assert vision.image_asset(recipe / "assets" / "link.png")["type"] == "image"
+
+
+def test_root_allows_a_symlink_that_stays_inside(recipe):
+    try:
+        (recipe / "assets" / "alias.png").symlink_to(recipe / "assets" / "nested" / "inside.png")
+    except (OSError, NotImplementedError):  # pragma: no cover - platform without symlinks
+        pytest.skip("symlinks unavailable")
+    assert vision.image_asset("assets/alias.png", root=recipe) == vision.image_asset(
+        recipe / "assets" / "nested" / "inside.png"
+    )
+
+
+def test_a_contained_missing_file_is_still_file_not_found(recipe):
+    with pytest.raises(FileNotFoundError):
+        vision.image_asset("assets/missing.png", root=recipe)
+
+
+def test_containment_errors_are_value_errors_and_never_swallowed(recipe):
+    assert issubclass(vision.AssetPathError, ValueError)
+    with pytest.raises(ValueError):
+        vision.image_assets({"a": "assets/nested/inside.png", "b": "../outside.png"}, root=recipe)
+    with pytest.raises(ValueError):
+        vision.load_frames(
+            [(0.0, "assets/nested/inside.png"), (1.0, "../outside.png")], root=recipe
+        )
 
 
 def test_image_references_follow_content_not_path(tmp_path, image_path, asset):

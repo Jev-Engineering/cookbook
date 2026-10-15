@@ -312,9 +312,12 @@ with `mode="live"`.
 ## Images and Box
 
 `assets` maps a stable reference string to the official raw image dictionary:
-`{"type": "image", "format": "png", "data_base64": ...}` (`jpg` and `jpeg` also work).
+`{"type": "image", "format": "png", "data_base64": ...}` (`jpg` and any letter case also work;
+the format is canonicalized to `png`/`jpeg` before the replay key is computed, so the same bytes
+key identically however the format is spelled).
 The same keyword is accepted by `replay_key`, replay, scripted and live `decide`.
-The shared `jev_cookbook.vision.image_asset(path)` helper reads and validates an image;
+The shared `jev_cookbook.vision.image_asset(path)` helper reads and validates an image (pass
+`root=` for a path that comes from fixture data, see [fixtures.md](fixtures.md#image-fixtures));
 `image_reference(asset)` derives a stable reference from its bytes. The live adapter converts
 the dictionary into the SDK's `Image` and sends it using the SDK's multipart support.
 
@@ -349,7 +352,8 @@ Keep image files under `assets/` beside `fixtures/`, and put their relative path
 
 The text-only replay envelope is unchanged: omitted, `None` and empty assets produce exactly
 the existing keys. A request with images adds an `assets` object sorted by reference, holding
-each asset's `type`, `format` and SHA-256 of its base64 ASCII text. That means changed image
+each asset's `type`, canonical `format` (`png` or `jpeg`) and SHA-256 of its base64 ASCII text.
+That means changed image
 bytes or references change the key, while reordering the assets map does not. No image data
 is stored in a response fixture. The scripted random seed includes this key; scripts retain
 their existing `(state, questions, rng)` interface.

@@ -38,6 +38,7 @@ STATE = {"photo": REF}
 QUESTIONS = {"target": Box(instructions="The pink rectangle in `photo`.")}
 EDGES = {"top": 0.1, "bottom": 0.6, "left": 0.2, "right": 0.8}
 SYNTHETIC = Provenance.synthetic()
+PINNED_TEXT_KEY = "a2cdafc0867c6aaf2f2d9631f13c22d1ef7467c797834ead9558b224cb5d56ce"
 
 
 def image_assets(color="pink", fmt="PNG", size=(280, 280)):
@@ -152,6 +153,50 @@ def test_asset_content_changes_keys_but_empty_assets_preserve_text_keys():
     replay = ReplayBackend({replay_key(STATE, questions, assets=pink): text_result.to_dict()})
     with pytest.raises(ReplayMiss):
         replay.decide(STATE, questions)
+
+
+def test_image_format_spelling_does_not_change_the_replay_key():
+    jpeg = image_assets(fmt="JPEG")
+    keys = {}
+    for spelling in ("jpeg", "jpg", "JPEG", "JPG", "Jpeg"):
+        keys[spelling] = replay_key(
+            STATE, QUESTIONS, assets={REF: {**jpeg[REF], "format": spelling}}
+        )
+    assert len(set(keys.values())) == 1, keys
+    png = image_assets()
+    assert replay_key(STATE, QUESTIONS, assets={REF: {**png[REF], "format": "PNG"}}) == replay_key(
+        STATE, QUESTIONS, assets=png
+    )
+    # A genuinely different format (other bytes) or other bytes of the same format is another key.
+    assert replay_key(STATE, QUESTIONS, assets=png) != keys["jpeg"]
+    other = image_assets("blue", fmt="JPEG")
+    assert replay_key(STATE, QUESTIONS, assets=other) != keys["jpeg"]
+    # Declaring the wrong format for the bytes is still refused, in any spelling.
+    for wrong in ("jpg", "JPEG"):
+        with pytest.raises(ValueError, match="does not match"):
+            replay_key(STATE, QUESTIONS, assets={REF: {**png[REF], "format": wrong}})
+    with pytest.raises(ValueError, match="png or jpeg"):
+        replay_key(STATE, QUESTIONS, assets={REF: {**png[REF], "format": "gif"}})
+    with pytest.raises(ValueError, match="png or jpeg"):
+        replay_key(STATE, QUESTIONS, assets={REF: {**png[REF], "format": None}})
+
+
+def test_a_recording_made_with_one_format_spelling_replays_with_another():
+    jpeg = image_assets(fmt="JPEG")
+    stored = {replay_key(STATE, QUESTIONS, assets=jpeg): box_result().to_dict()}
+    replay = ReplayBackend(stored)
+    for spelling in ("jpg", "JPEG"):
+        assert (
+            replay.decide(STATE, QUESTIONS, assets={REF: {**jpeg[REF], "format": spelling}})
+            == box_result()
+        )
+
+
+def test_text_only_replay_keys_are_pinned_to_the_published_envelope():
+    # Literal keys computed with origin/main's replay_key before images existed.
+    questions = {"visible": Noul(instructions="The target is visible.")}
+    assert replay_key("ordinary text", questions) == PINNED_TEXT_KEY
+    assert replay_key("ordinary text", questions, assets={}) == PINNED_TEXT_KEY
 
 
 def test_asset_order_is_stable_and_image_refs_work_only_in_values():
