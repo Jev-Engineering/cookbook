@@ -10,7 +10,7 @@ call and needs no key.** Every test mocks the HTTP layer (a fake client, and
 
 Three things are needed, and each missing one gives an error that says what to do:
 
-1. The optional SDK: `pip install 'jev_cookbook[live]'` (this pins `typesafe-sdk>=0.7.2,<0.8`).
+1. The optional SDK: `pip install 'jev_cookbook[live]'` (this pins `typesafe-sdk>=0.7.5,<0.8`).
    Importing `jev_cookbook` never imports it; only building a live client does.
 2. `JEV_COOKBOOK_LIVE=1` in the environment. Any other value than unset, empty, `0` or `1` is an
    error; `1` never falls back to replay.
@@ -46,12 +46,34 @@ in live mode the backend is the only thing that changes.
 
 **Recordings must pin a versioned model: use `jev-1.13.0`, not an alias.** The model is passed
 explicitly for every run, never defaulted. The documentation lists the pinned
-ID `jev-1.13.0` and the aliases `jev-latest` and `jev-preview`. An alias moves when a release
+IDs `jev-1.13.0`, `jev-1.14.0` and the aliases `jev-latest` and `jev-preview`. An alias moves when a release
 ships, so a recording made through an alias may not be reproducible later; the response's `model`
 field reports the versioned ID that answered. `backend.model` is the requested string until the
 first response and the returned string afterwards (`backend.requested_model` keeps what was
 sent). The returned string is what goes on `DecisionResult.model` and into every answer's
 `Provenance.recorded(model, date)`, with the UTC date of the call.
+
+### Experimental images and long context
+
+Pass `images=True` and/or `long_context=True` to `LiveBackend` or `get_backend`.
+These booleans add exactly `TypeSafe-Danger-Zone-Images: true` and
+`TypeSafe-Danger-Zone-Long-Context: true`, respectively, to each request.
+Their defaults are false and ordinary text calls add neither header.
+The existing restriction on arbitrary `request_kwargs["extra_headers"]` still holds.
+
+Pass raw image dictionaries using `decide(state, questions, assets=assets)` as described in
+[backends.md](backends.md#images-and-box). Before spending a request, the backend checks the
+assets, requires the images flag, and for a Box requires `jev-1.14.0` or `jev-preview`.
+Use the pinned `jev-1.14.0` for recordings. An unknown future version is refused for Box until
+support is verified; the text-only model behavior is unchanged. The API replaces references in
+string values; cookbook passes those strings through and converts assets into SDK `Image`
+objects for multipart upload. SDK 0.7.5 introduced this support
+([changelog](https://docs.typesafe.ai/sdk/python/changelog)).
+
+These features remain experimental. The model context and server-side request limits still
+apply when a header is enabled; enabling a flag is not a measurement of accuracy, token usage,
+latency or cost. See [images](https://docs.typesafe.ai/images),
+[Box](https://docs.typesafe.ai/primitives/box), and [models](https://docs.typesafe.ai/models).
 
 ## What a call does
 
@@ -71,7 +93,8 @@ sent). The returned string is what goes on `DecisionResult.model` and into every
 
 ## Budget guard
 
-`LiveBackend(model, *, client=None, max_requests=25, max_retries=2, request_kwargs=None)`.
+`LiveBackend(model, *, client=None, max_requests=25, max_retries=2, request_kwargs=None,
+images=False, long_context=False)`.
 
 - At most `max_requests` attempts per backend instance, enforced before each send. The next one
   raises `BudgetExceeded` and nothing is sent. The budget belongs to the instance: a new
@@ -121,7 +144,10 @@ report = record(
 
 `record(backend, requests, responses_path, *, overwrite=False, ledger_path=None) -> RecordReport`.
 
-- `requests` is an iterable of `(state, questions)` pairs. `responses_path` is passed explicitly
+- `requests` is an iterable of `(state, questions)` pairs or `(state, questions, assets)` triples.
+  Image content participates in deduplication, replay keys and ledger keys. Assets themselves
+  are sent to the API but are not written to the responses or ledger file.
+  `responses_path` is passed explicitly
   so the fixture layout of issue #65 can be applied by the recipe template; this module imposes no
   folder or file name.
 - The file is exactly the `ReplayBackend.from_json` format: one JSON object
