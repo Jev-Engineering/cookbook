@@ -1,0 +1,20 @@
+{"id": "v01", "label": {"status": "present", "box": {"top": 0.1640625, "bottom": 0.1953125, "left": 0.2109375, "right": 0.234375}}}
+{"id": "v02", "label": {"status": "present", "box": {"top": 0.48828125, "bottom": 0.51953125, "left": 0.4912109375, "right": 0.5146484375}}}
+{"id": "v03", "label": {"status": "present", "box": {"top": 0.9635416666666666, "bottom": 0.9947916666666666, "left": 0.9736328125, "right": 0.9970703125}}}
+{"id": "v04", "label": {"status": "absent", "box": null}}
+{"id": "v05", "label": {"status": "review", "box": null}}
+{"id": "v06", "label": {"status": "present", "box": {"top": 0.6640625, "bottom": 0.6953125, "left": 0.69921875, "right": 0.72265625}}}
+{"id": "v07", "label": {"status": "present", "box": {"top": 0.2604166666666667, "bottom": 0.2916666666666667, "left": 0.80078125, "right": 0.82421875}}}
+{"id": "v08", "label": {"status": "present", "box": {"top": 0.8125, "bottom": 0.84375, "left": 0.41015625, "right": 0.43359375}}}
+{"id": "v09", "label": {"status": "present", "box": {"top": 0.65625, "bottom": 0.6875, "left": 0.10546875, "right": 0.12890625}}}
+{"id": "v10", "label": {"status": "present", "box": {"top": 0.13020833333333334, "bottom": 0.16145833333333334, "left": 0.673828125, "right": 0.697265625}}}
+{"id": "t01", "label": {"status": "present", "box": {"top": 0.1953125, "bottom": 0.2265625, "left": 0.2734375, "right": 0.296875}}}
+{"id": "t02", "label": {"status": "present", "box": {"top": 0.4934895833333333, "bottom": 0.5247395833333334, "left": 0.48828125, "right": 0.51171875}}}
+{"id": "t03", "label": {"status": "present", "box": {"top": 0.9622395833333334, "bottom": 0.9934895833333334, "left": 0.0009765625, "right": 0.0244140625}}}
+{"id": "t04", "label": {"status": "absent", "box": null}}
+{"id": "t05", "label": {"status": "review", "box": null}}
+{"id": "t06", "label": {"status": "present", "box": {"top": 0.7942708333333334, "bottom": 0.8255208333333334, "left": 0.76171875, "right": 0.78515625}}}
+{"id": "t07", "label": {"status": "present", "box": {"top": 0.10416666666666667, "bottom": 0.13541666666666666, "left": 0.830078125, "right": 0.853515625}}}
+{"id": "t08", "label": {"status": "present", "box": {"top": 0.703125, "bottom": 0.734375, "left": 0.29296875, "right": 0.31640625}}}
+{"id": "t09", "label": {"status": "present", "box": {"top": 0.11979166666666667, "bottom": 0.15104166666666666, "left": 0.109375, "right": 0.1328125}}}
+{"id": "t10", "label": {"status": "present", "box": {"top": 0.5598958333333334, "bottom": 0.5911458333333334, "left": 0.732421875, "right": 0.755859375}}}
