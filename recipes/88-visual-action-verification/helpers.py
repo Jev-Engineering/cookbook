@@ -138,11 +138,14 @@ def certainty(result):
 
 
 def proposed_outcome(result):
+    """An exact tie in either proposition proposes review, independently of the gate."""
+    if any(result[name].noul == 0.5 for name in ("postcondition", "initially_absent")):
+        return REVIEW
     return SUCCESS if result["postcondition"].noul >= 0.5 else NOT_OBSERVED
 
 
 def freeze_gate(examples, results, labels):
-    """Choose only from eligible validation cases; hard review branches stay separate."""
+    """Choose from eligible validation cases, scoring exact ties as review outcomes."""
     if not examples or any(example.split != "validation" for example in examples):
         raise ValueError("gate selection requires validation examples only")
     eligible = [
@@ -171,6 +174,8 @@ def classify(example, result, gate, recipe_dir, *, actions, queue):
     reason = frame_problem(example.fields, recipe_dir)
     if reason is None and result is None:
         reason = "no visual answer available"
+    if reason is None and proposed_outcome(result) == REVIEW:
+        reason = "visual proposition is exactly undecided"
     if reason is None and result["initially_absent"].noul < 0.5:
         reason = "initial absence of the postcondition not established"
     if reason is None and certainty(result) < gate:

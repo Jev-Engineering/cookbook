@@ -81,6 +81,32 @@ def test_uncertain_or_already_present_state_goes_to_review(answer):
     assert len(queue) == 1
 
 
+@pytest.mark.parametrize("post, initial", [(0.5, 0.99), (0.99, 0.5), (0.01, 0.5), (0.5, 0.5)])
+def test_exact_ties_propose_review_and_abstain_with_a_selected_zero_gate(post, initial):
+    tied = SimpleNamespace(id="tied", split="validation", fields=example("v01").fields)
+    clear = SimpleNamespace(id="clear", split="validation", fields=example("v02").fields)
+    answers = {tied.id: result(post, initial), clear.id: result(0.99, 0.99)}
+    labels = {tied.id: "review", clear.id: "success"}
+    assert helpers.proposed_outcome(answers[tied.id]) == "review"
+    gate = helpers.freeze_gate([tied, clear], answers, labels)
+    assert gate == 0.0
+    actions, queue = ActionLog(), ReviewQueue()
+    outcome = helpers.classify(tied, answers[tied.id], gate, RECIPE, actions=actions, queue=queue)
+    assert outcome.outcome == "review"
+    assert outcome.reason == "visual proposition is exactly undecided"
+    assert len(actions) == 0
+    assert len(queue) == 1
+    assert queue.to_dicts()[0]["reason"] == outcome.reason
+
+
+@pytest.mark.parametrize("post, expected", [(0.01, "not_observed"), (0.99, "success")])
+def test_zero_gate_can_answer_untied_propositions(post, expected):
+    outcome, actions, queue = route(answer=result(post, 0.99), gate=0.0)
+    assert outcome.outcome == expected
+    assert len(queue) == 0
+    assert len(actions) == int(expected == "success")
+
+
 @pytest.mark.parametrize("ident", ["v08", "v09", "t08", "t09"])
 def test_missing_or_reversed_frames_override_a_certain_positive(ident):
     outcome, actions, queue = route(ident)

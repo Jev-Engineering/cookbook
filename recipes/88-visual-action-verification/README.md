@@ -5,7 +5,8 @@
 Compare ordered before/after screenshots against one explicit visible postcondition. Independent
 `Noul` questions check the final state and whether it was absent initially. Python validates
 timestamps and image files, selects a certainty gate on validation, and sends uncertain or invalid
-evidence to review. Only an accepted transition records a simulated handoff; no browser is connected.
+evidence to review. An exact `0.5` on either proposition always means review, even with a zero gate.
+Only an accepted transition records a simulated handoff; no browser is connected.
 
 The notebook shows the images and typed answers before evaluation. An independent pixel-change
 baseline demonstrates why an unrelated banner cannot establish the intended action. Cases include
