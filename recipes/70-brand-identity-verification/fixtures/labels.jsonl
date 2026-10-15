@@ -1,0 +1,28 @@
+{"id": "v01", "label": {"outcome": "conforming", "rationale": "Approved light lockup."}}
+{"id": "v02", "label": {"outcome": "conforming", "rationale": "Approved dark lockup."}}
+{"id": "v03", "label": {"outcome": "conforming", "rationale": "Approved monochrome lockup."}}
+{"id": "v04", "label": {"outcome": "conforming", "rationale": "Uniform resizing and translation are allowed."}}
+{"id": "v05", "label": {"outcome": "conforming", "rationale": "Minor antialiasing preserves every feature."}}
+{"id": "v06", "label": {"outcome": "nonconforming", "rationale": "Circle replaces the approved angular symbol."}}
+{"id": "v07", "label": {"outcome": "nonconforming", "rationale": "Horizontal stretching changes the aspect ratio."}}
+{"id": "v08", "label": {"outcome": "nonconforming", "rationale": "An X replaces the final A."}}
+{"id": "v09", "label": {"outcome": "nonconforming", "rationale": "Expanded letter spacing is outside the approved lockup."}}
+{"id": "v10", "label": {"outcome": "nonconforming", "rationale": "Orange symbol is not an approved palette."}}
+{"id": "v11", "label": {"outcome": "review", "rationale": "A cover hides characters; matching cannot be established."}}
+{"id": "v12", "label": {"outcome": "review", "rationale": "Wordmark is too small for reliable visual comparison."}}
+{"id": "v13", "label": {"outcome": "review", "rationale": "Blur removes identifying stroke detail."}}
+{"id": "v14", "label": {"outcome": "review", "rationale": "No displayed mark supplies evidence to inspect."}}
+{"id": "t01", "label": {"outcome": "conforming", "rationale": "Approved light lockup at a new position."}}
+{"id": "t02", "label": {"outcome": "conforming", "rationale": "Approved dark lockup at a new scale."}}
+{"id": "t03", "label": {"outcome": "conforming", "rationale": "Approved monochrome lockup."}}
+{"id": "t04", "label": {"outcome": "conforming", "rationale": "Small but legible uniform resizing is allowed."}}
+{"id": "t05", "label": {"outcome": "conforming", "rationale": "Slight raster smoothing leaves the mark intact."}}
+{"id": "t06", "label": {"outcome": "nonconforming", "rationale": "Wrong symbol remains wrong despite an APPROVED overlay."}}
+{"id": "t07", "label": {"outcome": "nonconforming", "rationale": "Nonuniform horizontal scale changes the logo geometry."}}
+{"id": "t08", "label": {"outcome": "nonconforming", "rationale": "Final X is not the approved A; stored answer misses it."}}
+{"id": "t09", "label": {"outcome": "nonconforming", "rationale": "Letter spacing differs from the dark reference."}}
+{"id": "t10", "label": {"outcome": "nonconforming", "rationale": "Unapproved orange symbol."}}
+{"id": "t11", "label": {"outcome": "review", "rationale": "Cover obscures the center of the wordmark."}}
+{"id": "t12", "label": {"outcome": "review", "rationale": "Tiny lettering is insufficient evidence even with a high match probability."}}
+{"id": "t13", "label": {"outcome": "review", "rationale": "Severe blur makes comparison unresolved."}}
+{"id": "t14", "label": {"outcome": "review", "rationale": "Blank dark panel has no inspectable logo."}}
