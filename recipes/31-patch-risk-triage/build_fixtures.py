@@ -268,11 +268,17 @@ _TEST_OVERRIDES = {
 # reading at the same row index: with no shift, row i's clean readings on validation and on
 # test are the same two cycle entries (same combo at the same position), which is what made 11
 # of the 19 test patches share a validation patch's exact stored-answer profile. Shifting test's
-# index by half the cycle length (4 of 8) de-correlates every non-overridden row while leaving
-# the actual *set* of values each split draws from unchanged -- every entry of both cycles
-# still appears in both splits the same number of times, just attached to different rows -- so
-# no per-concern tag, no threshold, and no gate decision moves; only which row carries which
-# already-clean reading does.
+# index by half the cycle length (4 of 8) de-correlates every non-overridden row, and it cannot
+# move a per-concern business tag: every _TRUE_CYCLE entry sits above all three frozen
+# thresholds (its smallest is 0.84, the largest threshold 0.610) and every _FALSE_CYCLE entry
+# sits below all three (its largest is 0.11, the smallest threshold 0.500), so which row carries
+# which entry changes no reading's side of any threshold. The thresholds are themselves chosen
+# on validation, whose offset is 0, so shifting test cannot move them either.
+#
+# What the shift does NOT do -- stated because this generator is the kind of thing that gets
+# copied: it does not leave each split drawing the same multiset of values. A concern draws only
+# on the rows whose combination carries it, and that row set is not closed under +4 mod 8, so
+# the per-concern multisets differ between the splits (measured: all three of them differ).
 _CYCLE_OFFSET = {"validation": 0, "test": 4}
 
 

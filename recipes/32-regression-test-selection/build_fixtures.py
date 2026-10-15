@@ -81,9 +81,11 @@ ADVERSARIAL_WRONG = (0.04, 0.05, 0.07, 0.84)  # peaks at level 3; gold is unrela
 # A small pool of candidate tests, each gold-`unrelated` to whichever patch borrows it, used for
 # the `unrelated` candidate in several tasks. Most live in a different feature area than the
 # patch that borrows them; the `billing` entry does not -- `discount-engine` deliberately
-# borrows it anyway, so the baseline's file-path signal can tie (and, on `validation`, beat) the
-# gold-relevant candidate on file-area overlap alone, the showcase the notebook's "Candidate
-# sets" section and task-level evaluation both walk through. Reusing one of these across two
+# borrows it anyway, so the baseline's file-path signal can tie or beat the gold-relevant
+# candidate on file-area overlap alone -- both of which happen on `validation` only, since on
+# `test` the gold-relevant candidate shares a word with the patch description and so outscores
+# the borrowed one. That showcase is what the notebook's "Candidate sets" section and
+# task-level evaluation both walk through. Reusing one of these across two
 # different patches is not a fixture leak: a (patch, test) pair's full state always differs
 # because the patch text differs, and docs/fixtures.md's leak rule compares the complete state,
 # not one field of it.

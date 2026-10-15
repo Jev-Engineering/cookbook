@@ -86,6 +86,18 @@ check id                              rule -> detection
                                        production call (not merely co-located with a string
                                        naming the spelling) -- not a hand-written literal beside
                                        the call, and not the resulting threshold value alone.
+``noul_proposition_gold_coverage``    #283: for every ``Noul`` proposition this check can
+                                       reach in the recipe's own code (two or more -- a
+                                       battery; fewer reached and the check does not apply),
+                                       ``labels.jsonl`` carries at least one gold-true AND one
+                                       gold-false row for that proposition in EVERY scored
+                                       split. Propositions are reached by calling the recipe's
+                                       own zero-argument functions and keeping the
+                                       ``Noul``-valued entries of whatever dict each returns
+                                       -- never by name or spelling. A builder that requires
+                                       an argument is NOT reached (recipe 39; see below), and
+                                       the skip says so rather than claiming the recipe builds
+                                       fewer than two.
 ====================================  =====================================================
 
 Scope decisions (see the pull request body for the full reasoning):
@@ -163,12 +175,46 @@ Scope decisions (see the pull request body for the full reasoning):
     does today. So this skip remains, but is keyed on and worded for that property -- "no
     committed artifact this check can read a real call count from" -- rather than on
     ``responses.json`` read as if its mere absence were the whole explanation.
+* ``noul_proposition_gold_coverage`` (#283) discovers a recipe's ``Noul`` propositions by
+  CALLING every zero-required-argument function ``helpers.py`` defines (not imports) and
+  keeping the ``Noul``-valued entries of any dict each one returns -- the recipe's own code
+  builds the questions it sends, so every proposition this finds is one a live run asks about,
+  under whatever name the recipe's own code gave it, never a name or spelling this check
+  supplies. The converse does not hold: it finds what zero-argument calls reach, not
+  everything the recipe builds (recipe 39, below). Measured against the published set, 51
+  such function calls across 49 published recipes plus the template (43 of the 50
+  ``helpers.py`` modules define at least one) opened no file, printed nothing and raised
+  nothing; the calls themselves took about 0.015s, and the whole discovery sweep, including
+  ``load_helpers`` for all 50 modules, about 0.2s -- a measurement of today's set, not a
+  contract: see
+  ``_noul_propositions`` for what those calls include besides question builders. Ten published
+  recipes expose two or more ``Noul`` propositions to this route (06, 25, 26, 31, 35, 37, 41,
+  42, 44, 48) and every one already carries a gold-true and a gold-false row for every
+  proposition in both scored splits, so this check needs no
+  ``tests/recipe_guard_known_failures.py`` entry to land.
+
+  KNOWN UNREACHED CASE: recipe 39 builds two ``Noul`` propositions (one per field in
+  ``FIELDS``) in one stage-2 request, but through ``build_stage2_questions(which)``, which
+  requires an argument, so zero-argument discovery finds none of them. That is a limit of
+  the discovery route, not a fact about the recipe, and the skip reason says so. It is also the
+  right outcome rather than a gap to close by calling the builder with ``list(FIELDS)``: 39's
+  ``labels.jsonl`` records each field's extracted STRING (``{"invoice_number": "4420", ...}``),
+  not a per-proposition boolean, so if the builder were reached every row would read gold-true
+  and the check would fail the recipe on gold it simply cannot read. Widening discovery to
+  argument-taking builders is a design decision this check does not make; a recipe whose
+  question builder requires an argument (a feature list, a field list) is not covered by it.
+
+  A recipe with zero or one ``Noul`` proposition reached is skipped, not passed vacuously:
+  gold-coverage-per-proposition is the #283 battery property, and a single proposition's
+  ``labels.jsonl`` entry in this cookbook is often a bare boolean with no proposition key at
+  all (recipes 02, 10, 15), which this check does not attempt to read.
 """
 
 from __future__ import annotations
 
 import ast
 import importlib.util
+import inspect
 import io
 import json
 import re
@@ -179,7 +225,8 @@ from types import ModuleType
 
 import pytest
 
-from jev_cookbook import load_helpers
+from jev_cookbook import Noul, load_helpers
+from jev_cookbook import fixtures as jc_fixtures
 
 REPO = Path(__file__).resolve().parent.parent
 
@@ -2130,3 +2177,151 @@ def test_the_threshold_objective_is_pinned_by_source_spelling(recipe):
                 "bare `assert name` or any other truthiness check is not credited"
             )
     assert not violations, f"{recipe['slug']}: " + "; ".join(violations)
+
+
+# --------------------------------------------------------------------------------------------
+# check: every Noul proposition a recipe's own code builds has a gold-true and gold-false row
+# in every scored split (#283)
+# --------------------------------------------------------------------------------------------
+
+
+def _noul_propositions(recipe_dir_: Path) -> dict[str, list[str]]:
+    """Every ``Noul`` proposition this route can reach in the recipe's own code, as ``{name: [the
+    function(s) that produced it]}``. Not "every proposition the recipe builds": a builder that
+    requires an argument is never called (recipe 39's ``build_stage2_questions(which)`` is the
+    known case -- see the module docstring). Discovery calls every function ``helpers.py`` defines (not
+    one it merely imports) that can be called with no arguments, and keeps the ``Noul``-valued
+    entries of any dict it returns. The name is the dict key the recipe's own code assigns --
+    the same key ``labels.jsonl`` must carry that proposition's gold value under -- never a
+    spelling this check searches for or guesses.
+
+    Calling an arbitrary zero-argument function is safe here only because it was MEASURED to be
+    on today's published set, not because any contract says so (CONTRIBUTING.md makes no such
+    promise): 51 function calls across 49 published recipes plus the template opened no file,
+    wrote no output and raised nothing; the calls took about 0.015s, the whole sweep including
+    ``load_helpers`` for all 50 modules about 0.2s. They are not all question
+    builders: 36's ``enumerate_game_space`` (a brute-force search over card permutations, the
+    one call that does real work -- 13ms at today's ``N_CARDS``, but its cost is bounded by
+    nothing this check controls), 43's private ``_new_budget`` and ``worst_case_step_bound``,
+    44's ``approve_all_outcome``/``reject_all_outcome``/``always_review_outcome``, 48's
+    ``always_consistent_baseline``, and 40's ``build_department_question``/
+    ``build_flat_question`` (two builders returning a bare ``Choice``, not a dict) are all
+    called, and a function that does not return a ``{name: Noul(...)}`` mapping simply
+    contributes nothing. A function that requires an argument is not called. A function that
+    raises is skipped, not a failure of this check -- which makes a raising builder
+    indistinguishable from a recipe that genuinely builds fewer than two propositions, the same
+    root cause as the argument-taking case."""
+    helpers = load_helpers(recipe_dir_, reload=True)
+    props: dict[str, list[str]] = {}
+    for name, obj in vars(helpers).items():
+        if not inspect.isfunction(obj) or obj.__module__ != helpers.__name__:
+            continue  # imported into helpers.py, not defined there
+        try:
+            sig = inspect.signature(obj)
+        except (TypeError, ValueError):
+            continue
+        if any(
+            param.default is inspect.Parameter.empty
+            and param.kind
+            in (param.POSITIONAL_ONLY, param.POSITIONAL_OR_KEYWORD, param.KEYWORD_ONLY)
+            for param in sig.parameters.values()
+        ):
+            continue  # needs an argument this check does not have -- not a question builder
+        try:
+            result = obj()
+        except Exception:
+            continue
+        if not isinstance(result, dict):
+            continue
+        for key, value in result.items():
+            if isinstance(value, Noul):
+                props.setdefault(key, []).append(name)
+    return props
+
+
+def _noul_gold_value(label: object, prop: str) -> tuple[bool, bool | None]:
+    """``(found, value)`` for proposition ``prop``'s gold value under one ``labels.jsonl`` row's
+    ``label``. Handles every shape the published multi-proposition ``Noul`` recipes actually
+    use: a flat ``{prop: bool, ...}`` mapping (26, 41, 42, 44, 48); one level of nesting,
+    ``{"features": {prop: bool, ...}, ...}`` (35); and set-valued gold, a list naming the
+    propositions that are true, where membership stands for the value and an absent name is a
+    recorded ``False`` (06, 37). Finding none of these shapes reports ``found=False`` rather
+    than guessing; such a row contributes nothing to either truth value, which is exactly what
+    this check is required to notice (a proposition it cannot read gold for is not evidence that
+    a gold-true or gold-false row exists)."""
+    if isinstance(label, dict):
+        if prop in label:
+            return True, bool(label[prop])
+        for value in label.values():
+            if isinstance(value, dict) and prop in value:
+                return True, bool(value[prop])
+        return False, None
+    if isinstance(label, list):
+        return True, prop in label
+    return False, None
+
+
+def _noul_gold_gaps(recipe_dir_: Path) -> tuple[dict[str, list[str]], list[str]]:
+    """``(propositions, gaps)`` for one recipe. ``gaps`` names every ``split/proposition`` pair
+    among ``jev_cookbook.fixtures.REQUIRED_SPLITS`` (``validation``, ``test`` -- the module's
+    own rule that ``demo`` is never scored, not a spelling repeated here) for which
+    ``labels.jsonl`` carries no gold-true row, no gold-false row, or neither. Returns
+    ``(propositions, [])`` immediately, with no fixture read at all, when fewer than two
+    propositions are reached: #283 is about the multi-proposition battery, and a single
+    proposition's gold is often recorded with no proposition key for ``_noul_gold_value`` to
+    read (see the module docstring)."""
+    props = _noul_propositions(recipe_dir_)
+    if len(props) < 2:
+        return props, []
+    inputs = jc_fixtures.load_inputs(recipe_dir_)
+    labels = jc_fixtures.load_labels(recipe_dir_)
+    split_of = {example.id: example.split for example in inputs}
+    seen: dict[tuple[str, str], set[bool]] = {}
+    for example_id, label in labels.items():
+        split = split_of.get(example_id)
+        if split not in jc_fixtures.REQUIRED_SPLITS:
+            continue
+        for prop in props:
+            found, value = _noul_gold_value(label, prop)
+            if found:
+                seen.setdefault((split, prop), set()).add(value)
+    gaps = []
+    for split in jc_fixtures.REQUIRED_SPLITS:
+        for prop in props:
+            values = seen.get((split, prop), set())
+            missing = [v for v in (True, False) if v not in values]
+            if missing:
+                missing_words = "/".join("true" if m else "false" for m in missing)
+                gaps.append(
+                    f"{split}/{prop}: no gold-{missing_words} row (saw only {sorted(values)})"
+                )
+    return props, gaps
+
+
+@pytest.mark.parametrize("recipe", guarded_with_template("noul_proposition_gold_coverage")())
+def test_every_noul_proposition_has_gold_true_and_false_in_each_scored_split(recipe):
+    """#283: recipe 48's review measured, on its merged fixtures, that ``breaks_reference`` had
+    zero gold positives in validation -- no row where its tag could change a composed outcome,
+    no row from which ``select_threshold`` could choose that proposition's threshold, so the
+    recipe's own declared "the F1 sweep is degenerate" limitation was a symptom of the fixture
+    gap rather than an independent fact about the task. #283's issue is silent on this: an issue
+    that names propositions but not the combinations and polarities their gold must cover left
+    it to chance, and it reached a builder only through an orchestration brief rather than
+    through the issue itself. This check makes the mechanical half of that requirement --
+    "every proposition gets a gold-true and a gold-false row in every scored split" -- a CI
+    property instead of a brief.
+
+    A recipe in which fewer than two ``Noul`` propositions are reached is skipped (not passed):
+    either it builds fewer than two, so the battery property #283 is about does not reach it, or
+    it builds them where zero-argument discovery cannot call (recipe 39), and this check does
+    not substitute for whatever the recipe's own evidence requires. See ``_noul_propositions`` for how
+    propositions are discovered (by calling the recipe's own code, never by name) and
+    ``_noul_gold_value`` for the gold-reading shapes this recognises."""
+    props, gaps = _noul_gold_gaps(recipe_dir(recipe))
+    if len(props) < 2:
+        pytest.skip(
+            f"{recipe['slug']}: no two Noul propositions reachable by zero-argument discovery "
+            f"(found {sorted(props)}); a recipe whose question builder requires an argument "
+            "is not reached, and a builder that raises is not told apart from one that is absent"
+        )
+    assert not gaps, f"{recipe['slug']}: " + "; ".join(gaps)
