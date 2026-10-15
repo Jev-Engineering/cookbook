@@ -50,9 +50,14 @@ attempt cap. A capped or failed run stops and preserves its paid-call evidence.
 Set `JEV_RECIPE98_CAPTURE_DIR` to a new local directory, outside `fixtures/`. The notebook uses the
 shared recorder and writes `responses.json`, `request-ledger.json`, and `run-record.json`.
 The last file preserves every call's actual typed response, elapsed inference time, returned model,
-capture date, and usage, including distinct answers to identical requests in different arms.
-Replay time is never treated as inference latency. Reported cost stays null without actual
-per-call billing evidence; character length and external token preflight counts are never API usage.
+capture date, and successful-response usage, including distinct answers to identical requests in
+different arms. Failed attempts may consume tokens without returning usage. Resource summaries
+therefore separate successful-response tokens from complete arm totals: total tokens and cost stay
+null if any call retried or its attempt count is unknown. Missing usage also keeps that token total
+null. Cost additionally requires actual billing evidence for every single-attempt call; this capture
+format does not establish billing across retries. Attempt counts and elapsed inference time still
+include retries. Replay time is never treated as inference latency; character length and external
+token preflight counts are never API usage.
 
 The request cap is local to one backend and **does not enforce a cumulative dollar budget**.
 A campaign using an existing cumulative authorization must reserve this run through its budget
@@ -90,10 +95,10 @@ records both workload identity and external-count provenance. Set `JEV_RECIPE98_
 manifest explicitly for a larger live run or its recorded replay. All three arms receive the
 same generated corpus. Missing replay responses fail clearly.
 
-External counts are preflight information. The notebook prints full-arm **server** input-token
-counts only when recorded; those counts, including the actual distance from the intended scale,
-are necessary before describing a near-262K comparison. This recipe supplies no unofficial
-token estimator and makes no token claim from character length.
+External counts are preflight information. The notebook prints each full-context successful
+response's **server** input-token count only when recorded; those counts, including the actual
+distance from the intended scale, are necessary before describing a near-262K comparison.
+This recipe supplies no unofficial token estimator and makes no token claim from character length.
 
 ## Sources
 

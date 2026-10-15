@@ -213,6 +213,47 @@ def test_no_fabricated_inference_measurements(study):
     assert report["state_characters"] > 0
 
 
+@pytest.mark.parametrize(
+    ("attempts", "input_tokens", "output_tokens", "cost", "expected"),
+    [
+        (1, 100, 10, 0.01, (100, 10, 0.01)),
+        (2, 100, 10, 0.01, (None, None, None)),
+        (None, 100, 10, 0.01, (None, None, None)),
+        (1, None, 10, 0.01, (None, 10, 0.01)),
+        (1, 100, None, None, (100, None, None)),
+        (1, 0, 0, 0.0, (0, 0, 0.0)),
+    ],
+)
+def test_accounting_requires_complete_attempt_usage(
+    attempts, input_tokens, output_tokens, cost, expected
+):
+    call = {
+        "status": "completed",
+        "http_attempts": 0,
+        "captured_http_attempts": attempts,
+        "state_characters": 80,
+        "document_count": 1,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "latency_seconds": 1.5,
+        "cost_usd": cost,
+    }
+    report = helpers.accounting([SimpleNamespace(requests=[call])])
+    for key, value in zip(("input_tokens", "output_tokens", "cost_usd"), expected, strict=True):
+        assert report[key] == value
+        assert report[f"missing_{key}"] == int(value is None)
+    assert report["successful_response_input_tokens"] == input_tokens
+    assert report["successful_response_output_tokens"] == output_tokens
+    assert report["latency_seconds"] == 1.5
+    assert report["captured_http_attempts"] == attempts
+    assert report["http_attempts_this_execution"] == 0
+    assert report["calls_missing_attempt_count"] == int(attempts is None)
+    assert report["calls_with_known_retries"] == int(attempts is not None and attempts > 1)
+    assert report["attempts_without_successful_response"] == (
+        None if attempts is None else attempts - 1
+    )
+
+
 def test_full_notebook_request_count_keeps_duplicate_requests_independent():
     class CountingBackend:
         mode = "synthetic"
@@ -360,6 +401,73 @@ def test_backend_attempt_cap_counts_retries_and_records_failure(tmp_path):
     sidecar = json.loads((tmp_path / "capture" / "run-record.json").read_text())
     assert sidecar["backend_ledger"]["requests_made"] == 2
     assert sidecar["calls"][0]["input_tokens"] is None
+    report = helpers.accounting([SimpleNamespace(requests=experiment.records)])
+    assert report["http_attempts_this_execution"] == report["captured_http_attempts"] == 2
+    assert report["attempts_without_successful_response"] == 2
+    assert report["input_tokens"] is report["output_tokens"] is report["cost_usd"] is None
+    assert report["missing_input_tokens"] == report["missing_output_tokens"] == 1
+    assert report["latency_seconds"] is not None
+
+
+def test_retry_capture_and_replay_never_promote_final_response_usage_to_total(tmp_path):
+    from jev_cookbook.live import LiveBackend
+
+    example = load_inputs(HERE)[0]
+    request = helpers.final_request(
+        example.fields, [doc["id"] for doc in example.fields["documents"]], HERE
+    )
+    body = (
+        ReplayBackend.from_json(responses_path(HERE))
+        .decide(*request[:2], assets=request[2])
+        .to_dict()
+    )
+    body["model"] = helpers.MODEL
+    body["usage"] = {"input_tokens": 100, "output_tokens": 10}
+    for answer in body["answers"].values():
+        answer.pop("provenance")
+
+    class RetryThenSuccess:
+        calls = 0
+
+        def system_one(self, **_kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                raise TimeoutError("injected local timeout")
+            return SimpleNamespace(
+                request_id="local-success", model_dump_json=lambda: json.dumps(body)
+            )
+
+    client = RetryThenSuccess()
+    backend = LiveBackend(
+        helpers.MODEL,
+        client=client,
+        images=True,
+        long_context=True,
+        max_requests=2,
+        max_retries=1,
+        sleep=lambda _: None,
+        today=lambda: "2026-10-15",
+    )
+    capture = tmp_path / "capture"
+    live = helpers.Experiment(backend, HERE, capture_dir=capture)
+    live_report = helpers.accounting([live.run(example, "full")])
+    sidecar = json.loads((capture / "run-record.json").read_text())
+    replay = helpers.Experiment(
+        ReplayBackend.from_json(capture / "responses.json"),
+        HERE,
+        captured_calls=sidecar["calls"],
+    )
+    replay_report = helpers.accounting([replay.run(example, "full")])
+    assert client.calls == live_report["http_attempts_this_execution"] == 2
+    assert replay_report["http_attempts_this_execution"] == 0
+    for report in (live_report, replay_report):
+        assert report["captured_http_attempts"] == 2
+        assert report["attempts_without_successful_response"] == 1
+        assert report["successful_response_input_tokens"] == 100
+        assert report["successful_response_output_tokens"] == 10
+        assert report["input_tokens"] is report["output_tokens"] is report["cost_usd"] is None
+        assert report["missing_input_tokens"] == report["missing_output_tokens"] == 1
+    assert replay_report["latency_seconds"] == live_report["latency_seconds"]
 
 
 def test_recorded_replay_preserves_different_answers_to_the_same_request():
@@ -377,7 +485,9 @@ def test_recorded_replay_preserves_different_answers_to_the_same_request():
     stored["model"] = "jev-1.14.0"
     for answer in stored["answers"].values():
         answer["provenance"] = provenance.to_dict()
+    stored["usage"] = {"input_tokens": 100, "output_tokens": 10}
     second = copy.deepcopy(stored)
+    second["usage"] = {"input_tokens": 200, "output_tokens": 20}
     second["answers"]["audit"] = ChoiceAnswer.from_probabilities(
         {"consistent": 0.03, "contradicted": 0.94, "unresolved": 0.03}, provenance
     ).to_dict()
@@ -390,6 +500,7 @@ def test_recorded_replay_preserves_different_answers_to_the_same_request():
             "model": "jev-1.14.0",
             "latency_seconds": elapsed,
             "http_attempts": attempts,
+            "cost_usd": 0.01,
             "response": response,
         }
         for mode, response, elapsed, attempts in (
@@ -410,6 +521,15 @@ def test_recorded_replay_preserves_different_answers_to_the_same_request():
     assert [r["latency_seconds"] for r in experiment.records] == [1.25, 3.5]
     assert [r["captured_http_attempts"] for r in experiment.records] == [1, 2]
     assert [r["http_attempts"] for r in experiment.records] == [0, 0]
+    report = helpers.accounting([SimpleNamespace(requests=experiment.records)])
+    assert report["successful_response_input_tokens"] == 300
+    assert report["successful_response_output_tokens"] == 30
+    assert report["input_tokens"] is report["output_tokens"] is report["cost_usd"] is None
+    assert report["missing_input_tokens"] == report["missing_output_tokens"] == 1
+    assert report["missing_cost_usd"] == 1
+    assert report["latency_seconds"] == 4.75
+    assert report["captured_http_attempts"] == 3
+    assert report["attempts_without_successful_response"] == 1
     with pytest.raises(ValueError, match="no matching captured call"):
         experiment.call(
             request, task_id=example.id, split=example.split, mode="full", stage="final"

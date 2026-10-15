@@ -296,10 +296,13 @@ class Experiment:
                         "replay_key": key,
                         "status": "failed",
                         "http_attempts": self.backend.requests_made - before,
+                        "captured_http_attempts": self.backend.requests_made - before,
                         "latency_seconds": timed.elapsed,
                         "input_tokens": None,
                         "output_tokens": None,
                         "cost_usd": None,
+                        "state_characters": len(json.dumps(state, ensure_ascii=False)),
+                        "document_count": len(state.get("documents", [])),
                     }
                 )
                 self.save_records()
@@ -557,23 +560,52 @@ def evaluate(rows, labels, policy):
 
 
 def accounting(rows):
+    """Separate returned-response usage from totals covering every HTTP attempt.
+
+    The backend records usage only for successful responses. A retry's failed attempt
+    may have consumed tokens even when no usage was returned. This capture format has
+    no per-attempt billing evidence either, so retry token and cost totals stay unknown.
+    Elapsed inference time already includes retries and remains a separate measurement.
+    """
     calls = [call for row in rows for call in row.requests]
+    attempts = [call.get("captured_http_attempts") for call in calls]
     result = {
         "logical_requests": len(calls),
         "http_attempts_this_execution": sum(c["http_attempts"] for c in calls),
         "state_characters": sum(c["state_characters"] for c in calls),
         "documents_supplied": sum(c["document_count"] for c in calls),
+        "calls_with_known_retries": sum(n is not None and n > 1 for n in attempts),
+        "calls_missing_attempt_count": sum(n is None for n in attempts),
+        "attempts_without_successful_response": (
+            sum(
+                n - int(call["status"] == "completed")
+                for call, n in zip(calls, attempts, strict=True)
+            )
+            if attempts and all(n is not None for n in attempts)
+            else None
+        ),
     }
-    for key in (
-        "input_tokens",
-        "output_tokens",
-        "latency_seconds",
-        "cost_usd",
-        "captured_http_attempts",
-    ):
-        values = [call[key] for call in calls]
+
+    def total(key, values):
         result[key] = sum(values) if values and all(x is not None for x in values) else None
         result[f"missing_{key}"] = sum(x is None for x in values)
+
+    for key in ("latency_seconds", "captured_http_attempts"):
+        values = [call[key] for call in calls]
+        total(key, values)
+    for key in ("input_tokens", "output_tokens"):
+        total(
+            f"successful_response_{key}",
+            [call[key] if call["status"] == "completed" else None for call in calls],
+        )
+    for key in ("input_tokens", "output_tokens", "cost_usd"):
+        total(
+            key,
+            [
+                call[key] if n == 1 and call["status"] == "completed" else None
+                for call, n in zip(calls, attempts, strict=True)
+            ],
+        )
     return result
 
 
