@@ -267,32 +267,64 @@ def test_keyword_overlap_baseline_does_not_beat_jev_on_test():
 
 # --------------------------------------------------------------------------------------------
 # The TUNED surface-form family behind `baselines-md`'s margin paragraph. That paragraph makes
-# two quantitative claims about objects that do not exist in `helpers.py`: that extending the
-# cue list to catch both margin rows trades them for `t-corrob-02` and `t-corrob-04-adversarial`
-# at the same `test` score, and that no variant in the swept family reaches Jev. Prose does not
-# re-run, so both are built and measured here.
+# quantitative claims about objects that do not exist in `helpers.py` -- that a zero-request
+# surface rule can be fitted until it matches Jev on `test`, that it does not hold that score on
+# `validation`, and that nothing in the enumerated family holds it on both -- so the family is
+# built and measured here. Prose does not re-run.
 #
-# The variants deliberately reuse `helpers._SUPERSEDING_CUES` and `helpers._content_words`
-# rather than copies of them: the point of the pin is that these claims move when the recipe's
-# own tokenizer, cue list or fixtures move, and a private-name copy here would hold them still.
-# Nothing below reads a gold label, an example id or a split: a variant sees the two statements.
+# An earlier version of this family held the capitalised-value rule in one unfiltered form, which
+# misfired on sentence-initial function words (`The`, `It`, `For` are not values) and so made the
+# family's own negative come out true for the wrong reason. Five formulations of that rule are
+# swept here, including the unfiltered one, so no single formulation decides the extrema.
+#
+# The variants deliberately reuse `helpers._SUPERSEDING_CUES`, `helpers._STOPWORDS` and
+# `helpers._content_words` rather than copies of them: the point of the pin is that these claims
+# move when the recipe's own tokenizer, cue list or fixtures move, and a private-name copy here
+# would hold them still. Nothing below reads a gold label, an example id or a split: every
+# variant sees the two statements and nothing else.
 # --------------------------------------------------------------------------------------------
 
 HEDGE_CUES = ("might be changing", "might be moving", "not sure to who")
 _CAPITALISED = re.compile(r"\b[A-Z][a-z]+")
-MARGIN_ROWS = ("t-super-04-lowconf", "t-contra-02")
-TRADED_FOR = ("t-corrob-02", "t-corrob-04-adversarial")
-MISSED_BY_BOTH = "t-contra-04-wrong"
+CAPITALISED_MODES = ("off", "raw", "stopword-filtered", "non-sentence-initial", "content-word")
+LOW_CUTS = (0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35)
+CORROBORATING_CUTS = (0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75)
+FAMILY_SIZE = 2 * len(CAPITALISED_MODES) * len(LOW_CUTS) * len(CORROBORATING_CUTS)  # 630
+JEV_BOTH_SPLITS = 0.9375  # printed in the notebook for both splits
+SURFACE_BEST_ON_VALIDATION = 0.875
 
 
-def _surface_variant(hedge, swapped_value_rule, low_cut, corroborating_cut):
-    """One member of the swept family, reading only ``new_statement`` and
-    ``existing_statement``. ``hedge`` adds ``HEDGE_CUES`` to the committed correction cues;
-    ``swapped_value_rule`` calls a topic-sharing statement that swaps one capitalised value for
-    another ``contradicting``; the two cuts are ``keyword_overlap_baseline``'s own bands, swept.
-    With ``hedge=False, swapped_value_rule=False, 0.2, 0.5`` it reproduces the committed
-    baseline, which ``test_the_swept_surface_family_reproduces_the_committed_baseline`` checks.
-    """
+def _capitalised(text, mode):
+    """The capitalised tokens a variant treats as candidate *values*. ``raw`` is the unfiltered
+    form whose misfire on `The`/`It`/`For` is the reason this is swept rather than fixed."""
+    if mode == "raw":
+        return set(_CAPITALISED.findall(text))
+    if mode == "stopword-filtered":
+        return {w for w in _CAPITALISED.findall(text) if w.lower() not in helpers._STOPWORDS}
+    if mode == "non-sentence-initial":
+        found = set()
+        for sentence in re.split(r"(?<=[.!?])\s+", text):
+            opener = re.match(r"\s*([A-Z][a-z]+)", sentence)
+            found |= {
+                token
+                for token in _CAPITALISED.findall(sentence)
+                if not (opener and token == opener.group(1))
+            }
+        return found
+    if mode == "content-word":
+        content = helpers._content_words(text)
+        return {w for w in _CAPITALISED.findall(text) if w.lower() in content}
+    raise AssertionError(f"unknown capitalised-token mode {mode!r}")
+
+
+def _surface_variant(hedge, capitalised_mode, low_cut, corroborating_cut):
+    """One member of the family, reading only ``new_statement`` and ``existing_statement``.
+    ``hedge`` adds ``HEDGE_CUES`` to the committed correction cues; ``capitalised_mode`` selects
+    how a swapped-value rule decides what counts as a value (``"off"`` disables the rule); the
+    two cuts are ``keyword_overlap_baseline``'s own bands, swept.
+
+    With ``hedge=False, capitalised_mode="off", 0.2, 0.5`` it reproduces the committed baseline,
+    which ``test_the_swept_surface_family_reproduces_the_committed_baseline`` checks."""
 
     def variant(fields):
         new = fields["new_statement"]
@@ -305,9 +337,9 @@ def _surface_variant(hedge, swapped_value_rule, low_cut, corroborating_cut):
         if not new_words or not existing_words:
             return UNREL
         overlap = len(new_words & existing_words) / len(existing_words)
-        if swapped_value_rule and overlap >= low_cut:
-            new_caps = set(_CAPITALISED.findall(new))
-            old_caps = set(_CAPITALISED.findall(fields["existing_statement"]))
+        if capitalised_mode != "off" and overlap >= low_cut:
+            new_caps = _capitalised(new, capitalised_mode)
+            old_caps = _capitalised(fields["existing_statement"], capitalised_mode)
             if (new_caps - old_caps) and (old_caps - new_caps):
                 return CONTRA
         if overlap < low_cut:
@@ -318,111 +350,141 @@ def _surface_variant(hedge, swapped_value_rule, low_cut, corroborating_cut):
 
 
 def _swept_family():
-    """The 48 variants: hedge cues on/off, the swapped-value rule on/off, three low cuts and
-    four corroborating cuts. 48 is the number `baselines-md` quotes."""
-    family = []
-    for hedge in (False, True):
-        for swapped in (False, True):
-            for low_cut in (0.1, 0.2, 0.3):
-                for corroborating_cut in (0.4, 0.5, 0.6, 0.7):
-                    family.append(
-                        (
-                            (hedge, swapped, low_cut, corroborating_cut),
-                            _surface_variant(hedge, swapped, low_cut, corroborating_cut),
-                        )
-                    )
-    return family
+    """Every combination: hedge cues on/off, five formulations of the swapped-value rule, seven
+    low cuts, nine corroborating cuts. ``FAMILY_SIZE`` is the number `baselines-md` quotes."""
+    return [
+        (
+            (hedge, mode, low_cut, corroborating_cut),
+            _surface_variant(hedge, mode, low_cut, corroborating_cut),
+        )
+        for hedge in (False, True)
+        for mode in CAPITALISED_MODES
+        for low_cut in LOW_CUTS
+        for corroborating_cut in CORROBORATING_CUTS
+    ]
 
 
-def _test_rows():
+def _scored_rows(split):
     labels = load_labels(RECIPE)
     examples = load_inputs(RECIPE)
-    rows = [e for e in examples if e.split == "test" and e.id in labels]
-    return rows, labels
-
-
-def _misses(predict, rows, labels):
-    return {e.id for e in rows if predict(e.fields) != labels[e.id]}
+    return [e for e in examples if e.split == split and e.id in labels], labels
 
 
 def _accuracy(predict, rows, labels):
     return sum(predict(e.fields) == labels[e.id] for e in rows) / len(rows)
 
 
-def test_the_swept_surface_family_reproduces_the_committed_baseline():
-    """The family's own calibration check: the member with no hedge cues, no swapped-value rule
-    and `keyword_overlap_baseline`'s committed cuts must agree with that function on every
-    `test` row. Without this, the two tests below could measure a family that has drifted away
-    from the baseline they compare against and still look green."""
-    rows, labels = _test_rows()
-    committed_member = _surface_variant(False, False, 0.2, 0.5)
-    for e in rows:
-        assert committed_member(e.fields) == helpers.keyword_overlap_baseline(e.fields), e.id
+def _misses(predict, rows, labels):
+    return {e.id for e in rows if predict(e.fields) != labels[e.id]}
 
 
-def test_a_tuned_surface_baseline_trades_the_margin_rows_at_the_same_score():
-    """`baselines-md` claims the extended variant gets BOTH margin rows right and gets
-    `t-corrob-02` and `t-corrob-04-adversarial` wrong in exchange, for the same `test` score as
-    the committed baseline. Each half is asserted, because either could fail alone: a change
-    that altered WHICH rows trade while leaving the score at 0.8125 would make the prose name
-    the wrong two rows, and a score-only assertion would pass over it.
-
-    `t-contra-04-wrong` is missed by both and is asserted to be, since it is what makes the two
-    scores equal rather than the trade being exactly even on its own.
-    """
-    rows, labels = _test_rows()
-    tuned = _surface_variant(True, True, 0.2, 0.5)
-    committed_misses = _misses(helpers.keyword_overlap_baseline, rows, labels)
-    tuned_misses = _misses(tuned, rows, labels)
-
-    assert committed_misses == set(MARGIN_ROWS) | {MISSED_BY_BOTH}
-    assert tuned_misses == set(TRADED_FOR) | {MISSED_BY_BOTH}
-    assert committed_misses & tuned_misses == {MISSED_BY_BOTH}
-    for row_id in MARGIN_ROWS:  # both margin rows, right under the tuned variant
-        assert row_id not in tuned_misses
-    assert _accuracy(tuned, rows, labels) == _accuracy(
-        helpers.keyword_overlap_baseline, rows, labels
-    )
-
-
-def test_no_swept_surface_variant_reaches_jev_on_test():
-    """The two extrema `baselines-md` reports, computed over the whole family rather than
-    argued: the best of the 48 stays below Jev's own raw accuracy on `test`, and every variant
-    that gets `t-contra-02` right scores at most what the committed baseline scores -- which is
-    the paragraph's actual claim, that buying that row costs what it gains. Reported as maxima,
-    not as a filtered view: an earlier version of this paragraph asserted that no surface
-    heuristic could get those rows at all, which was never computed and was false."""
-    rows, labels = _test_rows()
+def _jev_accuracy(rows, labels):
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
-    jev_accuracy = sum(
+    return sum(
         backend.decide(helpers.build_state(e.fields), questions)["relationship"].choice
         == labels[e.id]
         for e in rows
     ) / len(rows)
-    committed_accuracy = _accuracy(helpers.keyword_overlap_baseline, rows, labels)
 
+
+def test_the_swept_surface_family_reproduces_the_committed_baseline():
+    """The family's calibration check: the member with no hedge cues, no swapped-value rule and
+    `keyword_overlap_baseline`'s committed cuts must agree with that function on every scored
+    row of both splits. Without it the extrema below could be measured over a family that has
+    drifted away from the baseline they are compared against, and still look green."""
+    committed_member = _surface_variant(False, "off", 0.2, 0.5)
+    for split in ("validation", "test"):
+        rows, labels = _scored_rows(split)
+        for e in rows:
+            assert committed_member(e.fields) == helpers.keyword_overlap_baseline(e.fields), e.id
+
+
+def test_jev_holds_the_same_accuracy_on_both_splits():
+    """The positive half of `baselines-md`'s claim, and the half that needs no family at all:
+    Jev reads 0.9375 on `validation` and 0.9375 on `test`, missing exactly the designated
+    confidently-wrong row in each. Asserted per split AND as an equality between them, because
+    the claim is cross-split stability rather than either number alone."""
+    scores = {}
+    for split, wrong_row in (("validation", "v-contra-04-wrong"), ("test", "t-contra-04-wrong")):
+        rows, labels = _scored_rows(split)
+        scores[split] = _jev_accuracy(rows, labels)
+        assert scores[split] == JEV_BOTH_SPLITS, (split, scores[split])
+        backend = get_backend(fixtures=responses_path(RECIPE))
+        questions = helpers.build_questions()
+        missed = {
+            e.id
+            for e in rows
+            if backend.decide(helpers.build_state(e.fields), questions)["relationship"].choice
+            != labels[e.id]
+        }
+        assert missed == {wrong_row}, (split, missed)
+    assert scores["validation"] == scores["test"]
+
+
+def test_a_surface_variant_ties_jev_on_test_and_none_holds_both_splits():
+    """`baselines-md`'s comparison, computed over the whole family on BOTH splits rather than
+    argued. Four properties, each separately falsifiable:
+
+    1. the best variant on `test` **ties** Jev there -- a zero-request rule matching the
+       mechanism on the reported split, which rule 19 counts as a loss, so the recipe says it
+       rather than reporting only its margin over the committed rule;
+    2. it misses exactly the one row Jev misses on `test`;
+    3. **no** variant reaches Jev's accuracy on `validation`, and the family's maximum there is
+       0.8750 -- so the tie does not transfer;
+    4. therefore no variant holds 0.9375 on both splits, which is the claim.
+
+    The tie is not one formulation's knife edge: a tying member is required from each of the
+    three filtered formulations of the swapped-value rule, so a single mis-specified formulation
+    can neither manufacture nor suppress the result. That is the defect this family had in an
+    earlier round -- the unfiltered rule alone, misfiring on `The`/`It`/`For`, made the family's
+    negative true for the wrong reason -- and these assertions are what would catch it again.
+
+    Every claim here is bounded by the family: it is a statement about these variants, not about
+    what any surface heuristic could do."""
     family = _swept_family()
-    assert len(family) == 48
-    scored = [(key, _accuracy(variant, rows, labels)) for key, variant in family]
-    best_key, best = max(scored, key=lambda pair: pair[1])
-    assert best < jev_accuracy, (best_key, best, jev_accuracy)
-    # The maximum itself, because `baselines-md` quotes it. Pinned three ways: the literal the
-    # prose carries, the member that attains it (the hedge-cue variant with no swapped-value
-    # rule, i.e. the one that takes the hedged row and leaves the contradiction alone), and the
-    # fact that it is ABOVE the committed baseline -- surface form can be lifted here, which is
-    # what the replaced "moved around, not lifted" wording got wrong.
-    assert best == 0.875
-    assert best == _accuracy(_surface_variant(True, False, 0.2, 0.5), rows, labels)
-    assert best > committed_accuracy
+    assert len(family) == FAMILY_SIZE == 630
 
-    gets_t_contra_02 = [
-        accuracy
-        for (key, variant), (_key, accuracy) in zip(family, scored, strict=True)
-        if variant(next(e for e in rows if e.id == "t-contra-02").fields) == labels["t-contra-02"]
+    by_split = {}
+    for split in ("validation", "test"):
+        rows, labels = _scored_rows(split)
+        by_split[split] = {
+            "jev": _jev_accuracy(rows, labels),
+            "scores": {key: _accuracy(variant, rows, labels) for key, variant in family},
+            "rows": rows,
+            "labels": labels,
+        }
+
+    test = by_split["test"]
+    validation = by_split["validation"]
+
+    # 1 and 2: the tie on `test`, and the row it leaves
+    best_on_test = max(test["scores"].values())
+    assert best_on_test == test["jev"], (best_on_test, test["jev"])
+    tying = [key for key, score in test["scores"].items() if score == test["jev"]]
+    assert tying
+    for key in tying:
+        variant = dict(family)[key]
+        assert _misses(variant, test["rows"], test["labels"]) == {"t-contra-04-wrong"}, key
+
+    # 3: it does not transfer
+    assert max(validation["scores"].values()) == SURFACE_BEST_ON_VALIDATION
+    assert max(validation["scores"].values()) < validation["jev"]
+    assert [key for key, score in validation["scores"].items() if score >= validation["jev"]] == []
+    for key in tying:
+        assert validation["scores"][key] == SURFACE_BEST_ON_VALIDATION, key
+
+    # 4: the claim
+    both = [
+        key
+        for key in test["scores"]
+        if test["scores"][key] >= test["jev"] and validation["scores"][key] >= validation["jev"]
     ]
-    assert gets_t_contra_02
-    assert max(gets_t_contra_02) == committed_accuracy, max(gets_t_contra_02)
+    assert both == [], both
+
+    # robustness: the tie survives each filtered formulation, not just one
+    for mode in ("stopword-filtered", "non-sentence-initial", "content-word"):
+        assert any(key[1] == mode for key in tying), mode
 
 
 def test_keyword_overlap_baseline_predicts_superseding_on_an_explicit_correction_cue():
