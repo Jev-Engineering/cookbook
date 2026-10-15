@@ -1,0 +1,920 @@
+{
+  "0537d5dc93b0094982ff1778cfdcc4c886b8a4d2eef91e4c50a57ef5894e893c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "sku_101",
+        "probabilities": {
+          "sku_101": 0.58,
+          "sku_102": 0.084,
+          "sku_103": 0.084,
+          "sku_104": 0.084,
+          "no_match": 0.084,
+          "unknown": 0.084
+        },
+        "confidence": 0.496,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0a98452e66bc2a28b4f2ea74b1b7393db09951bc759338a076e3fb8519337f7a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "sku_102",
+        "probabilities": {
+          "sku_101": 0.044,
+          "sku_102": 0.78,
+          "sku_103": 0.044,
+          "sku_104": 0.044,
+          "no_match": 0.044,
+          "unknown": 0.044
+        },
+        "confidence": 0.7360000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1712198072b5f9e048353d38adee37cf9dff68be048f0fd4f8d4301ad4c75b34": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "sku_101": 0.019999999999999997,
+          "sku_102": 0.019999999999999997,
+          "sku_103": 0.019999999999999997,
+          "sku_104": 0.019999999999999997,
+          "no_match": 0.019999999999999997,
+          "unknown": 0.9
+        },
+        "confidence": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1827f16e18955d57509bbf35c10e9c1d1df5f1bb11c701f80978b7be3d28e997": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "sku_104",
+        "probabilities": {
+          "sku_101": 0.03400000000000001,
+          "sku_102": 0.03400000000000001,
+          "sku_103": 0.03400000000000001,
+          "sku_104": 0.83,
+          "no_match": 0.03400000000000001,
+          "unknown": 0.03400000000000001
+        },
+        "confidence": 0.7959999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "25341faba9d3b07312af6cb367adad3fba7142aa90f284afc65a57f678c22010": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "sku_102",
+        "probabilities": {
+          "sku_101": 0.074,
+          "sku_102": 0.63,
+          "sku_103": 0.074,
+          "sku_104": 0.074,
+          "no_match": 0.074,
+          "unknown": 0.074
+        },
+        "confidence": 0.556,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "27eb2b287d0f22ca7194fbc6344506fdd71dcd1a51845cc52015b0892ac630e3": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "sku_101": 0.015999999999999993,
+          "sku_102": 0.015999999999999993,
+          "sku_103": 0.015999999999999993,
+          "sku_104": 0.015999999999999993,
+          "no_match": 0.015999999999999993,
+          "unknown": 0.92
+        },
+        "confidence": 0.904,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2bda65e0a6ad11614a4395c5cd3dfb8c7dc2cc78ec4a4e4f5170b504d60ceaac": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "sku_101": 0.017999999999999995,
+          "sku_102": 0.017999999999999995,
+          "sku_103": 0.017999999999999995,
+          "sku_104": 0.017999999999999995,
+          "no_match": 0.017999999999999995,
+          "unknown": 0.91
+        },
+        "confidence": 0.892,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3a9cb276546d185a6f23d25c49873e076df25d7d7f36e008b7d996bf394327ff": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "sku_101",
+        "probabilities": {
+          "sku_101": 0.79,
+          "sku_102": 0.041999999999999996,
+          "sku_103": 0.041999999999999996,
+          "sku_104": 0.041999999999999996,
+          "no_match": 0.041999999999999996,
+          "unknown": 0.041999999999999996
+        },
+        "confidence": 0.7480000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3f51ee6fbff48d1547ff8a9c16e2c9b24c3e3d49baad5ddc354ad4cf8b4eb6ab": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "no_match",
+        "probabilities": {
+          "sku_101": 0.019999999999999997,
+          "sku_102": 0.019999999999999997,
+          "sku_103": 0.019999999999999997,
+          "sku_104": 0.019999999999999997,
+          "no_match": 0.9,
+          "unknown": 0.019999999999999997
+        },
+        "confidence": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4450fbad33bd3604ffa6e7524ba42d7dc328e4f5eb1dd869c7d13bcbbc8db455": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "sku_104",
+        "probabilities": {
+          "sku_101": 0.015999999999999993,
+          "sku_102": 0.015999999999999993,
+          "sku_103": 0.015999999999999993,
+          "sku_104": 0.92,
+          "no_match": 0.015999999999999993,
+          "unknown": 0.015999999999999993
+        },
+        "confidence": 0.904,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4a820130ef60dd3172d9cd3e7d095411c2dda009232003e159aa2658b298ad94": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "no_match",
+        "probabilities": {
+          "sku_101": 0.026000000000000002,
+          "sku_102": 0.026000000000000002,
+          "sku_103": 0.026000000000000002,
+          "sku_104": 0.026000000000000002,
+          "no_match": 0.87,
+          "unknown": 0.026000000000000002
+        },
+        "confidence": 0.844,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "64770c6e8f67a8be85db016410a37fa1b17870d40dcb0b07aea7fc80cc59869c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "sku_101",
+        "probabilities": {
+          "sku_101": 0.81,
+          "sku_102": 0.03799999999999999,
+          "sku_103": 0.03799999999999999,
+          "sku_104": 0.03799999999999999,
+          "no_match": 0.03799999999999999,
+          "unknown": 0.03799999999999999
+        },
+        "confidence": 0.772,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "71607873fd44a1ec4a9746ebc3a2750113b729a805ee9310f325189db4e1f1ca": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "sku_103",
+        "probabilities": {
+          "sku_101": 0.024,
+          "sku_102": 0.024,
+          "sku_103": 0.88,
+          "sku_104": 0.024,
+          "no_match": 0.024,
+          "unknown": 0.024
+        },
+        "confidence": 0.856,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "756dddf2d611a67b8ecf1e7fa4b6e1ef01c498265f55857eaae20d8a5a8a1115": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "sku_103",
+        "probabilities": {
+          "sku_101": 0.03600000000000001,
+          "sku_102": 0.03600000000000001,
+          "sku_103": 0.82,
+          "sku_104": 0.03600000000000001,
+          "no_match": 0.03600000000000001,
+          "unknown": 0.03600000000000001
+        },
+        "confidence": 0.7839999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "77189729e16ed4fd13f07309af89730e7f2a55bed6e104306096751f307a118a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "no_match",
+        "probabilities": {
+          "sku_101": 0.05,
+          "sku_102": 0.05,
+          "sku_103": 0.05,
+          "sku_104": 0.05,
+          "no_match": 0.75,
+          "unknown": 0.05
+        },
+        "confidence": 0.7000000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "78678c847a8c7c3b12aa1bfb43c282911eddb42ed3559189a4cb11917a530c42": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "sku_101",
+        "probabilities": {
+          "sku_101": 0.93,
+          "sku_102": 0.01399999999999999,
+          "sku_103": 0.01399999999999999,
+          "sku_104": 0.01399999999999999,
+          "no_match": 0.01399999999999999,
+          "unknown": 0.01399999999999999
+        },
+        "confidence": 0.916,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8f99bf65a505d13275b204c499063ae2b88b032827836b0d6c67d4f5f365d93c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "sku_101",
+        "probabilities": {
+          "sku_101": 0.92,
+          "sku_102": 0.015999999999999993,
+          "sku_103": 0.015999999999999993,
+          "sku_104": 0.015999999999999993,
+          "no_match": 0.015999999999999993,
+          "unknown": 0.015999999999999993
+        },
+        "confidence": 0.904,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9666d7ed499f72b2a1a43c42ffd15d9974d8b61a35493cb92617de058199b081": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "sku_102",
+        "probabilities": {
+          "sku_101": 0.026000000000000002,
+          "sku_102": 0.87,
+          "sku_103": 0.026000000000000002,
+          "sku_104": 0.026000000000000002,
+          "no_match": 0.026000000000000002,
+          "unknown": 0.026000000000000002
+        },
+        "confidence": 0.844,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "96abed5b168d7fce08eac28b6f2750514dd38dab95f698d7dc75d3e9edc87357": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "no_match",
+        "probabilities": {
+          "sku_101": 0.046,
+          "sku_102": 0.046,
+          "sku_103": 0.046,
+          "sku_104": 0.046,
+          "no_match": 0.77,
+          "unknown": 0.046
+        },
+        "confidence": 0.7240000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a139c730c1a6ad4809210f3779a12e589784244dc50afeaf6c578841de910775": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "sku_104",
+        "probabilities": {
+          "sku_101": 0.039999999999999994,
+          "sku_102": 0.039999999999999994,
+          "sku_103": 0.039999999999999994,
+          "sku_104": 0.8,
+          "no_match": 0.039999999999999994,
+          "unknown": 0.039999999999999994
+        },
+        "confidence": 0.76,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ae2c1910cbe33980d5a757528cead9b3f649d27a299138e6532058be867fe5eb": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "unknown",
+        "probabilities": {
+          "sku_101": 0.022,
+          "sku_102": 0.022,
+          "sku_103": 0.022,
+          "sku_104": 0.022,
+          "no_match": 0.022,
+          "unknown": 0.89
+        },
+        "confidence": 0.868,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b347a4e3e31f41021122030056c3fcb534f933aabd11edd3b5c6d7a652e3a58a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "sku_101",
+        "probabilities": {
+          "sku_101": 0.61,
+          "sku_102": 0.078,
+          "sku_103": 0.078,
+          "sku_104": 0.078,
+          "no_match": 0.078,
+          "unknown": 0.078
+        },
+        "confidence": 0.532,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b5bdbf7a3814a9a79d97aa9542e735c6bc20e1e238690557ea10269dc11285a3": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "sku_102",
+        "probabilities": {
+          "sku_101": 0.017999999999999995,
+          "sku_102": 0.91,
+          "sku_103": 0.017999999999999995,
+          "sku_104": 0.017999999999999995,
+          "no_match": 0.017999999999999995,
+          "unknown": 0.017999999999999995
+        },
+        "confidence": 0.892,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b7060f8d6c2a5711fa303be30185e40e2012eb2577b02459dc0ed2fe0fca28b3": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "sku_104",
+        "probabilities": {
+          "sku_101": 0.08600000000000001,
+          "sku_102": 0.08600000000000001,
+          "sku_103": 0.08600000000000001,
+          "sku_104": 0.57,
+          "no_match": 0.08600000000000001,
+          "unknown": 0.08600000000000001
+        },
+        "confidence": 0.484,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bdadcffe7ab0e6d668c26445cd673e2fc71698d752e41a1070019f4026d44123": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "sku_102",
+        "probabilities": {
+          "sku_101": 0.088,
+          "sku_102": 0.56,
+          "sku_103": 0.088,
+          "sku_104": 0.088,
+          "no_match": 0.088,
+          "unknown": 0.088
+        },
+        "confidence": 0.4720000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c30c6e6e6be5fbf80d5fe7f31e6ea1f1299f7b5cf950b8e67e0680d093428c93": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "sku_104",
+        "probabilities": {
+          "sku_101": 0.030000000000000006,
+          "sku_102": 0.030000000000000006,
+          "sku_103": 0.030000000000000006,
+          "sku_104": 0.85,
+          "no_match": 0.030000000000000006,
+          "unknown": 0.030000000000000006
+        },
+        "confidence": 0.82,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c9487417164454827be048204dd728bb717478960cb073344ae9c85fc6d533fa": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "sku_103",
+        "probabilities": {
+          "sku_101": 0.01399999999999999,
+          "sku_102": 0.01399999999999999,
+          "sku_103": 0.93,
+          "sku_104": 0.01399999999999999,
+          "no_match": 0.01399999999999999,
+          "unknown": 0.01399999999999999
+        },
+        "confidence": 0.916,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d0089788822584e83d16e95481bf8466c5658fd5e5a1c36264fd7d04bddf8f3d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "sku_101",
+        "probabilities": {
+          "sku_101": 0.91,
+          "sku_102": 0.017999999999999995,
+          "sku_103": 0.017999999999999995,
+          "sku_104": 0.017999999999999995,
+          "no_match": 0.017999999999999995,
+          "unknown": 0.017999999999999995
+        },
+        "confidence": 0.892,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d1c30d4eb0f29f342da7bf6ad8b25ee72ee124dd7852f8b48fb9f0ed0aae7a0d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "sku_103",
+        "probabilities": {
+          "sku_101": 0.03200000000000001,
+          "sku_102": 0.03200000000000001,
+          "sku_103": 0.84,
+          "sku_104": 0.03200000000000001,
+          "no_match": 0.03200000000000001,
+          "unknown": 0.03200000000000001
+        },
+        "confidence": 0.8079999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ec5f9f2f15a56357d4c5c8290bcbcdaafd3d1df128f144e60870f01fa3a622ee": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "sku_104",
+        "probabilities": {
+          "sku_101": 0.024,
+          "sku_102": 0.024,
+          "sku_103": 0.024,
+          "sku_104": 0.88,
+          "no_match": 0.024,
+          "unknown": 0.024
+        },
+        "confidence": 0.856,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ec903a80858824fc58ed0463d8a05c97213a313c4afecd7b36fe1be42dc12858": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "sku_103",
+        "probabilities": {
+          "sku_101": 0.019999999999999997,
+          "sku_102": 0.019999999999999997,
+          "sku_103": 0.9,
+          "sku_104": 0.019999999999999997,
+          "no_match": 0.019999999999999997,
+          "unknown": 0.019999999999999997
+        },
+        "confidence": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f7bf338f0f44b4a984b5e1e4e93e98bf9a8372e9887bb030e8121e8734d8a3bb": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "sku_102",
+        "probabilities": {
+          "sku_101": 0.028000000000000004,
+          "sku_102": 0.86,
+          "sku_103": 0.028000000000000004,
+          "sku_104": 0.028000000000000004,
+          "no_match": 0.028000000000000004,
+          "unknown": 0.028000000000000004
+        },
+        "confidence": 0.832,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f998f20e40ba9d3d019611993b68a2c08ccdf8e971cc2abc6175da31d1b87229": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "sku_101",
+        "probabilities": {
+          "sku_101": 0.94,
+          "sku_102": 0.01200000000000001,
+          "sku_103": 0.01200000000000001,
+          "sku_104": 0.01200000000000001,
+          "no_match": 0.01200000000000001,
+          "unknown": 0.01200000000000001
+        },
+        "confidence": 0.9279999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ff49017b09575c14a8716f4c5830b1d5dc574d3fc2b008bffa2022092f7764b1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "sku_102",
+        "probabilities": {
+          "sku_101": 0.022,
+          "sku_102": 0.89,
+          "sku_103": 0.022,
+          "sku_104": 0.022,
+          "no_match": 0.022,
+          "unknown": 0.022
+        },
+        "confidence": 0.868,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
