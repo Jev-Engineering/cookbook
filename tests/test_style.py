@@ -358,7 +358,9 @@ def test_format_score_shows_legend_and_distribution():
     assert "Provenance: synthetic" in text
 
 
-@pytest.mark.parametrize("confidence, displayed", [(None, "unknown"), (0.0, "0.00"), (0.875, "0.88")])
+@pytest.mark.parametrize(
+    "confidence, displayed", [(None, "unknown"), (0.0, "0.00"), (0.875, "0.88")]
+)
 def test_format_box_preserves_normalized_edges_and_optional_confidence(confidence, displayed):
     answer = BoxAnswer(
         {"right": 1.0, "left": 0.0, "bottom": 0.75, "top": 0.125},
@@ -402,9 +404,7 @@ def test_format_box_duck_type_without_confidence_or_provenance():
 
 
 def test_box_coordinates_are_not_plotted_as_probabilities():
-    answer = BoxAnswer(
-        {"top": 0, "bottom": 1, "left": 0, "right": 1}, None, Provenance.synthetic()
-    )
+    answer = BoxAnswer({"top": 0, "bottom": 1, "left": 0, "right": 1}, None, Provenance.synthetic())
     with pytest.raises(ValueError, match="Box answers have no probabilities"):
         style.plot_answer_probabilities(answer)
 

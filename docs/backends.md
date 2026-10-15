@@ -330,9 +330,7 @@ questions = {
     "present": Noul(instructions="The Save button is visible in `screenshot`."),
     "button": Box(instructions="The Save button in `screenshot`."),
 }
-backend = get_backend(
-    fixtures="fixtures/responses.json", model="jev-1.14.0", images=True
-)
+backend = get_backend(fixtures="fixtures/responses.json", model="jev-1.14.0", images=True)
 result = backend.decide(state, questions, assets=assets)
 result.boxes["button"].box
 ```

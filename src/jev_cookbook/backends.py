@@ -136,7 +136,9 @@ def _check_assets(
             raise ValueError("an asset reference must be at most 1024 UTF-8 bytes")
         reference_bytes += size
         if not any(ref in value for value in values):
-            raise ValueError(f"asset {ref!r} is not referenced in a state/instructions/criteria value")
+            raise ValueError(
+                f"asset {ref!r} is not referenced in a state/instructions/criteria value"
+            )
         validate_image_asset(asset)
         checked[ref] = dict(asset)
     if reference_bytes > 65536:
@@ -203,7 +205,9 @@ class Backend(Protocol):
 
 
 def _check_fits(name: str, question: Question, answer: Answer) -> None:
-    ok = {Noul: NoulAnswer, Choice: ChoiceAnswer, Score: ScoreAnswer, Box: BoxAnswer}[type(question)]
+    ok = {Noul: NoulAnswer, Choice: ChoiceAnswer, Score: ScoreAnswer, Box: BoxAnswer}[
+        type(question)
+    ]
     if not isinstance(answer, ok):
         raise FixtureError(
             f"question {name!r} is {question.type} but the stored answer is {answer.type}"
@@ -422,8 +426,12 @@ def get_backend(
         raise ValueError(f"{LIVE_ENV} must be 1 (live) or unset/0 (offline), got {live!r}")
     if live == "1":
         return _make_live_backend(
-            fixtures=fixtures, script=script, seed=seed,
-            model=model, images=images, long_context=long_context,
+            fixtures=fixtures,
+            script=script,
+            seed=seed,
+            model=model,
+            images=images,
+            long_context=long_context,
         )
     if (fixtures is None) == (script is None):
         raise ValueError("pass exactly one of fixtures=... (replay) or script=... (scripted)")

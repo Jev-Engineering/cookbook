@@ -77,7 +77,9 @@ class Client:
 @pytest.fixture
 def fake_sdk(monkeypatch):
     # The SDK is optional for all offline and fake-client tests.
-    monkeypatch.setattr(live_module, "_import_sdk", lambda: SimpleNamespace(Image=lambda data: data))
+    monkeypatch.setattr(
+        live_module, "_import_sdk", lambda: SimpleNamespace(Image=lambda data: data)
+    )
 
 
 def test_box_question_has_no_criteria():
@@ -202,9 +204,10 @@ def test_scripted_box_and_mismatched_answers():
     assets = image_assets()
     backend = ScriptedBackend(lambda state, questions, rng: box_result().answers)
     assert backend.decide(STATE, QUESTIONS, assets=assets) == box_result()
-    assert backend.rng_for(STATE, QUESTIONS, assets=assets).random() != backend.rng_for(
-        STATE, QUESTIONS, assets=image_assets("blue")
-    ).random()
+    assert (
+        backend.rng_for(STATE, QUESTIONS, assets=assets).random()
+        != backend.rng_for(STATE, QUESTIONS, assets=image_assets("blue")).random()
+    )
     wrong = DecisionResult({"target": NoulAnswer(0.9, SYNTHETIC)}, "synthetic")
     replay = ReplayBackend({replay_key(STATE, QUESTIONS, assets=assets): wrong.to_dict()})
     with pytest.raises(FixtureError, match="box but the stored answer is noul"):
@@ -248,7 +251,9 @@ def test_live_headers_sdk_conversion_and_budget(fake_sdk):
     assert len(client.calls) == 1
 
 
-@pytest.mark.parametrize("model,images", [("jev-1.13.0", True), ("jev-latest", True), ("jev-1.14.0", False)])
+@pytest.mark.parametrize(
+    "model,images", [("jev-1.13.0", True), ("jev-latest", True), ("jev-1.14.0", False)]
+)
 def test_unsupported_live_box_rejected_before_spending(model, images):
     client = Client()
     backend = LiveBackend(model, client=client, images=images)
@@ -272,7 +277,8 @@ def test_absent_target_still_returns_box_and_requires_a_separate_presence_gate(f
     body["answers"]["present"] = {"type": "noul", "noul": 0.01}
     backend = LiveBackend("jev-1.14.0", client=Client(body), images=True)
     result = backend.decide(
-        STATE, {**QUESTIONS, "present": Noul(instructions="The target is present.")},
+        STATE,
+        {**QUESTIONS, "present": Noul(instructions="The target is present.")},
         assets=image_assets(),
     )
     assert result["present"].noul < 0.5
@@ -315,7 +321,9 @@ def test_image_metadata_fixtures_validate_box_answers(tmp_path):
         relative = f"assets/{ident}.png"
         (tmp_path / relative).write_bytes(base64.b64decode(assets[REF]["data_base64"]))
         key = replay_key(STATE, QUESTIONS, assets=assets)
-        inputs.append({"id": ident, "split": split, "fields": {"image": relative}, "replay_keys": [key]})
+        inputs.append(
+            {"id": ident, "split": split, "fields": {"image": relative}, "replay_keys": [key]}
+        )
         labels.append({"id": ident, "label": {"present": True, "box": EDGES}})
         responses[key] = box_result(None).to_dict()
     (folder / "inputs.jsonl").write_text("".join(json.dumps(r) + "\n" for r in inputs))
