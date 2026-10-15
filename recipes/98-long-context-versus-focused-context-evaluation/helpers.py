@@ -27,6 +27,7 @@ from jev_cookbook.vision import box_iou, image_asset, image_reference, run_recor
 
 SLUG = "98-long-context-versus-focused-context-evaluation"
 MODEL = "jev-1.14.0"
+REVIEW = "review"
 MODES = ("full", "focused", "staged")
 FOCUSED_CANDIDATES = (1, 2)
 SELECTOR_GATE = 0.5
@@ -462,16 +463,29 @@ def freeze_policy(validation_examples, candidates, labels):
 
 def outcome(row: ArmResult, policy: FrozenPolicy):
     if row.result is None:
-        return {"accepted": False, "audit": None, "present": None, "score": None, "box": None}
+        return {
+            "accepted": False,
+            "outcome": REVIEW,
+            "reason": row.stopped or "no final answer",
+            "audit": None,
+            "present": None,
+            "score": None,
+            "box": None,
+        }
     result = row.result
     present = result["present"].noul >= PRESENCE_THRESHOLD
     box = result["crate"]
     box_known = box.confidence is not None and box.confidence >= BOX_GATE
+    if result["audit"].choice == "unresolved":
+        status, reason = REVIEW, "insufficient active evidence"
+    elif not result["audit"].confidence >= policy.choice_gate:
+        status, reason = REVIEW, "confidence below the threshold"
+    else:
+        status, reason = "answered", "audit accepted"
     return {
-        "accepted": (
-            result["audit"].choice != "unresolved"
-            and result["audit"].confidence >= policy.choice_gate
-        ),
+        "accepted": status == "answered",
+        "outcome": status,
+        "reason": reason,
         "audit": result["audit"].choice,
         "present": present,
         "score": score_level(result["obstruction"]),

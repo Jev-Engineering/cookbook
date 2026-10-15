@@ -12,6 +12,7 @@ from types import SimpleNamespace
 import pytest
 
 from jev_cookbook import ChoiceAnswer, Provenance, ReplayBackend, load_helpers, replay_key
+from jev_cookbook.evaluation import select_confidence_threshold
 from jev_cookbook.fixtures import load_inputs, load_labels, responses_path, validate_recipe
 
 HERE = Path(__file__).resolve().parent.parent
@@ -115,14 +116,39 @@ def test_selection_objective_is_pinned_in_helper_and_notebook():
     assert "labels[e.id] for e in validation" in code
 
 
-def test_confident_test_error_survives_gate(study):
-    examples, labels, experiment, _, policy, _ = study
+def test_stored_answers_are_not_all_right(study):
+    examples, labels, experiment, candidates, policy, _ = study
+    validation = (
+        candidates["full", 0] + candidates["focused", policy.focused_k] + candidates["staged", 0]
+    )
+    assert {row.split for row in validation} == {"validation"}
+    gate = select_confidence_threshold(
+        [row.result["audit"].choice == labels[row.task_id]["audit"] for row in validation],
+        [row.result["audit"].confidence for row in validation],
+        min_coverage=0.75,
+    )
+    assert gate == policy.choice_gate
     rows = [experiment.run(e, "full") for e in examples if e.split == "test"]
     outcomes = [helpers.outcome(row, policy) for row in rows]
-    assert any(
-        out["accepted"] and out["audit"] != labels[row.task_id]["audit"]
+    wrong_above_gate = [
+        row.task_id
         for row, out in zip(rows, outcomes, strict=True)
-    )
+        if out["accepted"]
+        and out["audit"] != labels[row.task_id]["audit"]
+        and row.result["audit"].confidence >= gate
+    ]
+    assert wrong_above_gate, "a held-out error must survive the validation-frozen gate"
+
+
+def test_audit_reviews_carry_explicit_outcome_and_exact_reason(study):
+    _, _, _, candidates, policy, _ = study
+    rows = {row.task_id: row for row in candidates["full", 0]}
+    uncertain = helpers.outcome(rows["v05"], policy)
+    low_confidence = helpers.outcome(rows["v07"], policy)
+    assert uncertain["outcome"] == low_confidence["outcome"] == helpers.REVIEW == "review"
+    assert not uncertain["accepted"] and not low_confidence["accepted"]
+    assert uncertain["reason"] == "insufficient active evidence"
+    assert low_confidence["reason"] == "confidence below the threshold"
 
 
 def test_arbitrary_selector_answers_never_add_docs_or_loop():
@@ -185,6 +211,39 @@ def test_no_fabricated_inference_measurements(study):
         assert report[field] is None
         assert report[f"missing_{field}"] == 16
     assert report["state_characters"] > 0
+
+
+def test_full_notebook_request_count_keeps_duplicate_requests_independent():
+    class CountingBackend:
+        mode = "synthetic"
+        model = "synthetic"
+
+        def __init__(self):
+            self.replay = ReplayBackend.from_json(responses_path(HERE))
+            self.keys = []
+
+        def decide(self, state, questions, *, assets):
+            self.keys.append(replay_key(state, questions, assets=assets))
+            return self.replay.decide(state, questions, assets=assets)
+
+    examples, labels = load_inputs(HERE), load_labels(HERE)
+    backend = CountingBackend()
+    experiment = helpers.Experiment(backend, HERE, logical_limit=73)
+    experiment.run(next(e for e in examples if e.split == "demo"), "full")
+    validation = [e for e in examples if e.split == "validation"]
+    candidates = {
+        (mode, k): [experiment.run(e, mode, focused_k=k or 1) for e in validation]
+        for mode, k in (("full", 0), ("focused", 1), ("focused", 2), ("staged", 0))
+    }
+    policy, _ = helpers.freeze_policy(
+        validation, candidates, {e.id: labels[e.id] for e in validation}
+    )
+    for mode in helpers.MODES:
+        for example in (e for e in examples if e.split == "test"):
+            experiment.run(example, mode, focused_k=policy.focused_k)
+    assert experiment.budget.used == len(backend.keys) == 73
+    assert len(set(backend.keys)) == 70
+    assert len(backend.keys) - len(set(backend.keys)) == 3
 
 
 def test_presence_and_unknown_confidence_suppress_boxes(study):
