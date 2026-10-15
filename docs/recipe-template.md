@@ -177,10 +177,15 @@ own first use the same way.
   TypeSafe's documentation, which also shows questions. **A recipe that asks more than one `Noul`
   proposition about the same state needs its fixture set to carry three more things, beyond what
   a single proposition needs:**
-  - a gold-true row **and** a gold-false row for **every** proposition, in whichever split is
-    used to select a threshold — without one, `select_threshold` has no example of that value to
-    choose a threshold from, and an F1 sweep over the proposition is degenerate before any model
-    ever answers, which is a fixture gap wearing the costume of a model limitation;
+  - a gold-true row **and** a gold-false row for **every** proposition, in **every** scored
+    split — `validation` and `test`, the two scored splits in
+    [fixtures.md](fixtures.md#splits) — not only the one used to select a threshold. Without one
+    in `validation`, `select_threshold` has no example of that value to choose a threshold from;
+    without one in `test`, the frozen threshold is reported on a split with no positive (or no
+    negative) for that proposition. Either way the result is degenerate before any model ever
+    answers, which is a fixture gap wearing the costume of a model limitation.
+    `tests/test_recipe_guard.py` checks this per split and per proposition, so a `test` split
+    left one-sided fails CI even when `validation` is fully covered;
   - at least one row for **every truth combination** the use case admits — both propositions
     true, both false, and each true alone — because a group of propositions only shows its own
     composition in the states that distinguish it from asking the same questions one at a time,
