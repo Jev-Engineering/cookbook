@@ -1,0 +1,20 @@
+{"id": "v01", "label": {"category": "data_handling", "verifiable": true, "names_control": true, "specificity": 2}}
+{"id": "v02", "label": {"category": "security_controls", "verifiable": true, "names_control": true, "specificity": 3}}
+{"id": "v03", "label": {"category": "business_continuity", "verifiable": false, "names_control": false, "specificity": 0}}
+{"id": "v04", "label": {"category": "other", "verifiable": false, "names_control": false}}
+{"id": "v05", "label": {"category": "data_handling", "verifiable": true, "names_control": false, "specificity": 1}}
+{"id": "v06", "label": {"category": "security_controls", "verifiable": false, "names_control": true, "specificity": 1}}
+{"id": "v07", "label": {"category": "security_controls", "verifiable": false, "names_control": false, "specificity": 0}}
+{"id": "v08", "label": {"category": "business_continuity", "verifiable": true, "names_control": true, "specificity": 2}}
+{"id": "v09", "label": {"category": "data_handling", "verifiable": false, "names_control": false, "specificity": 0}}
+{"id": "v10", "label": {"category": "other", "verifiable": false, "names_control": false}}
+{"id": "t01", "label": {"category": "security_controls", "verifiable": true, "names_control": true, "specificity": 3}}
+{"id": "t02", "label": {"category": "data_handling", "verifiable": true, "names_control": true, "specificity": 2}}
+{"id": "t03", "label": {"category": "business_continuity", "verifiable": true, "names_control": false, "specificity": 1}}
+{"id": "t04", "label": {"category": "other", "verifiable": false, "names_control": false}}
+{"id": "t05", "label": {"category": "security_controls", "verifiable": false, "names_control": true, "specificity": 1}}
+{"id": "t06", "label": {"category": "data_handling", "verifiable": false, "names_control": false, "specificity": 0}}
+{"id": "t07", "label": {"category": "business_continuity", "verifiable": true, "names_control": true, "specificity": 3}}
+{"id": "t08", "label": {"category": "data_handling", "verifiable": true, "names_control": false, "specificity": 1}}
+{"id": "t09", "label": {"category": "other", "verifiable": false, "names_control": false}}
+{"id": "t10", "label": {"category": "security_controls", "verifiable": true, "names_control": true, "specificity": 2}}

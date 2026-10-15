@@ -54,8 +54,8 @@ _DESCRIPTIONS = {
     ),
 }
 
-# What Python does next when it accepts an answer, keyed by outcome exactly as the build notes
-# ask for: the next diagnostic workflow. The three substantive outcomes each name an automated
+# What Python does next when it accepts an answer: one next diagnostic workflow per outcome,
+# keyed by outcome. The three substantive outcomes each name an automated
 # remedy a real system would act on (rerun the suite, pin and rebuild dependencies, requeue on
 # a fresh runner), so an accepted answer naming one of them is logged to `ActionLog`, which
 # never executes anything. `unknown`'s workflow, manual triage, names no automated remedy at

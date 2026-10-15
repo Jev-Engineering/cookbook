@@ -9,8 +9,8 @@ low confidence (so the frozen threshold below sends them to ``review`` rather th
 them), one validation answer and one test answer are wrong outright, and the test one
 (``t14-contradiction``) is wrong *and* confident, above the threshold this recipe's notebook
 freezes on validation -- so the selective-prediction numbers on ``test`` show a real, non-zero
-risk instead of a threshold that happens to look perfect. The hard cases the build notes call for
-(a full-scale rubric) are joined by cases worth a model's two kinds of trouble on a Score
+risk instead of a threshold that happens to look perfect. The hard cases a full-scale rubric
+calls for are joined by cases worth a model's two kinds of trouble on a Score
 question: text that reads as polished corporate process-speak but tells the reader nothing
 (``-confusing``), jargon that is technically accurate but undefined for the reader
 (``-jargon``), a reply so short it omits the outcome (``-terse``), filler that buries the one

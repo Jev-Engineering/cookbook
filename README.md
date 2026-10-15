@@ -1,15 +1,15 @@
 <p align="center">
-  <img src="assets/banner.png" alt="Pink banner in the style of a retro desktop: the title Jev Cookbook, the line 60 notebook recipes for typed decisions, and three small windows labelled Choice, Noul and Score showing an option list, a probability bar and a rubric chart." width="100%">
+  <img src="assets/banner.png" alt="Pink banner in the style of a retro desktop: the title Jev Cookbook, the line 100 notebook recipes for typed decisions, five small chips reading +choice, +noul, +score, +box and +python in control, and windows labelled Choice, Noul, Score and Box showing an option list, a probability bar, a rubric chart and a rectangle drawn around a target, plus a Text + vision window reading 100 planned recipes, Offline first. Live opt-in." width="100%">
 </p>
 
 <div align="center">
 
 # Jev Cookbook
 
-**One hundred planned notebook recipes for typed decisions with Jev: the original 01–60 curriculum and a separate multimodal track, 61–100.**
+**100 notebook recipes for typed decisions with Jev, covering text and images, starting from a first `Choice` question.**
 
 <!-- catalog:progress:start -->
-![Recipes: 49 of 100 published](https://img.shields.io/badge/Recipes-49%20of%20100%20published-F386A1?style=flat-square&labelColor=1E1E1E) ![Status: in progress](https://img.shields.io/badge/Status-in%20progress-E551BA?style=flat-square&labelColor=1E1E1E) ![Categories: 15](https://img.shields.io/badge/Categories-15-F386A1?style=flat-square&labelColor=1E1E1E) ![Levels: 5](https://img.shields.io/badge/Levels-5-F386A1?style=flat-square&labelColor=1E1E1E)
+![Recipes: 50 of 100 published](https://img.shields.io/badge/Recipes-50%20of%20100%20published-F386A1?style=flat-square&labelColor=1E1E1E) ![Status: in progress](https://img.shields.io/badge/Status-in%20progress-E551BA?style=flat-square&labelColor=1E1E1E) ![Categories: 15](https://img.shields.io/badge/Categories-15-F386A1?style=flat-square&labelColor=1E1E1E) ![Levels: 5](https://img.shields.io/badge/Levels-5-F386A1?style=flat-square&labelColor=1E1E1E)
 <!-- catalog:progress:end -->
 ![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-F386A1?style=flat-square&labelColor=1E1E1E) [![License: MIT](https://img.shields.io/badge/License-MIT-DEDEDE?style=flat-square&labelColor=1E1E1E)](LICENSE)
 
@@ -22,12 +22,7 @@
 Jev is TypeSafe AI's System One model. It does not write text. You send it a **state** and a set of **typed questions**, and it returns structured answers your code can branch on, sort by, and route with. This cookbook is a curriculum of Jupyter notebooks that teach that way of building, one bounded decision at a time.
 
 > [!NOTE]
-> **The generated badge and recipes table show what has shipped.** The catalog lists the planned use cases, categories, and difficulty levels, and it can be revised as recipes are built. A recipe counts as published once its `notebook.ipynb` is in the repository, and its row then links to the notebook. Every other row is marked coming soon, with an issue link only when a real recipe issue has been assigned. Recipe ranks are not issue numbers; the new multimodal entries start unassigned. Each published recipe states in its notebook and README which mode it ran in (synthetic fixtures or recorded responses), and for recorded responses the model version the API returned and the date. Metrics from synthetic runs check that the pipeline behaves as designed. They are not Jev results. Any number reported as a Jev result states the number of examples it was measured on and the model version, comes from recorded inference on a held-out set, and makes no general claim about Jev's quality, latency, or cost. Where a recipe has no such run, its README says "not measured live".
-
-The [multimodal track guide](docs/multimodal-track.md) describes the planned image, spatial,
-ordered-frame and long-context work, its evaluation requirements, and eight suggested first
-additions. Catalog entries describe the intended lessons; they do not imply a notebook or shared
-backend capability has shipped.
+> **The generated badge and recipes table show what has shipped.** The catalog lists the planned use cases, categories, and difficulty levels, and it can be revised as recipes are built. A recipe counts as published once its `notebook.ipynb` is in the repository, and its row then links to the notebook. Every other row is marked coming soon. It links to the issue tracking the recipe when the catalog records one; a row for an entry with no issue yet is marked coming soon with no link. Each published recipe states in its notebook and README which mode it ran in (synthetic fixtures or recorded responses), and for recorded responses the model version the API returned and the date. Metrics from synthetic runs check that the pipeline behaves as designed. They are not Jev results. Any number reported as a Jev result states the number of examples it was measured on and the model version, comes from recorded inference on a held-out set, and makes no general claim about Jev's quality, latency, or cost. Where a recipe has no such run, its README says "not measured live".
 
 ## Quick start
 
@@ -105,17 +100,14 @@ The catalog uses Jev's own vocabulary. Every recipe is tagged with the primitive
 | `Choice` | Select one option | Select one item from supplied alternatives, including none, other, or uncertain outcomes when the task needs them. Returns the choice, a probability per option, and a confidence. |
 | `Noul` | Judge a proposition | Return the probability that a stated proposition holds. Tasks that allow several labels ask one independent question per label. There is no separate confidence field. |
 | `Score` | Evaluate a rubric | Return a position and a distribution over ordered rubric levels you define. Exact measurements and arithmetic stay in code. |
-| `Box` | Locate an object in an image | Return one bounding rectangle and confidence. Planned spatial recipes pair localization with explicit presence and review gates; a rectangle alone does not prove the target exists. See [Box documentation](https://docs.typesafe.ai/primitives/box). |
+| `Box` | Locate one target | Return one bounding rectangle for one target, with four edges as fractions of the image's width and height and a confidence. It is never a mask and never a set of detections, and it always returns a rectangle, even when the target is absent, so check presence separately, for example with a paired `Noul`. Requires the Jev 1.14 preview and the experimental images header. |
 | Combination | Compose judgments | Combine independent questions in Python, and make a later request when one judgment depends on an earlier answer. |
 
 A single label can stand for several independent questions of that type. Thresholds are a property of the task, so each recipe that uses one chooses it from examples and evaluates it.
 
 ## Difficulty levels
 
-The original 01–60 curriculum progresses from a first question to advanced simulations. The
-multimodal track, 61–100, groups related visual use cases and has its own difficulty assignments;
-its numbers do not extend that difficulty ordering. Follow the original sequence, choose a level,
-or pick one of the multimodal groups.
+In the original track (ranks 1 to 60) the levels rise with rank: rank 1 is the easiest recipe and rank 60 the most demanding, so follow those ranks for a full learning sequence. The multimodal track (ranks 61 to 100) is ordered by category block, not by difficulty, so its levels rise and fall as the rank increases; use each recipe's level, or pick a category, to choose a path through it.
 
 <!-- catalog:levels:start -->
 | Level | Name | What a notebook at this level involves | Recipes |
@@ -127,8 +119,7 @@ or pick one of the multimodal groups.
 | **5** | [Expert](#level-5--expert) | Controlled optimization studies or closed-loop simulations requiring budgets, baselines, and held-out or trajectory evaluation. | 9<br><sub>53 to 60, 98</sub> |
 <!-- catalog:levels:end -->
 
-Levels are editorial estimates of implementation and evaluation effort. Listed number ranges
-include only recipes actually assigned to that level; gaps separate groups across the two tracks.
+Ranks are editorial estimates of implementation and evaluation effort. Neighbouring recipes are ordered for learning, not by a measured difference in difficulty.
 
 ## Browse by category
 
@@ -235,7 +226,7 @@ Stateful workflows, provenance, adversarial cases, model calibration, or several
 | 47 | **Evidence conflict diagnosis**<br>Classify apparent claim conflicts by factual disagreement, time, entity, or scope using source excerpts and temporal relationships already computed by Python. | Data quality & knowledge graphs | `Choice` | [Open notebook](recipes/47-evidence-conflict-diagnosis/notebook.ipynb) |
 | 48 | **Document revision consistency**<br>Select among externally supplied sentence revisions and check their consistency with paragraph context as Python assembles a versioned document. | Language & content | `Choice` + `Noul` | [Open notebook](recipes/48-document-revision-consistency/notebook.ipynb) |
 | 49 | **Multi-agent task assignment**<br>Score each agent's suitability for a subtask so a deterministic scheduler can assign work under capability, dependency, and budget constraints. | Agent orchestration | `Score` | [Open notebook](recipes/49-multi-agent-task-assignment/notebook.ipynb) |
-| 50 | **Model comparison and calibration**<br>Compare Jev and alternative decision backends on identical labeled tasks, calibrating each model separately and measuring held-out quality, latency, and cost. | Evaluation & optimization | `Choice` + `Noul` + `Score` | Coming soon · [#50](https://github.com/Jev-Engineering/cookbook/issues/50) |
+| 50 | **Model comparison and calibration**<br>Compare Jev and alternative decision backends on identical labeled tasks, calibrating each model separately and measuring held-out quality, latency, and cost. | Evaluation & optimization | `Choice` + `Noul` + `Score` | [Open notebook](recipes/50-model-comparison-and-calibration/notebook.ipynb) |
 | 51 | **Stalled-loop detection**<br>Classify progress across recorded agent turns as advancing, repeating, regressing, or complete so Python can apply a continue, change-strategy, or stop policy. | Agent orchestration | `Choice` | Coming soon · [#51](https://github.com/Jev-Engineering/cookbook/issues/51) |
 | 52 | **Retrieval pipeline evaluation**<br>Combine passage filtering, reranking, and claim verification in a retrieval pipeline and measure each stage's effect on answer support using a fixed labeled corpus. | Search & retrieval | `Choice` + `Score` | Coming soon · [#52](https://github.com/Jev-Engineering/cookbook/issues/52) |
 
@@ -340,8 +331,8 @@ The layout the recipes are being built into. `catalog/recipes.json` is the sourc
 
 ```text
 cookbook/
-├── catalog/recipes.json      100 planned recipes in two tracks, machine readable
-├── recipes/NN-slug/          one folder per recipe (100 uses 100-slug): notebook, README, fixtures/
+├── catalog/recipes.json      the 100 planned recipes, machine readable
+├── recipes/NN-slug/          one folder per recipe: notebook.ipynb, README.md, fixtures/
 ├── src/jev_cookbook/         shared helpers: backends, fixtures, evaluation, plotting
 ├── tools/render_catalog.py   regenerates the tables in this README
 ├── orchestration/PROMPT.md   the multi-agent build plan for this repository
@@ -350,7 +341,7 @@ cookbook/
 
 ## Sources
 
-The use cases are proposed applications. Their ranks are curriculum judgments, not ratings published by the sources. The catalog records each source's review date: S01–S08 were reviewed on 6 October 2026, and S09–S12 on 15 October 2026, after the 14 October Jev 1.14 release. Each recipe's catalog entry lists the references that apply to it. S07 describes limitations of the documented Jev 1.13 model specifically.
+The use cases are proposed applications. Their ranks are curriculum judgments, not ratings published by the sources. The references below were reviewed on 6 October 2026 (S01 to S08) and 15 October 2026 (S09 to S12). Each reference's review date is recorded in `catalog/recipes.json`, and the references that apply to a recipe are listed in that recipe's catalog entry. S07 describes limitations of the documented Jev 1.13 model specifically.
 
 <!-- catalog:sources:start -->
 | ID | Reference | What it supports |
@@ -371,7 +362,7 @@ The use cases are proposed applications. Their ranks are curriculum judgments, n
 
 ## Contributing
 
-Recipes are built against one contract, described in [CONTRIBUTING.md](CONTRIBUTING.md): offline by default, synthetic fixtures, Python in control of every side effect, and no quality claim without a measured run. Progress is tracked in [issues](https://github.com/Jev-Engineering/cookbook/issues) and [milestones](https://github.com/Jev-Engineering/cookbook/milestones). Original recipes 01–60 retain their matching issue numbers. Multimodal recipe ranks are separate from issue identities: use the assigned `issue` in the trusted base catalog, and keep work with `issue: null` local until a real recipe issue is assigned.
+Recipes are built against one contract, described in [CONTRIBUTING.md](CONTRIBUTING.md): offline by default, synthetic fixtures, Python in control of every side effect, and no quality claim without a measured run. Progress is tracked in [issues](https://github.com/Jev-Engineering/cookbook/issues) and [milestones](https://github.com/Jev-Engineering/cookbook/milestones), with each recipe's assigned issue recorded in its catalog entry (`issue` is null until one is assigned). A recipe's rank is not its issue number; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 <p align="center">
 <sub>An independent project by <a href="https://github.com/Jev-Engineering">Jev-Engineering</a> · Steward: Complete Tech LLC · MIT licensed<br>

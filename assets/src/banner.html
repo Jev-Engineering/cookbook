@@ -42,7 +42,9 @@
   .levels { display: flex; align-items: flex-end; gap: 6px; height: 54px; margin-top: 6px; border-bottom: 1px solid var(--ink); }
   .levels s { flex: 1; background: var(--paper); border: 1px solid var(--ink); border-bottom: 0; }
   .levels s.on { background: var(--ink); }
-  .stripes { background-image: repeating-linear-gradient(90deg, var(--ink) 0 2px, transparent 2px 4px); }
+  .scene { position: relative; width: 112px; height: 48px; flex-shrink: 0; border: 1px solid var(--ink); background: var(--paper); }
+  .target { position: absolute; left: 38px; top: 12px; width: 36px; height: 25px; border: 1px solid var(--ink); background: var(--pink); }
+  .bbox { position: absolute; left: 30px; top: 6px; width: 52px; height: 37px; border: 2px solid var(--magenta); }
 </style>
 </head>
 <body>
@@ -57,15 +59,27 @@
   </div>
 
   <h1>Jev Cookbook</h1>
-  <div class="sub"><span>60 notebook recipes for typed decisions</span></div>
-  <div class="chips"><b>+choice</b><b>+noul</b><b>+score</b><b>+python in control</b></div>
+  <div class="sub"><span>100 notebook recipes for typed decisions</span></div>
+  <div class="chips"><b>+choice</b><b>+noul</b><b>+score</b><b>+box</b><b>+python in control</b></div>
 
-  <!-- loading dialog -->
+  <!-- curriculum and run-mode note, not publication progress -->
   <div class="win" style="left:86px;top:304px;width:330px;">
-    <div class="bar"><span>Cookbook 0.1</span><span>_ x</span></div>
-    <div class="body" style="padding-top:4px;padding-bottom:8px;line-height:21px;">
-      Loading ... recipes, coming soon
-      <div class="meter" style="margin-top:4px;"><u class="stripes" style="width:14%;"></u></div>
+    <div class="bar"><span>Text + vision</span><span>_ x</span></div>
+    <div class="body" style="padding-top:6px;padding-bottom:6px;line-height:22px;">
+      <div>100 planned recipes</div>
+      <div>Offline first. Live opt-in.</div>
+    </div>
+  </div>
+
+  <!-- BOX -->
+  <div class="win" style="left:470px;top:292px;width:340px;">
+    <div class="bar"><span>BOX</span><span>_ x</span></div>
+    <div class="body" style="display:flex;gap:12px;align-items:center;padding:6px 10px;line-height:22px;">
+      <div>
+        <span class="big" style="font-size:36px;line-height:32px;margin-bottom:0;">BOX</span>
+        <div>one rectangle</div>
+      </div>
+      <div class="scene"><div class="target"></div><div class="bbox"></div></div>
     </div>
   </div>
 

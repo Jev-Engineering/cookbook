@@ -9,8 +9,8 @@ evaluation in the notebook has something real to find. The replay keys come from
 ``build_state``/``build_questions`` the notebook uses, so they cannot drift from the question.
 
 Sixteen scored examples per split (four per outcome: corroborating, superseding, contradicting,
-unrelated), 32 total, plus 6 demo examples that walk through the two stateful hard cases this
-recipe's build notes name:
+unrelated), 32 total, plus 6 demo examples that walk through this recipe's two stateful hard
+cases:
 
 - **Order-dependent reconciliation** (``demo-order-01``, ``demo-order-02``): the same memory key
   ("the user's notification channel") is updated once (superseding), then a second statement
