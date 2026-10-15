@@ -1,0 +1,872 @@
+{
+  "056c4e84389ea7ace01e0b744f25212a8b715fbe177cba3cdd50a33d79a4e1e2": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "crossing",
+        "probabilities": {
+          "resistor": 0.017142857142857144,
+          "capacitor": 0.017142857142857144,
+          "terminal": 0.017142857142857144,
+          "open_switch": 0.017142857142857144,
+          "junction": 0.017142857142857144,
+          "crossing": 0.88,
+          "none": 0.017142857142857144,
+          "uncertain": 0.017142857142857144
+        },
+        "confidence": 0.8628571428571429,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0ad433619cf4d630c23f4b6337d5e0bb56de09ad2e0c1586a2f1f9a0a6965966": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "capacitor",
+        "probabilities": {
+          "resistor": 0.05142857142857143,
+          "capacitor": 0.64,
+          "terminal": 0.05142857142857143,
+          "open_switch": 0.05142857142857143,
+          "junction": 0.05142857142857143,
+          "crossing": 0.05142857142857143,
+          "none": 0.05142857142857143,
+          "uncertain": 0.05142857142857143
+        },
+        "confidence": 0.5885714285714286,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0bd592c3f9e007fe33fbbc235bf300c788b4f31fce8d9398923b79f13ae2b40f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "junction",
+        "probabilities": {
+          "resistor": 0.008571428571428579,
+          "capacitor": 0.008571428571428579,
+          "terminal": 0.008571428571428579,
+          "open_switch": 0.008571428571428579,
+          "junction": 0.94,
+          "crossing": 0.008571428571428579,
+          "none": 0.008571428571428579,
+          "uncertain": 0.008571428571428579
+        },
+        "confidence": 0.9314285714285714,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1ba8b57c4614156da8e9b99f3be14e0d408c6b16bc3c888d370461f0049730dd": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "resistor",
+        "probabilities": {
+          "resistor": 0.93,
+          "capacitor": 0.009999999999999993,
+          "terminal": 0.009999999999999993,
+          "open_switch": 0.009999999999999993,
+          "junction": 0.009999999999999993,
+          "crossing": 0.009999999999999993,
+          "none": 0.009999999999999993,
+          "uncertain": 0.009999999999999993
+        },
+        "confidence": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2b6f32f140c8260b3a2f212646c3f2be79e483bddc4cd68f0122491b4a772ba4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "none",
+        "probabilities": {
+          "resistor": 0.012857142857142853,
+          "capacitor": 0.012857142857142853,
+          "terminal": 0.012857142857142853,
+          "open_switch": 0.012857142857142853,
+          "junction": 0.012857142857142853,
+          "crossing": 0.012857142857142853,
+          "none": 0.91,
+          "uncertain": 0.012857142857142853
+        },
+        "confidence": 0.8971428571428571,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "34c994fbfa47c0851a413644ec581ef1577c850164c1502dba757514eaa101fb": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "capacitor",
+        "probabilities": {
+          "resistor": 0.02,
+          "capacitor": 0.86,
+          "terminal": 0.02,
+          "open_switch": 0.02,
+          "junction": 0.02,
+          "crossing": 0.02,
+          "none": 0.02,
+          "uncertain": 0.02
+        },
+        "confidence": 0.84,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "36d18047385787c9948cf11f9257df3c16dcccb2b0a9038a7c0df315dd021755": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "capacitor",
+        "probabilities": {
+          "resistor": 0.009999999999999993,
+          "capacitor": 0.93,
+          "terminal": 0.009999999999999993,
+          "open_switch": 0.009999999999999993,
+          "junction": 0.009999999999999993,
+          "crossing": 0.009999999999999993,
+          "none": 0.009999999999999993,
+          "uncertain": 0.009999999999999993
+        },
+        "confidence": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3c3a30f1c3124f75efc866bfa71118c6b4eeace5a07dc21a0c54d7b5a1ae9634": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "uncertain",
+        "probabilities": {
+          "resistor": 0.05714285714285715,
+          "capacitor": 0.05714285714285715,
+          "terminal": 0.05714285714285715,
+          "open_switch": 0.05714285714285715,
+          "junction": 0.05714285714285715,
+          "crossing": 0.05714285714285715,
+          "none": 0.05714285714285715,
+          "uncertain": 0.6
+        },
+        "confidence": 0.5428571428571428,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "40eef5621d1ac0d5ba5736c07ec396d9f7f3910299e36699e3d0024520004f46": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "capacitor",
+        "probabilities": {
+          "resistor": 0.04,
+          "capacitor": 0.72,
+          "terminal": 0.04,
+          "open_switch": 0.04,
+          "junction": 0.04,
+          "crossing": 0.04,
+          "none": 0.04,
+          "uncertain": 0.04
+        },
+        "confidence": 0.6799999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4f2c8617a6329f9f93a92e2fe8f09dd0770546a0752e951b5905de9b3b7c6a0f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "junction",
+        "probabilities": {
+          "resistor": 0.015714285714285712,
+          "capacitor": 0.015714285714285712,
+          "terminal": 0.015714285714285712,
+          "open_switch": 0.015714285714285712,
+          "junction": 0.89,
+          "crossing": 0.015714285714285712,
+          "none": 0.015714285714285712,
+          "uncertain": 0.015714285714285712
+        },
+        "confidence": 0.8742857142857143,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "569cb135bf47571a3ab7c0a23160d6195876a019a0cbe35200a1319c5f323373": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "crossing",
+        "probabilities": {
+          "resistor": 0.05142857142857143,
+          "capacitor": 0.05142857142857143,
+          "terminal": 0.05142857142857143,
+          "open_switch": 0.05142857142857143,
+          "junction": 0.05142857142857143,
+          "crossing": 0.64,
+          "none": 0.05142857142857143,
+          "uncertain": 0.05142857142857143
+        },
+        "confidence": 0.5885714285714286,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7311ee30518533b2802007996dfbf3463b5e8f1fc2cc17d2d987253c7f88dafc": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "uncertain",
+        "probabilities": {
+          "resistor": 0.042857142857142864,
+          "capacitor": 0.042857142857142864,
+          "terminal": 0.042857142857142864,
+          "open_switch": 0.042857142857142864,
+          "junction": 0.042857142857142864,
+          "crossing": 0.042857142857142864,
+          "none": 0.042857142857142864,
+          "uncertain": 0.7
+        },
+        "confidence": 0.6571428571428571,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7646a3517b8442b8b821a2b83a84374b41a7feee966635c8f52b8fb25b0e8d59": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "none",
+        "probabilities": {
+          "resistor": 0.018571428571428572,
+          "capacitor": 0.018571428571428572,
+          "terminal": 0.018571428571428572,
+          "open_switch": 0.018571428571428572,
+          "junction": 0.018571428571428572,
+          "crossing": 0.018571428571428572,
+          "none": 0.87,
+          "uncertain": 0.018571428571428572
+        },
+        "confidence": 0.8514285714285714,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "79cbd07b90378994b4b66c0c5a74cff04d38e7952d94cdf4abe98fd9a855e16b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "resistor",
+        "probabilities": {
+          "resistor": 0.94,
+          "capacitor": 0.008571428571428579,
+          "terminal": 0.008571428571428579,
+          "open_switch": 0.008571428571428579,
+          "junction": 0.008571428571428579,
+          "crossing": 0.008571428571428579,
+          "none": 0.008571428571428579,
+          "uncertain": 0.008571428571428579
+        },
+        "confidence": 0.9314285714285714,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "81172ad1d14906d088e8d4a783ab509a30d1534ebda83fb88d83968440e2e048": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "none",
+        "probabilities": {
+          "resistor": 0.027142857142857135,
+          "capacitor": 0.027142857142857135,
+          "terminal": 0.027142857142857135,
+          "open_switch": 0.027142857142857135,
+          "junction": 0.027142857142857135,
+          "crossing": 0.027142857142857135,
+          "none": 0.81,
+          "uncertain": 0.027142857142857135
+        },
+        "confidence": 0.7828571428571429,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "88cf1d97096aa1f79a22fe8a1c8c0e369473363ba1964a7c2d26c17519bbbad6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "open_switch",
+        "probabilities": {
+          "resistor": 0.015714285714285712,
+          "capacitor": 0.015714285714285712,
+          "terminal": 0.015714285714285712,
+          "open_switch": 0.89,
+          "junction": 0.015714285714285712,
+          "crossing": 0.015714285714285712,
+          "none": 0.015714285714285712,
+          "uncertain": 0.015714285714285712
+        },
+        "confidence": 0.8742857142857143,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9f74ef1cb8028d973d03aeb60f7452be8320dbf9d7b82b378bce61b803f35ef8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "junction",
+        "probabilities": {
+          "resistor": 0.014285714285714282,
+          "capacitor": 0.014285714285714282,
+          "terminal": 0.014285714285714282,
+          "open_switch": 0.014285714285714282,
+          "junction": 0.9,
+          "crossing": 0.014285714285714282,
+          "none": 0.014285714285714282,
+          "uncertain": 0.014285714285714282
+        },
+        "confidence": 0.8857142857142858,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a9d310d6849137bed0db25ec487c3187bc6907f65840ae43321db495ca92a253": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "terminal",
+        "probabilities": {
+          "resistor": 0.017142857142857144,
+          "capacitor": 0.017142857142857144,
+          "terminal": 0.88,
+          "open_switch": 0.017142857142857144,
+          "junction": 0.017142857142857144,
+          "crossing": 0.017142857142857144,
+          "none": 0.017142857142857144,
+          "uncertain": 0.017142857142857144
+        },
+        "confidence": 0.8628571428571429,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ab20acdcf70ebbb95e341b324d4f37ea0cbc8ae2a7b54883bebe31fef5865f2d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "junction",
+        "probabilities": {
+          "resistor": 0.06428571428571428,
+          "capacitor": 0.06428571428571428,
+          "terminal": 0.06428571428571428,
+          "open_switch": 0.06428571428571428,
+          "junction": 0.55,
+          "crossing": 0.06428571428571428,
+          "none": 0.06428571428571428,
+          "uncertain": 0.06428571428571428
+        },
+        "confidence": 0.48571428571428577,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b708f6c46cd60f173c5ff113215c8cfbe39bd5074e39594336ad45f6e94d6f84": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "capacitor",
+        "probabilities": {
+          "resistor": 0.02571428571428572,
+          "capacitor": 0.82,
+          "terminal": 0.02571428571428572,
+          "open_switch": 0.02571428571428572,
+          "junction": 0.02571428571428572,
+          "crossing": 0.02571428571428572,
+          "none": 0.02571428571428572,
+          "uncertain": 0.02571428571428572
+        },
+        "confidence": 0.7942857142857143,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "cf0fa3a542b2900be7aedeb725f5c9bbf69ba830078f8038fabebe7702a29d6f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "terminal",
+        "probabilities": {
+          "resistor": 0.02285714285714286,
+          "capacitor": 0.02285714285714286,
+          "terminal": 0.84,
+          "open_switch": 0.02285714285714286,
+          "junction": 0.02285714285714286,
+          "crossing": 0.02285714285714286,
+          "none": 0.02285714285714286,
+          "uncertain": 0.02285714285714286
+        },
+        "confidence": 0.8171428571428571,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d503a468b51cfe768a31e81eb6dc1b16454c289d9cc048f7c050eaf9d3d3a8f1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "terminal",
+        "probabilities": {
+          "resistor": 0.011428571428571423,
+          "capacitor": 0.011428571428571423,
+          "terminal": 0.92,
+          "open_switch": 0.011428571428571423,
+          "junction": 0.011428571428571423,
+          "crossing": 0.011428571428571423,
+          "none": 0.011428571428571423,
+          "uncertain": 0.011428571428571423
+        },
+        "confidence": 0.9085714285714286,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "dc6fd1016ffef3a22a843bb4924429d85eb718c9053500e6aa0bc01ecae12c56": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "capacitor",
+        "probabilities": {
+          "resistor": 0.014285714285714282,
+          "capacitor": 0.9,
+          "terminal": 0.014285714285714282,
+          "open_switch": 0.014285714285714282,
+          "junction": 0.014285714285714282,
+          "crossing": 0.014285714285714282,
+          "none": 0.014285714285714282,
+          "uncertain": 0.014285714285714282
+        },
+        "confidence": 0.8857142857142858,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "df1f687af5f920f11653d1fe5c5172c8e205f0eca5022cd6d95bf23b79c6cbca": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "resistor",
+        "probabilities": {
+          "resistor": 0.78,
+          "capacitor": 0.031428571428571424,
+          "terminal": 0.031428571428571424,
+          "open_switch": 0.031428571428571424,
+          "junction": 0.031428571428571424,
+          "crossing": 0.031428571428571424,
+          "none": 0.031428571428571424,
+          "uncertain": 0.031428571428571424
+        },
+        "confidence": 0.7485714285714286,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e5a4c89c421c017f64489a14665fa99590abe13c497489d718eae09d4d6c39ba": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "uncertain",
+        "probabilities": {
+          "resistor": 0.04,
+          "capacitor": 0.04,
+          "terminal": 0.04,
+          "open_switch": 0.04,
+          "junction": 0.04,
+          "crossing": 0.04,
+          "none": 0.04,
+          "uncertain": 0.72
+        },
+        "confidence": 0.6799999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e83f363f8c1577febbfc4b4644a79ee3bd0533a7e8bce4df50b195f4e46f9956": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "uncertain",
+        "probabilities": {
+          "resistor": 0.04571428571428571,
+          "capacitor": 0.04571428571428571,
+          "terminal": 0.04571428571428571,
+          "open_switch": 0.04571428571428571,
+          "junction": 0.04571428571428571,
+          "crossing": 0.04571428571428571,
+          "none": 0.04571428571428571,
+          "uncertain": 0.68
+        },
+        "confidence": 0.6342857142857143,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ec421052e227491419a5c46ad85514498e3e6a35a7aa75331692792cbc0aa62c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "uncertain",
+        "probabilities": {
+          "resistor": 0.038571428571428576,
+          "capacitor": 0.038571428571428576,
+          "terminal": 0.038571428571428576,
+          "open_switch": 0.038571428571428576,
+          "junction": 0.038571428571428576,
+          "crossing": 0.038571428571428576,
+          "none": 0.038571428571428576,
+          "uncertain": 0.73
+        },
+        "confidence": 0.6914285714285714,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f3fc4c087bc596b09b798791921bea64312f7e74978934d0e0c3a47fcdd6d7a1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "resistor",
+        "probabilities": {
+          "resistor": 0.86,
+          "capacitor": 0.02,
+          "terminal": 0.02,
+          "open_switch": 0.02,
+          "junction": 0.02,
+          "crossing": 0.02,
+          "none": 0.02,
+          "uncertain": 0.02
+        },
+        "confidence": 0.84,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f5319b65f606c19dc309846334675c15b89cacc2e3f8990d6900d52d77edb670": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "open_switch",
+        "probabilities": {
+          "resistor": 0.018571428571428572,
+          "capacitor": 0.018571428571428572,
+          "terminal": 0.018571428571428572,
+          "open_switch": 0.87,
+          "junction": 0.018571428571428572,
+          "crossing": 0.018571428571428572,
+          "none": 0.018571428571428572,
+          "uncertain": 0.018571428571428572
+        },
+        "confidence": 0.8514285714285714,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "fbcd634d5f77869f36d894e7f6ad23ff7d8bec6cf2e8deefe5c53a60625d5aaf": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "symbol": {
+        "type": "choice",
+        "choice": "open_switch",
+        "probabilities": {
+          "resistor": 0.014285714285714282,
+          "capacitor": 0.014285714285714282,
+          "terminal": 0.014285714285714282,
+          "open_switch": 0.9,
+          "junction": 0.014285714285714282,
+          "crossing": 0.014285714285714282,
+          "none": 0.014285714285714282,
+          "uncertain": 0.014285714285714282
+        },
+        "confidence": 0.8857142857142858,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
