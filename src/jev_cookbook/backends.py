@@ -1,4 +1,4 @@
-"""Decision backends: one call, ``decide(state, questions)``, offline or (later) live.
+"""Decision backends: ``decide(state, questions, assets=...)``, offline or live.
 
 ``ReplayBackend`` answers from stored responses keyed by ``replay_key``; ``ScriptedBackend``
 answers from a seeded function; ``get_backend`` picks one. The opt-in live backend
@@ -25,6 +25,7 @@ from .answers import (
     SYNTHETIC_MODEL,
     SYNTHETIC_SOURCE,
     Answer,
+    BoxAnswer,
     ChoiceAnswer,
     DecisionResult,
     NoulAnswer,
@@ -32,7 +33,7 @@ from .answers import (
     ScoreAnswer,
     Usage,
 )
-from .questions import Choice, Noul, Question, Score
+from .questions import Box, Choice, Noul, Question, Score
 
 __all__ = [
     "Backend",
@@ -48,6 +49,7 @@ __all__ = [
 KEY_VERSION = 1
 LIVE_ENV = "JEV_COOKBOOK_LIVE"
 KEY_PATTERN = re.compile(r"[0-9a-f]{64}")
+Assets = Mapping[str, Mapping[str, Any]]
 
 
 class ReplayMiss(LookupError):
@@ -87,19 +89,71 @@ def _check_request(
     for name, q in questions.items():
         if type(name) is not str or not name:
             raise ValueError(f"question names must be non-empty str, got {name!r}")
-        if not isinstance(q, (Noul, Choice, Score)):
-            raise TypeError(f"question {name!r} must be Noul, Choice or Score, got {type(q)}")
+        if not isinstance(q, (Noul, Choice, Score, Box)):
+            raise TypeError(f"question {name!r} must be Noul, Choice, Score or Box, got {type(q)}")
         checked[name] = q
     return plain_json(state, "state", max_depth=MAX_DEPTH), checked
 
 
-def replay_key(state: Any, questions: Mapping[str, Question]) -> str:
+def _string_values(value: Any):
+    """Only values can carry image references; object keys stay text."""
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, Mapping):
+        for part in value.values():
+            yield from _string_values(part)
+    elif isinstance(value, (list, tuple)):
+        for part in value:
+            yield from _string_values(part)
+
+
+def _check_assets(
+    state: Any, questions: Mapping[str, Question], assets: Assets | None
+) -> dict[str, dict[str, Any]]:
+    """Validate public raw image dictionaries without importing the optional SDK."""
+    if assets is not None and not isinstance(assets, Mapping):
+        raise TypeError("assets must be a mapping of reference string -> image asset")
+    if not assets:
+        if any(isinstance(q, Box) for q in questions.values()):
+            raise ValueError("a Box question requires at least one image in assets")
+        return {}
+    from .vision import validate_image_asset
+
+    values = list(_string_values(state))
+    for question in questions.values():
+        values.extend(_string_values(question.instructions))
+        values.extend(_string_values(getattr(question, "criteria", None)))
+    checked = {}
+    reference_bytes = 0
+    for ref, asset in assets.items():
+        if type(ref) is not str or not ref.strip():
+            raise ValueError("asset references must be non-empty, non-whitespace strings")
+        try:
+            size = len(ref.encode("utf-8"))
+        except UnicodeEncodeError:
+            raise ValueError("asset references must be valid UTF-8 strings") from None
+        if size > 1024:
+            raise ValueError("an asset reference must be at most 1024 UTF-8 bytes")
+        reference_bytes += size
+        if not any(ref in value for value in values):
+            raise ValueError(f"asset {ref!r} is not referenced in a state/instructions/criteria value")
+        validate_image_asset(asset)
+        checked[ref] = dict(asset)
+    if reference_bytes > 65536:
+        raise ValueError("all asset references together must be at most 65536 UTF-8 bytes")
+    return checked
+
+
+def replay_key(
+    state: Any, questions: Mapping[str, Question], *, assets: Assets | None = None
+) -> str:
     """Stable 64-hex-character key for a request (see docs/backends.md for the exact rule).
 
     SHA-256 of the canonical JSON of ``{"v": 1, "state": ..., "questions": {name:
     question.to_dict()}}``: question names sorted; every other object key (state keys,
     Choice options) and every array in the order written; no whitespace, ASCII escapes,
-    shortest-repr floats. Nothing else is normalized.
+    shortest-repr floats. Non-empty ``assets`` adds a sorted map of reference to asset type,
+    format and SHA-256 of its base64 text. Text-only requests retain their original keys.
     """
     plain_state, checked = _check_request(state, questions)
     questions_json = {}
@@ -113,7 +167,19 @@ def replay_key(state: Any, questions: Mapping[str, Question]) -> str:
         for label, part in parts:
             check_depth(part, f"question {name!r} criteria[{label!r}]", MAX_DEPTH)
         questions_json[name] = content
+    checked_assets = _check_assets(plain_state, checked, assets)
     payload = {"v": KEY_VERSION, "state": plain_state, "questions": questions_json}
+    if checked_assets:
+        # Keep the original envelope byte-for-byte for all text-only requests. Hash image
+        # content rather than paths, so replacing a file cannot replay an obsolete judgment.
+        payload["assets"] = {
+            ref: {
+                "type": asset["type"],
+                "format": asset["format"],
+                "sha256": hashlib.sha256(asset["data_base64"].encode("ascii")).hexdigest(),
+            }
+            for ref, asset in sorted(checked_assets.items())
+        }
     # The envelope adds levels of its own, so the payload as a whole is not limited.
     return hashlib.sha256(canonical_json(payload).encode("ascii")).hexdigest()
 
@@ -129,13 +195,15 @@ class Backend(Protocol):
     mode: str
     model: str
 
-    def decide(self, state: Any, questions: Mapping[str, Question]) -> DecisionResult:
+    def decide(
+        self, state: Any, questions: Mapping[str, Question], *, assets: Assets | None = None
+    ) -> DecisionResult:
         """Answer every named question about ``state``."""
         ...
 
 
 def _check_fits(name: str, question: Question, answer: Answer) -> None:
-    ok = {Noul: NoulAnswer, Choice: ChoiceAnswer, Score: ScoreAnswer}[type(question)]
+    ok = {Noul: NoulAnswer, Choice: ChoiceAnswer, Score: ScoreAnswer, Box: BoxAnswer}[type(question)]
     if not isinstance(answer, ok):
         raise FixtureError(
             f"question {name!r} is {question.type} but the stored answer is {answer.type}"
@@ -222,8 +290,10 @@ class ReplayBackend:
     def keys(self) -> list[str]:
         return sorted(self._results)
 
-    def decide(self, state: Any, questions: Mapping[str, Question]) -> DecisionResult:
-        key = replay_key(state, questions)
+    def decide(
+        self, state: Any, questions: Mapping[str, Question], *, assets: Assets | None = None
+    ) -> DecisionResult:
+        key = replay_key(state, questions, assets=assets)
         result = self._results.get(key)
         if result is None:
             raise ReplayMiss(key, sorted(questions), len(self._results))
@@ -238,6 +308,7 @@ class ReplayBackend:
 #   Noul   -> float probability of yes
 #   Choice -> option name (all weight on it) or {option: non-negative weight}
 #   Score  -> list of non-negative weights, one per level
+#   Box    -> a ready-made synthetic BoxAnswer (coordinates are never inferred by Python)
 # Weights are normalized to probabilities. A ready-made synthetic Answer is also accepted.
 Spec = Any
 ScriptFn = Callable[[Any, Mapping[str, Question], random.Random], Mapping[str, Spec]]
@@ -255,10 +326,12 @@ def _normalize(weights: Sequence[float], what: str) -> list[float]:
 
 def _build(name: str, q: Question, spec: Spec) -> Answer:
     prov = Provenance.synthetic()
-    if isinstance(spec, (NoulAnswer, ChoiceAnswer, ScoreAnswer)):
+    if isinstance(spec, (NoulAnswer, ChoiceAnswer, ScoreAnswer, BoxAnswer)):
         if spec.provenance.source != SYNTHETIC_SOURCE:
             raise ValueError(f"{name!r}: scripted answers must be synthetic")
         return spec
+    if isinstance(q, Box):
+        raise ValueError(f"{name!r}: a Box script must return a synthetic BoxAnswer")
     if isinstance(q, Noul):
         return NoulAnswer(spec, prov)
     if isinstance(q, Choice):
@@ -293,13 +366,18 @@ class ScriptedBackend:
         self.mode: str = "scripted"
         self.model: str = SYNTHETIC_MODEL
 
-    def rng_for(self, state: Any, questions: Mapping[str, Question]) -> random.Random:
-        digest = hashlib.sha256(f"{self.seed}:{replay_key(state, questions)}".encode()).hexdigest()
+    def rng_for(
+        self, state: Any, questions: Mapping[str, Question], *, assets: Assets | None = None
+    ) -> random.Random:
+        key = replay_key(state, questions, assets=assets)
+        digest = hashlib.sha256(f"{self.seed}:{key}".encode()).hexdigest()
         return random.Random(int(digest[:16], 16))
 
-    def decide(self, state: Any, questions: Mapping[str, Question]) -> DecisionResult:
+    def decide(
+        self, state: Any, questions: Mapping[str, Question], *, assets: Assets | None = None
+    ) -> DecisionResult:
         plain_state, checked = _check_request(state, questions)
-        specs = self._script(plain_state, checked, self.rng_for(state, questions))
+        specs = self._script(plain_state, checked, self.rng_for(state, questions, assets=assets))
         if set(specs) != set(checked):
             raise ValueError(f"script returned {sorted(specs)} but questions are {sorted(checked)}")
         answers = {name: _build(name, checked[name], specs[name]) for name in checked}
@@ -323,23 +401,30 @@ def get_backend(
     fixtures: Mapping[str, Mapping[str, Any]] | str | os.PathLike[str] | None = None,
     script: ScriptFn | None = None,
     seed: int = 0,
+    model: str | None = None,
+    images: bool = False,
+    long_context: bool = False,
 ) -> Backend:
     """Return the backend a notebook should use.
 
     Offline (default): ``script`` gives a ``ScriptedBackend`` (with ``seed``); otherwise
     ``fixtures`` (a mapping, or a path to a JSON file) gives a ``ReplayBackend``. Passing
     both, or neither, is an error. ``JEV_COOKBOOK_LIVE=1`` selects the live backend and
-    never falls back to replay: ``JEV_COOKBOOK_LIVE_MODEL`` is required,
+    never falls back to replay: ``model`` or ``JEV_COOKBOOK_LIVE_MODEL`` is required,
     ``JEV_COOKBOOK_LIVE_MAX_REQUESTS`` is optional, ``TYPESAFE_API_KEY`` is read from the
     environment, and a missing setting raises ``LiveConfigError`` (see ``docs/live.md``). Any
     other value than unset, empty, ``0`` or ``1`` is an error. The variable is read when
-    this function is called, never at import.
+    this function is called, never at import. ``images`` and ``long_context`` enable their
+    experimental headers in live mode; offline backends ignore these live options.
     """
     live = os.environ.get(LIVE_ENV, "")
     if live not in ("", "0", "1"):
         raise ValueError(f"{LIVE_ENV} must be 1 (live) or unset/0 (offline), got {live!r}")
     if live == "1":
-        return _make_live_backend(fixtures=fixtures, script=script, seed=seed)
+        return _make_live_backend(
+            fixtures=fixtures, script=script, seed=seed,
+            model=model, images=images, long_context=long_context,
+        )
     if (fixtures is None) == (script is None):
         raise ValueError("pass exactly one of fixtures=... (replay) or script=... (scripted)")
     if script is not None:

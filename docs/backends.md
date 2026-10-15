@@ -1,7 +1,7 @@
 # Decision backends
 
-One interface, `backend.decide(state, questions)`, that a notebook calls the same way offline
-(replay or scripted) and, once it exists, live.
+One interface, `backend.decide(state, questions, assets=None)` (with `assets` keyword-only),
+that a notebook calls the same way offline (replay or scripted) and live.
 
 ```python
 from jev_cookbook import Choice, Noul, Score, get_backend
@@ -66,6 +66,7 @@ reaches `get_backend` at all.
 | `NoulAnswer` | `noul: float` (probability of yes, 0 to 1) |
 | `ChoiceAnswer` | `choice: str`, `probabilities: {option: float}`, `confidence: float` |
 | `ScoreAnswer` | `score: float`, `probabilities: {int: float}`, `confidence: float`, `legend: {int: str \| object \| array}` |
+| `BoxAnswer` | `box: {top: float, bottom: float, left: float, right: float}`, `confidence: float \| None` |
 
 Every answer also has `provenance: Provenance` (`source`, `model`, `date`). Score level keys are
 `int` in memory (as in `typesafe_sdk`) and JSON strings (`"0"`, `"1"`, ...) in `to_dict()`; level
@@ -286,11 +287,15 @@ one method this relies on), so nothing here needed to change.
 
 ## `get_backend`
 
-`get_backend(*, fixtures=None, script=None, seed=0)` returns a `ScriptedBackend` (script) or a
+`get_backend(*, fixtures=None, script=None, seed=0, model=None, images=False, long_context=False)`
+returns a `ScriptedBackend` (script) or a
 `ReplayBackend` (fixtures: a mapping or a JSON path); pass exactly one. `JEV_COOKBOOK_LIVE=1`
 selects the live backend and never falls back to replay: it requires `JEV_COOKBOOK_LIVE_MODEL`,
 accepts an optional `JEV_COOKBOOK_LIVE_MAX_REQUESTS`, reads `TYPESAFE_API_KEY` from the
 environment, and raises `LiveConfigError` when a setting is missing (see [live.md](live.md)).
+An explicit `model` overrides `JEV_COOKBOOK_LIVE_MODEL`; the two boolean flags enable the
+experimental request headers in live mode. Offline backends ignore these live options and
+derive their model and provenance from the fixtures or script.
 Values other than unset, empty, `0`, `1` are an error. The environment is read when
 `get_backend` is called, not at import.
 
@@ -303,3 +308,65 @@ fixture provenance when it loads, and rejects an empty fixture set, a set mixing
 recorded answers, or one with more than one model. `ScriptedBackend` is `mode="scripted"`,
 `model="synthetic"`. The live backend, when it exists, must expose the same attributes
 with `mode="live"`.
+
+## Images and Box
+
+`assets` maps a stable reference string to the official raw image dictionary:
+`{"type": "image", "format": "png", "data_base64": ...}` (`jpg` and `jpeg` also work).
+The same keyword is accepted by `replay_key`, replay, scripted and live `decide`.
+The shared `jev_cookbook.vision.image_asset(path)` helper reads and validates an image;
+`image_reference(asset)` derives a stable reference from its bytes. The live adapter converts
+the dictionary into the SDK's `Image` and sends it using the SDK's multipart support.
+
+```python
+from jev_cookbook import Box, Noul, get_backend
+from jev_cookbook.vision import image_asset, image_reference
+
+photo = image_asset("assets/screenshot.png")
+ref = image_reference(photo)
+assets = {ref: photo}
+state = {"screenshot": ref}
+questions = {
+    "present": Noul(instructions="The Save button is visible in `screenshot`."),
+    "button": Box(instructions="The Save button in `screenshot`."),
+}
+backend = get_backend(
+    fixtures="fixtures/responses.json", model="jev-1.14.0", images=True
+)
+result = backend.decide(state, questions, assets=assets)
+result.boxes["button"].box
+```
+
+References remain strings in cookbook state and questions; the API substitutes images.
+They can occur inside longer strings and nested values in state, instructions or criteria.
+Object keys, including question IDs and Choice option names, remain text. Every supplied
+asset must appear in a value; key-only and unused references fail validation. Use distinctive
+references to avoid accidental substring matches. See the official [image contract](https://docs.typesafe.ai/images).
+
+Asset dictionaries, base64, image format and image bounds are checked before replay or live
+inference. A Box request needs at least one image. An arbitrary string without an asset entry
+is ordinary text; replay detects a missing or changed image through its different request key.
+Keep image files under `assets/` beside `fixtures/`, and put their relative paths in input
+`fields` ([fixtures.md](fixtures.md#image-fixtures)).
+
+The text-only replay envelope is unchanged: omitted, `None` and empty assets produce exactly
+the existing keys. A request with images adds an `assets` object sorted by reference, holding
+each asset's `type`, `format` and SHA-256 of its base64 ASCII text. That means changed image
+bytes or references change the key, while reordering the assets map does not. No image data
+is stored in a response fixture. The scripted random seed includes this key; scripts retain
+their existing `(state, questions, rng)` interface.
+
+`Box(instructions=...)` has no `criteria`; its `to_dict()` contains only type and instructions.
+`BoxAnswer(box, confidence, provenance)` requires exactly four finite edges in `[0, 1]`,
+with `left < right` and `top < bottom`, and copies them into an immutable mapping.
+Confidence is in `[0, 1]` or `None`; omitted confidence in a stored/raw response becomes `None`.
+No confidence is invented. The [SDK response contract](https://docs.typesafe.ai/sdk/python/api/types/responses)
+documents `None` when the model supplies no confidence; an SDK response that omits a required
+field entirely may still be rejected by the SDK before cookbook parsing.
+
+A Box can return coordinates for an absent object. Pair it with a presence question and route
+absent or uncertain results to review in Python. This is one rectangle, not a presence flag
+or segmentation mask. See the [Box contract](https://docs.typesafe.ai/primitives/box).
+Scripts return a ready-made synthetic `BoxAnswer`; replay and live responses enforce the same
+geometry and question/answer type checks. `format_answer`/`show_answer` display the edges and
+show missing confidence as `unknown`; probability plotting does not apply to a Box.

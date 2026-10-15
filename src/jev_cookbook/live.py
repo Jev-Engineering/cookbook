@@ -12,6 +12,7 @@ touches the network. The SDK is imported (and ``TYPESAFE_API_KEY`` read) only wh
 
 from __future__ import annotations
 
+import base64
 import datetime
 import inspect
 import json
@@ -30,14 +31,16 @@ from ._canonical import plain_json
 from .answers import DecisionResult, Provenance, Usage, answer_from_dict
 from .backends import (
     LIVE_ENV,
+    Assets,
     FixtureError,
     LiveBackendUnavailable,
     ReplayBackend,
+    _check_assets,
     _check_request,
     _check_result,
     replay_key,
 )
-from .questions import Question
+from .questions import Box, Question
 
 __all__ = [
     "API_KEY_ENV",
@@ -72,6 +75,7 @@ SDK_LOGGER = "typesafe_sdk"
 # extra_headers, state, questions, model, response_model, ...) can change what is sent or how
 # many times, so it is rejected rather than forwarded.
 ALLOWED_REQUEST_KWARGS = frozenset({"provider", "timeout"})
+BOX_MODELS = frozenset({"jev-1.14.0", "jev-preview"})
 
 
 class LiveConfigError(LiveBackendUnavailable):
@@ -374,6 +378,7 @@ def _parse_response(
             "noul": ("noul",),
             "choice": ("choice", "probabilities", "confidence"),
             "score": ("score", "probabilities", "confidence", "legend"),
+            "box": ("box", "confidence"),
         }.get(raw.get("type"))
         if fields is None:
             raise LiveResponseError(
@@ -505,11 +510,18 @@ class LiveBackend:
         max_requests: int = DEFAULT_MAX_REQUESTS,
         max_retries: int = DEFAULT_MAX_RETRIES,
         request_kwargs: Mapping[str, Any] | None = None,
+        images: bool = False,
+        long_context: bool = False,
         sleep: Callable[[float], None] = time.sleep,
         today: Callable[[], str] = _today_utc,
     ) -> None:
         if type(model) is not str or not model.strip():
             raise ValueError("model must be a non-empty string such as 'jev-latest'")
+        for name, value in (("images", images), ("long_context", long_context)):
+            if type(value) is not bool:
+                raise TypeError(f"{name} must be a bool")
+        self.images = images
+        self.long_context = long_context
         for name, value, low in (
             ("max_requests", max_requests, 1),
             ("max_retries", max_retries, 0),
@@ -543,6 +555,13 @@ class LiveBackend:
         # see, and the usual place is this variable.
         self._secrets = _secret_variants(os.environ.get(API_KEY_ENV))
         self._call_extra: dict[str, Any] = {}
+        headers = {}
+        if images:
+            headers["TypeSafe-Danger-Zone-Images"] = "true"
+        if long_context:
+            headers["TypeSafe-Danger-Zone-Long-Context"] = "true"
+        if headers:
+            self._call_extra["extra_headers"] = headers
         self._log_variants: tuple[str, ...] = ()
         if client is None:
             client = self._build_client()
@@ -659,9 +678,31 @@ class LiveBackend:
 
     # -- decide --------------------------------------------------------------------------
 
-    def decide(self, state: Any, questions: Mapping[str, Question]) -> DecisionResult:
+    def decide(
+        self, state: Any, questions: Mapping[str, Question], *, assets: Assets | None = None
+    ) -> DecisionResult:
         plain_state, checked = _check_request(state, questions)
-        key = replay_key(state, questions)
+        key = replay_key(plain_state, checked, assets=assets)
+        checked_assets = _check_assets(plain_state, checked, assets)
+        has_box = any(isinstance(q, Box) for q in checked.values())
+        if (checked_assets or has_box) and not self.images:
+            raise LiveConfigError("image assets and Box questions require LiveBackend(images=True)")
+        if has_box and self.requested_model not in BOX_MODELS:
+            raise LiveConfigError(
+                "Box requires model='jev-1.14.0' (pinned) or 'jev-preview'; "
+                f"got {self.requested_model!r}"
+            )
+        asset_kwargs = {}
+        if checked_assets:
+            sdk = _import_sdk()
+            if not hasattr(sdk, "Image"):
+                raise LiveConfigError("image assets require typesafe-sdk>=0.7.5,<0.8")
+            # The public API keeps official JSON assets for deterministic offline replay.
+            # SDK 0.7.5 expects Image values and emits multipart uploads for these bytes.
+            asset_kwargs["assets"] = {
+                ref: sdk.Image(base64.b64decode(asset["data_base64"], validate=True))
+                for ref, asset in checked_assets.items()
+            }
         payload = {name: _question_payload(q) for name, q in checked.items()}
         attempt = 0
         with self._lock:
@@ -677,6 +718,7 @@ class LiveBackend:
                     state=plain_json(plain_state, "state"),
                     questions=payload,
                     model=self.requested_model,
+                    **asset_kwargs,
                     **self._request_kwargs,
                     **self._call_extra,
                 )
@@ -872,13 +914,15 @@ def _keep_paid_response(
 
 def record(
     backend: LiveBackend,
-    requests: Iterable[tuple[Any, Mapping[str, Question]]],
+    requests: Iterable[
+        tuple[Any, Mapping[str, Question]] | tuple[Any, Mapping[str, Question], Assets]
+    ],
     responses_path: str | os.PathLike[str],
     *,
     overwrite: bool = False,
     ledger_path: str | os.PathLike[str] | None = None,
 ) -> RecordReport:
-    """Run ``(state, questions)`` requests live and write ``recorded`` responses to a file.
+    """Run request pairs or ``(state, questions, assets)`` triples and record the responses.
 
     ``responses_path`` is the recipe's responses file in the ``ReplayBackend.from_json``
     format ``{replay_key: stored_response}`` (the caller decides the name and folder). Each
@@ -912,8 +956,15 @@ def record(
     unchanged: list[str] = []
     wrote_ledger = False
     seen: set[str] = set()
-    for state, questions in requests:
-        key = replay_key(state, questions)
+    for request in requests:
+        if len(request) == 2:
+            state, questions = request
+            assets = None
+        elif len(request) == 3:
+            state, questions, assets = request
+        else:
+            raise ValueError("record requests must be (state, questions) or (state, questions, assets)")
+        key = replay_key(state, questions, assets=assets)
         if key in seen:
             continue
         seen.add(key)
@@ -922,7 +973,11 @@ def record(
             continue
         attempts_before = backend.requests_made
         try:
-            result = backend.decide(state, questions)
+            result = (
+                backend.decide(state, questions)
+                if assets is None
+                else backend.decide(state, questions, assets=assets)
+            )
         except Exception as exc:
             # Every paid attempt gets a ledger line, even when it produced nothing to record.
             if out_ledger is not None:
@@ -1027,15 +1082,18 @@ def _ledger_failure(
     _write_atomic(ledger, _dump(old))
 
 
-def live_backend_from_env(**_ignored: Any) -> LiveBackend:
+def live_backend_from_env(
+    *, model: str | None = None, images: bool = False, long_context: bool = False, **_ignored: Any
+) -> LiveBackend:
     """Build the backend ``get_backend`` returns under ``JEV_COOKBOOK_LIVE=1``.
 
-    ``get_backend`` has no model argument, and the model is never defaulted, so it comes from
-    ``JEV_COOKBOOK_LIVE_MODEL`` (for example ``jev-1.13.0``); ``JEV_COOKBOOK_LIVE_MAX_REQUESTS``
+    An explicit ``model`` takes precedence over ``JEV_COOKBOOK_LIVE_MODEL``; one must be set.
+    ``JEV_COOKBOOK_LIVE_MAX_REQUESTS``
     optionally sets the budget (default 25). ``fixtures``/``script`` arguments are ignored in
     live mode: the same notebook code runs, and the backend is the only thing that changes.
     """
-    model = os.environ.get(MODEL_ENV, "").strip()
+    if model is None:
+        model = os.environ.get(MODEL_ENV, "").strip()
     if not model:
         raise LiveConfigError(
             f"{MODEL_ENV} is not set. The model is chosen explicitly for every live run: set it "
@@ -1049,4 +1107,4 @@ def live_backend_from_env(**_ignored: Any) -> LiveBackend:
         raise LiveConfigError(f"{MAX_REQUESTS_ENV} must be a whole number, got {raw!r}") from None
     if budget < 1:
         raise LiveConfigError(f"{MAX_REQUESTS_ENV} must be at least 1, got {budget}")
-    return LiveBackend(model, max_requests=budget)
+    return LiveBackend(model, max_requests=budget, images=images, long_context=long_context)

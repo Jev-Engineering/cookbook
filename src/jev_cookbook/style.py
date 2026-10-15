@@ -15,7 +15,8 @@ whether or not :func:`apply_style` was called.
 
 Answers are read by duck typing, with the attribute names of the typed answers in the
 TypeSafe SDK: a Choice has ``choice``, ``probabilities`` and ``confidence``; a Score has
-``score``, ``probabilities``, ``confidence`` and ``legend``; a Noul has ``noul`` only.
+``score``, ``probabilities``, ``confidence`` and ``legend``; a Noul has ``noul`` only;
+a Box has a ``box`` mapping of normalized edges and optional ``confidence``.
 Every answer also has a ``provenance``. This module imports no SDK and no other part of
 ``jev_cookbook``.
 """
@@ -421,12 +422,12 @@ def _provenance(answer: Any) -> str:
 
 
 def _kind(answer: Any) -> str:
-    for name in ("choice", "score", "noul"):
+    for name in ("choice", "score", "noul", "box"):
         if hasattr(answer, name):
             return name
     raise TypeError(
         f"cannot display {type(answer).__name__}: expected an answer with a "
-        "'choice', 'score' or 'noul' attribute"
+        "'choice', 'score', 'noul' or 'box' attribute"
     )
 
 
@@ -502,13 +503,14 @@ def format_answer(answer: Any, *, width: int | None = LEGEND_WIDTH) -> str:
     """One typed answer as readable text (the string :func:`show_answer` prints).
 
     ``width`` wraps a Score level's legend text in the printed line; it has no effect on a
-    Choice or a Noul, neither of which has a legend. The default, :data:`LEGEND_WIDTH`, wraps
+    Choice, Noul or Box, none of which has a legend. The default, :data:`LEGEND_WIDTH`, wraps
     a legend written as full sentences (as ``score.md`` encourages) onto several lines rather
     than printing one very long line; pass ``width=None`` for the full legend on one line
     however long, or any other column count. Wrapping only changes how this function prints
     ``answer.legend``; the legend itself, what is sent to Jev, and what a replay key compares
     are never touched. A legend that already fits in ``width`` columns, and every Choice and
     Noul answer, prints exactly as :func:`format_answer` printed it before ``width`` existed.
+    Box coordinates stay normalized to 0–1; missing confidence is shown as unknown.
     """
     kind = _kind(answer)
     lines: list[str] = []
@@ -526,6 +528,12 @@ def format_answer(answer: Any, *, width: int | None = LEGEND_WIDTH) -> str:
             p = probs[level]
             suffix = f"  {float(p):.2f}  {_bar(p)}"
             lines.append(_wrap_level_line(_level_label(answer, level), suffix, width))
+    elif kind == "box":
+        confidence = getattr(answer, "confidence", None)
+        conf = "unknown" if confidence is None else f"{float(confidence):.2f}"
+        lines.append(f"Box: normalized coordinates (confidence {conf})")
+        edges = ("top", "bottom", "left", "right")
+        lines.append("  " + ", ".join(f"{edge}={float(answer.box[edge]):.2f}" for edge in edges))
     else:
         lines.append(f"Noul: {float(answer.noul):.2f} probability of yes (0 is no, 1 is yes)")
     lines.append(f"Provenance: {_provenance(answer)}")
@@ -665,6 +673,8 @@ def plot_answer_probabilities(
                 # Map the score from level units to bar positions (levels need not be 0..k-1).
                 score_pos = float(np.interp(score, values, range(len(values))))
             default_title = f"Score {score:.2f} (confidence {float(answer.confidence):.2f})"
+        elif kind == "box":
+            raise ValueError("Box answers have no probabilities to plot")
         else:
             p_yes = float(answer.noul)
             probs = {"no": 1.0 - p_yes, "yes": p_yes}

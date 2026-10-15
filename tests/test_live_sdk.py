@@ -14,7 +14,7 @@ import pytest
 sdk = pytest.importorskip("typesafe_sdk")
 httpx2 = pytest.importorskip("httpx2")
 
-from jev_cookbook import Choice, LiveBackend, Noul, Score  # noqa: E402
+from jev_cookbook import Box, Choice, LiveBackend, Noul, Score  # noqa: E402
 
 KEY = "-".join(["placeholder", "credential", "y" * 10])
 BODY = {
@@ -49,6 +49,7 @@ def client_with(handler):
         api_key=KEY,
         transport=httpx2.MockTransport(handler),
         retry=sdk.RetryPolicy(max_retries=0),
+        compression=False,
     )
 
 
@@ -74,6 +75,65 @@ def test_real_client_over_mock_transport():
     assert result["tone"].provenance.source == "recorded"
     assert backend.last_request_id == "req-77"
     assert backend.model == "jev-1.13.0"
+
+
+@pytest.mark.parametrize("confidence", [0.0, 0.9, None])
+def test_real_sdk_image_multipart_and_box(confidence):
+    import base64
+    import io
+    from email.parser import BytesParser
+    from email.policy import default
+
+    from PIL import Image
+
+    data = io.BytesIO()
+    Image.new("RGB", (280, 280), "pink").save(data, "PNG")
+    content = data.getvalue()
+    ref = "image-fixture-pink"
+    assets = {
+        ref: {"type": "image", "format": "png", "data_base64": base64.b64encode(content).decode()}
+    }
+    state = {"photo": ref}
+    questions = {
+        "target": Box(instructions="The pink rectangle in `photo`."),
+        "present": Noul(instructions=f"The target matches {ref}."),
+    }
+    edges = {"top": 0.1, "bottom": 0.8, "left": 0.1, "right": 0.9}
+    body = {
+        "model": "jev-1.14.0",
+        "usage": {"input_tokens": 10, "output_tokens": 5},
+        "answers": {
+            "target": {"type": "box", "box": edges, "confidence": confidence},
+            "present": {"type": "noul", "noul": 0.9},
+        },
+    }
+    seen = []
+
+    def handler(request):
+        seen.append(request)
+        return httpx2.Response(200, json=body, headers={"x-typesafe-request-id": "req-image"})
+
+    backend = LiveBackend(
+        "jev-1.14.0", client=client_with(handler), images=True, long_context=True
+    )
+    result = backend.decide(state, questions, assets=assets)
+    request = seen[0]
+    assert request.headers["TypeSafe-Danger-Zone-Images"] == "true"
+    assert request.headers["TypeSafe-Danger-Zone-Long-Context"] == "true"
+    mime = BytesParser(policy=default).parsebytes(
+        f"Content-Type: {request.headers['content-type']}\r\n\r\n".encode() + request.content
+    )
+    parts = list(mime.iter_parts())
+    sent = json.loads(parts[0].get_payload(decode=True))
+    assert sent["state"] == state
+    assert sent["questions"]["target"] == questions["target"].to_dict()
+    assert sent["questions"]["present"]["instructions"] == f"The target matches {ref}."
+    assert sent["model"] == "jev-1.14.0"
+    part_name = sent["assets"][ref]["part"]
+    image_part = next(p for p in parts if p.get_param("name", header="content-disposition") == part_name)
+    assert image_part.get_payload(decode=True) == content
+    assert result["target"].box == edges and result["target"].confidence == confidence
+    assert result["present"].noul == 0.9 and backend.last_request_id == "req-image"
 
 
 def test_sdk_response_without_request_id_header():

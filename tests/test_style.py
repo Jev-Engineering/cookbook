@@ -14,6 +14,7 @@ import numpy as np
 import pytest
 
 from jev_cookbook import style
+from jev_cookbook.answers import BoxAnswer, Provenance
 
 
 @pytest.fixture(autouse=True)
@@ -355,6 +356,57 @@ def test_format_score_shows_legend_and_distribution():
     assert text.splitlines()[0] == "Score: 1.43 (confidence 0.35)"
     assert "1 Workaround exists  0.57" in text
     assert "Provenance: synthetic" in text
+
+
+@pytest.mark.parametrize("confidence, displayed", [(None, "unknown"), (0.0, "0.00"), (0.875, "0.88")])
+def test_format_box_preserves_normalized_edges_and_optional_confidence(confidence, displayed):
+    answer = BoxAnswer(
+        {"right": 1.0, "left": 0.0, "bottom": 0.75, "top": 0.125},
+        confidence,
+        Provenance.synthetic(),
+    )
+    expected = (
+        f"Box: normalized coordinates (confidence {displayed})\n"
+        "  top=0.12, bottom=0.75, left=0.00, right=1.00\n"
+        "Provenance: synthetic"
+    )
+    assert style.format_answer(answer) == expected
+    assert style.format_answer(answer, width=5) == expected
+    assert style.format_answer(answer, width=None) == expected
+    assert answer.box["top"] == 0.125
+    assert answer.confidence == confidence
+
+
+def test_show_box_keeps_recorded_model_date_and_unknown_confidence(capsys):
+    answer = BoxAnswer(
+        {"top": 0.1, "bottom": 0.9, "left": 0.2, "right": 0.8},
+        None,
+        Provenance.recorded("system-one-test-model", "2026-01-02"),
+    )
+    assert style.show_answer(answer) is None
+    assert capsys.readouterr().out == (
+        "Box: normalized coordinates (confidence unknown)\n"
+        "  top=0.10, bottom=0.90, left=0.20, right=0.80\n"
+        "Provenance: recorded (system-one-test-model, 2026-01-02)\n"
+    )
+
+
+def test_format_box_duck_type_without_confidence_or_provenance():
+    @dataclass
+    class BareBox:
+        box: dict
+
+    text = style.format_answer(BareBox({"top": 0, "bottom": 1, "left": 0, "right": 1}))
+    assert text.splitlines()[0] == "Box: normalized coordinates (confidence unknown)"
+    assert text.splitlines()[-1] == "Provenance: not stated"
+
+
+def test_box_coordinates_are_not_plotted_as_probabilities():
+    answer = BoxAnswer(
+        {"top": 0, "bottom": 1, "left": 0, "right": 1}, None, Provenance.synthetic()
+    )
+    with pytest.raises(ValueError, match="Box answers have no probabilities"):
+        style.plot_answer_probabilities(answer)
 
 
 # --- legend wrapping (issue #139) -----------------------------------------------------------

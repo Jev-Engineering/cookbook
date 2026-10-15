@@ -14,6 +14,7 @@ Typical notebook use (see ``docs/backends.md``)::
 
 from .answers import (
     Answer,
+    BoxAnswer,
     ChoiceAnswer,
     DecisionResult,
     NoulAnswer,
@@ -43,7 +44,7 @@ from .live import (
     merge_responses,
     record,
 )
-from .questions import Choice, Noul, Question, Score, question_from_dict
+from .questions import Box, Choice, Noul, Question, Score, question_from_dict
 from .recipe import load_helpers
 
 __version__ = "0.1.0"
@@ -51,6 +52,8 @@ __version__ = "0.1.0"
 __all__ = [
     "Answer",
     "Backend",
+    "Box",
+    "BoxAnswer",
     "BudgetExceeded",
     "Choice",
     "ChoiceAnswer",
