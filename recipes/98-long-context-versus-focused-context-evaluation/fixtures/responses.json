@@ -1,0 +1,4166 @@
+{
+  "03036f7fc18f0197563dcd661170e7dd6e865f22f229cb24cfc010e5b574b6bc": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "contradicted",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.94,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.440625,
+          "bottom": 0.6,
+          "left": 0.390625,
+          "right": 0.5442708333333334
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "04ed75f9e4a653105575fbc599a7c1c03bce5520f92edb093a355104c4907f44": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "consistent",
+        "probabilities": {
+          "consistent": 0.94,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.92,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.04,
+          "2": 0.88,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.325,
+          "bottom": 0.746875,
+          "left": 0.2890625,
+          "right": 0.7135416666666666
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0543a8658250e349c2f0989f321492c7b69bf96877a8fbf9b73428f207cc6c86": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "unresolved",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.94
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 0.24,
+        "probabilities": {
+          "0": 0.88,
+          "1": 0.04,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.76,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.1,
+          "bottom": 0.2,
+          "left": 0.1,
+          "right": 0.2
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "081986c5e37b721a1dd46d20454da8e1dceff348d445712c08c435a1c2cbeb5a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "unresolved",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.94
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.440625,
+          "bottom": 0.6,
+          "left": 0.3932291666666667,
+          "right": 0.546875
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0d3552269d1b93334d65fdf604e3e370efe45c32866bfc627684fa5a7496f882": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "document": {
+        "type": "choice",
+        "choice": "note-b",
+        "probabilities": {
+          "note-d": 0.030000000000000027,
+          "note-b": 0.94,
+          "uncertain": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0fcaa5169365b083c555180943c3b52d25d3a7b427d31bec670c200a8fa0ff97": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "contradicted",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.94,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.440625,
+          "bottom": 0.6,
+          "left": 0.390625,
+          "right": 0.5442708333333334
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "102fd7b0f8d793b3eeac1132a08e609c2c390889362c2ba03b26102320259cd8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "unresolved",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.94
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 0.24,
+        "probabilities": {
+          "0": 0.88,
+          "1": 0.04,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.76,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.1,
+          "bottom": 0.2,
+          "left": 0.1,
+          "right": 0.2
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "188bf4899b9c87d8f90adca9bca400ef98f62a11ae33a5e3c2e8a3c5887e68cb": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "document": {
+        "type": "choice",
+        "choice": "uncertain",
+        "probabilities": {
+          "note-b": 0.030000000000000027,
+          "note-d": 0.030000000000000027,
+          "uncertain": 0.94
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1be70e8fc49191f00eae43b2d2a87e2d838d3757762b535728381f2645dd4bc2": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "document": {
+        "type": "choice",
+        "choice": "note-d",
+        "probabilities": {
+          "note-b": 0.030000000000000027,
+          "note-d": 0.94,
+          "uncertain": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1f08b766823b62c71316ee81e1c1c749861548838aaac05e71fc862be5edd109": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "unresolved",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.94
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.92,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.04,
+          "2": 0.88,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.325,
+          "bottom": 0.746875,
+          "left": 0.2864583333333333,
+          "right": 0.7109375
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1f16fefd0b2dd6a53d0d93e0871cfcc0458d2ec31b0cb452da5519275c97dce8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "contradicted",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.94,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.440625,
+          "bottom": 0.6,
+          "left": 0.4010416666666667,
+          "right": 0.5546875
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2a98079e2aab8fce2c1af55e57dcc836fe0be251691463c3a2358b33eaa919d6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "unresolved",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.94
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.440625,
+          "bottom": 0.6,
+          "left": 0.390625,
+          "right": 0.5442708333333334
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "360dfbde92e8e7f98b1ecdc464529bf293c7cef280da6eb7b96cf3826e40fd23": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "document": {
+        "type": "choice",
+        "choice": "note-b",
+        "probabilities": {
+          "note-b": 0.94,
+          "note-d": 0.030000000000000027,
+          "uncertain": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "46375e531b24e76f0fa99d724dc8443b5fb3e90501f37fcfbad4097ea93ad224": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "consistent",
+        "probabilities": {
+          "consistent": 0.94,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 0.24,
+        "probabilities": {
+          "0": 0.88,
+          "1": 0.04,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.76,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.1,
+          "bottom": 0.2,
+          "left": 0.1,
+          "right": 0.2
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4df65e9a6fde0bf456f6b4a42efada28dc6af59354a85e0034d14c2b58a50461": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "document": {
+        "type": "choice",
+        "choice": "note-d",
+        "probabilities": {
+          "note-b": 0.030000000000000027,
+          "note-d": 0.94,
+          "uncertain": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4f4959e6dfa5c00ab2d3082986242787160102730a1623124c7f2e15a01f6505": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "document": {
+        "type": "choice",
+        "choice": "note-d",
+        "probabilities": {
+          "note-d": 0.94,
+          "note-b": 0.030000000000000027,
+          "uncertain": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "529e629442d13c325f759d5b3a8aa197b103065e14510e89b8eea195f48d2a23": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "document": {
+        "type": "choice",
+        "choice": "note-d",
+        "probabilities": {
+          "note-b": 0.030000000000000027,
+          "note-d": 0.94,
+          "uncertain": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "54ba107e91bf04c36e802fbd43212fb106db4800166f4dc8f7f0abd63df2f523": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "unresolved",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.94
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 0.24,
+        "probabilities": {
+          "0": 0.88,
+          "1": 0.04,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.76,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.1,
+          "bottom": 0.2,
+          "left": 0.1,
+          "right": 0.2
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5531156de9cc1f83dcc4ed4b98aeb0ac625ded8d64488f61adfd35dfef94e4df": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "contradicted",
+        "probabilities": {
+          "consistent": 0.21000000000000002,
+          "contradicted": 0.58,
+          "unresolved": 0.21000000000000002
+        },
+        "confidence": 0.36999999999999994,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.325,
+          "bottom": 0.746875,
+          "left": 0.2942708333333333,
+          "right": 0.71875
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5a25d2ea8139215b95e1efba73cb0d59145d9c40c05cee3c7859a3b020c74b95": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "unresolved",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.94
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.440625,
+          "bottom": 0.6,
+          "left": 0.3932291666666667,
+          "right": 0.546875
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5b93a1d1ce228684d647051de5d1531c19f9556af67e8eab0bb2fa6db51f9de1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "contradicted",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.94,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.440625,
+          "bottom": 0.6,
+          "left": 0.4010416666666667,
+          "right": 0.5546875
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5ddad3d03469df1d9ccd92e474335a63e8a747c5190c2835cdf0a696bc34f253": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "contradicted",
+        "probabilities": {
+          "consistent": 0.21000000000000002,
+          "contradicted": 0.58,
+          "unresolved": 0.21000000000000002
+        },
+        "confidence": 0.36999999999999994,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.325,
+          "bottom": 0.746875,
+          "left": 0.2942708333333333,
+          "right": 0.71875
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5e06627d75db7264585e90bdd131631ec393a000d13cd451a36c2290e71168ce": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "document": {
+        "type": "choice",
+        "choice": "note-d",
+        "probabilities": {
+          "note-b": 0.030000000000000027,
+          "note-d": 0.94,
+          "uncertain": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6159b6745d8fac2f5f8b345e8bc489be6eff9dfdfd9e4d063bf64e7add95be94": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "contradicted",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.94,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.440625,
+          "bottom": 0.6,
+          "left": 0.390625,
+          "right": 0.5442708333333334
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "68aba542c18ef9158c01619eb840b9870ec7d39029c6416e5bbe45e0724095e4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "consistent",
+        "probabilities": {
+          "consistent": 0.94,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 0.24,
+        "probabilities": {
+          "0": 0.88,
+          "1": 0.04,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.76,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.1,
+          "bottom": 0.2,
+          "left": 0.1,
+          "right": 0.2
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "73b7bb5cec0e25f55ee92cbdfbf4e077515e5e67f18b8093bf141791c352a496": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "consistent",
+        "probabilities": {
+          "consistent": 0.94,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 0.24,
+        "probabilities": {
+          "0": 0.88,
+          "1": 0.04,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.76,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.1,
+          "bottom": 0.2,
+          "left": 0.1,
+          "right": 0.2
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7658dc76440d580ffe2bf11ce29032e96f8834168d58deea1b7435f2caa6ba67": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "unresolved",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.94
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 0.24,
+        "probabilities": {
+          "0": 0.88,
+          "1": 0.04,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.76,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.1,
+          "bottom": 0.2,
+          "left": 0.1,
+          "right": 0.2
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "79d783187049b491ad73c19d8ea9350301b972b9f938c8d7029264c967f6e20d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "consistent",
+        "probabilities": {
+          "consistent": 0.94,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 2.7600000000000002,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.04,
+          "2": 0.04,
+          "3": 0.88
+        },
+        "confidence": 0.76,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.45,
+          "bottom": 0.653125,
+          "left": 0.19270833333333334,
+          "right": 0.4739583333333333
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "82c34a9d212dbad377fc78f6244aa8598532b0dd25e0a3eb617d2cf8fdcf0603": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "consistent",
+        "probabilities": {
+          "consistent": 0.94,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 0.24,
+        "probabilities": {
+          "0": 0.88,
+          "1": 0.04,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.76,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.1,
+          "bottom": 0.2,
+          "left": 0.1,
+          "right": 0.2
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "82c481399dd1ff5871aa6e17d7c0cb7a648ed50176155c9d24659833a843ba9f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "document": {
+        "type": "choice",
+        "choice": "uncertain",
+        "probabilities": {
+          "note-b": 0.030000000000000027,
+          "note-d": 0.030000000000000027,
+          "uncertain": 0.94
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "85e904949397806bece279cd3963c010af11509a7ab2b60f11cd8ad9ba165848": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "unresolved",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.94
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.440625,
+          "bottom": 0.6,
+          "left": 0.3932291666666667,
+          "right": 0.546875
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "89e9b28e86f687eaa23f83d51f42d16c250a65b9afb33b61e6500a37226c987e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "consistent",
+        "probabilities": {
+          "consistent": 0.94,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.92,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.04,
+          "2": 0.88,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.325,
+          "bottom": 0.746875,
+          "left": 0.2864583333333333,
+          "right": 0.7109375
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8c3480fd987766642839f9fef55fb3f419a907519e860e187cfac2a49537a30d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "contradicted",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.94,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.440625,
+          "bottom": 0.6,
+          "left": 0.3932291666666667,
+          "right": 0.546875
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8e3f0d39fbb53de5448590e77f9fec388789c7c1e8b2b5d09cf80449d2a01aeb": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "contradicted",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.94,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.440625,
+          "bottom": 0.6,
+          "left": 0.4010416666666667,
+          "right": 0.5546875
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "90837509cf9a3857191d11baf2ec3762a57d1e2468638bbab888531050589f20": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "contradicted",
+        "probabilities": {
+          "consistent": 0.21000000000000002,
+          "contradicted": 0.58,
+          "unresolved": 0.21000000000000002
+        },
+        "confidence": 0.36999999999999994,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.325,
+          "bottom": 0.746875,
+          "left": 0.2942708333333333,
+          "right": 0.71875
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "92cfaa7cee429e012b22ebcfcfa227d4693f0be660b924d5cc6f08cef5fcf243": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "consistent",
+        "probabilities": {
+          "consistent": 0.94,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.92,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.04,
+          "2": 0.88,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.325,
+          "bottom": 0.746875,
+          "left": 0.2864583333333333,
+          "right": 0.7109375
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "942dae8a7259df48de207766c029f48fe7d95ed00d9e078a1c58cfb3b5fa7e18": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "document": {
+        "type": "choice",
+        "choice": "note-d",
+        "probabilities": {
+          "note-d": 0.94,
+          "note-b": 0.030000000000000027,
+          "uncertain": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9662c811016ecf6b760f55ad969008df3ba12c2f0c749fedc4c69684867acf49": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "consistent",
+        "probabilities": {
+          "consistent": 0.94,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 2.7600000000000002,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.04,
+          "2": 0.04,
+          "3": 0.88
+        },
+        "confidence": 0.76,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.45,
+          "bottom": 0.653125,
+          "left": 0.19270833333333334,
+          "right": 0.4739583333333333
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "97a44a68528c05aa8513321fd63736daba92595086c73fa7dd1d294c88772f66": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "document": {
+        "type": "choice",
+        "choice": "note-d",
+        "probabilities": {
+          "note-b": 0.030000000000000027,
+          "note-d": 0.94,
+          "uncertain": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9cde484fce89762a0e1f9b03b9b7a0f1b95c96eb1fe915172ac25d99af02be80": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "contradicted",
+        "probabilities": {
+          "consistent": 0.21000000000000002,
+          "contradicted": 0.58,
+          "unresolved": 0.21000000000000002
+        },
+        "confidence": 0.36999999999999994,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.325,
+          "bottom": 0.746875,
+          "left": 0.2942708333333333,
+          "right": 0.71875
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9e1bc84c1bef3bfa0e4b01595ecc0a3f51437b2397bb3a69f5f06de0a7e72c1c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "contradicted",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.94,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.440625,
+          "bottom": 0.6,
+          "left": 0.3932291666666667,
+          "right": 0.546875
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9e482ce0c5314ff40fc3dd4af1227a2188039a32c647cfecfff112b055b8ac04": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "unresolved",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.94
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.440625,
+          "bottom": 0.6,
+          "left": 0.390625,
+          "right": 0.5442708333333334
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9f21c0063ffc49a7af15bc394b803913b528d6d45d2c74708c32e72b8d141065": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "contradicted",
+        "probabilities": {
+          "consistent": 0.21000000000000002,
+          "contradicted": 0.58,
+          "unresolved": 0.21000000000000002
+        },
+        "confidence": 0.36999999999999994,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.325,
+          "bottom": 0.746875,
+          "left": 0.2942708333333333,
+          "right": 0.71875
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a4e4cebf3ae04caeef3a9d9c62ab52561daf02ce3f1f4aacb3f21f6de491f0ac": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "unresolved",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.94
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 0.24,
+        "probabilities": {
+          "0": 0.88,
+          "1": 0.04,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.76,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.1,
+          "bottom": 0.2,
+          "left": 0.1,
+          "right": 0.2
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a83dcb3925a78c9921dc5bf078c029e9f7c98720e1c176d070884bb8d972b89f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "unresolved",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.94
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 2.7600000000000002,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.04,
+          "2": 0.04,
+          "3": 0.88
+        },
+        "confidence": 0.76,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.45,
+          "bottom": 0.653125,
+          "left": 0.19270833333333334,
+          "right": 0.4739583333333333
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "aa567ff44d2c680f64d73dce20c2122ab87b449687dfdf7c4ab9be121ef0686f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "unresolved",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.94
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.440625,
+          "bottom": 0.6,
+          "left": 0.390625,
+          "right": 0.5442708333333334
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "abeeafcca4fbfcc367811ae42e5f7fb631a014ec2d2fcd706de3470b37a03d18": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "unresolved",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.94
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 2.7600000000000002,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.04,
+          "2": 0.04,
+          "3": 0.88
+        },
+        "confidence": 0.76,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.45,
+          "bottom": 0.653125,
+          "left": 0.19270833333333334,
+          "right": 0.4739583333333333
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ac2a859453d1eeb4d3885ae0dc2283e78072fe235e8719a51654db35b9a3e7b0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "unresolved",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.94
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 0.24,
+        "probabilities": {
+          "0": 0.88,
+          "1": 0.04,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.76,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.1,
+          "bottom": 0.2,
+          "left": 0.1,
+          "right": 0.2
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "aea84cf8d63020494e231aba61a4103aa23c062abee2b5828235c5c76c9dfc0c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "contradicted",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.94,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.440625,
+          "bottom": 0.6,
+          "left": 0.390625,
+          "right": 0.5442708333333334
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bf09717953d893dc06fbe06d2383c7c9a319bee4c27f5cc6b18dca24fbf14540": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "document": {
+        "type": "choice",
+        "choice": "note-d",
+        "probabilities": {
+          "note-d": 0.94,
+          "note-b": 0.030000000000000027,
+          "uncertain": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bf8b0d3bfa2244b5c8c62c2f6ee103cae312535345f32c99502accfac79053e6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "consistent",
+        "probabilities": {
+          "consistent": 0.94,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.92,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.04,
+          "2": 0.88,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.325,
+          "bottom": 0.746875,
+          "left": 0.2890625,
+          "right": 0.7135416666666666
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c2f7f988c8f8c160387738149db46aefc9f4fb580df311f7323c555792d52f3b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "document": {
+        "type": "choice",
+        "choice": "note-d",
+        "probabilities": {
+          "note-b": 0.030000000000000027,
+          "note-d": 0.94,
+          "uncertain": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c434f4a38c4d15c7ee023af73a57c432cf3dc01f08014718fc599cafcddca3af": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "contradicted",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.94,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.440625,
+          "bottom": 0.6,
+          "left": 0.390625,
+          "right": 0.5442708333333334
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c690f4c47d09cc855f5a2f50a36c35bff5dc8b859f757ce2e3c3f25a01ba744f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "unresolved",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.94
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 0.24,
+        "probabilities": {
+          "0": 0.88,
+          "1": 0.04,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.76,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.1,
+          "bottom": 0.2,
+          "left": 0.1,
+          "right": 0.2
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "cf3f82d7504241aec09d20f41213b28dc94ece332c8038047164191e6ef735e7": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "consistent",
+        "probabilities": {
+          "consistent": 0.94,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 2.7600000000000002,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.04,
+          "2": 0.04,
+          "3": 0.88
+        },
+        "confidence": 0.76,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.45,
+          "bottom": 0.653125,
+          "left": 0.19270833333333334,
+          "right": 0.4739583333333333
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d4d27fc4653865f3ba714d699c3497d8608239343c2a21a42e727d054c2a1564": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "document": {
+        "type": "choice",
+        "choice": "note-d",
+        "probabilities": {
+          "note-b": 0.030000000000000027,
+          "note-d": 0.94,
+          "uncertain": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d711aa30808c1bde91e4368fb63977a89443f7dae97edaa9283176d462bca73a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "consistent",
+        "probabilities": {
+          "consistent": 0.94,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.92,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.04,
+          "2": 0.88,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.325,
+          "bottom": 0.746875,
+          "left": 0.2864583333333333,
+          "right": 0.7109375
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d769a274205d14f6d27453587d9267ffa69a787f0e518623aac62d65b372742e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "document": {
+        "type": "choice",
+        "choice": "uncertain",
+        "probabilities": {
+          "note-b": 0.030000000000000027,
+          "note-d": 0.030000000000000027,
+          "uncertain": 0.94
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "de6c2c6ef524dedf65c1e1ed6d9dd47d064071d1329c4d9c0647a0f37ad1df7f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "document": {
+        "type": "choice",
+        "choice": "uncertain",
+        "probabilities": {
+          "note-d": 0.030000000000000027,
+          "note-b": 0.030000000000000027,
+          "uncertain": 0.94
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e4b11fb8eb80d3d8d31fe1aac1321b4b085e6635058383f58873d64d49f21e34": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "contradicted",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.94,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.440625,
+          "bottom": 0.6,
+          "left": 0.3932291666666667,
+          "right": 0.546875
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e524f618bf2257dc2d6242e1838251deeedf9807b0b2047fc527c04115c30e1e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "consistent",
+        "probabilities": {
+          "consistent": 0.94,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.92,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.04,
+          "2": 0.88,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.325,
+          "bottom": 0.746875,
+          "left": 0.2890625,
+          "right": 0.7135416666666666
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e8c1f3263b6b25a4ceed7539ef2fd768d87f1c83892e5df3b1cdda76116c04ad": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "contradicted",
+        "probabilities": {
+          "consistent": 0.21000000000000002,
+          "contradicted": 0.58,
+          "unresolved": 0.21000000000000002
+        },
+        "confidence": 0.36999999999999994,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.325,
+          "bottom": 0.746875,
+          "left": 0.2942708333333333,
+          "right": 0.71875
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e8d5ea1145de8f7654be766464c3c0fa44e3c50b54429b96c85b5678c6807268": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "consistent",
+        "probabilities": {
+          "consistent": 0.94,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.440625,
+          "bottom": 0.6,
+          "left": 0.3958333333333333,
+          "right": 0.5494791666666666
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ea4de8396d8893483450da2aeae1c8e3f379b30621b55376c9b67ba2a51a3f12": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "contradicted",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.94,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.440625,
+          "bottom": 0.6,
+          "left": 0.4010416666666667,
+          "right": 0.5546875
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ee9faef343d2cfffe236d483658646b44b80f56a8e49ee4377dd42325b1b4854": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "contradicted",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.94,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.440625,
+          "bottom": 0.6,
+          "left": 0.390625,
+          "right": 0.5442708333333334
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f1ac6b5a598d7c7eda3fd4b126fca30fa6f5be8b0589ed06aa9db377b73da467": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "unresolved",
+        "probabilities": {
+          "consistent": 0.030000000000000027,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.94
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 2.7600000000000002,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.04,
+          "2": 0.04,
+          "3": 0.88
+        },
+        "confidence": 0.76,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.45,
+          "bottom": 0.653125,
+          "left": 0.19270833333333334,
+          "right": 0.4739583333333333
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f2917c7ad6968e40c33881655801d8938fd1a03e366100d4f78435a2501a1985": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "consistent",
+        "probabilities": {
+          "consistent": 0.94,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 0.24,
+        "probabilities": {
+          "0": 0.88,
+          "1": 0.04,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.76,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.1,
+          "bottom": 0.2,
+          "left": 0.1,
+          "right": 0.2
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f4ce835310f84d189ab66e5fc42f5e251d9790d6855a1fe50a928eea60265b58": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "consistent",
+        "probabilities": {
+          "consistent": 0.94,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 0.24,
+        "probabilities": {
+          "0": 0.88,
+          "1": 0.04,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.76,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.1,
+          "bottom": 0.2,
+          "left": 0.1,
+          "right": 0.2
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f57a876043586954ae68bba88315064eeff1fd7867c42fd1ce242740dafa5e32": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "consistent",
+        "probabilities": {
+          "consistent": 0.94,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.08,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.88,
+          "2": 0.04,
+          "3": 0.04
+        },
+        "confidence": 0.84,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.440625,
+          "bottom": 0.6,
+          "left": 0.3932291666666667,
+          "right": 0.546875
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "fd62646d9a1441e821bb991175dea528092999170e86dee335b791e10d4104b7": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "audit": {
+        "type": "choice",
+        "choice": "consistent",
+        "probabilities": {
+          "consistent": 0.94,
+          "contradicted": 0.030000000000000027,
+          "unresolved": 0.030000000000000027
+        },
+        "confidence": 0.9099999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 2.7600000000000002,
+        "probabilities": {
+          "0": 0.04,
+          "1": 0.04,
+          "2": 0.04,
+          "3": 0.88
+        },
+        "confidence": 0.76,
+        "legend": {
+          "0": "The orange crate is absent from the image; the striped inspection bay is clear.",
+          "1": "One orange crate sits wholly inside the bay with broad clear space around it.",
+          "2": "One orange crate sits wholly inside the bay and fills nearly all of its interior.",
+          "3": "One orange crate extends across at least one boundary of the striped inspection bay."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "crate": {
+        "type": "box",
+        "box": {
+          "top": 0.45,
+          "bottom": 0.653125,
+          "left": 0.19270833333333334,
+          "right": 0.4739583333333333
+        },
+        "confidence": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
