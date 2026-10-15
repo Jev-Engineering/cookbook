@@ -1,0 +1,24 @@
+{"id": "v01", "label": {"levels": [3, 3, 3], "rationale": "Muted flat balanced geometric group."}}
+{"id": "v02", "label": {"levels": [3, 3, 3], "rationale": "Different arrangement still follows the family."}}
+{"id": "v03", "label": {"levels": [0, 3, 3], "rationale": "Saturated shapes depart from the muted family."}}
+{"id": "v04", "label": {"levels": [2, 3, 3], "rationale": "One small vivid accent in a muted group."}}
+{"id": "v05", "label": {"levels": [3, 0, 3], "rationale": "Matching colors cannot excuse heavy outlines."}}
+{"id": "v06", "label": {"levels": [3, 1, 3], "rationale": "Broad mottled patches disturb flat surfaces."}}
+{"id": "v07", "label": {"levels": [3, 3, 1], "rationale": "Single tiny motif leaves an empty field."}}
+{"id": "v08", "label": {"levels": [3, 3, 1], "rationale": "Twelve major shapes overcrowd the group."}}
+{"id": "v09", "label": {"levels": [3, 2, 3], "rationale": "One light contour is a small surface departure."}}
+{"id": "v10", "label": {"levels": [3, 3, 2], "rationale": "Two major forms make a readable but sparse group."}}
+{"id": "v11", "label": {"levels": null, "rationale": "No discernible illustration: author requests review, no numeric gold."}}
+{"id": "v12", "label": {"levels": [0, 0, 0], "rationale": "Vivid outlined fragments have no quiet focal grouping."}}
+{"id": "t01", "label": {"levels": [3, 3, 3], "rationale": "New geometry in the same muted flat family."}}
+{"id": "t02", "label": {"levels": [3, 3, 3], "rationale": "An alternate compatible layout is not a pixel-copy requirement."}}
+{"id": "t03", "label": {"levels": [0, 3, 3], "rationale": "Vivid colors with otherwise compatible treatment."}}
+{"id": "t04", "label": {"levels": [2, 3, 3], "rationale": "Minor saturated accent, otherwise muted."}}
+{"id": "t05", "label": {"levels": [3, 0, 3], "rationale": "Confident synthetic surface error despite plainly heavy outlines."}}
+{"id": "t06", "label": {"levels": [3, 1, 3], "rationale": "Texture remains a surface mismatch even in matching colors."}}
+{"id": "t07", "label": {"levels": [3, 3, 1], "rationale": "A tiny isolated motif is under-composed for this brief."}}
+{"id": "t08", "label": {"levels": [3, 3, 1], "rationale": "Too many major forms despite the correct palette."}}
+{"id": "t09", "label": {"levels": [3, 3, 1], "rationale": "A corner-compressed group undermines balanced placement."}}
+{"id": "t10", "label": {"levels": [3, 3, 2], "rationale": "Two readable major forms, moderately sparse."}}
+{"id": "t11", "label": {"levels": null, "rationale": "Extreme washout leaves the style indeterminate; review required."}}
+{"id": "t12", "label": {"levels": [0, 0, 0], "rationale": "Unrelated vivid outlined all-over fragments."}}
