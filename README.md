@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/banner.png" alt="Pink banner in the style of a retro desktop: the title Jev Cookbook, the line 60 notebook recipes for typed decisions, and three small windows labelled Choice, Noul and Score showing an option list, a probability bar and a rubric chart." width="100%">
+  <img src="assets/banner.png" alt="Pink retro desktop banner titled Jev Cookbook with the line 100 notebook recipes for typed decisions. Chips name Choice, Noul, Score, Box and Python in control. A Text + vision panel states 100 planned recipes, offline first with live opt-in. Four decision windows illustrate an option list, a probability bar, a rubric chart and one bounding rectangle." width="100%">
 </p>
 
 <div align="center">
