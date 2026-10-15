@@ -1,0 +1,1658 @@
+{
+  "06eaeb2318f5af52e02ffbd37f46dea23f19a7c94b7e588ec69eadcc9196442a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "comparable": {
+        "type": "noul",
+        "noul": 0.02,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "color_family_match": {
+        "type": "noul",
+        "noul": 0.49,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "material_appearance_match": {
+        "type": "noul",
+        "noul": 0.49,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "finish_match": {
+        "type": "noul",
+        "noul": 0.49,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.0,
+        "probabilities": {
+          "0": 0.2,
+          "1": 0.2,
+          "2": 0.2,
+          "3": 0.2,
+          "4": 0.2
+        },
+        "confidence": 0.0,
+        "legend": {
+          "0": "No persistent surface discrepancy is visible; color family, material appearance and finish agree after allowing local illumination changes.",
+          "1": "A slight localized surface discrepancy is visible, while the dominant appearance agrees.",
+          "2": "A noticeable surface discrepancy covers part of the product, although much still agrees.",
+          "3": "A substantial surface discrepancy affects the dominant color, material appearance or finish.",
+          "4": "The visible surface appearance is extensively incompatible with the reference across the product."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0711affbee1ca0755e9264c988e48735bf34de18a69a5df5b48dbbcd00e83cb2": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "comparable": {
+        "type": "noul",
+        "noul": 0.31,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "color_family_match": {
+        "type": "noul",
+        "noul": 0.55,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "material_appearance_match": {
+        "type": "noul",
+        "noul": 0.53,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "finish_match": {
+        "type": "noul",
+        "noul": 0.52,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.0,
+        "probabilities": {
+          "0": 0.2,
+          "1": 0.2,
+          "2": 0.2,
+          "3": 0.2,
+          "4": 0.2
+        },
+        "confidence": 0.0,
+        "legend": {
+          "0": "No persistent surface discrepancy is visible; color family, material appearance and finish agree after allowing local illumination changes.",
+          "1": "A slight localized surface discrepancy is visible, while the dominant appearance agrees.",
+          "2": "A noticeable surface discrepancy covers part of the product, although much still agrees.",
+          "3": "A substantial surface discrepancy affects the dominant color, material appearance or finish.",
+          "4": "The visible surface appearance is extensively incompatible with the reference across the product."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1ab4dead22b8c8cd7bb3dea6fbd8408b6be96afac70785c08550d178c905974e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "comparable": {
+        "type": "noul",
+        "noul": 0.44,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "color_family_match": {
+        "type": "noul",
+        "noul": 0.53,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "material_appearance_match": {
+        "type": "noul",
+        "noul": 0.51,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "finish_match": {
+        "type": "noul",
+        "noul": 0.5,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.0,
+        "probabilities": {
+          "0": 0.2,
+          "1": 0.2,
+          "2": 0.2,
+          "3": 0.2,
+          "4": 0.2
+        },
+        "confidence": 0.0,
+        "legend": {
+          "0": "No persistent surface discrepancy is visible; color family, material appearance and finish agree after allowing local illumination changes.",
+          "1": "A slight localized surface discrepancy is visible, while the dominant appearance agrees.",
+          "2": "A noticeable surface discrepancy covers part of the product, although much still agrees.",
+          "3": "A substantial surface discrepancy affects the dominant color, material appearance or finish.",
+          "4": "The visible surface appearance is extensively incompatible with the reference across the product."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2c0fbaf9ec891c2f7a385898406f6034d9ed2e673ff1fc5e5ffe9f0bd33b76a0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "comparable": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "color_family_match": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "material_appearance_match": {
+        "type": "noul",
+        "noul": 0.06,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "finish_match": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.9000000000000004,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.02,
+          "2": 0.02,
+          "3": 0.92,
+          "4": 0.02
+        },
+        "confidence": 0.8833333333333333,
+        "legend": {
+          "0": "No persistent surface discrepancy is visible; color family, material appearance and finish agree after allowing local illumination changes.",
+          "1": "A slight localized surface discrepancy is visible, while the dominant appearance agrees.",
+          "2": "A noticeable surface discrepancy covers part of the product, although much still agrees.",
+          "3": "A substantial surface discrepancy affects the dominant color, material appearance or finish.",
+          "4": "The visible surface appearance is extensively incompatible with the reference across the product."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "32d18b0822f6f22297289f767430295dcf75113ed6b434a89983b15ad0ae709c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "comparable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "color_family_match": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "material_appearance_match": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "finish_match": {
+        "type": "noul",
+        "noul": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.9000000000000004,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.02,
+          "2": 0.02,
+          "3": 0.92,
+          "4": 0.02
+        },
+        "confidence": 0.8833333333333333,
+        "legend": {
+          "0": "No persistent surface discrepancy is visible; color family, material appearance and finish agree after allowing local illumination changes.",
+          "1": "A slight localized surface discrepancy is visible, while the dominant appearance agrees.",
+          "2": "A noticeable surface discrepancy covers part of the product, although much still agrees.",
+          "3": "A substantial surface discrepancy affects the dominant color, material appearance or finish.",
+          "4": "The visible surface appearance is extensively incompatible with the reference across the product."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "348cd5d088624c26ca9c1fccf17aa7d247f46d9ea1be39ad393045278f25f7db": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "comparable": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "color_family_match": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "material_appearance_match": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "finish_match": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 0.2,
+        "probabilities": {
+          "0": 0.92,
+          "1": 0.02,
+          "2": 0.02,
+          "3": 0.02,
+          "4": 0.02
+        },
+        "confidence": 0.8333333333333333,
+        "legend": {
+          "0": "No persistent surface discrepancy is visible; color family, material appearance and finish agree after allowing local illumination changes.",
+          "1": "A slight localized surface discrepancy is visible, while the dominant appearance agrees.",
+          "2": "A noticeable surface discrepancy covers part of the product, although much still agrees.",
+          "3": "A substantial surface discrepancy affects the dominant color, material appearance or finish.",
+          "4": "The visible surface appearance is extensively incompatible with the reference across the product."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "39965fe5dd02d2beec3764b39166721766cd42ef163e35f6bc742d889dc355fc": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "comparable": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "color_family_match": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "material_appearance_match": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "finish_match": {
+        "type": "noul",
+        "noul": 0.93,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 0.2,
+        "probabilities": {
+          "0": 0.92,
+          "1": 0.02,
+          "2": 0.02,
+          "3": 0.02,
+          "4": 0.02
+        },
+        "confidence": 0.8333333333333333,
+        "legend": {
+          "0": "No persistent surface discrepancy is visible; color family, material appearance and finish agree after allowing local illumination changes.",
+          "1": "A slight localized surface discrepancy is visible, while the dominant appearance agrees.",
+          "2": "A noticeable surface discrepancy covers part of the product, although much still agrees.",
+          "3": "A substantial surface discrepancy affects the dominant color, material appearance or finish.",
+          "4": "The visible surface appearance is extensively incompatible with the reference across the product."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4bf38625cc472457e4b23faef14b0b04f4aa104f54cc90a880de6c29128ffe2b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "comparable": {
+        "type": "noul",
+        "noul": 0.49,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "color_family_match": {
+        "type": "noul",
+        "noul": 0.58,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "material_appearance_match": {
+        "type": "noul",
+        "noul": 0.48,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "finish_match": {
+        "type": "noul",
+        "noul": 0.51,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.0,
+        "probabilities": {
+          "0": 0.2,
+          "1": 0.2,
+          "2": 0.2,
+          "3": 0.2,
+          "4": 0.2
+        },
+        "confidence": 0.0,
+        "legend": {
+          "0": "No persistent surface discrepancy is visible; color family, material appearance and finish agree after allowing local illumination changes.",
+          "1": "A slight localized surface discrepancy is visible, while the dominant appearance agrees.",
+          "2": "A noticeable surface discrepancy covers part of the product, although much still agrees.",
+          "3": "A substantial surface discrepancy affects the dominant color, material appearance or finish.",
+          "4": "The visible surface appearance is extensively incompatible with the reference across the product."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4e21773e4b402f01d1138c82ff91c98b58e872eb8fb67cdfefcb443e81ebbf00": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "comparable": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "color_family_match": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "material_appearance_match": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "finish_match": {
+        "type": "noul",
+        "noul": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.9000000000000004,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.02,
+          "2": 0.02,
+          "3": 0.92,
+          "4": 0.02
+        },
+        "confidence": 0.8833333333333333,
+        "legend": {
+          "0": "No persistent surface discrepancy is visible; color family, material appearance and finish agree after allowing local illumination changes.",
+          "1": "A slight localized surface discrepancy is visible, while the dominant appearance agrees.",
+          "2": "A noticeable surface discrepancy covers part of the product, although much still agrees.",
+          "3": "A substantial surface discrepancy affects the dominant color, material appearance or finish.",
+          "4": "The visible surface appearance is extensively incompatible with the reference across the product."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "500907e8b4acbad2c399a494f59c0006183b2433f283255e1cbd72993c27471a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "comparable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "color_family_match": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "material_appearance_match": {
+        "type": "noul",
+        "noul": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "finish_match": {
+        "type": "noul",
+        "noul": 0.07,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.9000000000000004,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.02,
+          "2": 0.02,
+          "3": 0.92,
+          "4": 0.02
+        },
+        "confidence": 0.8833333333333333,
+        "legend": {
+          "0": "No persistent surface discrepancy is visible; color family, material appearance and finish agree after allowing local illumination changes.",
+          "1": "A slight localized surface discrepancy is visible, while the dominant appearance agrees.",
+          "2": "A noticeable surface discrepancy covers part of the product, although much still agrees.",
+          "3": "A substantial surface discrepancy affects the dominant color, material appearance or finish.",
+          "4": "The visible surface appearance is extensively incompatible with the reference across the product."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "63b27d9bf37e31057839631b88899b9b66b585099d6af17c5685c2828c2553de": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "comparable": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "color_family_match": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "material_appearance_match": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "finish_match": {
+        "type": "noul",
+        "noul": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 0.2,
+        "probabilities": {
+          "0": 0.92,
+          "1": 0.02,
+          "2": 0.02,
+          "3": 0.02,
+          "4": 0.02
+        },
+        "confidence": 0.8333333333333333,
+        "legend": {
+          "0": "No persistent surface discrepancy is visible; color family, material appearance and finish agree after allowing local illumination changes.",
+          "1": "A slight localized surface discrepancy is visible, while the dominant appearance agrees.",
+          "2": "A noticeable surface discrepancy covers part of the product, although much still agrees.",
+          "3": "A substantial surface discrepancy affects the dominant color, material appearance or finish.",
+          "4": "The visible surface appearance is extensively incompatible with the reference across the product."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "696d2d32d91fb529eb7bb31b0ad4d069237760f50f76769d6cc9c100780c70f5": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "comparable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "color_family_match": {
+        "type": "noul",
+        "noul": 0.93,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "material_appearance_match": {
+        "type": "noul",
+        "noul": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "finish_match": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 0.2,
+        "probabilities": {
+          "0": 0.92,
+          "1": 0.02,
+          "2": 0.02,
+          "3": 0.02,
+          "4": 0.02
+        },
+        "confidence": 0.8333333333333333,
+        "legend": {
+          "0": "No persistent surface discrepancy is visible; color family, material appearance and finish agree after allowing local illumination changes.",
+          "1": "A slight localized surface discrepancy is visible, while the dominant appearance agrees.",
+          "2": "A noticeable surface discrepancy covers part of the product, although much still agrees.",
+          "3": "A substantial surface discrepancy affects the dominant color, material appearance or finish.",
+          "4": "The visible surface appearance is extensively incompatible with the reference across the product."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "72c434c403596848a7bf44e0fd75f3629c1bda7c3825ae49c693b89fcc95e4ba": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "comparable": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "color_family_match": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "material_appearance_match": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "finish_match": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.9000000000000004,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.02,
+          "2": 0.02,
+          "3": 0.92,
+          "4": 0.02
+        },
+        "confidence": 0.8833333333333333,
+        "legend": {
+          "0": "No persistent surface discrepancy is visible; color family, material appearance and finish agree after allowing local illumination changes.",
+          "1": "A slight localized surface discrepancy is visible, while the dominant appearance agrees.",
+          "2": "A noticeable surface discrepancy covers part of the product, although much still agrees.",
+          "3": "A substantial surface discrepancy affects the dominant color, material appearance or finish.",
+          "4": "The visible surface appearance is extensively incompatible with the reference across the product."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "72cacd2183a8e38cb2ab73a180733676e4df4c06b20c04575ade5148752fa63b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "comparable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "color_family_match": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "material_appearance_match": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "finish_match": {
+        "type": "noul",
+        "noul": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 0.2,
+        "probabilities": {
+          "0": 0.92,
+          "1": 0.02,
+          "2": 0.02,
+          "3": 0.02,
+          "4": 0.02
+        },
+        "confidence": 0.8333333333333333,
+        "legend": {
+          "0": "No persistent surface discrepancy is visible; color family, material appearance and finish agree after allowing local illumination changes.",
+          "1": "A slight localized surface discrepancy is visible, while the dominant appearance agrees.",
+          "2": "A noticeable surface discrepancy covers part of the product, although much still agrees.",
+          "3": "A substantial surface discrepancy affects the dominant color, material appearance or finish.",
+          "4": "The visible surface appearance is extensively incompatible with the reference across the product."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "792a7d23b04335c8de042cbb4fd5b6093bf73d7b3c970b3da8e691b957378f61": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "comparable": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "color_family_match": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "material_appearance_match": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "finish_match": {
+        "type": "noul",
+        "noul": 0.78,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 0.2,
+        "probabilities": {
+          "0": 0.92,
+          "1": 0.02,
+          "2": 0.02,
+          "3": 0.02,
+          "4": 0.02
+        },
+        "confidence": 0.8333333333333333,
+        "legend": {
+          "0": "No persistent surface discrepancy is visible; color family, material appearance and finish agree after allowing local illumination changes.",
+          "1": "A slight localized surface discrepancy is visible, while the dominant appearance agrees.",
+          "2": "A noticeable surface discrepancy covers part of the product, although much still agrees.",
+          "3": "A substantial surface discrepancy affects the dominant color, material appearance or finish.",
+          "4": "The visible surface appearance is extensively incompatible with the reference across the product."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7c1cb6ca8c15fa45be66d166d1e425db4f98e0705d188854cef8910979c4ade8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "comparable": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "color_family_match": {
+        "type": "noul",
+        "noul": 0.92,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "material_appearance_match": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "finish_match": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 0.2,
+        "probabilities": {
+          "0": 0.92,
+          "1": 0.02,
+          "2": 0.02,
+          "3": 0.02,
+          "4": 0.02
+        },
+        "confidence": 0.8333333333333333,
+        "legend": {
+          "0": "No persistent surface discrepancy is visible; color family, material appearance and finish agree after allowing local illumination changes.",
+          "1": "A slight localized surface discrepancy is visible, while the dominant appearance agrees.",
+          "2": "A noticeable surface discrepancy covers part of the product, although much still agrees.",
+          "3": "A substantial surface discrepancy affects the dominant color, material appearance or finish.",
+          "4": "The visible surface appearance is extensively incompatible with the reference across the product."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "893b48ff66fa1c311b1dc89c58320650d45cc1dfeeb418e0f48187347725b5a2": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "comparable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "color_family_match": {
+        "type": "noul",
+        "noul": 0.05,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "material_appearance_match": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "finish_match": {
+        "type": "noul",
+        "noul": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.9000000000000004,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.02,
+          "2": 0.02,
+          "3": 0.92,
+          "4": 0.02
+        },
+        "confidence": 0.8833333333333333,
+        "legend": {
+          "0": "No persistent surface discrepancy is visible; color family, material appearance and finish agree after allowing local illumination changes.",
+          "1": "A slight localized surface discrepancy is visible, while the dominant appearance agrees.",
+          "2": "A noticeable surface discrepancy covers part of the product, although much still agrees.",
+          "3": "A substantial surface discrepancy affects the dominant color, material appearance or finish.",
+          "4": "The visible surface appearance is extensively incompatible with the reference across the product."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9fcf44d84b2766aa4e4f2b765a2535dec13b80d6ff7df02f62923597e3d413e4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "comparable": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "color_family_match": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "material_appearance_match": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "finish_match": {
+        "type": "noul",
+        "noul": 0.05,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.9000000000000004,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.02,
+          "2": 0.02,
+          "3": 0.92,
+          "4": 0.02
+        },
+        "confidence": 0.8833333333333333,
+        "legend": {
+          "0": "No persistent surface discrepancy is visible; color family, material appearance and finish agree after allowing local illumination changes.",
+          "1": "A slight localized surface discrepancy is visible, while the dominant appearance agrees.",
+          "2": "A noticeable surface discrepancy covers part of the product, although much still agrees.",
+          "3": "A substantial surface discrepancy affects the dominant color, material appearance or finish.",
+          "4": "The visible surface appearance is extensively incompatible with the reference across the product."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a19f2363ac7e4cc75756085b2a2107587b9915df3c5f6385ba10d195bb191502": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "comparable": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "color_family_match": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "material_appearance_match": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "finish_match": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.9000000000000004,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.02,
+          "2": 0.02,
+          "3": 0.92,
+          "4": 0.02
+        },
+        "confidence": 0.8833333333333333,
+        "legend": {
+          "0": "No persistent surface discrepancy is visible; color family, material appearance and finish agree after allowing local illumination changes.",
+          "1": "A slight localized surface discrepancy is visible, while the dominant appearance agrees.",
+          "2": "A noticeable surface discrepancy covers part of the product, although much still agrees.",
+          "3": "A substantial surface discrepancy affects the dominant color, material appearance or finish.",
+          "4": "The visible surface appearance is extensively incompatible with the reference across the product."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ab7cbe1dd8cad26fecc3318a8fd960376af00c507203a5e431f81b27a2e5f264": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "comparable": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "color_family_match": {
+        "type": "noul",
+        "noul": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "material_appearance_match": {
+        "type": "noul",
+        "noul": 0.93,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "finish_match": {
+        "type": "noul",
+        "noul": 0.91,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 0.2,
+        "probabilities": {
+          "0": 0.92,
+          "1": 0.02,
+          "2": 0.02,
+          "3": 0.02,
+          "4": 0.02
+        },
+        "confidence": 0.8333333333333333,
+        "legend": {
+          "0": "No persistent surface discrepancy is visible; color family, material appearance and finish agree after allowing local illumination changes.",
+          "1": "A slight localized surface discrepancy is visible, while the dominant appearance agrees.",
+          "2": "A noticeable surface discrepancy covers part of the product, although much still agrees.",
+          "3": "A substantial surface discrepancy affects the dominant color, material appearance or finish.",
+          "4": "The visible surface appearance is extensively incompatible with the reference across the product."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c9f46d6b63d06224c91c4bae3e3d37049c9cf2a2ce6340940bdc423100fc37e3": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "comparable": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "color_family_match": {
+        "type": "noul",
+        "noul": 0.5,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "material_appearance_match": {
+        "type": "noul",
+        "noul": 0.49,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "finish_match": {
+        "type": "noul",
+        "noul": 0.5,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.0,
+        "probabilities": {
+          "0": 0.2,
+          "1": 0.2,
+          "2": 0.2,
+          "3": 0.2,
+          "4": 0.2
+        },
+        "confidence": 0.0,
+        "legend": {
+          "0": "No persistent surface discrepancy is visible; color family, material appearance and finish agree after allowing local illumination changes.",
+          "1": "A slight localized surface discrepancy is visible, while the dominant appearance agrees.",
+          "2": "A noticeable surface discrepancy covers part of the product, although much still agrees.",
+          "3": "A substantial surface discrepancy affects the dominant color, material appearance or finish.",
+          "4": "The visible surface appearance is extensively incompatible with the reference across the product."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ced6b2b7c826073151a04dfde6906e9e1ac064753ac970c82aac875d03e2127c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "comparable": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "color_family_match": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "material_appearance_match": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "finish_match": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 0.2,
+        "probabilities": {
+          "0": 0.92,
+          "1": 0.02,
+          "2": 0.02,
+          "3": 0.02,
+          "4": 0.02
+        },
+        "confidence": 0.8333333333333333,
+        "legend": {
+          "0": "No persistent surface discrepancy is visible; color family, material appearance and finish agree after allowing local illumination changes.",
+          "1": "A slight localized surface discrepancy is visible, while the dominant appearance agrees.",
+          "2": "A noticeable surface discrepancy covers part of the product, although much still agrees.",
+          "3": "A substantial surface discrepancy affects the dominant color, material appearance or finish.",
+          "4": "The visible surface appearance is extensively incompatible with the reference across the product."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "cfc8ba64f795db551a0803e8ea45172312e483b94a898798b1b51e0b6d2d3232": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "comparable": {
+        "type": "noul",
+        "noul": 0.52,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "color_family_match": {
+        "type": "noul",
+        "noul": 0.62,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "material_appearance_match": {
+        "type": "noul",
+        "noul": 0.5,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "finish_match": {
+        "type": "noul",
+        "noul": 0.48,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 2.0,
+        "probabilities": {
+          "0": 0.2,
+          "1": 0.2,
+          "2": 0.2,
+          "3": 0.2,
+          "4": 0.2
+        },
+        "confidence": 0.0,
+        "legend": {
+          "0": "No persistent surface discrepancy is visible; color family, material appearance and finish agree after allowing local illumination changes.",
+          "1": "A slight localized surface discrepancy is visible, while the dominant appearance agrees.",
+          "2": "A noticeable surface discrepancy covers part of the product, although much still agrees.",
+          "3": "A substantial surface discrepancy affects the dominant color, material appearance or finish.",
+          "4": "The visible surface appearance is extensively incompatible with the reference across the product."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d379d7456f4b5f02d141345fed03d21a49a9c8f277de528b6d2e456bbd1a3efd": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "comparable": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "color_family_match": {
+        "type": "noul",
+        "noul": 0.89,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "material_appearance_match": {
+        "type": "noul",
+        "noul": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "finish_match": {
+        "type": "noul",
+        "noul": 0.86,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "severity": {
+        "type": "score",
+        "score": 0.2,
+        "probabilities": {
+          "0": 0.92,
+          "1": 0.02,
+          "2": 0.02,
+          "3": 0.02,
+          "4": 0.02
+        },
+        "confidence": 0.8333333333333333,
+        "legend": {
+          "0": "No persistent surface discrepancy is visible; color family, material appearance and finish agree after allowing local illumination changes.",
+          "1": "A slight localized surface discrepancy is visible, while the dominant appearance agrees.",
+          "2": "A noticeable surface discrepancy covers part of the product, although much still agrees.",
+          "3": "A substantial surface discrepancy affects the dominant color, material appearance or finish.",
+          "4": "The visible surface appearance is extensively incompatible with the reference across the product."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
