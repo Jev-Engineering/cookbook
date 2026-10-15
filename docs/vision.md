@@ -84,6 +84,12 @@ matching Pillow crops. Starting edges round down and ending edges round up, so
 fractional pixels are enclosed. A full normalized image maps to `(0, 0, width,
 height)`. The example's unexpanded crop is 200 × 75 pixels.
 
+When an integer pixel edge is normalized and then scaled back, floating-point
+rounding can place it just below or above the integer. The helper restores the
+integer only within one representable floating-point increment and only when
+dividing that integer by the image dimension gives the supplied normalized edge.
+Other fractional edges retain the outward rounding rule.
+
 `expand_box(box, fraction)` adds that fraction of the original box's width or height
 to **each** side and clips to the image boundary. `crop_box(..., expand=fraction)`
 uses the same operation. Geometry does not resize crops to API limits; save and
