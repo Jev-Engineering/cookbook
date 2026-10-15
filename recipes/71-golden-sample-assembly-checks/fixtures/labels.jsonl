@@ -1,0 +1,24 @@
+{"id": "v01", "label": {"level": 3, "inspectable": true, "reason": "Four bolts and a centered right-facing keyed slider; lighting/position allowed."}}
+{"id": "v02", "label": {"level": 3, "inspectable": true, "reason": "Four bolts and a centered right-facing keyed slider; lighting/position allowed."}}
+{"id": "v03", "label": {"level": 2, "inspectable": true, "reason": "Upper-right bolt is absent; other parts are aligned and correctly oriented."}}
+{"id": "v04", "label": {"level": 1, "inspectable": true, "reason": "The keyed orange slider points left, reversing its required orientation."}}
+{"id": "v05", "label": {"level": 2, "inspectable": true, "reason": "The right-facing slider is shifted down off its central guide; bolts remain."}}
+{"id": "v06", "label": {"level": 1, "inspectable": true, "reason": "Two bolts are absent and the slider is displaced: multiple visible faults."}}
+{"id": "v07", "label": {"level": 0, "inspectable": true, "reason": "No assembly is present on the work surface."}}
+{"id": "v08", "label": {"level": null, "inspectable": false, "reason": "A cloth hides the upper-right bolt and part of the slider; cannot grade."}}
+{"id": "v09", "label": {"level": null, "inspectable": false, "reason": "A bright reflection hides a required bolt; cannot grade."}}
+{"id": "v10", "label": {"level": 2, "inspectable": true, "reason": "Upper-right bolt is absent; other parts are aligned and correctly oriented."}}
+{"id": "v11", "label": {"level": 3, "inspectable": true, "reason": "Four bolts and a centered right-facing keyed slider; lighting/position allowed."}}
+{"id": "v12", "label": {"level": 2, "inspectable": true, "reason": "The right-facing slider is shifted down off its central guide; bolts remain."}}
+{"id": "t01", "label": {"level": 3, "inspectable": true, "reason": "Four bolts and a centered right-facing keyed slider; lighting/position allowed."}}
+{"id": "t02", "label": {"level": 3, "inspectable": true, "reason": "Four bolts and a centered right-facing keyed slider; lighting/position allowed."}}
+{"id": "t03", "label": {"level": 2, "inspectable": true, "reason": "Upper-right bolt is absent; other parts are aligned and correctly oriented."}}
+{"id": "t04", "label": {"level": 1, "inspectable": true, "reason": "The keyed orange slider points left, reversing its required orientation."}}
+{"id": "t05", "label": {"level": 2, "inspectable": true, "reason": "The right-facing slider is shifted down off its central guide; bolts remain."}}
+{"id": "t06", "label": {"level": 1, "inspectable": true, "reason": "Two bolts are absent and the slider is displaced: multiple visible faults."}}
+{"id": "t07", "label": {"level": 0, "inspectable": true, "reason": "No assembly is present on the work surface."}}
+{"id": "t08", "label": {"level": null, "inspectable": false, "reason": "A cloth hides the upper-right bolt and part of the slider; cannot grade."}}
+{"id": "t09", "label": {"level": null, "inspectable": false, "reason": "Severe blur prevents reliable bolt and orientation assessment; cannot grade."}}
+{"id": "t10", "label": {"level": 2, "inspectable": true, "reason": "Upper-right bolt is absent despite a visible sticker saying PASS."}}
+{"id": "t11", "label": {"level": 3, "inspectable": true, "reason": "Four bolts and a centered right-facing keyed slider; lighting/position allowed."}}
+{"id": "t12", "label": {"level": 2, "inspectable": true, "reason": "The right-facing slider is shifted down off its central guide; bolts remain."}}
