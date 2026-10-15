@@ -92,7 +92,8 @@ request by hand, the same backstop named above for the allowlist generally.
 ## Which notebooks run
 
 `python tools/notebook_ci.py matrix` lists the folders with a `notebook.ipynb`, `_template`
-included.
+included. Planned catalog entries without a notebook add no matrix job, in either the original
+track (01–60) or the multimodal track (61–100).
 
 - **A push to `main`** runs the recipe folders changed since the previous tip of `main`
   (`github.event.before`) when the push touches nothing outside `recipes/<folder>/` and `README.md`
@@ -112,7 +113,7 @@ included.
   notebook; false runs the recipe folders changed by the latest commit, by the same rule.
 - **A pull request** runs only the recipe folders it changes, provided every changed path is inside
   a `recipes/<folder>/` or is exactly `README.md`. A recipe pull request is limited to that by the
-  scope check, so one recipe's pull request does not re-run sixty notebooks.
+  scope check, so one recipe's pull request does not re-run every published notebook.
 - A pull request that changes anything else (shared code, tools, docs, workflows, the template's
   neighbours) runs every notebook, because shared code can change any recipe's result. **That
   includes a docs-only foundation pull request**: any path outside `recipes/` and `README.md`
@@ -125,7 +126,7 @@ group), because the selection is relative to the previous tip: a dropped run wou
 unverified. A new push to a pull request cancels that pull request's older run.
 
 A folder name that is not `NN-slug` or `_template` stops discovery: names go into a matrix and a
-command line.
+command line. The numeric prefix is zero-padded through `99`; `100-slug` uses three digits.
 
 ## Offline, with no key and no network
 
@@ -491,10 +492,17 @@ ref, an unreadable body, an unreadable diff); it fails closed.
 - **Which kind.** A recipe pull request has both markers: branch `recipe/<slug>` and a closing
   reference (`close`, `closes`, `closed`, `fix`, `fixes`, `fixed`, `resolve`, `resolves`, `resolved`,
   with an optional colon, then `#N`, `owner/repo#N` or an issue URL; one inside a fenced code block
-  or an inline code span does not count, as GitHub links nothing written in either) to an issue of
-  this repository numbered 1 to 60. Neither marker: a foundation pull request. Only one: rejected.
-  Closing any other issue of this repository as well, or closing two recipe issues: rejected. The
-  branch must be `recipe/` plus the catalog slug of the closed issue, read from the base catalog.
+  or an inline code span or HTML comment does not count, as GitHub links nothing written in any
+  of them) to an issue of this repository assigned to a recipe in the trusted base catalog.
+  The recipe-issue set comes from assigned positive `issue` values in `catalog/recipes.json`
+  at `--base`, independently of recipe ranks. Neither marker: a foundation
+  pull request. Only one: rejected. Closing any other issue of this repository as well, or closing
+  two recipe issues: rejected. The branch slug must exist in the base catalog, have an assigned
+  issue, and match the sole closing reference. Unknown or unassigned slugs fail closed, including
+  a `recipe/` branch for a planned multimodal entry with `issue: null`. Assignments in the head
+  catalog do not authorize a recipe pull request. A foundation branch with `Closes #61` remains
+  foundation work while issue 61 is not assigned to a catalog recipe; a rank of 61 does not assign
+  that issue.
 - **Paths and modes**, on `git diff --raw -M -z base...head` (modes and types, not just names; both
   sides of a rename are checked). Every path must be under `recipes/<slug>/` or be exactly `README.md`.
   Inside the folder a deletion is allowed (it has no resulting mode, whatever the deleted entry was);
@@ -592,14 +600,19 @@ distinguish a real cost from this noise.
 
 **How it scales.** The `execute` job caps itself at `max-parallel: 10` (see "Why 10" below), so a
 run that selects every notebook is not one wave of N jobs in parallel but ⌈N / 10⌉ waves run one
-after another. At sixty recipes that is six waves of ten: roughly 6 × 48 s ≈ 5 minutes of execute
-time (treating the measured `Notebook (_template)` job above as one wave and allowing for the fixed
+after another. At sixty selected notebooks that is six waves of ten: roughly 6 × 48 s ≈ 5 minutes
+of execute time (treating the measured `Notebook (_template)` job above as one wave and allowing for the fixed
 per-job overhead not shrinking), plus discovery and the summary job, for a **wall time of a few
 minutes** for a full run — not the per-job number times sixty that one uncapped wave would need. A
 push to a recipe pull request, or to `main` after a recipe merges, still selects only the one or two
 folders that changed (see "Which notebooks run"), so this scaling only matters for a push that
 selects every notebook: a foundation change outside `recipes/`, a forced push, the weekly cron, or a
 manual run with `full` left `true`.
+
+The sixty-notebook example is a projection from the recorded per-job sample above. The expanded
+catalog does not establish a measured run time for 100 recipes: matrix size depends on the
+notebooks actually present, including `_template`, and future visual notebooks may have different
+execution costs.
 
 **Why 10.** Without a cap, a full run claims as many of the organisation's concurrent-job slots as
 there are recipes, starving `CI`'s and `Notebooks`' other jobs. The number is a deliberate, bounded
@@ -616,13 +629,14 @@ One push to a recipe pull request is `Notebooks` 4 billed minutes
 (discover + one notebook + the summary + fixtures) + `Scope` 1, on top of 7 for the existing `CI`
 and `Hygiene` workflows (each of the five jobs above rounding to 1 or 2 billed minutes) — **about
 12 billed minutes per push**. A README-only push selects no notebook: 3 + 1 = 4 new. A push to
-`main` that selects every notebook — the scaling case above — is 1 (discover) + 60 (one per
-recipe) + 1 (summary) + 1 (fixtures) = 63 jobs, **about 63 billed minutes**, independent of the
+`main` that selects N notebooks has N + 3 jobs: discovery, those N notebooks, summary and fixtures.
+For the sixty-notebook scaling example above, that is 63 jobs, projecting **about 63 billed
+minutes** at the observed per-job cost, independent of the
 `max-parallel` cap (billing is per job, not per wave); the weekly cron costs the same each time it
 runs. Selecting only the recipe folders a normal recipe merge changed (see "Which notebooks run")
-keeps an ordinary merge to `main` at 4 new billed minutes rather than 63. These are measured from
-the runs named above, not an estimate from job counts; check the repository's usage report for
-totals over time.
+keeps an ordinary merge to `main` at the observed 4 new billed minutes. The per-job observations
+come from the runs named above; full-catalog totals are projections, not measurements of the
+multimodal track. Check the repository's usage report for totals over time.
 
 ## The recipe guard allowlist
 

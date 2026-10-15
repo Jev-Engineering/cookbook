@@ -1,5 +1,21 @@
 {
   "title": "Jev Cookbook",
+  "tracks": [
+    {
+      "id": "original",
+      "title": "Original track",
+      "first_rank": 1,
+      "last_rank": 60,
+      "description": "Text and structured-state decisions using Choice, Noul, and Score, from single judgments to evaluated workflows and simulations."
+    },
+    {
+      "id": "multimodal",
+      "title": "Multimodal track",
+      "first_rank": 61,
+      "last_rank": 100,
+      "description": "Experimental image judgments, visual reference matching, Box localization, ordered still-frame analysis, and multimodal long-context evaluation."
+    }
+  ],
   "levels": [
     {
       "level": 1,
@@ -83,6 +99,34 @@
       "supports": "A typed interface for comparing Jev with decision adapters backed by generative models.",
       "url": "https://github.com/typesafe-ai/system-one-adapter-python",
       "reviewed": "2026-10-06"
+    },
+    {
+      "id": "S09",
+      "reference": "TypeSafe AI: Images",
+      "supports": "Experimental PNG/JPEG assets in state, instructions, and criteria; image comparisons and ordered still frames with the images header.",
+      "url": "https://docs.typesafe.ai/images",
+      "reviewed": "2026-10-15"
+    },
+    {
+      "id": "S10",
+      "reference": "TypeSafe AI: Box",
+      "supports": "Jev 1.14 single-target bounding rectangles, normalized edges and confidence, absent-target checks, tiled search, and crop verification.",
+      "url": "https://docs.typesafe.ai/primitives/box",
+      "reviewed": "2026-10-15"
+    },
+    {
+      "id": "S11",
+      "reference": "TypeSafe AI: Models and long context",
+      "supports": "Versioned model IDs, moving aliases, and opt-in 262k-token per-request and per-question context for Jev 1.13 and 1.14.",
+      "url": "https://docs.typesafe.ai/models",
+      "reviewed": "2026-10-15"
+    },
+    {
+      "id": "S12",
+      "reference": "TypeSafe AI: Jev 1.14 release",
+      "supports": "The October 14, 2026 release of Jev 1.14 and the experimental status of image, Box, and long-context capabilities.",
+      "url": "https://typesafe.ai/blog/jev-1-14",
+      "reviewed": "2026-10-15"
     }
   ],
   "recipes": [
@@ -1204,6 +1248,832 @@
         "S07"
       ],
       "issue": 60
+    },
+    {
+      "rank": 61,
+      "slug": "61-screenshot-error-state-recognition",
+      "title": "Screenshot error-state recognition",
+      "level": 1,
+      "difficulty": "Beginner",
+      "category": "Image understanding & visual judgments",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Classify an application screenshot as a crash, loading state, authentication failure, normal operation, or unknown using fixed visual categories.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 62,
+      "slug": "62-visual-regression-detection",
+      "title": "Visual regression detection",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Image understanding & visual judgments",
+      "decision_types": [
+        "Noul",
+        "Score"
+      ],
+      "use_case": "Compare before-and-after screenshots for missing elements, misalignment, clipping, and other predefined visual changes, then score each change against an explicit severity rubric.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 63,
+      "slug": "63-manufacturing-defect-inspection",
+      "title": "Manufacturing defect inspection",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Image understanding & visual judgments",
+      "decision_types": [
+        "Noul",
+        "Score"
+      ],
+      "use_case": "Check synthetic product photographs for scratches, dents, missing components, and incorrect assembly with independent judgments and a defined defect-severity rubric.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 64,
+      "slug": "64-field-maintenance-photo-triage",
+      "title": "Field maintenance photo triage",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Image understanding & visual judgments",
+      "decision_types": [
+        "Choice",
+        "Noul"
+      ],
+      "use_case": "Classify predefined equipment conditions in maintenance photographs and independently flag visible corrosion, leaks, or disconnected cabling for a simulated review queue.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 65,
+      "slug": "65-retail-shelf-compliance",
+      "title": "Retail shelf compliance",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Image understanding & visual judgments",
+      "decision_types": [
+        "Noul"
+      ],
+      "use_case": "Compare shelf photographs with an approved planogram image using independent checks for misplaced or missing product groups while Python combines the findings.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 66,
+      "slug": "66-technical-schematic-recognition",
+      "title": "Technical schematic recognition",
+      "level": 2,
+      "difficulty": "Easy",
+      "category": "Image understanding & visual judgments",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Identify a predefined circuit, wiring, or infrastructure symbol from a cropped schematic image, retaining an unknown outcome for ambiguous or unlisted symbols.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 67,
+      "slug": "67-product-finish-verification",
+      "title": "Product finish verification",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Image understanding & visual judgments",
+      "decision_types": [
+        "Noul",
+        "Score"
+      ],
+      "use_case": "Compare a product photograph with a visual reference using separate color, material, and finish checks and explicit similarity rubrics under controlled imaging conditions.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 68,
+      "slug": "68-visual-accessibility-screening",
+      "title": "Visual accessibility screening",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Image understanding & visual judgments",
+      "decision_types": [
+        "Noul"
+      ],
+      "use_case": "Flag apparent text clipping, low contrast, crowding, and overlapping UI components with independent screenshot judgments to identify candidates for further accessibility testing.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 69,
+      "slug": "69-visual-sku-recognition",
+      "title": "Visual SKU recognition",
+      "level": 2,
+      "difficulty": "Easy",
+      "category": "Visual criteria & reference matching",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Select a product variant from a fixed SKU catalog whose choice criteria contain reference photographs, with no-match and uncertain outcomes.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 70,
+      "slug": "70-brand-identity-verification",
+      "title": "Brand identity verification",
+      "level": 2,
+      "difficulty": "Easy",
+      "category": "Visual criteria & reference matching",
+      "decision_types": [
+        "Noul"
+      ],
+      "use_case": "Compare a displayed logo or marketing asset with an approved reference image using bounded visual conformity checks and route uncertain results to review.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 71,
+      "slug": "71-golden-sample-assembly-checks",
+      "title": "Golden-sample assembly checks",
+      "level": 2,
+      "difficulty": "Easy",
+      "category": "Visual criteria & reference matching",
+      "decision_types": [
+        "Score"
+      ],
+      "use_case": "Score an assembly photograph against rubric levels illustrated by good and defective reference examples so Python can identify candidates for inspection.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 72,
+      "slug": "72-board-game-piece-recognition",
+      "title": "Board-game piece recognition",
+      "level": 2,
+      "difficulty": "Easy",
+      "category": "Visual criteria & reference matching",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Identify a token, tile, figurine, or card from fixed categories defined by reference images, including an unknown outcome for unseen or ambiguous pieces.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 73,
+      "slug": "73-visual-ui-state-identification",
+      "title": "Visual UI state identification",
+      "level": 2,
+      "difficulty": "Easy",
+      "category": "Visual criteria & reference matching",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Classify a cropped UI component as selected, disabled, active, hovered, error, or unknown using visual examples in each choice criterion.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 74,
+      "slug": "74-material-swatch-matching",
+      "title": "Material swatch matching",
+      "level": 2,
+      "difficulty": "Easy",
+      "category": "Visual criteria & reference matching",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Match a textile, paint, flooring, or material photograph to a controlled collection of visual swatches, with no-match and uncertain outcomes for appearance ambiguity.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 75,
+      "slug": "75-generated-art-style-consistency",
+      "title": "Generated-art style consistency",
+      "level": 2,
+      "difficulty": "Easy",
+      "category": "Visual criteria & reference matching",
+      "decision_types": [
+        "Score"
+      ],
+      "use_case": "Score a generated illustration against separate art-direction criteria illustrated by a supplied moodboard, using explicit rubric levels and retaining each criterion score.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 76,
+      "slug": "76-plant-appearance-matching",
+      "title": "Plant appearance matching",
+      "level": 2,
+      "difficulty": "Easy",
+      "category": "Visual criteria & reference matching",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Compare a plant photograph with labeled visual examples to suggest a candidate appearance group, including unknown for unsupported or ambiguous matches.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 77,
+      "slug": "77-visual-browser-element-locator",
+      "title": "Visual browser element locator",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Bounding boxes & spatial reasoning",
+      "decision_types": [
+        "Box",
+        "Noul"
+      ],
+      "use_case": "Locate a named button, form input, or menu item in a screenshot and check target presence before Python draws the rectangle and previews a simulated browser action.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S10",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 78,
+      "slug": "78-signature-and-stamp-localization",
+      "title": "Signature and stamp localization",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Bounding boxes & spatial reasoning",
+      "decision_types": [
+        "Box",
+        "Noul"
+      ],
+      "use_case": "Check whether a synthetic scanned document contains a requested signature or approval stamp and locate one matching region for Python to crop and evaluate.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S10",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 79,
+      "slug": "79-engineering-diagram-component-locator",
+      "title": "Engineering diagram component locator",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Bounding boxes & spatial reasoning",
+      "decision_types": [
+        "Box",
+        "Noul"
+      ],
+      "use_case": "Check for and locate a specified valve, connector, or symbol on an engineering diagram while Python converts normalized box edges into a visible annotation.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S10",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 80,
+      "slug": "80-game-hud-perception",
+      "title": "Game HUD perception",
+      "level": 4,
+      "difficulty": "Advanced",
+      "category": "Bounding boxes & spatial reasoning",
+      "decision_types": [
+        "Box",
+        "Choice"
+      ],
+      "use_case": "Identify and locate a requested energy meter, card, action button, or enemy indicator in a synthetic Slay the Spire 2-style screenshot, with absent and ambiguous outcomes before any simulated action.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S10",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 81,
+      "slug": "81-defect-localization",
+      "title": "Defect localization",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Bounding boxes & spatial reasoning",
+      "decision_types": [
+        "Box",
+        "Noul"
+      ],
+      "use_case": "Check for one specified visible scratch, dent, or broken component, then draw and evaluate its bounding rectangle while suppressing boxes for absent targets.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S10",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 82,
+      "slug": "82-reference-guided-object-search",
+      "title": "Reference-guided object search",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Bounding boxes & spatial reasoning",
+      "decision_types": [
+        "Box",
+        "Noul"
+      ],
+      "use_case": "Locate a particular product on a cluttered shelf or workbench using its reference photo in the instructions, with an independent presence check before accepting the rectangle.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S10",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 83,
+      "slug": "83-hierarchical-visual-search",
+      "title": "Hierarchical visual search",
+      "level": 4,
+      "difficulty": "Advanced",
+      "category": "Bounding boxes & spatial reasoning",
+      "decision_types": [
+        "Choice",
+        "Box"
+      ],
+      "use_case": "Select among Python-generated image tiles, retaining no-match and uncertain outcomes, then progressively localize a small target while Python maps the final rectangle back to the full image.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S10",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 84,
+      "slug": "84-bounding-box-self-verification",
+      "title": "Bounding-box self-verification",
+      "level": 4,
+      "difficulty": "Advanced",
+      "category": "Bounding boxes & spatial reasoning",
+      "decision_types": [
+        "Box",
+        "Noul"
+      ],
+      "use_case": "Check target presence, localize it, and ask independent questions about whether it continues past each crop edge so Python can adjust the rectangle within fixed retry and size limits.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S10",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 85,
+      "slug": "85-door-state-transition-detection",
+      "title": "Door state transition detection",
+      "level": 2,
+      "difficulty": "Easy",
+      "category": "Multiframe & temporal understanding",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Classify a door as opened, closed, unchanged, or uncertain across chronologically ordered PNG or JPEG frames sampled by Python.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 86,
+      "slug": "86-object-arrival-departure-detection",
+      "title": "Object arrival/departure detection",
+      "level": 2,
+      "difficulty": "Easy",
+      "category": "Multiframe & temporal understanding",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Determine whether a specified package, vehicle, or other object appeared, disappeared, remained, or is uncertain across ordered still frames of a scene.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 87,
+      "slug": "87-game-phase-transition-detection",
+      "title": "Game phase transition detection",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Multiframe & temporal understanding",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Recognize transitions between combat, menus, map selection, and rewards from ordered game screenshots while Python records the phase history and handles uncertain transitions.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 88,
+      "slug": "88-visual-action-verification",
+      "title": "Visual action verification",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Multiframe & temporal understanding",
+      "decision_types": [
+        "Noul"
+      ],
+      "use_case": "Compare screenshots before and after a simulated browser action to judge whether the intended UI change is visible while Python preserves the action and frame records.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 89,
+      "slug": "89-conveyor-jam-detection",
+      "title": "Conveyor jam detection",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Multiframe & temporal understanding",
+      "decision_types": [
+        "Noul",
+        "Score"
+      ],
+      "use_case": "Evaluate ordered synthetic factory frames for visible blockage or halted conveyor movement and score the evidence using a fixed rubric while Python controls sampling and timing.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 90,
+      "slug": "90-assembly-progression-recognition",
+      "title": "Assembly progression recognition",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Multiframe & temporal understanding",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Identify the predefined assembly stage reached in a chronological photograph sequence, retaining unknown or inconsistent outcomes for review.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 91,
+      "slug": "91-sports-action-phase-recognition",
+      "title": "Sports action phase recognition",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Multiframe & temporal understanding",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Classify a short ordered still-image sequence as preparation, execution, recovery, or an unrecognized movement using supplied phase definitions.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 92,
+      "slug": "92-video-highlight-candidate-detection",
+      "title": "Video highlight candidate detection",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Multiframe & temporal understanding",
+      "decision_types": [
+        "Score"
+      ],
+      "use_case": "Score frame sequences for separately defined highlight signals such as visible reactions or unusual scene changes while Python samples video and maps candidate windows to timestamps.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 93,
+      "slug": "93-image-grounded-bug-report-verification",
+      "title": "Image-grounded bug report verification",
+      "level": 3,
+      "difficulty": "Intermediate",
+      "category": "Multimodal & long context",
+      "decision_types": [
+        "Noul"
+      ],
+      "use_case": "Check whether a screenshot supports each claimed bug symptom using the description, error logs, and expected behavior, preserving evidence links for a simulated review queue.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 94,
+      "slug": "94-long-form-visual-evidence-audit",
+      "title": "Long-form visual evidence audit",
+      "level": 4,
+      "difficulty": "Advanced",
+      "category": "Multimodal & long context",
+      "decision_types": [
+        "Noul"
+      ],
+      "use_case": "Compare inspection photographs with individual statements in an extended report or maintenance history using opt-in long context while Python preserves evidence provenance and review outcomes.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 95,
+      "slug": "95-ai-livestream-overlay-verification",
+      "title": "AI livestream overlay verification",
+      "level": 4,
+      "difficulty": "Advanced",
+      "category": "Multimodal & long context",
+      "decision_types": [
+        "Noul"
+      ],
+      "use_case": "Compare gameplay frames and recorded agent state with displayed strategy, phase, and action overlays to flag unsupported status claims in a simulated livestream review.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 96,
+      "slug": "96-multilingual-visual-instruction-verification",
+      "title": "Multilingual visual instruction verification",
+      "level": 4,
+      "difficulty": "Advanced",
+      "category": "Multimodal & long context",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Classify whether photographs and signage support instructions across languages, comparing pinned Jev 1.13 and 1.14 versions on identical labeled tasks with an uncertain outcome.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 97,
+      "slug": "97-photo-based-equipment-troubleshooting",
+      "title": "Photo-based equipment troubleshooting",
+      "level": 4,
+      "difficulty": "Advanced",
+      "category": "Multimodal & long context",
+      "decision_types": [
+        "Choice"
+      ],
+      "use_case": "Combine a photographed symptom, equipment model information, and a long troubleshooting manual to select candidate diagnostic checks from a supplied catalog for simulated review.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 98,
+      "slug": "98-long-context-versus-focused-context-evaluation",
+      "title": "Long-context versus focused-context evaluation",
+      "level": 5,
+      "difficulty": "Expert",
+      "category": "Multimodal & long context",
+      "decision_types": [
+        "Choice",
+        "Noul",
+        "Score",
+        "Box"
+      ],
+      "use_case": "Compare judgments using contexts up to the opt-in 262k-token limit with retrieval and staged decisions across all four decision types on identical labeled tasks, with frozen policies, held-out evaluation, and measured resource use.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S10",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 99,
+      "slug": "99-historical-screenshot-sequence-analysis",
+      "title": "Historical screenshot sequence analysis",
+      "level": 4,
+      "difficulty": "Advanced",
+      "category": "Multimodal & long context",
+      "decision_types": [
+        "Noul"
+      ],
+      "use_case": "Check candidate state transitions against a long sequence of screenshots and textual test logs so Python can identify the earliest supported visible transition associated with a defect.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
+    },
+    {
+      "rank": 100,
+      "slug": "100-multimodal-agent-handoff-verification",
+      "title": "Multimodal agent handoff verification",
+      "level": 4,
+      "difficulty": "Advanced",
+      "category": "Multimodal & long context",
+      "decision_types": [
+        "Choice",
+        "Noul"
+      ],
+      "use_case": "Classify a reported agent result and independently check its claims against screenshots and tool records before deterministic policy permits a simulated handoff or requests review.",
+      "sources": [
+        "S02",
+        "S03",
+        "S09",
+        "S11",
+        "S12"
+      ],
+      "issue": null
     }
   ]
 }

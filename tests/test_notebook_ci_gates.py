@@ -78,6 +78,19 @@ def test_recipe_pull_request_selects_only_its_recipe(tree):
     ]
 
 
+def test_recipe_100_is_discovered_and_selected_in_a_pull_request(tree):
+    slug = "100-multimodal-agent-handoff-verification"
+    assert selected(tree, lambda r: write(r, f"recipes/{slug}/notebook.ipynb")) == [slug]
+    assert slug in selected(tree)
+
+
+@pytest.mark.parametrize("slug", ["1-short", "0100-padded", "101-too-high", "100-bad_name"])
+def test_invalid_numeric_recipe_folder_names_fail_closed(tree, slug):
+    write(tree, f"recipes/{slug}/notebook.ipynb")
+    with pytest.raises(SystemExit, match="not NN-slug"):
+        selected(tree)
+
+
 def test_recipe_pull_request_with_the_generated_readme_still_selects_only_its_recipe(tree):
     def change(root):
         write(root, "recipes/02-second/notebook.ipynb", NB.replace("5}", "5} "))

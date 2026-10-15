@@ -976,7 +976,33 @@ def test_every_plot_call_has_a_printed_table(recipe):
 # check 6: every Next-steps link target exists on disk
 # --------------------------------------------------------------------------------------------
 
-NEIGHBOUR_LINK = re.compile(r"\]\(\.\./([0-9]{2}-[a-z0-9-]+)/\)")
+NEIGHBOUR_LINK = re.compile(r"\]\(\.\./((?:[0-9]{2}|100)-[a-z0-9-]+)/\)")
+
+
+def test_recipe_100_next_steps_link_must_resolve_to_a_published_notebook(tmp_path, monkeypatch):
+    monkeypatch.setitem(globals(), "RECIPES_DIR", tmp_path)
+    source = tmp_path / "01-source"
+    source.mkdir()
+    target = "100-multimodal-agent-handoff-verification"
+    (source / "notebook.ipynb").write_text(
+        json.dumps(
+            {
+                "cells": [
+                    {
+                        "cell_type": "markdown",
+                        "id": "next-md",
+                        "source": f"[Handoff](../{target}/)",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(AssertionError, match="100-multimodal-agent-handoff-verification"):
+        test_next_steps_links_resolve_to_a_published_recipe({"slug": source.name})
+    (tmp_path / target).mkdir()
+    (tmp_path / target / "notebook.ipynb").write_text("{}", encoding="utf-8")
+    test_next_steps_links_resolve_to_a_published_recipe({"slug": source.name})
 
 
 @pytest.mark.parametrize("recipe", guarded_with_template("next_steps_links_exist")())

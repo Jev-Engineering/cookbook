@@ -19,11 +19,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-FIRST, LAST = 1, 60  # recipe N is issue N; the catalog has sixty recipes
+FIRST, LAST = 1, 100  # ranks identify recipes; issue assignments are separate catalog fields
+SLUG = re.compile(r"(?:[0-9]{2}|100)-[a-z0-9]+(?:-[a-z0-9]+)*")
 
 # The notebook sections, in order. A test keeps this equal to the headings of the template.
 SECTIONS = [
@@ -865,6 +867,13 @@ def scaffold(number: int, catalog_path: Path, recipes_dir: Path, mode: str = "re
         raise ScaffoldError(f"mode must be one of {', '.join(MODES)}, got {mode!r}")
     catalog = _load_catalog(catalog_path)
     recipe = find_recipe(catalog, number)
+    slug = recipe.get("slug")
+    if (
+        not isinstance(slug, str)
+        or not SLUG.fullmatch(slug)
+        or not slug.startswith(f"{number:02d}-")
+    ):
+        raise ScaffoldError(f"recipe {number} has an invalid catalog slug")
     target = recipes_dir / recipe["slug"]
     if target.exists():
         raise ScaffoldError(f"{target.as_posix()} already exists; refusing to overwrite it")
@@ -907,6 +916,13 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {error}", file=sys.stderr)
         return 1
     print(f"created {target.parent.name}/{target.name}/")
+    recipe = find_recipe(_load_catalog(args.catalog), number)
+    if recipe.get("issue") is None:
+        print(
+            "No assigned recipe issue: local scaffolding is allowed, but a recipe pull request "
+            "requires a real issue assignment in the base catalog. Do not use the rank as "
+            "an issue number."
+        )
     print(f"next: grep -rn {TODO_MARK} {target.parent.name}/{target.name}")
     return 0
 
