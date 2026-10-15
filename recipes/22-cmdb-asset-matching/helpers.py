@@ -17,16 +17,16 @@ from jev_cookbook import Choice
 # The fixed pool of canonical CMDB records. An observed asset is matched against this pool,
 # never invented by Jev: every option the question can ever offer comes from here (plus the
 # fallback below). CMDB-01/02/03 are the same vendor and product, differing only by major
-# version -- the use case's build note ("include two records that differ only by major
-# version"); keeping three instead of two means the version family also exercises every
-# shortlist rank (see the notebook's candidate-rank table). CMDB-11 to CMDB-15 are each a
-# same-vendor sibling of one of CMDB-06 to CMDB-10, so that an observed asset for any of those
-# five also retrieves a real second candidate instead of standing alone against no_match --
-# without them, half this catalog would always offer exactly one real candidate, which does not
-# exercise genuine discrimination between options the way the use case's "bounded candidate
-# list" build note intends. CMDB-16 is a second sibling of CMDB-08: same vendor, product and
-# major version, differing only by edition (Workstation, not Server) -- the instructions'
-# "a different edition ... is not a match" clause has no fixture to exercise it otherwise.
+# version -- the use case calls for two such records, and keeping three instead of two means the
+# version family also exercises every shortlist rank (see the notebook's candidate-rank table).
+# CMDB-11 to CMDB-15 are each a same-vendor sibling of one of CMDB-06 to CMDB-10, so that an
+# observed asset for any of those five also retrieves a real second candidate instead of standing
+# alone against no_match -- without them, half this catalog would always offer exactly one real
+# candidate, which does not exercise genuine discrimination between options the way the use
+# case's bounded candidate list is meant to. CMDB-16 is a second sibling of CMDB-08: same vendor,
+# product and major version, differing only by edition (Workstation, not Server) -- the
+# instructions' "a different edition ... is not a match" clause has no fixture to exercise it
+# otherwise.
 # --------------------------------------------------------------------------------------------
 
 CMDB_RECORDS: dict[str, dict[str, str]] = {
@@ -132,9 +132,9 @@ def _normalize(text: str) -> str:
 def _tokens(vendor: str, product: str) -> set[str]:
     """The normalized, stopword-free word set of ``vendor`` and ``product`` together -- what
     retrieval compares. Version and edition are deliberately excluded: this recipe's retrieval
-    rule is vendor/product overlap only, exactly the build note's "normalised vendor/product
-    token overlap"; telling two same-vendor-and-product records apart by version or edition is
-    left to the question, not pre-filtered away by Python's retrieval."""
+    rule is normalized vendor/product token overlap and nothing else; telling two
+    same-vendor-and-product records apart by version or edition is left to the question, not
+    pre-filtered away by Python's retrieval."""
     text = _normalize(f"{vendor} {product}")
     return {w for w in re.findall(r"[a-z0-9]+", text) if w not in _STOPWORDS}
 
