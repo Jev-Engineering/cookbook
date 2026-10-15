@@ -72,7 +72,8 @@ check id                              rule -> detection
                                        so the guard reports it as one of these checks too.
 ``readme_budget_note_matches_stored_answers``
                                        CONTRIBUTING.md section 2 / docs/live.md: the stated
-                                       live-mode call count equals ``len(responses.json)``.
+                                       live-mode call count equals backend-derived audit evidence,
+                                       with strict ``len(responses.json)`` legacy fallback.
 ``readme_no_dev_ml_install``          docs/recipe-template.md step 6: reproducing committed
                                        outputs installs ``.[ml]``, never ``.[dev,ml]``.
 ``measured_cell_prints_n_offline``    CONTRIBUTING.md section 2 (#215): the "measured" cell's
@@ -148,21 +149,13 @@ Scope decisions (see the pull request body for the full reasoning):
     ``select_threshold(`` call in the recipe's committed notebook or ``helpers.py`` -- so a
     scripted recipe with a gate is checked and one without a gate (scripted or not) is skipped
     on the actual absence of anything to re-derive.
-  - ``readme_budget_note_matches_stored_answers`` is about whether the README's stated live
-    request count matches the number of real ``decide()`` calls the notebook makes. Today it
-    checks that via ``len(responses.json)`` (one stored response per *distinct* decided state,
-    by construction of ``build_fixtures.py``) as a proxy, which already undercounts whenever
-    one state is decided more than once (#213) -- a gap this issue's review measured directly
-    on recipe 36's own data (96 scored rows, 290 real ``decide()`` calls, only 72 distinct
-    states). A scripted recipe has no ``responses.json`` for even that proxy to read, and the
-    real count cannot be recovered from anything committed statically: it is a property of
-    *executing* the notebook (or the recipe's own control flow) with a counting backend, which
-    is what PR #246's reviewer did by hand. This module's own suite does not execute notebooks
-    (the per-recipe ``Notebook (<slug>)`` CI job does that); see the pull request body for the
-    investigation into whether a static or committed-output route could stand in, and why none
-    does today. So this skip remains, but is keyed on and worded for that property -- "no
-    committed artifact this check can read a real call count from" -- rather than on
-    ``responses.json`` read as if its mere absence were the whole explanation.
+  - ``readme_budget_note_matches_stored_answers`` compares the README's count with a
+    backend-derived ledger when the notebook adopts ``AuditedBackend``. It verifies the
+    ledger's full ordered keys, derived counts, exact replay inventory, anchored source and
+    committed output. Fresh offline execution remains the separate notebook CI job's duty.
+    Without an audit, the existing strict ``len(responses.json)`` proxy remains; unaudited
+    scripted recipes still lack a committed artifact this check can read and retain the
+    existing skip. Audited scripted recipes are checked using their actual call ledger.
 """
 
 from __future__ import annotations
@@ -1172,7 +1165,7 @@ def test_readme_sources_match_the_catalog(recipe):
 
 
 # --------------------------------------------------------------------------------------------
-# check 8b: the live budget note equals the stored-answer count
+# check 8b: the live budget note matches backend evidence or the strict legacy proxy
 # --------------------------------------------------------------------------------------------
 
 LIVE_CALL_COUNT = re.compile(
@@ -1181,48 +1174,48 @@ LIVE_CALL_COUNT = re.compile(
 )
 
 
+def _load_request_audit() -> ModuleType:
+    spec = importlib.util.spec_from_file_location(
+        "request_audit_for_recipe_guard", Path(__file__).resolve().parent / "request_audit.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_request_audit = _load_request_audit()
+
+
 @pytest.mark.parametrize("recipe", guarded("readme_budget_note_matches_stored_answers")())
 def test_the_live_budget_note_matches_the_stored_answer_count(recipe):
-    """CONTRIBUTING.md section 2 / docs/live.md: every attempt against the live request budget
-    counts once per example actually decided, and the README's "Switch to live" section states
-    that count so a reader can size ``JEV_COOKBOOK_LIVE_MAX_REQUESTS`` correctly. The count is
-    derivable wherever ``fixtures/responses.json`` exists (one stored response per decided
-    example, by construction of ``build_fixtures.py``), so this checks the number the README
-    states there against ``len(responses.json)``.
+    """Actual decide calls and distinct fixture keys are different quantities.
 
-    The stated number is read from either of the two prose shapes every current recipe's README
-    uses ("makes exactly one call for each of the 40 examples", "makes exactly **17** calls"),
-    tolerant of a line wrap (``\\s+`` for every space) and of "call" or "request" (recipe 06 says
-    the latter). A recipe whose README states the count some other way is not something this
-    regex can see and is a gap in the check, not necessarily in the recipe; see the pull request
-    body.
+    An audited notebook prints the shared backend's complete ordered call ledger in its
+    final cell. The source/output verifier checks that binding, recomputes both counts,
+    and demands exact coverage of responses.json's keys. Repeated identical requests
+    count independently. Freshness is enforced by the separate offline notebook job.
 
-    The property this check is about is "does the README's stated count equal the number of
-    real ``decide()`` calls the notebook makes" -- ``len(responses.json)`` is only a PROXY for
-    that (one stored response per distinct decided *state*, which already undercounts a real
-    call count whenever the same state is decided more than once, #213). A scripted recipe has
-    no ``responses.json`` for even that proxy to read, and the real count is recoverable only by
-    executing the notebook (or the recipe's own control flow) with a counting backend -- which
-    this module's suite does not do (see its own docstring, and the pull request body for why a
-    static or committed-output route was investigated and found not to generalise: a recipe
-    whose decision count depends on simulation dynamics, such as recipe 36's card-game turns,
-    has no closed form over its committed fixtures). So this remains a skip for a scripted
-    recipe, not a check this module can satisfy today (#249)."""
+    Recipes without audit evidence keep the existing strict fixture-count proxy (and
+    the existing unaudited-scripted skip); malformed audits never use that fallback.
+    """
     path = recipe_dir(recipe) / "fixtures" / "responses.json"
-    if not path.is_file():
-        pytest.skip(
-            "scripted recipe: no responses.json for even the len()-proxy to read, and the "
-            "real decide() call count needs execution this suite does not perform (see #249)"
-        )
-    stored = len(json.loads(path.read_text("utf-8")))
+    keys = set(json.loads(path.read_text("utf-8"))) if path.is_file() else None
+    actual = _request_audit.audited_call_count(notebook_cells(recipe_dir(recipe)), keys)
+    if actual is None:
+        if keys is None:
+            pytest.skip(
+                "scripted recipe: no responses.json or committed backend request audit; "
+                "actual decide() count requires execution evidence (see #249)"
+            )
+        actual = len(keys)
     readme = (recipe_dir(recipe) / "README.md").read_text("utf-8")
     assert "## Switch to live" in readme
     section = readme.split("## Switch to live", 1)[1].split("## What was", 1)[0]
     match = LIVE_CALL_COUNT.search(section)
     assert match, f"{recipe['slug']}: no recognisable live-call-count sentence in README.md"
     stated = int(next(g for g in match.groups() if g))
-    assert stated == stored, (
-        f"{recipe['slug']}: README states {stated}, responses.json has {stored}"
+    assert stated == actual, (
+        f"{recipe['slug']}: README states {stated}, backend audit or legacy fixture count is {actual}"
     )
 
 
