@@ -243,6 +243,51 @@ def test_normalized_to_pixels_rounds_outward_with_half_open_edges():
     assert vision.normalized_to_pixels(tiny, 10, 10) == (4, 3, 5, 4)
 
 
+def test_normalized_to_pixels_restores_integer_edges_with_float_round_trip_drift():
+    bounds = (1, 49, 53, 55)
+    box = vision.tile_to_image(FULL, bounds, 1568, 777)
+    # These exact pixel boundaries multiply back just below starts and above ends.
+    assert box["left"] * 1568 < 1
+    assert box["right"] * 1568 > 53
+    assert box["top"] * 777 < 49
+    assert box["bottom"] * 777 > 55
+    assert vision.normalized_to_pixels(box, 1568, 777) == bounds
+
+
+@pytest.mark.parametrize(
+    "offset,expected",
+    [(-1e-9, (511, 255, 1024, 768)), (1e-9, (512, 256, 1025, 769))],
+)
+def test_normalized_to_pixels_preserves_real_fractional_pixel_edges(offset, expected):
+    box = {
+        "left": (512 + offset) / 1568,
+        "right": (1024 + offset) / 1568,
+        "top": (256 + offset) / 1024,
+        "bottom": (768 + offset) / 1024,
+    }
+    assert vision.normalized_to_pixels(box, 1568, 1024) == expected
+
+
+@pytest.mark.parametrize(
+    "direction,expected",
+    [(-math.inf, (255, 255, 768, 768)), (math.inf, (256, 256, 769, 769))],
+)
+@pytest.mark.parametrize("steps", [1, 3])
+def test_normalized_to_pixels_preserves_noncanonical_edges_a_few_ulps_away(
+    direction, expected, steps
+):
+    start, end = 0.25, 0.75
+    for _ in range(steps):
+        start = math.nextafter(start, direction)
+        end = math.nextafter(end, direction)
+    # Power-of-two scaling is exact: these coordinates really lie outside/inside
+    # pixel edges 256 and 768, even when only one floating-point increment away.
+    assert start != 256 / 1024 and end != 768 / 1024
+    assert not (start * 1024).is_integer() and not (end * 1024).is_integer()
+    box = {"left": start, "top": start, "right": end, "bottom": end}
+    assert vision.normalized_to_pixels(box, 1024, 1024) == expected
+
+
 @pytest.mark.parametrize("width,height", [(0, 4), (4, -1), (True, 4), (4, 2.5)])
 def test_normalized_to_pixels_rejects_invalid_dimensions(width, height):
     with pytest.raises(ValueError):
@@ -323,6 +368,30 @@ def test_generate_tiles_smaller_image_produces_one_independent_tile():
     assert tiles[0].bounds == (0, 0, 3, 2)
     assert tiles[0].image is not image
     assert tiles[0].image.tobytes() == image.tobytes()
+
+
+def test_second_default_tile_round_trip_preserves_crop_pixels():
+    size = (1568, 1024)
+    pixels = random.Random(0).randbytes(size[0] * size[1] * 3)
+    image = Image.frombytes("RGB", size, pixels)
+    tile = vision.generate_tiles(image)[1]
+    assert tile.bounds == (512, 0, 1024, 512)
+    box = vision.tile_to_image(FULL, tile.bounds, *size)
+    assert vision.normalized_to_pixels(box, *size) == tile.bounds
+    cropped = vision.crop_box(image, box)
+    assert cropped.size == tile.image.size == (512, 512)
+    assert cropped.tobytes() == tile.image.tobytes()
+
+
+@pytest.mark.parametrize("size", [(1568, 1024), (1024, 1568), (1000, 777), (997, 769)])
+@pytest.mark.parametrize("overlap", [0, 73])
+def test_all_tile_bounds_round_trip_through_normalized_whole_image(size, overlap):
+    image = Image.new("RGB", size)
+    tiles = vision.generate_tiles(image, overlap=overlap)
+    assert tiles[-1].bounds[2:] == size
+    for tile in tiles:
+        box = vision.tile_to_image(FULL, tile.bounds, *size)
+        assert vision.normalized_to_pixels(box, *size) == tile.bounds
 
 
 def test_generate_tiles_overlap_is_measured_in_pixels():
