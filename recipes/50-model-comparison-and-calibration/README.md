@@ -14,6 +14,16 @@ for it, a dependent second request: a `Score` rubric rating how specific the sta
 Python combines the typed answers into one outcome, and each backend is calibrated separately,
 on its own validation answers, never on a value borrowed from another backend.
 
+**The calibration step is inert on these fixtures, and the notebook says so.** The fixtures are
+synthetic and hand-written, and every stored `validation` answer is correct (the `category` and
+both `Noul` propositions, for all three backends). With no validation error the selection has no
+accuracy to trade against coverage, so each selected threshold is simply the lowest confidence
+observed on validation: the `min_coverage` floors do not bind, and `target_accuracy=1.0` would
+select the same values. What the run does show is that the three backends sit on different
+confidence scales, so a threshold cannot be borrowed from one backend for another. On recorded
+answers with real validation errors the floor can bind and the objective can matter; this
+recipe does not show that, and says nothing about how real Jev answers behave.
+
 **This recipe draws no comparison.** No live run has been recorded for it, so every number
 the notebook prints is a pipeline check on synthetic fixtures:
 proof that the harness wires the questions, dispatches them identically to all three backends,
@@ -85,9 +95,11 @@ run stops partway through with `BudgetExceeded`:
   category is `other` and the `d02` demo, and a live answer naming a real category on any of
   them adds a request.
 
-**Both ends of that range are above the live backend's default request budget of 25**
-(`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)); every attempt counts
-against that budget, including each retry. Size it from the upper bound rather than from 41:
+**The upper end of that range (46) and the 41 these fixtures sit at are both above the live
+backend's default request budget of 25** (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`,
+[docs/live.md](../../docs/live.md)); only the lower end (23) fits inside it, and a run cannot count
+on landing there. Every attempt counts against that budget, including each retry. Size it from the
+upper bound rather than from 41:
 
 ```bash
 export JEV_COOKBOOK_LIVE_MAX_REQUESTS=50

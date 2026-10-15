@@ -440,13 +440,17 @@ def test_stored_answers_are_not_all_right():
 
 
 def test_the_notebook_calibration_cells_pin_min_coverage_not_target_accuracy():
-    """What pins the calibration OBJECTIVE is the committed notebook cell source itself: a
-    printed literal beside a select_confidence_threshold call is hand-written and nothing
-    compares it to the call it describes, and a test asserting only the resulting threshold
-    VALUE pins the objective only if no other objective could produce that same value on this
-    data, which is not checked by a value-only assertion. Both of this recipe's two
+    """Guards which objective the notebook's calibration cell asks for. It checks the committed
+    cell source itself, because a printed literal beside a select_confidence_threshold call is
+    hand-written and nothing compares it to the call it describes. Both of this recipe's two
     select_confidence_threshold call sites -- the Choice threshold loop and the Noul
-    gate-width loop -- are checked against the real, committed cell text instead."""
+    gate-width loop -- are checked against the real, committed cell text.
+
+    On the committed synthetic fixtures this pin does not change any printed number: every
+    stored validation answer is correct, so min_coverage and target_accuracy=1.0 select the
+    same values (the notebook says so beside the calibration). The guard matters for the
+    recipe's real use, answers recorded with validation errors, where the objective can
+    decide the threshold."""
     notebook = json.loads((RECIPE / "notebook.ipynb").read_text("utf-8"))
     cell = next(c for c in notebook["cells"] if c.get("id") == "calibrate")
     source = "".join(cell["source"])
