@@ -95,10 +95,15 @@ other checks are in [development.md](development.md).
 ## 5. Make your own recipe
 
 ```bash
-# replace NN with the recipe number, 1 to 60
-python tools/new_recipe.py NN                  # recipes/NN-slug/ from the catalog; NN is 1 to 60
+# replace NN with the recipe rank, 1 to 100
+python tools/new_recipe.py NN                  # recipes/<slug>/ from the catalog
 python tools/new_recipe.py NN --mode scripted  # the same, for a scripted or simulator recipe
 ```
+
+Ranks 01–60 form the original track; 61–100 form the multimodal track. Slugs have a two-digit
+prefix through `99` and a three-digit prefix for `100`. A rank is not an issue number: an entry
+with `issue: null` may be scaffolded locally, but a recipe pull request must wait for a real
+issue assignment in the trusted base catalog.
 
 The command never overwrites a folder that exists. Every place left for you to write is marked
 `TODO`. The walkthrough from scaffold to a finished recipe is in
