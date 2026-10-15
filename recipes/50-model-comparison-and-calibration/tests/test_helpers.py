@@ -9,6 +9,7 @@ defect in the extraction rather than in this recipe. Keeping every test here und
 sidesteps it entirely rather than relying on ordering.
 """
 
+import ast
 import importlib.util
 import json
 import subprocess
@@ -557,11 +558,27 @@ def test_the_memoising_backend_forwards_each_distinct_request_exactly_once():
 def test_the_notebook_pins_its_own_request_count():
     """The request count is computed, printed and asserted by the notebook itself (the pattern
     recipes 39 and 44 use), so it cannot drift away from a sentence in a README. This pins that
-    the pin exists: the memo every backend is dispatched through, and the three assertions the
-    request-count cell makes about what a live run would bill."""
+    the pin exists: the memo every backend is dispatched through, and the assertions the
+    request-count cell makes about what a live run would bill -- of which
+    ``jev.calls == stored["jev"]`` is the one that can actually go false, when a cell asks for a
+    request the committed fixtures do not hold.
+
+    The memo is found by walking the setup cell's own AST for a real
+    ``helpers.MemoisingBackend(...)`` call, not by searching its text: a cell that names the
+    wrapper in a comment or a string while dispatching bare backends satisfies a substring
+    search and fails this, which is the state this assertion exists for."""
     notebook = json.loads((RECIPE / "notebook.ipynb").read_text("utf-8"))
     cells = {cell.get("id"): "".join(cell["source"]) for cell in notebook["cells"]}
-    assert "helpers.MemoisingBackend(" in cells["setup"]
+    memo_calls = [
+        node
+        for node in ast.walk(ast.parse(cells["setup"]))
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "MemoisingBackend"
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == "helpers"
+    ]
+    assert memo_calls, "the setup cell makes no helpers.MemoisingBackend(...) call"
     request_count = cells["request-count"]
     assert "assert jev.calls == jev.requests" in request_count
     assert "assert len(examples) <= jev.calls <= 2 * len(examples)" in request_count

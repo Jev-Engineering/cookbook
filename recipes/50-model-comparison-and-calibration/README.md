@@ -67,9 +67,11 @@ run stops partway through with `BudgetExceeded`:
 - **Forwarded `decide()` calls** -- what the live path actually bills. `LiveBackend.decide`
   spends budget on every attempt it makes and caches nothing, so live a repeat is not free.
   Every backend here is dispatched through `helpers.MemoisingBackend`, which forwards each
-  distinct request exactly once; that is what makes the two counts equal for this notebook, and
-  the cell asserts the equality, so a cell that re-decided a state would fail instead of
-  quietly multiplying a real bill.
+  distinct request exactly once; that wrapper, not an assertion, is what makes the two counts
+  equal for this notebook. A cell that re-decided a state would fail nothing -- the memo absorbs
+  the repeat, and the notebook's printed `repeats` count is what shows it happened. What the
+  cell's assertion pins is the number: forwarded calls must equal the responses the committed
+  fixtures hold.
 
 **Even an exact call count is a floor, not a bill**, and live the count is a range rather than
 41:
