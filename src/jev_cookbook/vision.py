@@ -196,19 +196,32 @@ def normalized_box(box: Any) -> dict[str, float]:
     return values
 
 
+def _pixel_edge(coordinate: float, dimension: int) -> float:
+    scaled = coordinate * dimension
+    nearest = round(scaled)
+    # Undo the division/multiplication round-trip error of an integer pixel edge.
+    # The inverse check preserves other nearby, genuinely fractional coordinates.
+    if abs(scaled - nearest) <= math.ulp(scaled) and coordinate == nearest / dimension:
+        return float(nearest)
+    return scaled
+
+
 def normalized_to_pixels(box: Any, width: int, height: int) -> PixelBounds:
     """Enclosing integer ``(left, top, right, bottom)`` bounds for a Pillow crop.
 
     Starts round down, ends round up; right and bottom are exclusive. Multiplication
     uses width and height, not width-1 and height-1. A full-image box is (0, 0, w, h).
+    An edge within one floating-point increment of an integer snaps to it only when
+    the normalized coordinate equals that integer divided by its image dimension.
+    This restores exact pixel-edge round trips while preserving fractional edges.
     """
     width, height = _positive_int(width, "width"), _positive_int(height, "height")
     edges = normalized_box(box)
     return (
-        math.floor(edges["left"] * width),
-        math.floor(edges["top"] * height),
-        math.ceil(edges["right"] * width),
-        math.ceil(edges["bottom"] * height),
+        math.floor(_pixel_edge(edges["left"], width)),
+        math.floor(_pixel_edge(edges["top"], height)),
+        math.ceil(_pixel_edge(edges["right"], width)),
+        math.ceil(_pixel_edge(edges["bottom"], height)),
     )
 
 
