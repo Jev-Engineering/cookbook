@@ -1,0 +1,22 @@
+{"id": "v01", "label": {"present": true, "unique": true, "enabled": true, "boxes": [{"top": 0.734375, "bottom": 0.8489583333333334, "left": 0.59765625, "right": 0.91015625}]}}
+{"id": "v02", "label": {"present": true, "unique": true, "enabled": true, "boxes": [{"top": 0.5833333333333334, "bottom": 0.6979166666666666, "left": 0.13671875, "right": 0.88671875}]}}
+{"id": "v03", "label": {"present": true, "unique": true, "enabled": true, "boxes": [{"top": 0.6145833333333334, "bottom": 0.71875, "left": 0.140625, "right": 0.47265625}]}}
+{"id": "v04", "label": {"present": true, "unique": true, "enabled": true, "boxes": [{"top": 0.6145833333333334, "bottom": 0.7291666666666666, "left": 0.12890625, "right": 0.44140625}]}}
+{"id": "v05", "label": {"present": false, "unique": false, "enabled": false, "boxes": []}}
+{"id": "v06", "label": {"present": false, "unique": false, "enabled": false, "boxes": []}}
+{"id": "v07", "label": {"present": true, "unique": true, "enabled": false, "boxes": [{"top": 0.734375, "bottom": 0.8489583333333334, "left": 0.59765625, "right": 0.91015625}]}}
+{"id": "v08", "label": {"present": true, "unique": false, "enabled": true, "boxes": [{"top": 0.3385416666666667, "bottom": 0.453125, "left": 0.125, "right": 0.875}, {"top": 0.671875, "bottom": 0.7864583333333334, "left": 0.125, "right": 0.875}]}}
+{"id": "v09", "label": {"present": true, "unique": true, "enabled": true, "boxes": [{"top": 0.2708333333333333, "bottom": 0.375, "left": 0.5859375, "right": 0.91796875}]}}
+{"id": "v10", "label": {"present": true, "unique": true, "enabled": true, "boxes": [{"top": 0.6145833333333334, "bottom": 0.7291666666666666, "left": 0.12890625, "right": 0.44140625}]}}
+{"id": "t01", "label": {"present": true, "unique": true, "enabled": true, "boxes": [{"top": 0.734375, "bottom": 0.8489583333333334, "left": 0.59765625, "right": 0.91015625}]}}
+{"id": "t02", "label": {"present": true, "unique": true, "enabled": true, "boxes": [{"top": 0.5833333333333334, "bottom": 0.6979166666666666, "left": 0.13671875, "right": 0.88671875}]}}
+{"id": "t03", "label": {"present": true, "unique": true, "enabled": true, "boxes": [{"top": 0.6145833333333334, "bottom": 0.71875, "left": 0.140625, "right": 0.47265625}]}}
+{"id": "t04", "label": {"present": true, "unique": true, "enabled": true, "boxes": [{"top": 0.6145833333333334, "bottom": 0.7291666666666666, "left": 0.12890625, "right": 0.44140625}]}}
+{"id": "t05", "label": {"present": false, "unique": false, "enabled": false, "boxes": []}}
+{"id": "t06", "label": {"present": false, "unique": false, "enabled": false, "boxes": []}}
+{"id": "t07", "label": {"present": true, "unique": true, "enabled": true, "boxes": [{"top": 0.734375, "bottom": 0.8489583333333334, "left": 0.59765625, "right": 0.91015625}]}}
+{"id": "t08", "label": {"present": true, "unique": false, "enabled": true, "boxes": [{"top": 0.3385416666666667, "bottom": 0.453125, "left": 0.125, "right": 0.875}, {"top": 0.671875, "bottom": 0.7864583333333334, "left": 0.125, "right": 0.875}]}}
+{"id": "t09", "label": {"present": true, "unique": true, "enabled": false, "boxes": [{"top": 0.2708333333333333, "bottom": 0.375, "left": 0.5859375, "right": 0.91796875}]}}
+{"id": "t10", "label": {"present": true, "unique": true, "enabled": true, "boxes": [{"top": 0.5833333333333334, "bottom": 0.6979166666666666, "left": 0.13671875, "right": 0.88671875}]}}
+{"id": "t11", "label": {"present": true, "unique": true, "enabled": true, "boxes": [{"top": 0.2708333333333333, "bottom": 0.375, "left": 0.5859375, "right": 0.91796875}]}}
+{"id": "t12", "label": {"present": false, "unique": false, "enabled": false, "boxes": []}}
