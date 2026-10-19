@@ -1,0 +1,633 @@
+{
+  "51": {
+    "stage": "Ready",
+    "priority": "P2",
+    "scope": "Choice advancing/repeating/regressing/complete across transcripts; Python continue/change-strategy/stop, label accuracy and detection delay, stateful/adversarial fixtures and tests independent of model answer.",
+    "next": "After prerequisite acceptance verification and capability restoration, dispatch recipe/51-stalled-loop-detection; preserve recipe29 pattern and synthetic transcript provenance.",
+    "hard_dependencies": [],
+    "wave_dependencies": [],
+    "relations": [],
+    "decision": "Native listed prerequisites closed except59 for60. Closed state alone is not acceptance/review verification; all recipe live evidence remains subject to #80 owner decisions."
+  },
+  "52": {
+    "stage": "Ready",
+    "priority": "P2",
+    "scope": "Three-stage filtering/reranking/claim verification Choice+Score pipeline; independent-vs-dependent call boundaries, per-ablation answer support and request counts, adversarial/stateful tests.",
+    "next": "After prerequisite acceptance verification and capability restoration, dispatch recipe/52-retrieval-pipeline-evaluation; all ablations use fixed corpus and honest assumed/synthetic measurements.",
+    "hard_dependencies": [],
+    "wave_dependencies": [],
+    "relations": [],
+    "decision": "Native listed prerequisites closed except59 for60. Closed state alone is not acceptance/review verification; all recipe live evidence remains subject to #80 owner decisions."
+  },
+  "53": {
+    "stage": "Blocked",
+    "priority": "P3",
+    "scope": "Fixture-supplied semantic features, budgeted validation feature search, frozen downstream classifier evaluated once on untouched test; compare recipe35 feature set and baseline with seeds/budget ledger.",
+    "next": "Wait for advanced-wave closeout, then dispatch own recipe branch with fixed candidate feature pool; no generated feature proposals or test-driven search.",
+    "hard_dependencies": [],
+    "wave_dependencies": [
+      78
+    ],
+    "relations": [],
+    "decision": "Native listed prerequisites closed except59 for60. Closed state alone is not acceptance/review verification; all recipe live evidence remains subject to #80 owner decisions."
+  },
+  "54": {
+    "stage": "Blocked",
+    "priority": "P3",
+    "scope": "Budgeted external question/policy search; frozen variant comparison with untouched test hash, baseline, seeds and budget accounting; offline harness disclosure and real-results recording instructions.",
+    "next": "Wait for advanced-wave closeout, then build offline harness with validation-only search and split hash guard; live evidence awaits designated credential/accounting gate.",
+    "hard_dependencies": [],
+    "wave_dependencies": [
+      78
+    ],
+    "relations": [],
+    "decision": "Native listed prerequisites closed except59 for60. Closed state alone is not acceptance/review verification; all recipe live evidence remains subject to #80 owner decisions."
+  },
+  "55": {
+    "stage": "Blocked",
+    "priority": "P3",
+    "scope": "Jev routing across model tiers; Python budgets/fallbacks, compare traffic-mix quality/latency/cost against always-cheapest/always-strongest with every number assumed or recorded.",
+    "next": "Wait for advanced-wave closeout then build on50; use ReplayBackend for deliberately fabricated comparison lanes per290 and retain assumed-cost distinction and untouched test.",
+    "hard_dependencies": [],
+    "wave_dependencies": [
+      78
+    ],
+    "relations": [],
+    "decision": "Native listed prerequisites closed except59 for60. Closed state alone is not acceptance/review verification; all recipe live evidence remains subject to #80 owner decisions."
+  },
+  "56": {
+    "stage": "Blocked",
+    "priority": "P3",
+    "scope": "Mild synthetic adversarial+benign replay across input/context/action/output; per-boundary and combined attack success, false positive and completion metrics, budgets/seeds and equal-condition baseline.",
+    "next": "Wait for advanced-wave closeout, then implement bounded offline four-boundary harness with Python-owned permissions and no real side effects.",
+    "hard_dependencies": [],
+    "wave_dependencies": [
+      78
+    ],
+    "relations": [],
+    "decision": "Native listed prerequisites closed except59 for60. Closed state alone is not acceptance/review verification; all recipe live evidence remains subject to #80 owner decisions."
+  },
+  "57": {
+    "stage": "Blocked",
+    "priority": "P3",
+    "scope": "Typed entity/relationship/evidence graph updates, Python transactional validation/rollback and replayable provenance; gold update accuracy, rollback/replay tests and same-condition baseline.",
+    "next": "Wait for advanced-wave closeout, then implement simulated graph store using verified34/47 patterns; audit proposed shared side-effect helper if210 has landed.",
+    "hard_dependencies": [],
+    "wave_dependencies": [
+      78
+    ],
+    "relations": [],
+    "decision": "Native listed prerequisites closed except59 for60. Closed state alone is not acceptance/review verification; all recipe live evidence remains subject to #80 owner decisions."
+  },
+  "58": {
+    "stage": "Blocked",
+    "priority": "P3",
+    "scope": "Simulated PLC supervisory response selection with Python interlocks and separate simulated timing/actuation controller; property test no interlock violation for any model answer and explicit no-real-equipment README.",
+    "next": "Wait for advanced-wave closeout, then implement simulation-only process supervision with unconditional Python interlocks and baseline.",
+    "hard_dependencies": [],
+    "wave_dependencies": [
+      78
+    ],
+    "relations": [],
+    "decision": "Native listed prerequisites closed except59 for60. Closed state alone is not acceptance/review verification; all recipe live evidence remains subject to #80 owner decisions."
+  },
+  "59": {
+    "stage": "Blocked",
+    "priority": "P3",
+    "scope": "Partially observed game: Python enumerates permitted observations and legal actions; observation judgment followed by dependent later action request; seeded trajectory comparison and zero illegal moves.",
+    "next": "After advanced-wave closeout, prioritize this expert recipe because60 depends on it; implement only bounded offline game and legal action enforcement.",
+    "hard_dependencies": [],
+    "wave_dependencies": [
+      78
+    ],
+    "relations": [],
+    "decision": "Native listed prerequisites closed except59 for60. Closed state alone is not acceptance/review verification; all recipe live evidence remains subject to #80 owner decisions."
+  },
+  "60": {
+    "stage": "Blocked",
+    "priority": "P3",
+    "scope": "Self-contained Python Factorio-style simulator; Choice/Noul/Score select bounded goals/recovery, deterministic predefined action templates, throughput/stalls/resources against fixed-schedule seeded baseline.",
+    "next": "Wait for59 plus advanced-wave closeout, then implement bounded factory simulation without connecting to actual game, services or equipment.",
+    "hard_dependencies": [
+      59
+    ],
+    "wave_dependencies": [
+      78
+    ],
+    "relations": [],
+    "decision": "Native listed prerequisites closed except59 for60. Closed state alone is not acceptance/review verification; all recipe live evidence remains subject to #80 owner decisions."
+  },
+  "73": {
+    "stage": "Tracking",
+    "priority": "P3 release",
+    "scope": "All60 recipes and foundation work completed; Linux+Windows fresh-clone offline full audit, cross-recipe consistency, claims/provenance/link audit, correct catalog, green main, truthful release notes, explicit human tag approval.",
+    "next": "After #78/#79 and all foundation obligations, have Opus perform complete release audit and Sonnet deliver reviewed fixes/notes; stop before v1.0.0 tag/publishing.",
+    "hard_dependencies": [
+      78,
+      79
+    ],
+    "decision": "Owner-reserved tag/release gate remains; issue #73/#80 cannot be closed by agent merely on preparation.",
+    "relations": [
+      80
+    ]
+  },
+  "117": {
+    "stage": "Blocked",
+    "priority": "P1 infrastructure evidence",
+    "scope": "Align test hang guards with permitted startup duration; meaningful slow-start regression; three consecutive full-suite runs on one final head under exactly two bounded owned notebook loops, supported-version and PID cleanup evidence.",
+    "next": "Primary schedules a design compatible with current single-heavy-job/shared VM constraints after worker capability restored; do not recreate old saturation or treat green main as required load evidence.",
+    "decision": "6186881287 retains full original evidence, allows a current final implementation/main head, and preserves unresolved original-cause limitations.",
+    "runtime_extra": "Required Python3.10/3.14 load evidence and bounded two-loop procedure must be scheduled by primary; no fresh stress tests run here.",
+    "relations": [
+      109,
+      110
+    ]
+  },
+  "208": {
+    "stage": "Ready",
+    "priority": "P2",
+    "scope": "Reconcile fixed-order Choice position-statistic instruction and docs; forbid synthetic statistic presented as model evidence; also codify construction-perfect-metric disclosure with practical guard/manual limits.",
+    "next": "Locate original brief wording where possible, audit current01/02/18 and recipe27 fixed rejection metric, record evidence-backed per-recipe verdicts and remaining guard scope.",
+    "relations": [
+      218,
+      222,
+      258
+    ]
+  },
+  "209": {
+    "stage": "Ready",
+    "priority": "P2",
+    "scope": "Expose documented public fixture serialization helper, update scaffolder and all recipe private imports, record compatibility alias decision and guard practical private imports.",
+    "next": "Enumerate _dump and all private shared imports, design minimal public API preserving serialization, implement migration with scaffold/byte-exact regression.",
+    "current_evidence": [
+      "src/jev_cookbook/live.py:822",
+      "recipes/17-passage-reranking/tests/test_build_fixtures.py:11"
+    ]
+  },
+  "210": {
+    "stage": "Ready",
+    "priority": "P2 prerequisite",
+    "scope": "Provide common tested fill path for ReviewQueue/simulation callers; notebook and tests share invocation but expected IDs/order/reasons/splits are independent; docs/template and downstream simulator audit.",
+    "next": "Design interface against published simulation recipes and planned57–60, then reviewed helper change before #212's guard.",
+    "relations": [
+      212,
+      222,
+      57,
+      58,
+      59,
+      60
+    ]
+  },
+  "211": {
+    "stage": "Ready",
+    "priority": "P2",
+    "scope": "Define contextual first technical use and real Markdown link/anchor validity; enumerate per-recipe/term drift before rule finalization and retain current recipe45 accuracy finding.",
+    "next": "Audit full cohort including 03/17/20/23/45 with recipe24 reference, distinguish everyday words, then guard and bounded remediation.",
+    "relations": [
+      163,
+      295
+    ]
+  },
+  "212": {
+    "stage": "Blocked",
+    "priority": "P2 after #210 interface",
+    "scope": "Prove a notebook executes its applicable simulated side-effect path, not merely mentions/tests it; explicit applicability and unknown-shape handling; independent ordered IDs/reasons/splits/content assertions.",
+    "next": "Agree #210 interface first, inventory named/inline forms, then reproduce M15 removed invocation and fresh-execution failure under new guard.",
+    "hard_dependencies": [
+      210
+    ],
+    "decision": "6186575413 sets interface-before-invocation-guard order, without blanket block to unrelated recipes.",
+    "relations": [
+      210
+    ]
+  },
+  "214": {
+    "stage": "Ready",
+    "priority": "P2 prerequisite to wave closeout",
+    "scope": "Document primary-owned explicit wave-closeout audit, command/selection/exit/output evidence and repair loop; clarify marker/node-id trap and contract cadence. Final closeout follows recipe52.",
+    "next": "Implement settled manual procedure docs; retain baseline as historical and run exact current audit at final advanced-wave closeout after backlink remediation.",
+    "decision": "6185983902 resolves no new schedule/dispatch; historical six/seven failures are snapshots, not durable expected counts.",
+    "relations": [
+      252,
+      51,
+      52,
+      78,
+      79
+    ]
+  },
+  "216": {
+    "stage": "Ready",
+    "priority": "P2",
+    "scope": "Pin checkable doc facts without freezing wording, handle duplicated contract rules by cross-reference/equality choice, and enforce context-sensitive prose dash rule.",
+    "next": "Survey current factual claims and duplicate rules, choose shared homes, coordinate dash detector/sweep with #257, and prove fact/dash mutations.",
+    "relations": [
+      257,
+      163,
+      217
+    ]
+  },
+  "217": {
+    "stage": "Ready",
+    "priority": "P3",
+    "scope": "Make printed matrix width account for both label and count width, reconcile seven output shapes and recipe23 fragile ljust form, guard alignment even after fresh execution, keep scaffold/template consistent.",
+    "next": "Inventory current printed forms, choose explicit convergence/retain outcomes and implement corrected template plus meaningful rendered-text mutation.",
+    "relations": [
+      215,
+      163
+    ],
+    "decision": "6104902475 corrects historical claim: recipe20/23 outputs were not actually misaligned; formulas were fragile."
+  },
+  "218": {
+    "stage": "Ready",
+    "priority": "P1",
+    "scope": "Guard provenance/output consistency and mechanically verifiable labeling/numeric claims across notebook and README; explicitly preserve semantic reviewer responsibility and contract strength.",
+    "next": "Start with fixture provenance versus declared committed run mode, not ban on recorded word; measure current cohort and positive/negative mutations; separately scope semantic claim warnings and quoted-number limits.",
+    "decision": "6153077362 rejects naive recorded-vocabulary ban (all 35 historical recipes would fail) and proposes structural invariant from nested answers.*.provenance.source.",
+    "relations": [
+      208,
+      222,
+      234,
+      270,
+      255,
+      259
+    ]
+  },
+  "222": {
+    "stage": "Ready",
+    "priority": "P2 scope reconciliation",
+    "scope": "Four independently actionable gaps: truthful multi-label queue attribution; notebook/test threshold objective binding; forced-metric disclosure; conditional PR baseline line and level3 baseline policy.",
+    "next": "Map already-delivered narrower work to exact remaining criteria, especially #244 and #208; retain strong-form factoring/name failures that objective binding does not fix and avoid duplicate implementation.",
+    "relations": [
+      244,
+      208,
+      210,
+      212,
+      276,
+      282,
+      272
+    ],
+    "decision": "Later mechanism corrections say strong-form is hybrid text extraction/regex assignment/AST assertion; independent local re-derivation remains legitimate. Shared helper factoring should be allowed, not forced.",
+    "current_evidence": [
+      ".github/pull_request_template.md:19",
+      "tests/test_recipe_guard.py:472"
+    ]
+  },
+  "225": {
+    "stage": "Ready",
+    "priority": "P2",
+    "scope": "Broaden inaccessible-reference detection beyond two spellings; audit PR/brief/rule/finding/acceptance pointers while preserving real committed-path/heading references. Retain recipe34 remaining instance.",
+    "next": "Measure context-aware candidate set, reconcile prior sweeps' bounded coverage, then implement guard and separately bounded remediation without expanding closed PR scopes.",
+    "relations": [
+      250,
+      163,
+      293,
+      294
+    ],
+    "decision": "6187617434 explicitly retains recipe34 acceptance-criterion pointer outside previous six-file sweep."
+  },
+  "227": {
+    "stage": "Ready",
+    "priority": "P2",
+    "scope": "Condition reason-string proof on real claimed confidence-gated review; trace actual reason flow and committed output, reject comments/literal-only print/dead path, allow explicit justified gate-free design.",
+    "next": "Audit current cohort and implement conditional applicability plus removed-call/comment mutations; preserve recipe28's reviewed gate-free design and adjudicate unknown forms.",
+    "decision": "6186573902 is the latest controlling direction; earlier unconditional reachability proposals are superseded.",
+    "relations": [
+      282,
+      276,
+      28,
+      35
+    ],
+    "current_evidence": [
+      "tests/test_recipe_guard.py:1181"
+    ]
+  },
+  "228": {
+    "stage": "Ready",
+    "priority": "P2 diagnostic audit",
+    "scope": "Reconcile withdrawn overlap/leakage premise to bounded threshold-sensitivity and disclosure audit on validation data; preserve untouched-test rules and avoid arbitrary invariance cutoff.",
+    "next": "Primary may retitle/reconcile body preserving history, then inventory claimed sensitivity and measure actual validation outcome changes with limits before any reviewed contract proposal.",
+    "decision": "6186574415 permits bounded audit and retires overlap ceiling; finite constant intervals alone are not defects.",
+    "relations": [
+      218,
+      222
+    ]
+  },
+  "231": {
+    "stage": "Ready",
+    "priority": "P2",
+    "scope": "Make eligibility explicit in recall-at-budget usage or API, preserve correct denominator/tie semantics, and require task metrics to agree with composed policy; audit gated callers.",
+    "next": "Reproduce eligible tie/zero-eligible cases, decide compatible API and exact-selection versus tie-expectation semantics, document both metric traps and audit current callers.",
+    "relations": [
+      240,
+      32
+    ]
+  },
+  "232": {
+    "stage": "Ready",
+    "priority": "P2",
+    "scope": "Require each plotting cell to commit image/* output, including answer plots; document prints-before-plot/cell-result behavior and preserve freshness's separate role.",
+    "next": "Implement static per-cell image presence and trailing-print mutation first; audit current plotting cells, then separately consider counted freshness evidence.",
+    "decision": "6111882777 selects image/* property rather than PNG-only and static signal first.",
+    "relations": [
+      256,
+      288
+    ]
+  },
+  "233": {
+    "stage": "Ready",
+    "priority": "P2",
+    "scope": "Change copied setup claim from every number carries mode to every reported metric; update template and exact current cohort without code/output drift.",
+    "next": "Enumerate exact boilerplate then bounded markdown-only foundation sweep with source/output invariance evidence.",
+    "current_evidence": [
+      "recipes/_template/notebook.ipynb:33"
+    ]
+  },
+  "234": {
+    "stage": "Ready",
+    "priority": "P3",
+    "scope": "Trace hoisted formatted metric values into print calls; keep deliberately rejected concatenated suffix style and avoid treating fixture-composition statistics/demo answers as performance metrics.",
+    "next": "Re-measure hidden formatted lines then implement binding-aware trigger and positive/negative cases, coordinating #270.",
+    "decision": "6111938241 preserves safe concatenation rejection; 6153131868 identifies legitimate unlabelled fixture-composition negative case.",
+    "relations": [
+      270,
+      218
+    ]
+  },
+  "238": {
+    "stage": "Ready",
+    "priority": "P2",
+    "scope": "Reconcile optional ml dependency availability between notebook jobs and Tests; document and enforce chosen import boundary or install profile without masking import failures.",
+    "next": "Check current workflow extras and recipe imports, choose documented minimal boundary with appropriate guard, and validate SDK/ML job profiles."
+  },
+  "239": {
+    "stage": "Ready",
+    "priority": "P2",
+    "scope": "Give DecisionResult membership behavior consistent with name-keyed lookup, preserving access compatibility; test present/absent membership and prevent legacy KeyError(0).",
+    "next": "Prepare small shared-interface fix with downstream audit and focused regression; deliberate iteration/keys design if included.",
+    "current_evidence": [
+      "src/jev_cookbook/answers.py"
+    ]
+  },
+  "240": {
+    "stage": "Remediation",
+    "priority": "P2",
+    "scope": "Reconcile obsolete no-helper premise: top_k_query_accuracy, docs and divergence tests already exist from #185. Remaining work is recipe17 migration-or-retention decision/stale prose, recall_at_budget caveats and caller audit.",
+    "next": "Do not add duplicate helper. Audit remaining acceptance against #185/#163, then prepare bounded remaining docs/migration changes with compatibility handling for local raises versus shared NaN semantics.",
+    "relations": [
+      161,
+      163,
+      185,
+      231
+    ],
+    "decision": "Source discovery establishes partial prior implementation, not complete acceptance or qualifying review verification.",
+    "current_evidence": [
+      "src/jev_cookbook/evaluation.py:1310",
+      "tests/test_evaluation.py:710",
+      "docs/evaluation.md:235",
+      "recipes/17-passage-reranking/helpers.py:198",
+      "recipes/17-passage-reranking/notebook.ipynb:644"
+    ]
+  },
+  "243": {
+    "stage": "Ready",
+    "priority": "P1 safety tooling (repository P2)",
+    "scope": "Allow genuine Python identifier keyword assignments containing STAGE1/SHA256 while preserving detection of real high-entropy literals; include all probes and corpus rescan.",
+    "next": "Implement narrowly justified scanner parsing/exemption after reproducing probes; explicitly prove planted literal secret still fails."
+  },
+  "248": {
+    "stage": "Ready",
+    "priority": "P1 infrastructure efficiency (repository P2)",
+    "scope": "Use correct current merge-ref base for notebook discovery so intervening recipe or src changes do not spuriously widen matrix; retain genuine change execution and reproducible merge-tree tests.",
+    "next": "Reproduce stale-base merge-ref selection including intervening src change, then prepare targeted workflow/tool change with retained fail-closed fallbacks.",
+    "relations": [
+      287,
+      284
+    ]
+  },
+  "250": {
+    "stage": "Ready",
+    "priority": "P2",
+    "scope": "Find reader-facing references to hyphenated cell IDs in markdown/README, rewrite to visible heading/output descriptions, add positive/negative guard and clarify contract.",
+    "next": "Recount under settled hyphenated-ID criterion on current main; preserve test/code ID lookups and ordinary words such as state.",
+    "decision": "6156946180 settles distinguishable/hyphenated ID detection; historical9 across5 is not current inventory.",
+    "relations": [
+      225,
+      163
+    ]
+  },
+  "252": {
+    "stage": "Ready",
+    "priority": "P2",
+    "scope": "Align inbound audit to visible Next steps section or explicitly reconcile rule; current proposal prefers heading-based section extraction with mid-notebook negative mutation.",
+    "next": "Audit current cohort under section-specific rule, record delta and align docstring/contract before implementing; keep #214 cadence distinct.",
+    "relations": [
+      214
+    ],
+    "current_evidence": [
+      "tests/test_recipe_guard.py:1068"
+    ]
+  },
+  "255": {
+    "stage": "Ready",
+    "priority": "P3",
+    "scope": "Decide number-word lint value versus explicit review limitation; quantity claims require property tests regardless of spelling. If lint chosen, measure false positives and original recipe40 mutation.",
+    "next": "Record a reasoned lint/no-lint choice and put the limitation beside numeral-sweep guidance; do not infer semantic quantity truth from word matching.",
+    "relations": [
+      218,
+      259
+    ]
+  },
+  "256": {
+    "stage": "Ready",
+    "priority": "P2",
+    "scope": "Require at least one committed figure in published recipes, or a named reviewed exception; prove figure-removal failure and describe relation to otherwise vacuous plotting checks.",
+    "next": "Decide hard-fail versus named exemption, inventory current figures and add precise guard with mutation, coordinating per-cell guard #232.",
+    "relations": [
+      232,
+      249
+    ]
+  },
+  "257": {
+    "stage": "Ready",
+    "priority": "P3",
+    "scope": "Retain em dash for rendered prose and ASCII double hyphen for code; perform context-aware corpus count then bounded repair, preserving code/fixtures/outputs/structure.",
+    "next": "Use settled context exclusions, record per-file/cell candidates and adjudicate ambiguous cases before sweep; coordinate shared dash guard with #216.",
+    "decision": "6188692458 rejects relaxing/grandfathering the rule; historical raw counts are candidate inventory only.",
+    "relations": [
+      216,
+      163
+    ]
+  },
+  "258": {
+    "stage": "Ready",
+    "priority": "P2",
+    "scope": "Define reporting for deterministic branches dominating aggregate metrics, including decision-level contribution and structural baselines; document mechanical limits and recipe41 example.",
+    "next": "Record concrete reporting convention in builder/reviewer guidance and test any adopted enforceable part by mutation.",
+    "relations": [
+      208,
+      218,
+      41
+    ]
+  },
+  "259": {
+    "stage": "Ready",
+    "priority": "P2",
+    "scope": "Make counterfactual Next steps exercises consequential and their quoted outcomes verifiable; decide whether to print, test-pin or omit exact outcome numbers; audit all exercises.",
+    "next": "Resolve convention using ordinary engineering judgment, document relation to #245, and measure wrong-direction/inert exercise cases before guarded implementation.",
+    "relations": [
+      245,
+      255,
+      218
+    ]
+  },
+  "261": {
+    "stage": "Ready",
+    "priority": "P2",
+    "scope": "Support separate row/column vocabularies and axis titles in confusion plots, preserving default callers; explicitly decide data-type changes and assert rendered axis text.",
+    "next": "Choose minimally compatible plotter API, test distinct vocabularies, and rerender current published callers; coordinate overlapping style work.",
+    "relations": [
+      265,
+      267,
+      288
+    ],
+    "current_evidence": [
+      "src/jev_cookbook/style.py:586"
+    ]
+  },
+  "264": {
+    "stage": "Ready",
+    "priority": "P3",
+    "scope": "Make optional live-extra coverage explicit in plain pytest results; decide module-level importorskip behavior and report both install profiles with measured current totals.",
+    "next": "Implement honest collection/summary reporting and docs, then primary runs supported suites with/without optional SDK dependencies under bounded resource controls."
+  },
+  "265": {
+    "stage": "Ready",
+    "priority": "P3",
+    "scope": "Prevent 11-character-prefix label collisions while preserving existing rendered callers; record truncation presentation decision and prove distinct rendered ticks.",
+    "next": "Recount current call sites, implement collision-safe labeling and behavioral/rendered tests; coordinate #288's stronger label-identity proposal.",
+    "relations": [
+      278,
+      261,
+      288
+    ],
+    "decision": "6195522671 identifies closed #278 as duplicate and carries its recipe47 evidence here.",
+    "current_evidence": [
+      "src/jev_cookbook/style.py:623"
+    ]
+  },
+  "267": {
+    "stage": "Ready",
+    "priority": "P2 correctness sequencing (repository P3)",
+    "scope": "Add explicit points-only plotting while preserving existing default order/connected behavior and legacy output; audit discrete-policy callers 41/44 and demonstrate rendered coordinates without connecting line.",
+    "next": "Implement connect=False or equally clear mode, audit current callers and use reviewed migrations only where needed.",
+    "decision": "6186573312 resolves against default sorting; historical count30 is not current.",
+    "relations": [
+      261,
+      265,
+      288,
+      44
+    ],
+    "current_evidence": [
+      "src/jev_cookbook/style.py:776"
+    ]
+  },
+  "270": {
+    "stage": "Ready",
+    "priority": "P2",
+    "scope": "Handle aligned/width-bearing float formats in metric guards; mutation-test both metric trigger and format trigger, including min_coverage negative controls.",
+    "next": "Inventory currently uninspected printed metric lines and implement format handling plus meaningful negative tests; do not silently widen unrelated metric semantics.",
+    "relations": [
+      234,
+      218
+    ],
+    "current_evidence": [
+      "tests/test_recipe_guard.py:661"
+    ]
+  },
+  "272": {
+    "stage": "Ready",
+    "priority": "P1 developer infrastructure (repository P2)",
+    "scope": "Fix strong-form body extraction including decorated neighboring functions and nested-decorator negative case; reassess current source and affected callers.",
+    "next": "Prepare focused foundation fix/test, preserving the audited function's nested code; report test-file-layout workarounds in recipe46/47.",
+    "relations": [
+      222,
+      276
+    ],
+    "current_evidence": [
+      "tests/test_recipe_guard.py:482"
+    ]
+  },
+  "274": {
+    "stage": "Ready",
+    "priority": "P2",
+    "scope": "Document deterministic fixture arithmetic across supported interpreters; decide migration of exposed float sum/power callers; an optional guard must use AST and distinguish integer operations and strings.",
+    "next": "Re-measure current fixture arithmetic, record migrate-or-defer decision, and implement targeted guidance/regressions without weakening byte-exact fixtures.",
+    "relations": [
+      271
+    ]
+  },
+  "282": {
+    "stage": "Blocked",
+    "priority": "P3 after #276 (conflicting repository P2/P3 labels)",
+    "scope": "Require applicable gated/selective recipes to use supported shared threshold selection; catch bare constants while legitimate gate-free cases pass. Preserve the three existing skip rules and accept wrappers.",
+    "next": "After #276 lands, settle recipe31 wrapper and recipe35 diagnostic-gate applicability and implement positive requirement with a published-recipe mutation.",
+    "hard_dependencies": [
+      276
+    ],
+    "decision": "6195522157 explicitly says blocked by #276; native dependencies are empty, so this is discussion-backed."
+  },
+  "284": {
+    "stage": "Ready",
+    "priority": "P1 triage disposition",
+    "scope": "Reconcile the unproven empty-matrix claim with select(), intentional notebook deletion and conditional aggregate semantics; close the original defect claim if current evidence confirms the existing contract.",
+    "next": "Primary verifies the named selection tests/current workflow and records reasoned disposition; any defense-in-depth follow-up must compare expected recipe identities and exclude deletion.",
+    "decision": "6186880768 expressly preserves conditional matrix behavior and permits primary to close the unproven defect claim; no unconditional nonempty-matrix rule.",
+    "relations": [
+      248
+    ]
+  },
+  "287": {
+    "stage": "Ready",
+    "priority": "P1 infrastructure diagnosis (repository P2)",
+    "scope": "Identify exact stderr text/cause for intermittent recipe37 setup failure or record unsuccessful bounded reproduction; any narrow treatment must preserve unexpected stderr failure and update observed counts.",
+    "next": "Primary schedules bounded cold-environment reproduction and collects raw job stderr; no generic warning suppression or repeated blind rerun.",
+    "relations": [
+      248,
+      117
+    ],
+    "decision": "Historical 3 pass/1 fail sample is not an estimated general failure probability; current defect/cause remains unproven."
+  },
+  "288": {
+    "stage": "Ready",
+    "priority": "P2",
+    "scope": "Add rendered-artist assertions for overlap, label identity and axis vocabulary, with failing planted cases and confident Score regression; absorb the closed #286 legend defect without golden images.",
+    "next": "Reconcile rendering invariants with legacy-output requirements on #265/#267, inventory current plotting callers, then implement independently reviewed rendering assertions and the owned #286 fix.",
+    "relations": [
+      265,
+      267,
+      261,
+      278,
+      286
+    ],
+    "decision": "#278 is closed duplicate of #265; #286 is closed not_planned and its actual defect is retained by #288. Neither closure proves a fix. #265/#267 may proceed independently.",
+    "current_evidence": [
+      "src/jev_cookbook/style.py:623",
+      "src/jev_cookbook/style.py:701"
+    ]
+  },
+  "290": {
+    "stage": "Ready",
+    "priority": "P1 safety sequencing (repository P2)",
+    "scope": "Document that fixtures/script are ignored in live mode; deliberately offline comparison lanes construct ReplayBackend directly. Keep public API unchanged and record rejection of a get_backend call-count heuristic.",
+    "next": "Use the resolved docs-only decision to prepare a narrow Sonnet foundation change before the next multi-backend harness; do not claim zero spend from zero recordings.",
+    "decision": "6186880183 resolves docs/API/guard choice; current get_backend docstring still lacks the deliberately-offline constructor guidance.",
+    "relations": [
+      55,
+      298
+    ],
+    "current_evidence": [
+      "src/jev_cookbook/backends.py:406",
+      "src/jev_cookbook/live.py:1088"
+    ]
+  }
+}

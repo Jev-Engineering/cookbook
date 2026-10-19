@@ -1,0 +1,132 @@
+{
+  "53": {
+    "url": "https://github.com/Jev-Engineering/cookbook/issues/53",
+    "title": "Recipe 53: Semantic feature discovery",
+    "issue_number": 53,
+    "body": "> Recipe **53** of 60 · Level 5 (Expert) · Evaluation & optimization · `Noul` + `Score`\n\n## Use case\n\nJudge text against externally proposed semantic features, select a feature set through a budgeted validation search, and evaluate the frozen downstream classifier on an untouched test set.\n\n## What to build\n\nThe folder `recipes/53-semantic-feature-discovery/` with `notebook.ipynb`, `README.md`, and `fixtures/`, meeting the [recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md). Start from `python tools/new_recipe.py 53` and the template in `recipes/_template/`.\n\n### Build notes\n\n- Candidate features are supplied in the fixtures. The notebook proposes none.\n- Select a feature set through a budgeted validation search and record the budget spent.\n- Freeze the set, then evaluate the downstream classifier once on an untouched test split.\n\n### Decision design\n\n- **Noul.** Write each proposition as a statement that is true or false. One independent question per label or concern, sent together in one request. Noul has no confidence field, so each threshold is chosen from examples and evaluated.\n- **Score.** Describe every rubric level in words, in order. Show the `score` and the distribution over levels. Mapping, weighting, and arithmetic on scores happen in Python.\n- **Composition.** Independent questions share one request. A question that depends on an earlier answer goes in a later request, and the notebook makes that boundary visible.\n\n### Level 5 scope\n\nControlled optimization studies or closed-loop simulations requiring budgets, baselines, and held-out or trajectory evaluation.\n\n## Acceptance criteria\n\n- [ ] `recipes/53-semantic-feature-discovery/notebook.ipynb` runs top to bottom offline, with no key and no network, and its outputs are committed\n- [ ] Live mode is opt-in (`JEV_COOKBOOK_LIVE=1` with `TYPESAFE_API_KEY`) and uses the same question definitions as the offline run\n- [ ] Fixtures are synthetic, include the hard cases named in the build notes, carry gold labels, and pass the fixture validator\n- [ ] Every response fixture records its provenance, and the notebook states which mode it ran in\n- [ ] Evaluation: Frozen test accuracy against the recipe 35 feature set and baseline, with the budget ledger.\n- [ ] Budgets, seeds, and frozen configurations are recorded in the notebook output\n- [ ] A baseline is run under the same conditions, and any held-out split is used exactly once after choices are frozen\n- [ ] Results are reproducible from the committed seeds and fixtures\n- [ ] No statement about Jev's quality, latency, or cost appears without recorded live inference; in a synthetic run, metrics are labelled as pipeline checks\n- [ ] `recipes/53-semantic-feature-discovery/README.md` says what the recipe teaches, how to run it, and what was and was not measured live\n- [ ] The pull request changes only `recipes/53-semantic-feature-discovery/` and CI is green\n\n## Dependencies\n\n- Blocked by #69 (CI executes every notebook offline and validates fixtures)\n- Builds on #35 (Semantic feature extraction). Merge those first and reuse their patterns; do not copy their fixtures.\n- Tracked in #79\n\n## Sources\n\nRead these before writing the questions.\n\n- S02 · [TypeSafe AI: Primitives (Questions)](https://docs.typesafe.ai/primitives): Choice, Noul, Score, independent questions, and dependent follow-up calls.\n- S03 · [TypeSafe AI: Confidence](https://docs.typesafe.ai/confidence): Distribution-derived confidence and task-specific thresholds informed by observed outcomes.\n- S06 · [TypeSafe AI: Cookbooks](https://docs.typesafe.ai/cookbooks): Worked patterns for extraction, citation checking, skill selection, hierarchical classification, and feature discovery.\n\n## Out of scope\n\n- Changes to shared code, the catalog, or the root README. If the shared package is missing something, open a foundation issue and link it here.\n- Real side effects of any kind. Actions are simulated.",
+    "state": "open",
+    "user": {
+      "login": "CompleteDotTech",
+      "name": "CompleteDotTech",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/5861166?v=4",
+      "id": 5861166
+    },
+    "assignees": null,
+    "labels": [
+      {
+        "name": "type: recipe",
+        "color": "F386A1",
+        "description": "A cookbook notebook recipe"
+      },
+      {
+        "name": "level: 5 expert",
+        "color": "A42D71",
+        "description": "Optimization studies or closed-loop simulations"
+      },
+      {
+        "name": "decision: noul",
+        "color": "4B5FD6",
+        "description": "Uses a Noul question"
+      },
+      {
+        "name": "decision: score",
+        "color": "F78C6C",
+        "description": "Uses a Score question"
+      },
+      {
+        "name": "decision: combination",
+        "color": "2C272B",
+        "description": "Composes more than one decision type"
+      },
+      {
+        "name": "cat: evaluation & optimization",
+        "color": "DEDEDE",
+        "description": "Category: Evaluation & optimization"
+      },
+      {
+        "name": "priority: p3",
+        "color": "D5D0D3",
+        "description": "Last wave"
+      },
+      {
+        "name": "size: XL",
+        "color": "ABBAB9",
+        "description": "Several days; plan checkpoints"
+      },
+      {
+        "name": "status: blocked",
+        "color": "F78C6C",
+        "description": "Waiting on the issues listed under Dependencies"
+      }
+    ],
+    "milestone": 6,
+    "state_reason": null,
+    "comments": 0,
+    "created_at": "2026-10-06T20:19:03Z",
+    "updated_at": "2026-10-06T20:19:03Z",
+    "closed_at": null,
+    "display_url": "https://github.com/Jev-Engineering/cookbook/issues/53",
+    "display_title": "Recipe 53: Semantic feature discovery"
+  },
+  "56": {
+    "url": "https://github.com/Jev-Engineering/cookbook/issues/56",
+    "title": "Recipe 56: Adversarial harness evaluation",
+    "issue_number": 56,
+    "body": "> Recipe **56** of 60 · Level 5 (Expert) · Trust & security · `Noul`\n\n## Use case\n\nEvaluate Jev screening at input, retrieved-context, proposed-action, and output boundaries using adversarial replay while measuring attack success, false positives, and task completion.\n\n## What to build\n\nThe folder `recipes/56-adversarial-harness-evaluation/` with `notebook.ipynb`, `README.md`, and `fixtures/`, meeting the [recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md). Start from `python tools/new_recipe.py 56` and the template in `recipes/_template/`.\n\n### Build notes\n\n- Screening at four boundaries: input, retrieved context, proposed action, and output.\n- Replay an adversarial corpus and a benign task corpus through the harness.\n- Report attack success, false positives, and task completion together.\n\n### Decision design\n\n- **Noul.** Write each proposition as a statement that is true or false. One independent question per label or concern, sent together in one request. Noul has no confidence field, so each threshold is chosen from examples and evaluated.\n\n### Level 5 scope\n\nControlled optimization studies or closed-loop simulations requiring budgets, baselines, and held-out or trajectory evaluation.\n\n## Acceptance criteria\n\n- [ ] `recipes/56-adversarial-harness-evaluation/notebook.ipynb` runs top to bottom offline, with no key and no network, and its outputs are committed\n- [ ] Live mode is opt-in (`JEV_COOKBOOK_LIVE=1` with `TYPESAFE_API_KEY`) and uses the same question definitions as the offline run\n- [ ] Fixtures are synthetic, include the hard cases named in the build notes, carry gold labels, and pass the fixture validator\n- [ ] Every response fixture records its provenance, and the notebook states which mode it ran in\n- [ ] Evaluation: Attack success rate, false-positive rate, and task completion rate per boundary and combined.\n- [ ] Budgets, seeds, and frozen configurations are recorded in the notebook output\n- [ ] A baseline is run under the same conditions, and any held-out split is used exactly once after choices are frozen\n- [ ] Results are reproducible from the committed seeds and fixtures\n- [ ] No statement about Jev's quality, latency, or cost appears without recorded live inference; in a synthetic run, metrics are labelled as pipeline checks\n- [ ] `recipes/56-adversarial-harness-evaluation/README.md` says what the recipe teaches, how to run it, and what was and was not measured live\n- [ ] The pull request changes only `recipes/56-adversarial-harness-evaluation/` and CI is green\n\n## Dependencies\n\n- Blocked by #69 (CI executes every notebook offline and validates fixtures)\n- Builds on #26 (Prompt-injection screening), #41 (Approval scope review), #42 (Outbound disclosure screening). Merge those first and reuse their patterns; do not copy their fixtures.\n- Tracked in #79\n\n## Sources\n\nRead these before writing the questions.\n\n- S02 · [TypeSafe AI: Primitives (Questions)](https://docs.typesafe.ai/primitives): Choice, Noul, Score, independent questions, and dependent follow-up calls.\n- S03 · [TypeSafe AI: Confidence](https://docs.typesafe.ai/confidence): Distribution-derived confidence and task-specific thresholds informed by observed outcomes.\n- S04 · [TypeSafe AI: How to build with TypeSafe](https://docs.typesafe.ai/concepts/how-to-build-with-system-one): Narrow semantic judgments integrated with workflows, deterministic logic, and side effects controlled by code.\n- S07 · [TypeSafe AI: Jev 1.13 jaggedness](https://docs.typesafe.ai/model-jaggedness/jev-1.13): Version-specific limitations affecting arithmetic, context selection, adversarial content, and generation.\n\n## Out of scope\n\n- Changes to shared code, the catalog, or the root README. If the shared package is missing something, open a foundation issue and link it here.\n- Real side effects of any kind. Actions are simulated.",
+    "state": "open",
+    "user": {
+      "login": "CompleteDotTech",
+      "name": "CompleteDotTech",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/5861166?v=4",
+      "id": 5861166
+    },
+    "assignees": null,
+    "labels": [
+      {
+        "name": "type: recipe",
+        "color": "F386A1",
+        "description": "A cookbook notebook recipe"
+      },
+      {
+        "name": "level: 5 expert",
+        "color": "A42D71",
+        "description": "Optimization studies or closed-loop simulations"
+      },
+      {
+        "name": "decision: noul",
+        "color": "4B5FD6",
+        "description": "Uses a Noul question"
+      },
+      {
+        "name": "cat: trust & security",
+        "color": "DEDEDE",
+        "description": "Category: Trust & security"
+      },
+      {
+        "name": "priority: p3",
+        "color": "D5D0D3",
+        "description": "Last wave"
+      },
+      {
+        "name": "size: XL",
+        "color": "ABBAB9",
+        "description": "Several days; plan checkpoints"
+      },
+      {
+        "name": "status: blocked",
+        "color": "F78C6C",
+        "description": "Waiting on the issues listed under Dependencies"
+      }
+    ],
+    "milestone": 6,
+    "state_reason": null,
+    "comments": 0,
+    "created_at": "2026-10-06T20:19:10Z",
+    "updated_at": "2026-10-09T01:28:30Z",
+    "closed_at": null,
+    "display_url": "https://github.com/Jev-Engineering/cookbook/issues/56",
+    "display_title": "Recipe 56: Adversarial harness evaluation"
+  }
+}
