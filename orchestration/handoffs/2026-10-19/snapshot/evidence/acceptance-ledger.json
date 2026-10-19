@@ -1,0 +1,1602 @@
+{
+  "repository": "Jev-Engineering/cookbook",
+  "main_sha": "2dd687f858549ee8eeb9c98f83344814dfc7d0b6",
+  "recorded_at_utc": "2026-10-19T05:42:55.447664+00:00",
+  "scope": "Internal acceptance/ledger synthesis from evidence already read; no new GitHub research, repository changes, issue changes, paid inference, implementation/review dispatch or independent code approval.",
+  "coverage": {
+    "issues": 14,
+    "open_issues": 13,
+    "closed_but_incomplete_issues": [
+      213
+    ],
+    "issue_numbers": [
+      283,
+      276,
+      262,
+      249,
+      247,
+      245,
+      244,
+      163,
+      161,
+      113,
+      80,
+      79,
+      78,
+      213
+    ],
+    "complete_assigned_nonroadmap_issue_bodies_and_comments_read": true,
+    "roadmap": "Relevant receipts plus complete ownership-agent audit; see ownership-findings.json."
+  },
+  "limitations": [
+    "GitHub and source observations are pinned to the existing 2026-10-19 audit snapshot; reconcile them against live state on resumption.",
+    "Closed state, merged PRs, passing checks and source presence are not complete acceptance or authenticated reviewer proof.",
+    "Historical native reviewer provenance was not recreated or independently authenticated by this evidence task.",
+    "The repository model requirements and ownership reservations remain in force; internal GPT evidence synthesis is not builder/reviewer work.",
+    "No active owner or absence of one is inferred from timestamps; current native supervisor activity is unverified.",
+    "The failed #80 publication means these records are not yet GitHub-backed. No other write capability was tested here."
+  ],
+  "common_runtime_blocker": "Repository-prescribed, verifiably identified Sonnet builder/integrator and independent Opus reviewer are unavailable in this runtime. No substitution, implementation dispatch, or review dispatch was performed. This is separate from technical prerequisites.",
+  "common_ownership_blocker": "Existing primary ownership remains reserved; no broad handoff or competing dispatch is authorized by the recorded #80 decisions.",
+  "github_ledger_publication": {
+    "target": "https://github.com/Jev-Engineering/cookbook/issues/80",
+    "posted": false,
+    "http_status": 403,
+    "error": "Resource not accessible by integration",
+    "source": "main-ci-and-write-evidence.json / write_attempt",
+    "attempted_by": "parent coordinator",
+    "issue_or_pr_changes": 0,
+    "next_action": "Existing primary or a permitted repository integration must publish the concrete ledger after access is available; this task does not retry or mutate."
+  },
+  "current_main_evidence": {
+    "source": "main-ci-and-write-evidence.json",
+    "sha": "2dd687f858549ee8eeb9c98f83344814dfc7d0b6",
+    "check_count": 59,
+    "all_checks_completed_success": true,
+    "check_apps": [
+      "github-actions"
+    ],
+    "local_catalog_exit_code": 0,
+    "local_hygiene_exit_code": 0,
+    "local_hygiene_files": 569,
+    "local_fixtures_exit_code": 0,
+    "local_fixture_folders": 51,
+    "executor": "Parent coordinator, not this acceptance agent",
+    "limit": "Does not establish full issue acceptance, historic review authenticity, live fixture provenance or release completion."
+  },
+  "queue_guidance": [
+    "Preserve existing primary ownership and all current issue states in this evidence-only execution.",
+    "Primary: reconcile/reopen #213 and preserve the pre-recording gate, crediting #298 partial delivery.",
+    "Primary: apply the prepared #53/#56 amendments to discharge remaining #283 administration.",
+    "Primary: consider #262 administrative closure from existing acceptance plus the exact-main scan.",
+    "Primary: recover #249 historical reviewer identity/model provenance before certifying closure.",
+    "Through prescribed models: #276 soundness first, then broad #244 pin repairs; coordinate #245/#247/#161 shared paths.",
+    "Finish #78 children/audit and the expert wave with actual per-recipe dependencies; #80 closes only with #73 and all owner release gates."
+  ],
+  "prepared_issue_amendment": {
+    "target_issues": [
+      53,
+      56
+    ],
+    "tracking_issue": 283,
+    "status": "prepared_not_applied",
+    "markdown": "#### Multi-proposition Noul fixture coverage\n\nIf this recipe asks more than one Noul proposition together, its fixtures must satisfy all three requirements:\n\n- Every proposition has at least one gold-true row and one gold-false row in each scored split, `validation` and `test`. Threshold selection uses only the validation split; the held-out test split remains untouched until choices are frozen.\n- State explicitly which truth combinations the use case admits, and include at least one row for each admissible combination. For two propositions, consider both true, both false, and each true alone; document any combination excluded by the use case.\n- For every proposition, include at least one row where that proposition's tag changes the composed Python outcome. Identify the row and demonstrate the effect with the other proposition tags and frozen policy settings held fixed.\n\nThese are separate obligations: positive/negative coverage alone does not establish truth-combination coverage or that each proposition can affect the composed outcome.\n\nAdd to the acceptance checklist:\n\n- [ ] The fixture set demonstrates the three multi-proposition Noul requirements above, with per-proposition scored-split coverage, admissible truth combinations, and an outcome-determining row for every proposition.",
+    "apply_by": "Existing primary only under retained ownership",
+    "procedure": "Re-read current bodies, append preserving concurrent edits, read back both results, and record URLs/update timestamps on #283."
+  },
+  "issues": [
+    {
+      "issue": 283,
+      "title": "Foundation: multi-proposition Noul issues do not require positives, truth combinations, or an outcome-determining row — the requirement only reaches builders via briefs",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/283",
+      "state": "open",
+      "stage": "In progress",
+      "execution_status": "Administrative amendments absent; prepared for existing primary; coordination publication blocked",
+      "priority": "P1 administrative prerequisite for #53/#56",
+      "labels": [
+        "type: foundation",
+        "priority: p1",
+        "size: S",
+        "status: in progress"
+      ],
+      "milestone": null,
+      "acceptance": "Of the three written criteria, #292 delivered author/builder guidance and the permitted reasoned enforcement decision. The #53/#56 issue-body amendments remain absent. The decision criterion does not require every potential guard to be implemented.",
+      "acceptance_disposition": "partial_delivery_missing_issue_amendments",
+      "dependencies": [
+        {
+          "issue": 53,
+          "state": "open",
+          "kind": "required amendment target, not implementation prerequisite"
+        },
+        {
+          "issue": 56,
+          "state": "open",
+          "kind": "required amendment target, not implementation prerequisite"
+        }
+      ],
+      "owner": "Existing primary retains status, dispatch and serial-merge ownership; historical identifier primary w2:p1. Latest retained-ownership receipt is #80 comment 6187157003. Current native runtime activity is unverified. This execution assumes no ownership and claims no branch/worktree.",
+      "branch": null,
+      "worktree": null,
+      "head_sha": null,
+      "branch_evidence_limit": "No active branch/worktree or head is claimed here. Historical delivered branch names/heads are in related_prs; retained unmerged branches remain separately inventoried in branch-ledger.json.",
+      "related_prs": [
+        {
+          "number": 292,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/292",
+          "state": "closed",
+          "merged_at": "2026-10-15T06:35:12Z",
+          "head_branch": "foundation/noul-fixture-requirements",
+          "head_sha": "8c703df33b3f75c4927310110841c7bda913deca",
+          "base_sha": "b4e39ce5beb45d1efcd5737bc02bedca90de6fc7",
+          "merge_commit_sha": "bad1bf2997a7e8f0811d5b9719dd9fb6643efbdb",
+          "relation": "Partial delivery of criteria 2 and 3; criterion 1 explicitly not met in final recorded review.",
+          "merge_evidence": {
+            "source": "acceptance-merge-checks.json",
+            "signature": {
+              "verified": true,
+              "reason": "valid"
+            },
+            "check_count": 58,
+            "all_checks_completed_success": true,
+            "checks_present": true,
+            "status_context_count": 0,
+            "ancestry": {
+              "status": "ahead",
+              "behind": 0,
+              "ahead": 8
+            },
+            "evidence_limit": "Checks/signature/ancestry do not authenticate missing native review provenance or prove full issue acceptance."
+          }
+        }
+      ],
+      "tests": "Fresh cached body reads show #53/#56 still lack the required addition and each had zero comments. Exact #292 merge has 58 successful checks, valid signature and current-main ancestry. No tests rerun by this task.",
+      "review": "Recorded #292 review 6186059618 names agent-af51c38265e608995, claude-opus-5[1m], head 8c703df33b3f75c4927310110841c7bda913deca, and marks criterion 1 not met / criteria 2 and 3 met. Native runtime provenance was not independently re-authenticated by this task.",
+      "merge": "PR #292 is verified merged as bad1bf2997a7e8f0811d5b9719dd9fb6643efbdb; this does not complete the absent administrative criterion. No merge or GitHub mutation in this execution.",
+      "nonruntime_blockers": [
+        "Existing primary ownership remains reserved; no broad handoff or competing dispatch is authorized by the recorded #80 decisions.",
+        "Coordinator attempted to publish the #80 execution ledger and received HTTP 403: Resource not accessible by integration. Nothing was posted. This is local evidence, not a GitHub-backed progress receipt; other issue mutations were not attempted by this task.",
+        "The current #53/#56 bodies have not received the required three-part fixture acceptance addition."
+      ],
+      "runtime_blockers": [],
+      "next_action": "Existing primary re-reads #53/#56, appends the exact prepared addition while preserving concurrent content, reads back both bodies, then records URLs/update timestamps and acceptance on #283 before considering closure. No builder dispatch is needed merely to apply these issue amendments.",
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/283#issuecomment-6186068579",
+        "https://github.com/Jev-Engineering/cookbook/issues/283#issuecomment-6186113105",
+        "https://github.com/Jev-Engineering/cookbook/pull/292#issuecomment-6186059618",
+        "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6187157003"
+      ],
+      "source_presence": [
+        ".github/ISSUE_TEMPLATE/recipe.yml",
+        "docs/recipe-template.md"
+      ],
+      "source_files": [
+        "acceptance-findings.md",
+        "acceptance-issues.json",
+        "acceptance-comments.json",
+        "acceptance-pr-evidence.json",
+        "acceptance-merge-checks.json"
+      ],
+      "comments_inspected": 2,
+      "new_implementation_dispatch": false,
+      "new_review_dispatch": false,
+      "github_mutations_by_this_task": 0,
+      "administrative_action": "Exact append-only Markdown and acceptance checkbox prepared in acceptance-findings.md; not applied."
+    },
+    {
+      "issue": 276,
+      "title": "Foundation: the objective-pin check enumerates polarity instead of deriving it, so a spelling asserted ABSENT is credited as present",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/276",
+      "state": "open",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked by reserved ownership and unavailable required models",
+      "priority": "P1 guard-soundness sequencing before #244 and #282 (repository P2)",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "size: M",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Reject falsely absent objective-pin evidence in nested comparisons, count-zero and IfExp forms; accept genuine all/any evidence and open(...).read()/read_bytes() source reads; preserve supported valid shapes and add committed mutation/regression coverage.",
+      "acceptance_disposition": "remaining_implementation",
+      "dependencies": [],
+      "owner": "Existing primary retains status, dispatch and serial-merge ownership; historical identifier primary w2:p1. Latest retained-ownership receipt is #80 comment 6187157003. Current native runtime activity is unverified. This execution assumes no ownership and claims no branch/worktree.",
+      "branch": null,
+      "worktree": null,
+      "head_sha": null,
+      "branch_evidence_limit": "No active branch/worktree or head is claimed here. Historical delivered branch names/heads are in related_prs; retained unmerged branches remain separately inventoried in branch-ledger.json.",
+      "related_prs": [
+        {
+          "number": 273,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/273",
+          "state": "closed",
+          "merged_at": "2026-10-14T16:55:25Z",
+          "head_branch": "foundation/objective-pin-guard",
+          "head_sha": "f099be14f232b3092f596624724502262d7cdc66",
+          "base_sha": "28100f907598653c2e3a413f8d54315579df7d02",
+          "merge_commit_sha": "d99d369a84f2955656449d0024b549077162c65d",
+          "relation": "Earlier objective-pin guard whose soundness/recognition gaps are the subject of this separate issue."
+        }
+      ],
+      "tests": "No notebook, regression test or code-acceptance test executed by this acceptance-inventory task; static/source observations and retrieved CI receipts are identified separately.",
+      "review": "No code review or approval by this task. Future changes require the repository-prescribed genuine independent Opus review of the exact final full head SHA.",
+      "merge": "Historical deliveries, if any, are listed under related_prs. No merge, issue closure or GitHub mutation by this execution.",
+      "nonruntime_blockers": [
+        "Existing primary ownership remains reserved; no broad handoff or competing dispatch is authorized by the recorded #80 decisions.",
+        "Coordinator attempted to publish the #80 execution ledger and received HTTP 403: Resource not accessible by integration. Nothing was posted. This is local evidence, not a GitHub-backed progress receipt; other issue mutations were not attempted by this task."
+      ],
+      "runtime_blockers": [
+        "Repository-prescribed, verifiably identified Sonnet builder/integrator and independent Opus reviewer are unavailable in this runtime. No substitution, implementation dispatch, or review dispatch was performed. This is separate from technical prerequisites."
+      ],
+      "next_action": "Existing primary assigns a focused foundation guard-soundness repair through the prescribed builder/reviewer pipeline; verify the planted false-positive and valid-source-read cases before using the guard to certify broad #244 cleanup.",
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/276#issuecomment-6173684525",
+        "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6187157003"
+      ],
+      "source_presence": [
+        "tests/test_recipe_guard.py"
+      ],
+      "source_files": [
+        "acceptance-findings.md",
+        "acceptance-issues.json",
+        "acceptance-comments.json",
+        "acceptance-pr-evidence.json",
+        "acceptance-merge-checks.json"
+      ],
+      "comments_inspected": 1,
+      "new_implementation_dispatch": false,
+      "new_review_dispatch": false,
+      "github_mutations_by_this_task": 0
+    },
+    {
+      "issue": 262,
+      "title": "Foundation: recipe files refer readers to \"the build note\" on a GitHub issue — 8 published recipes, and section 6 bans only #NNN and \"the issue\"",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/262",
+      "state": "open",
+      "stage": "Ready",
+      "execution_status": "Likely administrative closure; acceptance evidence fulfilled; existing-primary disposition and coordination publication pending",
+      "priority": "P2 administrative closure; avoid duplicate implementation",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Merged #293/#294 remove singular/plural build-note references; the reason-based reader-visible-source rule is already delivered in CONTRIBUTING section 6. Existing criterion table is fulfilled. The optional guard criterion was not triggered because no guard changed; broader private-pointer work remains separately owned by #225/#163.",
+      "acceptance_disposition": "fulfilled_pending_primary_administrative_closure",
+      "dependencies": [],
+      "owner": "Existing primary retains status, dispatch and serial-merge ownership; historical identifier primary w2:p1. Latest retained-ownership receipt is #80 comment 6187157003. Current native runtime activity is unverified. This execution assumes no ownership and claims no branch/worktree.",
+      "branch": null,
+      "worktree": null,
+      "head_sha": null,
+      "branch_evidence_limit": "No active branch/worktree or head is claimed here. Historical delivered branch names/heads are in related_prs; retained unmerged branches remain separately inventoried in branch-ledger.json.",
+      "related_prs": [
+        {
+          "number": 186,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/186",
+          "state": "closed",
+          "merged_at": "2026-10-09T14:31:39Z",
+          "head_branch": "foundation/contract-template-followups-164",
+          "head_sha": "f3c72c359e5e1363b00e42a00d5838fb1a26e779",
+          "base_sha": "9c4f51a139597bfb8486f7cc0bb08cd7473f63c8",
+          "merge_commit_sha": "f2b9ca04f798a74b24e02a8a2cd6d6c05077a87f",
+          "relation": "Earlier delivery of the reason-based reader-visible-source rule."
+        },
+        {
+          "number": 293,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/293",
+          "state": "closed",
+          "merged_at": "2026-10-15T08:21:34Z",
+          "head_branch": "foundation/sweep-prose-closeout",
+          "head_sha": "4a72ea69331f80ef54d86c3101c68ae27d199fdc",
+          "base_sha": "6fe0008b4aed05ac2350d9ce819803de568edf99",
+          "merge_commit_sha": "b4aa3ec7f4cf93c326aa9d72f57c7c07ea1999bd",
+          "relation": "Merged plural-reference cleanup.",
+          "merge_evidence": {
+            "source": "acceptance-merge-checks.json",
+            "signature": {
+              "verified": true,
+              "reason": "valid"
+            },
+            "check_count": 24,
+            "all_checks_completed_success": true,
+            "checks_present": true,
+            "status_context_count": 0,
+            "ancestry": {
+              "status": "ahead",
+              "behind": 0,
+              "ahead": 6
+            },
+            "evidence_limit": "Checks/signature/ancestry do not authenticate missing native review provenance or prove full issue acceptance."
+          }
+        },
+        {
+          "number": 294,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/294",
+          "state": "closed",
+          "merged_at": "2026-10-15T08:45:28Z",
+          "head_branch": "foundation/sweep-build-note-citations",
+          "head_sha": "45d70cb0fdfdece489a80f0e14af9df1f870186d",
+          "base_sha": "b4aa3ec7f4cf93c326aa9d72f57c7c07ea1999bd",
+          "merge_commit_sha": "a25f6038c9935006b004222f998b8583968c4c38",
+          "relation": "Merged remaining singular-reference cleanup.",
+          "merge_evidence": {
+            "source": "acceptance-merge-checks.json",
+            "signature": {
+              "verified": true,
+              "reason": "valid"
+            },
+            "check_count": 13,
+            "all_checks_completed_success": true,
+            "checks_present": true,
+            "status_context_count": 0,
+            "ancestry": {
+              "status": "ahead",
+              "behind": 0,
+              "ahead": 5
+            },
+            "evidence_limit": "Checks/signature/ancestry do not authenticate missing native review provenance or prove full issue acceptance."
+          }
+        }
+      ],
+      "tests": "Exact-main git ls-tree/git show scan of 307 tracked recipe .py/.md and notebook cell-source files: case-insensitive literal build note has 0 occurrences. Positive controls: b4aa3ec has 9 occurrences / 6 files / 5 recipes; 6fe0008 has 21 / 17 / 12. Exact #293/#294 merges have 24/13 successful checks and valid signatures; both are ancestors of current main.",
+      "review": "Issue acceptance receipt 6188243147 and #293/#294 final receipts record acceptance. #293 review 6187736390 names agent-aded6e9aa0c3a68cf, claude-opus-5[1m], head 4a72ea69331f80ef54d86c3101c68ae27d199fdc. #294 review 6188147823 names agent-ab31b21610741e7bb, claude-opus-5[1m], head 45d70cb0fdfdece489a80f0e14af9df1f870186d. Native runtime authentication is historical, not recreated here.",
+      "merge": "Verified merged #293 b4aa3ec7f4cf93c326aa9d72f57c7c07ea1999bd and #294 a25f6038c9935006b004222f998b8583968c4c38; issue still open. No merge or GitHub mutation in this execution.",
+      "nonruntime_blockers": [
+        "Existing primary ownership remains reserved; no broad handoff or competing dispatch is authorized by the recorded #80 decisions.",
+        "Coordinator attempted to publish the #80 execution ledger and received HTTP 403: Resource not accessible by integration. Nothing was posted. This is local evidence, not a GitHub-backed progress receipt; other issue mutations were not attempted by this task."
+      ],
+      "runtime_blockers": [],
+      "next_action": "Existing primary confirms current ownership/state and records #293/#294, acceptance comment 6188243147 and the exact-main scan, then closes #262. Preserve #225/#163; do not claim that zero build-note matches proves absence of every private pointer.",
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/262#issuecomment-6166707128",
+        "https://github.com/Jev-Engineering/cookbook/issues/262#issuecomment-6187616879",
+        "https://github.com/Jev-Engineering/cookbook/issues/262#issuecomment-6188243147",
+        "https://github.com/Jev-Engineering/cookbook/pull/293#issuecomment-6187736390",
+        "https://github.com/Jev-Engineering/cookbook/pull/294#issuecomment-6188147823",
+        "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6187157003"
+      ],
+      "source_presence": [
+        "CONTRIBUTING.md section 6",
+        "recipes/ tracked reader-visible source"
+      ],
+      "source_files": [
+        "acceptance-findings.md",
+        "acceptance-issues.json",
+        "acceptance-comments.json",
+        "acceptance-pr-evidence.json",
+        "acceptance-merge-checks.json"
+      ],
+      "comments_inspected": 3,
+      "new_implementation_dispatch": false,
+      "new_review_dispatch": false,
+      "github_mutations_by_this_task": 0,
+      "administrative_action": "Closure rationale prepared; issue state preserved."
+    },
+    {
+      "issue": 249,
+      "title": "Foundation: three recipe-guard checks skip for a scripted recipe, one of which would FAIL — and the skips are keyed on responses.json rather than on the property each check means",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/249",
+      "state": "open",
+      "stage": "Review",
+      "execution_status": "Administrative acceptance reconciliation requires historical reviewer-provenance qualification",
+      "priority": "P1 acceptance/provenance reconciliation; keep full accounting work in #213",
+      "labels": [
+        "type: foundation",
+        "priority: p1",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "The final #280 review marks all four written criteria met, including criterion 2 allowing a recorded reason for deferral. The earlier issue comment describes a possible fuller call-count fix; #213 retains that separate requirement. Closure must not rely on an unauthenticated OPUS-REVIEW marker.",
+      "acceptance_disposition": "written_criteria_recorded_met_but_reviewer_provenance_unverified",
+      "dependencies": [
+        {
+          "issue": 213,
+          "state": "closed",
+          "kind": "separate incomplete accounting obligation; not a prerequisite if the written deferral option is accepted"
+        }
+      ],
+      "owner": "Existing primary retains status, dispatch and serial-merge ownership; historical identifier primary w2:p1. Latest retained-ownership receipt is #80 comment 6187157003. Current native runtime activity is unverified. This execution assumes no ownership and claims no branch/worktree.",
+      "branch": null,
+      "worktree": null,
+      "head_sha": null,
+      "branch_evidence_limit": "No active branch/worktree or head is claimed here. Historical delivered branch names/heads are in related_prs; retained unmerged branches remain separately inventoried in branch-ledger.json.",
+      "related_prs": [
+        {
+          "number": 280,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/280",
+          "state": "closed",
+          "merged_at": "2026-10-14T19:03:58Z",
+          "head_branch": "foundation/scripted-recipe-skips",
+          "head_sha": "7409241e5063fca71ed7ba014e500582fa0bef56",
+          "base_sha": "0d1ee8bdf3781c88cd49df1f06c22ef5c9879c4d",
+          "merge_commit_sha": "5af4ab56e1411606c459a7fb1be956c871979d65",
+          "relation": "Delivered scripted-skip guard changes; recorded final acceptance table marks all four criteria met.",
+          "merge_evidence": {
+            "source": "acceptance-merge-checks.json",
+            "signature": {
+              "verified": true,
+              "reason": "valid"
+            },
+            "check_count": 56,
+            "all_checks_completed_success": true,
+            "checks_present": true,
+            "status_context_count": 0,
+            "ancestry": {
+              "status": "ahead",
+              "behind": 0,
+              "ahead": 11
+            },
+            "evidence_limit": "Checks/signature/ancestry do not authenticate missing native review provenance or prove full issue acceptance."
+          }
+        }
+      ],
+      "tests": "Retrieved exact #280 merge has 56 completed/success checks, valid merge signature and current-main ancestry. Historical scripted-skip measurements are in the issue/final review; no regression tests independently executed here.",
+      "review": "Review 6176064287 ends in the exact-head OPUS-REVIEW approval for 7409241e5063fca71ed7ba014e500582fa0bef56, but the retrieved comment contains no explicit reviewer agent ID or resolved-model declaration. Actual native identity/model provenance remains unverified; do not manufacture it or label this task an independent approval.",
+      "merge": "PR #280 verified merged as 5af4ab56e1411606c459a7fb1be956c871979d65. This historical merge does not authenticate the missing review provenance or complete #213. No merge or mutation by this execution.",
+      "nonruntime_blockers": [
+        "Existing primary ownership remains reserved; no broad handoff or competing dispatch is authorized by the recorded #80 decisions.",
+        "Coordinator attempted to publish the #80 execution ledger and received HTTP 403: Resource not accessible by integration. Nothing was posted. This is local evidence, not a GitHub-backed progress receipt; other issue mutations were not attempted by this task.",
+        "Historical #280 final review lacks reviewer agent/resolved-model evidence in the retrieved comment; the original primary must recover/authenticate its native receipt."
+      ],
+      "runtime_blockers": [],
+      "next_action": "Existing primary retrieves authentic historic reviewer identity/model evidence for #280 and reconciles the four written acceptance criteria, including the permitted deferral, before deciding closure. Retain #213 for the real accounting audit; do not open a duplicate PR to repeat the delivered skip fix.",
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/249#issuecomment-6175619794",
+        "https://github.com/Jev-Engineering/cookbook/pull/280#issuecomment-6176064287",
+        "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6187157003"
+      ],
+      "source_presence": [
+        "tests/test_recipe_guard.py"
+      ],
+      "source_files": [
+        "acceptance-findings.md",
+        "acceptance-issues.json",
+        "acceptance-comments.json",
+        "acceptance-pr-evidence.json",
+        "acceptance-merge-checks.json"
+      ],
+      "comments_inspected": 1,
+      "new_implementation_dispatch": false,
+      "new_review_dispatch": false,
+      "github_mutations_by_this_task": 0,
+      "administrative_action": "Acceptance reconciliation prepared; closure remains qualified by historical review provenance."
+    },
+    {
+      "issue": 247,
+      "title": "Foundation: a Noul confidence gate at or below |2t-1| can never block an accept, and docs/evaluation.md never names the case",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/247",
+      "state": "open",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked by reserved ownership and unavailable required models",
+      "priority": "P1 correctness/documentation; serialize shared evaluation paths",
+      "labels": [
+        "type: foundation",
+        "priority: p1",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Follow the final correction: threshold t and gate g alone do not determine gate inertness; the Python composition determines the effect. Document the universal two-sided confidence band and measure actual per-recipe with/without-gate outcomes by side. Preserve counterfactual decision/audit requirements.",
+      "acceptance_disposition": "remaining_implementation_with_superseding_comment",
+      "dependencies": [],
+      "owner": "Existing primary retains status, dispatch and serial-merge ownership; historical identifier primary w2:p1. Latest retained-ownership receipt is #80 comment 6187157003. Current native runtime activity is unverified. This execution assumes no ownership and claims no branch/worktree.",
+      "branch": null,
+      "worktree": null,
+      "head_sha": null,
+      "branch_evidence_limit": "No active branch/worktree or head is claimed here. Historical delivered branch names/heads are in related_prs; retained unmerged branches remain separately inventoried in branch-ledger.json.",
+      "related_prs": [],
+      "tests": "No notebook, regression test or code-acceptance test executed by this acceptance-inventory task; static/source observations and retrieved CI receipts are identified separately.",
+      "review": "No code review or approval by this task. Future changes require the repository-prescribed genuine independent Opus review of the exact final full head SHA.",
+      "merge": "Historical deliveries, if any, are listed under related_prs. No merge, issue closure or GitHub mutation by this execution.",
+      "nonruntime_blockers": [
+        "Existing primary ownership remains reserved; no broad handoff or competing dispatch is authorized by the recorded #80 decisions.",
+        "Coordinator attempted to publish the #80 execution ledger and received HTTP 403: Resource not accessible by integration. Nothing was posted. This is local evidence, not a GitHub-backed progress receipt; other issue mutations were not attempted by this task.",
+        "Implementation brief must incorporate comment 6163789822, which supersedes the opening simple-inequality claim; do not implement a blanket gate <= |2t-1| failure."
+      ],
+      "runtime_blockers": [
+        "Repository-prescribed, verifiably identified Sonnet builder/integrator and independent Opus reviewer are unavailable in this runtime. No substitution, implementation dispatch, or review dispatch was performed. This is separate from technical prerequisites."
+      ],
+      "next_action": "Existing primary records the latest composition-dependent interpretation in the brief/body, coordinates overlapping #245/#161 paths, then assigns the documented band and actual-composition measurements to the prescribed builder/reviewer pipeline.",
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/247#issuecomment-6155786227",
+        "https://github.com/Jev-Engineering/cookbook/issues/247#issuecomment-6163090106",
+        "https://github.com/Jev-Engineering/cookbook/issues/247#issuecomment-6163789822",
+        "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6187157003"
+      ],
+      "source_presence": [
+        "docs/evaluation.md",
+        "src/jev_cookbook/evaluation.py"
+      ],
+      "source_files": [
+        "acceptance-findings.md",
+        "acceptance-issues.json",
+        "acceptance-comments.json",
+        "acceptance-pr-evidence.json",
+        "acceptance-merge-checks.json"
+      ],
+      "comments_inspected": 3,
+      "new_implementation_dispatch": false,
+      "new_review_dispatch": false,
+      "github_mutations_by_this_task": 0
+    },
+    {
+      "issue": 245,
+      "title": "Foundation: docs/evaluation.md does not document how min_coverage moves the frozen threshold (direction is inverse, and flat over a wide range)",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/245",
+      "state": "open",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked by reserved ownership and unavailable required models",
+      "priority": "P1 evaluation documentation/regression; serialize shared paths",
+      "labels": [
+        "type: foundation",
+        "priority: p1",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Document how min_coverage moves the frozen threshold, including inverse/nonincreasing direction and piecewise-constant/flat ranges, in the relevant docstring and reader guidance; add wide-flat-region regression evidence and verify the proposed exercise really changes its promised feature.",
+      "acceptance_disposition": "remaining_implementation",
+      "dependencies": [],
+      "owner": "Existing primary retains status, dispatch and serial-merge ownership; historical identifier primary w2:p1. Latest retained-ownership receipt is #80 comment 6187157003. Current native runtime activity is unverified. This execution assumes no ownership and claims no branch/worktree.",
+      "branch": null,
+      "worktree": null,
+      "head_sha": null,
+      "branch_evidence_limit": "No active branch/worktree or head is claimed here. Historical delivered branch names/heads are in related_prs; retained unmerged branches remain separately inventoried in branch-ledger.json.",
+      "related_prs": [],
+      "tests": "Static current-main read confirms docs/evaluation.md lacks the requested min_coverage direction/flat-region treatment and the parameter docstring still only states Minimum answered fraction, in (0, 1]. No tests executed here; the delivered recipe-40 regression is an existing reference.",
+      "review": "No code review or approval by this task. Future changes require the repository-prescribed genuine independent Opus review of the exact final full head SHA.",
+      "merge": "Historical deliveries, if any, are listed under related_prs. No merge, issue closure or GitHub mutation by this execution.",
+      "nonruntime_blockers": [
+        "Existing primary ownership remains reserved; no broad handoff or competing dispatch is authorized by the recorded #80 decisions.",
+        "Coordinator attempted to publish the #80 execution ledger and received HTTP 403: Resource not accessible by integration. Nothing was posted. This is local evidence, not a GitHub-backed progress receipt; other issue mutations were not attempted by this task."
+      ],
+      "runtime_blockers": [
+        "Repository-prescribed, verifiably identified Sonnet builder/integrator and independent Opus reviewer are unavailable in this runtime. No substitution, implementation dispatch, or review dispatch was performed. This is separate from technical prerequisites."
+      ],
+      "next_action": "Existing primary coordinates #247/#161 shared paths and assigns a focused documentation/docstring/regression change through the prescribed builder/reviewer pipeline. Reuse the delivered recipe-40 example instead of repeating its fix.",
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/245#issuecomment-6158276279",
+        "https://github.com/Jev-Engineering/cookbook/issues/245#issuecomment-6162281876",
+        "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6187157003"
+      ],
+      "source_presence": [
+        "docs/evaluation.md",
+        "src/jev_cookbook/evaluation.py",
+        "tests/test_evaluation*.py"
+      ],
+      "source_files": [
+        "acceptance-findings.md",
+        "acceptance-issues.json",
+        "acceptance-comments.json",
+        "acceptance-pr-evidence.json",
+        "acceptance-merge-checks.json"
+      ],
+      "comments_inspected": 2,
+      "new_implementation_dispatch": false,
+      "new_review_dispatch": false,
+      "github_mutations_by_this_task": 0
+    },
+    {
+      "issue": 244,
+      "title": "Foundation: nothing pins a notebook's threshold OBJECTIVE — a keyword swap ships a byte-identical notebook with a false printed objective line, all checks green",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/244",
+      "state": "open",
+      "stage": "In progress",
+      "execution_status": "Guard/template delivered; 31 recipe repairs remain; implementation/review blocked in this runtime",
+      "priority": "P1 sweep after #276 guard-soundness repair",
+      "labels": [
+        "type: foundation",
+        "priority: p1",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "The #273 guard/template delivery and recorded decision that the static guard subsumes the keyword audit are complete. Remaining acceptance is to repair real-source objective pins in all owned recipes and remove only their fixed strict-xfail entries. Current #244 entries: 01-27, 29, 30, 33, 35.",
+      "acceptance_disposition": "partial_delivery_31_recipe_repairs_remain",
+      "dependencies": [
+        {
+          "issue": 276,
+          "state": "open",
+          "kind": "recommended soundness sequencing before broad guard-based certification; not asserted as a native hard dependency"
+        }
+      ],
+      "owner": "Existing primary retains status, dispatch and serial-merge ownership; historical identifier primary w2:p1. Latest retained-ownership receipt is #80 comment 6187157003. Current native runtime activity is unverified. This execution assumes no ownership and claims no branch/worktree.",
+      "branch": null,
+      "worktree": null,
+      "head_sha": null,
+      "branch_evidence_limit": "No active branch/worktree or head is claimed here. Historical delivered branch names/heads are in related_prs; retained unmerged branches remain separately inventoried in branch-ledger.json.",
+      "related_prs": [
+        {
+          "number": 273,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/273",
+          "state": "closed",
+          "merged_at": "2026-10-14T16:55:25Z",
+          "head_branch": "foundation/objective-pin-guard",
+          "head_sha": "f099be14f232b3092f596624724502262d7cdc66",
+          "base_sha": "28100f907598653c2e3a413f8d54315579df7d02",
+          "merge_commit_sha": "d99d369a84f2955656449d0024b549077162c65d",
+          "relation": "Delivered objective-pin guard/template; recorded issue decision leaves recipe repairs."
+        }
+      ],
+      "tests": "Static read of tests/recipe_guard_known_failures.py finds exactly 31 threshold_objective_pin entries, all owned by #244. Strict xfail status is not issue completion. No regression tests executed here.",
+      "review": "No code review or approval by this task. Future changes require the repository-prescribed genuine independent Opus review of the exact final full head SHA.",
+      "merge": "Historical deliveries, if any, are listed under related_prs. No merge, issue closure or GitHub mutation by this execution.",
+      "nonruntime_blockers": [
+        "Existing primary ownership remains reserved; no broad handoff or competing dispatch is authorized by the recorded #80 decisions.",
+        "Coordinator attempted to publish the #80 execution ledger and received HTTP 403: Resource not accessible by integration. Nothing was posted. This is local evidence, not a GitHub-backed progress receipt; other issue mutations were not attempted by this task.",
+        "31 real recipe objective-pin repairs remain; guard-soundness gaps in #276 should be repaired before relying on the guard for broad sweep acceptance."
+      ],
+      "runtime_blockers": [
+        "Repository-prescribed, verifiably identified Sonnet builder/integrator and independent Opus reviewer are unavailable in this runtime. No substitution, implementation dispatch, or review dispatch was performed. This is separate from technical prerequisites."
+      ],
+      "next_action": "Existing primary resolves #276 sequencing and assigns bounded authorized sweeps. Each change must pin the actual source objective, prove the intended behavior, remove only its matching allowlist entry, and obtain exact-head review. Keep #163 debt separate.",
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/244#issuecomment-6154715516",
+        "https://github.com/Jev-Engineering/cookbook/issues/244#issuecomment-6155548439",
+        "https://github.com/Jev-Engineering/cookbook/issues/244#issuecomment-6155786463",
+        "https://github.com/Jev-Engineering/cookbook/issues/244#issuecomment-6173678129",
+        "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6187157003"
+      ],
+      "source_presence": [
+        "tests/recipe_guard_known_failures.py",
+        "tests/test_recipe_guard.py",
+        "recipes/01-27,29,30,33,35"
+      ],
+      "source_files": [
+        "acceptance-findings.md",
+        "acceptance-issues.json",
+        "acceptance-comments.json",
+        "acceptance-pr-evidence.json",
+        "acceptance-merge-checks.json"
+      ],
+      "comments_inspected": 4,
+      "new_implementation_dispatch": false,
+      "new_review_dispatch": false,
+      "github_mutations_by_this_task": 0
+    },
+    {
+      "issue": 163,
+      "title": "Wave 1 recipe-side follow-ups: selection labels, evaluate_outcomes swap, guard-test assertion, dead bindings, README alignment",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/163",
+      "state": "open",
+      "stage": "In progress",
+      "execution_status": "Broad sweep partially delivered; remaining scope/ownership reconciliation and required runtime pending",
+      "priority": "P2 residual recipe consistency; preserve delivered sweeps and routed scope",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "size: M",
+        "status: blocked"
+      ],
+      "milestone": null,
+      "acceptance": "Earlier A-F sweeps and #293/#294/#295 delivered much of the widened recipe-side scope. Zero #163 allowlist entries does not fulfill all routed prose/consistency criteria. Current residues include recipes 06-11 leading install shape and recipe 02 Pull request rules heading; recipe-45 reverted margin/baseline work remained an unfiled draft.",
+      "acceptance_disposition": "partial_delivery_residual_prose_and_consistency_work",
+      "dependencies": [
+        {
+          "pr": 160,
+          "state": "closed",
+          "merged_at": "2026-10-09T05:37:55Z",
+          "kind": "original prerequisite, delivered"
+        },
+        {
+          "pr": 162,
+          "state": "closed",
+          "merged_at": "2026-10-09T05:50:33Z",
+          "kind": "original prerequisite, delivered"
+        }
+      ],
+      "owner": "Existing primary retains status, dispatch and serial-merge ownership; historical identifier primary w2:p1. Latest retained-ownership receipt is #80 comment 6187157003. Current native runtime activity is unverified. This execution assumes no ownership and claims no branch/worktree.",
+      "branch": null,
+      "worktree": null,
+      "head_sha": null,
+      "branch_evidence_limit": "No active branch/worktree or head is claimed here. Historical delivered branch names/heads are in related_prs; retained unmerged branches remain separately inventoried in branch-ledger.json.",
+      "related_prs": [
+        {
+          "number": 190,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/190",
+          "state": "closed",
+          "merged_at": "2026-10-09T17:55:22Z",
+          "head_branch": "foundation/sweep-163-a",
+          "head_sha": "9dd910966f87ea1dd84d1ab9452c61b5ce0d5c8a",
+          "base_sha": "3c5e188aee8b24745023a2a8ec0cf89477eccd58",
+          "merge_commit_sha": "c5e2d22851bf05ee95288fe58251fc40305eb708",
+          "relation": "Delivered sweep A."
+        },
+        {
+          "number": 193,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/193",
+          "state": "closed",
+          "merged_at": "2026-10-09T18:06:45Z",
+          "head_branch": "foundation/sweep-163-d",
+          "head_sha": "c67f6a9acae0ae7201e1a02773804a2fc0266c14",
+          "base_sha": "c5e2d22851bf05ee95288fe58251fc40305eb708",
+          "merge_commit_sha": "a9c93607428fd78dd9f13a2c0e1da328edab9c35",
+          "relation": "Delivered sweep D."
+        },
+        {
+          "number": 197,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/197",
+          "state": "closed",
+          "merged_at": "2026-10-09T18:31:24Z",
+          "head_branch": "foundation/sweep-163-b",
+          "head_sha": "c71c207453ed22732af26f1e602f4252384a4431",
+          "base_sha": "a9c93607428fd78dd9f13a2c0e1da328edab9c35",
+          "merge_commit_sha": "7e68cd0ffb3de60125b59ae4fb8b3b1611f7cb96",
+          "relation": "Delivered sweep B."
+        },
+        {
+          "number": 196,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/196",
+          "state": "closed",
+          "merged_at": "2026-10-09T18:48:58Z",
+          "head_branch": "foundation/sweep-163-c",
+          "head_sha": "6a93ff198c088fae055a4b2a869f1be85a97f544",
+          "base_sha": "7e68cd0ffb3de60125b59ae4fb8b3b1611f7cb96",
+          "merge_commit_sha": "c297509eeb7b917b00508eefaf77d700e49c6bf6",
+          "relation": "Delivered sweep C."
+        },
+        {
+          "number": 192,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/192",
+          "state": "closed",
+          "merged_at": "2026-10-09T19:16:56Z",
+          "head_branch": "foundation/sweep-163-e",
+          "head_sha": "9ba219588028d256b4aaadbeb15b0a9f56ddd155",
+          "base_sha": "9f228b310211a20c030469556c4394f8accd26e7",
+          "merge_commit_sha": "4299ca041a26baeab47224d80419582872dcd3fb",
+          "relation": "Delivered sweep E."
+        },
+        {
+          "number": 200,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/200",
+          "state": "closed",
+          "merged_at": "2026-10-11T02:24:14Z",
+          "head_branch": "foundation/sweep-163-f1-readmes-docs",
+          "head_sha": "c54339567b613091d770d6ad08164d260c309ccf",
+          "base_sha": "a22a27d1738083ece99b40c956fc0d7204adc915",
+          "merge_commit_sha": "1d0eff7ab1a5dbcc7bb5127b7ba06ce2a329914d",
+          "relation": "Delivered sweep F1."
+        },
+        {
+          "number": 201,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/201",
+          "state": "closed",
+          "merged_at": "2026-10-11T03:16:25Z",
+          "head_branch": "foundation/sweep-163-f2-notebooks",
+          "head_sha": "69ac432e613b239824deb8665efe4f92478e2b57",
+          "base_sha": "1d0eff7ab1a5dbcc7bb5127b7ba06ce2a329914d",
+          "merge_commit_sha": "91057237eeca84cebc8dfa5ce1db5b40692c5d77",
+          "relation": "Delivered sweep F2."
+        },
+        {
+          "number": 293,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/293",
+          "state": "closed",
+          "merged_at": "2026-10-15T08:21:34Z",
+          "head_branch": "foundation/sweep-prose-closeout",
+          "head_sha": "4a72ea69331f80ef54d86c3101c68ae27d199fdc",
+          "base_sha": "6fe0008b4aed05ac2350d9ce819803de568edf99",
+          "merge_commit_sha": "b4aa3ec7f4cf93c326aa9d72f57c7c07ea1999bd",
+          "relation": "Delivered citation/prose cleanup, excluding reverted recipe-45 baseline changes.",
+          "merge_evidence": {
+            "source": "acceptance-merge-checks.json",
+            "signature": {
+              "verified": true,
+              "reason": "valid"
+            },
+            "check_count": 24,
+            "all_checks_completed_success": true,
+            "checks_present": true,
+            "status_context_count": 0,
+            "ancestry": {
+              "status": "ahead",
+              "behind": 0,
+              "ahead": 6
+            },
+            "evidence_limit": "Checks/signature/ancestry do not authenticate missing native review provenance or prove full issue acceptance."
+          }
+        },
+        {
+          "number": 294,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/294",
+          "state": "closed",
+          "merged_at": "2026-10-15T08:45:28Z",
+          "head_branch": "foundation/sweep-build-note-citations",
+          "head_sha": "45d70cb0fdfdece489a80f0e14af9df1f870186d",
+          "base_sha": "b4aa3ec7f4cf93c326aa9d72f57c7c07ea1999bd",
+          "merge_commit_sha": "a25f6038c9935006b004222f998b8583968c4c38",
+          "relation": "Delivered remaining build-note citations.",
+          "merge_evidence": {
+            "source": "acceptance-merge-checks.json",
+            "signature": {
+              "verified": true,
+              "reason": "valid"
+            },
+            "check_count": 13,
+            "all_checks_completed_success": true,
+            "checks_present": true,
+            "status_context_count": 0,
+            "ancestry": {
+              "status": "ahead",
+              "behind": 0,
+              "ahead": 5
+            },
+            "evidence_limit": "Checks/signature/ancestry do not authenticate missing native review provenance or prove full issue acceptance."
+          }
+        },
+        {
+          "number": 295,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/295",
+          "state": "closed",
+          "merged_at": "2026-10-15T09:09:18Z",
+          "head_branch": "foundation/sweep-44-45-prose",
+          "head_sha": "e856b4f55fd994078c3df02a82a2c88723fdf108",
+          "base_sha": "a25f6038c9935006b004222f998b8583968c4c38",
+          "merge_commit_sha": "9ef24c916ed9f50c9f5537a25c6a71c57566ed58",
+          "relation": "Delivered two glossary links; not the reverted margin/baseline follow-up."
+        }
+      ],
+      "tests": "Static current-main read: recipes 06-11 still lead with .[ml] while neighboring install instructions lead with .[dev]; recipe 02 lacks Pull request rules heading; no allowlist entry is attributed to #163. No notebook was re-executed by this task.",
+      "review": "No code review or approval by this task. Future changes require the repository-prescribed genuine independent Opus review of the exact final full head SHA.",
+      "merge": "Historical deliveries, if any, are listed under related_prs. No merge, issue closure or GitHub mutation by this execution.",
+      "nonruntime_blockers": [
+        "Existing primary ownership remains reserved; no broad handoff or competing dispatch is authorized by the recorded #80 decisions.",
+        "Coordinator attempted to publish the #80 execution ledger and received HTTP 403: Resource not accessible by integration. Nothing was posted. This is local evidence, not a GitHub-backed progress receipt; other issue mutations were not attempted by this task.",
+        "Primary must make/recover one shared install-shape decision and reconcile the remaining routed list.",
+        "Recipe-45 margin/baseline follow-up was an unfiled local draft; retrieve/confirm scope before filing or implementation."
+      ],
+      "runtime_blockers": [
+        "Repository-prescribed, verifiably identified Sonnet builder/integrator and independent Opus reviewer are unavailable in this runtime. No substitution, implementation dispatch, or review dispatch was performed. This is separate from technical prerequisites."
+      ],
+      "next_action": "Existing primary reconciles the surviving routed findings against delivered sweeps, recovers the retained recipe-45 draft if still applicable, and assigns only the remaining authorized recipe changes. Re-execute changed notebook cells twice byte-identically and obtain required review; do not reintroduce reverted work from stale claims.",
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/163#issuecomment-6074362256",
+        "https://github.com/Jev-Engineering/cookbook/issues/163#issuecomment-6074618692",
+        "https://github.com/Jev-Engineering/cookbook/issues/163#issuecomment-6074757789",
+        "https://github.com/Jev-Engineering/cookbook/issues/163#issuecomment-6075100548",
+        "https://github.com/Jev-Engineering/cookbook/issues/163#issuecomment-6075198763",
+        "https://github.com/Jev-Engineering/cookbook/issues/163#issuecomment-6075313791",
+        "https://github.com/Jev-Engineering/cookbook/issues/163#issuecomment-6075504849",
+        "https://github.com/Jev-Engineering/cookbook/issues/163#issuecomment-6077503839",
+        "https://github.com/Jev-Engineering/cookbook/issues/163#issuecomment-6077939998",
+        "https://github.com/Jev-Engineering/cookbook/issues/163#issuecomment-6079170167",
+        "https://github.com/Jev-Engineering/cookbook/issues/163#issuecomment-6079443260",
+        "https://github.com/Jev-Engineering/cookbook/issues/163#issuecomment-6080094734",
+        "https://github.com/Jev-Engineering/cookbook/issues/163#issuecomment-6080224088",
+        "https://github.com/Jev-Engineering/cookbook/issues/163#issuecomment-6081206492",
+        "https://github.com/Jev-Engineering/cookbook/issues/163#issuecomment-6082395206",
+        "https://github.com/Jev-Engineering/cookbook/issues/163#issuecomment-6083377550",
+        "https://github.com/Jev-Engineering/cookbook/issues/163#issuecomment-6084195210",
+        "https://github.com/Jev-Engineering/cookbook/issues/163#issuecomment-6086131491",
+        "https://github.com/Jev-Engineering/cookbook/issues/163#issuecomment-6104460938",
+        "https://github.com/Jev-Engineering/cookbook/issues/163#issuecomment-6187052434",
+        "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6187157003"
+      ],
+      "source_presence": [
+        "recipes/06-11 READMEs",
+        "recipes/02-refund-intent-detection/README.md",
+        "tests/recipe_guard_known_failures.py"
+      ],
+      "source_files": [
+        "acceptance-findings.md",
+        "acceptance-issues.json",
+        "acceptance-comments.json",
+        "acceptance-pr-evidence.json",
+        "acceptance-merge-checks.json"
+      ],
+      "comments_inspected": 20,
+      "new_implementation_dispatch": false,
+      "new_review_dispatch": false,
+      "github_mutations_by_this_task": 0
+    },
+    {
+      "issue": 161,
+      "title": "evaluation: multi-label pooling and outcome-tally helpers; three-path docs caveats; hygiene generic username 'agent'",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/161",
+      "state": "open",
+      "stage": "In progress",
+      "execution_status": "Shared helper delivery partial; remaining implementation/review blocked in this runtime",
+      "priority": "P2 shared evaluation consolidation; serialize #245/#247 overlap",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "size: M",
+        "status: blocked"
+      ],
+      "milestone": null,
+      "acceptance": "Credit #185 pooling/tally, ranking helpers, exempt-accept curve, set/fallback helpers, hygiene agent, and ULP/three-path documentation, plus #187 answered-denominator/coverage guidance. Remaining accepted scope includes common accepted/correct representation, action error-rate helper, per-outcome breakdown, unconditional-rejection curve support and consistent ndcg/mean_ndcg score extraction.",
+      "acceptance_disposition": "partial_delivery_shared_api_followups_remain",
+      "dependencies": [
+        {
+          "pr": 160,
+          "state": "closed",
+          "merged_at": "2026-10-09T05:37:55Z",
+          "kind": "original prerequisite, delivered"
+        }
+      ],
+      "owner": "Existing primary retains status, dispatch and serial-merge ownership; historical identifier primary w2:p1. Latest retained-ownership receipt is #80 comment 6187157003. Current native runtime activity is unverified. This execution assumes no ownership and claims no branch/worktree.",
+      "branch": null,
+      "worktree": null,
+      "head_sha": null,
+      "branch_evidence_limit": "No active branch/worktree or head is claimed here. Historical delivered branch names/heads are in related_prs; retained unmerged branches remain separately inventoried in branch-ledger.json.",
+      "related_prs": [
+        {
+          "number": 185,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/185",
+          "state": "closed",
+          "merged_at": "2026-10-09T14:17:15Z",
+          "head_branch": "foundation/evaluation-helpers-161",
+          "head_sha": "a40d761903a27b80bb421457547fa155817a101d",
+          "base_sha": "89bdd1a30207a23fc0349ef0795cc13243fe7fdf",
+          "merge_commit_sha": "9c4f51a139597bfb8486f7cc0bb08cd7473f63c8",
+          "relation": "Partial helper/doc/hygiene delivery; explicit reopening preserves remaining scope."
+        },
+        {
+          "number": 187,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/187",
+          "state": "closed",
+          "merged_at": "2026-10-09T16:00:27Z",
+          "head_branch": "foundation/selective-curve-dedup-172",
+          "head_sha": "7c1627126b43093f164fbcf3d382d385c2475ccb",
+          "base_sha": "f2b9ca04f798a74b24e02a8a2cd6d6c05077a87f",
+          "merge_commit_sha": "25892577ed65cbaa54403f4e7fd5b82b2bd484ea",
+          "relation": "Delivered answered-denominator, coverage and deferral documentation."
+        }
+      ],
+      "tests": "Static current-main read: ndcg still extracts .score directly rather than uniformly applying _score_value; outcome_curve(..., exempt=None) explicitly cannot encode unconditional rejection. Existing documentation contains the later denominator guidance. No regression tests executed here.",
+      "review": "No code review or approval by this task. Future changes require the repository-prescribed genuine independent Opus review of the exact final full head SHA.",
+      "merge": "Historical deliveries, if any, are listed under related_prs. No merge, issue closure or GitHub mutation by this execution.",
+      "nonruntime_blockers": [
+        "Existing primary ownership remains reserved; no broad handoff or competing dispatch is authorized by the recorded #80 decisions.",
+        "Coordinator attempted to publish the #80 execution ledger and received HTTP 403: Resource not accessible by integration. Nothing was posted. This is local evidence, not a GitHub-backed progress receipt; other issue mutations were not attempted by this task.",
+        "Primary must preserve the consolidated comment scope while excluding the separately assigned backlog container and avoiding already delivered work."
+      ],
+      "runtime_blockers": [
+        "Repository-prescribed, verifiably identified Sonnet builder/integrator and independent Opus reviewer are unavailable in this runtime. No substitution, implementation dispatch, or review dispatch was performed. This is separate from technical prerequisites."
+      ],
+      "next_action": "Existing primary updates the precise remaining scope and coordinates shared evaluation paths, then assigns focused changes through the prescribed builder/reviewer pipeline with downstream-caller audit and regression coverage.",
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/161#issuecomment-6074980795",
+        "https://github.com/Jev-Engineering/cookbook/issues/161#issuecomment-6075167730",
+        "https://github.com/Jev-Engineering/cookbook/issues/161#issuecomment-6075633380",
+        "https://github.com/Jev-Engineering/cookbook/issues/161#issuecomment-6075747134",
+        "https://github.com/Jev-Engineering/cookbook/issues/161#issuecomment-6077145902",
+        "https://github.com/Jev-Engineering/cookbook/issues/161#issuecomment-6077534369",
+        "https://github.com/Jev-Engineering/cookbook/issues/161#issuecomment-6077629651",
+        "https://github.com/Jev-Engineering/cookbook/issues/161#issuecomment-6077717285",
+        "https://github.com/Jev-Engineering/cookbook/issues/161#issuecomment-6077963372",
+        "https://github.com/Jev-Engineering/cookbook/issues/161#issuecomment-6079444373",
+        "https://github.com/Jev-Engineering/cookbook/issues/161#issuecomment-6081638818",
+        "https://github.com/Jev-Engineering/cookbook/issues/161#issuecomment-6082257216",
+        "https://github.com/Jev-Engineering/cookbook/issues/161#issuecomment-6082744814",
+        "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6187157003"
+      ],
+      "source_presence": [
+        "src/jev_cookbook/evaluation.py",
+        "docs/evaluation.md",
+        "tests/test_evaluation*.py"
+      ],
+      "source_files": [
+        "acceptance-findings.md",
+        "acceptance-issues.json",
+        "acceptance-comments.json",
+        "acceptance-pr-evidence.json",
+        "acceptance-merge-checks.json"
+      ],
+      "comments_inspected": 13,
+      "new_implementation_dispatch": false,
+      "new_review_dispatch": false,
+      "github_mutations_by_this_task": 0
+    },
+    {
+      "issue": 113,
+      "title": "Docs: reconcile delivered prompt status in merge-readiness guide after #106",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/113",
+      "state": "open",
+      "stage": "Ready",
+      "execution_status": "Technically ready bounded docs fix; implementation/review blocked by reserved ownership and unavailable required models",
+      "priority": "P3 bounded documentation follow-up",
+      "labels": [
+        "type: foundation",
+        "priority: p3",
+        "size: S",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "After delivered #106/#112, reconcile the stale docs/merge-readiness.md subsection that says orchestration/PROMPT.md has not been amended / until it lands the texts differ. Preserve every operative gate and historical evidence caveat.",
+      "acceptance_disposition": "remaining_bounded_documentation_fix",
+      "dependencies": [
+        {
+          "issue": 106,
+          "state": "closed",
+          "kind": "prerequisite delivered by merged #112"
+        }
+      ],
+      "owner": "Existing primary retains status, dispatch and serial-merge ownership; historical identifier primary w2:p1. Latest retained-ownership receipt is #80 comment 6187157003. Current native runtime activity is unverified. This execution assumes no ownership and claims no branch/worktree.",
+      "branch": null,
+      "worktree": null,
+      "head_sha": null,
+      "branch_evidence_limit": "No active branch/worktree or head is claimed here. Historical delivered branch names/heads are in related_prs; retained unmerged branches remain separately inventoried in branch-ledger.json.",
+      "related_prs": [
+        {
+          "number": 112,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/112",
+          "state": "closed",
+          "merged_at": "2026-10-07T08:27:45Z",
+          "head_branch": "foundation/prompt-protocol-106",
+          "head_sha": "2fd09de8041a65e781731d32f317b37b860f2f15",
+          "base_sha": "81cad07ab0b3764e870450ddd1701946c9a15f87",
+          "merge_commit_sha": "4e64560ade10f809058b941347081a8e270355ca",
+          "relation": "Prerequisite prompt protocol delivery; its description explicitly routes the linked-guide follow-up to #113.",
+          "merge_evidence": {
+            "source": "acceptance-merge-checks.json",
+            "signature": {
+              "verified": true,
+              "reason": "valid"
+            },
+            "check_count": 5,
+            "all_checks_completed_success": true,
+            "checks_present": true,
+            "status_context_count": 0,
+            "ancestry": {
+              "status": "ahead",
+              "behind": 0,
+              "ahead": 100
+            },
+            "evidence_limit": "Checks/signature/ancestry do not authenticate missing native review provenance or prove full issue acceptance."
+          }
+        }
+      ],
+      "tests": "Static current-main read confirms stale subsection remains. Exact #112 merge: 5 completed/success checks, valid merge signature and current-main ancestry. No tests executed here.",
+      "review": "No code review or approval by this task. Future changes require the repository-prescribed genuine independent Opus review of the exact final full head SHA.",
+      "merge": "PR #112 verified merged as 4e64560ade10f809058b941347081a8e270355ca; that prerequisite does not implement #113. No merge or mutation by this execution.",
+      "nonruntime_blockers": [
+        "Existing primary ownership remains reserved; no broad handoff or competing dispatch is authorized by the recorded #80 decisions.",
+        "Coordinator attempted to publish the #80 execution ledger and received HTTP 403: Resource not accessible by integration. Nothing was posted. This is local evidence, not a GitHub-backed progress receipt; other issue mutations were not attempted by this task."
+      ],
+      "runtime_blockers": [
+        "Repository-prescribed, verifiably identified Sonnet builder/integrator and independent Opus reviewer are unavailable in this runtime. No substitution, implementation dispatch, or review dispatch was performed. This is separate from technical prerequisites."
+      ],
+      "next_action": "Existing primary assigns the subsection-only documentation repair to the prescribed builder; preserve policy, scope and historical caveats, obtain genuine final-head review and all required gates, then merge serially.",
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6187157003"
+      ],
+      "source_presence": [
+        "docs/merge-readiness.md stale delivered-prompt subsection"
+      ],
+      "source_files": [
+        "acceptance-findings.md",
+        "acceptance-issues.json",
+        "acceptance-comments.json",
+        "acceptance-pr-evidence.json",
+        "acceptance-merge-checks.json"
+      ],
+      "comments_inspected": 0,
+      "new_implementation_dispatch": false,
+      "new_review_dispatch": false,
+      "github_mutations_by_this_task": 0
+    },
+    {
+      "issue": 80,
+      "title": "Cookbook roadmap: 60 recipes from foundation to release",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/80",
+      "state": "open",
+      "stage": "Tracking",
+      "execution_status": "Roadmap incomplete; existing primary retained; ledger publication failed HTTP 403",
+      "priority": "P0 tracking/coordination; closure follows #73",
+      "labels": [
+        "type: epic",
+        "priority: p0"
+      ],
+      "milestone": {
+        "url": "https://api.github.com/repos/Jev-Engineering/cookbook/milestones/7",
+        "html_url": "https://github.com/Jev-Engineering/cookbook/milestone/7",
+        "labels_url": "https://api.github.com/repos/Jev-Engineering/cookbook/milestones/7/labels",
+        "id": 18365384,
+        "node_id": "MI_kwDOU-pmYs4BGDvI",
+        "number": 7,
+        "title": "Release 1.0",
+        "description": "Cross-recipe audit, documentation pass, and the first tagged release.",
+        "creator": {
+          "login": "CompleteDotTech",
+          "id": 5861166,
+          "node_id": "MDQ6VXNlcjU4NjExNjY=",
+          "avatar_url": "https://avatars.githubusercontent.com/u/5861166?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/CompleteDotTech",
+          "html_url": "https://github.com/CompleteDotTech",
+          "followers_url": "https://api.github.com/users/CompleteDotTech/followers",
+          "following_url": "https://api.github.com/users/CompleteDotTech/following{/other_user}",
+          "gists_url": "https://api.github.com/users/CompleteDotTech/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/CompleteDotTech/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/CompleteDotTech/subscriptions",
+          "organizations_url": "https://api.github.com/users/CompleteDotTech/orgs",
+          "repos_url": "https://api.github.com/users/CompleteDotTech/repos",
+          "events_url": "https://api.github.com/users/CompleteDotTech/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/CompleteDotTech/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "open_issues": 2,
+        "closed_issues": 0,
+        "state": "open",
+        "created_at": "2026-10-06T20:16:58Z",
+        "updated_at": "2026-10-06T20:20:03Z",
+        "due_on": null,
+        "closed_at": null
+      },
+      "acceptance": "Original roadmap closes only after #74-#79 and #73 satisfy their actual acceptance. #74-#77 are closed with explicit routed follow-ups preserved; #78/#79/#73 remain open. Original 60-recipe completion, recorded live evidence, cumulative budget reconciliation, final platform checks and owner-reserved release/tag requirements remain. The expanded 100-row catalog is a separate track; ranks 61-100 have issue:null.",
+      "acceptance_disposition": "tracking_dependencies_and_owner_release_gates_remain",
+      "dependencies": [
+        {
+          "issue": 74,
+          "state": "closed",
+          "kind": "explicit roadmap closure dependency"
+        },
+        {
+          "issue": 75,
+          "state": "closed",
+          "kind": "explicit roadmap closure dependency"
+        },
+        {
+          "issue": 76,
+          "state": "closed",
+          "kind": "explicit roadmap closure dependency"
+        },
+        {
+          "issue": 77,
+          "state": "closed",
+          "kind": "explicit roadmap closure dependency"
+        },
+        {
+          "issue": 78,
+          "state": "open",
+          "kind": "explicit roadmap closure dependency"
+        },
+        {
+          "issue": 79,
+          "state": "open",
+          "kind": "explicit roadmap closure dependency"
+        },
+        {
+          "issue": 73,
+          "state": "open",
+          "kind": "explicit roadmap closure dependency"
+        }
+      ],
+      "owner": "Existing primary retains status, dispatch and serial-merge ownership; historical identifier primary w2:p1. Latest retained-ownership receipt is #80 comment 6187157003. Current native runtime activity is unverified. This execution assumes no ownership and claims no branch/worktree.",
+      "branch": null,
+      "worktree": null,
+      "head_sha": null,
+      "branch_evidence_limit": "No active branch/worktree or head is claimed here. Historical delivered branch names/heads are in related_prs; retained unmerged branches remain separately inventoried in branch-ledger.json.",
+      "related_prs": [
+        {
+          "number": 298,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/298",
+          "state": "closed",
+          "merged_at": "2026-10-15T22:59:43Z",
+          "head_branch": "foundation/request-accounting-audit",
+          "head_sha": "f8878a1d3255c4764cc4fa518d1c9de4faf6e731",
+          "base_sha": "f00f56b2545fa2a44e5e8dac341d9da4e1ebc51b",
+          "merge_commit_sha": "68f7de69af42d4f561a338c8050fd65033c36d24",
+          "relation": "Additive request-accounting infrastructure; not the full #213 audit or roadmap completion.",
+          "merge_evidence": {
+            "source": "acceptance-merge-checks.json",
+            "signature": {
+              "verified": true,
+              "reason": "valid"
+            },
+            "check_count": 59,
+            "all_checks_completed_success": true,
+            "checks_present": true,
+            "status_context_count": 0,
+            "ancestry": {
+              "status": "ahead",
+              "behind": 0,
+              "ahead": 1
+            },
+            "evidence_limit": "Checks/signature/ancestry do not authenticate missing native review provenance or prove full issue acceptance."
+          }
+        }
+      ],
+      "tests": "Parent evidence at current main records 59 completed/success GitHub Actions checks, catalog exit 0, hygiene exit 0 over 569 files and fixture validation exit 0 over 51 folders. This is not proof of complete live evidence, all issue acceptance or the release audit. No notebook or regression suite executed by this task.",
+      "review": "No roadmap-wide acceptance review or historical reviewer-provenance authentication performed by this task. Existing model requirements, exact-head approval gates and disclosed historical gaps remain unchanged.",
+      "merge": "Historical deliveries, if any, are listed under related_prs. No merge, issue closure or GitHub mutation by this execution.",
+      "nonruntime_blockers": [
+        "Existing primary ownership remains reserved; no broad handoff or competing dispatch is authorized by the recorded #80 decisions.",
+        "Coordinator attempted to publish the #80 execution ledger and received HTTP 403: Resource not accessible by integration. Nothing was posted. This is local evidence, not a GitHub-backed progress receipt; other issue mutations were not attempted by this task.",
+        "#78/#79/#73 remain open and all original release acceptance must be verified before closure.",
+        "Full #213 accounting audit and cumulative $25 reconciliation remain incomplete; preserve the pre-recording gate.",
+        "Release tag or equivalent owner-reserved release action still requires the current owner approval.",
+        "Unmerged retained branches remain under existing ownership; catalog issue:null is not an authorized recipe assignment."
+      ],
+      "runtime_blockers": [
+        "Repository-prescribed, verifiably identified Sonnet builder/integrator and independent Opus reviewer are unavailable in this runtime. No substitution, implementation dispatch, or review dispatch was performed. This is separate from technical prerequisites."
+      ],
+      "next_action": "Existing primary reconciles retained branch/worktree ownership and this local inventory against live GitHub, restores a permitted way to publish the failed #80 ledger, and continues the dependency queue through required models/reviews. Preserve #74-#77 routed completion and leave #80/#73 open until their actual release criteria are met.",
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6025510672",
+        "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6070170893",
+        "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6092467630",
+        "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6187157003",
+        "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6189282972"
+      ],
+      "source_presence": [
+        "catalog/recipes.json",
+        "orchestration/PROMPT.md",
+        "docs/merge-readiness.md"
+      ],
+      "source_files": [
+        "acceptance-findings.md",
+        "acceptance-issues.json",
+        "acceptance-comments.json",
+        "acceptance-pr-evidence.json",
+        "acceptance-merge-checks.json"
+      ],
+      "comments_inspected": null,
+      "new_implementation_dispatch": false,
+      "new_review_dispatch": false,
+      "github_mutations_by_this_task": 0,
+      "comment_coverage": "Relevant decisions read by this task; ownership-findings.json independently records complete review of all 173 #80 comment bodies.",
+      "administrative_action": "Coordinator ledger comment failed HTTP 403; no GitHub comment or state change exists."
+    },
+    {
+      "issue": 79,
+      "title": "Epic: Level 5 · Expert recipes",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/79",
+      "state": "open",
+      "stage": "Tracking",
+      "execution_status": "All eight expert children remain open; primary scheduling and required runtime pending",
+      "priority": "P3 expert-wave tracking after #78, subject to explicit per-recipe early-start policy",
+      "labels": [
+        "type: epic",
+        "level: 5 expert",
+        "priority: p3"
+      ],
+      "milestone": 6,
+      "acceptance": "All eight recipes #53-#60 must merge and close; generated README must list them published, current-main CI must be green, and the real cross-level consistency pass must be completed. None of the eight child issues is complete.",
+      "acceptance_disposition": "tracking_all_eight_children_incomplete",
+      "dependencies": [
+        {
+          "issue": 78,
+          "state": "open",
+          "kind": "scheduled-after wave dependency; body permits earlier individual work when its own blockers are closed"
+        },
+        {
+          "issue": 53,
+          "state": "open",
+          "kind": "required recipe child"
+        },
+        {
+          "issue": 54,
+          "state": "open",
+          "kind": "required recipe child"
+        },
+        {
+          "issue": 55,
+          "state": "open",
+          "kind": "required recipe child"
+        },
+        {
+          "issue": 56,
+          "state": "open",
+          "kind": "required recipe child"
+        },
+        {
+          "issue": 57,
+          "state": "open",
+          "kind": "required recipe child"
+        },
+        {
+          "issue": 58,
+          "state": "open",
+          "kind": "required recipe child"
+        },
+        {
+          "issue": 59,
+          "state": "open",
+          "kind": "required recipe child"
+        },
+        {
+          "issue": 60,
+          "state": "open",
+          "kind": "required recipe child"
+        },
+        {
+          "issue": 283,
+          "state": "open",
+          "kind": "#53/#56 fixture acceptance amendments before dispatch"
+        }
+      ],
+      "owner": "Existing primary retains status, dispatch and serial-merge ownership; historical identifier primary w2:p1. Latest retained-ownership receipt is #80 comment 6187157003. Current native runtime activity is unverified. This execution assumes no ownership and claims no branch/worktree.",
+      "branch": null,
+      "worktree": null,
+      "head_sha": null,
+      "branch_evidence_limit": "No active branch/worktree or head is claimed here. Historical delivered branch names/heads are in related_prs; retained unmerged branches remain separately inventoried in branch-ledger.json.",
+      "related_prs": [],
+      "tests": "Fresh cached child state: #53-#60 are open; catalog assigns each its matching recipe issue. No level-wide execution/consistency audit performed here.",
+      "review": "Expert-wave acceptance and notebook/figure review remain outstanding; this evidence task supplies no Opus approval.",
+      "merge": "Historical deliveries, if any, are listed under related_prs. No merge, issue closure or GitHub mutation by this execution.",
+      "nonruntime_blockers": [
+        "Existing primary ownership remains reserved; no broad handoff or competing dispatch is authorized by the recorded #80 decisions.",
+        "Coordinator attempted to publish the #80 execution ledger and received HTTP 403: Resource not accessible by integration. Nothing was posted. This is local evidence, not a GitHub-backed progress receipt; other issue mutations were not attempted by this task.",
+        "All eight recipe children and final wave consistency pass remain incomplete.",
+        "#53/#56 still need #283 issue-body amendments; #60 also depends on unfinished #59."
+      ],
+      "runtime_blockers": [
+        "Repository-prescribed, verifiably identified Sonnet builder/integrator and independent Opus reviewer are unavailable in this runtime. No substitution, implementation dispatch, or review dispatch was performed. This is separate from technical prerequisites."
+      ],
+      "next_action": "Existing primary applies #53/#56 amendments, respects #78 scheduling and each recipe dependency, then dispatches through the required builder/reviewer roles. Complete #59 before #60 and perform serialized generated-README integration and genuine level audit before closure.",
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6187157003"
+      ],
+      "source_presence": [
+        "catalog/recipes.json"
+      ],
+      "source_files": [
+        "acceptance-findings.md",
+        "acceptance-issues.json",
+        "acceptance-comments.json",
+        "acceptance-pr-evidence.json",
+        "acceptance-merge-checks.json"
+      ],
+      "comments_inspected": 0,
+      "new_implementation_dispatch": false,
+      "new_review_dispatch": false,
+      "github_mutations_by_this_task": 0
+    },
+    {
+      "issue": 78,
+      "title": "Epic: Level 4 · Advanced recipes",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/78",
+      "state": "open",
+      "stage": "Tracking",
+      "execution_status": "11 of 13 children delivered; #51/#52 and wave audit remain; required runtime unavailable",
+      "priority": "P2 finish existing advanced wave before expert-wave completion",
+      "labels": [
+        "type: epic",
+        "level: 4 advanced",
+        "priority: p2"
+      ],
+      "milestone": 5,
+      "acceptance": "Recipes #40-#52 must merge and close, generated README must list them published, current-main CI must be green, and the section/terminology/chart/run-mode consistency pass must be complete. #40-#50 are closed; #51/#52 remain open. The old missing-specification blocker was explicitly removed.",
+      "acceptance_disposition": "tracking_two_children_and_consistency_audit_incomplete",
+      "dependencies": [
+        {
+          "issue": 77,
+          "state": "closed",
+          "kind": "scheduled-after wave prerequisite, delivered"
+        },
+        {
+          "issue": 40,
+          "state": "closed",
+          "kind": "required recipe child"
+        },
+        {
+          "issue": 41,
+          "state": "closed",
+          "kind": "required recipe child"
+        },
+        {
+          "issue": 42,
+          "state": "closed",
+          "kind": "required recipe child"
+        },
+        {
+          "issue": 43,
+          "state": "closed",
+          "kind": "required recipe child"
+        },
+        {
+          "issue": 44,
+          "state": "closed",
+          "kind": "required recipe child"
+        },
+        {
+          "issue": 45,
+          "state": "closed",
+          "kind": "required recipe child"
+        },
+        {
+          "issue": 46,
+          "state": "closed",
+          "kind": "required recipe child"
+        },
+        {
+          "issue": 47,
+          "state": "closed",
+          "kind": "required recipe child"
+        },
+        {
+          "issue": 48,
+          "state": "closed",
+          "kind": "required recipe child"
+        },
+        {
+          "issue": 49,
+          "state": "closed",
+          "kind": "required recipe child"
+        },
+        {
+          "issue": 50,
+          "state": "closed",
+          "kind": "required recipe child"
+        },
+        {
+          "issue": 51,
+          "state": "open",
+          "kind": "required recipe child"
+        },
+        {
+          "issue": 52,
+          "state": "open",
+          "kind": "required recipe child"
+        }
+      ],
+      "owner": "Existing primary retains status, dispatch and serial-merge ownership; historical identifier primary w2:p1. Latest retained-ownership receipt is #80 comment 6187157003. Current native runtime activity is unverified. This execution assumes no ownership and claims no branch/worktree.",
+      "branch": null,
+      "worktree": null,
+      "head_sha": null,
+      "branch_evidence_limit": "No active branch/worktree or head is claimed here. Historical delivered branch names/heads are in related_prs; retained unmerged branches remain separately inventoried in branch-ledger.json.",
+      "related_prs": [],
+      "tests": "Fresh cached child states: 11 closed (#40-#50), 2 open (#51/#52). Parent exact-main CI is green, but no complete wave consistency audit was performed here.",
+      "review": "Outstanding recipes and wave audit require real acceptance/figure review. No independent review or approval by this task.",
+      "merge": "Historical deliveries, if any, are listed under related_prs. No merge, issue closure or GitHub mutation by this execution.",
+      "nonruntime_blockers": [
+        "Existing primary ownership remains reserved; no broad handoff or competing dispatch is authorized by the recorded #80 decisions.",
+        "Coordinator attempted to publish the #80 execution ledger and received HTTP 403: Resource not accessible by integration. Nothing was posted. This is local evidence, not a GitHub-backed progress receipt; other issue mutations were not attempted by this task.",
+        "#51/#52 and the real wave consistency audit remain incomplete."
+      ],
+      "runtime_blockers": [
+        "Repository-prescribed, verifiably identified Sonnet builder/integrator and independent Opus reviewer are unavailable in this runtime. No substitution, implementation dispatch, or review dispatch was performed. This is separate from technical prerequisites."
+      ],
+      "next_action": "Existing primary resumes #51/#52 using the now-available complete specifications and their actual dependencies, then verifies generated catalog/README and performs the level-wide consistency pass before closing #78.",
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/78#issuecomment-6188146180",
+        "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6187157003"
+      ],
+      "source_presence": [
+        "catalog/recipes.json"
+      ],
+      "source_files": [
+        "acceptance-findings.md",
+        "acceptance-issues.json",
+        "acceptance-comments.json",
+        "acceptance-pr-evidence.json",
+        "acceptance-merge-checks.json"
+      ],
+      "comments_inspected": 1,
+      "new_implementation_dispatch": false,
+      "new_review_dispatch": false,
+      "github_mutations_by_this_task": 0
+    },
+    {
+      "issue": 213,
+      "title": "Foundation: no check that a recipe's live request count matches its README, or that no example is decided twice",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/213",
+      "state": "closed",
+      "stage": "Remediation",
+      "execution_status": "CLOSED but acceptance incomplete; primary reopening/reconciliation pending; remaining implementation blocked in this runtime",
+      "priority": "P1 pre-recording correctness/accounting gate; reconcile before any live work",
+      "labels": [
+        "type: foundation"
+      ],
+      "milestone": null,
+      "acceptance": "Original six criteria are not complete: actual notebook calls vs declaration, separate duplicate-decision failure naming its key, a single declaration generating README/cap instructions, a safe inclusive whole-run cap, a complete published-recipe runtime audit, and cumulative $25 budget correction before recording. Credit #298 AuditedBackend and opt-in audit support as partial delivery; do not repeat the stale claim that only the legacy implementation exists.",
+      "acceptance_disposition": "closed_but_incomplete_after_partial_delivery",
+      "dependencies": [
+        {
+          "issue": 80,
+          "state": "open",
+          "kind": "existing-primary status/implementation ownership and pre-recording cumulative-budget ledger"
+        }
+      ],
+      "owner": "Existing primary retains status, dispatch and serial-merge ownership; historical identifier primary w2:p1. Latest retained-ownership receipt is #80 comment 6187157003. Current native runtime activity is unverified. This execution assumes no ownership and claims no branch/worktree.",
+      "branch": null,
+      "worktree": null,
+      "head_sha": null,
+      "branch_evidence_limit": "No active branch/worktree or head is claimed here. Historical delivered branch names/heads are in related_prs; retained unmerged branches remain separately inventoried in branch-ledger.json.",
+      "related_prs": [
+        {
+          "number": 280,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/280",
+          "state": "closed",
+          "merged_at": "2026-10-14T19:03:58Z",
+          "head_branch": "foundation/scripted-recipe-skips",
+          "head_sha": "7409241e5063fca71ed7ba014e500582fa0bef56",
+          "base_sha": "0d1ee8bdf3781c88cd49df1f06c22ef5c9879c4d",
+          "merge_commit_sha": "5af4ab56e1411606c459a7fb1be956c871979d65",
+          "relation": "Recorded source of premature issue closure; delivered scripted-skip behavior, not full #213.",
+          "merge_evidence": {
+            "source": "acceptance-merge-checks.json",
+            "signature": {
+              "verified": true,
+              "reason": "valid"
+            },
+            "check_count": 56,
+            "all_checks_completed_success": true,
+            "checks_present": true,
+            "status_context_count": 0,
+            "ancestry": {
+              "status": "ahead",
+              "behind": 0,
+              "ahead": 11
+            },
+            "evidence_limit": "Checks/signature/ancestry do not authenticate missing native review provenance or prove full issue acceptance."
+          }
+        },
+        {
+          "number": 298,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/298",
+          "state": "closed",
+          "merged_at": "2026-10-15T22:59:43Z",
+          "head_branch": "foundation/request-accounting-audit",
+          "head_sha": "f8878a1d3255c4764cc4fa518d1c9de4faf6e731",
+          "base_sha": "f00f56b2545fa2a44e5e8dac341d9da4e1ebc51b",
+          "merge_commit_sha": "68f7de69af42d4f561a338c8050fd65033c36d24",
+          "relation": "Later partial audit infrastructure: logical decide calls separate from distinct request keys, with opt-in guard path.",
+          "merge_evidence": {
+            "source": "acceptance-merge-checks.json",
+            "signature": {
+              "verified": true,
+              "reason": "valid"
+            },
+            "check_count": 59,
+            "all_checks_completed_success": true,
+            "checks_present": true,
+            "status_context_count": 0,
+            "ancestry": {
+              "status": "ahead",
+              "behind": 0,
+              "ahead": 1
+            },
+            "evidence_limit": "Checks/signature/ancestry do not authenticate missing native review provenance or prove full issue acceptance."
+          }
+        }
+      ],
+      "tests": "Static exact-main notebook cell-source audit found zero AuditedBackend uses across all 50 published notebooks and the template. Current unaudited path retains the fixture-count proxy. #298 recorded review reports historical 49 PASS/1 scripted SKIP and source-reader limitations; not tests independently run here. Exact #280/#298 merges have 56/59 successful checks, valid signatures and current-main ancestry.",
+      "review": "#298 recorded review 6204038240 names agent-aa190f44216075000 and claude-opus-5[1m], head f8878a1d3255c4764cc4fa518d1c9de4faf6e731. It records a helper-backend undercount limitation and does not claim full recipe migration. #280 review provenance caveat is tracked under #249. Neither historical marker is a new review or native authentication by this task.",
+      "merge": "#280 merged 2026-10-14T19:03:58Z; issue closed 2026-10-14T19:04:00Z and the existing reconciliation identifies that closure as premature. #298 later merged as 68f7de69af42d4f561a338c8050fd65033c36d24. Both merges verified; remaining issue acceptance is incomplete. No mutation by this execution.",
+      "nonruntime_blockers": [
+        "Existing primary ownership remains reserved; no broad handoff or competing dispatch is authorized by the recorded #80 decisions.",
+        "Coordinator attempted to publish the #80 execution ledger and received HTTP 403: Resource not accessible by integration. Nothing was posted. This is local evidence, not a GitHub-backed progress receipt; other issue mutations were not attempted by this task.",
+        "GitHub CLOSED state does not represent completed original acceptance; latest #80 comment expressly reserves correction to the primary.",
+        "No published notebook has opted in to the new audit path; no complete actual-call corpus table exists.",
+        "Separate accidental-duplicate failure, one-source README/cap generation and logical-call/HTTP-attempt whole-run budget semantics remain unresolved.",
+        "No reconciled cumulative usage/reservations or usable balance is established; retain the pre-recording gate."
+      ],
+      "runtime_blockers": [
+        "Repository-prescribed, verifiably identified Sonnet builder/integrator and independent Opus reviewer are unavailable in this runtime. No substitution, implementation dispatch, or review dispatch was performed. This is separate from technical prerequisites."
+      ],
+      "next_action": "Existing primary reopens/reconciles #213, credits #298 partial delivery, and checks the retained foundation/request-accounting branch ownership before any replacement work. Complete remaining audit/duplicate/declaration/cap work through prescribed models/review, then record the full corpus and cumulative budget evidence before any live recording.",
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/213#issuecomment-6151796949",
+        "https://github.com/Jev-Engineering/cookbook/issues/213#issuecomment-6153102421",
+        "https://github.com/Jev-Engineering/cookbook/issues/213#issuecomment-6154364772",
+        "https://github.com/Jev-Engineering/cookbook/issues/213#issuecomment-6154715279",
+        "https://github.com/Jev-Engineering/cookbook/issues/213#issuecomment-6176120412",
+        "https://github.com/Jev-Engineering/cookbook/issues/213#issuecomment-6189254002",
+        "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6189282972",
+        "https://github.com/Jev-Engineering/cookbook/pull/298#issuecomment-6204038240",
+        "https://github.com/Jev-Engineering/cookbook/pull/280#issuecomment-6176064287",
+        "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6187157003"
+      ],
+      "source_presence": [
+        "src/jev_cookbook/accounting.py",
+        "tests/test_recipe_guard.py",
+        "recipes/*/notebook.ipynb"
+      ],
+      "source_files": [
+        "acceptance-findings.md",
+        "acceptance-issues.json",
+        "acceptance-comments.json",
+        "acceptance-pr-evidence.json",
+        "acceptance-merge-checks.json"
+      ],
+      "comments_inspected": 6,
+      "new_implementation_dispatch": false,
+      "new_review_dispatch": false,
+      "github_mutations_by_this_task": 0,
+      "administrative_action": "Reopening/acceptance correction prepared for primary; CLOSED state preserved by this execution."
+    }
+  ]
+}
