@@ -212,6 +212,26 @@ def test_a_weekly_schedule_runs_every_notebook():
     assert re.search(r"else\n\s+python tools/notebook_ci.py matrix --github-output", body)
 
 
+def test_a_pull_request_is_diffed_against_its_merge_commits_first_parent_not_a_stale_base():
+    """#248: pull_request.base.sha is the base branch's tip when the pull request was opened. The
+    discover step must pass --merge-ref so the tool diffs against the merge commit's first parent,
+    and must fetch the history that needs (fetch-depth: 0). The push, forced-push, manual and
+    scheduled branches never use it."""
+    body = code(NOTEBOOKS)
+    pull_request = re.search(
+        r'if \[ "\$EVENT" = "pull_request" \]; then\n(.*?)\n\s+elif', body, re.DOTALL
+    )
+    assert pull_request, "the discover step must have a pull_request branch"
+    assert re.fullmatch(
+        r'\s*python tools/notebook_ci\.py matrix --base "\$BASE_SHA" --head HEAD --merge-ref '
+        r'--github-output "\$GITHUB_OUTPUT"',
+        pull_request.group(1),
+    )
+    assert body.count("--merge-ref") == 1
+    discover = body.split("  execute:")[0]
+    assert "fetch-depth: 0" in discover
+
+
 def test_execute_job_caps_its_own_concurrency():
     following = lines_after(code(NOTEBOOKS), "strategy:", limit=5)
     assert any(re.fullmatch(r"\s+max-parallel: \d+", line) for line in following), following

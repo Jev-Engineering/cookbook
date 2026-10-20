@@ -10,6 +10,11 @@ GitHub Actions. Without ``--base`` and ``--head`` it selects every ``recipes/*/n
 pull request changes (a three-dot diff, from the merge base), and only when every changed path is
 inside a recipe folder or is exactly ``README.md``; any other changed path selects every notebook.
 
+``--merge-ref`` is for a pull request's own checkout (``refs/pull/N/merge``, a merge commit):
+the diff is taken against that commit's first parent, not against ``--base``, which is the base
+branch's tip from when the pull request was opened and goes stale (#248). ``--base`` is then only
+the fallback for a ``--head`` that does not have exactly two parents. See ``merge_ref_base``.
+
 ``--push`` is for a push to ``main``, where ``--base`` is the previous tip (``before``). The diff
 is then two-dot (``before..head``, the trees themselves), and the selection falls back to every
 notebook unless ``before`` is a commit that is an ancestor of ``head``: a first push (all zeros),
@@ -101,6 +106,46 @@ def is_ancestor(root: Path, ancestor: str, descendant: str) -> bool:
     return result.returncode == 0
 
 
+def parents(root: Path, ref: str) -> list[str] | None:
+    """The full parent SHAs of the commit ``ref`` names, or ``None`` if it is not a commit."""
+    result = subprocess.run(
+        ["git", "-C", str(root), "rev-list", "--parents", "-n", "1", "--end-of-options", ref],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.split()[1:]
+
+
+def merge_ref_base(root: Path, base: str, head: str) -> str:
+    """The base to diff a pull request against when ``head`` is the checked-out merge ref.
+
+    ``actions/checkout`` on ``pull_request`` checks out ``refs/pull/N/merge``: a merge commit
+    whose first parent is the base branch as it was when that commit was made, and whose second is
+    the pull request's head. ``pull_request.base.sha`` is the base branch's tip when the pull
+    request was *opened*, so after any later commit to the base it is an ancestor of the merge
+    commit and the diff ``base.sha...merge`` also reports everything the base branch gained since
+    (#248): unrelated recipes were re-executed, and one commit to ``src/`` or ``tools/`` selected
+    every notebook on every open pull request. The first parent is the base the tree on disk was
+    actually built on, so ``first-parent...merge`` is exactly what the pull request changes.
+
+    Only a commit with exactly two parents is trusted to be that merge commit. For any other
+    ``head`` (a checkout of the branch itself, say, whose first parent is just its previous
+    commit and would hide most of the change) the ``base`` given is kept: that can select more
+    than needed, never less.
+    """
+    found = parents(root, head)
+    if found is not None and len(found) == 2:
+        return found[0]
+    print(
+        f"head {head!r} is not a merge commit: diffing against the given base {base!r}",
+        file=sys.stderr,
+    )
+    return base
+
+
 def select(root: Path, base: str | None, head: str | None, dots: str = "...") -> list[str]:
     """The recipe folders to execute (see the module docstring)."""
     everything = with_notebooks(root)
@@ -124,6 +169,11 @@ def command_matrix(args: argparse.Namespace) -> int:
         return 2
     base, head = args.base, args.head
     dots = "..."
+    if args.merge_ref:
+        if args.push or base is None:
+            print("--merge-ref needs --base and --head, and is for a pull request", file=sys.stderr)
+            return 2
+        base = merge_ref_base(args.root, base, head)
     if args.push:
         if base is None:
             print("--push needs --base and --head", file=sys.stderr)
@@ -200,6 +250,12 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="--base is the previous tip of main: two-dot diff, every notebook unless it is an "
         "ancestor of --head",
+    )
+    matrix.add_argument(
+        "--merge-ref",
+        action="store_true",
+        help="--head is a pull request's merge commit: diff against its first parent (the base "
+        "branch as that merge commit saw it) instead of --base, which may be stale",
     )
     matrix.add_argument("--github-output", help="append matrix= and count= lines to this file")
     matrix.set_defaults(run=command_matrix)
