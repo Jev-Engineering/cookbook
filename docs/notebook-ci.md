@@ -485,12 +485,28 @@ compared exactly, so a stale chart usually comes with stale text too.
 
 4. **Output size.** The outputs of all the cells together, each serialised as compact JSON with its
    base64 images, may weigh at most `MAX_OUTPUT_BYTES` (2 MiB = 2,097,152 bytes) per notebook,
-   checked on both files. The notebooks on `main` weigh at most about 0.2 MiB. The cap stops a
-   recipe from embedding full-resolution inputs, which would also bloat every diff; Pillow offers a
-   displayed image as both a PNG and a JPEG, so a displayed fixture can weigh twice its file, and
-   several still fit. Show fewer images, or a downscaled copy (`Image.thumbnail`).
-   `tools/check_recipe_assets.py` limits the fixture files themselves; see
-   [fixtures.md](fixtures.md#image-fixtures).
+   checked on both files (this runs in the `Notebook (<recipe>)` job, not in Hygiene). The
+   notebooks on `main` weigh at most about 0.2 MiB. The cap stops a recipe from embedding
+   full-resolution inputs, which would also bloat every diff. **What a displayed fixture weighs
+   depends on its pixels, not on its file.** Displaying a `PIL.Image` makes IPython re-encode the
+   decoded pixels as both a PNG and a JPEG, and a lossless PNG of photographic or noisy pixels is
+   large. Measured (base64, both encodings): a 384x320 flat-shape JPEG of 10.6 KB displays as
+   91.7 KB (8.6x); a 1280x720 flat PNG of 7.2 KB as 89 KB (12x); a 1024x768 photo-like JPEG of
+   52 KB as 1.13 MB (22x); a 1280x720 noisy JPEG of 120 KB as 1.98 MB (16.5x, almost the whole cap
+   for one frame). `IPython.display.Image(filename=path)` embeds the file's own bytes once under
+   its own MIME type: 160 KB for that 120 KB frame. So **display a fixture with
+   `IPython.display.Image(filename=path)`**, or call `Image.thumbnail((640, 640))` on a copy of a
+   `PIL.Image` first (the same frame is then 495 KB). `tools/check_recipe_assets.py` limits the
+   fixture files themselves; see [fixtures.md](fixtures.md#image-fixtures).
+5. **Embedded images obey the metadata rules.** Pixels are compared by what they show, which cannot
+   see EXIF, GPS or a local path in the bytes, and a committed output made from an unstripped
+   source would otherwise survive a fresh run on the stripped asset. So every `image/png` and
+   `image/jpeg` output in either file, and every `data:image/...;base64` URI in an output, is held
+   to the rules of `tools/check_recipe_assets.py` (`embedded_image_problems`): a JPEG may hold only a
+   plain JFIF header, a PNG only the chunks listed in [fixtures.md](fixtures.md#image-fixtures) plus
+   a short `tEXt` `Software` line, which matplotlib writes. Size and pixel limits do not apply.
+   An output image of any other type (`image/gif`, ...) is a problem. A Markdown or raw cell with an
+   attachment or a `data:image` URI is a problem; link `assets/x.png` instead.
 
 **JPEG outputs are normalised, not rejected.** A JPEG's bytes depend on the libjpeg that Pillow
 bundles, so comparing them byte for byte would make the check depend on the runner. And Pillow

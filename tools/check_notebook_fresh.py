@@ -23,6 +23,10 @@ The comparison, in full (it is documented in ``docs/notebook-ci.md``):
    bytes change with the matplotlib version, the encoder version, the platform and the pixel
    size. See ``compare_png`` (it decodes either format).
 4. The outputs of all the cells together may weigh at most ``MAX_OUTPUT_BYTES``, in either file.
+5. Every embedded image in either file obeys the metadata rules of ``tools/check_recipe_assets.py``
+   (``embedded_image_problems``), because comparing pixels cannot see EXIF or text in the bytes: a
+   PNG or JPEG output, or a ``data:image`` URI in an output, may hold no metadata (a PNG may
+   hold matplotlib's ``Software`` line); a Markdown or raw cell may embed no image at all.
 """
 
 from __future__ import annotations
@@ -31,8 +35,10 @@ import argparse
 import base64
 import binascii
 import copy
+import importlib.util
 import io
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -53,9 +59,18 @@ SKIP_EXECUTION_TAGS = frozenset({"skip-execution"})
 
 # The most a notebook's ``outputs`` may weigh in all: the UTF-8 length of each output serialised as
 # compact JSON (base64 images included), summed over every cell. The largest notebook on ``main`` at
-# the time of writing is about 0.2 MiB. Pillow offers a displayed image as both a PNG and a JPEG,
-# so one displayed fixture can weigh twice its size; 2 MiB leaves room for several.
+# the time of writing is about 0.2 MiB. Displaying a ``PIL.Image`` re-encodes its pixels as both a
+# PNG and a JPEG, which weighs 8 to 22 times the fixture file (measured: a 120 KB noisy 1280x720
+# JPEG displays as 1.98 MB; a flat 384x320 JPEG of 10 KB as 92 KB), whereas
+# ``IPython.display.Image(filename=path)`` embeds the file's own bytes once (160 KB for that 120 KB
+# frame). docs/notebook-ci.md gives the guidance.
 MAX_OUTPUT_BYTES = 2 * 1024 * 1024
+
+# An image written into a text cell or output as a data URI.
+DATA_IMAGE_URI = re.compile(r"data:image/([A-Za-z0-9.+-]+);base64,([A-Za-z0-9+/=\s]+)")
+# The image types a recipe notebook output may hold; anything else with an ``image/`` prefix (a
+# GIF, a WebP) is a problem. ``image/svg+xml`` is text, compared byte for byte.
+OUTPUT_IMAGE_MIMES = ("image/png", "image/jpeg", "image/svg+xml")
 
 # Figure comparison (``compare_png``). Both images are flattened onto white and shrunk with a box
 # filter to a fixed GRID of cells, so the pixel size does not matter. A cell of one image is
@@ -136,12 +151,85 @@ def output_problems(nb: dict[str, Any], label: str) -> list[str]:
                 )
             elif kind == "stream" and output.get("name") == "stderr":
                 problems.append(f"{label}: {_where(index, cell, out_index)} holds stderr output")
+    problems.extend(embedded_image_problems(nb, label))
     weight = output_bytes(nb)
     if weight > MAX_OUTPUT_BYTES:
         problems.append(
             f"{label}: outputs weigh {weight:,} bytes; the cap is {MAX_OUTPUT_BYTES:,} (2 MiB). "
             "Show fewer images, or a downscaled copy (Image.thumbnail)"
         )
+    return problems
+
+
+def _asset_rules() -> Any:
+    """``tools/check_recipe_assets.py`` loaded by path (this script runs from any directory)."""
+    name = "_check_recipe_assets_for_fresh"
+    if name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(
+            name, Path(__file__).resolve().parent / "check_recipe_assets.py"
+        )
+        module = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
+        sys.modules[name] = module  # a dataclass looks its module up here
+        spec.loader.exec_module(module)  # type: ignore[union-attr]
+    return sys.modules[name]
+
+
+def _strings(node: Any) -> Any:
+    if isinstance(node, str):
+        yield node
+    elif isinstance(node, list):
+        for item in node:
+            yield from _strings(item)
+    elif isinstance(node, dict):
+        for key, value in node.items():
+            if key not in OUTPUT_IMAGE_MIMES:
+                yield from _strings(value)
+
+
+def embedded_image_problems(nb: dict[str, Any], label: str) -> list[str]:
+    """Metadata and embedding rules for every image stored in ``nb`` (see the module docstring).
+
+    Pixels are compared elsewhere; this reads the bytes. A committed image can hold EXIF, GPS,
+    an author or a local path that a fresh run (whose input is the stripped asset) never
+    reproduces, so it is checked in both files, whatever the comparison says.
+    """
+    rules = _asset_rules()
+    problems = []
+
+    def check(where: str, mime: str, value: Any) -> None:
+        try:
+            raw = base64.b64decode(_text(value), validate=False)
+        except (binascii.Error, ValueError):
+            problems.append(f"{label}: {where} holds an undecodable {mime} payload")
+            return
+        for finding in rules.inspect_embedded(mime, raw):
+            problems.append(
+                f"{label}: {where} holds a {mime} that breaks [{finding.rule}]: {finding.message}"
+            )
+
+    for index, cell in enumerate(nb["cells"]):
+        if isinstance(cell, dict) and cell.get("cell_type") != "code":
+            source = _text(cell.get("source", ""))
+            if cell.get("attachments") or DATA_IMAGE_URI.search(source):
+                problems.append(
+                    f"{label}: {_where(index, cell)} embeds an image in a text cell (an "
+                    "attachment or a data: URI); link a file under assets/ by its relative path "
+                    "instead"
+                )
+        for out_index, output in enumerate(_outputs(cell)):
+            if not isinstance(output, dict):
+                continue
+            where = _where(index, cell, out_index)
+            data = output.get("data")
+            for mime in data if isinstance(data, dict) else ():
+                if mime in ("image/png", "image/jpeg"):
+                    check(where, mime, data[mime])
+                elif mime.startswith("image/") and mime not in OUTPUT_IMAGE_MIMES:
+                    problems.append(f"{label}: {where} holds an {mime} output; only PNG and JPEG")
+            for text in _strings(output):
+                for match in DATA_IMAGE_URI.finditer(text):
+                    mime = "image/" + match.group(1).lower().replace("jpg", "jpeg")
+                    check(f"{where} (data: URI)", mime, match.group(2))
     return problems
 
 

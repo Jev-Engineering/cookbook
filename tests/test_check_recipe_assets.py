@@ -256,9 +256,6 @@ def test_bytes_after_the_end_of_the_image_are_rejected():
 def test_truncated_and_corrupt_files_are_rejected():
     data = png()
     assert only(f"{A}/a.png", data[: len(data) // 2]) == ["png-structure"]
-    corrupt = bytearray(data)
-    corrupt[33] ^= 0xFF  # inside the IHDR body: the CRC no longer matches
-    assert only(f"{A}/b.png", bytes(corrupt)) == ["png-structure"]
     assert only(f"{A}/c.png", data[:8]) == ["png-structure"]
     j = jpeg()
     assert only(f"{A}/a.jpg", j[: len(j) // 2]) == ["jpeg-structure"]
@@ -561,3 +558,398 @@ def test_the_documented_clean_copy_recipe_produces_compliant_files(tmp_path, mon
         exec(compile(block.replace("example.png", f"example.{suffix}"), "fixtures.md", "exec"), {})
         out = tmp_path / "recipes" / "NN-slug" / "assets" / f"example.{suffix}"
         assert only(f"{A}/example.{suffix}", out.read_bytes()) == [], suffix
+
+
+# -- smuggling inside parts the checker allows (#307 fix round 1) --------------------------------
+
+TEXT = b"Author: Jane Doe; C:\\Users\\jane\\patient_scan.jpg; GPS 51.5,-0.12; sk-ant-XXXX"
+
+
+def png_chunks_of(data: bytes) -> list[tuple[bytes, bytes]]:
+    out, pos = [], 8
+    while pos < len(data):
+        (length,) = struct.unpack(">I", data[pos : pos + 4])
+        out.append((data[pos + 4 : pos + 8], data[pos + 8 : pos + 8 + length]))
+        pos += 12 + length
+    return out
+
+
+def png_rebuilt(chunks: list[tuple[bytes, bytes]]) -> bytes:
+    return b"\x89PNG\r\n\x1a\n" + b"".join(chunk(kind, body) for kind, body in chunks)
+
+
+def png_edit(data: bytes, fn) -> bytes:
+    """Rebuild a PNG after ``fn`` changed its (type, body) chunk list."""
+    chunks = png_chunks_of(data)
+    fn(chunks)
+    return png_rebuilt(chunks)
+
+
+def ihdr(width, height, depth, colour) -> bytes:
+    return struct.pack(">IIBBBBB", width, height, depth, colour, 0, 0, 0)
+
+
+def raw_png(colour: int, depth: int, extra=(), width=320, height=320, palette=b"") -> bytes:
+    """A hand-built PNG of any colour type: IHDR, extra chunks, optional PLTE, IDAT, IEND."""
+    channels = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}[colour]
+    row = 1 + (width * channels * depth + 7) // 8
+    chunks = [(b"IHDR", ihdr(width, height, depth, colour))]
+    if palette:
+        chunks.append((b"PLTE", palette))
+    chunks.extend(extra)
+    chunks.append((b"IDAT", zlib.compress(bytes(row * height))))
+    chunks.append((b"IEND", b""))
+    return png_rebuilt(chunks)
+
+
+def jpeg_segments(data: bytes) -> list[tuple[int, bytes]]:
+    """(marker, body) for every segment up to and including SOS; the rest is returned as marker -1."""
+    out, pos = [], 2
+    while True:
+        marker = data[pos + 1]
+        (length,) = struct.unpack(">H", data[pos + 2 : pos + 4])
+        out.append((marker, data[pos + 4 : pos + 2 + length]))
+        pos += 2 + length
+        if marker == 0xDA:
+            out.append((-1, data[pos:]))
+            return out
+
+
+def jpeg_rebuilt(segments: list[tuple[int, bytes]]) -> bytes:
+    out = b"\xff\xd8"
+    for marker, body in segments:
+        if marker == -1:
+            out += body
+        else:
+            out += b"\xff" + bytes([marker]) + struct.pack(">H", len(body) + 2) + body
+    return out
+
+
+def jpeg_edit(fn, **options) -> bytes:
+    segments = jpeg_segments(jpeg(**options))
+    fn(segments)
+    return jpeg_rebuilt(segments)
+
+
+def test_the_helpers_rebuild_valid_files():
+    assert only(f"{A}/a.png", png_rebuilt(png_chunks_of(png()))) == []
+    assert only(f"{A}/a.jpg", jpeg_rebuilt(jpeg_segments(jpeg()))) == []
+    assert only(f"{A}/b.png", raw_png(2, 8)) == []
+
+
+@pytest.mark.parametrize(
+    ("name", "edit", "rule"),
+    [
+        (
+            "text after the JFIF fields",
+            lambda s: s.__setitem__(0, (0xE0, s[0][1] + TEXT)),
+            "jpeg-metadata",
+        ),
+        ("a second JFIF APP0", lambda s: s.insert(1, (0xE0, b"JFIF\x00" + TEXT)), "jpeg-metadata"),
+        (
+            "a JFIF thumbnail",
+            lambda s: s.__setitem__(0, (0xE0, s[0][1][:12] + b"\x02\x02" + bytes(12))),
+            "jpeg-metadata",
+        ),
+        ("a DNL segment", lambda s: s.insert(1, (0xDC, TEXT)), "jpeg-structure"),
+        ("a JPG0 segment", lambda s: s.insert(1, (0xF0, TEXT)), "jpeg-structure"),
+        ("a reserved 0xFF02 segment", lambda s: s.insert(1, (0x02, TEXT)), "jpeg-structure"),
+        ("an oversized DRI", lambda s: s.insert(1, (0xDD, b"\x00\x10" + TEXT)), "jpeg-structure"),
+        ("a DHP segment", lambda s: s.insert(1, (0xDE, TEXT)), "jpeg-structure"),
+        ("an EXP segment", lambda s: s.insert(1, (0xDF, TEXT)), "jpeg-structure"),
+        (
+            "an extra DQT byte run",
+            lambda s: s.insert(1, (0xDB, b"\x00" + bytes(64) + TEXT)),
+            "jpeg-structure",
+        ),
+        (
+            "an extra DHT byte run",
+            lambda s: s.insert(1, (0xC4, b"\x00" + bytes(16) + TEXT)),
+            "jpeg-structure",
+        ),
+        ("an empty DQT", lambda s: s.insert(1, (0xDB, b"")), "jpeg-structure"),
+        (
+            "a second frame header",
+            lambda s: s.insert(1, (0xC0, next(b for m, b in s if m == 0xC0))),
+            "jpeg-structure",
+        ),
+    ],
+)
+def test_jpeg_smuggling_carriers_are_rejected(name, edit, rule):
+    data = jpeg_edit(edit)
+    found = findings(entry(f"{A}/a.jpg", data))
+    assert [f.rule for f in found] == [rule], name
+    assert "a.jpg" in str(found[0])
+
+
+def test_jpeg_frame_header_must_be_8_bit_with_one_or_three_components():
+    def set_precision(segments):
+        i = next(i for i, (m, _) in enumerate(segments) if m == 0xC0)
+        segments[i] = (0xC0, b"\x0c" + segments[i][1][1:])
+
+    assert only(f"{A}/a.jpg", jpeg_edit(set_precision)) == ["jpeg-structure"]
+
+    def four_components(segments):
+        i = next(i for i, (m, _) in enumerate(segments) if m == 0xC0)
+        body = segments[i][1]
+        segments[i] = (0xC0, body[:5] + b"\x04" + body[6:] + bytes(3))
+
+    assert only(f"{A}/b.jpg", jpeg_edit(four_components)) == ["jpeg-structure"]
+
+
+def test_jpeg_scan_header_length_must_match_its_component_count():
+    def pad_scan(segments):
+        i = next(i for i, (m, _) in enumerate(segments) if m == 0xDA)
+        segments[i] = (0xDA, segments[i][1] + TEXT)
+
+    assert only(f"{A}/a.jpg", jpeg_edit(pad_scan)) == ["jpeg-structure"]
+
+
+def test_a_grayscale_jpeg_and_restart_markers_are_accepted():
+    buffer = io.BytesIO()
+    Image.new("L", (320, 320), 90).save(buffer, "JPEG")
+    assert only(f"{A}/gray.jpg", buffer.getvalue()) == []
+    buffer = io.BytesIO()
+    Image.effect_noise((320, 320), 40).save(buffer, "JPEG", restart_marker_blocks=2)
+    assert b"\xff\xdd" in buffer.getvalue()
+    assert only(f"{A}/restart.jpg", buffer.getvalue()) == []
+
+
+PHYS = struct.pack(">IIB", 1, 1, 1)
+
+
+@pytest.mark.parametrize(
+    ("kind", "body"),
+    [
+        (b"gAMA", struct.pack(">I", 45455) + TEXT),
+        (b"cHRM", bytes(32) + TEXT),
+        (b"cHRM", bytes(8)),
+        (b"sRGB", b"\x00" + TEXT),
+        (b"sRGB", b"\x09"),
+        (b"pHYs", PHYS + TEXT),
+        (b"pHYs", PHYS[:8] + b"\x05"),
+        (b"sBIT", b"\x08\x08\x08" + TEXT),
+        (b"sBIT", b"\x09\x08\x08"),
+        (b"bKGD", b"\x00" * 6 + TEXT),
+        (b"bKGD", b"\x00" * 2),
+        (b"tRNS", b"\x00" * 6 + TEXT),
+        (b"tRNS", b"\x00" * 2),
+    ],
+)
+def test_allowed_png_chunks_must_have_their_exact_length(kind, body):
+    data = raw_png(2, 8, extra=[(kind, body)])
+    found = findings(entry(f"{A}/a.png", data))
+    assert [f.rule for f in found] == ["png-metadata"], (kind, body)
+    assert kind.decode() in found[0].message
+
+
+def test_each_allowed_png_chunk_passes_at_its_exact_length():
+    extra = [
+        (b"gAMA", struct.pack(">I", 45455)),
+        (b"cHRM", bytes(32)),
+        (b"sRGB", b"\x00"),
+        (b"pHYs", PHYS),
+        (b"sBIT", b"\x08\x08\x08"),
+        (b"bKGD", bytes(6)),
+        (b"tRNS", bytes(6)),
+    ]
+    assert only(f"{A}/a.png", raw_png(2, 8, extra=extra)) == []
+    assert only(f"{A}/b.png", raw_png(0, 8, extra=[(b"bKGD", bytes(2)), (b"tRNS", bytes(2))])) == []
+    palette = bytes([10, 20, 30, 200, 100, 50])
+    assert (
+        only(
+            f"{A}/c.png",
+            raw_png(3, 8, extra=[(b"bKGD", b"\x01"), (b"tRNS", b"\xff\x80")], palette=palette),
+        )
+        == []
+    )
+
+
+def test_a_transparency_chunk_is_not_allowed_on_an_image_with_an_alpha_channel():
+    assert only(f"{A}/a.png", raw_png(6, 8, extra=[(b"tRNS", bytes(6))])) == ["png-metadata"]
+    assert only(f"{A}/b.png", raw_png(6, 8)) == []
+
+
+def test_a_palette_chunk_in_a_truecolour_png_is_rejected():
+    assert only(f"{A}/a.png", raw_png(2, 8, palette=TEXT + b"\x00" * (-len(TEXT) % 3))) == [
+        "png-metadata"
+    ]
+    assert only(f"{A}/b.png", raw_png(6, 8, palette=bytes(30))) == ["png-metadata"]
+
+
+def test_a_palette_png_needs_a_valid_palette():
+    assert only(f"{A}/a.png", raw_png(3, 8, palette=bytes(30))) == []
+    assert only(f"{A}/b.png", raw_png(3, 8)) == ["png-structure"]
+    assert only(f"{A}/c.png", raw_png(3, 2, palette=bytes(15))) == ["png-structure"]  # 5 > 4
+    assert only(f"{A}/d.png", raw_png(3, 8, palette=bytes(31))) == ["png-structure"]  # not x3
+
+
+def test_idat_must_be_one_clean_zlib_stream():
+    base = png()
+
+    def append(data):
+        def fn(chunks):
+            i = next(i for i, (k, _) in enumerate(chunks) if k == b"IDAT")
+            chunks[i] = (b"IDAT", chunks[i][1] + data)
+
+        return png_edit(base, fn)
+
+    found = findings(entry(f"{A}/a.png", append(TEXT)))
+    assert [f.rule for f in found] == ["trailing-data"] and "zlib" in found[0].message
+
+    def truncate(chunks):
+        i = next(i for i, (k, _) in enumerate(chunks) if k == b"IDAT")
+        chunks[i] = (b"IDAT", chunks[i][1][:-6])
+
+    assert only(f"{A}/b.png", png_edit(base, truncate)) == ["png-structure"]
+
+    def garbage(chunks):
+        i = next(i for i, (k, _) in enumerate(chunks) if k == b"IDAT")
+        chunks[i] = (b"IDAT", TEXT)
+
+    assert only(f"{A}/c.png", png_edit(base, garbage)) == ["png-structure"]
+
+
+def test_idat_chunks_must_be_consecutive():
+    def split(chunks):
+        i = next(i for i, (k, _) in enumerate(chunks) if k == b"IDAT")
+        body = chunks[i][1]
+        chunks[i : i + 1] = [(b"IDAT", body[:5]), (b"gAMA", bytes(4)), (b"IDAT", body[5:])]
+
+    assert only(f"{A}/a.png", png_edit(png(), split)) == ["png-structure"]
+
+    def split_clean(chunks):
+        i = next(i for i, (k, _) in enumerate(chunks) if k == b"IDAT")
+        body = chunks[i][1]
+        chunks[i : i + 1] = [(b"IDAT", body[:5]), (b"IDAT", body[5:])]
+
+    assert only(f"{A}/b.png", png_edit(png(), split_clean)) == []
+
+
+def test_png_ihdr_fields_are_validated():
+    def with_ihdr(colour, depth):
+        return png_edit(
+            png(),
+            lambda c: c.__setitem__(0, (b"IHDR", ihdr(320, 320, depth, colour))),
+        )
+
+    assert only(f"{A}/a.png", with_ihdr(5, 8)) == ["png-structure"]
+    assert only(f"{A}/b.png", with_ihdr(2, 4)) == ["png-structure"]
+
+
+def test_a_png_crc_error_is_reported_as_a_crc_error():
+    data = bytearray(png())
+    data[20] ^= 0xFF  # inside the IHDR body (bytes 16-28); its CRC is bytes 29-32
+    found = findings(entry(f"{A}/a.png", bytes(data)))
+    assert [f.rule for f in found] == ["png-structure"]
+    assert "bad CRC in chunk IHDR" in found[0].message
+    # A bad CRC in a later chunk too.
+    data = bytearray(png())
+    data[-1] ^= 0xFF  # the last byte of the IEND CRC
+    assert "bad CRC in chunk IEND" in findings(entry(f"{A}/b.png", bytes(data)))[0].message
+
+
+def test_sixteen_bit_and_interlaced_pngs_are_accepted():
+    assert only(f"{A}/deep.png", raw_png(2, 16)) == []
+    data = png_edit(
+        png(), lambda c: c.__setitem__(0, (b"IHDR", ihdr(320, 320, 8, 2)[:-1] + b"\x01"))
+    )
+    assert only(f"{A}/inter.png", data) == []
+
+
+# -- content sniffing outside assets/ -----------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("name", "data"),
+    [
+        ("chart.dat", b"BM" + bytes(4) + bytes(4) + struct.pack("<II", 54, 40) + bytes(40)),
+        ("x.bin", b"\x00\x00\x01\x00\x01\x00" + bytes(30)),
+        ("diagram.xml", b"<svg xmlns='http://www.w3.org/2000/svg' width='10'/>"),
+        (
+            "diagram2.txt",
+            b'<?xml version="1.0"?>\n<!-- c -->\n<!DOCTYPE svg>\n<svg viewBox="0 0 1 1">',
+        ),
+        ("bom.xml", "\ufeff  <svg/>".encode()),
+        ("photo.bin", b"\x00\x00\x00\x18ftypheic" + bytes(20)),
+        ("photo2.bin", b"\x00\x00\x00\x1cftypavif" + bytes(20)),
+        ("scan.bin", b"\x00\x00\x00\x0cjP  \r\n\x87\n" + bytes(20)),
+    ],
+)
+def test_more_image_types_are_found_by_content_outside_assets(name, data):
+    found = findings(entry(f"recipes/01-demo/helpers/{name}", data))
+    assert [f.rule for f in found] == ["image-outside-assets"], name
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        b"BM is the abbreviation of a bureau\n",
+        b"<svg-like text is not a file that starts with the tag\n",
+        b"# README\n<svg ...> mentioned later\n",
+        b"\x00\x00\x01\x00\x00\x00",  # an ICO header with zero images
+        b"\x00\x00\x00\x18ftypmp42" + bytes(20),  # an MP4, not an image brand
+        b"plain text",
+    ],
+)
+def test_ordinary_files_are_not_mistaken_for_images(data):
+    assert rules(entry("recipes/01-demo/helpers/notes.txt", data)) == []
+
+
+def test_the_documented_sniff_list_matches_the_code():
+    section = (REPO / "docs" / "fixtures.md").read_text(encoding="utf-8")
+    for fmt in (
+        "PNG",
+        "JPEG",
+        "GIF",
+        "WebP",
+        "TIFF",
+        "BMP",
+        "ICO",
+        "HEIF/AVIF",
+        "JPEG 2000",
+        "SVG",
+    ):
+        assert fmt in assets.sniff.__doc__, fmt
+    assert "not detected" in section and "data:" in section
+
+
+# -- the 280-1568 contract, and the wiring -------------------------------------------------------
+
+
+def test_the_checker_limits_match_the_documented_280_to_1568_contract():
+    text = (REPO / "docs" / "fixtures.md").read_text(encoding="utf-8")
+    assert f"{assets.MIN_SIDE} to {assets.MAX_SIDE} pixels" in text
+    assert f"{assets.MIN_PIXELS:,} to {assets.MAX_PIXELS:,}" in text
+    assert (assets.MIN_SIDE, assets.MAX_SIDE) == (280, 1568)
+
+
+def test_the_checker_limits_match_the_shared_image_limits_when_the_package_exports_them():
+    # `jev_cookbook.vision.IMAGE_LIMITS` arrives with the 280 px fix; until it does, there is
+    # nothing to compare, and the documented values above are the pin.
+    import jev_cookbook.vision as vision
+
+    limits = getattr(vision, "IMAGE_LIMITS", None)
+    if limits is not None:
+        assert (assets.MIN_SIDE, assets.MAX_SIDE, assets.MIN_PIXELS, assets.MAX_PIXELS) == tuple(
+            limits[k] for k in ("min_side", "max_side", "min_area", "max_area")
+        )
+
+
+def test_the_pre_commit_config_runs_the_asset_checker():
+    text = (REPO / ".pre-commit-config.yaml").read_text(encoding="utf-8")
+    assert "entry: python tools/check_recipe_assets.py" in text
+
+
+def test_the_contributor_documents_mention_the_asset_check():
+    contributing = (REPO / "CONTRIBUTING.md").read_text(encoding="utf-8")
+    assert "├── assets/" in contributing and "docs/fixtures.md" in contributing
+    development = (REPO / "docs" / "development.md").read_text(encoding="utf-8")
+    row = next(ln for ln in development.splitlines() if ln.startswith("| `Hygiene ("))
+    assert "tools/check_recipe_assets.py" in row
+    assert "check_recipe_assets.py" in development[development.index("## Repository hygiene") :]
+
+
+def test_the_file_too_large_message_points_photographic_content_to_jpeg():
+    message = assets.check_image(f"{A}/big.png", b"\x89PNG\r\n\x1a\n" + bytes(2**20))[0].message
+    assert "JPEG" in message

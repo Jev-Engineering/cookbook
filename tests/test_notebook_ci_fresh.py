@@ -332,6 +332,152 @@ def test_the_jpeg_comparison_does_not_mask_a_png_comparison(reference):
     assert len(found) == 1 and "image/png" in found[0]
 
 
+# -- embedded images keep the metadata rules (#307 fix round 1) -----------------------------------
+
+
+def jpeg_with_exif(figure_png: str) -> str:
+    """The same picture as jpeg_of(), carrying an Artist tag and a local path."""
+    from PIL import Image
+
+    exif = Image.Exif()
+    exif[0x013B] = "Jane Doe"  # Artist
+    exif[0x010E] = "C:\\Users\\jane\\Desktop\\patient_scan.jpg"  # ImageDescription
+    image = Image.open(io.BytesIO(base64.b64decode(figure_png))).convert("RGB")
+    buffer = io.BytesIO()
+    image.save(buffer, "JPEG", quality=90, exif=exif)
+    return base64.b64encode(buffer.getvalue()).decode("ascii") + "\n"
+
+
+def test_a_committed_jpeg_output_with_exif_fails_even_when_a_fresh_run_shows_the_same_pixels(
+    reference,
+):
+    picture = bars()
+    committed, fresh = with_jpegs(reference, jpeg_with_exif(picture), jpeg_of(picture))
+    found = problems_for(committed, fresh)
+    assert len(found) == 1
+    assert found[0].startswith("committed:") and "[jpeg-metadata]" in found[0]
+    assert "APP1" in found[0] and "image/jpeg" in found[0]
+    # The same bytes in the fresh run are reported against the fresh run.
+    found = problems_for(fresh, committed)
+    assert len(found) == 1 and found[0].startswith("fresh run:")
+
+
+def test_png_output_metadata_fails_but_matplotlibs_software_line_passes(reference):
+    import struct
+    import zlib
+
+    def spliced(figure_png: str, kind: bytes, body: bytes) -> str:
+        data = base64.b64decode(figure_png)
+        iend = data.rindex(b"\x00\x00\x00\x00IEND")
+        new = struct.pack(">I", len(body)) + kind + body
+        new += struct.pack(">I", zlib.crc32(kind + body))
+        return base64.b64encode(data[:iend] + new + data[iend:]).decode("ascii") + "\n"
+
+    picture = bars()
+    assert not problems_for(reference, reference)  # matplotlib's own tEXt Software line
+    for kind, body in (
+        (b"tEXt", b"Author\x00Jane Doe"),
+        (b"tEXt", b"Software\x00" + b"x" * 300),
+        (b"eXIf", b"MM\x00*\x00\x00\x00\x08"),
+        (b"iTXt", b"Comment\x00\x00\x00\x00\x00C:\\Users\\jane"),
+        (b"tIME", bytes(7)),
+    ):
+        committed = copy.deepcopy(reference)
+        png_outputs(committed)[0]["data"]["image/png"] = spliced(picture, kind, body)
+        found = problems_for(committed, reference)
+        assert any("[png-metadata]" in p and p.startswith("committed:") for p in found), kind
+
+
+def test_a_png_with_text_after_its_zlib_stream_fails(reference):
+    import struct
+    import zlib
+
+    data = base64.b64decode(bars())
+    pos = data.index(b"IDAT") - 4
+    (length,) = struct.unpack(">I", data[pos : pos + 4])
+    body = data[pos + 8 : pos + 8 + length] + b"secret=hidden"
+    chunk = struct.pack(">I", len(body)) + b"IDAT" + body
+    chunk += struct.pack(">I", zlib.crc32(b"IDAT" + body))
+    forged = data[:pos] + chunk + data[pos + 12 + length :]
+    committed = copy.deepcopy(reference)
+    png_outputs(committed)[0]["data"]["image/png"] = base64.b64encode(forged).decode("ascii")
+    assert any("[trailing-data]" in p for p in problems_for(committed, reference))
+
+
+def test_what_pillow_and_ipython_display_for_a_clean_fixture_passes(reference):
+    from IPython.core.formatters import DisplayFormatter
+    from PIL import Image
+
+    buffer = io.BytesIO()
+    Image.new("RGB", (320, 320), (200, 40, 40)).save(buffer, "JPEG")
+    bundle = DisplayFormatter().format(Image.open(io.BytesIO(buffer.getvalue())))[0]
+    assert {"image/png", "image/jpeg"} <= set(bundle)
+    for mime in ("image/png", "image/jpeg"):  # IPython hands over bytes; nbformat stores base64
+        bundle[mime] = base64.b64encode(bundle[mime]).decode("ascii")
+    committed = copy.deepcopy(reference)
+    committed["cells"][0].setdefault("outputs", []).append(
+        {"output_type": "display_data", "data": bundle, "metadata": {}}
+    )
+    assert not [p for p in problems_for(committed, committed) if "image" in p]
+
+
+def test_a_markdown_cell_may_not_embed_an_image(reference):
+    uri = "data:image/png;base64," + png_of_text()
+    for field in ("attachments", "source"):
+        committed = copy.deepcopy(reference)
+        md = next(c for c in committed["cells"] if c["cell_type"] == "markdown")
+        if field == "attachments":
+            md["attachments"] = {"a.png": {"image/png": png_of_text()}}
+        else:
+            md["source"] = [f"![x]({uri})"]
+        found = [p for p in problems_for(committed, reference) if "embeds an image" in p]
+        assert len(found) == 1 and found[0].startswith("committed:"), field
+
+
+def png_of_text() -> str:
+    return bars().strip()
+
+
+def test_a_data_uri_in_an_output_is_checked_like_an_image_output(reference):
+    picture = bars()
+    for mime, payload, expect in (
+        ("jpeg", jpeg_with_exif(picture).strip(), "[jpeg-metadata]"),
+        ("jpeg", jpeg_of(picture).strip(), None),
+        ("png", picture.strip(), None),
+    ):
+        committed = copy.deepcopy(reference)
+        html = f'<img src="data:image/{mime};base64,{payload}">'
+        committed["cells"][0].setdefault("outputs", []).append(
+            {"output_type": "display_data", "data": {"text/html": [html]}, "metadata": {}}
+        )
+        found = [p for p in problems_for(committed, committed) if "data: URI" in p]
+        if expect:
+            assert len(found) == 2 and all(expect in p for p in found)  # committed and fresh
+        else:
+            assert found == []
+
+
+def test_an_output_image_of_another_type_is_a_problem(reference):
+    committed = copy.deepcopy(reference)
+    png_outputs(committed)[0]["data"]["image/gif"] = "R0lGODlhAQABAAAAACw="
+    found = problems_for(committed, committed)
+    assert any("image/gif" in p and "only PNG and JPEG" in p for p in found)
+
+
+def test_an_undecodable_embedded_image_is_a_problem(reference):
+    committed = copy.deepcopy(reference)
+    png_outputs(committed)[0]["data"]["image/png"] = "AAAA"
+    assert any("[png-structure]" in p for p in problems_for(committed, committed))
+
+
+def test_every_committed_notebook_passes_the_embedded_image_rules():
+    notebooks = sorted((REPO / "recipes").glob("*/notebook.ipynb"))
+    assert len(notebooks) >= 50
+    for path in notebooks:
+        nb = json.loads(path.read_text(encoding="utf-8"))
+        assert fresh_tool.output_problems(nb, "committed") == [], path
+
+
 # -- the output-size cap (#307) -----------------------------------------------------------------
 
 

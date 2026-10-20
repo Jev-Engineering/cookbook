@@ -302,11 +302,11 @@ the rule (`path: [rule] message`).
 
 | Rule | Contract | Finding |
 | - | - | - |
-| Location | An image lives only in `recipes/<slug>/assets/`, optionally in subfolders. Anywhere else under `recipes/` (`helpers/`, `fixtures/`, the recipe root), a file with an image suffix, or whose first bytes are an image signature under any name, is rejected. `assets/` holds image files only. | `image-outside-assets`, `non-image-in-assets` |
-| Format | PNG or baseline JPEG, with a lowercase `.png`, `.jpg` or `.jpeg` suffix, whose bytes really are that format (a GIF renamed `.png` fails). GIF, WebP, SVG, TIFF and the other formats, animated PNG, progressive or arithmetic-coded JPEG and bytes after the end of the image are rejected. | `format-not-allowed`, `suffix-case`, `format-mismatch`, `png-animated`, `jpeg-not-baseline`, `trailing-data`, `png-structure`, `jpeg-structure` |
+| Location | An image lives only in `recipes/<slug>/assets/`, optionally in subfolders. Anywhere else under `recipes/` (`helpers/`, `fixtures/`, the recipe root), a file with an image suffix (`.png`, `.jpg`, `.gif`, `.webp`, `.svg`, `.bmp`, `.ico`, `.tif`, `.heic`, `.avif`, `.jp2` and the like, in any case), or whose content begins like a PNG, JPEG, GIF, WebP, TIFF, BMP, ICO, HEIF/AVIF, JPEG 2000 or SVG file under any name, is rejected. An image written as base64 or a `data:` URI inside a text file (a README, `helpers.py`) is not detected. `assets/` holds image files only. | `image-outside-assets`, `non-image-in-assets` |
+| Format | PNG or baseline JPEG, with a lowercase `.png`, `.jpg` or `.jpeg` suffix, whose bytes really are that format (a GIF renamed `.png` fails). GIF, WebP, SVG, TIFF and the other formats, animated PNG, progressive or arithmetic-coded JPEG and bytes after the end of the image are rejected. Any PNG colour type and bit depth (8 or 16 bit, interlaced or not) and an 8-bit JPEG with one or three components are accepted. | `format-not-allowed`, `suffix-case`, `format-mismatch`, `png-animated`, `jpeg-not-baseline`, `trailing-data`, `png-structure`, `jpeg-structure` |
 | Pixels | Each side 280 to 1568 pixels and the area 78,400 to 2,458,624 pixels: the limits of the [Images page](https://docs.typesafe.ai/images) (an image outside them is rejected by the API, never resized). | `dimensions` |
 | Size | At most 1 MiB (1,048,576 bytes) per file, and at most 8 MiB in all in one recipe's `assets/` folder. These caps are this repository's, far below the API's 16 MiB per file; a fixture is meant to be small enough to read about. | `file-too-large`, `assets-total-too-large` |
-| Metadata | A PNG holds only the chunks `IHDR`, `PLTE`, `IDAT`, `IEND`, `tRNS`, `gAMA`, `cHRM`, `sRGB`, `sBIT`, `pHYs` and `bKGD`: no `tEXt`, `iTXt`, `zTXt`, `eXIf`, `tIME`, `iCCP` or private chunk. A JPEG holds no segment but a JFIF `APP0`: no EXIF, XMP, ICC, IPTC or other `APPn` and no comment. Text and EXIF can carry an author name, a local path, a GPS position or a token. | `png-metadata`, `jpeg-metadata` |
+| Metadata | A PNG holds only the chunks `IHDR`, `PLTE`, `IDAT`, `IEND`, `tRNS`, `gAMA`, `cHRM`, `sRGB`, `sBIT`, `pHYs` and `bKGD`: no `tEXt`, `iTXt`, `zTXt`, `eXIf`, `tIME`, `iCCP` or private chunk. Each of those has exactly the length the PNG format fixes for the image (so no text hides after the fixed fields), `PLTE` appears only in a palette image, and the `IDAT` data is one zlib stream with nothing after it. A JPEG is checked against an allowlist of markers: SOI, one `APP0` that is exactly a 16-byte JFIF header with no thumbnail, `DQT`, `DHT` (both whole tables only), `DRI` of length 4, one `SOF0`, `SOS`, `RSTn` and EOI. Every other marker is rejected, so no EXIF, XMP, ICC, IPTC, Adobe or other `APPn`, no comment, and no second `APP0`, `DNL` or reserved segment. Text and EXIF can carry an author name, a local path, a GPS position or a token. | `png-metadata`, `jpeg-metadata` |
 | Links | No symbolic link or submodule anywhere under `recipes/`. | `symlink` |
 
 The `Scope (recipe pull requests)` check also rejects, by suffix, an image added, changed or
@@ -316,8 +316,8 @@ misplaced one is allowed). The pixel limits are constants at the top of
 install and so cannot import `jev_cookbook.vision`; change them there if the API's limits change.
 
 To make a file comply, copy the pixels into a new image and save that. `Image.save` writes no
-text, EXIF or comment you did not pass, but it does carry a source's ICC profile across (the
-`iCCP` chunk fails the check), so do not re-save the opened file itself:
+text, EXIF or comment you did not pass, but saving to PNG does carry a source's ICC profile
+across (the `iCCP` chunk fails the check), so do not re-save the opened file itself:
 
 ```python
 from PIL import Image
@@ -329,11 +329,25 @@ clean.save("recipes/NN-slug/assets/example.png")  # or .jpg: Pillow writes a bas
 ```
 
 Apply `ImageOps.exif_transpose` before the copy if the source has an orientation tag, as
-[vision.md](vision.md) says, because the copy drops the tag.
+[vision.md](vision.md) says, because the copy drops the tag. A CMYK source fails with an `APP14`
+(Adobe) finding until `convert("RGB")` has run, which the snippet does.
 
-A notebook that displays fixtures is held to an output cap (2 MiB for all its outputs) and its
-displayed images are compared by what they show, not by their bytes: see rules 2 to 4 of
-[the staleness check](notebook-ci.md#the-staleness-check).
+A matplotlib figure saved with `fig.savefig(path)` carries a `tEXt` `Software` chunk, which fails
+the check; save it with `fig.savefig(path, metadata={"Software": None})`.
+
+A PNG over the 1 MiB cap is almost always photographic or noisy content: save that as a baseline
+JPEG, which is usually a tenth of the size. Flat synthetic content (screenshots, diagrams) is a few
+KB as a PNG even at 1568 x 1568.
+
+A notebook that displays fixtures is held to an output cap (2 MiB for all its outputs), its
+displayed images are compared by what they show, not by their bytes, and every image embedded in
+it is held to the same metadata rules; a Markdown cell may not embed an image at all (link the
+file under `assets/` by its relative path). See rules 2 to 5 of
+[the staleness check](notebook-ci.md#the-staleness-check). **Display a fixture with
+`IPython.display.Image(filename=path)`**, which embeds the file's own bytes once: displaying a
+`PIL.Image` instead re-encodes the pixels as a PNG and a JPEG, which weighs 8 to 22 times the file
+for photographic content (a 120 KB frame becomes 1.98 MB). If you do display a `PIL.Image`, call
+`thumbnail((640, 640))` on a copy first.
 
 An image example uses `fields` containing relative image paths and any other request inputs.
 The recipe loads those files with `jev_cookbook.vision.image_asset(path, root=RECIPE_DIR)`

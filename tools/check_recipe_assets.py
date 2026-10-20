@@ -65,9 +65,6 @@ PNG_ALLOWED_CHUNKS = frozenset(
 )
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
-_SOF_BASELINE = 0xC0
-_SOF_OTHER = set(range(0xC1, 0xD0)) - {0xC4, 0xC8, 0xCC}  # DHT, JPG, DAC are not frame headers
-
 
 @dataclass(frozen=True)
 class Finding:
@@ -88,8 +85,23 @@ class ImageError(Exception):
         self.message = message
 
 
+_BMP_HEADERS = {
+    int(n).to_bytes(4, "little") for n in (12, 40, 52, 56, 64, 108, 124)
+}  # the DIB header sizes that follow the 14-byte file header
+_FTYP_IMAGE_BRANDS = {b"heic", b"heix", b"hevc", b"hevx", b"mif1", b"msf1", b"avif", b"avis"}
+_SVG_START = re.compile(
+    r"\s*(?:<\?xml[^>]*\?>\s*)?(?:<!--.*?-->\s*|<!DOCTYPE[^>]*>\s*)*<svg[\s>/]",
+    re.DOTALL | re.IGNORECASE,
+)
+
+
 def sniff(data: bytes) -> str | None:
-    """The image format the first bytes announce, or None."""
+    """The image format the first bytes announce, or None.
+
+    Recognised: PNG, JPEG, GIF, WebP, TIFF, BMP, ICO, HEIF/AVIF, JPEG 2000 and SVG (a text file
+    that starts, after an optional XML prolog, comments and doctype, with ``<svg``). Nothing else
+    is sniffed: an image written as base64 or a ``data:`` URI inside a text file is not found.
+    """
     if data.startswith(PNG_SIGNATURE):
         return "PNG"
     if data.startswith(b"\xff\xd8\xff"):
@@ -100,10 +112,33 @@ def sniff(data: bytes) -> str | None:
         return "WebP"
     if data[:4] in (b"II*\x00", b"MM\x00*"):
         return "TIFF"
+    if data[:2] == b"BM" and data[6:10] == b"\x00\x00\x00\x00" and data[14:18] in _BMP_HEADERS:
+        return "BMP"
+    if data[:4] == b"\x00\x00\x01\x00" and 1 <= int.from_bytes(data[4:6], "little") <= 255:
+        return "ICO"
+    if data[4:8] == b"ftyp" and data[8:12] in _FTYP_IMAGE_BRANDS:
+        return "HEIF/AVIF"
+    if data.startswith(b"\x00\x00\x00\x0cjP  \r\n\x87\n"):
+        return "JPEG 2000"
+    if _SVG_START.match(data[:4096].decode("utf-8", "ignore").lstrip("\ufeff")):
+        return "SVG"
     return None
 
 
 # --- PNG --------------------------------------------------------------------------------
+
+# Colour type -> (channels, valid bit depths). Used for exact chunk lengths.
+_PNG_COLOUR = {
+    0: (1, {1, 2, 4, 8, 16}),
+    2: (3, {8, 16}),
+    3: (1, {1, 2, 4, 8}),
+    4: (2, {8, 16}),
+    6: (4, {8, 16}),
+}
+# The one text chunk an embedded notebook output may hold: matplotlib's own signature.
+_EMBEDDED_TEXT_KEYWORD = b"Software"
+_MAX_EMBEDDED_TEXT = 200
+_MAX_INFLATED = 256 * 1024 * 1024
 
 
 def _png_chunks(data: bytes) -> Iterator[tuple[str, bytes]]:
@@ -130,44 +165,153 @@ def _png_chunks(data: bytes) -> Iterator[tuple[str, bytes]]:
             return
 
 
-def inspect_png(data: bytes) -> tuple[int, int]:
-    """(width, height) of a PNG that obeys the contract; raises ImageError otherwise."""
+def _png_chunk_length_ok(name: str, body: bytes, colour: int, depth: int, palette: int) -> bool:
+    """Is ``body`` exactly as long as the PNG specification fixes it for this image?"""
+    channels = _PNG_COLOUR[colour][0]
+    if name == "gAMA":
+        return len(body) == 4
+    if name == "cHRM":
+        return len(body) == 32
+    if name == "sRGB":
+        return len(body) == 1 and body[0] <= 3
+    if name == "pHYs":
+        return len(body) == 9 and body[8] <= 1
+    if name == "sBIT":
+        return len(body) == (3 if colour == 3 else channels) and all(
+            1 <= b <= (8 if colour == 3 else depth) for b in body
+        )
+    if name == "bKGD":
+        return len(body) == {0: 2, 4: 2, 2: 6, 6: 6, 3: 1}[colour] and (
+            colour != 3 or body[0] < palette
+        )
+    if name == "tRNS":
+        if colour == 0:
+            return len(body) == 2
+        if colour == 2:
+            return len(body) == 6
+        return colour == 3 and 1 <= len(body) <= palette
+    return True
+
+
+def inspect_png(data: bytes, *, embedded: bool = False) -> tuple[int, int]:
+    """(width, height) of a PNG that obeys the contract; raises ImageError otherwise.
+
+    ``embedded`` is for an image inside a notebook output: matplotlib's ``Software`` text chunk
+    is also allowed there.
+    """
     first = True
     size = (0, 0)
-    saw_idat = False
+    colour = depth = 0
+    palette = 0
+    idat = bytearray()
+    idat_done = False
     for name, body in _png_chunks(data):
         if first:
             if name != "IHDR" or len(body) != 13:
                 raise ImageError("png-structure", "first chunk is not a 13-byte IHDR")
-            size = struct.unpack(">II", body[:8])
+            width, height, depth, colour, compression, filtering, interlace = struct.unpack(
+                ">IIBBBBB", body
+            )
+            if colour not in _PNG_COLOUR or depth not in _PNG_COLOUR[colour][1]:
+                raise ImageError("png-structure", f"invalid colour type {colour}/depth {depth}")
+            if compression or filtering or interlace > 1 or not width or not height:
+                raise ImageError("png-structure", "invalid IHDR fields")
+            size = (width, height)
             first = False
-        elif name == "IHDR":
+            continue
+        if name == "IHDR":
             raise ImageError("png-structure", "second IHDR chunk")
         if name == "acTL":
             raise ImageError("png-animated", "animated PNG (acTL chunk); stills only")
+        if embedded and name == "tEXt":
+            keyword, _, _ = body.partition(b"\x00")
+            if keyword != _EMBEDDED_TEXT_KEYWORD or len(body) > _MAX_EMBEDDED_TEXT:
+                raise ImageError(
+                    "png-metadata", "a tEXt chunk other than a short Software line is not allowed"
+                )
+            continue
         if name not in PNG_ALLOWED_CHUNKS:
             raise ImageError(
                 "png-metadata",
                 f"chunk {name} is not allowed (text, EXIF, time, profile and private chunks "
                 "can carry names, paths or tokens; strip it)",
             )
-        saw_idat = saw_idat or name == "IDAT"
-    if not saw_idat:
+        if name == "IDAT":
+            if idat_done:
+                raise ImageError("png-structure", "IDAT chunks are not consecutive")
+            idat += body
+            continue
+        if idat:
+            idat_done = True
+        if name == "PLTE":
+            if colour != 3:
+                raise ImageError(
+                    "png-metadata", "PLTE chunk in a PNG that is not palette-based (colour type 3)"
+                )
+            if palette or idat or not body or len(body) % 3 or len(body) > 3 * 2**depth:
+                raise ImageError("png-structure", "invalid or misplaced PLTE chunk")
+            palette = len(body) // 3
+        elif not _png_chunk_length_ok(name, body, colour, depth, palette):
+            raise ImageError("png-metadata", f"chunk {name} has a length the PNG format forbids")
+    if not idat:
         raise ImageError("png-structure", "no IDAT chunk")
+    if colour == 3 and not palette:
+        raise ImageError("png-structure", "palette PNG without a PLTE chunk")
+    inflater = zlib.decompressobj()
+    try:
+        inflater.decompress(bytes(idat), _MAX_INFLATED)
+    except zlib.error as error:
+        raise ImageError("png-structure", f"IDAT is not a valid zlib stream ({error})") from error
+    if not inflater.eof or inflater.unconsumed_tail:
+        raise ImageError("png-structure", "IDAT zlib stream does not end cleanly")
+    if inflater.unused_data:
+        raise ImageError(
+            "trailing-data", f"{len(inflater.unused_data)} byte(s) after the zlib stream in IDAT"
+        )
     return size
 
 
 # --- JPEG -------------------------------------------------------------------------------
 
+_JPEG_SOF0 = 0xC0
+_JPEG_DHT = 0xC4
+_JPEG_DQT = 0xDB
+_JPEG_DRI = 0xDD
+_JPEG_SOS = 0xDA
+_JPEG_APP0 = 0xE0
+_SOF_OTHER = set(range(0xC1, 0xD0)) - {0xC4, 0xC8, 0xCC}  # DHT, JPG, DAC are not frame headers
+
+
+def _jpeg_check_tables(marker: int, body: bytes) -> None:
+    """DQT and DHT must be exactly a sequence of whole tables, so no byte is spare."""
+    pos = 0
+    if marker == _JPEG_DQT:
+        while pos < len(body):
+            precision = body[pos] >> 4
+            if precision > 1 or body[pos] & 0x0F > 3:
+                raise ImageError("jpeg-structure", "invalid DQT table header")
+            pos += 1 + 64 * (precision + 1)
+    else:
+        while pos < len(body):
+            if pos + 17 > len(body) or body[pos] & 0x0F > 3 or body[pos] >> 4 > 1:
+                raise ImageError("jpeg-structure", "invalid DHT table header")
+            pos += 17 + sum(body[pos + 1 : pos + 17])
+    if pos != len(body) or not body:
+        raise ImageError("jpeg-structure", "quantisation/Huffman table has the wrong length")
+
 
 def inspect_jpeg(data: bytes) -> tuple[int, int]:
-    """(width, height) of a baseline JPEG that obeys the contract; raises ImageError."""
+    """(width, height) of a baseline JPEG that obeys the contract; raises ImageError.
+
+    An allowlist: SOI, at most one APP0 that is exactly a JFIF header with no thumbnail, DQT,
+    DHT, DRI of length 4, one SOF0, SOS, RSTn and EOI. Any other marker is refused.
+    """
     if not data.startswith(b"\xff\xd8"):
         raise ImageError("jpeg-structure", "missing SOI marker")
     pos = 2
     size: tuple[int, int] | None = None
+    saw_app0 = saw_scan = False
     while True:
-        # A marker is 0xFF, optional 0xFF fill bytes, then the marker code.
         if pos >= len(data) or data[pos] != 0xFF:
             raise ImageError("jpeg-structure", "expected a marker; truncated or corrupt")
         while pos < len(data) and data[pos] == 0xFF:
@@ -177,45 +321,69 @@ def inspect_jpeg(data: bytes) -> tuple[int, int]:
         marker = data[pos]
         pos += 1
         if marker == 0xD9:  # EOI
-            if size is None:
-                raise ImageError("jpeg-structure", "no frame header (SOF0) before EOI")
+            if size is None or not saw_scan:
+                raise ImageError("jpeg-structure", "no frame header and scan before EOI")
             if pos != len(data):
                 raise ImageError("trailing-data", f"{len(data) - pos} byte(s) after EOI")
             return size
-        if marker == 0x01 or 0xD0 <= marker <= 0xD8 or marker == 0x00:
-            continue  # TEM, RSTn, SOI: no length (0x00 would be a stuffed byte, tolerated)
+        if 0xD0 <= marker <= 0xD7:
+            continue  # RSTn: no length
+        if 0xE1 <= marker <= 0xEF:
+            raise ImageError(
+                "jpeg-metadata",
+                f"APP{marker - 0xE0} segment (EXIF, XMP, ICC, IPTC, Adobe or vendor data) is not "
+                "allowed; strip it",
+            )
+        if marker == 0xFE:
+            raise ImageError("jpeg-metadata", "COM (comment) segment is not allowed; strip it")
+        if marker in _SOF_OTHER:
+            raise ImageError(
+                "jpeg-not-baseline",
+                f"SOF marker 0xFF{marker:02X} (progressive, lossless, extended or arithmetic "
+                "coding); save a baseline JPEG",
+            )
+        if marker not in (_JPEG_APP0, _JPEG_SOF0, _JPEG_DHT, _JPEG_DQT, _JPEG_DRI, _JPEG_SOS):
+            raise ImageError(
+                "jpeg-structure",
+                f"marker 0xFF{marker:02X} is not one a baseline JPEG fixture may contain",
+            )
         if pos + 2 > len(data):
             raise ImageError("jpeg-structure", "truncated segment header")
         (length,) = struct.unpack(">H", data[pos : pos + 2])
         if length < 2 or pos + length > len(data):
             raise ImageError("jpeg-structure", f"segment 0xFF{marker:02X} runs past the file")
         body = data[pos + 2 : pos + length]
-        if marker == _SOF_BASELINE:
+        if marker == _JPEG_APP0:
+            if saw_app0 or size is not None:
+                raise ImageError("jpeg-metadata", "second or late APP0 segment is not allowed")
+            saw_app0 = True
+            if len(body) != 14 or not body.startswith(b"JFIF\x00") or body[12] or body[13]:
+                raise ImageError(
+                    "jpeg-metadata",
+                    "APP0 must be a plain 16-byte JFIF header with no thumbnail and no extra data",
+                )
+        elif marker == _JPEG_SOF0:
             if size is not None:
                 raise ImageError("jpeg-structure", "more than one frame header")
-            if len(body) < 6:
-                raise ImageError("jpeg-structure", "short SOF0 segment")
+            if len(body) < 6 or body[0] != 8 or body[5] not in (1, 3):
+                raise ImageError(
+                    "jpeg-structure", "frame header must be 8-bit with 1 or 3 components"
+                )
+            if len(body) != 6 + 3 * body[5]:
+                raise ImageError("jpeg-structure", "frame header has the wrong length")
             height, width = struct.unpack(">HH", body[1:5])
             size = (width, height)
-        elif marker in _SOF_OTHER:
-            raise ImageError(
-                "jpeg-not-baseline",
-                f"SOF marker 0xFF{marker:02X} (progressive, lossless, extended or arithmetic "
-                "coding); save a baseline JPEG",
-            )
-        elif marker == 0xE0:
-            if not body.startswith(b"JFIF\x00"):
-                raise ImageError("jpeg-metadata", "APP0 segment is not a JFIF header")
-        elif 0xE1 <= marker <= 0xEF:
-            raise ImageError(
-                "jpeg-metadata",
-                f"APP{marker - 0xE0} segment (EXIF, XMP, ICC, IPTC or vendor data) is not "
-                "allowed; strip it",
-            )
-        elif marker == 0xFE:
-            raise ImageError("jpeg-metadata", "COM (comment) segment is not allowed; strip it")
+        elif marker == _JPEG_DRI:
+            if length != 4:
+                raise ImageError("jpeg-structure", "DRI segment must be exactly 4 bytes long")
+        elif marker == _JPEG_SOS:
+            if size is None or not body or length != 6 + 2 * body[0]:
+                raise ImageError("jpeg-structure", "invalid scan header")
+            saw_scan = True
+        else:
+            _jpeg_check_tables(marker, body)
         pos += length
-        if marker == 0xDA:  # SOS: entropy-coded data runs to the next real marker
+        if marker == _JPEG_SOS:  # entropy-coded data runs to the next real marker
             while True:
                 nxt = data.find(b"\xff", pos)
                 if nxt == -1 or nxt + 1 >= len(data):
@@ -226,6 +394,24 @@ def inspect_jpeg(data: bytes) -> tuple[int, int]:
                     continue
                 pos = nxt
                 break
+
+
+def inspect_embedded(mime: str, data: bytes) -> list[Finding]:
+    """The metadata rules for an image embedded in a notebook (an output), as findings.
+
+    Size and pixel limits do not apply (a figure may be any size; the notebook has its own
+    output cap), only structure and metadata.
+    """
+    try:
+        if mime == "image/png":
+            inspect_png(data, embedded=True)
+        elif mime == "image/jpeg":
+            inspect_jpeg(data)
+        else:
+            return [Finding("", "format-not-allowed", f"{mime} is not a PNG or JPEG")]
+    except ImageError as error:
+        return [Finding("", error.rule, error.message)]
+    return []
 
 
 # --- one file ----------------------------------------------------------------------------
@@ -265,7 +451,9 @@ def check_image(path: str, data: bytes) -> list[Finding]:
             Finding(
                 path,
                 "file-too-large",
-                f"{len(data):,} bytes; the per-file cap is {MAX_FILE_BYTES:,} (1 MiB)",
+                f"{len(data):,} bytes; the per-file cap is {MAX_FILE_BYTES:,} (1 MiB). "
+                "Photographic or noisy content is far smaller as a baseline JPEG; "
+                "flat synthetic content is small as a PNG",
             )
         )
     try:
