@@ -24,6 +24,8 @@ from .evaluation import sum_usage
 from .style import INK, PAPER, PINK
 
 __all__ = [
+    "DEFAULT_MAX_TILES",
+    "IMAGE_LIMITS",
     "AssetPathError",
     "ImageTile",
     "LocalizationMetrics",
@@ -46,7 +48,23 @@ __all__ = [
     "validate_image_asset",
 ]
 
-_MAX_IMAGE_BYTES = 16 * 1024 * 1024
+# The Images API limits this module enforces locally. Source of truth: the "Limits" table at
+# https://docs.typesafe.ai/images (fetched 2026-10-20): "Width and height: 280 to 1568 pixels
+# each", "Total pixels (width x height): 78,400 to 2,458,624" and "16 MiB per image file". All
+# ranges include both ends. tests/test_vision.py pins these numbers against docs/vision.md.
+IMAGE_LIMITS = {
+    "min_side": 280,
+    "max_side": 1568,
+    "min_area": 78_400,
+    "max_area": 2_458_624,
+    "max_bytes": 16 * 1024 * 1024,
+}
+_MIN_SIDE = IMAGE_LIMITS["min_side"]
+_MAX_SIDE = IMAGE_LIMITS["max_side"]
+_MIN_AREA = IMAGE_LIMITS["min_area"]
+_MAX_AREA = IMAGE_LIMITS["max_area"]
+_MAX_IMAGE_BYTES = IMAGE_LIMITS["max_bytes"]
+DEFAULT_MAX_TILES = 256
 _FORMATS = {"PNG": "png", "JPEG": "jpeg"}
 _EDGES = ("top", "bottom", "left", "right")
 PixelBounds = tuple[int, int, int, int]
@@ -63,10 +81,12 @@ def _image_format(data: bytes) -> str:
             if getattr(image, "is_animated", False):
                 raise ValueError("image must be a still image, not an animation")
             width, height = image.size
-            if not (256 <= width <= 1568 and 256 <= height <= 1568):
-                raise ValueError("image width and height must each be 256 to 1568 pixels")
-            if not 78_400 <= width * height <= 2_458_624:
-                raise ValueError("image area must be 78,400 to 2,458,624 pixels")
+            if not (_MIN_SIDE <= width <= _MAX_SIDE and _MIN_SIDE <= height <= _MAX_SIDE):
+                raise ValueError(
+                    f"image width and height must each be {_MIN_SIDE} to {_MAX_SIDE} pixels"
+                )
+            if not _MIN_AREA <= width * height <= _MAX_AREA:
+                raise ValueError(f"image area must be {_MIN_AREA:,} to {_MAX_AREA:,} pixels")
             image.verify()
         # verify() checks file integrity; load() also catches truncated pixel data.
         with Image.open(io.BytesIO(data)) as image:
@@ -84,8 +104,9 @@ def _image_format(data: bytes) -> str:
 def validate_image_asset(asset: Mapping[str, Any]) -> bytes:
     """Validate a raw image asset and return its original encoded bytes.
 
-    Checks actual PNG/JPEG content, stillness, orientation, dimensions and the 16 MiB
-    file limit. This does not certify aggregate request limits or API acceptance.
+    Checks actual PNG/JPEG content, stillness, orientation, dimensions (each side 280 to
+    1568 pixels, area 78,400 to 2,458,624; a side under 280 is rejected by the API) and the
+    16 MiB file limit. This does not certify aggregate request limits or API acceptance.
     """
     if not isinstance(asset, Mapping) or set(asset) != {"type", "format", "data_base64"}:
         raise ValueError("image asset needs exactly type, format and data_base64")
@@ -275,14 +296,22 @@ def normalized_to_pixels(box: Any, width: int, height: int) -> PixelBounds:
 
 
 def box_iou(first: Any, second: Any) -> float:
-    """Intersection area divided by union area of two valid normalized rectangles."""
+    """Intersection area divided by union area of two valid normalized rectangles.
+
+    Raises ``ValueError`` when both areas are so small that the union underflows to zero.
+    """
     a, b = normalized_box(first), normalized_box(second)
     intersection = max(0.0, min(a["right"], b["right"]) - max(a["left"], b["left"])) * max(
         0.0, min(a["bottom"], b["bottom"]) - max(a["top"], b["top"])
     )
     area_a = (a["right"] - a["left"]) * (a["bottom"] - a["top"])
     area_b = (b["right"] - b["left"]) * (b["bottom"] - b["top"])
-    return intersection / (area_a + area_b - intersection)
+    union = area_a + area_b - intersection
+    if union <= 0.0:
+        # A valid box can be so small that its area underflows to 0.0; the ratio is then
+        # undefined, and 0.0 would wrongly call two identical boxes disjoint.
+        raise ValueError("box areas are too small to compare: the union underflows to zero")
+    return intersection / union
 
 
 def expand_box(box: Any, fraction: float = 0.0) -> dict[str, float]:
@@ -342,7 +371,11 @@ class ImageTile:
 
 
 def generate_tiles(
-    image: Image.Image, *, tile_size: tuple[int, int] = (512, 512), overlap: int = 0
+    image: Image.Image,
+    *,
+    tile_size: tuple[int, int] = (512, 512),
+    overlap: int = 0,
+    max_tiles: int = DEFAULT_MAX_TILES,
 ) -> list[ImageTile]:
     """Cover an image in row-major order with tiles of at most ``(width, height)``.
 
@@ -350,7 +383,12 @@ def generate_tiles(
     right/bottom boundary, so they may overlap more. Images smaller than a tile yield
     their full extent. Tile sizes are geometry choices; validate saved tiles with
     :func:`image_asset` before sending them to the API.
+
+    The number of tiles grows quadratically as ``overlap`` approaches the tile size, so the
+    tile count is computed first and a configuration above ``max_tiles`` (default 256)
+    raises ``ValueError`` before any tile is cropped. Raise ``max_tiles`` deliberately.
     """
+    max_tiles = _positive_int(max_tiles, "max_tiles")
     try:
         tile_width, tile_height = tile_size
     except (TypeError, ValueError) as exc:
@@ -375,9 +413,16 @@ def generate_tiles(
             positions.append(length - window)
         return positions
 
+    rows, columns = starts(height, tile_height), starts(width, tile_width)
+    if len(rows) * len(columns) > max_tiles:
+        raise ValueError(
+            f"tile_size={tile_width, tile_height} with overlap={overlap} would make "
+            f"{len(rows) * len(columns):,} tiles, above max_tiles={max_tiles:,}; "
+            "use a larger tile, less overlap or a larger max_tiles"
+        )
     tiles = []
-    for top in starts(height, tile_height):
-        for left in starts(width, tile_width):
+    for top in rows:
+        for left in columns:
             bounds = (left, top, min(left + tile_width, width), min(top + tile_height, height))
             tiles.append(ImageTile(bounds, image.crop(bounds)))
     return tiles
@@ -400,7 +445,11 @@ def draw_boxes(image: Image.Image, boxes: Mapping[str, Any]) -> Image.Image:
 
 
 def box_confidence(answer: Any) -> float | None:
-    """Read confidence conservatively: absent or null stays ``None``, never zero or one."""
+    """Read confidence conservatively: absent or null stays ``None``, never a number.
+
+    A reported ``0.0`` or ``1.0`` is returned as reported; only absence is never coerced
+    into a confidence. A non-numeric or out-of-range value raises ``ValueError``.
+    """
     value = (
         answer.get("confidence")
         if isinstance(answer, Mapping)

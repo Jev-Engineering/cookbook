@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import io
 import json
+import string
 from types import SimpleNamespace
 
 import pytest
@@ -237,7 +239,7 @@ def test_invalid_assets_are_rejected(change):
 
 def test_image_dimensions_and_reference_limits():
     with pytest.raises(ValueError):
-        replay_key(STATE, QUESTIONS, assets=image_assets(size=(256, 256)))
+        replay_key(STATE, QUESTIONS, assets=image_assets(size=(279, 400)))
     for ref in ["", " ", "x" * 1025, "🖼" * 257]:
         with pytest.raises(ValueError):
             replay_key(ref, {"n": Noul()}, assets={ref: image_assets()[REF]})
@@ -380,3 +382,79 @@ def test_image_metadata_fixtures_validate_box_answers(tmp_path):
     responses[examples[0].replay_keys[0]]["answers"]["target"]["box"]["left"] = 1.0
     (folder / "responses.json").write_text(json.dumps(responses))
     assert any("left < right" in str(problem) for problem in validate_recipe(tmp_path))
+
+
+def _noncanonical_twin(asset):
+    """Same decoded bytes, different base64 text (spare low bits set in the final group)."""
+    encoded = asset["data_base64"]
+    data = base64.b64decode(encoded)
+    assert len(data) % 3 != 0, "need a padded encoding to vary its trailing bits"
+    alphabet = string.ascii_uppercase + string.ascii_lowercase + string.digits + "+/"
+    body = encoded.rstrip("=")
+    pad = encoded[len(body) :]
+    spare = 0b1111 if len(pad) == 2 else 0b11
+    twin = body[:-1] + alphabet[alphabet.index(body[-1]) | spare] + pad
+    assert twin != encoded and base64.b64decode(twin, validate=True) == data
+    return {**asset, "data_base64": twin}
+
+
+def _padded_png(size=(280, 280)):
+    """A PNG whose length is not a multiple of 3, so its base64 ends in padding."""
+    for extra in range(8):
+        data = io.BytesIO()
+        Image.new("RGB", size, "pink").save(data, format="PNG", comment=b"x" * extra)
+        if len(data.getvalue()) % 3 != 0:
+            return {
+                "type": "image",
+                "format": "png",
+                "data_base64": base64.b64encode(data.getvalue()).decode("ascii"),
+            }
+    raise AssertionError("could not build a padded PNG")
+
+
+def test_non_canonical_base64_of_identical_bytes_yields_one_replay_key():
+    assert base64.b64decode("QQ==", validate=True) == base64.b64decode("QR==", validate=True)
+    original = _padded_png()
+    twin = _noncanonical_twin(original)
+    assert twin["data_base64"] != original["data_base64"]
+    assert replay_key(STATE, QUESTIONS, assets={REF: twin}) == replay_key(
+        STATE, QUESTIONS, assets={REF: original}
+    )
+
+
+def test_a_recording_replays_for_non_canonical_base64_of_the_same_bytes():
+    original = _padded_png()
+    key = replay_key(STATE, QUESTIONS, assets={REF: original})
+    replay = ReplayBackend({key: box_result().to_dict()})
+    twin = _noncanonical_twin(original)
+    assert replay.decide(STATE, QUESTIONS, assets={REF: twin}) == box_result()
+
+
+def test_image_key_hashes_decoded_bytes_in_the_documented_envelope():
+    # The documented envelope: {"v": 1, state, questions, "assets": {ref: {type, format,
+    # sha256 of the decoded file bytes}}}, canonical JSON, SHA-256. Rebuilt here independently.
+    assets = image_assets()
+    data = base64.b64decode(assets[REF]["data_base64"])
+    payload = {
+        "v": 1,
+        "state": STATE,
+        "questions": {"target": QUESTIONS["target"].to_dict()},
+        "assets": {
+            REF: {"type": "image", "format": "png", "sha256": hashlib.sha256(data).hexdigest()}
+        },
+    }
+    expected = hashlib.sha256(
+        json.dumps(payload, separators=(",", ":"), ensure_ascii=True).encode()
+    ).hexdigest()
+    assert replay_key(STATE, QUESTIONS, assets=assets) == expected
+    # image_reference's digest is the same digest the key embeds.
+    from jev_cookbook.vision import image_reference
+
+    assert image_reference(assets[REF]) == "image:sha256:" + hashlib.sha256(data).hexdigest()
+
+
+@pytest.mark.parametrize("size", [(279, 400), (400, 279)])
+def test_replay_key_refuses_a_side_under_280_on_either_axis(size):
+    with pytest.raises(ValueError, match="280 to 1568"):
+        replay_key(STATE, QUESTIONS, assets=image_assets(size=size))
+    replay_key(STATE, QUESTIONS, assets=image_assets(size=(280, 280)))

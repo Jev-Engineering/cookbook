@@ -400,8 +400,12 @@ Keep image files under `assets/` beside `fixtures/`, and put their relative path
 
 The text-only replay envelope is unchanged: omitted, `None` and empty assets produce exactly
 the existing keys. A request with images adds an `assets` object sorted by reference, holding
-each asset's `type`, canonical `format` (`png` or `jpeg`) and SHA-256 of its base64 ASCII text.
-That means changed image
+each asset's `type`, canonical `format` (`png` or `jpeg`) and `sha256`, the lowercase hex
+SHA-256 of the **decoded file bytes** (the same digest `image_reference` embeds), not of the
+base64 text. Base64 that decodes to the same bytes but is spelled differently (for example
+non-canonical trailing bits, `QQ==` and `QR==`) therefore keys once. This is the envelope
+every image fixture binds to; no image fixture existed before it was fixed, so no recorded
+key changed (text-only keys are untouched and pinned by a test). Changed image
 bytes or references change the key, while reordering the assets map does not. No image data
 is stored in a response fixture. The scripted random seed includes this key; scripts retain
 their existing `(state, questions, rng)` interface.
