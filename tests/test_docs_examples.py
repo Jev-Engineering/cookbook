@@ -63,11 +63,14 @@ If either ``I001`` or ``B015`` is ever fixed, the matching entry in ``ALLOWED_FI
 matching anything, and ``test_known_findings_still_present`` fails -- the signal to remove it.
 """
 
+import _thread
+import contextlib
 import json
 import re
 import signal
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 import pytest
@@ -231,26 +234,43 @@ def _alarm(_signum, _frame):
     raise _Timeout("docs/evaluation.md example exceeded its timeout")
 
 
-@pytest.mark.skipif(
-    not _HAS_SIGALRM,
-    reason="signal.SIGALRM is POSIX-only; docs/development.md also documents Windows local dev",
-)
+@contextlib.contextmanager
+def _time_limit(seconds):
+    """Raise ``_Timeout`` if the body runs longer than ``seconds``. POSIX uses ``SIGALRM``
+    (unchanged); elsewhere (Windows) a timer thread interrupts the main thread."""
+    if _HAS_SIGALRM:
+        previous = signal.signal(signal.SIGALRM, _alarm)
+        signal.alarm(seconds)
+        try:
+            yield
+        finally:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, previous)
+        return
+    timer = threading.Timer(seconds, _thread.interrupt_main)
+    timer.start()
+    try:
+        yield
+    except KeyboardInterrupt:
+        if timer.is_alive():
+            raise  # a real Ctrl-C, not our timer
+        raise _Timeout("docs/evaluation.md example exceeded its timeout") from None
+    finally:
+        timer.cancel()
+
+
 @pytest.mark.parametrize("index", sorted(EXECUTED))
 def test_block_executes(index):
-    previous = signal.signal(signal.SIGALRM, _alarm)
-    signal.alarm(10)
     try:
-        namespace: dict = {}
-        exec(compile(_source(index), f"docs/evaluation.md:block{index}", "exec"), namespace)
+        with _time_limit(10):
+            namespace: dict = {}
+            exec(compile(_source(index), f"docs/evaluation.md:block{index}", "exec"), namespace)
     finally:
-        signal.alarm(0)
-        signal.signal(signal.SIGALRM, previous)
         import matplotlib.pyplot as plt
 
         plt.close("all")  # block 6 calls plot_risk_coverage, which opens a Figure
 
 
-@pytest.mark.skipif(not _HAS_SIGALRM, reason="see test_block_executes")
 def test_block_four_equivalence_holds():
     """Block 4 ("Note the argument order") claims, in a comment the bare tuple comparison backs
     with no `assert`, that `evaluate_outcomes` and `evaluate_selective` agree on every field but
@@ -258,14 +278,9 @@ def test_block_four_equivalence_holds():
     itself (that is a content change), so this test checks the same claim here instead, against
     the real objects the block computed. Catches exactly what a bare comparison cannot: swapping
     `evaluate_selective`'s argument order silently computes something else, with no exception."""
-    previous = signal.signal(signal.SIGALRM, _alarm)
-    signal.alarm(10)
-    try:
+    with _time_limit(10):
         namespace: dict = {}
         exec(compile(_source(4), "docs/evaluation.md:block4", "exec"), namespace)
-    finally:
-        signal.alarm(0)
-        signal.signal(signal.SIGALRM, previous)
     a, b = namespace["a"], namespace["b"]
     assert (a.n_total, a.n_answered, a.coverage, a.accuracy, a.risk) == (
         b.n_total,
