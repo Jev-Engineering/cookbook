@@ -216,24 +216,30 @@ actual selected timestamps.
 ### Sampling, intervals and windows
 
 `jev_cookbook.frames` (pure Python, no Pillow, no model call) holds the deterministic
-arithmetic on a state-frame list. It is a separate module, not part of `vision`; import it
-directly. No video is decoded anywhere in the cookbook: frames are stills that were already
-extracted, and the timestamps you pass are the truth. Python owns order, sampling and every
-time calculation; the model only sees the rows you choose to send.
+arithmetic on a state-frame list. It is a separate module, not part of `vision`, and
+`jev_cookbook.frames` is the one import path. No video is decoded anywhere in the cookbook:
+frames are stills that were already extracted, and the timestamps you pass are the truth,
+**elapsed seconds since the start of the sequence** (never Unix time; the 1e-9 s slack below
+is meaningless at epoch scale). Python owns order, sampling and every time calculation; the
+model only sees the rows you choose to send.
 
 ```python
 from jev_cookbook.frames import (
+    earliest_transition,
+    frame_at,
     frame_intervals,
     frame_timestamps,
+    frame_windows,
     relative_frames,
     sample_frames,
     select_frames,
+    transition_time,
     window_timestamps,
 )
 
 times = frame_timestamps(frames)  # validated: finite, nonnegative, strictly increasing
 chosen = sample_frames(times, every_seconds=2.0)  # indices, ascending, no repeats
-sampled = select_frames(frames, chosen)  # copies of those rows, original order
+sampled = select_frames(frames, chosen)  # copies of those rows, each with frame_index
 gaps = frame_intervals(sampled)  # seconds between consecutive rows, n - 1 values
 labelled = relative_frames(sampled)  # adds seconds_ago = last time - time
 window = window_timestamps(sampled, 1, 2)  # start_seconds, end_seconds, duration_seconds
@@ -245,24 +251,51 @@ window = window_timestamps(sampled, 1, 2)  # start_seconds, end_seconds, duratio
   no frame raises rather than returning nothing.
 - `every_seconds`: targets are `window_start + k * every_seconds` (multiplied, never
   accumulated) up to `end`. Each target takes the **nearest** frame in the window; **a tie
-  goes to the earlier frame**. Repeats are dropped, so a sparse sequence returns fewer
-  indices than targets.
-- `count`: exactly `count` frames spread by **position** across the window, always including
-  its first and last frame (`count=1` keeps the first). Position `i` is the frame at
-  `round(i * (n - 1) / (count - 1))`, an exact half **rounding down to the earlier frame**,
-  in integer arithmetic. A `count` of at least the window size returns every frame.
+  goes to the earlier frame**, including frames closer together than the slack. Repeats are
+  dropped, so a sparse sequence returns fewer indices than targets. Use this when even
+  spacing **in time** matters.
+- `count`: exactly `count` frames spread by **position**, not by time, across the window,
+  always including its first and last frame (`count=1` keeps the first). With uneven gaps this
+  is not uniform in time: `[0, .1, .2, .3, 10]` with `count=3` keeps 0.0, 0.2 and 10.0.
+  Position `i` is the frame at `round(i * (n - 1) / (count - 1))`, an exact half **rounding
+  down to the earlier frame**, in integer arithmetic. A `count` of at least the window size
+  returns every frame.
 - At most one of `every_seconds` and `count`; with neither, the whole window is kept.
 - Comparisons carry 1e-9 s of slack (`frames.TIME_EPSILON`), so `0.1 + 0.2` against `0.3`
   cannot flip a boundary or a tie. Empty input, a duplicate, reversed, negative or non-finite
   time, and a non-positive rate raise `ValueError`. Rates need not be integers.
 
-`frame_intervals` returns `[]` for one frame. `relative_frames(frames, now=None)` copies each
-row, keeps its order and other keys, and adds `seconds_ago = now - timestamp_seconds`; `now`
-defaults to the last frame (whose `seconds_ago` is `0.0`) and may not be earlier than it.
-The [Images documentation](https://docs.typesafe.ai/images) recommends relative labels for
-frame histories, oldest first; drop `timestamp_seconds` from the state if the model should see
-only `seconds_ago`. `window_timestamps(frames, first_index, last_index)` maps an inclusive
-index window (for example a candidate highlight window) back to seconds.
+Other helpers:
+
+- `frame_intervals` returns `[]` for one frame. `relative_frames(frames, now=None)` copies each
+  row, keeps its order and other keys, and adds `seconds_ago = now - timestamp_seconds`; `now`
+  defaults to the last frame (whose `seconds_ago` is `0.0`) and may not be earlier than it.
+  The [Images documentation](https://docs.typesafe.ai/images) recommends relative labels for
+  frame histories, oldest first; drop `timestamp_seconds` from the state if the model should
+  see only `seconds_ago`.
+- `window_timestamps(frames, first_index, last_index)` maps an inclusive index window (for
+  example a candidate highlight window) back to seconds. Its duration runs from the first to
+  the last frame in the window, so a window of `k` frames at gap `g` has duration `(k - 1) * g`.
+- `frame_at(timestamps, seconds, *, side="before")` returns the index of the frame at or
+  before (`"before"`), at or after (`"after"`) or nearest to (`"nearest"`, ties to the earlier
+  frame) a log line or recorded agent-state time; it raises when no frame qualifies.
+- `frame_windows(timestamps, *, width_seconds, stride_seconds)` enumerates sliding windows
+  (ranks 89 and 92) as `{"window_start_seconds", "window_end_seconds", "indices"}`, edges
+  inclusive, only windows that fit. A window in a gap is kept with `indices == []`, so the
+  recipe decides what an empty window means.
+- `transition_time(frames, first_new_index)` and `earliest_transition(frames, changed)` apply
+  the cookbook's single convention for when a transition happened: the timestamp of the
+  **first frame in which the new state is visible**. `changed[i]` is the answer to "did the
+  state change between frame `i` and `i + 1`?"; the first `True` gives that time. Gold labels
+  use the same rule, and the metric that compares them is `evaluation.transition_metrics`
+  ([evaluation.md](evaluation.md)), whose tolerance should be at least the largest sampled gap.
+
+**Index spaces.** `sample_frames` returns indices into the list it was given. `select_frames`
+copies the rows and adds `frame_index`, the position in the list selected from (kept when you
+select from a selection), so a pair index found on the sampled list can be mapped back to the
+original sequence. `window_timestamps`, `earliest_transition` and `transition_time` take
+indices into the list you hand them: pass the sampled list with sampled indices, never the
+full list.
 
 **Record what was selected.** Sampling changes what the recipe measures, so store the
 selection in the example's `fields` rather than recomputing it silently:
@@ -270,14 +303,12 @@ selection in the example's `fields` rather than recomputing it silently:
 ```python
 fields = {
     "frames": [
-        {"timestamp_seconds": row["timestamp_seconds"], "path": path}
-        for row, path in zip(sampled, sampled_paths, strict=True)
+        {"timestamp_seconds": row["timestamp_seconds"], "frame_index": row["frame_index"]}
+        for row in sampled
     ],
     "sampling": {"every_seconds": 2.0, "start": None, "end": None, "indices": chosen},
 }
 ```
-
-Score the result with `evaluation.transition_metrics` ([evaluation.md](evaluation.md)).
 
 ## Honest accounting
 

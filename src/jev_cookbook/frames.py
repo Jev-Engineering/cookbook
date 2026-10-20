@@ -13,6 +13,7 @@ float drift such as ``0.1 + 0.2`` against ``0.3`` cannot move a frame across a b
 
 from __future__ import annotations
 
+import bisect
 import math
 from collections.abc import Iterable, Mapping, Sequence
 from numbers import Integral, Real
@@ -20,11 +21,15 @@ from typing import Any
 
 __all__ = [
     "TIME_EPSILON",
+    "earliest_transition",
+    "frame_at",
     "frame_intervals",
     "frame_timestamps",
+    "frame_windows",
     "relative_frames",
     "sample_frames",
     "select_frames",
+    "transition_time",
     "window_timestamps",
 ]
 
@@ -131,12 +136,12 @@ def sample_frames(
                 cursor + 1 < len(eligible) and times[eligible[cursor + 1]] <= target + TIME_EPSILON
             ):
                 cursor += 1
-            best = cursor
-            if cursor + 1 < len(eligible):
-                before = abs(target - times[eligible[cursor]])
-                after = abs(times[eligible[cursor + 1]] - target)
-                if after < before - TIME_EPSILON:
-                    best = cursor + 1
+            near = range(max(0, cursor - 1), min(len(eligible), cursor + 2))
+            distances = {j: abs(times[eligible[j]] - target) for j in near}
+            closest = min(distances.values())
+            # the earliest frame within the slack of the closest one: the tie rule holds even
+            # when frames lie closer together than TIME_EPSILON
+            best = next(j for j in near if distances[j] <= closest + TIME_EPSILON)
             if not chosen or chosen[-1] != eligible[best]:
                 chosen.append(eligible[best])
         return chosen
@@ -162,6 +167,11 @@ def select_frames(
 
     Indices must be valid and strictly increasing, so the selection keeps the original
     chronological order. Typical use: ``select_frames(frames, sample_frames(...))``.
+    Each copy gains ``frame_index``, its position in the list it was selected from, so the
+    index space is never ambiguous afterwards; a row that already has ``frame_index`` keeps
+    it, so selecting from a selection preserves the position in the original sequence.
+    Indices you pass to :func:`window_timestamps` or :func:`earliest_transition` still refer
+    to the list you pass with them.
     """
     rows = list(state_frames)
     frame_timestamps(rows)
@@ -171,7 +181,7 @@ def select_frames(
         if picked and index <= picked[-1]:
             raise ValueError("indices must be strictly increasing")
         picked.append(index)
-    return [dict(rows[i]) for i in picked]
+    return [{**dict(rows[i]), "frame_index": rows[i].get("frame_index", i)} for i in picked]
 
 
 def frame_intervals(state_frames: Iterable[Mapping[str, Any]]) -> list[float]:
@@ -223,3 +233,131 @@ def window_timestamps(
         "end_seconds": times[last],
         "duration_seconds": times[last] - times[first],
     }
+
+
+def frame_at(timestamps: Iterable[float], seconds: float, *, side: str = "before") -> int:
+    """Index of the frame at ``seconds`` (a log line, an agent-state record, a clicked time).
+
+    ``side="before"`` is the last frame at or before ``seconds``; ``"after"`` the first frame
+    at or after it; ``"nearest"`` the closer one, **a tie going to the earlier frame**. A frame
+    within :data:`TIME_EPSILON` of ``seconds`` counts as at it. Raises ``ValueError`` when no
+    frame qualifies (for example ``"before"`` a time earlier than the first frame) instead of
+    guessing, because attaching an event to the wrong frame is a silent error.
+    """
+    times = _ordered(timestamps)
+    when = _seconds(seconds, "seconds")
+    if side not in ("before", "after", "nearest"):
+        raise ValueError("side must be 'before', 'after' or 'nearest'")
+    before = bisect.bisect_right(times, when + TIME_EPSILON) - 1  # -1 when none
+    after = bisect.bisect_left(times, when - TIME_EPSILON)  # len(times) when none
+    if side == "before":
+        if before < 0:
+            raise ValueError(f"no frame at or before {when} seconds")
+        return before
+    if side == "after":
+        if after >= len(times):
+            raise ValueError(f"no frame at or after {when} seconds")
+        return after
+    candidates = [i for i in (before, after) if 0 <= i < len(times)]
+    gap = {i: abs(times[i] - when) for i in candidates}
+    closest = min(gap.values())
+    return min(i for i in candidates if gap[i] <= closest + TIME_EPSILON)
+
+
+def frame_windows(
+    timestamps: Iterable[float],
+    *,
+    width_seconds: float,
+    stride_seconds: float,
+    start: float | None = None,
+    end: float | None = None,
+) -> list[dict[str, Any]]:
+    """Sliding windows over the sequence, each with the indices of the frames inside.
+
+    Window ``k`` spans ``[w, w + width_seconds]`` (both edges inclusive, so a frame on the
+    shared edge of neighbouring windows belongs to both) with ``w = start + k * stride_seconds``
+    (multiplied, not accumulated). ``start`` / ``end`` default to the first and last
+    timestamp. Only windows that fit entirely before ``end`` are produced; a window wider than
+    the range raises ``ValueError``. A window that falls in a gap between frames is **kept**
+    with ``indices == []`` so the caller decides explicitly what an empty window means. Each
+    entry is ``{"window_start_seconds", "window_end_seconds", "indices"}``; pass its indices to
+    :func:`select_frames` or :func:`window_timestamps` as needed.
+    """
+    times = _ordered(timestamps)
+    width = _seconds(width_seconds, "width_seconds", positive=True)
+    stride = _seconds(stride_seconds, "stride_seconds", positive=True)
+    low = _seconds(start, "start") if start is not None else times[0]
+    high = _seconds(end, "end") if end is not None else times[-1]
+    if low > high + TIME_EPSILON:
+        raise ValueError("start must not be after end")
+    if width > high - low + TIME_EPSILON:
+        raise ValueError("width_seconds is wider than the range being windowed")
+    n_windows = math.floor((high - low - width) / stride + TIME_EPSILON / stride) + 1
+    if n_windows > 10_000_000:
+        raise ValueError("stride_seconds yields more than 10,000,000 windows")
+    result = []
+    for k in range(n_windows):
+        first = low + k * stride
+        last = first + width
+        lo = bisect.bisect_left(times, first - TIME_EPSILON)
+        hi = bisect.bisect_right(times, last + TIME_EPSILON)
+        result.append(
+            {
+                "window_start_seconds": first,
+                "window_end_seconds": last,
+                "indices": list(range(lo, hi)),
+            }
+        )
+    return result
+
+
+def transition_time(state_frames: Iterable[Mapping[str, Any]], first_new_index: int) -> float:
+    """The cookbook's one convention for *when a transition happened*, in elapsed seconds.
+
+    A transition's time is the ``timestamp_seconds`` of the **first frame in which the new
+    state is visible**. ``first_new_index`` must be at least 1: a transition needs an earlier
+    frame that still showed the old state. Gold labels follow the same rule (a labeller marks
+    the first frame of the full-rate sequence that shows the new state); a prediction is
+    measured on the frames Python sampled. Detecting on sampled frames can therefore only
+    be late, by less than the gap to the previous sampled frame; see
+    :func:`earliest_transition` and ``evaluation.transition_metrics``.
+    """
+    times = frame_timestamps(state_frames)
+    index = _index(first_new_index, "first_new_index", len(times))
+    if index == 0:
+        raise ValueError(
+            "first_new_index must be at least 1: a transition needs an earlier frame showing "
+            "the old state"
+        )
+    return times[index]
+
+
+def earliest_transition(
+    state_frames: Iterable[Mapping[str, Any]], changed: Iterable[bool]
+) -> dict[str, Any] | None:
+    """Earliest adjacent pair that a per-pair question flagged as a change, or ``None``.
+
+    ``changed[i]`` answers "did the state change between frame ``i`` and frame ``i + 1``?"
+    (one Python-controlled question per adjacent pair; ``len(changed) == n - 1``, values
+    must be real ``bool``). The result applies :func:`transition_time`'s convention:
+    ``first_new_index = i + 1`` for the first ``True``, ``transition_seconds`` its timestamp,
+    and ``window_start_seconds`` / ``window_end_seconds`` the flagged pair, for the record.
+    No flagged pair returns ``None``, which is a recipe outcome (usually "unchanged"), not an
+    error. The indices refer to the list passed here (so pass the *sampled* frames, and use
+    their ``frame_index`` to get back to the original positions).
+    """
+    times = frame_timestamps(state_frames)
+    flags = list(changed)
+    if len(flags) != len(times) - 1:
+        raise ValueError(f"changed needs one flag per adjacent pair ({len(times) - 1})")
+    if any(not isinstance(flag, bool) for flag in flags):
+        raise ValueError("changed must contain only True/False")
+    for i, flag in enumerate(flags):
+        if flag:
+            return {
+                "first_new_index": i + 1,
+                "transition_seconds": times[i + 1],
+                "window_start_seconds": times[i],
+                "window_end_seconds": times[i + 1],
+            }
+    return None

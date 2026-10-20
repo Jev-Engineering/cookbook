@@ -758,43 +758,88 @@ in `requests_missing_input` / `requests_missing_output`, so a partial total is v
 
 ### Transitions
 
-`transition_metrics(gold, predicted, *, tolerance_seconds, uncertain_label="uncertain")` scores
-event or transition detection over labelled frame sequences (the multiframe row of
-[What an evaluation must show](multimodal-track.md)). Each example is one sequence, written
-`(label, seconds)`: the transition label and the elapsed second of its **earliest** supported
-transition, or `None` when the label has no time (such as `"unchanged"`). Frame sampling and
-timestamps come from `jev_cookbook.frames` ([vision.md](vision.md)); this function only compares.
+`transition_metrics(gold, predicted, *, tolerance_seconds, uncertain_labels=("uncertain",),
+max_sampling_interval_seconds=None)` scores event or transition detection over labelled frame
+sequences (the multiframe row of [What an evaluation must show](multimodal-track.md)). Each
+example is `(label, seconds)`, as a tuple or a two-element list (what JSON loads): the
+transition label and its time in **elapsed seconds since the start of the sequence** (never
+Unix time), or `None` when the label has no time (such as `"unchanged"`).
+
+**One convention for the time.** A transition's time is the `timestamp_seconds` of **the first
+frame in which the new state is visible**. Gold labellers mark that frame on the full-rate
+sequence; Python takes the same frame from the frames it sampled. Jev's `Choice` and `Noul`
+answers carry no time, so Python finds the pair: it asks one question per adjacent sampled pair
+(for example "did the door change between these two frames?") and
+`frames.earliest_transition(sampled, changed)` returns the first flagged pair with
+`transition_seconds` set by this convention (`frames.transition_time(frames, i)` is the same
+rule for a known index). Do not substitute the pair's start or midpoint: the three give
+different scores for the same answers.
+
+Because Python only sees the sampled frames, its time can only be **late**, by less than the
+gap to the previous sampled frame. Set `tolerance_seconds` to at least the largest sampled gap,
+and pass that gap as `max_sampling_interval_seconds`: the result records it and sets
+`tolerance_below_sampling_interval` when the tolerance is smaller, meaning the score mostly
+measures the sampling grid, not the model. Quote the gap beside the metric.
 
 ```python
 from jev_cookbook.evaluation import transition_metrics
+from jev_cookbook.frames import earliest_transition, frame_intervals
 
-gold = [("opened", 2.0), ("closed", 5.0), ("unchanged", None), ("opened", 1.0)]
-predicted = [("opened", 2.0), ("closed", 5.4), ("unchanged", None), ("uncertain", None)]
-metrics = transition_metrics(gold, predicted, tolerance_seconds=0.5)
+# a door first visibly open at 2.5 s in the full-rate labels; frames sampled every 1 s
+sampled = [{"timestamp_seconds": float(t), "image": f"image-{t}"} for t in range(4)]
+found = earliest_transition(sampled, [False, False, True])  # the pair (2.0 s, 3.0 s) fired
+gap = max(frame_intervals(sampled))
+gold = [("opened", 2.5), ("closed", 5.0), ("unchanged", None), ("opened", 1.0)]
+predicted = [
+    ("opened", found["transition_seconds"]),  # 3.0 s: 0.5 s late
+    ("closed", 5.0),
+    ("unchanged", None),
+    ("uncertain", None),
+]
+metrics = transition_metrics(
+    gold, predicted, tolerance_seconds=gap, max_sampling_interval_seconds=gap
+)
 assert (metrics.n_examples, metrics.n_uncertain, metrics.n_resolved) == (4, 1, 3)
 assert (metrics.exact_correct, metrics.tolerance_correct) == (2, 3)
 assert metrics.tolerance_accuracy == 1.0  # over the 3 resolved examples
 assert metrics.tolerance_accuracy_all == 0.75  # over all 4 examples
+assert metrics.outcomes == ("within", "exact", "exact", "review")
+assert metrics.mean_signed_error_seconds == 0.25  # (+0.5 and 0.0) over n_timed = 2
 ```
 
-A predicted label equal to `uncertain_label` is a **review** outcome. It is counted in
-`n_uncertain` and `uncertain_rate` (over all examples) and is excluded from the resolved
-denominator, so the report states both views: `exact_accuracy` / `tolerance_accuracy` divide by
-`n_resolved` (NaN if every example is uncertain), and `exact_accuracy_all` /
-`tolerance_accuracy_all` divide by `n_examples`, counting an uncertain example as not correct.
-Gold may not be uncertain.
+**Review outcomes.** A predicted label in `uncertain_labels` is a review outcome; pass several
+(`("unknown", "inconsistent")` for rank 90). Map both the model's own "uncertain" option and
+Python's confidence or consistency gate to one of these labels before calling. Reviews are
+counted in `n_uncertain` and `uncertain_rate` (over all examples) and are excluded from the
+resolved denominator, so both views are stated: `exact_accuracy` / `tolerance_accuracy` divide
+by `n_resolved` (NaN if every example is a review), and `exact_accuracy_all` /
+`tolerance_accuracy_all` divide by `n_examples`, counting a review as not correct. Gold may not
+be a review label.
 
-A resolved example is *exact* when the label matches and the times are equal (both `None`, or
-within 1e-9 s of float slack); it is *within tolerance* when the label matches and the times
-are both `None` or differ by at most `tolerance_seconds` (inclusive, same slack). A label that
-needs a time but is predicted without one (or the reverse) is wrong; it is tallied in
-`n_missed_time` / `n_spurious_time`.
+**Scoring.** A resolved example is *exact* when the label matches and the times are equal
+(both `None`, or within 1e-9 s of float slack); *within tolerance* when the label matches and
+the times are both `None` or differ by at most `tolerance_seconds` (inclusive, same slack).
+`outcomes` lists `"exact"`, `"within"`, `"wrong"` or `"review"` for every example in input
+order, so a README can name the sequences that went to review or missed.
 
-The earliest-transition error is `predicted - gold` seconds over the `n_timed` resolved examples
-where both sides give a time, whatever the labels: `mean_absolute_error_seconds` and
-`mean_signed_error_seconds` (positive means late), NaN when `n_timed` is 0. Report `n_timed`
-beside them. Empty or unequal inputs, a malformed tuple, a negative or non-finite time or
-tolerance, and an uncertain gold label raise `ValueError`.
+**Timing error.** The headline `mean_absolute_error_seconds` and `mean_signed_error_seconds`
+(predicted minus gold; positive means late) cover only the `n_timed` resolved examples whose
+**label matches gold** and where both sides give a time; a different transition at the right
+second is not good timing. `timing_errors_seconds` holds the per-example value. The
+`*_any_label` fields (`n_timed_any_label`, `mean_absolute_error_any_label_seconds`,
+`mean_signed_error_any_label_seconds`) drop the label condition for readers who want that view.
+Means are NaN when their count is 0; report `n_timed` beside them. `n_missed_time` and
+`n_spurious_time` count a resolved prediction that omits a gold time, or invents one, whatever
+its label.
+
+**Several transitions in one sequence** (rank 87's phase history): the function scores one
+`(label, time)` per example. Split a sequence into one example per transition (for example
+`"combat->menu"` at its time), each with its own gold and its own detection window, and pool
+the examples. Do not invent a sequence-alignment metric; a transition Python found but the
+labels do not contain is a separate example with the gold label `"unchanged"`.
+
+Empty or unequal inputs, a malformed pair, a negative or non-finite time, tolerance or
+interval, and a review label in gold raise `ValueError`.
 
 ## Result types
 
@@ -810,7 +855,7 @@ Every result type is a frozen dataclass whose fields are plain attributes, so ot
 | `SelectiveResult` | `threshold`, `n_total`, `n_answered`, `coverage`, `accuracy`, `risk`; returned by both `evaluate_selective` and `evaluate_outcomes` (`threshold` is NaN from the latter) |
 | `ReliabilityBin` | `lower`, `upper`, `count`, `mean_probability`, `observed_rate` (the last two are NaN for an empty bin); `reliability_table` returns `list[ReliabilityBin]` |
 | `BootstrapResult` | `difference`, `lower`, `upper`, `confidence_level`, `n`, `n_resamples`, `seed` |
-| `TransitionMetrics` | `n_examples`, `n_uncertain`, `n_resolved`, `exact_correct`, `tolerance_correct`, `exact_accuracy`, `tolerance_accuracy`, `exact_accuracy_all`, `tolerance_accuracy_all`, `uncertain_rate`, `tolerance_seconds`, `n_timed`, `mean_absolute_error_seconds`, `mean_signed_error_seconds`, `n_missed_time`, `n_spurious_time` |
+| `TransitionMetrics` | `n_examples`, `n_uncertain`, `n_resolved`, `exact_correct`, `tolerance_correct`, `exact_accuracy`, `tolerance_accuracy`, `exact_accuracy_all`, `tolerance_accuracy_all`, `uncertain_rate`, `tolerance_seconds`, `n_timed`, `mean_absolute_error_seconds`, `mean_signed_error_seconds`, `n_timed_any_label`, `mean_absolute_error_any_label_seconds`, `mean_signed_error_any_label_seconds`, `n_missed_time`, `n_spurious_time`, `max_sampling_interval_seconds`, `tolerance_below_sampling_interval`, `outcomes`, `timing_errors_seconds` |
 | `UsageTotals` | `requests`, `input_tokens`, `output_tokens`, `total_tokens`, `requests_missing_input`, `requests_missing_output` |
 
 Every metric computed on synthetic fixtures is a check that the pipeline works, not a measure

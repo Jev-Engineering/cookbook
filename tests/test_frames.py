@@ -9,11 +9,15 @@ import pytest
 
 from jev_cookbook import frames
 from jev_cookbook.frames import (
+    earliest_transition,
+    frame_at,
     frame_intervals,
     frame_timestamps,
+    frame_windows,
     relative_frames,
     sample_frames,
     select_frames,
+    transition_time,
     window_timestamps,
 )
 
@@ -28,11 +32,15 @@ SIX = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]
 def test_public_names():
     assert set(frames.__all__) == {
         "TIME_EPSILON",
+        "earliest_transition",
+        "frame_at",
         "frame_intervals",
         "frame_timestamps",
+        "frame_windows",
         "relative_frames",
         "sample_frames",
         "select_frames",
+        "transition_time",
         "window_timestamps",
     }
 
@@ -275,7 +283,7 @@ def test_select_frames_pairs_with_sample_frames():
     state = rows(*SIX)
     chosen = select_frames(state, sample_frames(frame_timestamps(state), every_seconds=2))
     assert [r["timestamp_seconds"] for r in chosen] == [0.0, 2.0, 4.0]
-    assert chosen[0] == state[0]
+    assert chosen[0] == {**state[0], "frame_index": 0}
     assert chosen[0] is not state[0]
     assert select_frames(state, []) == []
     for bad in ([6], [-1], [2, 1], [1, 1], [True], [1.0]):
@@ -283,3 +291,129 @@ def test_select_frames_pairs_with_sample_frames():
             select_frames(state, bad)
     with pytest.raises(ValueError):
         select_frames([], [])
+
+
+# ------------------------------------------------------------------------------ round 2
+
+
+def test_tie_rule_holds_when_frames_are_closer_than_the_slack():
+    # frame 1 is exactly on the target, frame 2 is 5e-10 s later: still the earlier frame
+    assert sample_frames([0.0, 1.0, 1.0 + 5e-10, 2.0], every_seconds=1) == [0, 1, 3]
+    # the earlier frame sits just before the target and the later one just after
+    assert sample_frames([0.0, 1.0 - 5e-10, 1.0 + 5e-10, 2.0], every_seconds=1) == [0, 1, 3]
+
+
+def test_count_spreading_is_by_position_not_by_time():
+    # the 9.7 s gap is not sampled evenly: positions 0, 2, 4 keep 0.0, 0.2 and 10.0
+    assert sample_frames([0.0, 0.1, 0.2, 0.3, 10.0], count=3) == [0, 2, 4]
+
+
+def test_select_frames_records_the_original_index():
+    state = rows(*SIX)
+    first = select_frames(state, [1, 3, 5])
+    assert [r["frame_index"] for r in first] == [1, 3, 5]
+    assert "frame_index" not in state[1]
+    second = select_frames(first, [0, 2])
+    assert [r["frame_index"] for r in second] == [1, 5]  # still the original positions
+    assert [r["timestamp_seconds"] for r in second] == [1.0, 5.0]
+
+
+def test_frame_at():
+    times = [0.0, 1.0, 2.0, 4.0]
+    assert frame_at(times, 2.0) == 2
+    assert frame_at(times, 3.0) == 2
+    assert frame_at(times, 3.0, side="after") == 3
+    assert frame_at(times, 2.0, side="after") == 2
+    assert frame_at(times, 1.5, side="nearest") == 1  # tie goes to the earlier frame
+    assert frame_at(times, 3.1, side="nearest") == 3
+    assert frame_at(times, 100.0, side="nearest") == 3
+    assert frame_at(times, 100.0) == 3
+    assert frame_at(times, 2.0 - 1e-10, side="after") == 2
+    assert frame_at(times, 2.0 + 1e-10) == 2
+    assert frame_at([5.0], 0.0, side="nearest") == 0
+    with pytest.raises(ValueError, match="at or before"):
+        frame_at([1.0, 2.0], 0.5)
+    with pytest.raises(ValueError, match="at or after"):
+        frame_at([1.0, 2.0], 2.5, side="after")
+    for bad in ({"side": "left"}, {"side": None}):
+        with pytest.raises(ValueError):
+            frame_at(times, 1.0, **bad)
+    for bad_time in (-1.0, math.nan, True):
+        with pytest.raises(ValueError):
+            frame_at(times, bad_time)
+    with pytest.raises(ValueError):
+        frame_at([], 1.0)
+
+
+def test_frame_windows_keeps_empty_windows_visible():
+    times = [0.0, 0.5, 1.0, 1.5, 2.0, 6.0, 6.5, 7.0, 7.5, 8.0]
+    windows = frame_windows(times, width_seconds=2.0, stride_seconds=2.0)
+    # windows start at 0, 2, 4, 6 and span [0,2], [2,4], [4,6], [6,8]
+    assert [(w["window_start_seconds"], w["window_end_seconds"]) for w in windows] == [
+        (0.0, 2.0),
+        (2.0, 4.0),
+        (4.0, 6.0),
+        (6.0, 8.0),
+    ]
+    assert [w["indices"] for w in windows] == [
+        [0, 1, 2, 3, 4],
+        [4],  # shared edge frame at 2.0
+        [5],  # shared edge frame at 6.0
+        [5, 6, 7, 8, 9],
+    ]
+    gap = frame_windows(times, width_seconds=1.0, stride_seconds=1.0, start=3.0, end=5.0)
+    assert [w["indices"] for w in gap] == [[], []]
+    assert frame_windows([0.0, 1.0], width_seconds=1.0, stride_seconds=5.0)[0]["indices"] == [0, 1]
+
+
+def test_frame_windows_float_drift_and_errors():
+    times = [i / 10 for i in range(11)]
+    # width 0.3, stride 0.1: windows at 0.0 .. 0.7 -> 8 windows despite 0.1 * 7 drifting
+    windows = frame_windows(times, width_seconds=0.3, stride_seconds=0.1)
+    assert len(windows) == 8
+    assert windows[7]["indices"] == [7, 8, 9, 10]
+    assert frame_windows([2.5], width_seconds=1e-12, stride_seconds=1.0)[0]["indices"] == [0]
+    for kwargs in (
+        {"width_seconds": 2.0, "stride_seconds": 1.0},  # wider than the 1.0 s range
+        {"width_seconds": 0, "stride_seconds": 1.0},
+        {"width_seconds": 1.0, "stride_seconds": 0},
+        {"width_seconds": 1.0, "stride_seconds": math.nan},
+        {"width_seconds": 1.0, "stride_seconds": True},
+        {"width_seconds": 0.5, "stride_seconds": 1e-9},
+        {"width_seconds": 0.5, "stride_seconds": 1.0, "start": 2.0, "end": 1.0},
+    ):
+        with pytest.raises(ValueError):
+            frame_windows([0.0, 1.0], **kwargs)
+    with pytest.raises(ValueError):
+        frame_windows([], width_seconds=1.0, stride_seconds=1.0)
+
+
+def test_transition_time_is_the_first_frame_showing_the_new_state():
+    state = rows(0.0, 0.5, 1.0, 1.5)
+    assert transition_time(state, 2) == 1.0
+    assert transition_time(state, 3) == 1.5
+    for bad in (0, -1, 4, True, 1.0):
+        with pytest.raises(ValueError):
+            transition_time(state, bad)
+    with pytest.raises(ValueError):
+        transition_time([], 1)
+
+
+def test_earliest_transition_from_per_pair_flags():
+    state = rows(0.0, 1.0, 2.5, 4.0)
+    found = earliest_transition(state, [False, True, True])
+    # pair (1, 2) is the first flagged: the new state is first visible in frame 2, at 2.5 s
+    assert found == {
+        "first_new_index": 2,
+        "transition_seconds": 2.5,
+        "window_start_seconds": 1.0,
+        "window_end_seconds": 2.5,
+    }
+    assert found["transition_seconds"] == transition_time(state, found["first_new_index"])
+    assert earliest_transition(state, [False, False, False]) is None
+    assert earliest_transition(rows(3.0), []) is None
+    for bad in ([True], [True, False, False, False], [1, 0, 0], [None, False, False]):
+        with pytest.raises(ValueError):
+            earliest_transition(state, bad)
+    with pytest.raises(ValueError):
+        earliest_transition([], [])
