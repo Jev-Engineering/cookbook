@@ -304,6 +304,166 @@ def test_push_needs_a_base(tree):
     assert result.returncode == 2
 
 
+# -- a pull request's merge ref with a stale base.sha (#248) -------------------------------------
+
+
+def commit_on(root, branch, change, message):
+    git(root, "checkout", "-q", branch)
+    change(root)
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "--allow-empty", "-m", message)
+
+
+def pull_request_matrix(root, branch_change, main_change=None, *, merge_ref=True):
+    """The matrix CI computes for a pull request that was opened at ``main``'s tip and whose base
+    branch then moved on: ``work`` carries ``branch_change`` (made at the stale base), ``main``
+    gains ``main_change`` afterwards, and the checkout is the merge commit GitHub builds
+    (``refs/pull/N/merge``: a merge of the current ``main`` and ``work``, here a detached HEAD).
+    ``stale`` is what ``pull_request.base.sha`` holds. Returns the selected recipe folders."""
+    stale = git(root, "rev-parse", "main")
+    commit_on(root, "work", branch_change, "the pull request")
+    if main_change:
+        commit_on(root, "main", main_change, "merged meanwhile")
+    git(root, "checkout", "-q", "--detach", "main")
+    git(root, "merge", "-q", "--no-ff", "-m", "refs/pull/1/merge", "work")
+    flags = ["--merge-ref"] if merge_ref else []
+    result, names = push_matrix(root, stale, "HEAD", *flags)
+    assert result.returncode == 0, result.stderr
+    return names
+
+
+def add_recipe(number_and_slug):
+    return writer(f"recipes/{number_and_slug}/notebook.ipynb", NB)
+
+
+def writer(path, text="x = 1\n"):
+    def change(root):
+        write(root, path, text)
+
+    return change
+
+
+def test_control_without_merge_ref_the_stale_base_selects_a_recipe_merged_since(tree):
+    """The reported bug (#248), kept as a control: recipe 04-late merged to main after the pull
+    request opened, and against the stale base the merge checkout reports it as changed."""
+    own = writer("recipes/01-first/helpers.py")
+    late = add_recipe("04-late")
+    assert pull_request_matrix(tree, own, late, merge_ref=False) == ["01-first", "04-late"]
+
+
+def test_merge_ref_ignores_a_recipe_merged_after_the_pull_request_opened(tree):
+    own = writer("recipes/01-first/helpers.py")
+    assert pull_request_matrix(tree, own, add_recipe("04-late"), merge_ref=True) == ["01-first"]
+
+
+def test_merge_ref_ignores_shared_code_merged_after_the_pull_request_opened(tree):
+    """The expensive case from the issue's second comment: one commit to src/ on main must not
+    widen the matrix of every open recipe pull request to every notebook."""
+    own = writer("recipes/01-first/helpers.py")
+
+    def shared(root):
+        write(root, "src/jev_cookbook/x.py", "y = 2\n")
+        write(root, "tools/new_tool.py", "z = 3\n")
+        write(root, "docs/guide.md", "changed\n")
+
+    assert pull_request_matrix(tree, own, shared, merge_ref=False) == [
+        "01-first",
+        "02-second",
+        "_template",
+    ]
+
+
+def test_merge_ref_with_shared_code_merged_meanwhile_selects_only_the_own_recipe(tree):
+    own = writer("recipes/01-first/helpers.py")
+
+    def shared(root):
+        write(root, "src/jev_cookbook/x.py", "y = 2\n")
+
+    assert pull_request_matrix(tree, own, shared) == ["01-first"]
+
+
+def test_merge_ref_still_selects_the_pull_requests_own_new_recipe(tree):
+    assert pull_request_matrix(tree, add_recipe("05-mine"), add_recipe("04-late")) == ["05-mine"]
+
+
+def test_merge_ref_still_selects_everything_when_the_pull_request_changes_shared_code(tree):
+    def own(root):
+        write(root, "recipes/01-first/a.py", "x\n")
+        write(root, "tools/execute_notebook.py", "changed\n")
+
+    assert pull_request_matrix(tree, own, add_recipe("04-late")) == [
+        "01-first",
+        "02-second",
+        "04-late",
+        "_template",
+    ]
+
+
+def test_merge_ref_still_selects_two_recipes_the_pull_request_touches(tree):
+    def own(root):
+        write(root, "recipes/01-first/a.py", "x\n")
+        write(root, "recipes/02-second/a.py", "x\n")
+
+    assert pull_request_matrix(tree, own, add_recipe("04-late")) == ["01-first", "02-second"]
+
+
+def test_merge_ref_deleting_a_notebook_still_selects_nothing_to_run(tree):
+
+    def delete(root):
+        (root / "recipes/01-first/notebook.ipynb").unlink()
+
+    assert pull_request_matrix(tree, delete, add_recipe("04-late")) == []
+
+
+def test_merge_ref_readme_only_pull_request_selects_nothing_even_if_main_changed_readme(tree):
+    readme = writer("README.md", "from the pull request\n")
+    other = writer("recipes/02-second/helpers.py", "later\n")
+    assert pull_request_matrix(tree, readme, other) == []
+
+
+def test_merge_ref_regenerated_readme_does_not_widen_a_recipe_pull_request(tree):
+    def own(root):
+        write(root, "recipes/01-first/helpers.py", "x = 1\n")
+        write(root, "README.md", "regenerated\n")
+
+    def meanwhile(root):
+        write(root, "docs/guide.md", "changed\n")
+        write(root, "recipes/_template/x.py", "x\n")
+
+    assert pull_request_matrix(tree, own, meanwhile) == ["01-first"]
+
+
+def test_merge_ref_with_nothing_new_on_main_matches_the_old_selection(tree):
+    own = writer("recipes/02-second/helpers.py")
+    assert pull_request_matrix(tree, own, None) == ["02-second"]
+
+
+def test_merge_ref_head_that_is_not_a_merge_commit_falls_back_to_the_given_base(tree):
+    """A checkout of the branch itself has one parent. Its first parent is only its previous
+    commit and would hide most of the change, so the given base is kept (over-selecting at worst)."""
+    stale = git(tree, "rev-parse", "main")
+    write(tree, "recipes/01-first/a.py", "x\n")
+    git(tree, "add", "-A")
+    git(tree, "commit", "-q", "-m", "one")
+    write(tree, "recipes/02-second/a.py", "x\n")
+    git(tree, "add", "-A")
+    git(tree, "commit", "-q", "-m", "two")
+    result, names = push_matrix(tree, stale, "HEAD", "--merge-ref")
+    assert result.returncode == 0, result.stderr
+    assert names == ["01-first", "02-second"]
+    assert "not a merge commit" in result.stderr
+
+
+def test_merge_ref_with_an_unreadable_head_is_still_an_error(tree):
+    result, _ = push_matrix(tree, "main", "no-such-ref", "--merge-ref")
+    assert result.returncode != 0
+
+
+def test_merge_ref_is_refused_for_a_push(tree):
+    result, _ = push_matrix(tree, "main", "work", "--merge-ref", "--push")
+    assert result.returncode == 2
+
+
 def test_the_real_repository_matrix_has_the_template():
     assert "_template" in notebook_ci.with_notebooks(REPO)
 
