@@ -229,7 +229,7 @@ still count as an acceptable choice for `set_agreement`): the fallback class her
 | `mean_absolute_error(gold, predicted)` | mean `abs(score - gold)`, using the expected score |
 | `ndcg(gold_relevance, scores, k=None, gain="linear")`, `mean_ndcg(queries, ...)` | ranking quality, `DCG / IDCG`, discount `1 / log2(i + 1)`; linear or `2^r - 1` gain |
 | `top_k_accuracy(gold, probabilities, k)` | gold among the k most probable options (tie-aware) |
-| `recall_at_budget(gold_relevant, scores, budget)`, `mean_recall_at_budget(queries, budget)` | relevant found in the top `budget` by score over all relevant; the mean over several queries |
+| `recall_at_budget(gold_relevant, scores, budget, *, eligible=None)`, `mean_recall_at_budget(queries, budget)` | relevant found in the top `budget` by score over all relevant; the mean over several queries. A rule that excludes candidates before ranking must pass `eligible` (below) |
 | `top_k_query_accuracy(queries, k=1)` | is any relevant item among the top `k` scored items of a query (a *different* question from `recall_at_budget`, below) |
 
 **`top_k_query_accuracy` is not `recall_at_budget` under another name.** The two differ whenever
@@ -247,6 +247,24 @@ probability distribution; `top_k_query_accuracy(queries, k)` asks, for each of s
 lists, whether any gold-relevant item is among the `k` top-scored items of that list. The two
 names stay separate because the existing `top_k_accuracy` signature is frozen (its callers
 already rely on it); do not confuse the two from the name alone.
+
+**A rule that excludes candidates before ranking must pass `eligible`.** `recall_at_budget` fills
+its budget purely from the list it is given, so a candidate the rule excluded (a confidence gate,
+a foreign-option check, a type or permission filter) is credited for any slot the eligible
+candidates do not fill. The number is a plausible one the rule's own pick never produces: with one
+eligible candidate and a budget of 2, the second slot went to whichever excluded candidate had the
+next-highest stand-in score, and the reported recall was `0.6667` where the rule's own pick gives
+`0.5`. Pass `eligible=[...]` (one bool per item; `mean_recall_at_budget` takes a third tuple
+element per query): an ineligible item never occupies a slot, at most `min(budget, eligible
+count)` items are reviewed, a relevant item that is ineligible still counts in the denominator
+(it is missed, not dropped), and no eligible item at all gives `0.0`, not NaN. Ties among eligible
+items are still credited in expectation, so a rule that breaks ties deterministically can differ
+from the helper on a tie; if it does, report the rule's own pick. Stand-in scores for excluded
+candidates and a hand-capped budget are not a substitute: the careful version of that workaround
+still diverged on a tie and on zero eligible candidates. Whatever you pass, the invariant is the
+real check: **a task-level metric must equal what the rule's own composition produces, asserted on
+every committed example.** `eligible=None` (the default) is the behaviour before the argument
+existed.
 
 ### Selective prediction
 
@@ -269,6 +287,50 @@ and the next distinct confidence below the perfect cut is `0.06`, so there is no
 for a looser target to land on. The code runs without error either way; only looking at the
 candidate confidences themselves (or at `selective_curve` on the same data) shows why loosening
 the target did not move the frozen value until it crossed that gap.
+
+**Which way `min_coverage` moves the threshold.** `target_accuracy` and `min_coverage` are not
+symmetric alternatives, and the name of the second describes coverage while the value returned is
+a threshold, which relates to coverage inversely: a lower threshold answers more examples.
+
+| You change | The frozen threshold can only |
+| --- | --- |
+| raise `min_coverage` | stay the same or go **down** (a bigger share must be answered, so the gate loosens) |
+| lower `min_coverage` | stay the same or go **up** |
+| raise `target_accuracy` | stay the same or go **up** (or the call raises, when no threshold reaches it) |
+| lower `target_accuracy` | stay the same or go **down** |
+
+Stricter does not mean a higher threshold: a stricter coverage floor is a more permissive gate.
+The docstring of `select_confidence_threshold` states the same table beside the parameters, and
+`tests/test_evaluation.py` pins both directions on a pool.
+
+**The response is piecewise constant, so a parameter can move a long way and change nothing.** The
+result is always one of the observed validation confidences, so a sweep returns only as many
+distinct thresholds as the pool has points that can win. A gap in the confidence distribution
+makes it worse: a bimodal pool (a cluster of low confidences, a cluster of high ones, nothing
+between) returns the same threshold for every parameter value whose answer falls in the gap. The
+pool pinned in `tests/test_evaluation.py` has confidences `0.04, 0.11, 0.15, 0.20` and then
+`0.79, 0.80, 0.84, 0.88, 0.92, 0.96`; `min_coverage` from `0.1` to `0.5` all return `0.80`, then
+`0.6` returns `0.79`, `0.7` and `0.8` return `0.15`, `0.9` returns `0.11` and `1.0` returns `0.04`.
+A flat region is the normal case, not the exception, and it has produced two different defects in
+the published set: a **false direction** (three recipes stated the relationship backwards) and a
+**true claim attached to an exercise that demonstrates nothing** (recipe 40, as first written, sent a reader to a
+floor that dropped the threshold from `0.7867` to `0.16` while the branching set, the
+disagreement set, accuracy and the review set did not change at all; on recipe 38's pool, lowering
+`min_coverage` from `0.75` to `0.10` left the threshold at `0.7067`). Such a sentence
+usually contains no numeral, so a numeral sweep over the committed output cannot catch it.
+
+There is a degenerate end to this. If the errors sit at the top of the confidence ordering
+(accuracy rises as the threshold falls), the lowest observed confidence is always feasible and
+always the most accurate, so `min_coverage` returns it for **every** value: the call returns a
+number and selects nothing. The pool in `test_min_coverage_selects_nothing_when_errors_sit_at_the_top_of_the_confidence_order` (one wrong answer, the most confident) is
+the shape. Check for it by sweeping the parameter across its range on your own validation pool
+and counting the distinct thresholds returned; one means the frozen number is not a choice, and
+the recipe should say so rather than present it as one.
+
+**Verify any reader exercise by running it, never by reasoning about the parameter.** Run the
+sweep on the recipe's own pool, confirm the value you send a reader to returns a different
+threshold than the frozen one, and confirm the quantity you tell them to watch moves; either can
+fail while the direction sentence is true.
 
 **A rule whose review branch is more than a confidence gate needs `evaluate_outcomes`, not a
 sentinel.** `evaluate_selective` reapplies `confidence >= threshold` itself; it never calls the
@@ -602,6 +664,38 @@ useful to review, even though the code runs without error. (The same curve on th
 reported result rather than as an input to the choice of `c`.) (The confidence page's own "three
 paths for using confidence in your code" are three confidence *bands*; this pattern's three paths
 are a cookbook convention, not that one.)
+
+**A Noul confidence gate is a two-sided band, and what it changes depends on your composition.**
+Because `noul_confidence(p) = |2p - 1|` is symmetric about `0.5`, a gate `g` passes exactly when
+`p >= (1 + g) / 2` (confidently true) or `p <= (1 - g) / 2` (confidently false), and the item goes
+to review exactly when `(1 - g) / 2 < p < (1 + g) / 2`. That statement is exact and holds for
+every Noul rule; it is specific to `Noul`, because a `Choice` confidence is the top probability
+rescaled by the option count and has no such closed form. Two things look like consequences and
+are not:
+
+* **"The gate is inert" and "the gate is just a stricter business threshold" are not facts about
+  `t` and `g`.** They are facts about one rule's composition. Gating both branches, gating only
+  the accept branch, gating only one flagged proposition, and consulting the gate before the
+  threshold give different answers at identical `t` and `g`: at `t = 0.8, g = 0.5` the gate
+  changes no outcome when it guards only acceptance (everything at or above `0.8` is already above
+  `0.75`), and turns every confident rejection with `0.25 < p < 0.75` into a review when it
+  guards both branches (199 of the 401 grid points in `tests/test_evaluation.py`). For a rule
+  that gates acceptance, a gate at or below `|2t - 1|` cannot withhold anything the threshold
+  admits and one above it behaves like a stricter threshold at `(1 + g) / 2`; that is a statement
+  about that wiring and that side only. Never write "the gate cannot act" without saying on which
+  side, and never write it at all before measuring.
+* **Choosing `g` above `|2t - 1|` is not adding an independent control** in a rule that gates only
+  acceptance: it silently chooses a stricter threshold. The gate's one distinct function on the
+  accept side is then which reason label a withheld item carries, which is presentation.
+
+So the rule for a recipe with a confidence gate is procedural, not algebraic: **state the band,
+then measure your own composition.** Run the recipe's own `decide` over a grid of `p` values (a
+401-point grid is instant) with the gate and with the gate removed, print the number of outcomes
+that differ, split by side (items at or above `t`, items below it), and say in prose which side
+the gate is doing work on. A rule with three paths states this for both sides and prints a
+counterfactual for each. An algebraic shortcut is a claim about every rule of that shape; you only
+ever have evidence about yours. The measurement also catches a gate that changes zero outcomes
+over its whole swept range, the degenerate case in "Selective prediction" seen from the other end.
 
 For a multi-label recipe whose only review branch *is* this confidence gate (no fallback label,
 no membership check), the pooled confidence-only view and the pooled outcomes view give the same

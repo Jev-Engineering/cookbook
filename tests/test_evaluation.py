@@ -684,6 +684,63 @@ def test_mean_recall_at_budget_is_the_thin_mean():
     assert ev.mean_recall_at_budget(queries, 2) == pytest.approx(expected)
 
 
+def test_recall_at_budget_eligible_none_is_the_default_behaviour():
+    rel, sc = [1, 0, 1, 0, 1], [0.9, 0.8, 0.7, 0.6, 0.5]
+    assert ev.recall_at_budget(rel, sc, 3, eligible=None) == ev.recall_at_budget(rel, sc, 3)
+    assert ev.recall_at_budget(rel, sc, 3, eligible=[1] * 5) == ev.recall_at_budget(rel, sc, 3)
+
+
+def test_recall_at_budget_ineligible_items_never_occupy_a_slot():
+    # #231: one eligible item and a budget of 2. Items: relevance 1,1,0 ; scores 0.9,0.8,0.7 ;
+    # only the LAST is eligible (and irrelevant). Without eligibility the budget of 2 takes the
+    # two relevant items (recall 1.0); with it only item 3 can be reviewed -> 0 of 2 found.
+    rel, sc = [1, 1, 0], [0.9, 0.8, 0.7]
+    assert ev.recall_at_budget(rel, sc, 2) == pytest.approx(1.0)
+    assert ev.recall_at_budget(rel, sc, 2, eligible=[0, 0, 1]) == 0.0
+    # the slot-credit bug itself: relevant A (0.9, eligible), relevant B (0.8, ineligible),
+    # irrelevant C (0.1, eligible), budget 2. Eligible are A and C only, so the budget fills with
+    # both, finds A, and B is never found: 1 of 2 = 0.5 -- and B's higher stand-in score must not
+    # buy it the second slot.
+    assert ev.recall_at_budget([1, 1, 0], [0.9, 0.8, 0.1], 2, eligible=[1, 0, 1]) == 0.5
+    # a single eligible slot goes to the best eligible item, not the best item
+    assert ev.recall_at_budget([1, 0, 1], [0.1, 0.9, 0.5], 1, eligible=[1, 0, 1]) == 0.5
+
+
+def test_recall_at_budget_denominator_keeps_ineligible_relevant_items():
+    # relevant ineligible items are missed, they are not removed from the question
+    assert ev.recall_at_budget([1, 1], [0.9, 0.8], 5, eligible=[1, 0]) == 0.5
+
+
+def test_recall_at_budget_with_no_eligible_item_is_zero_not_nan():
+    assert ev.recall_at_budget([1, 0], [0.9, 0.1], 1, eligible=[0, 0]) == 0.0
+    # but no relevant item at all is still undefined, eligible or not
+    assert nan(ev.recall_at_budget([0, 0], [0.9, 0.1], 1, eligible=[0, 0]))
+    assert nan(ev.recall_at_budget([0, 0], [0.9, 0.1], 1, eligible=[1, 1]))
+
+
+def test_recall_at_budget_ties_among_eligible_items_are_credited_in_expectation():
+    # two eligible items tied at 0.5, one of them relevant, budget 1: a half chance of the one
+    # slot finding it, over 2 relevant items in all (the ineligible 0.99 one is never found)
+    assert ev.recall_at_budget([1, 0, 1], [0.5, 0.5, 0.99], 1, eligible=[1, 1, 0]) == 0.25
+
+
+def test_recall_at_budget_eligible_validation():
+    with pytest.raises(ValueError):
+        ev.recall_at_budget([1, 0], [0.9, 0.1], 1, eligible=[1])
+    with pytest.raises(ValueError):
+        ev.recall_at_budget([1, 0], [0.9, 0.1], 1, eligible=[1, 2])
+    with pytest.raises(ValueError):
+        ev.recall_at_budget([1, 0], [0.9, 0.1], 1, eligible=[])
+
+
+def test_mean_recall_at_budget_accepts_an_eligible_mask_per_query():
+    q_plain = ([1, 0], [0.9, 0.1])  # recall 1.0
+    q_gated = ([1, 1, 0], [0.9, 0.8, 0.1], [1, 0, 1])  # recall 0.5
+    assert ev.mean_recall_at_budget([q_plain, q_gated], 2) == pytest.approx(0.75)
+    with pytest.raises(ValueError):
+        ev.mean_recall_at_budget([([1], [0.5], [1], [1])], 1)
+
+
 def test_mean_recall_at_budget_skips_undefined_queries():
     q_zero = ([0, 0], [0.1, 0.2])  # no relevant item: undefined, skipped
     q_one = ([1, 0], [0.9, 0.1])  # recall@1 = 1.0
@@ -924,6 +981,94 @@ def test_select_confidence_threshold_coverage_tie_goes_to_lower_threshold():
     assert (
         ev.select_confidence_threshold([1, 0, 0, 1], [0.9, 0.8, 0.7, 0.6], min_coverage=0.5) == 0.6
     )
+
+
+# A bimodal pool: four low confidences (0.04-0.20), then a gap, then six high ones (0.79-0.96).
+# Accuracy of the answered subset at each threshold, high to low: 1.0 through 0.80, 5/6 at 0.79,
+# 5/7 at 0.20, 6/8 at 0.15, 6/9 at 0.11, 6/10 at 0.04. Coverage rises 0.1 per step.
+_BIMODAL_CONF = [0.04, 0.11, 0.15, 0.20, 0.79, 0.80, 0.84, 0.88, 0.92, 0.96]
+_BIMODAL_CORRECT = [0, 0, 1, 0, 0, 1, 1, 1, 1, 1]
+
+
+def _sweep_min_coverage(correct, conf, values):
+    return [ev.select_confidence_threshold(correct, conf, min_coverage=v) for v in values]
+
+
+def test_raising_min_coverage_can_only_select_a_lower_or_equal_threshold():
+    # min_coverage is a FLOOR ON COVERAGE and a lower threshold keeps more answers, so the
+    # direction is: higher min_coverage -> same or LOWER threshold (never higher).
+    values = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    got = _sweep_min_coverage(_BIMODAL_CORRECT, _BIMODAL_CONF, values)
+    assert got == [0.8, 0.8, 0.8, 0.8, 0.8, 0.79, 0.15, 0.15, 0.11, 0.04]
+    assert all(b <= a for a, b in zip(got, got[1:], strict=False))
+    assert got[0] > got[-1]  # and it does move overall, so the check is not vacuous
+
+
+def test_raising_target_accuracy_can_only_select_a_higher_or_equal_threshold():
+    # the reverse of min_coverage: a stricter accuracy target moves the gate UP
+    got = [
+        ev.select_confidence_threshold(_BIMODAL_CORRECT, _BIMODAL_CONF, target_accuracy=v)
+        for v in (0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
+    ]
+    assert got == [0.04, 0.04, 0.15, 0.79, 0.8, 0.8]
+    assert all(b >= a for a, b in zip(got, got[1:], strict=False))
+
+
+def test_min_coverage_response_is_flat_across_a_wide_range():
+    # Five parameter values (0.1 to 0.5, a fivefold change) select the same threshold, because
+    # every confidence between 0.20 and 0.80 is absent from the pool: the answer cannot land in
+    # the gap. A reader told to "lower min_coverage and watch the threshold move" would see
+    # nothing here; the stated direction is about movement, not a promise of it.
+    flat = _sweep_min_coverage(_BIMODAL_CORRECT, _BIMODAL_CONF, [0.1, 0.2, 0.3, 0.4, 0.5])
+    assert len(set(flat)) == 1
+    # the threshold then moves a long way between neighbouring parameter values
+    assert ev.select_confidence_threshold(_BIMODAL_CORRECT, _BIMODAL_CONF, min_coverage=0.7) == 0.15
+
+
+def test_min_coverage_selects_nothing_when_errors_sit_at_the_top_of_the_confidence_order():
+    # accuracy rises as the threshold falls (the one error is the most confident answer), so the
+    # lowest observed confidence is always feasible and always the most accurate: every
+    # min_coverage returns it, and a frozen number is not a choice.
+    conf, correct = [0.9, 0.8, 0.7, 0.6, 0.5], [0, 1, 1, 1, 1]
+    sweep = _sweep_min_coverage(correct, conf, [0.2, 0.4, 0.6, 0.8, 1.0])
+    assert set(sweep) == {0.5}
+
+
+def test_noul_confidence_gate_is_a_two_sided_band_and_its_effect_depends_on_the_wiring():
+    # confidence = |2n - 1| is symmetric about 0.5, so a gate g passes exactly when
+    # n >= (1 + g)/2 (confidently true) or n <= (1 - g)/2 (confidently false); the open interval
+    # between them is the review band. This is the universal fact. Whether a gate is INERT, or
+    # equivalent to a stricter threshold, is a fact about one composition, not about (t, g):
+    # the same t and g below change 0 outcomes in one wiring and 199 in another.
+    g, t = 0.5, 0.8
+    grid = [
+        i / 400 for i in range(401)
+    ]  # 0.0025 steps; no grid point sits within an ULP of an edge
+    for n in grid:
+        in_band = (1 - g) / 2 < n < (1 + g) / 2
+        assert (ev.noul_confidence([n])[0] >= g) == (not in_band), n
+
+    def threshold_only(n):
+        return "accept" if n >= t else "deny"
+
+    def gate_both_branches(n):
+        if ev.noul_confidence([n])[0] < g:
+            return "review"
+        return threshold_only(n)
+
+    def gate_accept_branch_only(n):
+        if n >= t and ev.noul_confidence([n])[0] < g:
+            return "review"
+        return threshold_only(n)
+
+    both = [n for n in grid if gate_both_branches(n) != threshold_only(n)]
+    accept_only = [n for n in grid if gate_accept_branch_only(n) != threshold_only(n)]
+    # t = 0.8 >= (1 + g)/2 = 0.75: on the accept side the gate is inert in both wirings ...
+    assert not [n for n in both if n >= t]
+    # ... but on the reject side the band is real in the wiring that gates it (every n strictly
+    # between 0.25 and 0.75 becomes a review, 199 grid points) and absent in the one that does not
+    assert len(both) == 199 and all((1 - g) / 2 < n < (1 + g) / 2 for n in both)
+    assert accept_only == []
 
 
 def test_select_confidence_threshold_errors():
