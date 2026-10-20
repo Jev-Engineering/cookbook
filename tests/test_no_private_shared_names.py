@@ -29,10 +29,25 @@ REPO = Path(__file__).resolve().parent.parent
 RECIPES = REPO / "recipes"
 
 
+SUBMODULES = {path.stem for path in (REPO / "src" / "jev_cookbook").glob("*.py")}
+
+
 def private_shared_uses(source: str) -> list[str]:
-    """Every use of an underscore-prefixed name from ``jev_cookbook`` in ``source``."""
+    """Every use of an underscore-prefixed name from ``jev_cookbook`` in ``source``, including
+    through a local name bound to the package or one of its submodules."""
+    tree = ast.parse(source)
+    roots = {"jev_cookbook"}  # local names that stand for jev_cookbook or one of its modules
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            roots |= {
+                a.asname for a in node.names if a.asname and a.name.split(".")[0] == "jev_cookbook"
+            }
+        elif (
+            isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] == "jev_cookbook"
+        ):
+            roots |= {a.asname or a.name for a in node.names if a.name in SUBMODULES}
     found = []
-    for node in ast.walk(ast.parse(source)):
+    for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] == "jev_cookbook":
             found += [f"from {node.module} import {a.name}" for a in node.names if a.name[0] == "_"]
         elif isinstance(node, ast.Attribute) and node.attr.startswith("_"):
@@ -41,8 +56,8 @@ def private_shared_uses(source: str) -> list[str]:
             while isinstance(cur, ast.Attribute):
                 parts.append(cur.attr)
                 cur = cur.value
-            if isinstance(cur, ast.Name) and cur.id == "jev_cookbook":
-                found.append(".".join(["jev_cookbook", *reversed(parts), node.attr]))
+            if isinstance(cur, ast.Name) and cur.id in roots:
+                found.append(".".join([cur.id, *reversed(parts), node.attr]))
     return found
 
 
@@ -63,6 +78,8 @@ def test_the_detector_flags_what_it_claims_to():
     assert private_shared_uses("import jev_cookbook\njev_cookbook.live._dump({})") == [
         "jev_cookbook.live._dump"
     ]
+    assert private_shared_uses("import jev_cookbook.live as live\nlive._dump({})") == ["live._dump"]
+    assert private_shared_uses("from jev_cookbook import live as L\nL._dump({})") == ["L._dump"]
     assert private_shared_uses("from jev_cookbook import dump_responses, get_backend") == []
     assert private_shared_uses("x._private; self._dump; from pathlib import _x") == []
 

@@ -76,7 +76,10 @@ CASES = {
     "count wider than every label": (["a", "b", "none"], 12345),
     "count three digits, one-character labels": (["x", "y", "z"], 120),
     "labels wider than 'predicted ->' and counts": (["insufficient_evidence", "ok", "none"], 7),
-    "count one digit wider than the labels": (["billing", "bug", "account", "none"], 100000),
+    "count wider than the longest of longer labels": (
+        ["billing", "bug", "account", "none"],
+        10000000,
+    ),
     "single digit counts, short labels": (["a", "b", "none"], 3),
 }
 
