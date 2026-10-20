@@ -1487,6 +1487,7 @@ EMPTY_CALLS = {
     "expected_calibration_error": lambda: ev.expected_calibration_error([], []),
     "paired_bootstrap_difference": lambda: ev.paired_bootstrap_difference([], [], seed=0),
     "sum_usage": lambda: ev.sum_usage([]),
+    "transition_metrics": lambda: ev.transition_metrics([], [], tolerance_seconds=0.5),
 }
 
 
@@ -1556,3 +1557,128 @@ def test_import_does_not_pull_in_sdk():
         [sys.executable, "-c", code], capture_output=True, text=True, check=False
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+# ----------------------------------------------------------------------- transition_metrics
+
+
+def test_transition_metrics_hand_computed():
+    gold = [("opened", 2.0), ("closed", 5.0), ("unchanged", None), ("opened", 1.0), ("closed", 4.0)]
+    pred = [
+        ("opened", 2.0),  # exact
+        ("closed", 5.4),  # right label, 0.4 s late: within 0.5 but not exact
+        ("unchanged", None),  # exact (no time on either side)
+        ("uncertain", None),  # review
+        ("opened", 4.0),  # wrong label, time error 0.0
+    ]
+    m = ev.transition_metrics(gold, pred, tolerance_seconds=0.5)
+    # 5 examples, 1 uncertain, 4 resolved; exact = ex0 + ex2 = 2; within = 3
+    assert (m.n_examples, m.n_uncertain, m.n_resolved) == (5, 1, 4)
+    assert (m.exact_correct, m.tolerance_correct) == (2, 3)
+    assert m.exact_accuracy == 0.5
+    assert m.tolerance_accuracy == 0.75
+    assert m.exact_accuracy_all == 0.4
+    assert m.tolerance_accuracy_all == 0.6
+    assert m.uncertain_rate == 0.2
+    assert m.tolerance_seconds == 0.5
+    # timed examples 0, 1, 4: errors 0.0, +0.4, 0.0 (predicted - gold)
+    assert m.n_timed == 3
+    assert m.mean_absolute_error_seconds == pytest.approx(0.4 / 3)
+    assert m.mean_signed_error_seconds == pytest.approx(0.4 / 3)
+    assert (m.n_missed_time, m.n_spurious_time) == (0, 0)
+
+
+def test_transition_metrics_signed_error_shows_early_and_late():
+    gold = [("opened", 5.0), ("opened", 5.0)]
+    pred = [("opened", 4.0), ("opened", 5.5)]
+    m = ev.transition_metrics(gold, pred, tolerance_seconds=1.0)
+    # errors -1.0 and +0.5: mean absolute 0.75, mean signed -0.25
+    assert m.mean_absolute_error_seconds == 0.75
+    assert m.mean_signed_error_seconds == -0.25
+    assert (m.exact_correct, m.tolerance_correct) == (0, 2)
+
+
+def test_transition_metrics_missing_and_spurious_times():
+    gold = [("opened", 1.0), ("unchanged", None)]
+    pred = [("opened", None), ("opened", 3.0)]
+    m = ev.transition_metrics(gold, pred, tolerance_seconds=10.0)
+    # ex0 right label but no time; ex1 wrong label with an invented time
+    assert (m.n_missed_time, m.n_spurious_time) == (1, 1)
+    assert (m.exact_correct, m.tolerance_correct) == (0, 0)
+    assert m.n_timed == 0
+    assert math.isnan(m.mean_absolute_error_seconds)
+    assert math.isnan(m.mean_signed_error_seconds)
+
+
+def test_transition_metrics_all_uncertain_has_nan_resolved_accuracy():
+    m = ev.transition_metrics(
+        [("opened", 1.0), ("closed", 2.0)],
+        [("uncertain", None), ("uncertain", 2.0)],
+        tolerance_seconds=0.0,
+    )
+    assert (m.n_uncertain, m.n_resolved) == (2, 0)
+    assert math.isnan(m.exact_accuracy) and math.isnan(m.tolerance_accuracy)
+    assert m.exact_accuracy_all == 0.0 and m.uncertain_rate == 1.0
+    assert m.n_timed == 0
+
+
+def test_transition_metrics_single_example():
+    m = ev.transition_metrics([("opened", 0.0)], [("opened", 0.0)], tolerance_seconds=0)
+    assert (m.n_examples, m.exact_accuracy, m.tolerance_accuracy) == (1, 1.0, 1.0)
+    assert m.mean_absolute_error_seconds == 0.0
+
+
+def test_transition_metrics_tolerance_is_inclusive_and_float_safe():
+    gold = [("opened", 1.0), ("opened", 0.3), ("opened", 1.0)]
+    pred = [("opened", 1.5), ("opened", 0.1 + 0.2), ("opened", 1.5000001)]
+    m = ev.transition_metrics(gold, pred, tolerance_seconds=0.5)
+    # gap 0.5 is inside; 0.3 vs 0.30000000000000004 is exact; 0.5000001 is outside
+    assert m.tolerance_correct == 2
+    assert m.exact_correct == 1
+    zero = ev.transition_metrics(gold[:1], gold[:1], tolerance_seconds=0)
+    assert zero.tolerance_correct == 1
+
+
+def test_transition_metrics_custom_uncertain_label_and_numpy_times():
+    m = ev.transition_metrics(
+        [("a", np.float64(1.0)), ("b", None)],
+        [("a", np.float64(1.0)), ("review", None)],
+        tolerance_seconds=np.float64(0.1),
+        uncertain_label="review",
+    )
+    assert (m.n_uncertain, m.exact_correct) == (1, 1)
+    # "uncertain" is an ordinary label when another label is chosen
+    n = ev.transition_metrics(
+        [("uncertain", None)], [("uncertain", None)], tolerance_seconds=0, uncertain_label="review"
+    )
+    assert n.exact_accuracy == 1.0
+
+
+@pytest.mark.parametrize(
+    "gold,pred,tolerance",
+    [
+        ([("a", 1.0)], [("a", 1.0), ("a", 2.0)], 0.5),
+        ([], [("a", 1.0)], 0.5),
+        ([("a", 1.0)], [], 0.5),
+        (["a"], [("a", 1.0)], 0.5),
+        ([("a", 1.0)], [("a",)], 0.5),
+        ([("a", -1.0)], [("a", 1.0)], 0.5),
+        ([("a", 1.0)], [("a", math.nan)], 0.5),
+        ([("a", 1.0)], [("a", math.inf)], 0.5),
+        ([("a", True)], [("a", 1.0)], 0.5),
+        ([("a", "1")], [("a", 1.0)], 0.5),
+        ([("uncertain", None)], [("a", 1.0)], 0.5),
+        ([("a", 1.0)], [("a", 1.0)], -0.1),
+        ([("a", 1.0)], [("a", 1.0)], math.nan),
+        ([("a", 1.0)], [("a", 1.0)], True),
+        ([("a", 1.0)], [("a", 1.0)], None),
+    ],
+)
+def test_transition_metrics_rejects_bad_input(gold, pred, tolerance):
+    with pytest.raises(ValueError):
+        ev.transition_metrics(gold, pred, tolerance_seconds=tolerance)
+
+
+def test_transition_metrics_requires_a_keyword_tolerance():
+    with pytest.raises(TypeError):
+        ev.transition_metrics([("a", 1.0)], [("a", 1.0)])  # type: ignore[call-arg]

@@ -142,6 +142,7 @@ PREAMBLE = {
         "test_gold = [True, False, True, False, True]\n"
         "test_noul = [0.85, 0.15, 0.75, 0.25, 0.65]\n"
     ),
+    8: "",
 }
 
 # Permanently allowed findings: not a gap awaiting a docs fix, but a consequence of what the
@@ -161,8 +162,8 @@ ALLOWED_FINDINGS = {
 # though it has no further claim for a test to check.
 EXECUTED = set(range(len(BLOCKS)))
 
-assert len(BLOCKS) == 8, (
-    f"docs/evaluation.md now has {len(BLOCKS)} fenced python block(s), not 8: update PREAMBLE, "
+assert len(BLOCKS) == 9, (
+    f"docs/evaluation.md now has {len(BLOCKS)} fenced python block(s), not 9: update PREAMBLE, "
     "PERMANENT_FINDINGS and ALLOWED_FINDINGS above for the new or removed block before trusting "
     "this test"
 )

@@ -629,6 +629,46 @@ percentile interval as `BootstrapResult`. Examples must be aligned.
 possibly `None` or absent) into `UsageTotals`. Requests that did not report a count are tallied
 in `requests_missing_input` / `requests_missing_output`, so a partial total is visible.
 
+### Transitions
+
+`transition_metrics(gold, predicted, *, tolerance_seconds, uncertain_label="uncertain")` scores
+event or transition detection over labelled frame sequences (the multiframe row of
+[What an evaluation must show](multimodal-track.md)). Each example is one sequence, written
+`(label, seconds)`: the transition label and the elapsed second of its **earliest** supported
+transition, or `None` when the label has no time (such as `"unchanged"`). Frame sampling and
+timestamps come from `jev_cookbook.frames` ([vision.md](vision.md)); this function only compares.
+
+```python
+from jev_cookbook.evaluation import transition_metrics
+
+gold = [("opened", 2.0), ("closed", 5.0), ("unchanged", None), ("opened", 1.0)]
+predicted = [("opened", 2.0), ("closed", 5.4), ("unchanged", None), ("uncertain", None)]
+metrics = transition_metrics(gold, predicted, tolerance_seconds=0.5)
+assert (metrics.n_examples, metrics.n_uncertain, metrics.n_resolved) == (4, 1, 3)
+assert (metrics.exact_correct, metrics.tolerance_correct) == (2, 3)
+assert metrics.tolerance_accuracy == 1.0  # over the 3 resolved examples
+assert metrics.tolerance_accuracy_all == 0.75  # over all 4 examples
+```
+
+A predicted label equal to `uncertain_label` is a **review** outcome. It is counted in
+`n_uncertain` and `uncertain_rate` (over all examples) and is excluded from the resolved
+denominator, so the report states both views: `exact_accuracy` / `tolerance_accuracy` divide by
+`n_resolved` (NaN if every example is uncertain), and `exact_accuracy_all` /
+`tolerance_accuracy_all` divide by `n_examples`, counting an uncertain example as not correct.
+Gold may not be uncertain.
+
+A resolved example is *exact* when the label matches and the times are equal (both `None`, or
+within 1e-9 s of float slack); it is *within tolerance* when the label matches and the times
+are both `None` or differ by at most `tolerance_seconds` (inclusive, same slack). A label that
+needs a time but is predicted without one (or the reverse) is wrong; it is tallied in
+`n_missed_time` / `n_spurious_time`.
+
+The earliest-transition error is `predicted - gold` seconds over the `n_timed` resolved examples
+where both sides give a time, whatever the labels: `mean_absolute_error_seconds` and
+`mean_signed_error_seconds` (positive means late), NaN when `n_timed` is 0. Report `n_timed`
+beside them. Empty or unequal inputs, a malformed tuple, a negative or non-finite time or
+tolerance, and an uncertain gold label raise `ValueError`.
+
 ## Result types
 
 Every result type is a frozen dataclass whose fields are plain attributes, so other modules
@@ -643,6 +683,7 @@ Every result type is a frozen dataclass whose fields are plain attributes, so ot
 | `SelectiveResult` | `threshold`, `n_total`, `n_answered`, `coverage`, `accuracy`, `risk`; returned by both `evaluate_selective` and `evaluate_outcomes` (`threshold` is NaN from the latter) |
 | `ReliabilityBin` | `lower`, `upper`, `count`, `mean_probability`, `observed_rate` (the last two are NaN for an empty bin); `reliability_table` returns `list[ReliabilityBin]` |
 | `BootstrapResult` | `difference`, `lower`, `upper`, `confidence_level`, `n`, `n_resamples`, `seed` |
+| `TransitionMetrics` | `n_examples`, `n_uncertain`, `n_resolved`, `exact_correct`, `tolerance_correct`, `exact_accuracy`, `tolerance_accuracy`, `exact_accuracy_all`, `tolerance_accuracy_all`, `uncertain_rate`, `tolerance_seconds`, `n_timed`, `mean_absolute_error_seconds`, `mean_signed_error_seconds`, `n_missed_time`, `n_spurious_time` |
 | `UsageTotals` | `requests`, `input_tokens`, `output_tokens`, `total_tokens`, `requests_missing_input`, `requests_missing_output` |
 
 Every metric computed on synthetic fixtures is a check that the pipeline works, not a measure

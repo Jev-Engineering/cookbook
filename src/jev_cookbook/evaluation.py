@@ -43,6 +43,7 @@ __all__ = [
     "SelectiveCurve",
     "SelectiveResult",
     "ThresholdPoint",
+    "TransitionMetrics",
     "UsageTotals",
     "accuracy",
     "brier_score",
@@ -81,6 +82,7 @@ __all__ = [
     "top_k_accuracy",
     "top_k_query_accuracy",
     "top_probabilities",
+    "transition_metrics",
 ]
 
 
@@ -1888,4 +1890,142 @@ def sum_usage(usages: Iterable[Mapping[str, Any] | None]) -> UsageTotals:
         totals["input_tokens"] + totals["output_tokens"],
         missing["input_tokens"],
         missing["output_tokens"],
+    )
+
+
+# --------------------------------------------------------------------------- Transitions
+
+_TIME_SLACK = 1e-9
+
+
+@dataclass(frozen=True)
+class TransitionMetrics:
+    """Event or transition accuracy over labelled frame sequences, denominators explicit.
+
+    ``n_examples`` = ``n_uncertain`` + ``n_resolved``. ``exact_correct`` and
+    ``tolerance_correct`` count resolved examples only; ``*_accuracy`` divides by
+    ``n_resolved`` and ``*_accuracy_all`` by ``n_examples`` (an uncertain prediction counts
+    as not correct there). ``uncertain_rate`` is ``n_uncertain / n_examples``. The timing
+    fields describe the ``n_timed`` resolved examples where both gold and prediction give a
+    transition time: ``mean_absolute_error_seconds`` and ``mean_signed_error_seconds``
+    (predicted minus gold; positive means late) are NaN when ``n_timed`` is 0. A resolved
+    prediction that omits a gold time is ``n_missed_time``; one that supplies a time where
+    gold has none is ``n_spurious_time``. Both are excluded from the error means.
+    """
+
+    n_examples: int
+    n_uncertain: int
+    n_resolved: int
+    exact_correct: int
+    tolerance_correct: int
+    exact_accuracy: float
+    tolerance_accuracy: float
+    exact_accuracy_all: float
+    tolerance_accuracy_all: float
+    uncertain_rate: float
+    tolerance_seconds: float
+    n_timed: int
+    mean_absolute_error_seconds: float
+    mean_signed_error_seconds: float
+    n_missed_time: int
+    n_spurious_time: int
+
+
+def _transition(item: Any, name: str, position: int) -> tuple[Any, float | None]:
+    if not isinstance(item, tuple) or len(item) != 2:
+        raise ValueError(f"{name}[{position}] must be a (label, seconds_or_None) tuple")
+    label, seconds = item
+    if seconds is None:
+        return label, None
+    if isinstance(seconds, bool) or not isinstance(seconds, (int, float, np.integer, np.floating)):
+        raise ValueError(f"{name}[{position}] seconds must be a finite number or None")
+    value = float(seconds)
+    if not math.isfinite(value) or value < 0:
+        raise ValueError(f"{name}[{position}] seconds must be finite and non-negative")
+    return label, value
+
+
+def transition_metrics(
+    gold: Iterable[tuple[Any, float | None]],
+    predicted: Iterable[tuple[Any, float | None]],
+    *,
+    tolerance_seconds: float,
+    uncertain_label: Any = "uncertain",
+) -> TransitionMetrics:
+    """Score transition labels and times against labelled sequences.
+
+    Each example is one sequence, written ``(label, seconds)``: the transition label
+    (``"opened"``, ``"unchanged"``, ...) and the elapsed second of its *earliest* supported
+    transition, or ``None`` when the label has no time (for example ``"unchanged"``).
+    ``gold`` and ``predicted`` are equal-length and nonempty, in the same sequence order.
+    A predicted label equal to ``uncertain_label`` is a review outcome: it is counted in
+    ``n_uncertain`` and is neither correct nor wrong in the ``*_accuracy`` fields. Gold may
+    not be uncertain.
+
+    A resolved prediction is *exactly* correct when its label equals gold's and its time
+    equals gold's (both ``None``, or within 1e-9 s); *within tolerance* when the label
+    matches and the times are both ``None`` or differ by at most ``tolerance_seconds``
+    (plus the same 1e-9 s of float slack). Time error is predicted minus gold and is only
+    taken where both give a time. Accuracies with a zero denominator are NaN.
+
+    Raises ``ValueError`` for empty or unequal inputs, a malformed tuple, a negative or
+    non-finite time or tolerance, or an uncertain gold label.
+    """
+    actual = _as_list(gold, "gold")
+    guesses = _as_list(predicted, "predicted")
+    _same_length(actual, guesses, "gold and predicted")
+    if isinstance(tolerance_seconds, bool) or not isinstance(
+        tolerance_seconds, (int, float, np.integer, np.floating)
+    ):
+        raise ValueError("tolerance_seconds must be a finite number")
+    tolerance = float(tolerance_seconds)
+    if not math.isfinite(tolerance) or tolerance < 0:
+        raise ValueError("tolerance_seconds must be finite and non-negative")
+
+    uncertain = exact = within = missed = spurious = 0
+    errors: list[float] = []
+    for i, (g_item, p_item) in enumerate(zip(actual, guesses, strict=True)):
+        g_label, g_time = _transition(g_item, "gold", i)
+        p_label, p_time = _transition(p_item, "predicted", i)
+        if g_label == uncertain_label:
+            raise ValueError(f"gold[{i}] is the uncertain label; gold must be resolved")
+        if p_label == uncertain_label:
+            uncertain += 1
+            continue
+        if g_time is not None and p_time is None:
+            missed += 1
+        elif g_time is None and p_time is not None:
+            spurious += 1
+        elif g_time is not None and p_time is not None:
+            errors.append(p_time - g_time)
+        if p_label != g_label:
+            continue
+        if g_time is None and p_time is None:
+            exact += 1
+            within += 1
+        elif g_time is not None and p_time is not None:
+            gap = abs(p_time - g_time)
+            exact += gap <= _TIME_SLACK
+            within += gap <= tolerance + _TIME_SLACK
+    n = len(actual)
+    resolved = n - uncertain
+    return TransitionMetrics(
+        n_examples=n,
+        n_uncertain=uncertain,
+        n_resolved=resolved,
+        exact_correct=exact,
+        tolerance_correct=within,
+        exact_accuracy=_safe_div(exact, resolved),
+        tolerance_accuracy=_safe_div(within, resolved),
+        exact_accuracy_all=exact / n,
+        tolerance_accuracy_all=within / n,
+        uncertain_rate=uncertain / n,
+        tolerance_seconds=tolerance,
+        n_timed=len(errors),
+        mean_absolute_error_seconds=(
+            math.fsum(abs(e) for e in errors) / len(errors) if errors else float("nan")
+        ),
+        mean_signed_error_seconds=math.fsum(errors) / len(errors) if errors else float("nan"),
+        n_missed_time=missed,
+        n_spurious_time=spurious,
     )

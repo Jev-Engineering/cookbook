@@ -213,6 +213,72 @@ real elapsed time. The helper reads extracted PNG/JPEG files; it makes no native
 video claim. If video is the source, decode and sample it separately and record the
 actual selected timestamps.
 
+### Sampling, intervals and windows
+
+`jev_cookbook.frames` (pure Python, no Pillow, no model call) holds the deterministic
+arithmetic on a state-frame list. It is a separate module, not part of `vision`; import it
+directly. No video is decoded anywhere in the cookbook: frames are stills that were already
+extracted, and the timestamps you pass are the truth. Python owns order, sampling and every
+time calculation; the model only sees the rows you choose to send.
+
+```python
+from jev_cookbook.frames import (
+    frame_intervals,
+    frame_timestamps,
+    relative_frames,
+    sample_frames,
+    select_frames,
+    window_timestamps,
+)
+
+times = frame_timestamps(frames)  # validated: finite, nonnegative, strictly increasing
+chosen = sample_frames(times, every_seconds=2.0)  # indices, ascending, no repeats
+sampled = select_frames(frames, chosen)  # copies of those rows, original order
+gaps = frame_intervals(sampled)  # seconds between consecutive rows, n - 1 values
+labelled = relative_frames(sampled)  # adds seconds_ago = last time - time
+window = window_timestamps(sampled, 1, 2)  # start_seconds, end_seconds, duration_seconds
+```
+
+`sample_frames(timestamps, *, every_seconds=None, count=None, start=None, end=None)`:
+
+- `start` / `end` bound an inclusive window (default: first and last timestamp). A window with
+  no frame raises rather than returning nothing.
+- `every_seconds`: targets are `window_start + k * every_seconds` (multiplied, never
+  accumulated) up to `end`. Each target takes the **nearest** frame in the window; **a tie
+  goes to the earlier frame**. Repeats are dropped, so a sparse sequence returns fewer
+  indices than targets.
+- `count`: exactly `count` frames spread by **position** across the window, always including
+  its first and last frame (`count=1` keeps the first). Position `i` is the frame at
+  `round(i * (n - 1) / (count - 1))`, an exact half **rounding down to the earlier frame**,
+  in integer arithmetic. A `count` of at least the window size returns every frame.
+- At most one of `every_seconds` and `count`; with neither, the whole window is kept.
+- Comparisons carry 1e-9 s of slack (`frames.TIME_EPSILON`), so `0.1 + 0.2` against `0.3`
+  cannot flip a boundary or a tie. Empty input, a duplicate, reversed, negative or non-finite
+  time, and a non-positive rate raise `ValueError`. Rates need not be integers.
+
+`frame_intervals` returns `[]` for one frame. `relative_frames(frames, now=None)` copies each
+row, keeps its order and other keys, and adds `seconds_ago = now - timestamp_seconds`; `now`
+defaults to the last frame (whose `seconds_ago` is `0.0`) and may not be earlier than it.
+The [Images documentation](https://docs.typesafe.ai/images) recommends relative labels for
+frame histories, oldest first; drop `timestamp_seconds` from the state if the model should see
+only `seconds_ago`. `window_timestamps(frames, first_index, last_index)` maps an inclusive
+index window (for example a candidate highlight window) back to seconds.
+
+**Record what was selected.** Sampling changes what the recipe measures, so store the
+selection in the example's `fields` rather than recomputing it silently:
+
+```python
+fields = {
+    "frames": [
+        {"timestamp_seconds": row["timestamp_seconds"], "path": path}
+        for row, path in zip(sampled, sampled_paths, strict=True)
+    ],
+    "sampling": {"every_seconds": 2.0, "start": None, "end": None, "indices": chosen},
+}
+```
+
+Score the result with `evaluation.transition_metrics` ([evaluation.md](evaluation.md)).
+
 ## Honest accounting
 
 `run_record(result, mode=...)` creates one row with mode, returned model,
