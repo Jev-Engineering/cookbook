@@ -181,7 +181,13 @@ def select_frames(
         if picked and index <= picked[-1]:
             raise ValueError("indices must be strictly increasing")
         picked.append(index)
-    return [{**dict(rows[i]), "frame_index": rows[i].get("frame_index", i)} for i in picked]
+    result = []
+    for i in picked:
+        original = rows[i].get("frame_index", i)
+        if isinstance(original, bool) or not isinstance(original, Integral) or original < 0:
+            raise ValueError(f"frame_index of frame {i} must be a non-negative integer")
+        result.append({**dict(rows[i]), "frame_index": int(original)})
+    return result
 
 
 def frame_intervals(state_frames: Iterable[Mapping[str, Any]]) -> list[float]:
@@ -278,7 +284,9 @@ def frame_windows(
     shared edge of neighbouring windows belongs to both) with ``w = start + k * stride_seconds``
     (multiplied, not accumulated). ``start`` / ``end`` default to the first and last
     timestamp. Only windows that fit entirely before ``end`` are produced; a window wider than
-    the range raises ``ValueError``. A window that falls in a gap between frames is **kept**
+    the range raises ``ValueError``. When the last stride-spaced window stops short of ``end``,
+    one **final window aligned to ``end``** (``[end - width, end]``, overlapping the previous
+    window by more than the stride implies) is appended, so every frame lies in some window. A window that falls in a gap between frames is **kept**
     with ``indices == []`` so the caller decides explicitly what an empty window means. Each
     entry is ``{"window_start_seconds", "window_end_seconds", "indices"}``; pass its indices to
     :func:`select_frames` or :func:`window_timestamps` as needed.
@@ -295,9 +303,11 @@ def frame_windows(
     n_windows = math.floor((high - low - width) / stride + TIME_EPSILON / stride) + 1
     if n_windows > 10_000_000:
         raise ValueError("stride_seconds yields more than 10,000,000 windows")
+    starts = [low + k * stride for k in range(n_windows)]
+    if high - (starts[-1] + width) > TIME_EPSILON:
+        starts.append(high - width)  # final window aligned to the end: no frame is left out
     result = []
-    for k in range(n_windows):
-        first = low + k * stride
+    for first in starts:
         last = first + width
         lo = bisect.bisect_left(times, first - TIME_EPSILON)
         hi = bisect.bisect_right(times, last + TIME_EPSILON)
@@ -318,8 +328,8 @@ def transition_time(state_frames: Iterable[Mapping[str, Any]], first_new_index: 
     state is visible**. ``first_new_index`` must be at least 1: a transition needs an earlier
     frame that still showed the old state. Gold labels follow the same rule (a labeller marks
     the first frame of the full-rate sequence that shows the new state); a prediction is
-    measured on the frames Python sampled. Detecting on sampled frames can therefore only
-    be late, by less than the gap to the previous sampled frame; see
+    measured on the frames Python sampled. A *correct* detection on sampled frames can
+    therefore only be late, by less than the gap to the previous sampled frame; see
     :func:`earliest_transition` and ``evaluation.transition_metrics``.
     """
     times = frame_timestamps(state_frames)
@@ -333,28 +343,54 @@ def transition_time(state_frames: Iterable[Mapping[str, Any]], first_new_index: 
 
 
 def earliest_transition(
-    state_frames: Iterable[Mapping[str, Any]], changed: Iterable[bool]
+    state_frames: Iterable[Mapping[str, Any]], changed: Iterable[bool | None]
 ) -> dict[str, Any] | None:
-    """Earliest adjacent pair that a per-pair question flagged as a change, or ``None``.
+    """Earliest adjacent pair flagged as a change, an explicit review, or ``None``.
 
     ``changed[i]`` answers "did the state change between frame ``i`` and frame ``i + 1``?"
-    (one Python-controlled question per adjacent pair; ``len(changed) == n - 1``, values
-    must be real ``bool``). The result applies :func:`transition_time`'s convention:
-    ``first_new_index = i + 1`` for the first ``True``, ``transition_seconds`` its timestamp,
-    and ``window_start_seconds`` / ``window_end_seconds`` the flagged pair, for the record.
-    No flagged pair returns ``None``, which is a recipe outcome (usually "unchanged"), not an
-    error. The indices refer to the list passed here (so pass the *sampled* frames, and use
-    their ``frame_index`` to get back to the original positions).
+    (one Python-controlled question per adjacent pair; ``len(changed) == n - 1``). Values are
+    ``True``, ``False`` (NumPy booleans are accepted) or ``None`` for a pair left
+    **undetermined** (a Noul that was uncertain, or a low-confidence answer sent to review).
+    Never coerce an undetermined pair to ``False``: that would report a later transition as the
+    earliest one.
+
+    - If the first non-``False`` pair is ``True``, the result applies :func:`transition_time`'s
+      convention: ``{"review": False, "first_new_index": i + 1, "transition_seconds": ...,
+      "window_start_seconds": ..., "window_end_seconds": ...}``.
+    - If an undetermined pair comes first (before any ``True``, or with no ``True`` at all),
+      the earliest transition is not established and the result is
+      ``{"review": True, "first_undetermined_index": i, "window_start_seconds": ...,
+      "window_end_seconds": ...}`` with no time. Score it by predicting one of
+      ``transition_metrics``'s ``uncertain_labels`` for that example.
+    - If every pair is ``False`` the result is ``None``, a recipe outcome (usually
+      "unchanged"), not an error.
+
+    The indices refer to the list passed here (so pass the *sampled* frames, and use their
+    ``frame_index`` to get back to the original positions).
     """
     times = frame_timestamps(state_frames)
     flags = list(changed)
     if len(flags) != len(times) - 1:
         raise ValueError(f"changed needs one flag per adjacent pair ({len(times) - 1})")
-    if any(not isinstance(flag, bool) for flag in flags):
-        raise ValueError("changed must contain only True/False")
-    for i, flag in enumerate(flags):
+    values: list[bool | None] = []
+    for flag in flags:
+        if flag is None:
+            values.append(None)
+        elif isinstance(flag, bool) or getattr(getattr(flag, "dtype", None), "kind", "") == "b":
+            values.append(bool(flag))
+        else:
+            raise ValueError("changed must contain only True, False or None")
+    for i, flag in enumerate(values):
+        if flag is None:
+            return {
+                "review": True,
+                "first_undetermined_index": i,
+                "window_start_seconds": times[i],
+                "window_end_seconds": times[i + 1],
+            }
         if flag:
             return {
+                "review": False,
                 "first_new_index": i + 1,
                 "transition_seconds": times[i + 1],
                 "window_start_seconds": times[i],

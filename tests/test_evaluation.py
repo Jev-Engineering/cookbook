@@ -1864,6 +1864,14 @@ def test_transition_metrics_several_review_labels():
     assert none.n_uncertain == 0 and none.outcomes == ("wrong",)
 
 
+def test_transition_metrics_rejects_missing_or_bad_review_labels():
+    for bad in (None, 3, 2.5):
+        with pytest.raises(ValueError, match="uncertain_labels"):
+            ev.transition_metrics(
+                [("a", None)], [("a", None)], tolerance_seconds=0, uncertain_labels=bad
+            )
+
+
 def test_transition_metrics_sampling_interval_warning():
     gold = [("opened", 2.5)]
     pred = [("opened", 3.0)]

@@ -404,6 +404,7 @@ def test_earliest_transition_from_per_pair_flags():
     found = earliest_transition(state, [False, True, True])
     # pair (1, 2) is the first flagged: the new state is first visible in frame 2, at 2.5 s
     assert found == {
+        "review": False,
         "first_new_index": 2,
         "transition_seconds": 2.5,
         "window_start_seconds": 1.0,
@@ -412,8 +413,71 @@ def test_earliest_transition_from_per_pair_flags():
     assert found["transition_seconds"] == transition_time(state, found["first_new_index"])
     assert earliest_transition(state, [False, False, False]) is None
     assert earliest_transition(rows(3.0), []) is None
-    for bad in ([True], [True, False, False, False], [1, 0, 0], [None, False, False]):
+    for bad in ([True], [True, False, False, False], [1, 0, 0], [0.0, False, False], "ab"):
         with pytest.raises(ValueError):
             earliest_transition(state, bad)
     with pytest.raises(ValueError):
         earliest_transition([], [])
+
+
+def test_earliest_transition_undetermined_pair_is_review_not_a_later_transition():
+    state = rows(0.0, 1.0, 2.5, 4.0)
+    # pair (1, 2) is undetermined and pair (2, 3) says changed: the earliest is not established
+    review = earliest_transition(state, [False, None, True])
+    assert review == {
+        "review": True,
+        "first_undetermined_index": 1,
+        "window_start_seconds": 1.0,
+        "window_end_seconds": 2.5,
+    }
+    assert "transition_seconds" not in review
+    # a confident True before the undetermined pair still wins
+    assert earliest_transition(state, [True, None, None])["transition_seconds"] == 1.0
+    # no True at all but an undetermined pair: review, not "unchanged"
+    assert earliest_transition(state, [False, False, None])["first_undetermined_index"] == 2
+    assert earliest_transition(state, [None, True, True])["first_undetermined_index"] == 0
+    assert earliest_transition(state, [False, False, False]) is None
+
+
+def test_earliest_transition_accepts_numpy_booleans():
+    state = rows(0.0, 1.0, 2.0)
+    flags = np.array([0.2, 0.9]) >= 0.5
+    found = earliest_transition(state, flags)
+    assert found["first_new_index"] == 2 and found["transition_seconds"] == 2.0
+    assert earliest_transition(state, [np.bool_(False), np.bool_(False)]) is None
+
+
+def test_frame_windows_cover_the_end_of_the_sequence():
+    times = [i / 2 for i in range(17)]  # 0.0 .. 8.0 every 0.5 s
+    windows = frame_windows(times, width_seconds=3.0, stride_seconds=2.0)
+    # stride-spaced windows start at 0, 2, 4 and end at 3, 5, 7; a final one is [5, 8]
+    assert [(w["window_start_seconds"], w["window_end_seconds"]) for w in windows] == [
+        (0.0, 3.0),
+        (2.0, 5.0),
+        (4.0, 7.0),
+        (5.0, 8.0),
+    ]
+    assert windows[-1]["indices"] == list(range(10, 17))
+    covered = {i for w in windows for i in w["indices"]}
+    assert covered == set(range(17))
+    # frames 0..4, width 2, stride 1.5: windows [0,2], [1.5,3.5] and the final [2,4]
+    small = frame_windows([0.0, 1.0, 2.0, 3.0, 4.0], width_seconds=2.0, stride_seconds=1.5)
+    assert [(w["window_start_seconds"], w["window_end_seconds"]) for w in small] == [
+        (0.0, 2.0),
+        (1.5, 3.5),
+        (2.0, 4.0),
+    ]
+    assert {i for w in small for i in w["indices"]} == {0, 1, 2, 3, 4}
+    # an exactly dividing stride adds nothing
+    assert len(frame_windows(times, width_seconds=4.0, stride_seconds=2.0)) == 3
+
+
+def test_select_frames_validates_an_existing_frame_index():
+    state = rows(0.0, 1.0)
+    state[1]["frame_index"] = 7
+    assert select_frames(state, [1])[0]["frame_index"] == 7
+    for bad in ("x", -1, 1.5, True, None):
+        broken = rows(0.0, 1.0)
+        broken[1]["frame_index"] = bad
+        with pytest.raises(ValueError, match="frame_index"):
+            select_frames(broken, [1])

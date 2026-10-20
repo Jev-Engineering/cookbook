@@ -772,11 +772,15 @@ answers carry no time, so Python finds the pair: it asks one question per adjace
 (for example "did the door change between these two frames?") and
 `frames.earliest_transition(sampled, changed)` returns the first flagged pair with
 `transition_seconds` set by this convention (`frames.transition_time(frames, i)` is the same
-rule for a known index). Do not substitute the pair's start or midpoint: the three give
+rule for a known index). A pair the model left uncertain, or Python's gate sent to review, is
+passed as `None`, never `False`: if it comes before the first `True`, the helper returns
+`{"review": True, ...}` with no time, because the earliest transition is not established. Score
+that example with one of the `uncertain_labels` as its predicted label. Do not substitute the pair's start or midpoint: the three give
 different scores for the same answers.
 
-Because Python only sees the sampled frames, its time can only be **late**, by less than the
-gap to the previous sampled frame. Set `tolerance_seconds` to at least the largest sampled gap,
+Because Python only sees the sampled frames, a *correct* detection can only be **late**, by
+less than the gap to the previous sampled frame (a false early flag is early, and shows as a
+negative signed error). Set `tolerance_seconds` to at least the largest sampled gap,
 and pass that gap as `max_sampling_interval_seconds`: the result records it and sets
 `tolerance_below_sampling_interval` when the tolerance is smaller, meaning the score mostly
 measures the sampling grid, not the model. Quote the gap beside the metric.

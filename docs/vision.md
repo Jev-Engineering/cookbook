@@ -251,7 +251,9 @@ window = window_timestamps(sampled, 1, 2)  # start_seconds, end_seconds, duratio
   no frame raises rather than returning nothing.
 - `every_seconds`: targets are `window_start + k * every_seconds` (multiplied, never
   accumulated) up to `end`. Each target takes the **nearest** frame in the window; **a tie
-  goes to the earlier frame**, including frames closer together than the slack. Repeats are
+  goes to the earlier frame**. Frames within the 1e-9 s slack of each other are not
+  distinguishable by time: the rule is guaranteed for up to two such frames around a target, and
+  real elapsed-time data does not contain them. Repeats are
   dropped, so a sparse sequence returns fewer indices than targets. Use this when even
   spacing **in time** matters.
 - `count`: exactly `count` frames spread by **position**, not by time, across the window,
@@ -272,7 +274,8 @@ Other helpers:
   defaults to the last frame (whose `seconds_ago` is `0.0`) and may not be earlier than it.
   The [Images documentation](https://docs.typesafe.ai/images) recommends relative labels for
   frame histories, oldest first; drop `timestamp_seconds` from the state if the model should
-  see only `seconds_ago`.
+  see only `seconds_ago`, and drop `frame_index` too (`select_frames` adds it, and it is part of
+  the row you send as state).
 - `window_timestamps(frames, first_index, last_index)` maps an inclusive index window (for
   example a candidate highlight window) back to seconds. Its duration runs from the first to
   the last frame in the window, so a window of `k` frames at gap `g` has duration `(k - 1) * g`.
@@ -281,12 +284,17 @@ Other helpers:
   frame) a log line or recorded agent-state time; it raises when no frame qualifies.
 - `frame_windows(timestamps, *, width_seconds, stride_seconds)` enumerates sliding windows
   (ranks 89 and 92) as `{"window_start_seconds", "window_end_seconds", "indices"}`, edges
-  inclusive, only windows that fit. A window in a gap is kept with `indices == []`, so the
+  inclusive, only windows that fit by stride. If the last of those stops short of the end, one
+  final window aligned to the end (`[end - width, end]`, overlapping the previous one) is
+  added, so no frame is left out: frames every 0.5 s to 8 s with width 3 and stride 2 give
+  windows starting at 0, 2, 4 and 5. A window in a gap is kept with `indices == []`, so the
   recipe decides what an empty window means.
 - `transition_time(frames, first_new_index)` and `earliest_transition(frames, changed)` apply
   the cookbook's single convention for when a transition happened: the timestamp of the
   **first frame in which the new state is visible**. `changed[i]` is the answer to "did the
-  state change between frame `i` and `i + 1`?"; the first `True` gives that time. Gold labels
+  state change between frame `i` and `i + 1`?" (`True`, `False`, or `None` for an undetermined
+  pair); the first `True` gives that time, but an undetermined pair before it returns
+  `{"review": True, ...}` instead of a later transition. Gold labels
   use the same rule, and the metric that compares them is `evaluation.transition_metrics`
   ([evaluation.md](evaluation.md)), whose tolerance should be at least the largest sampled gap.
 

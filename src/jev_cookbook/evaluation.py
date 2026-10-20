@@ -2093,7 +2093,12 @@ def transition_metrics(
         if max_sampling_interval_seconds is None
         else _seconds(max_sampling_interval_seconds, "max_sampling_interval_seconds")
     )
-    reviews = [uncertain_labels] if isinstance(uncertain_labels, str) else list(uncertain_labels)
+    if isinstance(uncertain_labels, str):
+        reviews = [uncertain_labels]
+    elif uncertain_labels is None or not isinstance(uncertain_labels, Collection):
+        raise ValueError("uncertain_labels must be a label or a collection of labels")
+    else:
+        reviews = list(uncertain_labels)
 
     uncertain = exact = within = missed = spurious = 0
     errors: list[float] = []
