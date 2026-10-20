@@ -544,6 +544,126 @@ def test_a_cell_that_writes_to_stderr_fails_the_run_and_leaves_the_file(tmp_path
     assert "wrote to stderr" in capsys.readouterr().err
 
 
+def test_the_stderr_failure_message_shows_what_was_written_redacted_and_bounded(tmp_path, capsys):
+    """#287: the log used to say a cell wrote to stderr and not what, so a flake could not be
+    diagnosed. The text is shown, with paths and long unbroken runs replaced and a size cap."""
+    secret = "A" * 40
+    code = (
+        "import sys\n"
+        "print('Matplotlib is building the font cache; this may take a moment.', file=sys.stderr)\n"
+        "print('opened /home/runner/work/secret-project/file.txt and C:\\\\Users\\\\me\\\\x.py',\n"
+        "      file=sys.stderr)\n"
+        f"print('key {secret}', file=sys.stderr)\n" + "print('filler', file=sys.stderr)\n" * 20
+    )
+    folder = tmp_path / "noisy"
+    write_notebook(folder, code)
+    assert execute_notebook.main([str(folder)]) == 1
+    err = capsys.readouterr().err
+    assert "Matplotlib is building the font cache; this may take a moment." in err
+    assert "<path>" in err
+    for leaked in ("/home/runner", "secret-project", "C:\\Users", secret):
+        assert leaked not in err
+    assert "<redacted>" in err
+    assert "[... truncated]" in err
+    assert err.count("filler") <= execute_notebook.STDERR_EXCERPT_LINES
+
+
+def test_stderr_excerpt_is_bounded_in_lines_and_characters():
+    many_lines = "\n".join(f"line {i}" for i in range(50))
+    out = execute_notebook.stderr_excerpt(many_lines)
+    assert out.count("\n") <= execute_notebook.STDERR_EXCERPT_LINES
+    assert out.endswith("[... truncated]")
+    long_line = "word " * 500
+    out = execute_notebook.stderr_excerpt(long_line)
+    assert len(out) <= execute_notebook.STDERR_EXCERPT_CHARS + len("\n[... truncated]")
+    assert out.endswith("[... truncated]")
+    assert execute_notebook.stderr_excerpt("\x1b[31mred\x1b[0m\x07 text") == "red text"
+
+
+# A sitecustomize that makes matplotlib's "building the font cache" timer (5 seconds on a slow
+# runner) fire immediately, so a build that happens inside a cell is reproduced on any machine.
+IMMEDIATE_FONT_CACHE_NOTICE = """\
+import threading
+
+_Timer = threading.Timer
+
+
+def _timer(interval, *args, **kwargs):
+    return _Timer(0 if interval == 5 else interval, *args, **kwargs)
+
+
+threading.Timer = _timer
+"""
+
+FONT_CACHE_CELL = "import matplotlib.font_manager"
+
+
+def font_cache_environment(tmp_path, monkeypatch):
+    hooks = tmp_path / "hooks"
+    hooks.mkdir()
+    (hooks / "sitecustomize.py").write_text(IMMEDIATE_FONT_CACHE_NOTICE, encoding="utf-8")
+    monkeypatch.setenv("PYTHONPATH", str(hooks))
+    monkeypatch.setenv("MPLCONFIGDIR", str(tmp_path / "mplconfig"))
+
+
+def test_a_font_cache_built_inside_a_cell_is_the_stderr_write_of_287(tmp_path, monkeypatch, capsys):
+    """The reproduction, and the negative control for the next test: with no warm-up and an empty
+    cache, the cell builds the cache, matplotlib logs its notice to stderr and the run fails."""
+    pytest.importorskip("matplotlib")
+    font_cache_environment(tmp_path, monkeypatch)
+    monkeypatch.setattr(execute_notebook, "warm_font_cache", lambda environment: None)
+    folder = tmp_path / "cold"
+    write_notebook(folder, FONT_CACHE_CELL)
+    assert execute_notebook.main([str(folder)]) == 1
+    assert "building the font cache" in capsys.readouterr().err
+
+
+def test_the_font_cache_is_built_before_the_kernel_so_no_cell_writes_the_notice(
+    tmp_path, monkeypatch, capsys
+):
+    """#287's fix: the same cold cache, the same cell, the same timer, and the run passes because
+    the executor built the cache first. The stderr rule itself is not involved."""
+    pytest.importorskip("matplotlib")
+    font_cache_environment(tmp_path, monkeypatch)
+    folder = tmp_path / "warm"
+    write_notebook(folder, FONT_CACHE_CELL)
+    assert execute_notebook.main([str(folder)]) == 0, capsys.readouterr().err
+    assert list((tmp_path / "mplconfig").glob("fontlist-*.json"))
+
+
+def test_the_warm_up_uses_the_kernels_environment_and_never_fails_the_run(tmp_path, monkeypatch):
+    seen = {}
+
+    def fake_run(command, **kwargs):
+        seen.update(kwargs, command=command)
+        raise subprocess.TimeoutExpired(command, 1)
+
+    monkeypatch.setattr(execute_notebook.subprocess, "run", fake_run)
+    environment = {"HOME": "/kernel/home", "MPLCONFIGDIR": "/kernel/mpl"}
+    execute_notebook.warm_font_cache(environment)  # a timeout is absorbed
+    assert seen["env"] == environment
+    assert seen["command"][-1] == execute_notebook.FONT_CACHE_WARMUP
+
+    def missing(command, **kwargs):
+        raise FileNotFoundError(command[0])
+
+    monkeypatch.setattr(execute_notebook.subprocess, "run", missing)
+    execute_notebook.warm_font_cache(environment)  # an unrunnable interpreter is absorbed
+
+
+def test_execute_warms_the_cache_with_the_scrubbed_kernel_environment(tmp_path, monkeypatch):
+    seen = []
+    monkeypatch.setattr(execute_notebook, "warm_font_cache", seen.append)
+    monkeypatch.setenv("JEV_COOKBOOK_LIVE", "1")
+    monkeypatch.setenv("TYPESAFE_API_KEY", "placeholder")
+    folder = tmp_path / "plain"
+    write_notebook(folder, "x = 1")
+    assert execute_notebook.main([str(folder)]) == 0
+    assert len(seen) == 1
+    assert "JEV_COOKBOOK_LIVE" not in seen[0] and "TYPESAFE_API_KEY" not in seen[0]
+    assert seen[0].get("PATH") == os.environ.get("PATH")
+
+
 def test_a_printed_line_is_one_stream_output_even_when_the_flush_lands_in_the_middle(tmp_path):
     """Without ``coalesce_streams`` the text and the newline of a ``print`` can arrive as two
     outputs whenever an IOPub flush falls between them."""
