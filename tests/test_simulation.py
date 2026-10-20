@@ -1016,3 +1016,41 @@ def test_the_worked_example_in_the_docs_runs_and_its_literals_hold() -> None:
     exec(compile(block, "docs/simulation.md", "exec"), namespace)
     assert namespace["validation_fill"].review_keys == ("v2", "v3")
     assert namespace["test_fill"].review_ids == (2,)
+
+
+def test_a_key_that_is_not_plain_json_is_a_simulation_error() -> None:
+    queue = ReviewQueue()
+    with pytest.raises(SimulationError, match="not plain JSON"):
+        route_outcomes(_VALIDATION, lambda o: None, queue=queue, key=lambda o: object())
+    assert len(queue) == 0
+
+
+def test_routed_passes_can_be_concatenated_for_a_per_step_loop() -> None:
+    queue, log = ReviewQueue(), ActionLog()
+    total = route_outcomes([], lambda o: None)
+    for step, outcome in enumerate(_VALIDATION):
+        total += route_outcomes(
+            [outcome],
+            lambda o, step=step: (
+                ToReview({"id": o.id}, o.reason, step=step)
+                if o.outcome == "review"
+                else ToAction("release", {"id": o.id}, step=step)
+            ),
+            queue=queue,
+            actions=log,
+            key=lambda o: o.id,
+        )
+    assert total.review_keys == ("v2", "v3") and total.review_ids == (0, 1)
+    assert total.action_keys == ("v1",) and total.action_seqs == (0,)
+    assert len(total) == 3
+    assert [i["step"] for i in queue.to_dicts()] == [1, 2]
+    with pytest.raises(TypeError):
+        total + 1  # type: ignore[operator]
+
+
+def test_the_decide_and_apply_example_in_the_docs_runs_and_its_literals_hold() -> None:
+    text = DOCS.read_text(encoding="utf-8")
+    block = re.search(r"```python\n# recipe: decide-example\n(.*?)\n```", text, re.S).group(1)
+    namespace: dict = {}
+    exec(compile(block, "docs/simulation.md", "exec"), namespace)
+    assert namespace["outcomes"] == ["assigned", "review", "review", "assigned"]

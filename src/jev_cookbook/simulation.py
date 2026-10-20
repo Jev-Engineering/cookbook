@@ -473,6 +473,14 @@ class ReviewQueue:
         """Return the number of items ever submitted."""
         return len(self._items)
 
+    def _truncate(self, size: int) -> None:
+        """Drop the items submitted after the queue had ``size`` items (ids are positions).
+
+        Used by ``route_outcomes`` to undo a failed pass; a queue that stopped numbering ids by
+        position would have to change this with it.
+        """
+        del self._items[size:]
+
     def to_dicts(self) -> list[dict[str, Any]]:
         """Return every item as a plain dict, oldest first."""
         return [i.to_dict() for i in self._items]
@@ -517,6 +525,10 @@ class ActionLog:
     def __len__(self) -> int:
         """Return the number of recorded actions."""
         return len(self._entries)
+
+    def _truncate(self, size: int) -> None:
+        """Drop the entries recorded after the log had ``size`` entries (``seq`` is the position)."""
+        del self._entries[size:]
 
     def to_dicts(self) -> list[dict[str, Any]]:
         """Return every entry as a plain dict, oldest first."""
@@ -625,6 +637,12 @@ class Routed:
         """Return the number of outcomes seen (routed, skipped and excluded)."""
         return len(self.entries)
 
+    def __add__(self, other: Routed) -> Routed:
+        """Concatenate two passes (for example one per split, or one per step of a loop)."""
+        if not isinstance(other, Routed):
+            return NotImplemented
+        return Routed(self.entries + other.entries)
+
     def to_dicts(self) -> list[dict[str, Any]]:
         """Return every entry as a plain dict, in the outcomes' order."""
         return [
@@ -661,6 +679,12 @@ def route_outcomes(
       It is reported in ``Routed.excluded_keys``, never silently dropped.
     - A ``ToReview`` needs ``queue`` and a ``ToAction`` needs ``actions``; routing to a
       destination that was not supplied raises ``SimulationError``.
+    - ``route``, ``key`` and ``exclude`` must be pure: they run for every outcome before anything
+      is written, so they see the queue and log as they were before the call (a rule such as
+      "queue at most three" or "skip what is already queued" that reads them is wrong in a
+      batch), and anything else they do (spending a ``Budget``, writing a ``Store``) is not
+      undone if the pass fails. For a decision that depends on earlier writes, use a
+      decide-and-apply function instead (``docs/simulation.md``).
     - All-or-nothing: every ``route``/``key``/``exclude`` call and every validation runs before
       anything is written, and a write that still fails (for example an item that is not plain
       JSON) removes the entries this call had added. The queue and log are never left half
@@ -680,7 +704,10 @@ def route_outcomes(
     for position, outcome in enumerate(list(outcomes)):
         k = position if key is None else key(outcome)
         if key is not None:
-            marker = repr(plain_json(k, "key"))
+            try:
+                marker = repr(plain_json(k, "key"))
+            except (TypeError, ValueError) as error:
+                raise SimulationError(f"key {k!r} is not plain JSON ({error})") from error
             if marker in seen:
                 raise SimulationError(f"key {k!r} appears more than once in one routing pass")
             seen.add(marker)
@@ -724,9 +751,9 @@ def route_outcomes(
                 entries.append(RoutedEntry(k, ACTION, entry["seq"]))
     except BaseException:
         if queue is not None:
-            del queue._items[queue_size:]
+            queue._truncate(queue_size)
         if actions is not None:
-            del actions._entries[log_size:]
+            actions._truncate(log_size)
         raise
     return Routed(tuple(entries))
 

@@ -16,6 +16,7 @@ recipes/NN-slug/
 ├── README.md          one page: what it teaches, how to run it, what was and was not measured
 ├── fixtures/          inputs, labels, and model responses used by the offline run
 ├── helpers.py         optional: logic too long to read comfortably in a cell (level 3 and up)
+├── side_effects.json  required where the recipe has a simulated side effect (section 4)
 └── tests/             optional: tests for helpers.py, required wherever helpers.py enforces a rule
 ```
 
@@ -72,6 +73,8 @@ A recipe pull request touches only `recipes/NN-slug/`, with one bounded exceptio
 ### 4. Python owns every side effect
 
 - Actions are simulated. Nothing sends a message, moves a file, changes a ticket, or calls an external system.
+- A simulated side effect (a `ReviewQueue`, `ActionLog`, `Store`, `Transactor` or `Simulator` write) is performed by a named function in `helpers.py` that the notebook and the recipe's test both call, and the test states what it should have produced as literals typed from the fixtures instead of re-typing the code: [docs/simulation.md](docs/simulation.md) gives the two shapes (a batch fill with `fill_review_queue` / `route_outcomes` when every outcome is final before the first write, a decide-and-apply function when the destination depends on state or on a write's result) with a worked example of each.
+- The recipe declares its side effect in `recipes/NN-slug/side_effects.json` (schema in [docs/simulation.md](docs/simulation.md)): the exact number of places the notebook calls each side-effect function or method, or the reason it has none. The recipe guard fails a notebook whose executable code calls fewer than declared (the side effect was deleted and the notebook re-executed), calls more than declared, never uses side-effect code its `helpers.py` defines, or builds a sink or simulator it never mutates; a recipe flagged `needs: simulator` cannot declare none.
 - Permissions, budgets, retry limits, interlocks, and stop conditions are enforced in code and hold whatever the model answers. Where it makes sense, prove it with a test rather than a sentence.
 - Uncertain or inconsistent results go to an explicit review outcome. A fallback option may be delivered as a final result at any confidence, with no further gate, only when it passes all three parts of this test:
   - **(a) It is a complete answer to the question, not a deferral.** `no_match`, `not_stated`, `no_suitable_rewrite` and `keep_original` are complete answers: each says what to do (link nothing, extract nothing, rewrite nothing, keep what was there). `unknown`, `needs_review` and an outcome such as "manual triage" are deferrals — each says "ask a person" rather than answering — and a deferral is always a review outcome, in the `ReviewQueue`, whatever its confidence; it never qualifies for this exemption.
