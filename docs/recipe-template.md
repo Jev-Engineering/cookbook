@@ -99,7 +99,14 @@ own first use the same way.
   a `helpers.py` wrapper rather than inline in the notebook cell, pin the wrapper function's own
   source instead (`inspect.getsource(helpers.<wrapper>)`), for the same reason. The guard check
   `threshold_objective_pin` enforces this, fail closed, over every recipe with a threshold
-  selection.
+  selection. What the check credits is what an unconditional `assert` *claims*, derived rather
+  than enumerated: the assertion must say the spelling is **present** in a value that came from
+  reading the committed file (by `read_text()`, `read_bytes()`, `open(...).read()` or
+  `with open(...)`, whichever you use). `not`, `is False`, `.count(...) == 0`, an `if`/`else`
+  branch that asserts nothing, an `or` with a vacuous operand, and a pin inside an `if`, a loop
+  or `pytest.raises` are all read for what they claim, so none of them counts as a pin;
+  `all(...)`/`any(...)`/`len([...]) > 0` over the committed source do count (an `all(...)`
+  needs an iterable that is visibly non-empty, since it is vacuously true over nothing).
 - **`evaluate_selective` reports the same split as the rule only when the rule's only review
   branch is that confidence gate — `route` here has three, so it is not that rule.**
   `helpers.py::route` sends a ticket to `review` for any of three reasons, in this order:
