@@ -224,8 +224,9 @@ own first use the same way.
   them to watch (recipes 38 and 40 each shipped a floor that moved nothing), which quantity to
   watch, and which way it moves; do not quote the resulting figures, which describe a run the
   notebook never performs and so are pinned by nothing. If a figure is worth quoting, print it
-  from a labelled side-computation cell (recipe 40's `next-margin-demo` cell prints what its
-  illustrative floor selects) or assert it in a test, so it is in committed output or under a
+  from a labelled side-computation cell or assert it in a test (no published recipe is the model
+  for this yet; recipe 40's Next steps prints one illustrative figure but its prose still quotes
+  others that no committed cell prints, and is being brought into line under #259), so it is in committed output or under a
   test. The direction sentence follows the helper, not the parameter's name: raising
   `select_confidence_threshold`'s `min_coverage` can only lower the threshold or leave it
   unchanged, and the response is piecewise constant, so test the exercise by running it
@@ -234,8 +235,10 @@ own first use the same way.
   two-sided band, `(1 - g)/2 < p < (1 + g)/2` goes to review; whether it changes any outcome of
   your rule is not derivable from `t` and `g`. Run the rule's own decision function over a grid
   with and without the gate, print the count of changed outcomes at or above and below the
-  business threshold, and state in prose which side the gate acts on
-  ([evaluation.md](evaluation.md#noul-three-path-pattern)).
+  business threshold, and state in prose which side the gate acts on.
+  This assumes one Noul and one threshold; several gated Nouls (recipe 06), a rule with no
+  threshold but 0.5, and a decision function that takes an answer object rather than `p` are
+  covered by "Scope of the measurement" ([evaluation.md](evaluation.md#noul-three-path-pattern)).
 - **Every validation number in an offline run carries both labels, `{selection}{check}`.**
   CONTRIBUTING.md section 2 requires the pipeline-check disclosure beside every synthetic or
   scripted number, and separately requires the selection-step label on every `validation` number

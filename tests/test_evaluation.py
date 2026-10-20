@@ -1071,6 +1071,24 @@ def test_noul_confidence_gate_is_a_two_sided_band_and_its_effect_depends_on_the_
     assert accept_only == []
 
 
+def test_accept_side_gate_inertness_needs_t_above_one_half():
+    # for t > 0.5, p >= t gives |2p - 1| >= 2t - 1, so a gate g <= 2t - 1 withholds no admitted p
+    t, g = 0.8, 0.6
+    for p in (i / 400 for i in range(401)):
+        if p >= t:
+            assert ev.noul_confidence([p])[0] >= g
+    # for t < 0.5 it is false even at g == |2t - 1|: t = 0.3, g = 0.4, p = 0.5 is admitted by the
+    # threshold (0.5 >= 0.3) and has confidence 0.0 < 0.4, so the gate withholds it
+    t, g = 0.3, 0.4
+    assert g == pytest.approx(abs(2 * t - 1))
+    assert 0.5 >= t and ev.noul_confidence([0.5])[0] == 0.0 < g
+    # and the withheld admitted values are an interval around 0.5, not a lower tail
+    grid = [i / 400 for i in range(401)]
+    withheld = [p for p in grid if p >= t and ev.noul_confidence([p])[0] < g]
+    assert min(withheld) < 0.5 < max(withheld)
+    assert all(t <= p <= (1 + g) / 2 for p in withheld)
+
+
 def test_select_confidence_threshold_errors():
     with pytest.raises(ValueError):
         ev.select_confidence_threshold(SC, SF)

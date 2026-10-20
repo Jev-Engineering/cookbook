@@ -1489,6 +1489,13 @@ def select_confidence_threshold(
       the highest accuracy (ties go to the lower threshold, i.e. more coverage). Raising
       this floor can only lower the returned threshold or leave it unchanged.
 
+    **Both objectives are about the answered subset, not the whole split.**
+    ``target_accuracy`` constrains accuracy over the answered examples only (the denominator
+    is the examples at or above the threshold); ``min_coverage`` maximises that same
+    answered-subset accuracy subject to a floor on the share answered. Neither constrains
+    whole-split per-question accuracy. Use ``target_accuracy`` to say how right the answers
+    you give must be, ``min_coverage`` to say how many you must give.
+
     **Direction: the two parameters move the threshold in opposite directions.**
     ``min_coverage`` is a floor on how many answers must be kept, and a lower threshold
     keeps more, so *raising* ``min_coverage`` can only leave the returned threshold

@@ -300,6 +300,15 @@ a threshold, which relates to coverage inversely: a lower threshold answers more
 | lower `target_accuracy` | stay the same or go **down** |
 
 Stricter does not mean a higher threshold: a stricter coverage floor is a more permissive gate.
+
+**Both objectives are about the answered subset, not the whole split.** `target_accuracy`
+constrains accuracy over the **answered** examples only (the denominator is the examples at or
+above the threshold); `min_coverage` maximises that same answered-subset accuracy subject to a
+floor on the share answered. Neither constrains whole-split per-question accuracy, which is what
+a reader usually means by "accuracy" and which also counts every abstained example as a miss
+(or ignores it, depending on how it is scored). Use `target_accuracy` to say how right the
+answers you give must be; use `min_coverage` to say how many answers you must give. A recipe that
+reports an accuracy next to either objective says which denominator it is.
 The docstring of `select_confidence_threshold` states the same table beside the parameters, and
 `tests/test_evaluation.py` pins both directions on a pool.
 
@@ -313,9 +322,10 @@ pool pinned in `tests/test_evaluation.py` has confidences `0.04, 0.11, 0.15, 0.2
 `0.6` returns `0.79`, `0.7` and `0.8` return `0.15`, `0.9` returns `0.11` and `1.0` returns `0.04`.
 A flat region is the normal case, not the exception, and it has produced two different defects in
 the published set: a **false direction** (three recipes stated the relationship backwards) and a
-**true claim attached to an exercise that demonstrates nothing** (recipe 40, as first written, sent a reader to a
-floor that dropped the threshold from `0.7867` to `0.16` while the branching set, the
-disagreement set, accuracy and the review set did not change at all; on recipe 38's pool, lowering
+**true claim attached to an exercise that demonstrates nothing** (a recipe 40 exercise sent a reader to a
+floor that moved the frozen branch margin from `0.7867` to `0.1600`, yet on the `test` split the
+branching set, the disagreement rows, leaf accuracy and the review queue were the same, so
+nothing the reader was told to watch moved there; on recipe 38's pool, lowering
 `min_coverage` from `0.75` to `0.10` left the threshold at `0.7067`). Such a sentence
 usually contains no numeral, so a numeral sweep over the committed output cannot catch it.
 
@@ -678,12 +688,17 @@ are not:
   the accept branch, gating only one flagged proposition, and consulting the gate before the
   threshold give different answers at identical `t` and `g`: at `t = 0.8, g = 0.5` the gate
   changes no outcome when it guards only acceptance (everything at or above `0.8` is already above
-  `0.75`), and turns every confident rejection with `0.25 < p < 0.75` into a review when it
+  `0.75`), and turns every rejection with `0.25 < p < 0.75` into a review when it
   guards both branches (199 of the 401 grid points in `tests/test_evaluation.py`). For a rule
-  that gates acceptance, a gate at or below `|2t - 1|` cannot withhold anything the threshold
-  admits and one above it behaves like a stricter threshold at `(1 + g) / 2`; that is a statement
-  about that wiring and that side only. Never write "the gate cannot act" without saying on which
-  side, and never write it at all before measuring.
+  that gates only acceptance **and has `t > 0.5`**, a gate at or below `2t - 1` cannot withhold
+  anything the threshold admits (`p >= t > 0.5` gives `|2p - 1| >= 2t - 1`) and one above it
+  behaves like a stricter threshold at `(1 + g) / 2`. The condition is load-bearing: at
+  `t = 0.3, g = 0.4` (`= |2t - 1|`) the threshold admits `p = 0.5`, whose confidence is `0.0`,
+  so the gate withholds it, and for `t < 0.5` an accept-only gate withholds the whole interval of
+  admitted `p` around `0.5`, not a lower tail (`tests/test_evaluation.py` pins this
+  counterexample). Mirror the statement for a rule that gates only rejection with `t < 0.5`. All
+  of this is about that wiring and that side only. Never write "the gate cannot act" without
+  saying on which side, and never write it at all before measuring.
 * **Choosing `g` above `|2t - 1|` is not adding an independent control** in a rule that gates only
   acceptance: it silently chooses a stricter threshold. The gate's one distinct function on the
   accept side is then which reason label a withheld item carries, which is presentation.
@@ -696,6 +711,24 @@ the gate is doing work on. A rule with three paths states this for both sides an
 counterfactual for each. An algebraic shortcut is a claim about every rule of that shape; you only
 ever have evidence about yours. The measurement also catches a gate that changes zero outcomes
 over its whole swept range, the degenerate case in "Selective prediction" seen from the other end.
+
+**Scope of the measurement.** The sketch above assumes one Noul answer, one business threshold `t`
+and a decision function of that one probability `p`. Most recipes differ from it in one of three
+ways, and each still measures its own composition:
+
+* **Several gated Nouls** (one per label or per proposition, combined by the rule; recipe 06 is
+  the multi-label case): sweep each gated Noul over its grid with the others held at their
+  committed values, one at a time, or run the rule over the committed examples with the gate on
+  and off; report the changed count per gate, not one pooled number, and say which gate acts on
+  which side.
+* **No business threshold** other than `0.5` (the rule accepts when the proposition is more
+  likely true than not): take `t = 0.5`, so "at or above `t`" is the accepted side and "below
+  `t`" the rejected side, and note that `2t - 1 = 0`, so an accept-only gate has no inert region
+  to claim.
+* **A decision function that takes an answer object, not `p`**: build a synthetic answer for each
+  grid value with the same type the rule receives (`NoulAnswer` in `jev_cookbook.answers`,
+  with its `noul` field set to `p`) and call the rule's real decision function on it. Do not
+  re-derive the rule inside the measurement; the point is to measure the code that ships.
 
 For a multi-label recipe whose only review branch *is* this confidence gate (no fallback label,
 no membership check), the pooled confidence-only view and the pooled outcomes view give the same
