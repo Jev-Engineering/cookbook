@@ -1050,20 +1050,20 @@ def test_build_fixtures_rewrites_inputs_and_labels_even_when_responses_is_refuse
 
 
 def test_build_fixtures_writes_responses_byte_identical_to_the_recorders_writer(catalog, recipes):
-    """jev_cookbook.live._dump (what the live recorder writes with) is
+    """jev_cookbook.dump_responses (what the live recorder writes with) is
     json.dumps(dict(sorted(data.items())), indent=2, ensure_ascii=False) + "\\n": only the
     top-level keys are sorted, every nested dict keeps DecisionResult.to_dict()'s own field
     order. json.dumps(..., sort_keys=True) sorts every nested dict too, which disagrees with
     the recorder on every response and roughly quadruples the diff a recording produces. The
     builder must match the recorder exactly, not just agree with it on top-level order.
 
-    Comparing the written file against _dump(json.loads(raw)) (re-dumping the file's own
+    Comparing the written file against dump_responses(json.loads(raw)) (re-dumping the file's own
     parsed content) cannot catch a sort_keys=True regression: json.loads preserves whatever
-    nested order the file already has, and _dump only re-sorts the top level, so that
+    nested order the file already has, and dump_responses only re-sorts the top level, so that
     round trip passes regardless of which writer produced the file. Instead, import the
-    freshly scaffolded build_fixtures.py and compare against _dump of what build_responses
+    freshly scaffolded build_fixtures.py and compare against dump_responses of what build_responses
     computes directly from ROWS, independent of what main() actually wrote."""
-    from jev_cookbook.live import _dump
+    from jev_cookbook import dump_responses
 
     folder = scaffold_replay_with_build_script(catalog, recipes, number=4)
     script = folder / "build_fixtures.py"
@@ -1072,7 +1072,7 @@ def test_build_fixtures_writes_responses_byte_identical_to_the_recorders_writer(
 
     module = load_module_at(script, "scaffolded_build_fixtures_for_test")
     assert len(module.ROWS) > 1
-    assert raw == _dump(module.build_responses(module.ROWS))
+    assert raw == dump_responses(module.build_responses(module.ROWS))
 
 
 # The install command the `Notebook (<recipe>)` job in .github/workflows/notebooks.yml runs, and

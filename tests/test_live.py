@@ -34,7 +34,7 @@ from jev_cookbook import (
     record,
     replay_key,
 )
-from jev_cookbook.live import _dump
+from jev_cookbook.live import _dump, dump_responses
 
 # A stand-in secret assembled at run time so no literal in this file looks like a credential.
 SECRET = "-".join(["not", "a", "real", "key", "x" * 12])
@@ -515,7 +515,7 @@ def test_recorded_fixture_replays_byte_for_byte(tmp_path):
         key = replay_key(state, questions)
         replayed = replay.decide(state, questions)
         assert json.dumps(replayed.to_dict()) == json.dumps(stored[key])  # byte for byte
-    assert _dump(stored).encode("utf-8") == path.read_bytes()
+    assert dump_responses(stored).encode("utf-8") == path.read_bytes()
     assert replay.decide(*two_requests()[1])["billing"].noul == 0.12
 
 
@@ -1068,3 +1068,30 @@ def test_a_hard_link_to_the_responses_file_is_refused(tmp_path):
     with pytest.raises(ValueError, match="same file"):
         record(backend, doc(1), same, ledger_path=link)
     assert client.calls == []
+
+
+def test_dump_responses_is_public_and_the_private_name_is_the_same_object():
+    """#209: recipes get a public, documented name. ``_dump`` stays as a supported alias because
+    50 published recipes import it; it must be the very same function, so the two cannot drift."""
+    import jev_cookbook
+    import jev_cookbook.live as live
+
+    assert jev_cookbook.dump_responses is dump_responses is live._dump is _dump
+    assert "dump_responses" in jev_cookbook.__all__ and "dump_responses" in live.__all__
+    assert dump_responses.__doc__ and "responses.json" in dump_responses.__doc__
+
+
+def test_dump_responses_text_is_exactly_the_stored_form():
+    """Top-level keys sorted, nested order kept, 2-space indent, UTF-8 not escaped, one final LF,
+    and the input mapping is not mutated. A sort_keys=True writer would fail the nested-order
+    assertion; an ensure_ascii writer would fail the UTF-8 one."""
+    data = {"b": {"z": 1, "a": "caf\u00e9"}, "a": {"y": 2}}
+    before = json.dumps(data)
+    text = dump_responses(data)
+    expected = (
+        '{\n  "a": {\n    "y": 2\n  },\n  "b": {\n    "z": 1,\n    "a": "caf\u00e9"\n  }\n}\n'
+    )
+    assert text == expected
+    assert json.dumps(data) == before
+    assert "\r" not in text and not text.endswith("\n\n")
+    assert json.loads(text) == data
