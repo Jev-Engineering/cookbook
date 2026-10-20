@@ -113,7 +113,23 @@ track (01–60) or the multimodal track (61–100).
   notebook; false runs the recipe folders changed by the latest commit, by the same rule.
 - **A pull request** runs only the recipe folders it changes, provided every changed path is inside
   a `recipes/<folder>/` or is exactly `README.md`. A recipe pull request is limited to that by the
-  scope check, so one recipe's pull request does not re-run every published notebook.
+  scope check, so one recipe's pull request does not re-run every published notebook. **The diff
+  is taken against the first parent of the pull request's merge commit, not against
+  `pull_request.base.sha`** (`matrix --merge-ref`, #248). `actions/checkout` on a `pull_request`
+  event checks out `refs/pull/N/merge`; `base.sha` is the tip of the base branch from when the pull
+  request was *opened*, so once the base branch has moved on it is an ancestor of the merge commit
+  and `base.sha...merge` degenerates into "everything the base branch gained since": a recipe that
+  merged meanwhile was re-executed on every later push (a `Notebook (<other recipe>)` row the
+  branch does not contain), and a single later commit to `src/`, `tools/`, `tests/`, `docs/` or
+  `pyproject.toml` selected every notebook on every open pull request. The first parent is the
+  base the tree on disk was actually built on, so the diff is exactly what the pull request
+  changes, and every rule above (shared code selects everything, `README.md` is exempt, a deleted
+  notebook runs nothing) applies to that diff unchanged. Only a `--head` with exactly two parents
+  is trusted to be the merge commit; for anything else the tool keeps `--base` (which can select
+  more than needed, never less). To reproduce a selection locally, rebuild the merge: from a
+  clone, `git checkout --detach origin/main && git merge --no-ff <pr-head>`, then
+  `python tools/notebook_ci.py matrix --base <the PR's base.sha> --head HEAD --merge-ref`;
+  `tests/test_notebook_ci_gates.py` does exactly this against a temporary repository.
 - A pull request that changes anything else (shared code, tools, docs, workflows, the template's
   neighbours) runs every notebook, because shared code can change any recipe's result. **That
   includes a docs-only foundation pull request**: any path outside `recipes/` and `README.md`
@@ -366,6 +382,26 @@ mechanism. **This does not hold locally at all**, where a notebook's author runs
 and can point `fixtures=` at any file on disk they own, validated or not. The shared-code half (a
 runtime check that `get_backend` refuses a fixtures path outside the recipe's own `fixtures/`)
 belongs to the fixtures backend itself (#65/#66), not to this workflow.
+
+### The first code cell and matplotlib's font cache (#287)
+
+`Notebook (<recipe>)` used to fail now and then with "cell 2 (setup) wrote to stderr", on
+unrelated pull requests and on `main`, on identical inputs (recipes 37, 17 and 46 were seen). Cell
+2 is the first code cell, whose imports load matplotlib. The kernel's `$HOME` in the sandbox is a
+new, empty directory on every job, so matplotlib has no font cache and builds one at that first
+import; while it builds, it arms a 5-second timer that logs "Matplotlib is building the font
+cache; this may take a moment." to stderr if the build is still running (`font_manager.py`,
+`FontManager.__init__`). Whether the build outlasts five seconds depends on how loaded the runner
+is, which is why the outcome varied. The notice is accurate and the cell did nothing wrong, so the
+stderr rule is unchanged and nothing is allowlisted. `tools/execute_notebook.py` instead builds
+the cache before the kernel starts (`warm_font_cache`: a separate process with exactly the
+kernel's environment, hence the same cache directory), so no cell ever builds it.
+`tests/test_new_recipe.py` reproduces the failure with the timer shortened to zero and an empty
+cache (the control), and shows the same notebook passing once the executor warms the cache first.
+
+When a cell does write to stderr the executor now prints what it wrote, redacted (absolute paths
+and long unbroken runs replaced) and bounded (8 lines, 600 characters), so the log is enough to
+diagnose it. The text is a diagnosis aid, never a licence: it is not matched against anything.
 
 ## The staleness check
 

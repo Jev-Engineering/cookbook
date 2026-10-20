@@ -51,7 +51,8 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.14"
-      # A pull request selects the recipe folders it changes. A push to main selects the recipe
+      # A pull request selects the recipe folders it changes, measured against the first parent of
+      # its merge commit and not against pull_request.base.sha (see below). A push to main selects the recipe
       # folders changed since the previous tip (`before`) with a two-dot diff (before..HEAD, the two
       # trees). Either way, a change to anything but recipe folders and README.md selects every
       # notebook. A push selects every notebook too when `github.event.forced` is true, when
@@ -69,7 +70,11 @@ jobs:
           FORCED: ${{ github.event.forced }}
         run: |
           if [ "$EVENT" = "pull_request" ]; then
-            python tools/notebook_ci.py matrix --base "$BASE_SHA" --head HEAD --github-output "$GITHUB_OUTPUT"
+            # HEAD is the pull request's merge commit (refs/pull/N/merge). --merge-ref diffs
+            # against its first parent, the base branch the tree on disk was built on; BASE_SHA
+            # is the base branch's tip from when the pull request was opened, which goes stale
+            # (#248) and is used only if HEAD is somehow not a two-parent merge commit.
+            python tools/notebook_ci.py matrix --base "$BASE_SHA" --head HEAD --merge-ref --github-output "$GITHUB_OUTPUT"
           elif [ "$EVENT" = "push" ] && [ "$FORCED" != "true" ]; then
             python tools/notebook_ci.py matrix --base "$BEFORE_SHA" --head HEAD --push --github-output "$GITHUB_OUTPUT"
           elif [ "$EVENT" = "push" ]; then
