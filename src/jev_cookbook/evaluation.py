@@ -1228,22 +1228,53 @@ def top_k_accuracy(gold: Iterable[Any], probabilities: Iterable[Any], k: int) ->
     return total / len(g)
 
 
-def recall_at_budget(gold_relevant: Iterable[Any], scores: Iterable[Any], budget: int) -> float:
-    """Share of all relevant items found when reviewing only the ``budget`` top-scored items.
+def recall_at_budget(
+    gold_relevant: Iterable[Any],
+    scores: Iterable[Any],
+    budget: int,
+    *,
+    eligible: Iterable[Any] | None = None,
+) -> float:
+    """Share of ALL relevant items found when reviewing only the ``budget`` top-scored items.
 
     ``recall = (relevant items among the top budget by score) / (all relevant items)``.
     Tied scores across the cut-off are credited in expectation (the average over tie
-    orders). A ``budget`` larger than the list is treated as the whole list.
+    orders). A ``budget`` larger than the list (or, with ``eligible``, larger than the
+    number of eligible items) is treated as the whole list.
+
+    This is a property of a **ranking**: it fills the budget purely from the list it is
+    given. It is not "was the top-scored item relevant": with ``budget=1`` and two relevant
+    items among three, it is ``0.5`` even when the single top-scored item is relevant. For
+    that question use :func:`top_k_query_accuracy`.
+
+    **A rule that excludes candidates before ranking** (a confidence gate, a foreign-option
+    check, a type or permission filter) must pass ``eligible``. Without it the helper credits
+    an excluded candidate for any slot the eligible ones do not fill: with one eligible
+    candidate and ``budget=2``, the second slot goes to whichever excluded candidate has the
+    next-highest stand-in score, so the number reported is one the rule's own pick never
+    produces (``0.6667`` where the rule gives ``0.5`` in the case that surfaced this, #231).
+    Padding the scores of excluded candidates with a stand-in is not a substitute, and
+    neither is capping ``budget`` by hand. Whatever you pass, also check on every committed
+    example that the metric equals what the rule's own composition produces.
 
     Args:
         gold_relevant: Gold relevance per item (bool or 0/1).
         scores: Score per item; higher is reviewed first. Numbers, or Noul/Score answers
-            (``.noul`` or ``.score``).
+            (``.noul`` or ``.score``). With ``eligible``, the scores of ineligible items
+            must still be finite numbers (they are validated) but are never used to rank.
         budget: Number of items that can be reviewed, at least 1.
+        eligible: Optional keyword-only. Whether each item may occupy a budget slot (bool or
+            0/1), one per item. ``None`` (the default) means every item is eligible, which
+            is the behaviour before this argument existed. An ineligible item never
+            occupies a slot, however high its score, so at most ``min(budget, number
+            eligible)`` items are reviewed. The denominator is unchanged: a relevant item
+            that is ineligible still counts as relevant and is simply never found, so
+            recall falls rather than the item being dropped from the question.
 
     Returns:
-        A float in [0, 1], or NaN when no item is relevant. Empty input, unequal lengths
-        or ``budget < 1`` raise ``ValueError``.
+        A float in [0, 1], or NaN when no item is relevant (whether or not it is eligible).
+        When items are relevant but none is eligible the result is ``0.0``. Empty input,
+        unequal lengths (including ``eligible``) or ``budget < 1`` raise ``ValueError``.
     """
     if budget < 1:
         raise ValueError("budget must be at least 1")
@@ -1251,25 +1282,45 @@ def recall_at_budget(gold_relevant: Iterable[Any], scores: Iterable[Any], budget
     sc = _floats((_score_value(x) for x in _as_list(scores, "scores")), "scores")
     _same_length(rel, sc, "gold_relevant and scores")
     total = float(rel.sum())
-    if total == 0:
-        return float("nan")
-    return float(_tie_averaged(sc, rel)[: min(budget, len(rel))].sum() / total)
+    if eligible is not None:
+        ok = _binary(_as_list(eligible, "eligible"), "eligible")
+        _same_length(rel, ok, "gold_relevant and eligible")
+        if total == 0:
+            return float("nan")
+        if not ok.any():
+            return 0.0
+        rel_pool, sc_pool = rel[ok], sc[ok]
+    else:
+        if total == 0:
+            return float("nan")
+        rel_pool, sc_pool = rel, sc
+    return float(_tie_averaged(sc_pool, rel_pool)[: min(budget, len(rel_pool))].sum() / total)
 
 
-def mean_recall_at_budget(queries: Iterable[tuple[Any, Any]], budget: int) -> float:
+def mean_recall_at_budget(queries: Iterable[tuple[Any, ...]], budget: int) -> float:
     """Mean :func:`recall_at_budget` over several queries.
 
     Args:
-        queries: Pairs ``(gold_relevant, scores)``, one per query, exactly as
-            :func:`recall_at_budget` takes them.
+        queries: One tuple per query: ``(gold_relevant, scores)`` exactly as
+            :func:`recall_at_budget` takes them, or ``(gold_relevant, scores, eligible)``
+            to pass that query's ``eligible`` mask (a rule that excludes candidates before
+            ranking must; see :func:`recall_at_budget`). The two forms may be mixed.
         budget: As in :func:`recall_at_budget`.
 
     Returns:
         The mean over queries with at least one relevant item. NaN when none has one (the same
-        undefined-is-NaN convention as :func:`mean_ndcg`, not a raise). Empty ``queries``, or
-        any one query invalid by :func:`recall_at_budget`'s own rules, raise ``ValueError``.
+        undefined-is-NaN convention as :func:`mean_ndcg`, not a raise). Empty ``queries``, a
+        tuple of any other length, or any one query invalid by :func:`recall_at_budget`'s own
+        rules, raise ``ValueError``.
     """
-    vals = [recall_at_budget(rel, sc, budget) for rel, sc in _as_list(queries, "queries")]
+    vals = []
+    for q in _as_list(queries, "queries"):
+        if len(q) == 2:
+            vals.append(recall_at_budget(q[0], q[1], budget))
+        elif len(q) == 3:
+            vals.append(recall_at_budget(q[0], q[1], budget, eligible=q[2]))
+        else:
+            raise ValueError("each query must be (gold_relevant, scores[, eligible])")
     defined = [v for v in vals if not math.isnan(v)]
     return float(np.mean(defined)) if defined else float("nan")
 
@@ -1434,9 +1485,41 @@ def select_confidence_threshold(
     Give exactly one of:
 
     * ``target_accuracy``: the lowest threshold (so the highest coverage) whose answered
-      subset has accuracy ``>= target_accuracy``.
+      subset has accuracy ``>= target_accuracy``. Raising this target can only raise the
+      returned threshold or leave it unchanged.
     * ``min_coverage``: among thresholds with coverage ``>= min_coverage``, the one with
-      the highest accuracy (ties go to the lower threshold, i.e. more coverage).
+      the highest accuracy (ties go to the lower threshold, i.e. more coverage). Raising
+      this floor can only lower the returned threshold or leave it unchanged.
+
+    **Both objectives are about the answered subset, not the whole split.**
+    ``target_accuracy`` constrains accuracy over the answered examples only (the denominator
+    is the examples at or above the threshold); ``min_coverage`` maximises that same
+    answered-subset accuracy subject to a floor on the share answered. Neither constrains
+    whole-split per-question accuracy. Use ``target_accuracy`` to say how right the answers
+    you give must be, ``min_coverage`` to say how many you must give.
+
+    **Direction: the two parameters move the threshold in opposite directions.**
+    ``min_coverage`` is a floor on how many answers must be kept, and a lower threshold
+    keeps more, so *raising* ``min_coverage`` can only leave the returned threshold
+    unchanged or *lower* it (never raise it), and lowering ``min_coverage`` can only leave
+    it unchanged or raise it. ``target_accuracy`` is the reverse: *raising* the accuracy
+    target can only leave the threshold unchanged or *raise* it (or make the call raise,
+    when no threshold reaches the target). Neither is "stricter means a higher threshold":
+    a stricter coverage floor means a more permissive gate. Both directions are pinned by
+    ``tests/test_evaluation.py``.
+
+    **The response is piecewise constant, usually with wide flat regions.** The result is
+    always one of the observed confidences, so sweeping a parameter across its range returns
+    only as many distinct thresholds as the pool has distinct points that can win, and a
+    gap in the confidence distribution (a bimodal pool: a cluster of low confidences, a
+    cluster of high ones, nothing between) makes every parameter value whose answer falls in
+    the gap return the same threshold, however far the parameter moves. A parameter can
+    therefore move a long way and change nothing, and then jump. If errors sit at the top
+    of the confidence ordering (accuracy rises as the threshold falls), the minimum observed
+    confidence is always feasible and always the most accurate, so ``min_coverage`` returns
+    it for every value: the call selects nothing. Before writing that a parameter value
+    "moves" the threshold, or sending a reader to one, run the sweep on the pool and read
+    the distinct values it returns; see "Selective prediction" in ``docs/evaluation.md``.
 
     Candidates are the distinct observed confidence values (via :func:`selective_curve`'s
     own :func:`_candidate_thresholds`, so a few-ULP-apart nominal-twin pair is one

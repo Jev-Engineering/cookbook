@@ -40,6 +40,7 @@ live inference explicitly opt-in under the [contract](../CONTRIBUTING.md).
 | `build_fixtures.py` | Writes `fixtures/`; the replay keys come from `helpers.py`, so they cannot drift from the questions. It lives next to the notebook, outside `fixtures/` ([fixtures.md](fixtures.md)). Generating inputs and labels is separate from generating responses: `--force` is needed to overwrite a `responses.json` that already holds a `recorded` answer. |
 | `fixtures/` | `inputs.jsonl`, `labels.jsonl`, `responses.json`: 22 examples (10 `validation`, 10 `test`, 2 `demo`), synthetic and deliberately imperfect. |
 | `tests/test_helpers.py` | Tests for the rule, a check that the stored keys match the current question, `test_stored_answers_are_not_all_right` (replay recipes only): re-derives the frozen threshold from `validation` and requires a wrong `test` answer at or above it, so a fixture set that is merely "not all correct" (but has every mistake caught by the gate) still fails, and a test that pins the threshold-selection call's own **objective** keyword against the committed cell source (see "Pin the threshold's OBJECTIVE" above) — a value-only re-derivation does not pin which objective ran. `tools/new_recipe.py` scaffolds a working copy of the stored-answers test, so no recipe has to hand-write it from scratch; the objective pin is adapted per recipe from the template's own worked example. |
+| `side_effects.json` | Written by the builder wherever the recipe has a simulated side effect (a `ReviewQueue`, `ActionLog`, `Store`, `Transactor` or `Simulator` write): `{"schema": 1, "sites": {"helpers.submit_reviews": 2}}`, the exact number of places the notebook calls each side-effect function or method, or `{"schema": 1, "none": "why"}`. The scaffolder does not write it; the recipe guard fails a recipe that has a side effect and no declaration, and a notebook that calls fewer, more or none of what it declares. Schema, keys and the two function shapes (a batch fill, a decide-and-apply function) with their test rules: [simulation.md](simulation.md). |
 | `tests/test_build_fixtures.py` | Guards `build_fixtures.py` (replay recipes only): refusal without `--force`, `inputs.jsonl`/`labels.jsonl` regenerated from `ROWS` even on a refused run, and the committed `responses.json` byte-identical to `jev_cookbook.live`'s recorder. A scripted recipe has no `responses.json` and nothing for these tests to guard, so the scaffolder does not emit this file for `--mode scripted`. |
 
 The notebook sections, in order: **What you will build**, **Setup and run mode**, **The state**,
@@ -219,6 +220,26 @@ own first use the same way.
   Link only a recipe whose `notebook.ipynb` is already committed on `main`: a folder link to one
   that is not yet published would 404 on GitHub, and that forward link is not allowed — pick a
   different, already-published neighbour, or name none and say so in one sentence.
+- **A "Next steps" exercise names a verified value and quotes no counterfactual number.** Tell the
+  reader which parameter to change, to a value you ran and confirmed moves the quantity you ask
+  them to watch (recipes 38 and 40 each shipped a floor that moved nothing), which quantity to
+  watch, and which way it moves; do not quote the resulting figures, which describe a run the
+  notebook never performs and so are pinned by nothing. If a figure is worth quoting, print it
+  from a labelled side-computation cell or assert it in a test (no published recipe is the model
+  for this yet; recipe 40's Next steps prints one illustrative figure but its prose still quotes
+  others that no committed cell prints, and is being brought into line under #259), so it is in committed output or under a
+  test. The direction sentence follows the helper, not the parameter's name: raising
+  `select_confidence_threshold`'s `min_coverage` can only lower the threshold or leave it
+  unchanged, and the response is piecewise constant, so test the exercise by running it
+  ([evaluation.md](evaluation.md#selective-prediction)).
+- **A Noul confidence gate is measured on your own composition, split by side.** The gate is a
+  two-sided band, `(1 - g)/2 < p < (1 + g)/2` goes to review; whether it changes any outcome of
+  your rule is not derivable from `t` and `g`. Run the rule's own decision function over a grid
+  with and without the gate, print the count of changed outcomes at or above and below the
+  business threshold, and state in prose which side the gate acts on.
+  This assumes one Noul and one threshold; several gated Nouls (recipe 06), a rule with no
+  threshold but 0.5, and a decision function that takes an answer object rather than `p` are
+  covered by "Scope of the measurement" ([evaluation.md](evaluation.md#noul-three-path-pattern)).
 - **Every validation number in an offline run carries both labels, `{selection}{check}`.**
   CONTRIBUTING.md section 2 requires the pipeline-check disclosure beside every synthetic or
   scripted number, and separately requires the selection-step label on every `validation` number
