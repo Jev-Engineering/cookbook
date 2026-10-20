@@ -1578,14 +1578,55 @@ def _test_function_defs(tree: ast.AST) -> list[ast.FunctionDef]:
     the parser's own ``end_lineno`` is exact regardless of what decorator, comment, or blank line
     follows, so this check can never misreport a recipe's test file as broken when the guard's
     own extraction is what is wrong."""
+    if _module_is_marked_not_to_run(tree):
+        return []
+    candidates: list[ast.FunctionDef] = []
+    for node in getattr(tree, "body", []):
+        if isinstance(node, ast.FunctionDef):
+            candidates.append(node)
+        elif isinstance(node, ast.ClassDef):
+            candidates.extend(n for n in node.body if isinstance(n, ast.FunctionDef))
     return [
         node
-        for node in ast.walk(tree)
-        if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")
+        for node in candidates
+        if node.name.startswith("test_") and not _is_marked_not_to_run(node.decorator_list)
     ]
 
 
+_NOT_RUN_MARKS = frozenset({"skip", "skipif", "xfail"})
+
+
+def _is_marked_not_to_run(decorators: list[ast.expr]) -> bool:
+    """True if a decorator list carries ``pytest.mark.skip`` / ``skipif`` / ``xfail`` (bare or
+    called): the asserts of such a test do not (reliably) run, so they pin nothing."""
+    for decorator in decorators:
+        target = decorator.func if isinstance(decorator, ast.Call) else decorator
+        if isinstance(target, ast.Attribute) and target.attr in _NOT_RUN_MARKS:
+            return True
+    return False
+
+
+def _module_is_marked_not_to_run(tree: ast.AST) -> bool:
+    """A module-level ``pytestmark = pytest.mark.skip(...)`` (or a list holding one)."""
+    for node in getattr(tree, "body", []):
+        if (
+            isinstance(node, ast.Assign)
+            and any(isinstance(t, ast.Name) and t.id == "pytestmark" for t in node.targets)
+            and _is_marked_not_to_run(
+                list(node.value.elts)
+                if isinstance(node.value, ast.List | ast.Tuple)
+                else [node.value]
+            )
+        ):
+            return True
+    return False
+
+
 _ARTEFACT_FILE_NAMES = ("notebook.ipynb", "helpers.py")
+
+# Names pytest gives a test its scratch directory under. A path rooted there is a COPY a test made
+# (usually to mutate it), not the committed artefact, so a read of it does not taint.
+_SCRATCH_DIR_NAMES = frozenset({"tmp_path", "tmp_path_factory", "tmpdir", "tmpdir_factory"})
 
 # Callables that read a file's contents. This is the set of ways Python spells "read this file",
 # not a set of spellings of an objective: it only decides whether a statement that names the
@@ -1596,10 +1637,20 @@ _FILE_READ_ATTRS = frozenset({"read_text", "read_bytes", "read", "readlines", "o
 
 
 def _mentions_artefact_file(node: ast.AST) -> bool:
+    """True if ``node`` contains a string that IS one of the committed file names (or a path
+    ending in ``/<name>``) -- not a longer name that merely contains it (``expected_helpers.py``)."""
     return any(
         isinstance(n, ast.Constant)
         and isinstance(n.value, str)
-        and any(name in n.value for name in _ARTEFACT_FILE_NAMES)
+        and any(n.value == name or n.value.endswith("/" + name) for name in _ARTEFACT_FILE_NAMES)
+        for n in ast.walk(node)
+    )
+
+
+def _mentions_scratch_dir(node: ast.AST) -> bool:
+    return any(
+        (isinstance(n, ast.Name) and n.id in _SCRATCH_DIR_NAMES)
+        or (isinstance(n, ast.arg) and n.arg in _SCRATCH_DIR_NAMES)
         for n in ast.walk(node)
     )
 
@@ -1650,7 +1701,9 @@ def _reads_real_committed_source(node: ast.AST) -> bool:
     The second route is ``inspect.getsource(...)`` on something named ``helpers``, for a test
     that checks a helpers function's own source rather than a file."""
     return (
-        _mentions_artefact_file(node) and _performs_a_file_read(node)
+        _mentions_artefact_file(node)
+        and _performs_a_file_read(node)
+        and not _mentions_scratch_dir(node)
     ) or _reads_helpers_source_via_inspect(node)
 
 
@@ -1712,7 +1765,34 @@ def _tainted_names_in_function(
     can never borrow another function's taint."""
     tainted: set[str] = set()
 
+    bindings: dict[str, list[ast.AST]] = {}
+    for node in ast.walk(func):
+        if (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+        ):
+            bindings.setdefault(node.targets[0].id, []).append(node.value)
+        elif isinstance(node, ast.With):
+            for item in node.items:
+                if isinstance(item.optional_vars, ast.Name):
+                    bindings.setdefault(item.optional_vars.id, []).append(item.context_expr)
+
+    # names that hold a COPY under pytest's scratch directory (the fixture parameter itself, and
+    # anything assigned from it): a read of those is a read of a test-made copy, not of the
+    # committed artefact
+    scratch = set(_SCRATCH_DIR_NAMES)  # the fixture parameter (or any use of its name)
+    grew = True
+    while grew:
+        grew = False
+        for name, values in bindings.items():
+            if name not in scratch and any(scratch & _ast_names(v) for v in values):
+                scratch.add(name)
+                grew = True
+
     def _taints(value: ast.AST) -> bool:
+        if scratch & _ast_names(value):
+            return False
         calls_taint_producing = any(
             isinstance(n, ast.Call) and _call_func_name(n) in taint_producing_names
             for n in ast.walk(value)
@@ -1723,28 +1803,15 @@ def _tainted_names_in_function(
             or bool(tainted & _ast_names(value))
         )
 
+    # A name is tainted only if EVERY binding of it in the function is: ``source = <read>`` followed
+    # by ``source = "<hand typed>"`` leaves a name whose value at the assert is the hand-typed one.
     changed = True
     while changed:
         changed = False
-        for node in ast.walk(func):
-            if (
-                isinstance(node, ast.Assign)
-                and len(node.targets) == 1
-                and isinstance(node.targets[0], ast.Name)
-            ):
-                bindings = [(node.targets[0].id, node.value)]
-            elif isinstance(node, ast.With):
-                bindings = [
-                    (item.optional_vars.id, item.context_expr)
-                    for item in node.items
-                    if isinstance(item.optional_vars, ast.Name)
-                ]
-            else:
-                continue
-            for target, value in bindings:
-                if target not in tainted and _taints(value):
-                    tainted.add(target)
-                    changed = True
+        for name, values in bindings.items():
+            if name not in tainted and all(_taints(v) for v in values):
+                tainted.add(name)
+                changed = True
     return tainted
 
 
@@ -1768,19 +1835,81 @@ def _is_plain_open_with(node: ast.With) -> bool:
 
 def _unconditional_asserts(body: list[ast.stmt]) -> list[ast.Assert]:
     """The ``assert`` statements in ``body`` that always run when the test does: direct
-    statements of the function (and of any plain ``with open(...)`` block in it). An assert under
-    an ``if``, a loop, a ``try``, a nested function, or ``with pytest.raises(...)`` is NOT
-    included, because its effective truth sense depends on a context this check cannot see:
-    ``if cond: assert "x" in source`` pins nothing when ``cond`` is false, and ``with
-    pytest.raises(AssertionError): assert "x" in source`` claims the spelling is ABSENT. Not
-    crediting those is the fail-closed direction (a loud refusal, never a silent pass)."""
+    statements of the function, those inside a plain ``with open(...)`` block, and those in the
+    body of a ``for`` loop over a visibly non-empty literal tuple/list/set (no ``break``,
+    ``continue`` or ``return`` in it), which runs for every element. Collection STOPS at the first
+    statement that can end the test early (a ``return``, a ``raise`` or a ``pytest.skip`` /
+    ``xfail`` / ``exit`` / ``fail`` call, including one under an ``if``): an assert after it may
+    never run. An assert under an ``if``, any other loop, a ``try``, a nested function, or ``with
+    pytest.raises(...)`` is NOT included, because its effective truth sense depends on a context
+    this check cannot see: ``if cond: assert "x" in source`` pins nothing when ``cond`` is false,
+    and ``with pytest.raises(AssertionError): assert "x" in source`` claims the spelling is
+    ABSENT. Not crediting those is the fail-closed direction (a loud refusal, never a silent
+    pass). A test marked ``skip``/``skipif``/``xfail`` is not considered at all
+    (``_test_function_defs``)."""
+    return _collect_unconditional_asserts(body)[0]
+
+
+_LEAVING_CALL_NAMES = frozenset({"skip", "xfail", "exit", "fail", "importorskip", "_exit"})
+
+
+def _walk_same_scope(node: ast.AST):
+    """``ast.walk`` that does not descend into nested functions, lambdas or classes (a ``return``
+    in a nested helper does not end the test)."""
+    stack = [node]
+    while stack:
+        current = stack.pop()
+        yield current
+        for child in ast.iter_child_nodes(current):
+            if not isinstance(
+                child, ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda | ast.ClassDef
+            ):
+                stack.append(child)
+
+
+def _may_leave_the_test(stmt: ast.stmt, *, loop_exits: bool = False) -> bool:
+    """True if running ``stmt`` can end the test (or, with ``loop_exits``, skip the rest of the
+    enclosing loop body) before the statements after it run: a ``return``, a ``raise``, or a
+    call to ``pytest.skip`` / ``xfail`` / ``exit`` / ``fail`` (anywhere inside it, including under
+    an ``if``). An assert placed after such a statement may never run."""
+    for node in _walk_same_scope(stmt):
+        if isinstance(node, ast.Return | ast.Raise):
+            return True
+        if loop_exits and isinstance(node, ast.Break | ast.Continue):
+            return True
+        if isinstance(node, ast.Call):
+            func = node.func
+            name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
+            if name in _LEAVING_CALL_NAMES:
+                return True
+    return False
+
+
+def _collect_unconditional_asserts(body: list[ast.stmt]) -> tuple[list[ast.Assert], bool]:
+    """``(asserts, completed)``: the asserts that always run, and whether control provably reaches
+    the end of ``body`` (``False`` once a statement that can leave the test was met, after which
+    nothing further is credited). Direct statements count; a plain ``with open(...)`` block counts
+    through its body; a ``for`` loop over a visibly non-empty literal display counts through its
+    body when the body cannot ``break``/``continue``/``return`` (it then runs once per element)."""
     found: list[ast.Assert] = []
     for stmt in body:
         if isinstance(stmt, ast.Assert):
             found.append(stmt)
         elif isinstance(stmt, ast.With) and _is_plain_open_with(stmt):
-            found.extend(_unconditional_asserts(stmt.body))
-    return found
+            inner, completed = _collect_unconditional_asserts(stmt.body)
+            found.extend(inner)
+            if not completed:
+                return found, False
+        elif (
+            isinstance(stmt, ast.For)
+            and _provably_nonempty(stmt.iter, frozenset())
+            and not any(_may_leave_the_test(s, loop_exits=True) for s in stmt.body)
+            and not stmt.orelse
+        ):
+            found.extend(_collect_unconditional_asserts(stmt.body)[0])
+        elif _may_leave_the_test(stmt):
+            return found, False
+    return found, True
 
 
 # --------------------------------------------------------------------------------------------
@@ -1859,14 +1988,61 @@ def _truth_literal(literal: ast.AST, value: ast.AST) -> bool | None:
 
 
 def _taint_through_comprehension(comp: ast.expr, tainted: frozenset[str]) -> frozenset[str]:
-    """``tainted`` plus the comprehension variables bound to elements of a tainted iterable:
-    ``for s in sources`` taints ``s`` when ``sources`` is tainted, which is what lets
-    ``all("min_coverage" in s for s in sources)`` be traced to the real committed source."""
+    """``tainted`` as seen INSIDE the comprehension: each generator's target names are tainted when
+    the iterable it ranges over is wholly tainted (``for s in sources`` with ``sources`` tainted
+    is what lets ``all("min_coverage" in s for s in sources)`` be traced to the real committed
+    source) and are SHADOWED -- removed from the set -- when it is not, so ``any("x" in source for
+    source in ["x"])`` does not borrow the outer ``source``'s taint, and neither does an iterable
+    that mixes the real read with a hand-typed copy of the needle."""
     out = set(tainted)
     for gen in comp.generators:
-        if out & _ast_names(gen.iter):
-            out |= _ast_names(gen.target)
+        targets = _ast_names(gen.target)
+        if _wholly_tainted(gen.iter, frozenset(out)):
+            out |= targets
+        else:
+            out -= targets
     return frozenset(out)
+
+
+def _wholly_tainted(node: ast.AST, tainted: frozenset[str]) -> bool:
+    """True if EVERY value ``node`` can produce comes from tainted data, not merely if it
+    mentions a tainted name somewhere: a display is wholly tainted only if each element is, a
+    ``+`` or ``or`` only if each operand is, a hand-typed literal never is. Calls, subscripts and
+    attributes are wholly tainted when they reference a tainted name (``notebook["cells"]``,
+    ``"".join(cell["source"])``): data flowing out of the read stays tainted."""
+    if isinstance(node, ast.Constant | ast.JoinedStr):
+        return False
+    if isinstance(node, ast.List | ast.Tuple | ast.Set):
+        return bool(node.elts) and all(
+            _wholly_tainted(e.value if isinstance(e, ast.Starred) else e, tainted)
+            for e in node.elts
+        )
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        return _wholly_tainted(node.left, tainted) and _wholly_tainted(node.right, tainted)
+    if isinstance(node, ast.BoolOp):
+        return all(_wholly_tainted(v, tainted) for v in node.values)
+    if isinstance(node, ast.IfExp):
+        return _wholly_tainted(node.body, tainted) and _wholly_tainted(node.orelse, tainted)
+    return bool(tainted & _ast_names(node))
+
+
+def _embeds_text(node: ast.AST, texts: set[str]) -> bool:
+    """True if a hand-typed string inside ``node`` contains one of ``texts`` -- the needle was
+    smuggled into the value it is compared with (``kws.get("objective", "min_coverage") ==
+    "min_coverage"``, ``source.replace("a", "min_coverage")``), so the comparison holds whatever
+    the committed source says."""
+    for n in ast.walk(node):
+        if isinstance(n, ast.Constant) and isinstance(n.value, str | bytes):
+            value = n.value if isinstance(n.value, str) else n.value.decode("utf-8", "replace")
+            if any(t in value for t in texts):
+                return True
+    return False
+
+
+def _credible_source_operand(node: ast.AST, texts: set[str], tainted: frozenset[str]) -> bool:
+    """The operand a needle is compared against really is the committed source (wholly tainted)
+    and does not itself contain the needle as a hand-typed string."""
+    return _wholly_tainted(node, tainted) and not _embeds_text(node, texts)
 
 
 def _provably_nonempty(iterable: ast.expr, nonempty: frozenset[str]) -> bool:
@@ -1875,21 +2051,77 @@ def _provably_nonempty(iterable: ast.expr, nonempty: frozenset[str]) -> bool:
     return isinstance(iterable, ast.Name) and iterable.id in nonempty
 
 
+_CONTAINER_VALUES = (
+    ast.List,
+    ast.Tuple,
+    ast.Set,
+    ast.Dict,
+    ast.ListComp,
+    ast.SetComp,
+    ast.DictComp,
+)
+
+
+def _name_bindings(func: ast.FunctionDef, name: str) -> list[ast.AST | None]:
+    """Every binding of ``name`` in ``func``: the assigned value for a plain ``name = value``, and
+    ``None`` for any other way of (re)binding or deleting it (augmented assignment, ``for``
+    target, tuple unpacking, ``with ... as``, walrus, ``del``, comprehension target)."""
+    values: list[ast.AST | None] = []
+    plain_targets: set[int] = set()
+    for node in ast.walk(func):
+        if (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and node.targets[0].id == name
+        ):
+            values.append(node.value)
+            plain_targets.add(id(node.targets[0]))
+    for node in ast.walk(func):
+        if (
+            isinstance(node, ast.Name)
+            and node.id == name
+            and isinstance(node.ctx, ast.Store | ast.Del)
+            and id(node) not in plain_targets
+        ):
+            values.append(None)
+    return values
+
+
+def _mutated_in_place(func: ast.FunctionDef, name: str) -> bool:
+    """``name.<anything>(...)`` (``clear``, ``pop``, ``remove``...) or a subscript store/delete on
+    ``name``: the container may not hold what it was bound to."""
+    for node in ast.walk(func):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == name
+        ):
+            return True
+        if (
+            isinstance(node, ast.Subscript)
+            and isinstance(node.ctx, ast.Store | ast.Del)
+            and isinstance(node.value, ast.Name)
+            and node.value.id == name
+        ):
+            return True
+    return False
+
+
 def _asserted_nonempty_names(func: ast.FunctionDef) -> frozenset[str]:
     """Names this function establishes as non-empty before an ``all(...)`` over them can mean
-    anything (``all`` over an empty iterable is vacuously true and pins nothing): a name
-    assigned a non-empty literal list/tuple/set at the top of the function, or a name an
-    unconditional assert shows non-empty (``assert sources`` / ``assert len(sources) > 0`` /
-    ``>= 1`` / ``!= 0`` / ``== n`` for ``n > 0``)."""
-    names: set[str] = set()
-    for stmt in func.body:
-        if (
-            isinstance(stmt, ast.Assign)
-            and len(stmt.targets) == 1
-            and isinstance(stmt.targets[0], ast.Name)
-            and _provably_nonempty(stmt.value, frozenset())
-        ):
-            names.add(stmt.targets[0].id)
+    anything (``all`` over an empty iterable is vacuously true and pins nothing). A name counts
+    only if it is bound ONCE in the function and never mutated in place (so a later
+    ``sources = []`` or ``sources.clear()`` cannot empty it behind the evidence), and then by:
+
+    * being bound to a non-empty literal list/tuple/set; or
+    * an unconditional ``assert len(name) > 0`` / ``>= 1`` / ``!= 0`` / ``== n`` (``n > 0``); or
+    * an unconditional bare ``assert name`` when the single binding is a container display or
+      list/set/dict comprehension -- NOT a generator, which is always truthy."""
+    candidates: dict[str, str] = {}  # name -> how it was shown non-empty
+    asserted_len: set[str] = set()
+    asserted_bare: set[str] = set()
     for assert_ in _unconditional_asserts(func.body):
         conjuncts = (
             assert_.test.values
@@ -1898,7 +2130,7 @@ def _asserted_nonempty_names(func: ast.FunctionDef) -> frozenset[str]:
         )
         for conjunct in conjuncts:
             if isinstance(conjunct, ast.Name):
-                names.add(conjunct.id)
+                asserted_bare.add(conjunct.id)
             elif (
                 isinstance(conjunct, ast.Compare)
                 and len(conjunct.ops) == 1
@@ -1912,8 +2144,26 @@ def _asserted_nonempty_names(func: ast.FunctionDef) -> frozenset[str]:
                 and type(conjunct.ops[0]) in _NUMERIC_COMPARE
                 and not _NUMERIC_COMPARE[type(conjunct.ops[0])](0, conjunct.comparators[0].value)
             ):
-                names.add(conjunct.left.args[0].id)
-    return frozenset(names)
+                asserted_len.add(conjunct.left.args[0].id)
+    assigned = {
+        n.targets[0].id
+        for n in ast.walk(func)
+        if isinstance(n, ast.Assign) and len(n.targets) == 1 and isinstance(n.targets[0], ast.Name)
+    }
+    for name in assigned | asserted_len:
+        if _mutated_in_place(func, name):
+            continue
+        bindings = _name_bindings(func, name)
+        if len(bindings) > 1:
+            continue
+        value = bindings[0] if bindings else None
+        if value is not None and _provably_nonempty(value, frozenset()):
+            candidates[name] = "literal"
+        elif name in asserted_len:
+            candidates[name] = "len"
+        elif name in asserted_bare and isinstance(value, _CONTAINER_VALUES):
+            candidates[name] = "truthy container"
+    return frozenset(candidates)
 
 
 def _exists_entailed(
@@ -1962,7 +2212,10 @@ def _quantity_spellings(
     func = node.func
     if isinstance(func, ast.Attribute) and func.attr == "count" and node.args:
         if tainted & _ast_names(func.value):
-            return _literal_text(node.args[0]) or set()
+            needle = _literal_text(node.args[0]) or set()
+            if not _credible_source_operand(func.value, needle, tainted):
+                return set()  # still a count, but of something that is not the committed source
+            return needle
         return None
     if isinstance(func, ast.Name) and len(node.args) == 1:
         arg = node.args[0]
@@ -1970,13 +2223,11 @@ def _quantity_spellings(
             if isinstance(arg, _COMPREHENSIONS):
                 return _exists_entailed(arg, None, tainted, nonempty)
             return set() if tainted & _ast_names(arg) else None
-        if (
-            func.id == "sum"
-            and isinstance(arg, ast.GeneratorExp)
-            and isinstance(arg.elt, ast.Constant)
-            and arg.elt.value == 1
-        ):
-            return _exists_entailed(arg, None, tainted, nonempty)
+        if func.id == "sum" and isinstance(arg, _COMPREHENSIONS):
+            # ``sum(1 for ...)`` counts the elements that survive the filters; ``sum(<bool or
+            # count> for ...)`` is positive only if some element's term is true / positive
+            counts_elements = isinstance(arg.elt, ast.Constant) and arg.elt.value == 1
+            return _exists_entailed(arg, None if counts_elements else True, tainted, nonempty)
     return None
 
 
@@ -2099,11 +2350,13 @@ def _compare_entailed(
         return set()
     if isinstance(op, ast.In | ast.NotIn):
         needle = _literal_text(left)
-        return needle if needle and tainted & _ast_names(right) else set()
+        if needle and _credible_source_operand(right, needle, tainted):
+            return needle
+        return set()
     found: set[str] = set()
     for value, literal in ((left, right), (right, left)):
         text = _literal_text(literal)
-        if text and _literal_text(value) is None and tainted & _ast_names(value):
+        if text and _literal_text(value) is None and _credible_source_operand(value, text, tainted):
             found |= text
     return found
 
@@ -2501,18 +2754,28 @@ cells = ["".join(c["source"]) for c in notebook["cells"]]
 
 
 def _polarity_violations(
-    tmp_path: Path, assertions: str, *, read: str = _NOTEBOOK_READ, flip_objective: bool = False
+    tmp_path: Path,
+    assertions: str,
+    *,
+    read: str = _NOTEBOOK_READ,
+    flip_objective: bool = False,
+    decorators: str = "",
+    nested: bool = False,
 ) -> list[str] | None:
     """Copy recipe 49 into ``tmp_path``, replace its ``tests/`` with a single test whose body is
-    ``read`` followed by ``assertions``, optionally flip the committed notebook's objective from
+    ``read`` followed by ``assertions`` (optionally decorated, or nested inside a helper function
+    pytest would not collect), optionally flip the committed notebook's objective from
     ``min_coverage`` to ``target_accuracy``, and return the check's verdict for the copy."""
     target = tmp_path / _POLARITY_BASE_RECIPE
     shutil.copytree(REPO / "recipes" / _POLARITY_BASE_RECIPE, target)
     for old in (target / "tests").glob("*.py"):
         old.unlink()
     body = textwrap.indent(read + assertions, "    ")
+    test_text = f"{decorators}def test_pin():\n{body}"
+    if nested:
+        test_text = "def _helper():\n" + textwrap.indent(test_text, "    ")
     (target / "tests" / "test_threshold_pin.py").write_text(
-        f"{_POLARITY_PREAMBLE}\n\ndef test_pin():\n{body}", encoding="utf-8"
+        f"{_POLARITY_PREAMBLE}\n\n{test_text}", encoding="utf-8"
     )
     if flip_objective:
         nb_path = target / "notebook.ipynb"
@@ -2581,6 +2844,72 @@ _ABSENT_OR_UNPROVEN_SHAPES = {
     ),
     "assert under an if": 'if len(source) > 0:\n    assert "min_coverage" in source\n',
     "assert in a loop": 'for s in cells:\n    assert "min_coverage" in s\n',
+    # review of the first head: comprehension scoping and vacuous non-emptiness
+    "any rebinding the tainted name": (
+        'assert any("min_coverage" in source for source in ["min_coverage"])\n'
+    ),
+    "all rebinding the tainted name": (
+        'assert all("min_coverage" in source for source in ["min_coverage"])\n'
+    ),
+    "any over a display mixing the read with a typed needle": (
+        'assert any("min_coverage" in s for s in [source, "min_coverage"])\n'
+    ),
+    "all over a name emptied after a non-empty assignment": (
+        'sources = [source]\nsources = []\nassert all("min_coverage" in s for s in sources)\n'
+    ),
+    "all over a name emptied in place": (
+        'sources = [source]\nsources.clear()\nassert all("min_coverage" in s for s in sources)\n'
+    ),
+    "all over a name asserted non-empty then rebound": (
+        "sources = [source]\nassert sources\nsources = []\n"
+        'assert all("min_coverage" in s for s in sources)\n'
+    ),
+    "all over a generator asserted truthy": (
+        'sources = (s for s in cells if "zzz" in s)\nassert sources\n'
+        'assert all("min_coverage" in s for s in sources)\n'
+    ),
+    # an assert that may never run
+    "assert after an early return": ('if source:\n    return\nassert "min_coverage" in source\n'),
+    "assert after pytest.skip": 'pytest.skip("later")\nassert "min_coverage" in source\n',
+    "assert after a conditional skip": (
+        'if not source:\n    pytest.skip("later")\nassert "min_coverage" in source\n'
+    ),
+    "assert after a raise": 'raise RuntimeError("x")\nassert "min_coverage" in source\n',
+    "assert in a loop with a continue before it": (
+        'for cid in ("threshold-code", "sweep-code"):\n    if cid:\n        continue\n'
+        '    assert "min_coverage" in source\n'
+    ),
+    "assert in a loop with a break": (
+        'for cid in ("threshold-code", "sweep-code"):\n    assert "min_coverage" in source\n'
+        "    break\n"
+    ),
+    # the needle is compared against a value that carries a hand-typed copy of it
+    "needle smuggled into a default": (
+        'kws = {"a": source}\nassert kws.get("objective", "min_coverage") == "min_coverage"\n'
+    ),
+    "needle smuggled through or": 'assert (source or "min_coverage") == "min_coverage"\n',
+    "needle appended to the source": 'assert "min_coverage" in source + " min_coverage"\n',
+    "needle substituted into the source": (
+        'assert "min_coverage" in source.replace("target_accuracy", "min_coverage")\n'
+    ),
+    "needle in a display with the source": 'assert "min_coverage" in [source, "min_coverage"]\n',
+    "count of the needle in a padded source": (
+        'assert (source + "min_coverage").count("min_coverage") >= 1\n'
+    ),
+    # taint ignoring reassignment
+    "source rebound to a typed string": (
+        "source = 'select_confidence_threshold(s, min_coverage=0.75)'\n"
+        'assert "min_coverage" in source\n'
+    ),
+}
+
+# Shapes that need the whole test function around them rather than a body: a decorator or a
+# nesting that stops pytest from running the asserts.
+_NOT_RUN_WRAPPERS = {
+    "skip marker": {"decorators": '@pytest.mark.skip(reason="x")\n'},
+    "skipif marker": {"decorators": '@pytest.mark.skipif(True, reason="x")\n'},
+    "xfail marker": {"decorators": "@pytest.mark.xfail\n"},
+    "test nested in a helper (never collected)": {"nested": True},
 }
 
 # Each shape says the objective IS in the committed source.
@@ -2634,6 +2963,21 @@ _PRESENT_SHAPES = {
     ),
     "f-string needle": 'assert f"min_coverage={0.75}" in source\n',
     "assert inside a plain open block": 'with open(RECIPE / "notebook.ipynb") as h:\n    assert "min_coverage" in source\n',
+    # review of the first head: idioms the first derivation wrongly refused
+    "sum of booleans": 'assert sum(("min_coverage" in s) for s in cells) > 0\n',
+    "sum of counts": 'assert sum(s.count("min_coverage") for s in cells) >= 1\n',
+    "loop over a literal tuple of cell ids": (
+        'for cid in ("threshold-code", "sweep-code"):\n'
+        '    src = "".join(next(c for c in notebook["cells"] if c.get("id") == cid)["source"])\n'
+        '    assert "min_coverage" in src\n'
+    ),
+    "assert before an early return": (
+        'assert "min_coverage" in source\nif not source:\n    return\n'
+    ),
+    "all over a name asserted non-empty (list)": (
+        "sources = [s for s in cells]\nassert sources\n"
+        'assert all("min_coverage" in s for s in sources)\n'
+    ),
 }
 
 
@@ -2724,6 +3068,33 @@ def test_a_read_of_something_else_does_not_taint(tmp_path):
         assert violations, (
             f"credited a pin against a value that is not the committed source: {read}"
         )
+
+
+@pytest.mark.parametrize("wrapper", sorted(_NOT_RUN_WRAPPERS))
+def test_asserts_of_a_test_pytest_does_not_run_are_not_credited(tmp_path, wrapper):
+    """A pin in a test that is marked skip/skipif/xfail, or defined inside another function (so
+    never collected), is not a pin: the same assertion that passes in a normal test is refused."""
+    assertion = 'assert "min_coverage" in source\n'
+    assert _polarity_violations(tmp_path / "plain", assertion) == []
+    violations = _polarity_violations(tmp_path / "wrapped", assertion, **_NOT_RUN_WRAPPERS[wrapper])
+    assert violations, f"{wrapper}: credited an assert that does not run"
+
+
+def test_a_read_of_a_scratch_copy_or_a_longer_file_name_does_not_taint(tmp_path):
+    """``open(tmp_path / "notebook.ipynb").read()`` reads a copy the test made, and
+    ``expected_helpers.py`` is not ``helpers.py``: neither is the committed artefact."""
+    assertion = 'assert "min_coverage" in source\n'
+    reads = {
+        "tmp_path copy": 'source = open(tmp_path / "notebook.ipynb", encoding="utf-8").read()\n',
+        "tmp_path copy via a local": (
+            'copy = tmp_path / "sub"\n'
+            'source = (copy / "notebook.ipynb").read_text(encoding="utf-8")\n'
+        ),
+        "longer file name": 'source = open(RECIPE / "expected_helpers.py").read()\n',
+    }
+    for label, read in reads.items():
+        violations = _polarity_violations(tmp_path / label.replace(" ", "_"), assertion, read=read)
+        assert violations, f"{label}: credited a read that is not the committed artefact"
 
 
 def test_the_effective_truth_sense_unit_cases():
@@ -2825,7 +3196,16 @@ def _objective_pin_violations(recipe_dir_: Path) -> list[str] | None:
                 "source (notebook.ipynb's cell source, or inspect.getsource(helpers.<fn>)), "
                 "or, if you extracted it via a local helper (name = _your_helper(source, ...)), "
                 "check the extracted value with `assert name is not None` specifically -- a "
-                "bare `assert name` or any other truthiness check is not credited"
+                "bare `assert name` or any other truthiness check is not credited. Only asserts "
+                "that always run count: top-level statements of a collected test function (not "
+                "skipped/xfail-marked, not nested in another function), those inside "
+                "`with open(...)`, and those in a `for` over a non-empty literal tuple/list "
+                "with no break/continue/return -- and only up to the first return/raise/"
+                "pytest.skip. An assert under `if`, `try`, any other loop or context manager "
+                "(e.g. pytest.raises) is not credited, and the assertion must CLAIM the "
+                "spelling is present (not absent) in a value read from the committed file "
+                "itself (not a tmp_path copy), by name, so `is False`, `.count(...) == 0` and "
+                "a hand-typed copy of the needle in the compared value do not count"
             )
     return violations
 

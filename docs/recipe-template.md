@@ -102,11 +102,19 @@ own first use the same way.
   selection. What the check credits is what an unconditional `assert` *claims*, derived rather
   than enumerated: the assertion must say the spelling is **present** in a value that came from
   reading the committed file (by `read_text()`, `read_bytes()`, `open(...).read()` or
-  `with open(...)`, whichever you use). `not`, `is False`, `.count(...) == 0`, an `if`/`else`
-  branch that asserts nothing, an `or` with a vacuous operand, and a pin inside an `if`, a loop
-  or `pytest.raises` are all read for what they claim, so none of them counts as a pin;
-  `all(...)`/`any(...)`/`len([...]) > 0` over the committed source do count (an `all(...)`
-  needs an iterable that is visibly non-empty, since it is vacuously true over nothing).
+  `with open(...)`, whichever you use; a path under `tmp_path` is a copy, not the committed
+  file). `not`, `is False`, `.count(...) == 0`, an `if`/`else` branch that asserts nothing, an
+  `or` with a vacuous operand, and a needle that is also typed into the value it is compared
+  with (`source + " min_coverage"`, `kws.get("objective", "min_coverage")`) are all read for
+  what they claim, so none of them counts as a pin. `all(...)`/`any(...)`/`len([...]) > 0`/
+  `sum(...) > 0` over the committed source do count (an `all(...)` needs an iterable that is
+  visibly non-empty and bound once, since it is vacuously true over nothing).
+
+  Only asserts that always run count: top-level statements of a collected `test_` function (not
+  marked `skip`/`skipif`/`xfail`, not nested in another function), those inside `with open(...)`,
+  and those in a `for` over a non-empty literal tuple/list (no `break`/`continue`/`return`), and
+  only up to the first `return`, `raise` or `pytest.skip`/`xfail`/`exit`/`fail` call. An assert
+  under `if`, `try`, any other loop, or a context manager such as `pytest.raises` is not credited.
 - **`evaluate_selective` reports the same split as the rule only when the rule's only review
   branch is that confidence gate — `route` here has three, so it is not that rule.**
   `helpers.py::route` sends a ticket to `review` for any of three reasons, in this order:
