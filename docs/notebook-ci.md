@@ -416,14 +416,13 @@ with the one the job just produced from scratch. Exit 0 means they agree. The ru
    tag is never executed at all, so whatever it commits (fabricated or merely stale) survives
    unchanged into the "fresh" copy and a presence-only, or an equality-only, comparison would call
    the two sides a match. The tag is rejected outright, whether or not the cell has any output.
-2. **One normalisation.** Every `outputs[*].data["image/png"]` value is replaced by a marker, so a
-   figure must be present on both sides in the same place. Nothing else is normalised. The rest of
+2. **One normalisation.** Every `outputs[*].data["image/png"]` and `["image/jpeg"]` value is replaced
+   by a marker, so a figure must be present on both sides in the same place. Nothing else is normalised. The rest of
    the two notebooks, parsed as JSON, must be equal: sources, ids, metadata, execution counts,
-   `text/plain`, streams, tables, every other output type (including `image/jpeg` and
-   `image/svg+xml`). The executor makes these byte-stable (`coalesce_streams`, no timings, fixed
+   `text/plain`, streams, tables, every other output type (including `image/svg+xml`). The executor makes these byte-stable (`coalesce_streams`, no timings, fixed
    metadata, LF); differences are reported as `notebook.cells[i].outputs[j]...: committed X, fresh
    Y`, at most a dozen.
-3. **The figures are compared by what they show.** PNG bytes differ with the matplotlib version, the
+3. **The figures are compared by what they show.** PNG and JPEG bytes differ with the matplotlib version, the
    platform even at one version, and the pixel size, so equal bytes are not required, but ignoring the
    images would let a changed teaching chart pass. Each pair is therefore compared as follows
    (`compare_png`):
@@ -483,6 +482,27 @@ stricter and this list needs updating. The scatter, 20 by 20 heat-map and refere
 were measured with probe charts (an independent review, across four environments), not pinned.
 The check is a second line behind the text outputs: a number shown in a table or a printed line is
 compared exactly, so a stale chart usually comes with stale text too.
+
+4. **Output size.** The outputs of all the cells together, each serialised as compact JSON with its
+   base64 images, may weigh at most `MAX_OUTPUT_BYTES` (2 MiB = 2,097,152 bytes) per notebook,
+   checked on both files. The notebooks on `main` weigh at most about 0.2 MiB. The cap stops a
+   recipe from embedding full-resolution inputs, which would also bloat every diff; Pillow offers a
+   displayed image as both a PNG and a JPEG, so a displayed fixture can weigh twice its file, and
+   several still fit. Show fewer images, or a downscaled copy (`Image.thumbnail`).
+   `tools/check_recipe_assets.py` limits the fixture files themselves; see
+   [fixtures.md](fixtures.md#image-fixtures).
+
+**JPEG outputs are normalised, not rejected.** A JPEG's bytes depend on the libjpeg that Pillow
+bundles, so comparing them byte for byte would make the check depend on the runner. And Pillow
+displays every `PIL.Image` as both `image/png` and `image/jpeg`, so rejecting `image/jpeg` would
+forbid showing a fixture at all. Rule 2 therefore replaces `image/jpeg` values with a marker just as
+it does `image/png`, and rule 3 compares each pair of JPEGs by what they show (`compare_png` decodes
+either format). The markers are `<image/png: present>` and `<image/jpeg: present>`: an image of
+each type must be present on both sides in the same place. `image/svg+xml` and every other image
+type remain compared byte for byte.
+
+`tests/test_notebook_ci_fresh.py` covers JPEG normalisation (a re-encoded JPEG passes, a changed one
+is stale, a missing one is stale) and the output cap (a notebook just under and just over it).
 
 When the check fails, run `python tools/execute_notebook.py recipes/NN-slug` and commit the result.
 
@@ -545,6 +565,14 @@ ref, an unreadable body, an unreadable diff); it fails closed.
   an addition must be `100644`; a modification and both sides of a rename must be `100644`; a type
   change, symlink (`120000`), submodule (`160000`), mode change or any other status is rejected.
   `README.md` may only be modified from `100644` to `100644`.
+- **Images.** An addition, modification or rename whose resulting path ends in an image suffix
+  (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.svg` and the other image suffixes listed in
+  `IMAGE_SUFFIXES`, in any case) must be under `recipes/<slug>/assets/`. Anywhere else in the
+  recipe folder (`helpers/`, `fixtures/`, `tests/`, the root, a nested `.../assets/` that is not
+  directly the recipe's) is rejected; deleting a misplaced image is allowed. The path is all this
+  check can see (it reads no file contents): format, size, metadata and an image hidden under
+  another name are `tools/check_recipe_assets.py`'s job, in the `Hygiene (secrets and notebook
+  outputs)` check ([fixtures.md](fixtures.md#image-fixtures)).
 - **README content**, only once no path was outside the allowlist (so a malformed catalog edit gets the
   path diagnostic, not a crash): the head `README.md` must equal
   `render(<base README.md>, <head catalog/recipes.json>)` byte for byte, using `render` from

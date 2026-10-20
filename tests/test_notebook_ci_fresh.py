@@ -10,6 +10,7 @@ import copy
 import importlib.util
 import io
 import json
+import random
 import shutil
 import subprocess
 import sys
@@ -261,8 +262,136 @@ def test_png_present_only_in_one_notebook_is_stale(nb, reference):
 
 
 def test_other_image_types_are_not_normalised(nb, reference):
-    png_outputs(nb)[0]["data"]["image/jpeg"] = "AAAA"
-    assert any("image/jpeg" in p for p in problems_for(nb, reference))
+    # image/svg+xml (and any type other than PNG and JPEG) is still compared byte for byte.
+    committed, fresh = copy.deepcopy(nb), copy.deepcopy(reference)
+    png_outputs(committed)[0]["data"]["image/svg+xml"] = "<svg>a</svg>"
+    png_outputs(fresh)[0]["data"]["image/svg+xml"] = "<svg>b</svg>"
+    assert any("image/svg+xml" in p for p in problems_for(committed, fresh))
+
+
+# -- JPEG outputs are normalised like PNG outputs (#307) ------------------------------------------
+
+
+def jpeg_of(figure_png: str, quality=90, subsampling=2) -> str:
+    """The same picture as a base64 JPEG; another quality/subsampling stands in for another libjpeg."""
+    from PIL import Image
+
+    image = Image.open(io.BytesIO(base64.b64decode(figure_png))).convert("RGB")
+    buffer = io.BytesIO()
+    image.save(buffer, "JPEG", quality=quality, subsampling=subsampling)
+    return base64.b64encode(buffer.getvalue()).decode("ascii") + "\n"
+
+
+def with_jpegs(reference, committed_jpeg, fresh_jpeg):
+    committed, fresh = copy.deepcopy(reference), copy.deepcopy(reference)
+    png_outputs(committed)[0]["data"]["image/jpeg"] = committed_jpeg
+    png_outputs(fresh)[0]["data"]["image/jpeg"] = fresh_jpeg
+    return committed, fresh
+
+
+def test_a_jpeg_re_encoded_by_another_encoder_matches(reference):
+    picture = bars()
+    committed, fresh = with_jpegs(reference, jpeg_of(picture, 90, 2), jpeg_of(picture, 83, 0))
+    assert committed["cells"] != [] and (
+        png_outputs(committed)[0]["data"]["image/jpeg"]
+        != png_outputs(fresh)[0]["data"]["image/jpeg"]
+    )
+    problems, notes = fresh_tool.check(committed, fresh)
+    assert problems == []
+    assert len(notes) == 3  # the two PNGs and the JPEG
+    assert sum("matches" in n for n in notes) == 3
+
+
+def test_a_changed_jpeg_is_stale(reference):
+    committed, fresh = with_jpegs(
+        reference, jpeg_of(bars()), jpeg_of(bars(probabilities=shifted(0.3)))
+    )
+    found = problems_for(committed, fresh)
+    assert len(found) == 1
+    assert "image/jpeg" in found[0] and "stale" in found[0]
+
+
+def test_a_jpeg_present_in_only_one_notebook_is_stale(reference):
+    committed, fresh = copy.deepcopy(reference), copy.deepcopy(reference)
+    png_outputs(committed)[0]["data"]["image/jpeg"] = jpeg_of(bars())
+    found = problems_for(committed, fresh)
+    assert found and any("image/jpeg" in p for p in found)
+    found = problems_for(fresh, committed)
+    assert found and any("image/jpeg" in p for p in found)
+
+
+def test_an_undecodable_jpeg_is_stale(reference):
+    committed, fresh = with_jpegs(reference, jpeg_of(bars()), "AAAA")
+    assert any("image/jpeg" in p for p in problems_for(committed, fresh))
+
+
+def test_the_jpeg_comparison_does_not_mask_a_png_comparison(reference):
+    committed, fresh = with_jpegs(reference, jpeg_of(bars()), jpeg_of(bars()))
+    png_outputs(fresh)[0]["data"]["image/png"] = bars(probabilities=shifted(0.3))
+    found = problems_for(committed, fresh)
+    assert len(found) == 1 and "image/png" in found[0]
+
+
+# -- the output-size cap (#307) -----------------------------------------------------------------
+
+
+def with_filler(notebook, size):
+    """A copy of ``notebook`` whose outputs weigh at least ``size`` bytes in all."""
+    out = copy.deepcopy(notebook)
+    missing = size - fresh_tool.output_bytes(out)
+    out["cells"][0].setdefault("outputs", []).append(
+        {"output_type": "stream", "name": "stdout", "text": ["x" * (missing - 60)]}
+    )
+    return out
+
+
+def test_the_reference_notebook_is_far_below_the_cap(reference):
+    assert fresh_tool.output_bytes(reference) < fresh_tool.MAX_OUTPUT_BYTES // 4
+    assert fresh_tool.MAX_OUTPUT_BYTES == 2 * 1024 * 1024
+
+
+def test_outputs_exactly_at_the_cap_pass_and_one_byte_over_fails(reference):
+    cap = fresh_tool.MAX_OUTPUT_BYTES
+    nb_at = with_filler(reference, cap)
+    # Trim or pad the filler so the total is exactly the cap.
+    delta = cap - fresh_tool.output_bytes(nb_at)
+    nb_at["cells"][0]["outputs"][-1]["text"][0] += "x" * delta
+    assert fresh_tool.output_bytes(nb_at) == cap
+    assert problems_for(nb_at, nb_at) == []
+    nb_over = copy.deepcopy(nb_at)
+    nb_over["cells"][0]["outputs"][-1]["text"][0] += "x"
+    assert fresh_tool.output_bytes(nb_over) == cap + 1
+    found = problems_for(nb_over, nb_over)
+    assert len(found) == 2  # the committed file and the fresh one are each checked
+    assert all("outputs weigh" in p and "2,097,152" in p for p in found)
+
+
+def test_an_oversized_committed_notebook_is_reported_even_if_the_fresh_run_is_small(reference):
+    big = with_filler(reference, fresh_tool.MAX_OUTPUT_BYTES + 1000)
+    found = fresh_tool.check(big, reference)[0]
+    assert any(p.startswith("committed: outputs weigh") for p in found)
+
+
+def test_oversized_images_trip_the_cap(reference):
+    nb_big = copy.deepcopy(reference)
+    from PIL import Image
+
+    noise = Image.frombytes("RGB", (700, 700), random.Random(5).randbytes(700 * 700 * 3))
+    buffer = io.BytesIO()
+    noise.save(buffer, "PNG")
+    payload = base64.b64encode(buffer.getvalue()).decode("ascii")
+    for _ in range(2):
+        png_outputs(nb_big)[0]["data"]["image/png"] = payload
+        nb_big["cells"][0].setdefault("outputs", []).append(
+            {"output_type": "display_data", "data": {"image/png": payload}, "metadata": {}}
+        )
+    assert any("outputs weigh" in p for p in problems_for(nb_big, nb_big))
+
+
+def test_output_bytes_counts_text_in_utf8(reference):
+    nb_text = {"cells": [{"outputs": [{"output_type": "stream", "text": ["é"]}]}]}
+    plain = {"cells": [{"outputs": [{"output_type": "stream", "text": ["e"]}]}]}
+    assert fresh_tool.output_bytes(nb_text) == fresh_tool.output_bytes(plain) + 1
 
 
 def test_stale_figure_probe_changes_only_the_chart(nb, reference):

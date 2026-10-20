@@ -782,3 +782,79 @@ def test_ambiguous_or_invalid_base_assignments_fail_closed(repo, issue):
     assign_in_base(repo, 100, issue)
     with pytest.raises(scope.CannotRun, match="base catalog assignments"):
         run_check(repo, branch="foundation/anything", body="Closes #61")
+
+
+# -- image files belong in assets/ (#307) -------------------------------------------------------
+
+PNG_STUB = b"\x89PNG\r\n\x1a\n"  # the scope check reads paths, not contents
+
+
+def test_an_image_under_the_recipes_assets_folder_is_accepted(repo):
+    repo.put(f"recipes/{SLUG1}/assets/photo.png", PNG_STUB)
+    repo.put(f"recipes/{SLUG1}/assets/frames/one.jpg", PNG_STUB)
+    repo.put(f"recipes/{SLUG1}/assets/two.jpeg", PNG_STUB)
+    accepted(run_check(repo))
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "helpers/photo.png",
+        "fixtures/photo.jpg",
+        "photo.jpeg",
+        "tests/photo.png",
+        "helpers/assets/photo.png",  # an assets folder that is not the recipe's own
+        "assetsx/photo.png",
+        "asset/photo.png",
+        "assets.png",
+        "elsewhere/photo.PNG",  # the suffix is matched in any case
+        "photo.gif",
+        "photo.webp",
+        "photo.svg",
+    ],
+)
+def test_an_image_outside_the_assets_folder_is_rejected(repo, path):
+    repo.put(f"recipes/{SLUG1}/{path}", PNG_STUB)
+    rejected(run_check(repo), f"recipes/{SLUG1}/{path}", f"recipes/{SLUG1}/assets/")
+
+
+def test_an_image_in_another_recipes_assets_folder_is_rejected_as_out_of_scope(repo):
+    repo.put(f"recipes/{SLUG2}/assets/photo.png", PNG_STUB)
+    rejected(run_check(repo), f"outside recipes/{SLUG1}/")
+
+
+def test_an_image_renamed_out_of_assets_is_rejected(repo):
+    repo.put(f"recipes/{SLUG1}/assets/photo.png", PNG_STUB)
+    repo.commit("base2")
+    repo.git("branch", "-f", "main", "HEAD")
+    repo.move(f"recipes/{SLUG1}/assets/photo.png", f"recipes/{SLUG1}/helpers/photo.png")
+    rejected(run_check(repo), "an image file must be under")
+
+
+def test_an_image_renamed_into_assets_is_accepted(repo):
+    repo.put(f"recipes/{SLUG1}/photo.png", PNG_STUB)
+    repo.commit("base2")
+    repo.git("branch", "-f", "main", "HEAD")
+    repo.move(f"recipes/{SLUG1}/photo.png", f"recipes/{SLUG1}/assets/photo.png")
+    accepted(run_check(repo))
+
+
+def test_deleting_a_misplaced_image_is_accepted(repo):
+    repo.put(f"recipes/{SLUG1}/helpers/photo.png", PNG_STUB)
+    repo.commit("base2")
+    repo.git("branch", "-f", "main", "HEAD")
+    repo.remove(f"recipes/{SLUG1}/helpers/photo.png")
+    accepted(run_check(repo))
+
+
+def test_a_non_image_in_assets_or_elsewhere_is_not_judged_by_the_scope_check(repo):
+    # Contents and format are check_recipe_assets.py's job; this check only knows suffixes.
+    repo.put(f"recipes/{SLUG1}/assets/notes.txt", "x\n")
+    repo.put(f"recipes/{SLUG1}/helpers/data.json", "{}\n")
+    accepted(run_check(repo))
+
+
+def test_the_scope_check_and_the_asset_checker_agree_on_which_suffixes_are_images():
+    assets = load("check_recipe_assets_for_scope_test", REPO / "tools" / "check_recipe_assets.py")
+    assert scope.IMAGE_SUFFIXES == assets.IMAGE_SUFFIXES
+    assert set(assets.ALLOWED_SUFFIXES) <= set(scope.IMAGE_SUFFIXES)

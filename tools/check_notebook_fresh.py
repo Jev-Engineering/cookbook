@@ -15,11 +15,14 @@ The comparison, in full (it is documented in ``docs/notebook-ci.md``):
    whatever it commits, output or none, did not come from the run being checked. (nbclient only
    ever skips code cells; a markdown or raw cell has no outputs to fabricate, so the rule does
    not apply to one even if it happens to carry the tag.)
-2. Every ``outputs[*].data["image/png"]`` is replaced by a marker that records only that a PNG is
-   there. Nothing else is normalised: after that the two notebooks, parsed as JSON, must be
-   equal (sources, metadata, execution counts, text outputs, ids, every other output).
-3. Each pair of PNGs is then compared by what it shows rather than by its bytes, because the
-   bytes change with the matplotlib version, the platform and the pixel size. See ``compare_png``.
+2. Every ``outputs[*].data["image/png"]`` and ``["image/jpeg"]`` is replaced by a marker that
+   records only that an image of that type is there. Nothing else is normalised: after that the
+   two notebooks, parsed as JSON, must be equal (sources, metadata, execution counts, text
+   outputs, ids, every other output).
+3. Each pair of images is then compared by what it shows rather than by its bytes, because the
+   bytes change with the matplotlib version, the encoder version, the platform and the pixel
+   size. See ``compare_png`` (it decodes either format).
+4. The outputs of all the cells together may weigh at most ``MAX_OUTPUT_BYTES``, in either file.
 """
 
 from __future__ import annotations
@@ -35,6 +38,10 @@ from pathlib import Path
 from typing import Any
 
 PNG_PRESENT = "<image/png: present>"
+# Output types whose payload is compared by what it shows. A JPEG is normalised like a PNG because
+# Pillow offers every image it displays as both (``_repr_png_`` and ``_repr_jpeg_``), and the bytes
+# of a JPEG depend on the libjpeg that Pillow bundles.
+IMAGE_MIMES = ("image/png", "image/jpeg")
 MAX_PROBLEMS = 12
 MAX_TEXT = 90
 
@@ -43,6 +50,12 @@ MAX_TEXT = 90
 # unset). A skipped cell keeps whatever it already had, run or not, so its presence defeats the
 # freshness comparison regardless of what the cell outputs.
 SKIP_EXECUTION_TAGS = frozenset({"skip-execution"})
+
+# The most a notebook's ``outputs`` may weigh in all: the UTF-8 length of each output serialised as
+# compact JSON (base64 images included), summed over every cell. The largest notebook on ``main`` at
+# the time of writing is about 0.2 MiB. Pillow offers a displayed image as both a PNG and a JPEG,
+# so one displayed fixture can weigh twice its size; 2 MiB leaves room for several.
+MAX_OUTPUT_BYTES = 2 * 1024 * 1024
 
 # Figure comparison (``compare_png``). Both images are flattened onto white and shrunk with a box
 # filter to a fixed GRID of cells, so the pixel size does not matter. A cell of one image is
@@ -123,20 +136,37 @@ def output_problems(nb: dict[str, Any], label: str) -> list[str]:
                 )
             elif kind == "stream" and output.get("name") == "stderr":
                 problems.append(f"{label}: {_where(index, cell, out_index)} holds stderr output")
+    weight = output_bytes(nb)
+    if weight > MAX_OUTPUT_BYTES:
+        problems.append(
+            f"{label}: outputs weigh {weight:,} bytes; the cap is {MAX_OUTPUT_BYTES:,} (2 MiB). "
+            "Show fewer images, or a downscaled copy (Image.thumbnail)"
+        )
     return problems
 
 
-def normalise(nb: dict[str, Any]) -> tuple[dict[str, Any], dict[tuple[int, int], Any]]:
-    """A copy of ``nb`` with every ``image/png`` value replaced by ``PNG_PRESENT``, and the
-    original values by (cell index, output index). This is the only normalisation."""
+def output_bytes(nb: dict[str, Any]) -> int:
+    """The UTF-8 length of every output of every cell, each serialised as compact JSON."""
+    return sum(
+        len(json.dumps(output, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+        for cell in nb["cells"]
+        for output in _outputs(cell)
+    )
+
+
+def normalise(nb: dict[str, Any]) -> tuple[dict[str, Any], dict[tuple[int, int, str], Any]]:
+    """A copy of ``nb`` with every ``image/png`` and ``image/jpeg`` value replaced by a marker
+    (``PNG_PRESENT`` for a PNG), and the original values by (cell index, output index, mime type).
+    This is the only normalisation."""
     result = copy.deepcopy(nb)
     images: dict[tuple[int, int], Any] = {}
     for index, cell in enumerate(result["cells"]):
         for out_index, output in enumerate(_outputs(cell)):
             data = output.get("data") if isinstance(output, dict) else None
-            if isinstance(data, dict) and "image/png" in data:
-                images[(index, out_index)] = data["image/png"]
-                data["image/png"] = PNG_PRESENT
+            for mime in IMAGE_MIMES if isinstance(data, dict) else ():
+                if mime in data:
+                    images[(index, out_index, mime)] = data[mime]
+                    data[mime] = f"<{mime}: present>"
     return result, images
 
 
@@ -170,7 +200,7 @@ def differences(a: Any, b: Any, path: str = "notebook") -> list[str]:
 
 
 def decode_png(value: Any) -> Any:
-    """The image as an RGB ``PIL.Image`` flattened onto white."""
+    """The image (PNG or JPEG) as an RGB ``PIL.Image`` flattened onto white."""
     from PIL import Image
 
     try:
@@ -178,7 +208,7 @@ def decode_png(value: Any) -> Any:
         image = Image.open(io.BytesIO(raw))
         image.load()
     except (binascii.Error, OSError, ValueError) as error:
-        raise ValueError(f"not a decodable PNG ({type(error).__name__})") from error
+        raise ValueError(f"not a decodable image ({type(error).__name__})") from error
     rgba = image.convert("RGBA")
     flat = Image.alpha_composite(Image.new("RGBA", rgba.size, (255, 255, 255, 255)), rgba)
     return flat.convert("RGB")
@@ -204,7 +234,7 @@ def _blocks(mask: Any) -> int:
 
 
 def compare_png(committed: Any, fresh: Any) -> tuple[bool, str]:
-    """Do two ``image/png`` values show the same figure? Returns (same, detail).
+    """Do two ``image/png`` (or two ``image/jpeg``) values show the same figure? Returns (same, detail).
 
     Equal bytes are the same without decoding. Otherwise the figures differ when their aspect
     ratios differ by more than ``ASPECT_TOLERANCE`` or when a 2 by 2 block of ``GRID`` cells is
@@ -245,7 +275,7 @@ def check(committed: dict[str, Any], fresh: dict[str, Any]) -> tuple[list[str], 
             notes.append(f"{where}: figure {'matches' if same else 'DIFFERS'}, {detail}")
             if not same:
                 problems.append(
-                    f"{where}: the committed figure is stale, it does not match a fresh run "
+                    f"{where}: the committed {key[2]} is stale, it does not match a fresh run "
                     f"({detail})"
                 )
     return problems, notes

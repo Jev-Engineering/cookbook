@@ -294,6 +294,47 @@ Keep small synthetic PNG/JPEG files in the recipe's `assets/` directory, beside 
 The fixture directory continues to contain only its documented JSON/JSONL files; image bytes
 and base64 do not belong in those files.
 
+#### The image-file contract
+
+`python tools/check_recipe_assets.py` enforces these rules on every tracked file under
+`recipes/`, in the `Hygiene (secrets and notebook outputs)` job. Each finding names the file and
+the rule (`path: [rule] message`).
+
+| Rule | Contract | Finding |
+| - | - | - |
+| Location | An image lives only in `recipes/<slug>/assets/`, optionally in subfolders. Anywhere else under `recipes/` (`helpers/`, `fixtures/`, the recipe root), a file with an image suffix, or whose first bytes are an image signature under any name, is rejected. `assets/` holds image files only. | `image-outside-assets`, `non-image-in-assets` |
+| Format | PNG or baseline JPEG, with a lowercase `.png`, `.jpg` or `.jpeg` suffix, whose bytes really are that format (a GIF renamed `.png` fails). GIF, WebP, SVG, TIFF and the other formats, animated PNG, progressive or arithmetic-coded JPEG and bytes after the end of the image are rejected. | `format-not-allowed`, `suffix-case`, `format-mismatch`, `png-animated`, `jpeg-not-baseline`, `trailing-data`, `png-structure`, `jpeg-structure` |
+| Pixels | Each side 280 to 1568 pixels and the area 78,400 to 2,458,624 pixels: the limits of the [Images page](https://docs.typesafe.ai/images) (an image outside them is rejected by the API, never resized). | `dimensions` |
+| Size | At most 1 MiB (1,048,576 bytes) per file, and at most 8 MiB in all in one recipe's `assets/` folder. These caps are this repository's, far below the API's 16 MiB per file; a fixture is meant to be small enough to read about. | `file-too-large`, `assets-total-too-large` |
+| Metadata | A PNG holds only the chunks `IHDR`, `PLTE`, `IDAT`, `IEND`, `tRNS`, `gAMA`, `cHRM`, `sRGB`, `sBIT`, `pHYs` and `bKGD`: no `tEXt`, `iTXt`, `zTXt`, `eXIf`, `tIME`, `iCCP` or private chunk. A JPEG holds no segment but a JFIF `APP0`: no EXIF, XMP, ICC, IPTC or other `APPn` and no comment. Text and EXIF can carry an author name, a local path, a GPS position or a token. | `png-metadata`, `jpeg-metadata` |
+| Links | No symbolic link or submodule anywhere under `recipes/`. | `symlink` |
+
+The `Scope (recipe pull requests)` check also rejects, by suffix, an image added, changed or
+renamed anywhere in a recipe pull request outside `recipes/<slug>/assets/` (deleting a
+misplaced one is allowed). The pixel limits are constants at the top of
+`tools/check_recipe_assets.py`, copied from the Images page because the checker runs with no
+install and so cannot import `jev_cookbook.vision`; change them there if the API's limits change.
+
+To make a file comply, copy the pixels into a new image and save that. `Image.save` writes no
+text, EXIF or comment you did not pass, but it does carry a source's ICC profile across (the
+`iCCP` chunk fails the check), so do not re-save the opened file itself:
+
+```python
+from PIL import Image
+
+with Image.open("source.png") as source:
+    rgb = source.convert("RGB")
+clean = Image.frombytes("RGB", rgb.size, rgb.tobytes())
+clean.save("recipes/NN-slug/assets/example.png")  # or .jpg: Pillow writes a baseline JPEG
+```
+
+Apply `ImageOps.exif_transpose` before the copy if the source has an orientation tag, as
+[vision.md](vision.md) says, because the copy drops the tag.
+
+A notebook that displays fixtures is held to an output cap (2 MiB for all its outputs) and its
+displayed images are compared by what they show, not by their bytes: see rules 2 to 4 of
+[the staleness check](notebook-ci.md#the-staleness-check).
+
 An image example uses `fields` containing relative image paths and any other request inputs.
 The recipe loads those files with `jev_cookbook.vision.image_asset(path, root=RECIPE_DIR)`
 (or `image_assets` / `load_frames` with the same `root=`, or `resolve_asset_path` directly),
