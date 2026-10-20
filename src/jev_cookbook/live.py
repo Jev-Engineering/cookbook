@@ -836,10 +836,9 @@ def dump_responses(data: Mapping[str, Any]) -> str:
     return json.dumps(dict(sorted(data.items())), indent=2, ensure_ascii=False) + "\n"
 
 
-# Supported compatibility alias, not deprecated. Every published recipe now imports the public
-# name, but a recipe branch scaffolded before the rename (and any code copied from one) still
-# writes ``from jev_cookbook.live import _dump``; it must keep running, so the old name stays.
-# New code uses ``dump_responses``; tests/test_live.py pins the two as the same object.
+# Transitional alias for the old private name, for code outside recipes/ (tests/test_live.py
+# pins it as the same object). No recipe may use it: tests/test_no_private_shared_names.py
+# fails one that does. Remove it once nothing outside this file's own tests imports it.
 _dump = dump_responses
 
 

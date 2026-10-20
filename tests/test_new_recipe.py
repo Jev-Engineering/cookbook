@@ -1054,9 +1054,9 @@ def scaffold_replay_with_build_script(catalog, recipes, number=2):
     )
     build = (folder / "build_fixtures.py").read_text("utf-8")
     build = build.replace(
-        "from jev_cookbook import DecisionResult, Provenance, load_helpers, replay_key",
-        "from jev_cookbook import ChoiceAnswer, DecisionResult, Provenance, load_helpers, "
-        "replay_key",
+        "from jev_cookbook import DecisionResult, Provenance, dump_responses, load_helpers, replay_key",
+        "from jev_cookbook import ChoiceAnswer, DecisionResult, Provenance, dump_responses, "
+        "load_helpers, replay_key",
     )
     build = build.replace(
         '    raise NotImplementedError("TODO: build the typed answers from the row\'s spec")',

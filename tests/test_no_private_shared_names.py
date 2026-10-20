@@ -9,10 +9,13 @@ stays as a supported alias for code written before the rename (see its comment i
 this test is about who may *use* a private name, not about whether it still exists.
 
 The scan is syntactic on purpose and says so: it parses every ``.py`` under ``recipes/`` and each
-notebook's code cells with ``ast`` and flags (a) ``from jev_cookbook[.x] import _name`` and (b) an
-attribute access ``jev_cookbook.x._name`` through the imported package name. It does not follow
-``getattr`` or ``importlib`` strings. The scaffold half scaffolds a real recipe and scans the
-result, so the scaffolder is checked on what it emits, not on what its source text looks like.
+notebook's code cells with ``ast`` and flags (a) any import whose dotted path has a private segment
+(``jev_cookbook._canonical``, ``jev_cookbook.fixtures._scan``), (b) an imported underscore name
+(``from jev_cookbook.live import _dump``), and (c) a private attribute reached through a local name
+bound to the package or one of its modules or subpackages (``live._dump``). Dunders such as
+``__version__`` are public. It does not follow ``getattr`` or ``importlib`` strings. The scaffold
+half scaffolds a real recipe and scans the result, so the scaffolder is checked on what it emits,
+not on what its source text looks like.
 """
 
 from __future__ import annotations
@@ -29,28 +32,48 @@ REPO = Path(__file__).resolve().parent.parent
 RECIPES = REPO / "recipes"
 
 
-SUBMODULES = {path.stem for path in (REPO / "src" / "jev_cookbook").glob("*.py")}
+PACKAGE = REPO / "src" / "jev_cookbook"
+# Every module or subpackage a recipe could bind a local name to: ``*.py`` stems and package
+# directories (``fixtures``).
+SUBMODULES = {path.stem for path in PACKAGE.glob("*.py")} | {
+    path.parent.name for path in PACKAGE.glob("*/__init__.py")
+}
+
+
+def is_private(name: str) -> bool:
+    """A leading underscore that is not a dunder: ``_dump`` and ``_canonical`` are private,
+    ``__version__`` is public."""
+    return name.startswith("_") and not (name.startswith("__") and name.endswith("__"))
 
 
 def private_shared_uses(source: str) -> list[str]:
-    """Every use of an underscore-prefixed name from ``jev_cookbook`` in ``source``, including
-    through a local name bound to the package or one of its submodules."""
+    """Every use of a private name or module of ``jev_cookbook`` in ``source``: an import whose
+    dotted path has a private segment, an imported private name, or a private attribute reached
+    through a local name bound to the package or one of its modules."""
     tree = ast.parse(source)
     roots = {"jev_cookbook"}  # local names that stand for jev_cookbook or one of its modules
+    found = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
-            roots |= {
-                a.asname for a in node.names if a.asname and a.name.split(".")[0] == "jev_cookbook"
-            }
+            for a in node.names:
+                if a.name.split(".")[0] != "jev_cookbook":
+                    continue
+                if any(is_private(seg) for seg in a.name.split(".")):
+                    found.append(f"import {a.name}")
+                if a.asname:
+                    roots.add(a.asname)
         elif (
             isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] == "jev_cookbook"
         ):
-            roots |= {a.asname or a.name for a in node.names if a.name in SUBMODULES}
-    found = []
+            if any(is_private(seg) for seg in node.module.split(".")):
+                found.append(f"from {node.module} import ...")
+            for a in node.names:
+                if is_private(a.name):
+                    found.append(f"from {node.module} import {a.name}")
+                if a.name in SUBMODULES:
+                    roots.add(a.asname or a.name)
     for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] == "jev_cookbook":
-            found += [f"from {node.module} import {a.name}" for a in node.names if a.name[0] == "_"]
-        elif isinstance(node, ast.Attribute) and node.attr.startswith("_"):
+        if isinstance(node, ast.Attribute) and is_private(node.attr):
             parts = []
             cur = node.value
             while isinstance(cur, ast.Attribute):
@@ -70,18 +93,47 @@ def python_sources(folder: Path):
                 yield path, "".join(cell["source"])
 
 
-def test_the_detector_flags_what_it_claims_to():
-    """Mutation proof: the old spellings are flagged, the public one is not."""
-    assert private_shared_uses("from jev_cookbook.live import _dump") == [
-        "from jev_cookbook.live import _dump"
-    ]
-    assert private_shared_uses("import jev_cookbook\njev_cookbook.live._dump({})") == [
-        "jev_cookbook.live._dump"
-    ]
-    assert private_shared_uses("import jev_cookbook.live as live\nlive._dump({})") == ["live._dump"]
-    assert private_shared_uses("from jev_cookbook import live as L\nL._dump({})") == ["L._dump"]
-    assert private_shared_uses("from jev_cookbook import dump_responses, get_backend") == []
-    assert private_shared_uses("x._private; self._dump; from pathlib import _x") == []
+@pytest.mark.parametrize(
+    "source",
+    [
+        "from jev_cookbook.live import _dump",
+        "import jev_cookbook\njev_cookbook.live._dump({})",
+        "import jev_cookbook.live as live\nlive._dump({})",
+        "from jev_cookbook import live as L\nL._dump({})",
+        "from jev_cookbook import _canonical",
+        "from jev_cookbook.vision import _MAX_IMAGE_BYTES",
+        # private modules, by every spelling
+        "from jev_cookbook._canonical import plain_json",
+        "import jev_cookbook._canonical",
+        "import jev_cookbook._canonical as c",
+        "from jev_cookbook.fixtures._scan import scan_text",
+        "import jev_cookbook.fixtures._schema as s",
+        "from jev_cookbook import fixtures\nfixtures._scan",
+    ],
+)
+def test_the_detector_flags_every_private_spelling(source):
+    """Mutation proof: each way of reaching a private name or module is reported."""
+    assert private_shared_uses(source), source
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "from jev_cookbook import dump_responses, get_backend",
+        "from jev_cookbook.fixtures import load_inputs, responses_path",
+        "import jev_cookbook\nprint(jev_cookbook.__version__)",
+        "from jev_cookbook import __version__",
+        "x._private; self._dump; from pathlib import _x",
+        "import os._exit_hooks_are_not_ours",
+    ],
+)
+def test_the_detector_does_not_flag_public_or_foreign_names(source):
+    """Dunders are public, and a private name from another package is not this guard's concern."""
+    assert private_shared_uses(source) == [], source
+
+
+def test_submodules_include_the_fixtures_package_and_the_flat_modules():
+    assert {"live", "vision", "fixtures", "_canonical"} <= SUBMODULES
 
 
 def test_no_published_recipe_or_the_template_uses_a_private_shared_name():

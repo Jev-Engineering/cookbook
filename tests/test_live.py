@@ -1071,8 +1071,8 @@ def test_a_hard_link_to_the_responses_file_is_refused(tmp_path):
 
 
 def test_dump_responses_is_public_and_the_private_name_is_the_same_object():
-    """#209: recipes get a public, documented name. ``_dump`` stays as a supported alias because
-    published recipes imported it until #209; it must be the very same function, so the two cannot drift."""
+    """#209: recipes get a public, documented name. ``_dump`` stays only as a transitional alias;
+    it must be the very same function while it exists, so the two cannot drift."""
     import jev_cookbook
     import jev_cookbook.live as live
 
