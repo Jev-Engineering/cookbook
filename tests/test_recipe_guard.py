@@ -2318,3 +2318,761 @@ def test_every_noul_proposition_has_gold_true_and_false_in_each_scored_split(rec
             "is not reached, and a builder that raises is not told apart from one that is absent"
         )
     assert not gaps, f"{recipe['slug']}: " + "; ".join(gaps)
+
+
+# --------------------------------------------------------------------------------------------
+# check: the notebook actually executes its simulated side effect (#212)
+# --------------------------------------------------------------------------------------------
+#
+# Check id ``simulated_side_effect_invoked``. The gap it closes: a recipe's helper can be
+# well tested while the committed notebook no longer calls it (delete the ``submit_reviews``
+# call from recipe 24's ``eval-test`` cell, re-execute, commit: every other check stays green,
+# on a notebook whose prose claims a queue its output no longer shows).
+#
+# Identification rule (written down, because the issue asks for it): the guard parses the
+# notebook's code cells with ``ast`` and walks only code that can execute -- it does not see
+# comments or strings, skips the body of a function nobody calls, a lambda, an ``if False:`` /
+# ``while False:`` branch, a loop over an empty literal, and statements after a top-level
+# ``raise``. In that live code it counts CALL SITES (distinct source positions, not runtime
+# calls) of three kinds, each under a stable key:
+#
+# * ``helpers.<fn>``: a call to a function of the recipe's ``helpers.py`` that is a side-effect
+#   function -- one whose body, directly or through other ``helpers.py`` functions, calls a
+#   mutating method (``submit``, ``resolve``, ``record``, ``put``, ``delete``, ``rollback``,
+#   ``run``, ``step``) or one of the shared ``jev_cookbook.simulation`` fill helpers.
+# * ``<Sink>.<method>``: a mutating method called on a name the notebook bound to a
+#   ``jev_cookbook.simulation`` sink (``ReviewQueue.submit``, ``ActionLog.record``,
+#   ``Store.put``, ...), the inline form.
+# * ``fill_review_queue`` / ``record_actions`` / ``route_outcomes`` called directly.
+#
+# A function the notebook defines itself counts for what its body calls, but only if live code
+# calls it. SIDE_EFFECT_INVENTORY below then states, per published recipe, either the minimum
+# number of sites it must keep under each key, or that it has no simulated side effect (with the
+# reason). The count is a floor: deleting any one of two calls fails. A recipe the inventory
+# does not list yet (a recipe added after this check) is held to the general rule instead: if it
+# imports or builds a sink, or its ``helpers.py`` defines a side-effect function, the notebook
+# must execute at least one site, and every sink it builds must be mutated or handed to a
+# side-effect function. Anything the analysis cannot read (a code cell that does not parse) fails
+# rather than being skipped. Known limits: a site reached only through an attribute chain
+# (``self.queue.submit``) or a function stored in a container is not seen, and a condition the
+# analysis cannot evaluate statically is assumed to be taken.
+
+SIDE_EFFECT_SINKS = {
+    "ReviewQueue": frozenset({"submit", "resolve"}),
+    "ActionLog": frozenset({"record"}),
+    "Store": frozenset({"put", "delete", "rollback"}),
+    "Transactor": frozenset({"run"}),
+}
+SIDE_EFFECT_FILL_HELPERS = frozenset({"fill_review_queue", "record_actions", "route_outcomes"})
+HELPER_MUTATING_METHODS = frozenset(
+    {"submit", "resolve", "record", "put", "delete", "rollback", "run", "step"}
+)
+SIMULATION_MODULE = "jev_cookbook.simulation"
+
+
+def _simulation_imports(tree: ast.AST) -> tuple[dict[str, str], set[str]]:
+    """``({local name: jev_cookbook.simulation name}, {local names of the module itself})``."""
+    names: dict[str, str] = {}
+    modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module == SIMULATION_MODULE:
+            for alias in node.names:
+                names[alias.asname or alias.name] = alias.name
+        elif isinstance(node, ast.ImportFrom) and node.module == "jev_cookbook":
+            for alias in node.names:
+                if alias.name == "simulation":
+                    modules.add(alias.asname or alias.name)
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == SIMULATION_MODULE:
+                    modules.add(alias.asname or SIMULATION_MODULE)
+    return names, modules
+
+
+def _simulation_symbol(func: ast.expr, names: dict[str, str], modules: set[str]) -> str | None:
+    """The ``jev_cookbook.simulation`` name ``func`` refers to, or ``None``."""
+    if isinstance(func, ast.Name):
+        return names.get(func.id)
+    if isinstance(func, ast.Attribute):
+        owner = ast.unparse(func.value)
+        if owner in modules or owner == SIMULATION_MODULE:
+            return func.attr
+    return None
+
+
+def _constant_truth(test: ast.expr) -> bool | None:
+    """``True``/``False`` for a test that is a literal constant (or ``not`` of one), else None."""
+    if isinstance(test, ast.Constant):
+        return bool(test.value)
+    if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not):
+        inner = _constant_truth(test.operand)
+        return None if inner is None else not inner
+    return None
+
+
+def _is_empty_literal(node: ast.expr) -> bool:
+    return (isinstance(node, ast.List | ast.Tuple | ast.Set) and not node.elts) or (
+        isinstance(node, ast.Dict) and not node.keys
+    )
+
+
+def _expression_nodes(node: ast.AST):
+    """Every node under ``node`` that can run, in source order, not entering a lambda."""
+    yield node
+    if isinstance(node, ast.Lambda):
+        return
+    for child in ast.iter_child_nodes(node):
+        yield from _expression_nodes(child)
+
+
+_TRY_STATEMENTS = (ast.Try, getattr(ast, "TryStar", ast.Try))  # TryStar only exists on 3.11+
+
+
+def _live_nodes(stmts: list[ast.stmt]):
+    """Statements and expression nodes of ``stmts`` that can execute, in source order.
+
+    A ``def`` or ``class`` is yielded as itself and not entered (its body is live only if the
+    function is called, which the caller decides). Branches are chosen only for literal
+    constant conditions; anything else is assumed possible.
+    """
+    for stmt in stmts:
+        if isinstance(stmt, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            yield stmt
+            continue
+        if isinstance(stmt, ast.If):
+            yield stmt
+            yield from _expression_nodes(stmt.test)
+            truth = _constant_truth(stmt.test)
+            if truth is not False:
+                yield from _live_nodes(stmt.body)
+            if truth is not True:
+                yield from _live_nodes(stmt.orelse)
+        elif isinstance(stmt, ast.While):
+            yield stmt
+            yield from _expression_nodes(stmt.test)
+            if _constant_truth(stmt.test) is not False:
+                yield from _live_nodes(stmt.body)
+            yield from _live_nodes(stmt.orelse)
+        elif isinstance(stmt, ast.For | ast.AsyncFor):
+            yield stmt
+            yield from _expression_nodes(stmt.iter)
+            if not _is_empty_literal(stmt.iter):
+                yield from _live_nodes(stmt.body)
+            yield from _live_nodes(stmt.orelse)
+        elif isinstance(stmt, ast.Match):
+            yield stmt
+            yield from _expression_nodes(stmt.subject)
+            for case in stmt.cases:
+                if case.guard is not None:
+                    yield from _expression_nodes(case.guard)
+                yield from _live_nodes(case.body)
+        elif isinstance(stmt, _TRY_STATEMENTS):
+            yield stmt
+            for block in (stmt.body, *(h.body for h in stmt.handlers), stmt.orelse, stmt.finalbody):
+                yield from _live_nodes(block)
+        elif isinstance(stmt, ast.With | ast.AsyncWith):
+            yield stmt
+            for item in stmt.items:
+                yield from _expression_nodes(item.context_expr)
+            yield from _live_nodes(stmt.body)
+        else:
+            yield stmt
+            for child in ast.iter_child_nodes(stmt):
+                yield from _expression_nodes(child)
+        if isinstance(stmt, ast.Raise | ast.Return | ast.Break | ast.Continue):
+            return
+
+
+def _helpers_side_effect_functions(helpers_path: Path) -> set[str] | None:
+    """Names of the module-level ``helpers.py`` functions that perform a simulated side effect,
+    or ``None`` if the file does not parse. A function is one when its body calls a mutating
+    method or a shared fill helper, or calls another such function of the same module."""
+    if not helpers_path.is_file():
+        return set()
+    try:
+        tree = ast.parse(helpers_path.read_text("utf-8"))
+    except SyntaxError:
+        return None
+    names, modules = _simulation_imports(tree)
+    functions = {n.name: n for n in tree.body if isinstance(n, ast.FunctionDef)}
+    direct: set[str] = set()
+    calls: dict[str, set[str]] = {}
+    for name, node in functions.items():
+        calls[name] = set()
+        for inner in ast.walk(node):
+            if not isinstance(inner, ast.Call):
+                continue
+            func = inner.func
+            if isinstance(func, ast.Attribute) and func.attr in HELPER_MUTATING_METHODS:
+                direct.add(name)
+            elif _simulation_symbol(func, names, modules) in SIDE_EFFECT_FILL_HELPERS:
+                direct.add(name)
+            elif isinstance(func, ast.Name) and func.id in functions:
+                calls[name].add(func.id)
+    effects = set(direct)
+    changed = True
+    while changed:
+        changed = False
+        for name, callees in calls.items():
+            if name not in effects and callees & effects:
+                effects.add(name)
+                changed = True
+    return effects
+
+
+class SideEffectReport:
+    """What the notebook's live code does with the simulated side effects of its recipe."""
+
+    def __init__(self) -> None:
+        self.sites: dict[str, set[tuple[int, int, int]]] = {}
+        self.sink_vars: dict[str, str] = {}  # notebook name -> sink class it was built as
+        self.touched_vars: set[str] = set()
+        self.effect_functions: set[str] = set()  # helpers.py side-effect functions
+        self.problems: list[str] = []  # things the analysis could not read
+
+    def counts(self) -> dict[str, int]:
+        return {key: len(places) for key, places in sorted(self.sites.items())}
+
+    def untouched_sink_vars(self) -> list[str]:
+        return sorted(v for v in self.sink_vars if v not in self.touched_vars)
+
+    def uncalled_effect_functions(self) -> list[str]:
+        called = {k.split(".", 1)[1] for k in self.sites if k.startswith("helpers.")}
+        return sorted(self.effect_functions - called)
+
+
+def _bind_sink_variables(node: ast.AST, report: SideEffectReport, resolve) -> None:
+    """Record ``name = ReviewQueue()`` style bindings, including tuple unpacking."""
+    if isinstance(node, ast.Assign):
+        pairs = []
+        for target in node.targets:
+            if isinstance(target, ast.Tuple) and isinstance(node.value, ast.Tuple):
+                pairs.extend(zip(target.elts, node.value.elts, strict=False))
+            else:
+                pairs.append((target, node.value))
+        for target, value in pairs:
+            if isinstance(target, ast.Name) and isinstance(value, ast.Call):
+                symbol = resolve(value.func)
+                if symbol in SIDE_EFFECT_SINKS:
+                    report.sink_vars[target.id] = symbol
+
+
+def side_effect_report(recipe_dir_: Path) -> SideEffectReport:
+    """Analyse ``recipe_dir_``'s committed notebook as described in the section header."""
+    report = SideEffectReport()
+    effects = _helpers_side_effect_functions(recipe_dir_ / "helpers.py")
+    if effects is None:
+        report.problems.append("helpers.py does not parse as plain Python")
+        effects = set()
+    report.effect_functions = set(effects)
+    blocks: list[tuple[int, ast.Module]] = []
+    for index, cell in enumerate(notebook_cells(recipe_dir_)):
+        if cell.get("cell_type") != "code":
+            continue
+        try:
+            blocks.append((index, ast.parse(cell_source(cell))))
+        except SyntaxError:
+            report.problems.append(
+                f"notebook cell {index} does not parse as plain Python (an IPython magic?), "
+                "so its side effects cannot be checked"
+            )
+    names: dict[str, str] = {}
+    modules: set[str] = set()
+    helper_names = {"helpers"}
+    for _, tree in blocks:
+        n, m = _simulation_imports(tree)
+        names.update(n)
+        modules |= m
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Assign)
+                and isinstance(node.value, ast.Call)
+                and _call_func_name(node.value) == "load_helpers"
+            ):
+                helper_names |= {t.id for t in node.targets if isinstance(t, ast.Name)}
+
+    def resolve(func: ast.expr) -> str | None:
+        return _simulation_symbol(func, names, modules)
+
+    defs: dict[str, ast.FunctionDef] = {}
+    entered: set[str] = set()
+    current_cell = [0]
+
+    def site(key: str, call: ast.Call) -> None:
+        place = (current_cell[0], call.lineno, call.col_offset)
+        report.sites.setdefault(key, set()).add(place)
+
+    def touch_arguments(call: ast.Call) -> None:
+        for arg in [*call.args, *(k.value for k in call.keywords)]:
+            if isinstance(arg, ast.Name) and arg.id in report.sink_vars:
+                report.touched_vars.add(arg.id)
+
+    def run(stmts: list[ast.stmt]) -> None:
+        for node in _live_nodes(stmts):
+            if isinstance(node, ast.FunctionDef):
+                defs[node.name] = node
+            elif isinstance(node, ast.Assign):
+                _bind_sink_variables(node, report, resolve)
+            elif isinstance(node, ast.Call):
+                handle(node)
+
+    def handle(call: ast.Call) -> None:
+        func = call.func
+        symbol = resolve(func)
+        if symbol in SIDE_EFFECT_FILL_HELPERS:
+            site(symbol, call)
+            touch_arguments(call)
+        elif isinstance(func, ast.Name) and func.id in defs and func.id not in entered:
+            entered.add(func.id)
+            run(defs[func.id].body)
+        elif isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
+            owner = func.value.id
+            if owner in helper_names and func.attr in effects:
+                site(f"helpers.{func.attr}", call)
+                touch_arguments(call)
+            elif (
+                owner in report.sink_vars
+                and func.attr in SIDE_EFFECT_SINKS[report.sink_vars[owner]]
+            ):
+                site(f"{report.sink_vars[owner]}.{func.attr}", call)
+                report.touched_vars.add(owner)
+
+    for index, tree in blocks:
+        current_cell[0] = index
+        run(tree.body)
+    return report
+
+
+# Per published recipe: the minimum live call sites the notebook must keep under each key (see the
+# section header), or a sentence saying why the recipe has no simulated side effect. Built from
+# the audit in the pull request that added this check; a recipe not listed here is held to the
+# general rule in ``test_the_notebook_executes_its_simulated_side_effect``.
+_NO_SINKS = (
+    "returns typed outcomes only: the notebook builds no ReviewQueue, ActionLog, Store or "
+    "Transactor and helpers.py calls no mutating method"
+)
+SIDE_EFFECT_INVENTORY: dict[str, dict[str, int] | str] = {
+    "01-sentiment-classification": _NO_SINKS,
+    "02-refund-intent-detection": {"ReviewQueue.submit": 2},
+    "03-response-clarity-scoring": _NO_SINKS,
+    "04-support-ticket-routing": (
+        "route_ticket returns a Routing value; its 'simulated queue' is a field of that value, "
+        "not a ReviewQueue or ActionLog, and nothing is written anywhere"
+    ),
+    "05-document-classification": _NO_SINKS,
+    "06-multiple-topic-labels": {"ReviewQueue.submit": 1},
+    "07-word-sense-selection": _NO_SINKS,
+    "08-faq-selection": _NO_SINKS,
+    "09-file-organization": (
+        "prints a proposed folder plan; nothing moves, and no ReviewQueue, ActionLog or Store is "
+        "built"
+    ),
+    "10-answer-relevance-check": {"ReviewQueue.submit": 3},
+    "11-clarification-selection": (
+        "select_followup returns the question to ask as a value; no ReviewQueue, ActionLog or "
+        "Store is built"
+    ),
+    "12-thesaurus-word-selection": _NO_SINKS,
+    "13-candidate-rewrite-selection": _NO_SINKS,
+    "14-source-span-selection": _NO_SINKS,
+    "15-sensitive-text-triage": {"ReviewQueue.submit": 1},
+    "16-discord-moderation-triage": {"ActionLog.record": 1, "ReviewQueue.submit": 1},
+    "17-passage-reranking": _NO_SINKS,
+    "18-duplicate-incident-matching": {"helpers.record_resolution": 1},
+    "19-ci-failure-classification": {"helpers.classify": 3},
+    "20-claim-support-classification": _NO_SINKS,
+    "21-quiz-answer-adjudication": {"ReviewQueue.submit": 2},
+    "22-cmdb-asset-matching": {"helpers.record_resolution": 1},
+    "23-pairwise-answer-evaluation": (
+        "the preference is a returned value and the notebook says it has no side effect; no "
+        "ReviewQueue, ActionLog or Store is built"
+    ),
+    "24-incident-priority-composition": {"helpers.submit_reviews": 2},
+    "25-change-evidence-review": {"ReviewQueue.submit": 1},
+    "26-prompt-injection-screening": {"ReviewQueue.submit": 1},
+    "27-function-selection": {"helpers.resolve": 2},
+    "28-skill-selection": _NO_SINKS,
+    "29-tool-outcome-verification": {"helpers.classify": 2},
+    "30-citation-verification": {"helpers.classify": 2},
+    "31-patch-risk-triage": {"ReviewQueue.submit": 1},
+    "32-regression-test-selection": _NO_SINKS,
+    "33-schema-field-mapping": {"helpers.submit_reviews": 2},
+    "34-evidence-relationship-labels": {"helpers.submit_reviews": 2},
+    "35-semantic-feature-extraction": _NO_SINKS,
+    "36-card-game-action-selection": {"helpers.play_game": 1},
+    "37-research-domain-tagging": {"ReviewQueue.submit": 1},
+    "38-abstention-and-review-queues": {"ActionLog.record": 1, "ReviewQueue.submit": 1},
+    "39-document-extraction-cascade": _NO_SINKS,
+    "40-hierarchical-classification": {"ActionLog.record": 1, "ReviewQueue.submit": 1},
+    "41-approval-scope-review": {"ReviewQueue.submit": 1},
+    "42-outbound-disclosure-screening": {"ActionLog.record": 1, "ReviewQueue.submit": 1},
+    "43-failure-recovery-selection": {"helpers.enforce_recovery": 3, "helpers.run_episode": 3},
+    "44-plan-constraint-assessment": {"ReviewQueue.submit": 1},
+    "45-memory-reconciliation": {
+        "Store.put": 3,
+        "helpers.rebuild_store_from_writes": 1,
+        "helpers.reconcile": 3,
+    },
+    "46-semantic-context-paging": {"helpers.rebuild_store": 2, "helpers.run_session": 1},
+    "47-evidence-conflict-diagnosis": _NO_SINKS,
+    "48-document-revision-consistency": {
+        "Store.put": 1,
+        "Store.rollback": 1,
+        "helpers.decide": 3,
+    },
+    "49-multi-agent-task-assignment": {"helpers.assign": 6},
+    "50-model-comparison-and-calibration": _NO_SINKS,
+}
+
+
+def _side_effect_violations(slug: str, recipe_dir_: Path) -> list[str] | None:
+    """Reasons ``recipe_dir_``'s notebook fails the check, or ``None`` when the recipe is not in
+    the inventory and nothing applies to it."""
+    report = side_effect_report(recipe_dir_)
+    violations = list(report.problems)
+    counts = report.counts()
+    expected = SIDE_EFFECT_INVENTORY.get(slug)
+    if isinstance(expected, str):
+        if counts or report.sink_vars:
+            violations.append(
+                f"the inventory says this recipe has no simulated side effect ({expected}) but "
+                f"its notebook builds {sorted(set(report.sink_vars.values()))} and executes "
+                f"{sorted(counts)}"
+            )
+        if report.effect_functions:
+            violations.append(
+                "the inventory says this recipe has no simulated side effect but helpers.py "
+                f"defines {sorted(report.effect_functions)}"
+            )
+        return violations
+    if expected is not None:
+        for key, minimum in expected.items():
+            found = counts.get(key, 0)
+            if found < minimum:
+                violations.append(
+                    f"the notebook executes {key} at {found} call site(s), the inventory "
+                    f"requires at least {minimum}"
+                )
+    elif counts == {} and not report.sink_vars and not report.effect_functions:
+        return violations or None
+    elif not counts:
+        violations.append(
+            "the recipe has a simulated side effect "
+            f"({sorted(set(report.sink_vars.values())) or sorted(report.effect_functions)}) "
+            "that its notebook never executes"
+        )
+    untouched = report.untouched_sink_vars()
+    if untouched:
+        violations.append(
+            f"the notebook builds {untouched} but never calls a mutating method on it or "
+            "passes it to a side-effect function"
+        )
+    return violations
+
+
+@pytest.mark.parametrize("recipe", guarded("simulated_side_effect_invoked")())
+def test_the_notebook_executes_its_simulated_side_effect(recipe):
+    """#212: nothing else verifies that a recipe's notebook actually INVOKES the simulated side
+    effect its prose and its helper tests describe. A helper can be thoroughly tested while the
+    committed notebook stops calling it, and a notebook re-executed after that edit is fresh and
+    faithfully wrong, so the notebook-freshness job, the helper's tests and every other check
+    here stay green. The rule, the inventory and the known limits are in the section header
+    above; ``SIDE_EFFECT_INVENTORY`` states for every published recipe either the call sites it
+    must keep or that it has no simulated side effect, and a recipe it does not list is held to
+    the general rule. A code cell the analysis cannot parse fails rather than being skipped."""
+    violations = _side_effect_violations(recipe["slug"], recipe_dir(recipe))
+    if violations is None:
+        pytest.skip(
+            f"{recipe['slug']}: not in SIDE_EFFECT_INVENTORY and no simulated side effect "
+            "detected; add it to the inventory with the reason it has none"
+        )
+    assert not violations, f"{recipe['slug']}: " + "; ".join(violations)
+
+
+def side_effect_inventory_gaps() -> list[str]:
+    """Published recipes with no ``SIDE_EFFECT_INVENTORY`` entry yet. Deliberately not a test: a
+    recipe pull request may not edit ``tests/``, so a new recipe cannot add its own entry, and
+    failing it for that would block every recipe. Such a recipe is held to the general rule (see
+    the section header) and the parametrised test says so when it skips; a foundation pull request
+    adds the entries at close-out. List them with ``python -c`` or from a debugger."""
+    return sorted({r["slug"] for r in PUBLISHED} - SIDE_EFFECT_INVENTORY.keys())
+
+
+def test_the_side_effect_inventory_names_only_published_recipes_with_well_formed_entries():
+    stale = sorted(SIDE_EFFECT_INVENTORY.keys() - {r["slug"] for r in PUBLISHED})
+    assert not stale, f"SIDE_EFFECT_INVENTORY names recipes that are not published: {stale}"
+    for slug, entry in SIDE_EFFECT_INVENTORY.items():
+        if isinstance(entry, str):
+            assert entry.strip(), f"{slug}: a no-side-effect entry must say why"
+        else:
+            assert entry and all(
+                isinstance(k, str) and type(n) is int and n >= 1 for k, n in entry.items()
+            ), f"{slug}: expected {{key: minimum call sites >= 1}}, got {entry!r}"
+
+
+# The guard is proved by mutation: each case below takes a real published recipe, edits ONLY its
+# committed notebook source, and requires the guard to report it. M15 is the originally reported
+# case (recipe 24, delete the ``eval-test`` cell's ``submit_reviews`` call); the others show the
+# guard is not satisfied by a mention in a comment, a string, a function nobody calls, a lambda,
+# or an ``if False:`` branch.
+
+RECIPE_24 = "24-incident-priority-composition"
+RECIPE_24_TEST_CALL = "helpers.submit_reviews(queue, test_examples, test_decisions, test_results)"
+
+
+def _mutated_recipe(tmp_path: Path, slug: str, edit) -> Path:
+    """A copy of the published recipe ``slug`` whose notebook code cells went through
+    ``edit(source) -> source``. Only the notebook is touched."""
+    target = tmp_path / slug
+    shutil.copytree(RECIPES_DIR / slug, target, ignore=shutil.ignore_patterns("__pycache__"))
+    path = target / "notebook.ipynb"
+    notebook = json.loads(path.read_text("utf-8"))
+    for cell in notebook["cells"]:
+        if cell["cell_type"] == "code":
+            cell["source"] = edit(cell_source(cell)).splitlines(keepends=True)
+    path.write_text(json.dumps(notebook), "utf-8")
+    return target
+
+
+def _replace_line(old: str, make):
+    """An ``edit`` replacing the line that contains ``old`` with ``make(line)``; it must hit once."""
+    hits = []
+
+    def edit(source: str) -> str:
+        lines = source.splitlines(keepends=True)
+        for i, line in enumerate(lines):
+            if old in line:
+                hits.append(line)
+                lines[i] = make(line)
+        return "".join(lines)
+
+    edit.hits = hits
+    return edit
+
+
+def test_the_unmutated_recipe_24_passes_the_guard(tmp_path):
+    assert _side_effect_violations(RECIPE_24, RECIPES_DIR / RECIPE_24) == []
+    copy = _mutated_recipe(tmp_path, RECIPE_24, lambda source: source)
+    assert _side_effect_violations(RECIPE_24, copy) == []
+
+
+def test_m15_deleting_the_test_split_submit_reviews_call_is_caught(tmp_path):
+    edit = _replace_line(RECIPE_24_TEST_CALL, lambda line: "")
+    copy = _mutated_recipe(tmp_path, RECIPE_24, edit)
+    assert len(edit.hits) == 1, "the mutation must remove exactly the test split's call"
+    violations = _side_effect_violations(RECIPE_24, copy)
+    assert violations == [
+        "the notebook executes helpers.submit_reviews at 1 call site(s), the inventory requires at least 2"
+    ]
+
+
+def test_deleting_every_submit_reviews_call_is_caught(tmp_path):
+    edit = _replace_line("helpers.submit_reviews(", lambda line: "")
+    copy = _mutated_recipe(tmp_path, RECIPE_24, edit)
+    assert len(edit.hits) == 2
+    assert _side_effect_violations(RECIPE_24, copy)
+    # An unlisted recipe with the same gap is caught by the general rule, not only by the floor.
+    assert any("never executes" in v for v in _side_effect_violations("99-not-in-inventory", copy))
+
+
+@pytest.mark.parametrize(
+    ("name", "make"),
+    [
+        ("a comment", lambda line: "# " + line.lstrip()),
+        ("a string", lambda line: f'"""{line.strip()}"""\n'),
+        ("an if False branch", lambda line: f"if False:\n    {line.strip()}\n"),
+        ("a while False loop", lambda line: f"while False:\n    {line.strip()}\n"),
+        ("a loop over an empty list", lambda line: f"for _ in []:\n    {line.strip()}\n"),
+        ("a function never called", lambda line: f"def _never():\n    {line.strip()}\n"),
+        ("a lambda never called", lambda line: f"_never = lambda: {line.strip()}\n"),
+        ("after a raise", lambda line: f"raise SystemExit\n{line}"),
+    ],
+)
+def test_a_dead_or_inert_mention_of_the_call_does_not_satisfy_the_guard(tmp_path, name, make):
+    edit = _replace_line(RECIPE_24_TEST_CALL, make)
+    copy = _mutated_recipe(tmp_path, RECIPE_24, edit)
+    assert len(edit.hits) == 1
+    violations = _side_effect_violations(RECIPE_24, copy)
+    assert violations, f"{name} must not count as invoking the side effect"
+    assert "at least 2" in violations[0]
+
+
+def test_a_call_moved_into_a_function_that_is_called_still_counts(tmp_path):
+    """The guard is not tied to the call sitting at cell level: a notebook-defined function that
+    live code calls counts for what its body calls."""
+    edit = _replace_line(
+        RECIPE_24_TEST_CALL,
+        lambda line: f"def _fill_test():\n    {line.strip()}\n\n\n_fill_test()\n",
+    )
+    copy = _mutated_recipe(tmp_path, RECIPE_24, edit)
+    assert _side_effect_violations(RECIPE_24, copy) == []
+
+
+def test_an_inline_recipe_is_caught_when_its_queue_submit_is_deleted(tmp_path):
+    slug = "02-refund-intent-detection"
+    assert _side_effect_violations(slug, RECIPES_DIR / slug) == []
+    edit = _replace_line("queue.submit(", lambda line: line.replace("queue.submit(", "print("))
+    copy = _mutated_recipe(tmp_path, slug, edit)
+    assert len(edit.hits) == 2
+    violations = _side_effect_violations(slug, copy)
+    assert "ReviewQueue.submit at 0 call site(s)" in violations[0]
+    assert any("never calls a mutating method" in v for v in violations)
+
+
+def test_a_helper_with_a_side_effect_that_the_notebook_never_calls_is_reported(tmp_path):
+    """The original gap in its general form: the helper exists and is tested, the notebook does
+    not call it. A recipe the inventory does not list is reported, not passed or skipped."""
+    edit = _replace_line("helpers.submit_reviews(", lambda line: "")
+    copy = _mutated_recipe(tmp_path, RECIPE_24, edit)
+    report = side_effect_report(copy)
+    assert report.effect_functions == {"submit_reviews"}
+    assert report.counts() == {}
+    assert report.uncalled_effect_functions() == ["submit_reviews"]
+    assert _side_effect_violations("99-not-in-inventory", copy)
+
+
+def test_an_unlisted_recipe_with_a_working_side_effect_passes_the_general_rule():
+    assert _side_effect_violations("99-not-in-inventory", RECIPES_DIR / RECIPE_24) == []
+    assert (
+        _side_effect_violations("99-not-in-inventory", RECIPES_DIR / "02-refund-intent-detection")
+        == []
+    )
+
+
+def test_an_unlisted_recipe_with_no_side_effect_is_neither_failed_nor_silently_passed():
+    """``None`` makes the parametrised test skip with a reason that names the missing entry."""
+    assert (
+        _side_effect_violations("99-not-in-inventory", RECIPES_DIR / "01-sentiment-classification")
+        is None
+    )
+
+
+def test_a_recipe_listed_as_having_no_side_effect_fails_if_it_acquires_one(tmp_path):
+    # Recipe 24's notebook under the inventory entry of a recipe that claims to have none.
+    violations = _side_effect_violations("01-sentiment-classification", RECIPES_DIR / RECIPE_24)
+    assert any("no simulated side effect" in v for v in violations)
+
+
+def test_an_unparseable_notebook_cell_fails_rather_than_being_skipped(tmp_path):
+    copy = _mutated_recipe(tmp_path, RECIPE_24, lambda source: source)
+    path = copy / "notebook.ipynb"
+    notebook = json.loads(path.read_text("utf-8"))
+    notebook["cells"].append(
+        {"cell_type": "code", "metadata": {}, "outputs": [], "source": ["%matplotlib inline\n"]}
+    )
+    path.write_text(json.dumps(notebook), "utf-8")
+    violations = _side_effect_violations(RECIPE_24, copy)
+    assert any("does not parse" in v for v in violations)
+
+
+def test_a_sink_the_notebook_builds_but_never_reaches_is_reported(tmp_path):
+    slug = "10-answer-relevance-check"
+    edit = _replace_line("queue = ReviewQueue()", lambda line: line + "orphan = ReviewQueue()\n")
+    copy = _mutated_recipe(tmp_path, slug, edit)
+    violations = _side_effect_violations(slug, copy)
+    assert violations == [
+        "the notebook builds ['orphan'] but never calls a mutating method on it or passes it "
+        "to a side-effect function"
+    ]
+
+
+def _synthetic_recipe(tmp_path: Path, cells: list[str], helpers_source: str = "") -> Path:
+    """A throwaway recipe folder: a notebook of the given code cells and an optional helpers.py."""
+    folder = tmp_path / "99-synthetic"
+    folder.mkdir()
+    notebook = {
+        "cells": [
+            {"cell_type": "code", "metadata": {}, "outputs": [], "source": src.splitlines(True)}
+            for src in cells
+        ],
+        "metadata": {},
+        "nbformat": 4,
+        "nbformat_minor": 5,
+    }
+    (folder / "notebook.ipynb").write_text(json.dumps(notebook), "utf-8")
+    if helpers_source:
+        (folder / "helpers.py").write_text(helpers_source, "utf-8")
+    return folder
+
+
+SYNTHETIC_HELPERS = """
+from jev_cookbook.simulation import fill_review_queue
+
+
+def leaf(queue, item):
+    queue.submit(item, "because")
+
+
+def via_leaf(queue, items):
+    for item in items:
+        leaf(queue, item)
+
+
+def via_shared(queue, outcomes):
+    return fill_review_queue(queue, outcomes, needs_review=bool, item=dict, reason="r")
+
+
+def pure(x):
+    return x + 1
+"""
+
+
+@pytest.mark.parametrize(
+    ("cells", "expected"),
+    [
+        # a helper that reaches a mutating method only through another helper still counts
+        (
+            ["helpers = load_helpers()\nq = ReviewQueue()\nhelpers.via_leaf(q, [])"],
+            {"helpers.via_leaf": 1},
+        ),
+        (
+            ["helpers = load_helpers()\nq = ReviewQueue()\nhelpers.via_shared(q, [])"],
+            {"helpers.via_shared": 1},
+        ),
+        # a pure helper is not a side effect, so calling it does not satisfy the guard
+        (["helpers = load_helpers()\nq = ReviewQueue()\nhelpers.pure(1)"], {}),
+        # try/with/match bodies and comprehensions are live code
+        (
+            [
+                "helpers = load_helpers()\nq = ReviewQueue()\n"
+                "try:\n    helpers.leaf(q, 1)\nexcept ValueError:\n    pass\n"
+                "with open('x') as f:\n    helpers.leaf(q, 2)\n"
+                "match 1:\n    case 1:\n        helpers.leaf(q, 3)\n"
+                "[helpers.leaf(q, i) for i in range(2)]"
+            ],
+            {"helpers.leaf": 4},
+        ),
+        # aliases of the simulation module and of a sink class resolve
+        (
+            [
+                "import jev_cookbook.simulation as sim\nfrom jev_cookbook.simulation "
+                "import ActionLog as AL\nlog = AL()\nlog.record('k')\nsim.fill_review_queue("
+                "sim.ReviewQueue(), [], needs_review=bool, item=dict, reason='r')"
+            ],
+            {"ActionLog.record": 1, "fill_review_queue": 1},
+        ),
+        # tuple binding, and a notebook-defined function counts only when live code calls it
+        (
+            [
+                "a, q = ActionLog(), ReviewQueue()\n"
+                "def go():\n    q.submit({}, 'r')\n    a.record('k')\ndef unused():\n    q.submit({}, 'r')\ngo()"
+            ],
+            {"ActionLog.record": 1, "ReviewQueue.submit": 1},
+        ),
+        # a name that merely looks like a sink method on an unrelated object is not counted
+        (["d = {}\nd.put = 1\nclass X:\n    def submit(self): ...\nX().submit()"], {}),
+    ],
+)
+def test_the_site_counter_on_synthetic_notebooks(tmp_path, cells, expected):
+    header = "from jev_cookbook.simulation import ActionLog, ReviewQueue\n"
+    cells = [header + cells[0], *cells[1:]]
+    report = side_effect_report(_synthetic_recipe(tmp_path, cells, SYNTHETIC_HELPERS))
+    assert report.effect_functions == {"leaf", "via_leaf", "via_shared"}
+    assert report.counts() == expected
+
+
+def test_the_inventory_matches_what_the_published_recipes_do_today():
+    """Every inventoried recipe passes, with nothing allowlisted and nothing skipped."""
+    for recipe in PUBLISHED:
+        if recipe["slug"] in SIDE_EFFECT_INVENTORY:
+            assert _side_effect_violations(recipe["slug"], recipe_dir(recipe)) == [], recipe["slug"]

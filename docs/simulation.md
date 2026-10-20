@@ -12,6 +12,9 @@ from jev_cookbook.simulation import (
     Store,
     ToyGrid,
     Transactor,
+    fill_review_queue,
+    record_actions,
+    route_outcomes,
 )
 ```
 
@@ -69,6 +72,126 @@ actions.to_dicts()  # every entry has "executed": False
 
 An `answer` is a typed answer object or its `to_dict()`, kept next to the reason so the notebook
 can show what triggered the review. `ActionLog` never executes anything.
+
+## Filling the queue and the log from a recipe's outcomes
+
+Almost every recipe that uses a `ReviewQueue` or an `ActionLog` does the same thing: look at the
+outcomes it computed, and for each one either queue it, record an action, or do nothing. Written
+inline in a notebook cell, that loop is hard to test (a test has to re-type it, and a test that
+re-types the loop cannot catch the loop being wrong) and easy to delete without anything failing.
+`jev_cookbook.simulation` therefore has one code path for it, which a notebook and its test both
+call:
+
+- `fill_review_queue(queue, outcomes, needs_review=, item=, reason=, answer=, step=, key=, exclude=)`
+  submits every outcome that `needs_review` accepts.
+- `record_actions(actions, outcomes, selects=, kind=, payload=, answer=, rule=, step=, key=, exclude=)`
+  is the same for the action log.
+- `route_outcomes(outcomes, route, queue=, actions=, key=, exclude=)` is the general form when
+  one pass sends some outcomes to the queue and others to the log (the two helpers above are
+  thin wrappers over it). `route(outcome)` returns `ToReview(item, reason, answer, step)`,
+  `ToAction(kind, payload, answer, rule, step)` or `None`.
+
+What they accept and return, decided once so that recipes do not decide it again:
+
+- **Outcomes** are any iterable of whatever record the recipe already has (a dataclass, a dict, a
+  tuple). The helper never inspects them; the callables you pass read what they need.
+- **Order** is the iteration order of the outcomes and nothing else, for both the queue ids
+  (0, 1, 2, ...) and the log `seq` values. To queue highest-first, sort before calling. To put
+  two splits into one queue, call once per split, in the order the ids should run.
+- **The reason** is the string the recipe's own outcome carries (`reason=lambda o: o.reason`),
+  or one constant string. The helper invents none, so the exact-reason rule in
+  [glossary](glossary.md) stays the recipe's.
+- **A demo or held-out case** is removed with `exclude=lambda o: o.split == "demo"`. An excluded
+  outcome never reaches the route function and is listed in `excluded_keys`, so the exclusion is
+  visible in the result instead of being a silent `continue`. Use the same `exclude` to keep a
+  second call from queueing what the first already queued.
+- **The return value** is a `Routed`: one entry per outcome in input order, with `review_keys`,
+  `review_ids`, `action_keys`, `action_seqs`, `skipped_keys` and `excluded_keys`. `key=` chooses
+  what names an outcome (the example id; default its position) and must be unique in the call.
+- **Mistakes fail before anything is written.** Predicates must return a real `bool`, a
+  destination you did not supply is an error, and a write that still fails (an item that is not
+  plain JSON) removes what the call had already added, so a queue is never half filled.
+
+### The convention
+
+1. Put the call in a **named function in the recipe's `helpers.py`**, so the item shape and the
+   reason live in one place: `helpers.queue_reviews(queue, results)`. It calls
+   `fill_review_queue` (or `route_outcomes`) and returns its `Routed`.
+2. The notebook calls that function; it does not loop over `queue.submit` itself.
+3. The recipe's test calls the **same** function on fixture outcomes and states the expected ids,
+   count, order and split membership as **literals** typed from the fixtures, not computed from
+   the function or from a copy of its loop. It also compares `queue.to_dicts()` (ids, reasons,
+   items) to literals.
+4. The test suite's recipe guard (`simulated_side_effect_invoked` in
+   `tests/test_recipe_guard.py`) requires the committed notebook to actually execute that call,
+   because a well-tested helper proves nothing about a notebook that no longer calls it.
+
+```python
+# recipe: fill-example
+from dataclasses import dataclass
+
+from jev_cookbook.simulation import ReviewQueue, fill_review_queue
+
+
+@dataclass(frozen=True)
+class Result:
+    id: str
+    split: str
+    outcome: str
+    reason: str
+
+
+def queue_reviews(queue, results):
+    """The recipe's helper: what is queued, and why, in one place."""
+    return fill_review_queue(
+        queue,
+        results,
+        needs_review=lambda r: r.outcome == "review",
+        item=lambda r: {"ticket_id": r.id, "split": r.split},
+        reason=lambda r: r.reason,
+        key=lambda r: r.id,
+        exclude=lambda r: r.split == "demo",
+    )
+
+
+validation = [
+    Result("v1", "validation", "accepted", "confident"),
+    Result("v2", "validation", "review", "confidence below the threshold"),
+    Result("v3", "validation", "review", "confidence below the threshold"),
+]
+test = [
+    Result("d1", "demo", "review", "confidence below the threshold"),
+    Result("t1", "test", "accepted", "confident"),
+    Result("t2", "test", "review", "confidence below the threshold"),
+]
+
+# The notebook cell: one queue, one call per split.
+queue = ReviewQueue()
+validation_fill = queue_reviews(queue, validation)
+test_fill = queue_reviews(queue, test)
+
+# The recipe's test: the expected values are typed in, not derived from the helper.
+assert validation_fill.review_keys == ("v2", "v3")
+assert test_fill.review_keys == ("t2",)
+assert test_fill.review_ids == (2,)
+assert test_fill.excluded_keys == ("d1",)
+assert [(i["id"], i["item"]["ticket_id"]) for i in queue.to_dicts()] == [
+    (0, "v2"),
+    (1, "v3"),
+    (2, "t2"),
+]
+print(len(queue), "queued:", [i["item"]["ticket_id"] for i in queue.to_dicts()])
+```
+
+### Other primitives
+
+`Store.put`, `Store.delete`, `Transactor.run` and `Simulator.step` are already single calls that
+return the record they wrote, and their loops differ by recipe (a transaction's validator, a
+write's writer and step, a policy choosing the next action), so there is no shared loop to
+extract and a wrapper would only hide the argument that matters. The same convention applies:
+the loop that drives them lives in one named function in `helpers.py`, the notebook calls it, the
+test calls it and pins the resulting `store.history(...)`, `tx.log` or `sim.trajectory()` as
+literals, and the guard requires the notebook to execute it.
 
 ## Store
 
