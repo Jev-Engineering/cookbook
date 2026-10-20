@@ -36,8 +36,15 @@ These things are fixed so that running it twice gives the same file:
   is written, if the namespace is not actually active, and otherwise prints "pid namespace:
   active", which the workflow step greps for (#108 fix round 6, B6 M1).
 
+* matplotlib's font cache is built before the kernel starts, in a separate process with the
+  kernel's own environment (``warm_font_cache``), so a cell never builds it: on a slow runner that
+  build logs a "building the font cache" notice to stderr, which used to fail the first code cell
+  of a recipe now and then (#287).
+
 A run in which any cell wrote to stderr also fails: stderr carries warnings and absolute paths,
-which must not be committed.
+which must not be committed. The failure message shows what was written, redacted (absolute
+paths and long unbroken runs replaced) and bounded (``stderr_excerpt``), so a log is enough to
+diagnose it.
 
 Exit status is 0 when the notebook ran to the end, 1 when a cell failed, a cell ran longer than
 the timeout (``--timeout``, default 300 seconds, at least 1), the kernel died or never started, a
@@ -63,7 +70,9 @@ from __future__ import annotations
 import argparse
 import atexit
 import os
+import re
 import signal
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -110,15 +119,91 @@ class StderrOutput(Exception):
     """A cell wrote to stderr, which can carry absolute paths and so must not be committed."""
 
 
+STDERR_EXCERPT_LINES = 8
+STDERR_EXCERPT_CHARS = 600
+_ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
+# An absolute path (POSIX, or a drive letter either slash), a home-directory ``~`` path and a long
+# unbroken run that could be a key or a token. Order matters: paths first, so a token inside a path
+# goes with it.
+_PATH_IN_TEXT = re.compile(r"""(?:[A-Za-z]:[\\/]|~/|/)[^\s"'<>()\[\]{},;`]+""")
+_TOKEN_IN_TEXT = re.compile(r"[A-Za-z0-9_+=/-]{24,}")
+
+
+def stderr_excerpt(text: str) -> str:
+    """A short, safe description of what a cell wrote to stderr, for the failure message.
+
+    The text is what diagnoses a flaky or unexpected stderr write, but it can also carry absolute
+    paths and credentials (that is why stderr is rejected at all), so it is shown only after
+    redaction and bounded: control characters and ANSI escapes are dropped, every absolute path is
+    replaced by ``<path>``, every long unbroken run by ``<redacted>``, and what is left is cut to
+    ``STDERR_EXCERPT_LINES`` lines and ``STDERR_EXCERPT_CHARS`` characters.
+    """
+    text = _ANSI_ESCAPE.sub("", text)
+    text = "".join(ch for ch in text if ch in "\n\t" or ch.isprintable())
+    text = _PATH_IN_TEXT.sub("<path>", text)
+    text = _TOKEN_IN_TEXT.sub("<redacted>", text)
+    lines = [line.rstrip() for line in text.splitlines() if line.strip()]
+    cut = len(lines) > STDERR_EXCERPT_LINES
+    out = "\n".join(lines[:STDERR_EXCERPT_LINES])
+    if len(out) > STDERR_EXCERPT_CHARS:
+        out, cut = out[:STDERR_EXCERPT_CHARS], True
+    return out + ("\n[... truncated]" if cut else "")
+
+
 def check_no_stderr(nb: nbformat.NotebookNode) -> None:
-    """Raise ``StderrOutput`` naming the first cell that produced stderr output."""
+    """Raise ``StderrOutput`` naming the first cell that produced stderr output, with a redacted,
+    bounded excerpt of what it wrote (``stderr_excerpt``)."""
     for index, cell in enumerate(nb.cells):
-        for output in cell.get("outputs", []):
-            if output.get("output_type") == "stream" and output.get("name") == "stderr":
-                raise StderrOutput(
-                    f"cell {index} ({cell.get('id', 'no id')}) wrote to stderr; "
-                    "fix its cause rather than hiding it"
-                )
+        written = [
+            str(output.get("text", ""))
+            for output in cell.get("outputs", [])
+            if output.get("output_type") == "stream" and output.get("name") == "stderr"
+        ]
+        if written:
+            excerpt = stderr_excerpt("".join(written))
+            raise StderrOutput(
+                f"cell {index} ({cell.get('id', 'no id')}) wrote to stderr; "
+                "fix its cause rather than hiding it. What it wrote "
+                f"(redacted, bounded):\n{excerpt}\n"
+            )
+
+
+WARM_TIMEOUT = 300
+# Matplotlib's one-off, slow-machine-only notice (font_manager.FontManager.__init__): a timer that
+# fires only when building the font cache takes more than 5 seconds.
+FONT_CACHE_WARMUP = "import matplotlib.font_manager"
+
+
+def warm_font_cache(environment: dict[str, str]) -> None:
+    """Build matplotlib's font cache before the kernel starts, in the kernel's own environment.
+
+    #287: ``Notebook (<recipe>)`` failed now and then with "cell 2 (setup) wrote to stderr",
+    on recipes 37, 17 and 46 alike, and on identical inputs. Cell 2 is the first code cell, whose
+    imports load matplotlib. Under CI's sandbox the kernel's ``$HOME`` is a new, empty directory
+    on every job, so matplotlib has no font cache and builds one at its first import, and while it
+    does it arms a 5-second timer that logs "Matplotlib is building the font cache; this may take
+    a moment." to stderr if the build is still running. Whether the build outlasts 5 seconds
+    depends on how loaded the runner is, so the same notebook passed or failed. That notice is
+    true and the stderr rule is right to reject it from a cell, but the cell did nothing wrong:
+    the cache belongs to the environment, not to the notebook. Building it here, in a separate
+    process with exactly the kernel's environment (same ``HOME``, ``XDG_*`` and ``MPLCONFIGDIR``,
+    so the same cache directory), means no cell ever builds it; anything the build prints lands
+    in a pipe this function discards, not in a cell's output. The stderr rule is untouched.
+
+    Best effort by design: if matplotlib is not installed, or the warm-up fails or times out,
+    nothing is hidden, since the cell that needs the cache will still build it (and report) as before.
+    """
+    try:
+        subprocess.run(
+            [sys.executable, "-c", FONT_CACHE_WARMUP],
+            env=environment,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            timeout=WARM_TIMEOUT,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        pass
 
 
 def run_in_fresh_kernel(nb: nbformat.NotebookNode, recipe_dir: Path, timeout: int) -> None:
@@ -282,6 +367,7 @@ def execute(recipe_dir: Path, timeout: int = TIMEOUT_SECONDS) -> None:
     """
     recipe_dir = recipe_dir.resolve()
     path = recipe_dir / NOTEBOOK
+    warm_font_cache(offline_environment(dict(os.environ)))
     for attempt in (1, 2):
         nb = nbformat.read(path, as_version=4)
         try:
