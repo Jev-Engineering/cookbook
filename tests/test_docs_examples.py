@@ -17,8 +17,9 @@ genuine mistake (a typo, a removed ``strict=True``, a renamed function, a droppe
 argument) still fails, while an intentional, documented placeholder does not. This is the
 "explicit allowlist" the issue offers as one option for the marker convention: ``PREAMBLE``
 names, for every block, exactly what it is assumed to already have in scope. Every block costs
-at most a few hundred milliseconds to run (measured below each test, in a `SIGALRM` timeout well
-above the worst observed case), so none is skipped for being "not self-contained" -- only block 5
+at most a few hundred milliseconds to run (measured below each test, under a 10 s limit well above the
+worst observed case: ``SIGALRM`` on POSIX; on Windows a timer thread raises ``SIGBREAK``, which
+cannot interrupt a blocking call such as ``time.sleep``, only pure-Python code), so none is skipped for being "not self-contained" -- only block 5
 is a genuine fragment (a formula shown mid-explanation, not a program with an observable result),
 and it is linted and executed the same as the rest; there is simply nothing further to assert
 about it.
@@ -236,8 +237,15 @@ def _alarm(_signum, _frame):
 
 @contextlib.contextmanager
 def _time_limit(seconds):
-    """Raise ``_Timeout`` if the body runs longer than ``seconds``. POSIX uses ``SIGALRM``
-    (unchanged); elsewhere (Windows) a timer thread interrupts the main thread."""
+    """Raise ``_Timeout`` if the body runs longer than ``seconds``.
+
+    POSIX uses ``SIGALRM`` (``seconds`` must be an int there). Windows has no ``SIGALRM``, so a
+    timer thread raises Ctrl-Break (``signal.SIGBREAK``) in the main thread through a handler
+    only this helper installs: a real Ctrl-C (``SIGINT``) is never touched or reinterpreted. An
+    ``armed`` flag is cleared in ``finally`` before the timer is cancelled and joined and the old
+    handler restored, so a trip that lands late is a no-op. Limit on Windows: the handler runs
+    between Python bytecodes, so a blocking call in the body (``time.sleep(3)``, I/O) is not
+    interrupted; ``_Timeout`` arrives only once it returns. Fine for these pure-Python blocks."""
     if _HAS_SIGALRM:
         previous = signal.signal(signal.SIGALRM, _alarm)
         signal.alarm(seconds)
@@ -247,16 +255,35 @@ def _time_limit(seconds):
             signal.alarm(0)
             signal.signal(signal.SIGALRM, previous)
         return
-    timer = threading.Timer(seconds, _thread.interrupt_main)
+    armed = True
+
+    def on_timer(_signum, _frame):
+        if armed:
+            raise _Timeout("docs/evaluation.md example exceeded its timeout")
+
+    previous = signal.signal(signal.SIGBREAK, on_timer)
+    timer = threading.Timer(seconds, _thread.interrupt_main, args=(signal.SIGBREAK,))
     timer.start()
     try:
         yield
-    except KeyboardInterrupt:
-        if timer.is_alive():
-            raise  # a real Ctrl-C, not our timer
-        raise _Timeout("docs/evaluation.md example exceeded its timeout") from None
     finally:
+        armed = False
         timer.cancel()
+        timer.join()
+        signal.signal(signal.SIGBREAK, previous)
+
+
+@pytest.mark.skipif(
+    _HAS_SIGALRM, reason="exercises the Windows-only SIGBREAK timer path; POSIX uses SIGALRM"
+)
+def test_windows_time_limit_always_raises_timeout_for_a_busy_loop():
+    """The shape of the race fixed in #325 review round 1: a short limit on a pure-Python busy
+    loop used to escape as a bare ``KeyboardInterrupt`` in ~1-2% of runs, which aborts pytest."""
+    for _ in range(100):
+        with pytest.raises(_Timeout):
+            with _time_limit(0.01):
+                while True:
+                    pass
 
 
 @pytest.mark.parametrize("index", sorted(EXECUTED))

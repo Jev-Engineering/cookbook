@@ -31,6 +31,7 @@ step in ``notebooks.yml`` now does (see ``tests/test_notebook_ci_workflows.py``)
 
 import importlib.util
 import os
+import signal
 import sys
 import time
 from pathlib import Path
@@ -151,12 +152,22 @@ def test_kills_every_non_zombie_process_and_returns_once_none_remain(monkeypatch
     killed = []
     monkeypatch.setattr(os, "listdir", fake_listdir)
     monkeypatch.setattr(execute_notebook, "process_state", lambda pid: states.get(pid))
-    monkeypatch.setattr(os, "kill", lambda pid, _sig: killed.append(pid))
+    monkeypatch.setattr(os, "kill", lambda pid, sig: killed.append((pid, sig)))
 
     execute_notebook.kill_everyone_else_in_my_pid_namespace()
 
-    assert sorted(killed) == [2, 3]  # the zombie (4) was never signalled
+    assert sorted(killed) == [
+        (2, execute_notebook._KILL_SIGNAL),
+        (3, execute_notebook._KILL_SIGNAL),
+    ]
+    # the zombie (4) was never signalled
     assert calls["listdir"] == 2  # it re-checked after killing, rather than trusting the kill
+
+
+def test_the_kill_signal_is_sigkill_wherever_it_exists():
+    # Pins that the Windows fallback in ``_KILL_SIGNAL`` cannot silently weaken Linux (CI).
+    if hasattr(signal, "SIGKILL"):
+        assert execute_notebook._KILL_SIGNAL == signal.SIGKILL
 
 
 def test_pid_1_itself_is_never_a_candidate(monkeypatch):
