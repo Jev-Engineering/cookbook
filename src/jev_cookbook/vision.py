@@ -29,17 +29,20 @@ __all__ = [
     "AssetPathError",
     "ImageTile",
     "LocalizationMetrics",
+    "LocalizationReport",
     "box_confidence",
     "box_iou",
     "crop_box",
     "draw_boxes",
     "expand_box",
     "generate_tiles",
+    "gold_box",
     "image_asset",
     "image_assets",
     "image_reference",
     "load_frames",
     "localization_metrics",
+    "localization_report",
     "normalized_box",
     "normalized_to_pixels",
     "resolve_asset_path",
@@ -314,6 +317,37 @@ def box_iou(first: Any, second: Any) -> float:
     return intersection / union
 
 
+def gold_box(label: Any) -> dict[str, float] | None:
+    """Decode a gold Box label: a validated rectangle for a present target, ``None`` if absent.
+
+    The label format (``docs/fixtures.md``) is ``{"present": true, "box": {top, bottom, left,
+    right}}`` for a target that is in the image and ``{"present": false}`` for one that is
+    not. ``present`` must be a JSON boolean; a present label has exactly ``present`` and
+    ``box``, an absent one exactly ``present`` (a ``box`` on an absent label is contradictory
+    and raises). The box must have exactly the four edges, each finite in [0, 1], positive
+    width and height, and an area that does not underflow to zero (such a gold box cannot
+    be scored, since :func:`box_iou` is undefined against it). Raises ``ValueError``.
+    """
+    if not isinstance(label, Mapping):
+        raise ValueError("a gold Box label must be an object with a boolean 'present'")
+    present = label.get("present")
+    if not isinstance(present, bool):
+        raise ValueError("a gold Box label needs 'present' to be true or false")
+    if not present:
+        if set(label) != {"present"}:
+            raise ValueError("an absent gold Box label must be exactly {'present': false}")
+        return None
+    if set(label) != {"present", "box"}:
+        raise ValueError("a present gold Box label must be exactly 'present' and 'box'")
+    raw = label["box"]
+    if not isinstance(raw, Mapping) or set(raw) != set(_EDGES):
+        raise ValueError("a gold Box label's box needs exactly top, bottom, left and right")
+    box = normalized_box(raw)
+    if (box["right"] - box["left"]) * (box["bottom"] - box["top"]) <= 0.0:
+        raise ValueError("gold box area underflows to zero; it cannot be scored")
+    return box
+
+
 def expand_box(box: Any, fraction: float = 0.0) -> dict[str, float]:
     """Add ``fraction * box_size`` on each side, clipped to the image boundary."""
     edges = normalized_box(box)
@@ -479,9 +513,13 @@ class LocalizationMetrics:
 def localization_metrics(gold: Iterable[Any], predicted: Iterable[Any]) -> LocalizationMetrics:
     """Evaluate rectangles; ``None`` explicitly denotes an absent target.
 
+    Kept for compatibility; prefer :func:`localization_report`, the recommended entry for
+    a Box recipe. This function cannot see reviews: the caller must filter them out first,
+    so a present target sent to review silently leaves ``mean_iou``'s denominator, and it
+    reports no correct-absent count or hit rate. :func:`localization_report` takes review
+    outcomes itself and names every denominator.
+
     Predictions must already have passed the recipe's presence/confidence policy.
-    A review outcome is not an absent prediction: report reviews separately through
-    ``evaluation.evaluate_outcomes`` and use this function on the resolved subset.
     Invalid rectangles raise, including predictions on absent gold examples. A
     ``ValueError`` from :func:`box_iou` (both areas underflow to zero) means a degenerate
     gold label, since the union is at least as large as the gold box's own area.
@@ -509,6 +547,197 @@ def localization_metrics(gold: Iterable[Any], predicted: Iterable[Any]) -> Local
         missed,
         false_positives,
         math.fsum(overlaps) / len(overlaps) if overlaps else float("nan"),
+    )
+
+
+_OUTCOMES = ("located", "absent", "review")
+
+
+def _rate(numerator: int, denominator: int) -> float:
+    return numerator / denominator if denominator else float("nan")
+
+
+def _share(numerator: int, denominator: int, what: str) -> str:
+    if not denominator:
+        return f"n/a (denominator 0: {what})"
+    value = numerator / denominator
+    return f"{numerator}/{denominator} = {value:.4f} (denominator {denominator}: {what})"
+
+
+def _mean(value: float, denominator: int, what: str) -> str:
+    if not denominator:
+        return f"n/a (denominator 0: {what})"
+    return f"{value:.4f} (denominator {denominator}: {what})"
+
+
+@dataclass(frozen=True)
+class LocalizationReport:
+    """Box outcomes against gold, counting every example exactly once.
+
+    ``n_total`` equals ``n_present + n_absent`` and each side is split by outcome:
+
+    * present gold: ``present_located`` (a box was returned after the presence check),
+      ``present_missed`` (the pipeline said absent), ``present_review``;
+    * absent gold: ``false_positives`` (a box was returned), ``correct_absents``,
+      ``absent_review``.
+
+    ``mean_iou_located`` averages IoU over the ``present_located`` targets only (denominator
+    ``present_located``). ``mean_iou_present`` averages over all ``n_present`` with missed and
+    reviewed targets counted as 0 (denominator ``n_present``). ``hit_rate`` is ``hits`` (located
+    present targets with IoU >= ``iou_threshold``) over ``n_present``. A mean or rate with an
+    empty denominator is NaN. ``ious`` has one entry per example: the IoU of a located present
+    target, otherwise ``None``. Absent gold never contributes an IoU, and a review is never
+    counted as an absent prediction. ``str(report)`` names every denominator.
+    """
+
+    n_total: int
+    n_present: int
+    n_absent: int
+    present_located: int
+    present_missed: int
+    present_review: int
+    false_positives: int
+    correct_absents: int
+    absent_review: int
+    iou_threshold: float
+    hits: int
+    mean_iou_located: float
+    mean_iou_present: float
+    hit_rate: float
+    ious: tuple[float | None, ...]
+
+    @property
+    def present_table(self) -> dict[str, int]:
+        """Present gold by outcome; the values sum to ``n_present``."""
+        return {
+            "located": self.present_located,
+            "absent": self.present_missed,
+            "review": self.present_review,
+        }
+
+    @property
+    def absent_table(self) -> dict[str, int]:
+        """Absent gold by outcome; the values sum to ``n_absent``."""
+        return {
+            "located": self.false_positives,
+            "absent": self.correct_absents,
+            "review": self.absent_review,
+        }
+
+    @property
+    def false_positive_rate(self) -> float:
+        """``false_positives / n_absent`` (NaN when no target is absent)."""
+        return _rate(self.false_positives, self.n_absent)
+
+    @property
+    def correct_absent_rate(self) -> float:
+        """``correct_absents / n_absent`` (NaN when no target is absent)."""
+        return _rate(self.correct_absents, self.n_absent)
+
+    @property
+    def denominators(self) -> dict[str, int]:
+        """The denominator of every mean and rate in the report, by name."""
+        return {
+            "mean_iou_located": self.present_located,
+            "mean_iou_present": self.n_present,
+            "hit_rate": self.n_present,
+            "false_positive_rate": self.n_absent,
+            "correct_absent_rate": self.n_absent,
+        }
+
+    def __str__(self) -> str:
+        located = _mean(self.mean_iou_located, self.present_located, "located present targets")
+        overall = _mean(self.mean_iou_present, self.n_present, "all present targets")
+        return "\n".join(
+            [
+                f"Localization report: {self.n_total} examples "
+                f"({self.n_present} present + {self.n_absent} absent), each counted once",
+                f"Present targets (n = {self.n_present}): box returned {self.present_located}, "
+                f"said absent (missed) {self.present_missed}, sent to review {self.present_review}",
+                f"  mean IoU over located present targets: {located}",
+                f"  mean IoU over all present targets, missed and review counted as 0: {overall}",
+                f"  hit rate at IoU >= {self.iou_threshold:g}: "
+                + _share(self.hits, self.n_present, "all present targets"),
+                f"Absent targets (n = {self.n_absent}): box returned (false positive) "
+                f"{self.false_positives}, correct absent {self.correct_absents}, "
+                f"sent to review {self.absent_review}",
+                "  false positive rate: "
+                + _share(self.false_positives, self.n_absent, "all absent targets"),
+                "  correct absent rate: "
+                + _share(self.correct_absents, self.n_absent, "all absent targets"),
+            ]
+        )
+
+
+def localization_report(
+    gold: Iterable[Any], outcomes: Iterable[Any], *, iou_threshold: float = 0.5
+) -> LocalizationReport:
+    """Score Box outcomes against gold Box labels without letting any example drop out.
+
+    ``gold`` holds one label per example in the format :func:`gold_box` decodes (a malformed
+    or degenerate label raises). ``outcomes`` holds one pair per example, produced by the
+    recipe's presence and confidence policy: ``("located", box)``, ``("absent", None)`` or
+    ``("review", None)``. A review is never an absent prediction, and a returned rectangle
+    is never evidence the target exists: a ``located`` box on absent gold is a false
+    positive. Every example lands in exactly one cell of the present or absent table. An
+    example is a hit when its IoU is at least ``iou_threshold``, a number in (0, 1].
+    Empty or unequal-length inputs, an unknown outcome kind, a ``located`` outcome without
+    a valid box, or a box attached to ``absent``/``review`` raise ``ValueError``.
+    """
+    if isinstance(iou_threshold, bool) or not isinstance(iou_threshold, Real):
+        raise ValueError("iou_threshold must be a number in (0, 1]")
+    if not (math.isfinite(iou_threshold) and 0 < iou_threshold <= 1):
+        raise ValueError("iou_threshold must be a number in (0, 1]")
+    targets, results = list(gold), list(outcomes)
+    if not targets or len(targets) != len(results):
+        raise ValueError("gold and outcomes must be nonempty and have the same length")
+    present_table = dict.fromkeys(_OUTCOMES, 0)
+    absent_table = dict.fromkeys(_OUTCOMES, 0)
+    ious: list[float | None] = []
+    for index, (label, outcome) in enumerate(zip(targets, results, strict=True)):
+        try:
+            target = gold_box(label)
+            if (
+                isinstance(outcome, (str, bytes))
+                or not isinstance(outcome, (tuple, list))
+                or len(outcome) != 2
+            ):
+                raise ValueError("an outcome must be a (kind, box-or-None) pair")
+            kind, box = outcome
+            if kind not in _OUTCOMES:
+                raise ValueError(f"outcome kind must be one of {_OUTCOMES}, not {kind!r}")
+            if kind == "located":
+                guess = normalized_box(box)
+            elif box is not None:
+                raise ValueError(f"a {kind!r} outcome must carry None, not a box")
+        except ValueError as exc:
+            raise ValueError(f"example {index}: {exc}") from exc
+        if target is None:
+            absent_table[kind] += 1
+            ious.append(None)
+        else:
+            present_table[kind] += 1
+            ious.append(box_iou(target, guess) if kind == "located" else None)
+    overlaps = [value for value in ious if value is not None]
+    n_present, n_absent = sum(present_table.values()), sum(absent_table.values())
+    hits = sum(value >= iou_threshold for value in overlaps)
+    # Targets that are not located score 0 in the all-present mean, so its sum is the located sum.
+    return LocalizationReport(
+        n_total=len(targets),
+        n_present=n_present,
+        n_absent=n_absent,
+        present_located=present_table["located"],
+        present_missed=present_table["absent"],
+        present_review=present_table["review"],
+        false_positives=absent_table["located"],
+        correct_absents=absent_table["absent"],
+        absent_review=absent_table["review"],
+        iou_threshold=float(iou_threshold),
+        hits=hits,
+        mean_iou_located=math.fsum(overlaps) / len(overlaps) if overlaps else float("nan"),
+        mean_iou_present=math.fsum(overlaps) / n_present if n_present else float("nan"),
+        hit_rate=_rate(hits, n_present),
+        ious=tuple(ious),
     )
 
 

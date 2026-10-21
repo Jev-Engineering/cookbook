@@ -123,7 +123,8 @@ touching rectangles and one for identical rectangles. A valid but vanishingly sm
 (for example 1e-200 wide) has an area that underflows to zero; when both do, the union is
 zero and `box_iou` (and `localization_metrics`) raise `ValueError` rather than invent a score.
 Because the union is at least as large as each area, this happens only when both boxes
-underflow, so in `localization_metrics` it means a degenerate gold label: fix the fixture.
+underflow, so against a gold box it means a degenerate gold label: `gold_box` rejects
+such a label up front, so fix the fixture.
 
 ## Presence, confidence and evaluation
 
@@ -153,12 +154,117 @@ def localization_outcome(answer, presence, threshold):
 
 Choose the presence and confidence thresholds on validation examples and freeze
 them before evaluating the test split. Keep reviews in the recipe's review queue
-and account for them with `evaluation.evaluate_outcomes`; a review is not a claim
-that the target is absent.
+and account for them in `localization_report` (and, for the overall review rate,
+`evaluation.evaluate_outcomes`); a review is not a claim that the target is absent.
 
-`localization_metrics(gold, predicted)` accepts equally sized, nonempty sequences.
-Here `None` explicitly labels absence. Apply it to resolved outcomes and report
-review counts separately:
+### Gold labels
+
+A Box recipe labels every example with a gold Box label (specified in
+[Box labels](fixtures.md#box-labels)): `{"present": true, "box": {"top": ..., "bottom": ...,
+"left": ..., "right": ...}}` when the target is in the image, `{"present": false}` when it is
+not. `gold_box(label)` decodes one: it returns the validated normalized rectangle for a
+present target and `None` for an absent one, and raises `ValueError` for anything malformed,
+including a `box` on an absent label, a non-boolean `present`, edges outside [0, 1], zero
+width or height, and a box so small its area underflows to zero (which `box_iou` cannot score).
+The fixture validator applies the same check to every label file that uses the format.
+
+### The localization report
+
+`localization_report(gold, outcomes, *, iou_threshold=0.5)` is the entry every Box recipe
+reports through. `gold` is one gold Box label per example; `outcomes` is one pair per example
+from the localization policy above: `("located", box)`, `("absent", None)` or
+`("review", None)`. Nothing is filtered, so no example can leave a denominator: each lands in
+exactly one cell of a present table or an absent table.
+
+| Gold | `located` (a box was returned) | `absent` | `review` |
+| --- | --- | --- | --- |
+| present | IoU is scored | missed (`present_missed`) | `present_review` |
+| absent | false positive (`false_positives`) | correct absent (`correct_absents`) | `absent_review` |
+
+A returned rectangle never proves a target exists, so a `located` box on absent gold is a
+false positive, never an IoU. A review is never an absent prediction. The report states:
+
+- `n_total`, `n_present`, `n_absent`;
+- `mean_iou_located`: mean IoU over located present targets, denominator `present_located`;
+- `mean_iou_present`: mean IoU over all present targets with missed and reviewed targets
+  counted as 0, denominator `n_present`;
+- `hit_rate`: located present targets with IoU at or above `iou_threshold` (default 0.5),
+  over `n_present`;
+- `false_positives` and `false_positive_rate` (over `n_absent`), `correct_absents` and
+  `correct_absent_rate` (over `n_absent`), `absent_review`.
+
+A mean or rate whose denominator is zero is NaN (and prints `n/a`), never 0. `str(report)`
+names every denominator, and `report.denominators` returns them by metric name.
+
+```python
+from jev_cookbook.vision import localization_report
+
+G = {"top": 0.0, "bottom": 0.5, "left": 0.0, "right": 0.5}
+HALF = {"top": 0.0, "bottom": 0.25, "left": 0.0, "right": 0.5}  # IoU 0.5 with G
+present, absent = {"present": True, "box": G}, {"present": False}
+
+report = localization_report(
+    gold=[present, present, present, present, absent, absent, absent],
+    outcomes=[
+        ("located", G),  # IoU 1.0
+        ("located", HALF),  # IoU 0.5
+        ("review", None),  # a present target in review keeps its place in the denominator
+        ("absent", None),  # a present target called absent: missed
+        ("located", G),  # a box returned for an absent target: a false positive
+        ("absent", None),  # correct absent
+        ("review", None),
+    ],
+)
+assert (report.n_total, report.n_present, report.n_absent) == (7, 4, 3)
+assert report.present_table == {"located": 2, "absent": 1, "review": 1}
+assert report.absent_table == {"located": 1, "absent": 1, "review": 1}
+assert report.mean_iou_located == 0.75  # (1.0 + 0.5) / 2 located present targets
+assert report.mean_iou_present == 0.375  # (1.0 + 0.5) / 4 present targets
+assert report.hit_rate == 0.5  # 2 of 4 present targets at IoU >= 0.5
+print(report)
+```
+
+```text
+Localization report: 7 examples (4 present + 3 absent), each counted once
+Present targets (n = 4): box returned 2, said absent (missed) 1, sent to review 1
+  mean IoU over located present targets: 0.7500 (denominator 2: located present targets)
+  mean IoU over all present targets, missed and review counted as 0: 0.3750 (denominator 4: all present targets)
+  hit rate at IoU >= 0.5: 2/4 = 0.5000 (denominator 4: all present targets)
+Absent targets (n = 3): box returned (false positive) 1, correct absent 1, sent to review 1
+  false positive rate: 1/3 = 0.3333 (denominator 3: all absent targets)
+  correct absent rate: 1/3 = 0.3333 (denominator 3: all absent targets)
+```
+
+`tests/test_vision.py` runs this example and compares the printed text. Malformed gold,
+an unknown outcome kind, a `located` outcome without a valid box, a box attached to `absent`
+or `review`, empty or unequal-length inputs and an `iou_threshold` outside (0, 1] raise
+`ValueError` naming the example index. Choose `iou_threshold` and the presence policy on
+validation examples and freeze them before scoring the test split.
+
+### Tiled and hierarchical recipes
+
+When a recipe tiles the image (a Choice picks the tile, then a Box locates the target inside
+it), one example is one image, not one tile. A target can be present in the full image and
+absent from most tiles, so counting tiles would make `n_total` a tile count and
+`correct_absent_rate` mostly a measure of empty tiles.
+
+- The headline report is per image. `gold` is the full-image gold Box label (stored once,
+  see [Box labels](fixtures.md#box-labels)) and each outcome is the final rectangle after
+  `tile_to_image`.
+- Map the stage-1 result to an outcome before reporting: a stage-1 "no match" on an image
+  whose gold is present is `("absent", None)` (a miss); an uncertain tile choice, or an
+  uncertain Box in the chosen tile, is `("review", None)`.
+- A per-tile report is a stage diagnostic. Label it as counting tiles, never quote it as the
+  recipe's result, and state its rule for a target a tile edge cuts (the minimum visible
+  fraction of the box that makes the target "present" in that tile), because that rule
+  changes the per-tile denominators.
+
+### The older `localization_metrics`
+
+`localization_metrics(gold, predicted)` is kept for compatibility. It takes `None` for an
+absent target, so the caller has to drop reviewed examples before calling it, and a present
+target sent to review then silently leaves the `mean_iou` denominator. It also reports no
+correct-absent count and no hit rate. Use `localization_report` in new work.
 
 ```python
 from jev_cookbook.vision import localization_metrics
