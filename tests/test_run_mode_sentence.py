@@ -33,9 +33,10 @@ NOTEBOOKS = sorted(REPO.glob("recipes/*/notebook.ipynb"))
 PARAGRAPH = (
     "Two labels may follow a number below. `(a pipeline check, not a Jev result)` marks a "
     "synthetic or scripted run; a recorded or live run does not print it, and its header says "
-    "which mode ran. `(a selection step, not a reported result)` marks a number used to choose "
-    "a setting on `validation`. A line with neither label, such as an individual answer or a "
-    "per-example line, still comes from the mode the header names."
+    "which mode ran. `(a selection step, not a reported result)` marks a number from "
+    "`validation`, the split settings are chosen on; it is never a result to report. A line "
+    "with neither label, such as an individual answer or a per-example line, still comes from "
+    "the mode the header names."
 )
 CHECK = "a pipeline check, not a Jev result"
 SELECTION = "a selection step, not a reported result"
@@ -85,6 +86,9 @@ def test_the_old_false_sentence_is_gone_everywhere():
         raw = path.read_text("utf-8")
         assert "carries that mode" not in raw, path
         assert "labelled a selection step instead" not in raw, path
+        # B4: most selection-labelled lines report what the frozen rule does on validation after
+        # the choice; they are not numbers that chose anything (recipe 28's own prose says so).
+        assert "marks a number used to choose" not in raw, path
 
 
 def test_exactly_the_expected_notebooks_carry_the_paragraph():
