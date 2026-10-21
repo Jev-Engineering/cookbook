@@ -123,7 +123,8 @@ touching rectangles and one for identical rectangles. A valid but vanishingly sm
 (for example 1e-200 wide) has an area that underflows to zero; when both do, the union is
 zero and `box_iou` (and `localization_metrics`) raise `ValueError` rather than invent a score.
 Because the union is at least as large as each area, this happens only when both boxes
-underflow, so in `localization_metrics` it means a degenerate gold label: fix the fixture.
+underflow, so against a gold box it means a degenerate gold label: `gold_box` rejects
+such a label up front, so fix the fixture.
 
 ## Presence, confidence and evaluation
 
@@ -153,12 +154,117 @@ def localization_outcome(answer, presence, threshold):
 
 Choose the presence and confidence thresholds on validation examples and freeze
 them before evaluating the test split. Keep reviews in the recipe's review queue
-and account for them with `evaluation.evaluate_outcomes`; a review is not a claim
-that the target is absent.
+and account for them in `localization_report` (and, for the overall review rate,
+`evaluation.evaluate_outcomes`); a review is not a claim that the target is absent.
 
-`localization_metrics(gold, predicted)` accepts equally sized, nonempty sequences.
-Here `None` explicitly labels absence. Apply it to resolved outcomes and report
-review counts separately:
+### Gold labels
+
+A Box recipe labels every example with a gold Box label (specified in
+[Box labels](fixtures.md#box-labels)): `{"present": true, "box": {"top": ..., "bottom": ...,
+"left": ..., "right": ...}}` when the target is in the image, `{"present": false}` when it is
+not. `gold_box(label)` decodes one: it returns the validated normalized rectangle for a
+present target and `None` for an absent one, and raises `ValueError` for anything malformed,
+including a `box` on an absent label, a non-boolean `present`, edges outside [0, 1], zero
+width or height, and a box so small its area underflows to zero (which `box_iou` cannot score).
+The fixture validator applies the same check to every label file that uses the format.
+
+### The localization report
+
+`localization_report(gold, outcomes, *, iou_threshold=0.5)` is the entry every Box recipe
+reports through. `gold` is one gold Box label per example; `outcomes` is one pair per example
+from the localization policy above: `("located", box)`, `("absent", None)` or
+`("review", None)`. Nothing is filtered, so no example can leave a denominator: each lands in
+exactly one cell of a present table or an absent table.
+
+| Gold | `located` (a box was returned) | `absent` | `review` |
+| --- | --- | --- | --- |
+| present | IoU is scored | missed (`present_missed`) | `present_review` |
+| absent | false positive (`false_positives`) | correct absent (`correct_absents`) | `absent_review` |
+
+A returned rectangle never proves a target exists, so a `located` box on absent gold is a
+false positive, never an IoU. A review is never an absent prediction. The report states:
+
+- `n_total`, `n_present`, `n_absent`;
+- `mean_iou_located`: mean IoU over located present targets, denominator `present_located`;
+- `mean_iou_present`: mean IoU over all present targets with missed and reviewed targets
+  counted as 0, denominator `n_present`;
+- `hit_rate`: located present targets with IoU at or above `iou_threshold` (default 0.5),
+  over `n_present`;
+- `false_positives` and `false_positive_rate` (over `n_absent`), `correct_absents` and
+  `correct_absent_rate` (over `n_absent`), `absent_review`.
+
+A mean or rate whose denominator is zero is NaN (and prints `n/a`), never 0. `str(report)`
+names every denominator, and `report.denominators` returns them by metric name.
+
+```python
+from jev_cookbook.vision import localization_report
+
+G = {"top": 0.0, "bottom": 0.5, "left": 0.0, "right": 0.5}
+HALF = {"top": 0.0, "bottom": 0.25, "left": 0.0, "right": 0.5}  # IoU 0.5 with G
+present, absent = {"present": True, "box": G}, {"present": False}
+
+report = localization_report(
+    gold=[present, present, present, present, absent, absent, absent],
+    outcomes=[
+        ("located", G),  # IoU 1.0
+        ("located", HALF),  # IoU 0.5
+        ("review", None),  # a present target in review keeps its place in the denominator
+        ("absent", None),  # a present target called absent: missed
+        ("located", G),  # a box returned for an absent target: a false positive
+        ("absent", None),  # correct absent
+        ("review", None),
+    ],
+)
+assert (report.n_total, report.n_present, report.n_absent) == (7, 4, 3)
+assert report.present_table == {"located": 2, "absent": 1, "review": 1}
+assert report.absent_table == {"located": 1, "absent": 1, "review": 1}
+assert report.mean_iou_located == 0.75  # (1.0 + 0.5) / 2 located present targets
+assert report.mean_iou_present == 0.375  # (1.0 + 0.5) / 4 present targets
+assert report.hit_rate == 0.5  # 2 of 4 present targets at IoU >= 0.5
+print(report)
+```
+
+```text
+Localization report: 7 examples (4 present + 3 absent), each counted once
+Present targets (n = 4): box returned 2, said absent (missed) 1, sent to review 1
+  mean IoU over located present targets: 0.7500 (denominator 2: located present targets)
+  mean IoU over all present targets, missed and review counted as 0: 0.3750 (denominator 4: all present targets)
+  hit rate at IoU >= 0.5: 2/4 = 0.5000 (denominator 4: all present targets)
+Absent targets (n = 3): box returned (false positive) 1, correct absent 1, sent to review 1
+  false positive rate: 1/3 = 0.3333 (denominator 3: all absent targets)
+  correct absent rate: 1/3 = 0.3333 (denominator 3: all absent targets)
+```
+
+`tests/test_vision.py` runs this example and compares the printed text. Malformed gold,
+an unknown outcome kind, a `located` outcome without a valid box, a box attached to `absent`
+or `review`, empty or unequal-length inputs and an `iou_threshold` outside (0, 1] raise
+`ValueError` naming the example index. Choose `iou_threshold` and the presence policy on
+validation examples and freeze them before scoring the test split.
+
+### Tiled and hierarchical recipes
+
+When a recipe tiles the image (a Choice picks the tile, then a Box locates the target inside
+it), one example is one image, not one tile. A target can be present in the full image and
+absent from most tiles, so counting tiles would make `n_total` a tile count and
+`correct_absent_rate` mostly a measure of empty tiles.
+
+- The headline report is per image. `gold` is the full-image gold Box label (stored once,
+  see [Box labels](fixtures.md#box-labels)) and each outcome is the final rectangle after
+  `tile_to_image`.
+- Map the stage-1 result to an outcome before reporting: a stage-1 "no match" on an image
+  whose gold is present is `("absent", None)` (a miss); an uncertain tile choice, or an
+  uncertain Box in the chosen tile, is `("review", None)`.
+- A per-tile report is a stage diagnostic. Label it as counting tiles, never quote it as the
+  recipe's result, and state its rule for a target a tile edge cuts (the minimum visible
+  fraction of the box that makes the target "present" in that tile), because that rule
+  changes the per-tile denominators.
+
+### The older `localization_metrics`
+
+`localization_metrics(gold, predicted)` is kept for compatibility. It takes `None` for an
+absent target, so the caller has to drop reviewed examples before calling it, and a present
+target sent to review then silently leaves the `mean_iou` denominator. It also reports no
+correct-absent count and no hit rate. Use `localization_report` in new work.
 
 ```python
 from jev_cookbook.vision import localization_metrics
@@ -227,6 +333,115 @@ timestamp. Explicit times avoid assuming that filenames or frame indexes encode
 real elapsed time. The helper reads extracted PNG/JPEG files; it makes no native
 video claim. If video is the source, decode and sample it separately and record the
 actual selected timestamps.
+
+### Sampling, intervals and windows
+
+`jev_cookbook.frames` (pure Python, no Pillow, no model call) holds the deterministic
+arithmetic on a state-frame list. It is a separate module, not part of `vision`, and
+`jev_cookbook.frames` is the one import path. No video is decoded anywhere in the cookbook:
+frames are stills that were already extracted, and the timestamps you pass are the truth,
+**elapsed seconds since the start of the sequence** (never Unix time; the 1e-9 s slack below
+is meaningless at epoch scale). Python owns order, sampling and every time calculation; the
+model only sees the rows you choose to send. The block below continues from the `frames`
+loaded above (timestamps 0.0, 0.75 and 1.5 s):
+
+```python
+from jev_cookbook.frames import (
+    earliest_transition,
+    frame_at,
+    frame_intervals,
+    frame_timestamps,
+    frame_windows,
+    relative_frames,
+    sample_frames,
+    select_frames,
+    transition_time,
+    window_timestamps,
+)
+
+times = frame_timestamps(frames)  # validated: finite, nonnegative, strictly increasing
+chosen = sample_frames(times, every_seconds=0.5)  # [0, 1, 2]: ascending, no repeats
+sampled = select_frames(frames, chosen)  # copies of those rows, each with frame_index
+gaps = frame_intervals(sampled)  # [0.75, 0.75]: seconds between rows, n - 1 values
+labelled = relative_frames(sampled)  # seconds_ago = last time - time: 1.5, 0.75, 0.0
+window = window_timestamps(sampled, 1, 2)  # start 0.75, end 1.5, duration 0.75 seconds
+```
+
+`sample_frames(timestamps, *, every_seconds=None, count=None, start=None, end=None)`:
+
+- `start` / `end` bound an inclusive window (default: first and last timestamp). A window with
+  no frame raises rather than returning nothing.
+- `every_seconds`: targets are `window_start + k * every_seconds` (multiplied, never
+  accumulated) up to `end`. Each target takes the **nearest** frame in the window; **a tie
+  goes to the earlier frame**. Frames within the 1e-9 s slack of each other are not
+  distinguishable by time: the rule is guaranteed for up to two such frames around a target, and
+  real elapsed-time data does not contain them. Repeats are
+  dropped, so a sparse sequence returns fewer indices than targets. Use this when even
+  spacing **in time** matters.
+- `count`: exactly `count` frames spread by **position**, not by time, across the window,
+  always including its first and last frame (`count=1` keeps the first). With uneven gaps this
+  is not uniform in time: `[0, .1, .2, .3, 10]` with `count=3` keeps 0.0, 0.2 and 10.0.
+  Position `i` is the frame at `round(i * (n - 1) / (count - 1))`, an exact half **rounding
+  down to the earlier frame**, in integer arithmetic. A `count` of at least the window size
+  returns every frame.
+- At most one of `every_seconds` and `count`; with neither, the whole window is kept.
+- Comparisons carry 1e-9 s of slack (`frames.TIME_EPSILON`), so `0.1 + 0.2` against `0.3`
+  cannot flip a boundary or a tie. Empty input, a duplicate, reversed, negative or non-finite
+  time, and a non-positive rate raise `ValueError`. Rates need not be integers.
+
+Other helpers:
+
+- `frame_intervals` returns `[]` for one frame. `relative_frames(frames, now=None)` copies each
+  row, keeps its order and other keys, and adds `seconds_ago = now - timestamp_seconds`; `now`
+  defaults to the last frame (whose `seconds_ago` is `0.0`) and may not be earlier than it.
+  The [Images documentation](https://docs.typesafe.ai/images) recommends relative labels for
+  frame histories, oldest first; drop `timestamp_seconds` from the state if the model should
+  see only `seconds_ago`, and drop `frame_index` too (`select_frames` adds it, and it is part of
+  the row you send as state).
+- `window_timestamps(frames, first_index, last_index)` maps an inclusive index window (for
+  example a candidate highlight window) back to seconds. Its duration runs from the first to
+  the last frame in the window, so a window of `k` frames at gap `g` has duration `(k - 1) * g`.
+- `frame_at(timestamps, seconds, *, side="before")` returns the index of the frame at or
+  before (`"before"`), at or after (`"after"`) or nearest to (`"nearest"`, ties to the earlier
+  frame) a log line or recorded agent-state time; it raises when no frame qualifies.
+- `frame_windows(timestamps, *, width_seconds, stride_seconds)` enumerates sliding windows
+  (ranks 89 and 92) as `{"window_start_seconds", "window_end_seconds", "indices"}`, edges
+  inclusive, only windows that fit by stride. If the last of those stops short of the end, one
+  final window aligned to the end (`[end - width, end]`) is added: frames every 0.5 s to 8 s
+  with width 3 and stride 2 give windows starting at 0, 2, 4 and 5. **Every frame lies in some
+  window only when `stride_seconds <= width_seconds`.** A larger stride gives deliberately
+  sparse windows: with frames every second to 10 s, width 1 and stride 5 the windows are
+  `[0, 1]`, `[5, 6]` and `[9, 10]`, so frames 2, 3, 4, 7 and 8 are in none, and nothing is
+  raised. Use a stride no larger than the width when every frame must be scored. A window in
+  a gap is kept with `indices == []`, so the recipe decides what an empty window means.
+- `transition_time(frames, first_new_index)` and `earliest_transition(frames, changed)` apply
+  the cookbook's single convention for when a transition happened: the timestamp of the
+  **first frame in which the new state is visible**. `changed[i]` is the answer to "did the
+  state change between frame `i` and `i + 1`?" (`True`, `False`, or `None` for an undetermined
+  pair); the first `True` gives that time, but an undetermined pair before it returns
+  `{"review": True, ...}` instead of a later transition. Gold labels
+  use the same rule, and the metric that compares them is `evaluation.transition_metrics`
+  ([evaluation.md](evaluation.md)), whose tolerance should be at least the largest sampled gap.
+
+**Index spaces.** `sample_frames` returns indices into the list it was given. `select_frames`
+copies the rows and adds `frame_index`, the position in the list selected from (kept when you
+select from a selection), so a pair index found on the sampled list can be mapped back to the
+original sequence. `window_timestamps`, `earliest_transition` and `transition_time` take
+indices into the list you hand them: pass the sampled list with sampled indices, never the
+full list.
+
+**Record what was selected.** Sampling changes what the recipe measures, so store the
+selection in the example's `fields` rather than recomputing it silently:
+
+```python
+fields = {
+    "frames": [
+        {"timestamp_seconds": row["timestamp_seconds"], "frame_index": row["frame_index"]}
+        for row in sampled
+    ],
+    "sampling": {"every_seconds": 0.5, "start": None, "end": None, "indices": chosen},
+}
+```
 
 ## Honest accounting
 

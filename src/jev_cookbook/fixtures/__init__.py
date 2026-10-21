@@ -553,6 +553,35 @@ def _check_examples(
     return problems
 
 
+def _check_box_labels(
+    labels: dict[str, Any], label_lines: dict[str, int], name: str
+) -> list[Problem]:
+    """A recipe whose labels are Box labels must use the gold Box label format everywhere.
+
+    A top-level label object with a ``present`` key declares the format (``docs/fixtures.md``,
+    "Box labels"): every such label must decode with ``vision.gold_box``, and once one label
+    declares it, a label that does not (a bare box, a string) is an error, not a quiet skip.
+    A label that nests a Box label under another key is not seen here.
+    """
+    declared = {i for i, v in labels.items() if isinstance(v, Mapping) and "present" in v}
+    if not declared:
+        return []
+    from ..vision import gold_box  # deferred: validating other recipes needs no Pillow
+
+    problems: list[Problem] = []
+    for ident, label in labels.items():
+        if ident not in declared:
+            msg = "label is not a Box label ({'present': ...}) but this recipe's other labels are"
+        else:
+            try:
+                gold_box(label)
+                continue
+            except ValueError as exc:
+                msg = f"malformed Box label: {exc}"
+        problems.append(Problem(name, msg, label_lines[ident], ident))
+    return problems
+
+
 def _check_responses(
     examples: list[Example], responses: Mapping[str, Any], name: str
 ) -> list[Problem]:
@@ -692,6 +721,8 @@ def validate_recipe(recipe_dir: PathLike | None = None) -> Report:
     if inputs_ok:
         names = (_display(inputs_path), _display(labels_path))
         problems += _check_examples(examples, labels if labels_ok else None, label_lines, names)
+        if labels_ok:
+            problems += _check_box_labels(labels, label_lines, names[1])
     if replays and None not in responses_files:
         # Listed keys need the default file; with no key listed it is simply not needed.
         problems.append(Problem(_display(folder / RESPONSES_FILE), "file is missing"))
