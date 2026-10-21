@@ -623,6 +623,27 @@ def test_decision_result_validation():
     assert DecisionResult({"a": syn}, SYNTHETIC_MODEL).source == "synthetic"
 
 
+def test_decision_result_membership_and_iteration_by_question_name():
+    result = recorded_result()
+    names = list(result.answers)
+    assert names  # the loop below must not be vacuous
+    for name in names:
+        assert (name in result) is True
+        assert (name not in result) is False
+    # An absent name answers False; it does not fall back to result[0], result[1], ...
+    # and raise KeyError(0).
+    assert ("not_a_question" in result) is False
+    assert ("not_a_question" not in result) is True
+    # Names are non-empty str, so anything else is absent rather than an error.
+    for other in (0, 1, None, b"billing", ("billing",), [], {}):
+        assert (other in result) is False
+    # Iteration yields the names, in answer order, instead of raising KeyError(0).
+    assert list(result) == names
+    assert [result[name] for name in result] == list(result.answers.values())
+    with pytest.raises(KeyError):
+        result[0]
+
+
 def test_provenance_is_required_and_recorded_needs_a_date():
     base = recorded_result().to_dict()
     for name in ("billing", "tone", "urgency"):
