@@ -319,6 +319,12 @@ def require_pid_namespace_if_demanded() -> None:
 
 
 KILL_OTHER_PROCESSES_TIMEOUT = 2.0
+# ``signal.SIGKILL`` does not exist on Windows. The helper below only ever signals anything inside
+# a Linux PID namespace (``in_an_isolated_pid_namespace()`` is false elsewhere), so the fallback is
+# never used to kill a real process; it only lets the helper's unit tests (which mock
+# ``os.kill``) run there.
+# On Linux this is exactly ``signal.SIGKILL``.
+_KILL_SIGNAL = getattr(signal, "SIGKILL", signal.SIGTERM)
 
 
 def kill_everyone_else_in_my_pid_namespace(timeout: float = KILL_OTHER_PROCESSES_TIMEOUT) -> None:
@@ -348,7 +354,7 @@ def kill_everyone_else_in_my_pid_namespace(timeout: float = KILL_OTHER_PROCESSES
             return
         for pid in alive:
             try:
-                os.kill(pid, signal.SIGKILL)
+                os.kill(pid, _KILL_SIGNAL)
             except ProcessLookupError:
                 pass
         time.sleep(0.01)
