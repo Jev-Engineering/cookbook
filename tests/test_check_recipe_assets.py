@@ -849,12 +849,140 @@ def test_a_png_crc_error_is_reported_as_a_crc_error():
     assert "bad CRC in chunk IEND" in findings(entry(f"{A}/b.png", bytes(data)))[0].message
 
 
+def adam7_length_by_counting(width, height, bits_per_pixel) -> int:
+    """Independent of the tool: count the pixels of every Adam7 pass one by one."""
+    starts = [
+        (0, 0, 8, 8),
+        (4, 0, 8, 8),
+        (0, 4, 4, 8),
+        (2, 0, 4, 4),
+        (0, 2, 2, 4),
+        (1, 0, 2, 2),
+        (0, 1, 1, 2),
+    ]
+    total = 0
+    for x0, y0, dx, dy in starts:
+        columns = len(range(x0, width, dx))
+        rows = len(range(y0, height, dy))
+        if columns and rows:
+            total += rows * (1 + (columns * bits_per_pixel + 7) // 8)
+    return total
+
+
+def interlaced_png(width=320, height=320, bits=24, extra=0) -> bytes:
+    header = ihdr(width, height, 8, 2)[:-1] + b"\x01"
+    raw = bytes(adam7_length_by_counting(width, height, bits) + extra)
+    return png_rebuilt([(b"IHDR", header), (b"IDAT", zlib.compress(raw)), (b"IEND", b"")])
+
+
 def test_sixteen_bit_and_interlaced_pngs_are_accepted():
     assert only(f"{A}/deep.png", raw_png(2, 16)) == []
-    data = png_edit(
-        png(), lambda c: c.__setitem__(0, (b"IHDR", ihdr(320, 320, 8, 2)[:-1] + b"\x01"))
+    assert only(f"{A}/inter.png", interlaced_png()) == []
+    assert only(f"{A}/inter2.png", interlaced_png(333, 301)) == []
+
+
+def test_the_inflated_idat_length_must_match_the_image_header():
+    assert only(f"{A}/a.png", interlaced_png(extra=1)) == ["png-structure"]
+    assert only(f"{A}/b.png", interlaced_png(extra=-1)) == ["png-structure"]
+
+    # Text appended to the pixel rows inside the zlib stream, in a plain PNG.
+    def pad(chunks):
+        i = next(i for i, (k, _) in enumerate(chunks) if k == b"IDAT")
+        raw = zlib.decompress(chunks[i][1]) + TEXT
+        chunks[i] = (b"IDAT", zlib.compress(raw))
+
+    found = findings(entry(f"{A}/c.png", png_edit(png(), pad)))
+    assert [f.rule for f in found] == ["png-structure"]
+    assert "the image header implies" in found[0].message
+
+    def short(chunks):
+        i = next(i for i, (k, _) in enumerate(chunks) if k == b"IDAT")
+        chunks[i] = (b"IDAT", zlib.compress(zlib.decompress(chunks[i][1])[:-3]))
+
+    assert only(f"{A}/d.png", png_edit(png(), short)) == ["png-structure"]
+
+
+@pytest.mark.parametrize(
+    ("colour", "depth"), [(0, 1), (0, 8), (2, 8), (2, 16), (3, 4), (4, 8), (6, 16)]
+)
+def test_expected_length_covers_every_colour_type_and_depth(colour, depth):
+    palette = bytes(3 * 2**depth) if colour == 3 else b""
+    assert only(f"{A}/a.png", raw_png(colour, depth, width=333, height=301, palette=palette)) == []
+    width = 333
+    assert assets.png_raw_length(width, 5, colour, depth, 0) == 5 * (
+        1 + (width * {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}[colour] * depth + 7) // 8
     )
-    assert only(f"{A}/inter.png", data) == []
+
+
+@pytest.mark.parametrize(
+    ("kind", "body"),
+    [
+        (b"gAMA", bytes(4)),
+        (b"cHRM", bytes(32)),
+        (b"sRGB", b"\x00"),
+        (b"pHYs", PHYS),
+        (b"sBIT", b"\x08\x08\x08"),
+        (b"bKGD", bytes(6)),
+        (b"tRNS", bytes(6)),
+    ],
+)
+def test_a_png_chunk_that_may_appear_only_once_is_rejected_when_repeated(kind, body):
+    assert only(f"{A}/a.png", raw_png(2, 8, extra=[(kind, body)])) == []
+    found = findings(entry(f"{A}/b.png", raw_png(2, 8, extra=[(kind, body), (kind, body)])))
+    assert [f.rule for f in found] == ["png-metadata"]
+    assert "more than once" in found[0].message
+
+
+def test_a_second_exact_jfif_header_is_rejected():
+    def duplicate(segments):
+        segments.insert(1, (0xE0, segments[0][1]))  # byte-for-byte the same valid 16-byte header
+
+    found = findings(entry(f"{A}/a.jpg", jpeg_edit(duplicate)))
+    assert [f.rule for f in found] == ["jpeg-metadata"]
+    assert "second or late APP0" in found[0].message
+
+
+def test_a_late_jfif_header_after_the_frame_is_rejected():
+    def late(segments):
+        i = next(i for i, (m, _) in enumerate(segments) if m == 0xDA)
+        segments.insert(i, (0xE0, segments[0][1]))
+
+    found = findings(entry(f"{A}/a.jpg", jpeg_edit(late)))
+    assert [f.rule for f in found] == ["jpeg-metadata"]
+
+
+def test_the_jpeg_marker_allowlist_refuses_unknown_markers_even_with_a_valid_table_body():
+    # A body that would parse as an empty Huffman table (17 zero bytes) must not rescue a marker
+    # that is not on the allowlist: only the allowlist stops it.
+    for marker in (0xDC, 0xDE, 0xDF, 0xF0, 0xF8, 0x02, 0x4F):
+        found = findings(
+            entry(f"{A}/a.jpg", jpeg_edit(lambda s, m=marker: s.insert(1, (m, bytes(17)))))
+        )
+        assert [f.rule for f in found] == ["jpeg-structure"], hex(marker)
+        assert "is not one a baseline JPEG fixture may contain" in found[0].message, hex(marker)
+    # The same table body under the real DHT marker is a well-formed (if useless) table.
+    assert only(f"{A}/b.jpg", jpeg_edit(lambda s: s.insert(1, (0xC4, bytes(17))))) == []
+
+
+def test_only_one_matplotlib_software_line_is_allowed_in_an_embedded_png():
+    def with_text(*texts):
+        def add(chunks):
+            for text in texts:
+                chunks.insert(1, (b"tEXt", text))
+
+        return png_edit(png(), add)
+
+    good = b"Software\x00Matplotlib version3.10.9, https://matplotlib.org/"
+    assert assets.inspect_embedded("image/png", with_text(good)) == []
+    for bad in (
+        (good, good),
+        (b"Software\x00Jane Doe wrote this at C:\\Users\\jane",),
+        (b"Software\x00Matplotlib version3.10.9, https://matplotlib.org/ and more text",),
+        (b"Author\x00Matplotlib version3.10.9, https://matplotlib.org/",),
+        (good, b"Comment\x00hello"),
+    ):
+        found = assets.inspect_embedded("image/png", with_text(*bad))
+        assert [f.rule for f in found] == ["png-metadata"], bad
 
 
 # -- content sniffing outside assets/ -----------------------------------------------------------

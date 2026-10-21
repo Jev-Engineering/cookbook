@@ -67,7 +67,12 @@ SKIP_EXECUTION_TAGS = frozenset({"skip-execution"})
 MAX_OUTPUT_BYTES = 2 * 1024 * 1024
 
 # An image written into a text cell or output as a data URI.
-DATA_IMAGE_URI = re.compile(r"data:image/([A-Za-z0-9.+-]+);base64,([A-Za-z0-9+/=\s]+)")
+DATA_IMAGE_URI = re.compile(
+    r"data:\s*image/([\w.+-]+)(?:;[^;,]*)*;base64,([A-Za-z0-9+/=\s]+)", re.IGNORECASE
+)
+# Any data URI that names an image type, in any spelling (case, parameters, base64 or not). In a
+# text cell or in metadata nothing is decoded: an embedded image there is a problem.
+ANY_DATA_IMAGE = re.compile(r"data:\s*image/", re.IGNORECASE)
 # The image types a recipe notebook output may hold; anything else with an ``image/`` prefix (a
 # GIF, a WebP) is a problem. ``image/svg+xml`` is text, compared byte for byte.
 OUTPUT_IMAGE_MIMES = ("image/png", "image/jpeg", "image/svg+xml")
@@ -156,7 +161,9 @@ def output_problems(nb: dict[str, Any], label: str) -> list[str]:
     if weight > MAX_OUTPUT_BYTES:
         problems.append(
             f"{label}: outputs weigh {weight:,} bytes; the cap is {MAX_OUTPUT_BYTES:,} (2 MiB). "
-            "Show fewer images, or a downscaled copy (Image.thumbnail)"
+            "Display a fixture with IPython.display.Image(filename=path), which embeds the "
+            "file once, instead of a PIL.Image (re-encoded as PNG and JPEG, 8 to 22 times the "
+            "file); or show fewer images, or a Image.thumbnail((640, 640)) copy"
         )
     return problems
 
@@ -186,6 +193,26 @@ def _strings(node: Any) -> Any:
                 yield from _strings(value)
 
 
+def _metadata_strings(nb: dict[str, Any]) -> Any:
+    """(location, text) for every key and string under the notebook's and each cell's metadata."""
+
+    def walk(node: Any, where: str) -> Any:
+        if isinstance(node, str):
+            yield where, node
+        elif isinstance(node, list):
+            for item in node:
+                yield from walk(item, where)
+        elif isinstance(node, dict):
+            for key, value in node.items():
+                yield where, str(key)
+                yield from walk(value, where)
+
+    yield from walk(nb.get("metadata"), "notebook metadata")
+    for index, cell in enumerate(nb["cells"]):
+        if isinstance(cell, dict):
+            yield from walk(cell.get("metadata"), f"{_where(index, cell)} metadata")
+
+
 def embedded_image_problems(nb: dict[str, Any], label: str) -> list[str]:
     """Metadata and embedding rules for every image stored in ``nb`` (see the module docstring).
 
@@ -207,10 +234,16 @@ def embedded_image_problems(nb: dict[str, Any], label: str) -> list[str]:
                 f"{label}: {where} holds a {mime} that breaks [{finding.rule}]: {finding.message}"
             )
 
+    for where, text in _metadata_strings(nb):
+        if ANY_DATA_IMAGE.search(text) or text.lower().startswith("image/"):
+            problems.append(
+                f"{label}: {where} holds an embedded image in metadata; link a file under "
+                "assets/ instead"
+            )
     for index, cell in enumerate(nb["cells"]):
         if isinstance(cell, dict) and cell.get("cell_type") != "code":
             source = _text(cell.get("source", ""))
-            if cell.get("attachments") or DATA_IMAGE_URI.search(source):
+            if cell.get("attachments") or ANY_DATA_IMAGE.search(source):
                 problems.append(
                     f"{label}: {_where(index, cell)} embeds an image in a text cell (an "
                     "attachment or a data: URI); link a file under assets/ by its relative path "

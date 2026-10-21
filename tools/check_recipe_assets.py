@@ -136,8 +136,20 @@ _PNG_COLOUR = {
     6: (4, {8, 16}),
 }
 # The one text chunk an embedded notebook output may hold: matplotlib's own signature.
-_EMBEDDED_TEXT_KEYWORD = b"Software"
-_MAX_EMBEDDED_TEXT = 200
+_EMBEDDED_SOFTWARE = re.compile(
+    rb"Software\x00Matplotlib version[0-9][0-9A-Za-z.+_-]*, https://matplotlib\.org/"
+)
+# Ancillary chunks the PNG specification allows at most once per file.
+_PNG_ONCE = frozenset({"gAMA", "cHRM", "sRGB", "sBIT", "pHYs", "bKGD", "tRNS"})
+_ADAM7 = (
+    (0, 0, 8, 8),
+    (4, 0, 8, 8),
+    (0, 4, 4, 8),
+    (2, 0, 4, 4),
+    (0, 2, 2, 4),
+    (1, 0, 2, 2),
+    (0, 1, 1, 2),
+)
 _MAX_INFLATED = 256 * 1024 * 1024
 
 
@@ -163,6 +175,19 @@ def _png_chunks(data: bytes) -> Iterator[tuple[str, bytes]]:
             if pos != len(data):
                 raise ImageError("trailing-data", f"{len(data) - pos} byte(s) after IEND")
             return
+
+
+def png_raw_length(width: int, height: int, colour: int, depth: int, interlace: int) -> int:
+    """The number of bytes a PNG's IDAT must inflate to: one filter byte plus the packed pixels
+    of every row, of every Adam7 pass when interlaced."""
+    bits = _PNG_COLOUR[colour][0] * depth
+    passes = _ADAM7 if interlace else ((0, 0, 1, 1),)
+    total = 0
+    for x0, y0, dx, dy in passes:
+        pass_w, pass_h = -(-(width - x0) // dx), -(-(height - y0) // dy)
+        if pass_w > 0 and pass_h > 0:
+            total += pass_h * (1 + (pass_w * bits + 7) // 8)
+    return total
 
 
 def _png_chunk_length_ok(name: str, body: bytes, colour: int, depth: int, palette: int) -> bool:
@@ -205,6 +230,9 @@ def inspect_png(data: bytes, *, embedded: bool = False) -> tuple[int, int]:
     palette = 0
     idat = bytearray()
     idat_done = False
+    interlace = 0
+    seen: set[str] = set()
+    software = 0
     for name, body in _png_chunks(data):
         if first:
             if name != "IHDR" or len(body) != 13:
@@ -224,10 +252,11 @@ def inspect_png(data: bytes, *, embedded: bool = False) -> tuple[int, int]:
         if name == "acTL":
             raise ImageError("png-animated", "animated PNG (acTL chunk); stills only")
         if embedded and name == "tEXt":
-            keyword, _, _ = body.partition(b"\x00")
-            if keyword != _EMBEDDED_TEXT_KEYWORD or len(body) > _MAX_EMBEDDED_TEXT:
+            software += 1
+            if software > 1 or not _EMBEDDED_SOFTWARE.fullmatch(body):
                 raise ImageError(
-                    "png-metadata", "a tEXt chunk other than a short Software line is not allowed"
+                    "png-metadata",
+                    "a tEXt chunk other than one matplotlib 'Software' line is not allowed",
                 )
             continue
         if name not in PNG_ALLOWED_CHUNKS:
@@ -236,6 +265,10 @@ def inspect_png(data: bytes, *, embedded: bool = False) -> tuple[int, int]:
                 f"chunk {name} is not allowed (text, EXIF, time, profile and private chunks "
                 "can carry names, paths or tokens; strip it)",
             )
+        if name in _PNG_ONCE:
+            if name in seen:
+                raise ImageError("png-metadata", f"chunk {name} appears more than once")
+            seen.add(name)
         if name == "IDAT":
             if idat_done:
                 raise ImageError("png-structure", "IDAT chunks are not consecutive")
@@ -259,7 +292,7 @@ def inspect_png(data: bytes, *, embedded: bool = False) -> tuple[int, int]:
         raise ImageError("png-structure", "palette PNG without a PLTE chunk")
     inflater = zlib.decompressobj()
     try:
-        inflater.decompress(bytes(idat), _MAX_INFLATED)
+        inflated = inflater.decompress(bytes(idat), _MAX_INFLATED)
     except zlib.error as error:
         raise ImageError("png-structure", f"IDAT is not a valid zlib stream ({error})") from error
     if not inflater.eof or inflater.unconsumed_tail:
@@ -267,6 +300,12 @@ def inspect_png(data: bytes, *, embedded: bool = False) -> tuple[int, int]:
     if inflater.unused_data:
         raise ImageError(
             "trailing-data", f"{len(inflater.unused_data)} byte(s) after the zlib stream in IDAT"
+        )
+    expected = png_raw_length(size[0], size[1], colour, depth, interlace)
+    if len(inflated) != expected:
+        raise ImageError(
+            "png-structure",
+            f"IDAT inflates to {len(inflated):,} bytes; the image header implies {expected:,}",
         )
     return size
 

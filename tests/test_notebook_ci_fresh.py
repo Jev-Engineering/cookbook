@@ -653,3 +653,69 @@ def test_differences_helper_names_the_path():
     found = fresh_tool.differences({"a": [1, {"b": "x"}]}, {"a": [1, {"b": "y"}]})
     assert found == ["notebook.a[1].b: committed 'x', fresh 'y'"]
     assert fresh_tool.differences({"a": 1}, {"a": True}) != []  # 1 and True are different types
+
+
+# -- text cells and metadata cannot smuggle an image in any spelling (#307 fix round 2) ---------------
+
+SPELLINGS = {
+    "upper-case scheme": "<img src='DATA:image/jpeg;base64,{b64}'>",
+    "mixed-case type": "<img src='data:IMAGE/JPEG;base64,{b64}'>",
+    "a parameter": "<img src='data:image/jpeg;charset=utf-8;base64,{b64}'>",
+    "two parameters": "<img src='data:image/jpeg;name=a.jpg;charset=utf-8;base64,{b64}'>",
+    "whitespace after the colon": "<img src='data: image/jpeg;base64,{b64}'>",
+    "an svg without base64": '<img src="data:image/svg+xml,%3Csvg%3E%3Ctext%3EJane%3C/text%3E%3C/svg%3E">',
+    "markdown image syntax": "![x](data:image/png;base64,{b64})",
+}
+
+
+@pytest.mark.parametrize("spelling", sorted(SPELLINGS))
+@pytest.mark.parametrize("cell_type", ["markdown", "raw"])
+def test_an_image_in_a_text_cell_is_a_problem_in_every_spelling(reference, spelling, cell_type):
+    committed = copy.deepcopy(reference)
+    text_cell = next(c for c in committed["cells"] if c["cell_type"] == "markdown")
+    text_cell["cell_type"] = cell_type
+    text_cell["source"] = [SPELLINGS[spelling].format(b64=jpeg_with_exif(bars()).strip())]
+    found = [p for p in problems_for(committed, reference) if "embeds an image" in p]
+    assert len(found) == 1 and found[0].startswith("committed:"), spelling
+
+
+def test_a_data_uri_in_the_notebook_or_a_cell_metadata_is_a_problem(reference):
+    uri = "data:image/jpeg;base64," + jpeg_with_exif(bars()).strip()
+    placements = {
+        "notebook metadata value": lambda nb: nb["metadata"].__setitem__("thumb", uri),
+        "notebook metadata nested": lambda nb: nb["metadata"].__setitem__("a", {"b": [uri]}),
+        "notebook metadata upper-case": lambda nb: nb["metadata"].__setitem__(
+            "thumb", uri.replace("data:", "DATA:")
+        ),
+        "notebook metadata key": lambda nb: nb["metadata"].__setitem__("image/jpeg", "AAAA"),
+        "markdown cell metadata": lambda nb: nb["cells"][0]["metadata"].__setitem__("x", uri),
+        "code cell metadata": lambda nb: next(c for c in nb["cells"] if c["cell_type"] == "code")[
+            "metadata"
+        ].__setitem__("x", [uri]),
+        "cell metadata key": lambda nb: nb["cells"][0]["metadata"].__setitem__("image/png", "x"),
+    }
+    for name, place in placements.items():
+        committed = copy.deepcopy(reference)
+        place(committed)
+        found = [p for p in problems_for(committed, reference) if "embedded image in metadata" in p]
+        assert len(found) >= 1 and found[0].startswith("committed:"), name
+    assert not [p for p in problems_for(reference, reference) if "metadata" in p]
+
+
+@pytest.mark.parametrize(
+    "spelling", ["upper-case scheme", "mixed-case type", "a parameter", "two parameters"]
+)
+def test_a_data_uri_in_an_output_is_checked_in_every_spelling(reference, spelling):
+    committed = copy.deepcopy(reference)
+    html = SPELLINGS[spelling].format(b64=jpeg_with_exif(bars()).strip())
+    committed["cells"][0].setdefault("outputs", []).append(
+        {"output_type": "display_data", "data": {"text/html": [html]}, "metadata": {}}
+    )
+    found = [p for p in problems_for(committed, committed) if "data: URI" in p]
+    assert len(found) == 2 and all("[jpeg-metadata]" in p for p in found), spelling
+
+
+def test_the_output_cap_message_recommends_displaying_the_file(reference):
+    over = with_filler(reference, fresh_tool.MAX_OUTPUT_BYTES + 10)
+    message = next(p for p in problems_for(over, over) if "outputs weigh" in p)
+    assert "IPython.display.Image(filename=path)" in message and "thumbnail" in message
