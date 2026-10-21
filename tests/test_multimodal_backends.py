@@ -458,3 +458,20 @@ def test_replay_key_refuses_a_side_under_280_on_either_axis(size):
     with pytest.raises(ValueError, match="280 to 1568"):
         replay_key(STATE, QUESTIONS, assets=image_assets(size=size))
     replay_key(STATE, QUESTIONS, assets=image_assets(size=(280, 280)))
+
+
+def test_image_replay_key_is_pinned_to_the_published_envelope(monkeypatch):
+    # Fixed stand-in bytes (validation is bypassed so the literal does not depend on the
+    # Pillow/zlib version that would encode a real PNG): this pins the envelope, the
+    # field names and the decoded-bytes digest, so drift on both sides at once is caught.
+    from jev_cookbook import vision
+
+    monkeypatch.setattr(vision, "validate_image_asset", lambda asset: b"fixed image bytes")
+    asset = {
+        "type": "image",
+        "format": "png",
+        "data_base64": base64.b64encode(b"fixed image bytes").decode("ascii"),
+    }
+    assert replay_key(STATE, QUESTIONS, assets={REF: asset}) == (
+        "00c4d3b2fcb92ce23200e54bed0dcc9c91a7bc134b7862838a1facaddf9acba8"
+    )

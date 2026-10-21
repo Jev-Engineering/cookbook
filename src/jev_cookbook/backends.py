@@ -163,7 +163,8 @@ def replay_key(
     Choice options) and every array in the order written; no whitespace, ASCII escapes,
     shortest-repr floats. Non-empty ``assets`` adds a sorted map of reference to asset type,
     canonical format (``png`` or ``jpeg``; ``jpg`` and case variants are the same key) and
-    SHA-256 of its decoded file bytes (the digest inside ``vision.image_reference``). Text-only requests retain their original keys.
+    SHA-256 of its decoded file bytes (the digest inside ``vision.image_reference``).
+    Text-only requests retain their original keys.
     """
     plain_state, checked = _check_request(state, questions)
     questions_json = {}

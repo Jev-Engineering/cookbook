@@ -122,6 +122,8 @@ normalized geometry before pixel rounding. It returns zero for disjoint or merel
 touching rectangles and one for identical rectangles. A valid but vanishingly small box
 (for example 1e-200 wide) has an area that underflows to zero; when both do, the union is
 zero and `box_iou` (and `localization_metrics`) raise `ValueError` rather than invent a score.
+Because the union is at least as large as each area, this happens only when both boxes
+underflow, so in `localization_metrics` it means a degenerate gold label: fix the fixture.
 
 ## Presence, confidence and evaluation
 
@@ -193,9 +195,10 @@ bottom/right edge, which can increase overlap; there are no uncovered gaps or
 partial sliver tiles. A source smaller than a requested tile keeps its full extent, so a
 tile (or a source) under 280 pixels on a side must be scaled up or padded before
 `image_asset` accepts it. The tile count is computed before any tile is cropped and
-`max_tiles` (default 256) bounds it: an overlap near the tile size makes the count grow
-roughly with its square, and a configuration above the cap raises `ValueError`.
-Pass a larger `max_tiles=` only deliberately.
+`max_tiles` (default 256) bounds it: the count grows with the inverse square of the
+stride (tile size minus overlap), so an overlap near the tile size makes it explode, and a
+configuration above the cap raises `ValueError`. Each tile is usually one API call, so
+`max_tiles` also caps cost, not only memory. Pass a larger `max_tiles=` only deliberately.
 
 `tile_to_image` applies an affine transform using the actual pixel bounds, so a
 rectangle found inside a tile maps back to the whole image. It also handles an

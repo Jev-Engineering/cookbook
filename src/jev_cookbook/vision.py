@@ -384,9 +384,11 @@ def generate_tiles(
     their full extent. Tile sizes are geometry choices; validate saved tiles with
     :func:`image_asset` before sending them to the API.
 
-    The number of tiles grows quadratically as ``overlap`` approaches the tile size, so the
-    tile count is computed first and a configuration above ``max_tiles`` (default 256)
-    raises ``ValueError`` before any tile is cropped. Raise ``max_tiles`` deliberately.
+    The number of tiles grows with the inverse square of the stride (tile size minus
+    ``overlap``), so the tile count is computed first and a configuration above
+    ``max_tiles`` (default 256) raises ``ValueError`` before any tile is cropped. Each tile
+    is usually one API call, so the cap bounds cost as well as memory. Raise ``max_tiles``
+    deliberately.
     """
     max_tiles = _positive_int(max_tiles, "max_tiles")
     try:
@@ -480,7 +482,9 @@ def localization_metrics(gold: Iterable[Any], predicted: Iterable[Any]) -> Local
     Predictions must already have passed the recipe's presence/confidence policy.
     A review outcome is not an absent prediction: report reviews separately through
     ``evaluation.evaluate_outcomes`` and use this function on the resolved subset.
-    Invalid rectangles raise, including predictions on absent gold examples.
+    Invalid rectangles raise, including predictions on absent gold examples. A
+    ``ValueError`` from :func:`box_iou` (both areas underflow to zero) means a degenerate
+    gold label, since the union is at least as large as the gold box's own area.
     """
     actual, guesses = list(gold), list(predicted)
     if not actual or len(actual) != len(guesses):
