@@ -9,6 +9,7 @@ import io
 import json
 import math
 import random
+import re
 from dataclasses import is_dataclass
 from pathlib import Path
 from types import SimpleNamespace
@@ -1151,6 +1152,85 @@ def test_the_documented_localization_example_runs_and_prints_what_the_docs_show(
     with contextlib.redirect_stdout(out):
         exec(compile(code, "docs/vision.md", "exec"), {})
     assert out.getvalue() == printed
+
+
+_DOCS = Path(__file__).resolve().parent.parent / "docs"
+
+
+def _section(text: str, heading: str, level: str = "###") -> str:
+    start = text.index(f"{level} {heading}\n")
+    following = re.search(rf"\n#{{1,{len(level)}}} ", text[start + 1 :])
+    return text[start : start + 1 + following.start()] if following else text[start:]
+
+
+def _box_label_objects(value):
+    """Every dict under `value` (itself included) that has a `present` key."""
+    found = []
+    if isinstance(value, dict):
+        if "present" in value:
+            found.append(value)
+        for child in value.values():
+            found.extend(_box_label_objects(child))
+    elif isinstance(value, list):
+        for child in value:
+            found.extend(_box_label_objects(child))
+    return found
+
+
+def _contains_tile_key(value) -> bool:
+    if isinstance(value, dict):
+        return any("tile" in str(key).lower() or _contains_tile_key(v) for key, v in value.items())
+    if isinstance(value, list):
+        return any(_contains_tile_key(v) for v in value)
+    return False
+
+
+def test_every_label_example_in_the_box_labels_docs_is_valid_and_consistent():
+    """Each JSON example in docs/fixtures.md "Box labels" must decode with gold_box, and no
+    example stores a tile choice beside the Box label (the gold lives once, full-image)."""
+    section = _section((_DOCS / "fixtures.md").read_text("utf-8"), "Box labels")
+    lines = [
+        line
+        for block in section.split("```json\n")[1:]
+        for line in block[: block.index("```")].splitlines()
+        if line.strip()
+    ]
+    labels = [json.loads(line)["label"] for line in lines]
+    nested = [label for label in labels if "present" not in label]
+    assert len(labels) >= 3 and nested, "the section must show flat and nested examples"
+    for label in labels:
+        boxes = _box_label_objects(label)
+        assert boxes, label
+        for box_label in boxes:
+            vision.gold_box(box_label)  # raises on a self-contradictory example
+        assert not _contains_tile_key(label), f"a tile choice stored with the gold: {label}"
+    flat = " ".join(section.split())
+    assert '"tile":' not in flat, "an inline example stores a tile choice beside the gold"
+    assert "Store the gold box once, for the whole image" in flat
+    assert "does not store a tile choice" in flat
+    assert "must cover every split" in flat
+
+
+def test_the_docs_say_a_tiled_recipe_reports_per_image_not_per_tile():
+    vision_md = " ".join(
+        _section((_DOCS / "vision.md").read_text("utf-8"), "Tiled and hierarchical recipes").split()
+    )
+    for required in (
+        "one example is one image, not one tile",
+        "The headline report is per image",
+        "after `tile_to_image`",
+        '"no match" on an image whose gold is present is `("absent", None)`',
+        '`("review", None)`',
+        "stage diagnostic",
+        "a target a tile edge cuts",
+    ):
+        assert required in vision_md, required
+    evaluation = " ".join((_DOCS / "evaluation.md").read_text("utf-8").split())
+    assert "In a tiled or hierarchical recipe the headline report is per image" in evaluation
+    assert "vision.md#tiled-and-hierarchical-recipes" in evaluation
+    assert "vision.md#tiled-and-hierarchical-recipes" in " ".join(
+        (_DOCS / "fixtures.md").read_text("utf-8").split()
+    )
 
 
 @pytest.mark.parametrize(

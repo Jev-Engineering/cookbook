@@ -762,6 +762,12 @@ false positive, because a rectangle never proves the target exists. The worked e
 the test that runs it, are in [vision](vision.md#the-localization-report).
 Use `evaluate_outcomes` above for the review rate of the presence question alone.
 
+In a tiled or hierarchical recipe the headline report is per image: gold is the full-image
+Box label and each outcome is the final rectangle after `tile_to_image`, with a stage-1 "no
+match" on present gold reported as `absent` and an uncertain choice as `review`. A per-tile
+report counts tiles, is a stage diagnostic and says so, and states its rule for a target a
+tile edge cuts; see [vision](vision.md#tiled-and-hierarchical-recipes).
+
 ### Calibration
 
 `reliability_table(probability, outcome, n_bins=10)` bins stated probability in equal widths

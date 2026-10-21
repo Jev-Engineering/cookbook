@@ -241,6 +241,24 @@ or `review`, empty or unequal-length inputs and an `iou_threshold` outside (0, 1
 `ValueError` naming the example index. Choose `iou_threshold` and the presence policy on
 validation examples and freeze them before scoring the test split.
 
+### Tiled and hierarchical recipes
+
+When a recipe tiles the image (a Choice picks the tile, then a Box locates the target inside
+it), one example is one image, not one tile. A target can be present in the full image and
+absent from most tiles, so counting tiles would make `n_total` a tile count and
+`correct_absent_rate` mostly a measure of empty tiles.
+
+- The headline report is per image. `gold` is the full-image gold Box label (stored once,
+  see [Box labels](fixtures.md#box-labels)) and each outcome is the final rectangle after
+  `tile_to_image`.
+- Map the stage-1 result to an outcome before reporting: a stage-1 "no match" on an image
+  whose gold is present is `("absent", None)` (a miss); an uncertain tile choice, or an
+  uncertain Box in the chosen tile, is `("review", None)`.
+- A per-tile report is a stage diagnostic. Label it as counting tiles, never quote it as the
+  recipe's result, and state its rule for a target a tile edge cuts (the minimum visible
+  fraction of the box that makes the target "present" in that tile), because that rule
+  changes the per-tile denominators.
+
 ### The older `localization_metrics`
 
 `localization_metrics(gold, predicted)` is kept for compatibility. It takes `None` for an

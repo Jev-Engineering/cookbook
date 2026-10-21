@@ -127,9 +127,20 @@ The validator treats a label that is an object with a `present` key as a Box lab
 how a recipe declares the format, so `present` is reserved at the top level of a label object.
 Every such label must pass `gold_box`, and once any label in the file is a Box label, a label
 that is not (a bare box, a string) is an error. A recipe whose label holds a Box label among
-other values nests it under its own key (for example `{"tile": "b3", "target": {"present":
-false}}`) and calls `gold_box(label["target"])` in its own test; the validator does not look
-inside other labels.
+other values nests it under its own key and calls `gold_box(label["target"])` in its own test;
+the validator does not look inside other labels, so that test must cover every split the
+recipe ships (`train` included), not only the one it reports:
+
+```json
+{"id": "t12", "label": {"target": {"present": true, "box": {"top": 0.25, "bottom": 0.75, "left": 0.125, "right": 0.625}}, "rubric": 3}}
+```
+
+Store the gold box once, for the whole image, as a full-image Box label. A recipe that tiles
+the image does not store a tile choice beside it: a stored tile name can disagree with the box
+(for an absent target there is no right tile at all, only "no match"), and with overlapping
+tiles a target near a seam lies in more than one tile, so one string cannot hold the gold.
+Python derives which tiles count as correct from the box and the tile bounds, and the
+headline report stays per image ([vision](vision.md#tiled-and-hierarchical-recipes)).
 
 ## Nesting limit
 
