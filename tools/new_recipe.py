@@ -41,6 +41,18 @@ SECTIONS = [
 ]
 
 TODO_MARK = "TODO"
+# The run-mode paragraph every notebook's setup-md carries (#233). It is pinned byte for byte in
+# the template and every published notebook by tests/test_run_mode_sentence.py, which also
+# requires the scaffolded setup-md to carry it, so a new recipe starts with the true wording.
+RUN_MODE_PARAGRAPH = (
+    "Two labels may follow a number below. `(a pipeline check, not a Jev result)` marks a "
+    "synthetic or scripted run; a recorded or live run does not print it, and its header says "
+    "which mode ran. `(a selection step, not a reported result)` marks a line that is not a "
+    "result to report, such as a number from `validation`, the split settings are chosen on, or "
+    "a count of the items the frozen rule queues or would queue. A line with neither label, "
+    "such as an individual answer or a per-example line, still comes from the mode the header "
+    "names."
+)
 MODES = ("replay", "scripted")  # --mode; replay is the default and the one most recipes use
 
 
@@ -139,7 +151,11 @@ def notebook_cells(catalog: dict, recipe: dict, mode: str = "replay") -> list[di
             "setup-md",
             f"## {SECTIONS[1]}\n\n"
             "The notebook runs from its own folder with the standard library and `jev_cookbook` "
-            "only. The header states which mode ran.\n\n" + setup_prose,
+            "only. The header states which mode ran. "
+            + RUN_MODE_PARAGRAPH
+            + f" {TODO_MARK}: keep this paragraph as it is; define `selection` in the setup cell "
+            "as `recipes/_template/` does, and print `{selection}{check}` on every `validation` "
+            "number.\n\n" + setup_prose,
         ),
         code(
             "setup",

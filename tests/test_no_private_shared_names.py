@@ -5,8 +5,9 @@ A leading underscore tells a reader the name is internal and may change without 
 are what readers copy, so a recipe that imports ``jev_cookbook.live._dump`` teaches that reaching
 into another module's privates is normal, and ties every recipe to a name the package is free to
 change. The shared package exposes ``jev_cookbook.dump_responses`` instead. ``live._dump`` itself
-stays as a supported alias for code written before the rename (see its comment in ``live.py``);
-this test is about who may *use* a private name, not about whether it still exists.
+stays only as a transitional alias for code outside ``recipes/``, to be removed once nothing
+outside ``live.py``'s own tests imports it (see its comment in ``live.py``); this test is about
+who may *use* a private name, not about whether it still exists.
 
 The scan is syntactic on purpose and says so: it parses every ``.py`` under ``recipes/`` and each
 notebook's code cells with ``ast`` and flags (a) any import whose dotted path has a private segment
