@@ -17,9 +17,10 @@ genuine mistake (a typo, a removed ``strict=True``, a renamed function, a droppe
 argument) still fails, while an intentional, documented placeholder does not. This is the
 "explicit allowlist" the issue offers as one option for the marker convention: ``PREAMBLE``
 names, for every block, exactly what it is assumed to already have in scope. Every block costs
-at most a few hundred milliseconds to run (measured below each test, under a 10 s limit well above the
-worst observed case: ``SIGALRM`` on POSIX; on Windows a timer thread raises ``SIGBREAK``, which
-cannot interrupt a blocking call such as ``time.sleep``, only pure-Python code), so none is skipped for being "not self-contained" -- only block 5
+at most a few hundred milliseconds to run (measured below each test, under a 10 s limit well
+above the worst observed case: ``SIGALRM`` on POSIX; on Windows a timer thread raises
+``SIGBREAK``, which cannot interrupt a blocking call such as ``time.sleep``, only pure-Python
+code), so none is skipped for being "not self-contained" -- only block 5
 is a genuine fragment (a formula shown mid-explanation, not a program with an observable result),
 and it is linted and executed the same as the rest; there is simply nothing further to assert
 about it.
@@ -265,11 +266,13 @@ def _time_limit(seconds):
     timer = threading.Timer(seconds, _thread.interrupt_main, args=(signal.SIGBREAK,))
     timer.start()
     try:
-        yield
+        try:
+            yield
+        finally:
+            armed = False
+            timer.cancel()
+            timer.join()
     finally:
-        armed = False
-        timer.cancel()
-        timer.join()
         signal.signal(signal.SIGBREAK, previous)
 
 
@@ -280,10 +283,31 @@ def test_windows_time_limit_always_raises_timeout_for_a_busy_loop():
     """The shape of the race fixed in #325 review round 1: a short limit on a pure-Python busy
     loop used to escape as a bare ``KeyboardInterrupt`` in ~1-2% of runs, which aborts pytest."""
     for _ in range(100):
-        with pytest.raises(_Timeout):
-            with _time_limit(0.01):
-                while True:
-                    pass
+        try:
+            with pytest.raises(_Timeout):
+                with _time_limit(0.01):
+                    while True:
+                        pass
+        except KeyboardInterrupt:
+            pytest.fail("a timeout escaped _time_limit as a bare KeyboardInterrupt")
+
+
+@pytest.mark.skipif(_HAS_SIGALRM, reason="exercises the Windows-only SIGBREAK timer path")
+def test_windows_time_limit_leaves_a_real_ctrl_c_alone():
+    with pytest.raises(KeyboardInterrupt):
+        with _time_limit(10):
+            _thread.interrupt_main()  # SIGINT, as a real Ctrl-C delivers it
+            for _ in range(10**6):
+                pass
+
+
+@pytest.mark.skipif(_HAS_SIGALRM, reason="exercises the Windows-only SIGBREAK timer path")
+def test_windows_time_limit_ignores_a_trip_after_the_block():
+    with _time_limit(10):
+        pass
+    _thread.interrupt_main(signal.SIGBREAK)  # a timer that fired just as the block ended
+    for _ in range(10**6):
+        pass  # must not raise
 
 
 @pytest.mark.parametrize("index", sorted(EXECUTED))
