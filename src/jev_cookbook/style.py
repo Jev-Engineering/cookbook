@@ -562,6 +562,11 @@ def _shorten(text: str, width: int = 28) -> str:
     return text if len(text) <= width else text[: width - 3].rstrip() + "..."
 
 
+# Confusion-matrix tick labels longer than this many characters are abbreviated, unless
+# abbreviating would make two different labels look the same (see plot_confusion_matrix).
+_TICK_WIDTH = 14
+
+
 def _luminance(rgb: Sequence[float]) -> float:
     def lin(c: float) -> float:
         return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
@@ -599,6 +604,10 @@ def plot_confusion_matrix(
 
     ``counts`` may instead be any object with ``.labels`` and ``.matrix`` (such as the
     evaluation toolkit's ``ConfusionMatrix``); ``labels`` then defaults to ``.labels``.
+
+    A label longer than 14 characters is abbreviated to its first 11 plus ``...``. If that
+    would make two different labels render as the same tick, no label is abbreviated and the
+    column labels are rotated, so the axes never carry two identical names.
     """
     if hasattr(counts, "matrix") and hasattr(counts, "labels"):
         if labels is None:
@@ -620,8 +629,15 @@ def plot_confusion_matrix(
         vmax = float(shown.max()) if shown.max() > 0 else 1.0
         ax.imshow(shown, cmap=SEQUENTIAL_CMAP, vmin=0.0, vmax=vmax)
         ax.grid(False)
-        names = [_shorten(str(x), 14) for x in labels]
-        ax.set_xticks(range(n), labels=names)
+        full = [str(x) for x in labels]
+        names = [_shorten(x, _TICK_WIDTH) for x in full]
+        rotation = 0
+        if len(set(names)) < len(set(full)):
+            # Shortening made two different labels render as one tick. Keep the full text
+            # (a figure must not mislabel rows and columns) and stand the column labels on
+            # end so long names do not run into each other.
+            names, rotation = full, 90
+        ax.set_xticks(range(n), labels=names, rotation=rotation)
         ax.set_yticks(range(n), labels=names)
         ax.set_xlabel("Predicted")
         ax.set_ylabel("Gold")
@@ -636,6 +652,35 @@ def plot_confusion_matrix(
         if title:
             ax.set_title(title)
     return fig
+
+
+_LEGEND_CORNERS = ("lower right", "upper right")
+_LEGEND_CLEARANCE_PX = 2.0
+
+
+def _place_score_legend(fig: Figure, ax: Axes) -> None:
+    """Put the score legend in a corner that no bar value label sits under.
+
+    The y axis is inverted, so the highest level is the bottom bar and a confident answer's
+    value label lands at the far right of the bottom row: exactly where a fixed
+    ``loc="lower right"`` legend sits. This tries the lower-right corner first (so a figure
+    that never collided is drawn exactly as before), then the upper-right one, keeping the
+    first whose box clears every value label in the axes by at least a couple of pixels.
+    A normalised answer has at most one very probable level, so one of the two corners is
+    clear in practice; if neither is, the legend moves outside the axes, to the right, where
+    it cannot collide with anything drawn inside them.
+
+    Placement is measured on a draw without rendering, so it needs no particular backend.
+    """
+    labels = ax.texts
+    for loc in _LEGEND_CORNERS:
+        legend = ax.legend(loc=loc)
+        fig.draw_without_rendering()
+        box = legend.get_window_extent().padded(_LEGEND_CLEARANCE_PX)
+        if not any(box.overlaps(t.get_window_extent()) for t in labels):
+            return
+        legend.remove()
+    ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1.0), borderaxespad=0.0)
 
 
 def plot_answer_probabilities(
@@ -698,7 +743,7 @@ def plot_answer_probabilities(
         if score_pos is not None:
             # Bars sit at 0..k-1 in level order and the y axis is inverted.
             ax.axhline(score_pos, color=MAGENTA, linestyle="--", linewidth=2.0, label="score")
-            ax.legend(loc="lower right")
+            _place_score_legend(fig, ax)
         heading = title if title is not None else default_title
         if heading:
             ax.set_title(heading)

@@ -207,6 +207,25 @@ The evaluation toolkit's results are accepted by duck typing, without importing 
 (each point has `.threshold`, `.precision`, `.recall`, `.f1`; an undefined NaN value leaves a
 gap in the line), and `selective_curve(...)` results (`.coverage`, `.risk`).
 
+### What the charts promise about their own layout
+
+A committed figure is content a reader trusts, so `tests/test_style_rendering.py` draws every
+helper on the Agg canvas and asserts properties of the rendered artists (no image comparison
+and no golden files, so it does not move when matplotlib is upgraded): no two text artists,
+and no text artist and legend, overlap; every tick renders its source label, or an
+ellipsis abbreviation of it that is still unique; and each axis title names the quantity
+plotted on that axis. Two behaviours follow from it:
+
+- `plot_confusion_matrix` abbreviates a label longer than 14 characters to its first 11 plus
+  `...`, as it always has. If that would make two different labels look the same (they share
+  their first 11 characters), it abbreviates none of them and stands the column labels on end.
+- `plot_answer_probabilities` puts a Score's `score` legend in the lower-right corner, as it
+  always has, unless a bar's value label would sit under it (a confident answer whose highest
+  level is the bottom bar); it then moves to the upper-right corner, and outside the axes if
+  neither corner is free.
+
+A new helper, or a new option on an existing one, should add a case to that module.
+
 ### Legibility on GitHub's light and dark views
 
 Every figure has an explicit, opaque paper (`#FEFEFE`) figure and axes background, and
