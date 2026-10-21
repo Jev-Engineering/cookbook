@@ -228,6 +228,21 @@ PREFIX_COLLISION = [
 ]
 
 
+# The label set of the committed recipe 40 matrix: three labels share "account_bil", three
+# "product_tec" and two "people_poli", so every one of them used to render as a repeated tick.
+HIERARCHICAL = [
+    "account_billing.invoice_question",
+    "account_billing.refund_request",
+    "account_billing.general_question",
+    "product_technical.bug_report",
+    "product_technical.how_to_question",
+    "product_technical.general_question",
+    "people_policy.leave_policy",
+    "people_policy.security_policy",
+    "unclassified",
+]
+
+
 def _matrix(n: int) -> np.ndarray:
     return np.arange(n * n).reshape(n, n) % 7 + np.eye(n, dtype=int) * 5
 
@@ -275,6 +290,7 @@ CASES = {
     "confusion short normalised": lambda: _confusion(SHORT, normalize=True, exact=True),
     "confusion unique after shortening": lambda: _confusion(UNIQUE_AFTER_SHORTENING),
     "confusion prefix collision": lambda: _confusion(PREFIX_COLLISION, exact=True),
+    "confusion hierarchical labels": lambda: _confusion(HIERARCHICAL, exact=True),
     "answer choice": lambda: _answer(CHOICE, ["calm", "angry", "excited"], exact=True),
     "answer confident choice": lambda: _answer(CONFIDENT_CHOICE, ["refund", "replace"], exact=True),
     "answer noul": lambda: _answer(FakeNoul(0.93), ["no", "yes"], exact=True),
