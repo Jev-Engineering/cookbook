@@ -27,6 +27,12 @@ repos:
         language: system
         # Files with no recognised type (e.g. a .env) are passed too.
         types: [file]
+      - id: recipe-assets
+        name: recipe image assets (location, format, size, metadata)
+        entry: python tools/check_recipe_assets.py
+        language: system
+        pass_filenames: false
+        files: ^recipes/
       - id: catalog
         name: catalog (README is current)
         entry: python tools/render_catalog.py --check
