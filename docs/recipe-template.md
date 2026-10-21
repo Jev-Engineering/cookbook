@@ -102,24 +102,48 @@ own first use the same way.
   source instead (`inspect.getsource(helpers.<wrapper>)`), for the same reason. The guard check
   `threshold_objective_pin` enforces this, fail closed, over every recipe with a threshold
   selection. What the check credits is what an unconditional `assert` *claims*, derived rather
-  than enumerated: the assertion must say the spelling is **present** in a value that came from
-  reading the committed file (by `read_text()`, `read_bytes()`, `open(...).read()` or
-  `with open(...)`, whichever you use; a path under `tmp_path` is a copy, not the committed
-  file). `not`, `is False`, `.count(...) == 0`, an `if`/`else` branch that asserts nothing, an
-  `or` with a vacuous operand, and a needle that is also typed into the value it is compared
-  with (`source + " min_coverage"`, `kws.get("objective", "min_coverage")`, also when the
-  needle was typed into an earlier variable the value was built in) are all read for what they
-  claim, so none of them counts as a pin. A name counts as the read only if every binding of it
-  is the read (or wholly derived from it): once it is also bound by `+=`, a `for` target,
-  unpacking, `:=` or a hand-typed value, it does not. `all(...)`/`any(...)`/`len([...]) > 0`/
-  `sum(...) > 0` over the committed source do count (an `all(...)` needs an iterable that is
-  visibly non-empty and bound once, since it is vacuously true over nothing).
+  than enumerated. Three routes are credited, and only these:
 
-  Only asserts that always run count: top-level statements of a collected `test_` function (not
-  marked `skip`/`skipif`/`xfail`, not nested in another function), those inside `with open(...)`,
-  and those in a `for` over a non-empty literal tuple/list (no `break`/`continue`/`return`), and
-  only up to the first `return`, `raise` or `pytest.skip`/`xfail`/`exit`/`fail` call. An assert
-  under `if`, `try`, any other loop, or a context manager such as `pytest.raises` is not credited.
+  1. **A direct pin.** The assertion says the spelling is **present** in a value derived from
+     the committed source: a read of the committed `notebook.ipynb` or `helpers.py` (by
+     `read_text()`, `read_bytes()`, `open(...).read()`, `with open(...)`, any other `open` /
+     `.open` / `.read` / `.readlines` call that names the file, or a function in the same test
+     file that does one of those), or `inspect.getsource(helpers.<fn>)`, or a call to a
+     `helpers.py` function whose own body makes the selection call. A path under `tmp_path` is a
+     copy, not the committed file, so a read of it does not count.
+  2. **An extraction.** `name = _your_helper(source, ...)`, through a function defined in the
+     test file, followed by `assert name is not None`. That is the only truthiness check
+     credited here: a bare `assert name`, or any other check, is not. The strings in the call
+     are what is pinned.
+  3. **A production tie** (recipe 28's shape, which reads no file). A `helpers.py` function
+     whose body makes the real selection call is compared with `==` to a local re-derivation
+     computed with an explicit keyword, and a separate `!=` assert shows that re-derivation
+     differs from a sibling computed with a different objective.
+
+  For a direct pin, `not`, `is False`, `.count(...) == 0`, an `if`/`else` branch that asserts
+  nothing, and an `or` with a vacuous operand are read for what they claim, so none of them
+  counts as a pin. So is a needle that is also *typed into the test function* as part of the
+  value it is compared with: inline (`source + " min_coverage"`, `kws.get("objective",
+  "min_coverage")`), as a `+` of adjacent literals (`"min" + "_coverage"`), through a variable
+  the value was built from, or put into a container with `.append(...)`, `.extend(...)`,
+  `.update(...)` or `name[key] = ...`. The check looks at text typed in the function; it does not
+  follow a needle that reaches the value any other way (a module-level name, a parameter, a
+  computed string). A name counts as the read only if every binding of it is the read (or wholly
+  derived from it): once it is also bound by `+=`, a `for` target, unpacking, `:=` or a
+  hand-typed value, it does not. `all(...)`/`any(...)`/`len([...]) > 0`/`sum(...) > 0` over the
+  committed source do count (an `all(...)` needs an iterable that is visibly non-empty and bound
+  once, since it is vacuously true over nothing).
+
+  Only asserts that really run count. They are the top-level statements of a `test_` function
+  that pytest collects: a module-level function, or a method of a top-level class named `Test*`
+  that defines no `__init__`, none of them marked `skip`/`skipif`/`xfail` (on the function, on the
+  class, or by a `pytestmark` in the class body or the module), in a file with no top-level
+  `pytest.importorskip(...)` or `pytest.skip(..., allow_module_level=True)`, and not nested in
+  another function. Within it they are the statements directly in the function body, those inside
+  `with open(...)`, and those in a `for` over a non-empty literal tuple/list/set (no `else`, no
+  `break`/`continue`/`return`), only up to the first `return`, `raise` or
+  `pytest.skip`/`xfail`/`exit`/`fail` call. An assert under `if`, `try`, any other loop, or a
+  context manager such as `pytest.raises` is not credited.
 - **`evaluate_selective` reports the same split as the rule only when the rule's only review
   branch is that confidence gate — `route` here has three, so it is not that rule.**
   `helpers.py::route` sends a ticket to `review` for any of three reasons, in this order:
