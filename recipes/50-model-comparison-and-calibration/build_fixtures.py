@@ -41,10 +41,10 @@ from jev_cookbook import (
     NoulAnswer,
     Provenance,
     ScoreAnswer,
+    dump_responses,
     load_helpers,
     replay_key,
 )
-from jev_cookbook.live import _dump
 
 HERE = Path(__file__).resolve().parent
 helpers = load_helpers(HERE)
@@ -526,7 +526,7 @@ def _write_responses_file(folder: Path, tag, rows, backend: str, force: bool) ->
             "(pass --force to overwrite it anyway)"
         )
     responses = build_responses(rows, backend)
-    responses_file.write_text(_dump(responses), encoding="utf-8", newline="\n")
+    responses_file.write_text(dump_responses(responses), encoding="utf-8", newline="\n")
     return len(responses)
 
 
@@ -561,7 +561,7 @@ def main() -> None:
             )
         raise SystemExit(message)
     responses = build_responses(ROWS)
-    responses_file.write_text(_dump(responses), encoding="utf-8", newline="\n")
+    responses_file.write_text(dump_responses(responses), encoding="utf-8", newline="\n")
     counts = [len(responses)]
     for name, tag in BACKEND_TAGS.items():
         if tag is None:
