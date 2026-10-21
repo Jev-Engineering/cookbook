@@ -69,7 +69,8 @@ tests. Shared code and workflow changes belong in foundation work under the
 The generic template supplies nine notebook sections and an offline workflow. Each visual recipe
 still needs its own bounded questions, labeled visual inputs, Python policy, baseline and
 evaluation. Keep fixtures synthetic and readable under the current
-[fixture contract](fixtures.md); record image provenance and any applicable license. Include
+[fixture contract](fixtures.md); record every image's provenance, licence and attestations in `assets-manifest.json`
+([Image provenance manifest](fixtures.md#image-provenance-manifest)). Include
 ambiguous examples, negative examples and absent targets. A returned rectangle by itself cannot
 establish that a target exists. Python controls all permissions, budgets, retries and simulated
 effects.

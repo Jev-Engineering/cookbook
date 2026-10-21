@@ -20,6 +20,9 @@ recipes/NN-slug/fixtures/
 └── responses-<tag>.json    optional: the same requests answered by another model (comparison recipes)
 ```
 
+A multimodal recipe also has `assets/` and `assets-manifest.json` beside `fixtures/`, checked by
+the same command ([Image provenance manifest](#image-provenance-manifest)).
+
 Those are the only files allowed in `fixtures/`. Any other file or folder is an error, so
 nothing in that folder escapes validation and scanning. Keep other things (a recorder's request-id
 ledger, a generator script, notes) outside it. That includes the live recorder's
@@ -402,8 +405,9 @@ The notebook builds the same state and assets and calls
 `backend.decide(state, questions, assets=assets)`.
 Store image paths in `fields` even when the textual state is otherwise identical: the
 validator compares fields for split leakage, while the replay key covers the actual image
-content. Recipe tests must also check image content and lineage across splits, since different
-paths can contain identical pixels and the fixture validator does not open image files.
+content. The validator compares image bytes across splits through the manifest's hashes (see
+[Image provenance manifest](#image-provenance-manifest)); it does not decode pixels, so recipe
+tests must still check lineage where the same picture could be saved with different bytes.
 
 The input row schema is unchanged; do not add a top-level `assets` field. Labels can contain
 the gold Box label above (a normalized box, or the explicit `{"present": false}`). A response's `BoxAnswer.to_dict()`
@@ -411,6 +415,151 @@ stores `type`, the four-edge `box`, nullable `confidence`, and the ordinary prov
 `DecisionResult` and the fixture validator reject malformed geometry and confidence.
 Missing confidence means unknown, never certainty. A Box is still returned for an absent
 target, so labels and tests should exercise a separate presence/review rule.
+
+#### Image provenance manifest
+
+Every recipe with an `assets/` folder has one more file, `assets-manifest.json`, **beside**
+`assets/` (not inside it: `assets/` holds image files only, and the file is part of the recipe
+folder, so a recipe pull request edits it like any other recipe file). It records, for every image,
+where it came from, under what licence, and what its author attests about it. A recipe with no
+`assets/` needs no manifest. `python -m jev_cookbook.fixtures validate recipes/NN-slug` (and
+`--all`, and the fixtures step of CI) enforces it; the format is also described by
+[`assets-manifest.schema.json`](../src/jev_cookbook/fixtures/assets-manifest.schema.json).
+
+```text
+recipes/NN-slug/
+├── assets/                  the images (and nothing else)
+├── assets-manifest.json     one entry per image: provenance, licence, attestations
+├── build_fixtures.py        the generator the entries point to
+└── fixtures/
+```
+
+A worked example, for one image that `build_fixtures.py:draw_scene` drew (this block is parsed
+and checked against the schema by `tests/test_fixtures_assets.py`):
+
+```json
+{
+  "schema": 1,
+  "assets": [
+    {
+      "path": "assets/scene-0.png",
+      "sha256": "07c5f86f91ad18fef9ba8cad26e24e30ab100e69199c6e4d4b9ccf59a88fa680",
+      "format": "PNG",
+      "width": 320,
+      "height": 300,
+      "origin": "generated",
+      "generator": "build_fixtures.py:draw_scene",
+      "parameters": {"seed": 0, "shapes": 1, "background": [250, 250, 245]},
+      "licence": "CC0-1.0",
+      "description": "A blue rectangle on an off-white background; no target present.",
+      "attestations": {
+        "synthetic": true,
+        "real_photo": false,
+        "real_brand": false,
+        "real_person": false,
+        "third_party_content": false
+      }
+    }
+  ]
+}
+```
+
+| Field | Meaning |
+| - | - |
+| `schema` | Always `1`. |
+| `assets` | One object per file under `assets/`, in any order, at least one. |
+| `path` | Relative to the recipe folder, forward slashes, starting `assets/`, lowercase `.png`/`.jpg`/`.jpeg`. Letters, digits, `_`, `.`, `-` only, and no segment starts with `.`, so it can contain no `..`. It is exactly the string an `inputs.jsonl` `fields` value uses. |
+| `sha256`, `format`, `width`, `height` | Digest of the file's bytes (the digest behind `image_reference`), `PNG` or `JPEG`, and pixel size. Checked against the file. |
+| `origin` | `generated`: drawn by the recipe's own code. Nothing else is allowed. |
+| `generator` | `build_fixtures.py:draw_scene`: a `.py` file in the recipe folder (it must exist and mention the function name), or `jev_cookbook.<module>:<function>` for shared code. |
+| `parameters` | The arguments, seed included, that reproduce the file from the generator. `{}` if there are none. |
+| `licence` | `MIT` (this repository's licence) or `CC0-1.0`. Third-party material is not allowed, so no other licence is. |
+| `description` | What the image shows, for a reader who cannot see it. |
+| `attestations` | All five keys, as booleans: `synthetic` true; `real_photo`, `real_brand`, `real_person`, `third_party_content` false. They state that the image is drawn by code and contains no real photograph, brand or logo, person, or third-party artwork or screenshot. |
+| `shared_across_splits` | Optional boolean, default `false`; see the last rule below. |
+
+Each failure is one line, `path: [rule] message`, naming the image (or the manifest, or
+`fixtures/inputs.jsonl` and the example id for a `fields` problem):
+
+| Rule | Fails when |
+| - | - |
+| `manifest-missing` | The recipe has files under `assets/` and no `assets-manifest.json`. |
+| `manifest-invalid` | The manifest is not UTF-8 JSON (duplicate keys and `NaN` are refused) or not an object. |
+| `manifest-field` | A field is missing, unknown, or of the wrong type or value (including `origin` other than `generated`, a bad `sha256`, `format`, `width`, `height`, `generator`, `parameters`, an empty `description`). |
+| `asset-path` | A listed `path` is not a clean `assets/...` path (absolute, `..`, a backslash, a URL, a hidden or doubled segment, wrong suffix or case), or its file resolves outside `assets/` (a symbolic link); or a `fields` image path is not written `assets/<name>.png` with forward slashes (a drive letter, a backslash, `./`, `..`, a URL), or escapes the recipe through `resolve_asset_path(path, root=recipe)`. |
+| `licence` | `licence` is missing or not `MIT` or `CC0-1.0`. |
+| `attestation` | An attestation is missing, unknown, not a boolean, `synthetic` is not true, or any other is not false. |
+| `duplicate-entry` | One path is listed twice. |
+| `unlisted-asset` | A file under `assets/` has no entry, or a `fields` image path names no entry. |
+| `missing-file` | An entry's file is not in `assets/`. |
+| `hash-mismatch`, `format-mismatch`, `size-mismatch` | The file's SHA-256, format (read from the bytes) or pixel size is not what the entry says. |
+| `generator` | The generator script is not a file in the recipe, or does not contain the function name. Whether the function really draws the image is for the reviewer. |
+| `split-leak` | Examples in different scored splits (`train`, `validation`, `test`) name images with the same bytes, under one path or two. |
+
+A **`fields` image path** is any string value in `fields`, at any depth and under any key, that
+has no whitespace and starts with `assets/`. In a recipe that has images (an `assets/` folder or a
+manifest) a string that ends in `.png`, `.jpg` or `.jpeg` (any case) and contains a `/` or a
+backslash is one too, so a typo such as `../x.png`, `fixtures/x.png`, `./assets/x.png`,
+`assets\x.png` or `C:/x.png` is reported rather than ignored. Every such string must be written
+`assets/<name>.png` (or `.jpg`, `.jpeg`) with forward slashes and equal a manifest `path` exactly,
+whichever operating system runs the validator; anything else is an `asset-path` failure. A bare
+file name (`IMG_2041.JPG`), a URL in a recipe without images, and a prose sentence that mentions
+`chart.png` are not paths. So a text-only recipe is unaffected by the image-suffix rule, but not by
+the `assets/` prefix rule: a text-only recipe still fails if a `fields` value has no whitespace and
+starts with `assets/` (`assets/equity`). In a recipe that has images, a value that
+ends in an image suffix and contains a `/` or a backslash (an upload path, an attachment URL)
+cannot be kept in `fields` as written; keep only the bare file name, put whitespace in the value,
+or leave it out. `state` examples are not scanned,
+so an image recipe puts its image paths in `fields`, or the reference and leak checks never see
+them. `demo` examples are exempt from the leak rule, as they are from the label rule. An
+image used only in a question's criteria is named by no `fields` value, so the leak rule cannot
+see it; it still needs an entry, like every file under `assets/`. For a reference image that several splits deliberately share through `fields`, set
+`"shared_across_splits": true` on every entry that carries those bytes.
+
+What the validator does not do: decode pixels (two encodings of the same picture have different
+hashes), run or read the generator beyond finding the function name, or judge whether a description
+or an attestation is true. The reviewer does the last two, and the image-file contract above
+(`tools/check_recipe_assets.py`) still decides what a valid file is.
+
+To write the entries rather than type them, hash the bytes you just saved:
+
+```python
+import hashlib
+from pathlib import Path
+
+from PIL import Image
+
+
+def manifest_entry(recipe_dir, path, generator, parameters, description, licence="CC0-1.0"):
+    """`path` is "assets/x.png" under `recipe_dir`; the current directory does not matter."""
+    file = Path(recipe_dir) / path
+    data = file.read_bytes()
+    with Image.open(file) as image:
+        fmt, (width, height) = image.format, image.size
+    return {
+        "path": path,
+        "sha256": hashlib.sha256(data).hexdigest(),
+        "format": fmt,
+        "width": width,
+        "height": height,
+        "origin": "generated",
+        "generator": generator,
+        "parameters": parameters,
+        "licence": licence,
+        "description": description,
+        "attestations": {
+            "synthetic": True,
+            "real_photo": False,
+            "real_brand": False,
+            "real_person": False,
+            "third_party_content": False,
+        },
+    }
+```
+
+At the end of `build_fixtures.py`, write `{"schema": 1, "assets": [...]}` with
+`json.dumps(..., indent=2)`, entries sorted by `path` so a regenerated manifest diffs cleanly. The
+manifest is then regenerated with the images and the hashes cannot drift.
 
 ### Generators
 

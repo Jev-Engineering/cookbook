@@ -43,11 +43,14 @@ from typing import Any
 
 from .._canonical import MAX_DEPTH
 from ..answers import RECORDED_SOURCE, SYNTHETIC_SOURCE, DecisionResult
+from ._assets import ASSETS_DIR, ASSETS_MANIFEST_FILE, check_assets
 from ._scan import scan_text
 from ._schema import check, load_schema
 from .permutation import stable_permutation, stable_shuffle
 
 __all__ = [
+    "ASSETS_DIR",
+    "ASSETS_MANIFEST_FILE",
     "FIXTURES_DIR",
     "INPUTS_FILE",
     "LABELED_SPLITS",
@@ -701,6 +704,24 @@ def _layout(folder: Path) -> tuple[dict[str | None, Path], list[Problem]]:
     return responses, problems
 
 
+def _read_manifest(path: Path) -> tuple[Any, str | None]:
+    """The manifest as strict JSON (no duplicate key, no NaN), or ``(None, why not)``."""
+    text, problems = _read(path)
+    if text is None:
+        return None, problems[0].message
+    try:
+        return _loads(text), None
+    except ValueError as exc:
+        return None, f"invalid JSON: {exc}"
+
+
+def _asset_problems(recipe_dir: PathLike | None, examples: list[Example]) -> list[Problem]:
+    """Image provenance (``docs/fixtures.md``): none for a recipe without an ``assets/`` folder."""
+    recipe = Path(recipe_dir if recipe_dir is not None else ".")
+    found = check_assets(recipe, examples, read_json=_read_manifest, leak_splits=LABELED_SPLITS)
+    return [Problem(file, message, ident=ident) for file, message, ident in found]
+
+
 def validate_recipe(recipe_dir: PathLike | None = None) -> Report:
     """Every problem in a recipe's ``fixtures/`` folder, and the recipe's mode.
 
@@ -709,7 +730,8 @@ def validate_recipe(recipe_dir: PathLike | None = None) -> Report:
     """
     folder = fixtures_dir(recipe_dir)
     if not folder.is_dir():
-        return Report([Problem(_display(folder), "fixtures folder is missing")])
+        missing = [Problem(_display(folder), "fixtures folder is missing")]
+        return Report(missing + _asset_problems(recipe_dir, []))
     responses_files, problems = _layout(folder)
     inputs_path, labels_path = folder / INPUTS_FILE, folder / LABELS_FILE
     examples, more, inputs_ok = _read_inputs(inputs_path)
@@ -736,6 +758,7 @@ def validate_recipe(recipe_dir: PathLike | None = None) -> Report:
                 problems += _check_responses(examples, raw, _display(path))
     for path in scanned:
         problems += _scan_file(path)
+    problems += _asset_problems(recipe_dir, examples)
     return Report(problems, mode)
 
 
