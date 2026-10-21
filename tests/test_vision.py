@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import contextlib
 import hashlib
 import io
 import json
@@ -869,3 +870,344 @@ def test_box_confidence_docstring_matches_its_behaviour():
     assert vision.box_confidence({"confidence": 0.0}) == 0.0
     assert vision.box_confidence({"confidence": 1.0}) == 1.0
     assert vision.box_confidence({}) is None
+
+
+# ------------------------------------------------------------------ gold Box labels and the report
+#
+# Every expected value below is computed by hand from these rectangles (all edges are dyadic
+# fractions, so the IoUs are exact). GOLD has area 0.25.
+#   SAME     identical to GOLD:                      intersection 0.25,   union 0.25  -> 1
+#   HALF     the top half of GOLD:                   intersection 0.125,  union 0.25  -> 1/2
+#   QUARTER  a 0.125-wide strip of GOLD:             intersection 0.0625, union 0.25  -> 1/4
+#   FAR      the opposite corner, touching at a point: no intersection                -> 0
+GOLD = {"top": 0.0, "bottom": 0.5, "left": 0.0, "right": 0.5}
+SAME = dict(GOLD)
+HALF = {"top": 0.0, "bottom": 0.25, "left": 0.0, "right": 0.5}
+QUARTER = {"top": 0.0, "bottom": 0.5, "left": 0.0, "right": 0.125}
+FAR = {"top": 0.5, "bottom": 1.0, "left": 0.5, "right": 1.0}
+PRESENT = {"present": True, "box": GOLD}
+ABSENT = {"present": False}
+LOCATED_TINY = {"top": 0.0, "bottom": 1e-200, "left": 0.0, "right": 1e-200}
+
+
+def test_gold_box_decodes_present_and_absent_labels():
+    decoded = vision.gold_box(PRESENT)
+    assert decoded == GOLD
+    assert decoded is not PRESENT["box"]  # a validated copy
+    assert vision.gold_box(ABSENT) is None
+    assert vision.gold_box(json.loads(json.dumps(PRESENT))) == GOLD
+
+
+@pytest.mark.parametrize(
+    "label",
+    [
+        None,
+        "present",
+        [PRESENT],
+        {},
+        {"box": GOLD},
+        {"present": None},
+        {"present": 1},
+        {"present": 0},
+        {"present": "false"},
+        {"present": True},
+        {"present": True, "box": None},
+        {"present": True, "box": [0, 0, 1, 1]},
+        {"present": True, "box": {"top": 0, "bottom": 1, "left": 0}},
+        {"present": True, "box": {**GOLD, "extra": 0.5}},
+        {"present": True, "box": GOLD, "confidence": 0.9},
+        {"present": False, "box": GOLD},
+        {"present": False, "box": None},
+        {"present": False, "extra": 1},
+        {"present": True, "box": {**GOLD, "right": 1.5}},
+        {"present": True, "box": {**GOLD, "left": -0.1}},
+        {"present": True, "box": {**GOLD, "right": float("nan")}},
+        {"present": True, "box": {**GOLD, "right": 0.0}},  # zero width
+        {"present": True, "box": {**GOLD, "bottom": 0.0}},  # zero height
+        {"present": True, "box": {**GOLD, "left": 0.5}},  # left == right
+        {"present": True, "box": {**GOLD, "left": "0"}},
+        {"present": True, "box": {**GOLD, "left": True}},
+        {"present": True, "box": LOCATED_TINY},  # valid edges, but the area underflows to 0.0
+    ],
+)
+def test_gold_box_rejects_malformed_labels(label):
+    with pytest.raises(ValueError):
+        vision.gold_box(label)
+
+
+def test_gold_box_rejects_a_degenerate_gold_box_before_any_score_is_computed():
+    with pytest.raises(ValueError, match="underflows to zero"):
+        vision.gold_box({"present": True, "box": LOCATED_TINY})
+    with pytest.raises(ValueError, match=r"example 1: .*underflows to zero"):
+        vision.localization_report(
+            [PRESENT, {"present": True, "box": LOCATED_TINY}],
+            [("located", SAME), ("located", LOCATED_TINY)],
+        )
+
+
+def counted_once(report) -> None:
+    """The invariant every report must keep: each example is in exactly one table cell."""
+    assert sum(report.present_table.values()) == report.n_present
+    assert sum(report.absent_table.values()) == report.n_absent
+    assert report.n_present + report.n_absent == report.n_total
+    assert len(report.ious) == report.n_total
+
+
+def test_report_mixed_outcomes_by_hand():
+    # Present gold (5): IoU 1, IoU 1/2, IoU 1/4, said absent, sent to review.
+    # Absent gold (4): a box was returned, correct absent, correct absent, sent to review.
+    gold = [PRESENT] * 5 + [ABSENT] * 4
+    outcomes = [
+        ("located", SAME),
+        ("located", HALF),
+        ("located", QUARTER),
+        ("absent", None),
+        ("review", None),
+        ("located", SAME),
+        ("absent", None),
+        ("absent", None),
+        ("review", None),
+    ]
+    report = vision.localization_report(gold, outcomes)
+    counted_once(report)
+    assert (report.n_total, report.n_present, report.n_absent) == (9, 5, 4)
+    assert report.present_table == {"located": 3, "absent": 1, "review": 1}
+    assert report.absent_table == {"located": 1, "absent": 2, "review": 1}
+    assert (report.present_located, report.present_missed, report.present_review) == (3, 1, 1)
+    assert (report.false_positives, report.correct_absents, report.absent_review) == (1, 2, 1)
+    # (1 + 1/2 + 1/4) / 3 located present targets = 7/12; the false positive adds no IoU.
+    assert report.mean_iou_located == pytest.approx(7 / 12)
+    # (1 + 1/2 + 1/4 + 0 + 0) / 5 present targets = 7/20.
+    assert report.mean_iou_present == pytest.approx(0.35)
+    # Hits at IoU >= 0.5 are the first two present targets: 2 of 5.
+    assert report.hits == 2
+    assert report.hit_rate == pytest.approx(0.4)
+    assert report.false_positive_rate == pytest.approx(0.25)  # 1 of 4 absent targets
+    assert report.correct_absent_rate == pytest.approx(0.5)  # 2 of 4 absent targets
+    assert report.ious == (1.0, 0.5, 0.25, None, None, None, None, None, None)
+    assert report.denominators == {
+        "mean_iou_located": 3,
+        "mean_iou_present": 5,
+        "hit_rate": 5,
+        "false_positive_rate": 4,
+        "correct_absent_rate": 4,
+    }
+
+
+def test_report_all_absent_has_no_iou_and_no_invented_zero():
+    gold = [ABSENT, ABSENT, ABSENT]
+    outcomes = [("absent", None), ("located", FAR), ("review", None)]
+    report = vision.localization_report(gold, outcomes)
+    counted_once(report)
+    assert (report.n_total, report.n_present, report.n_absent) == (3, 0, 3)
+    assert report.absent_table == {"located": 1, "absent": 1, "review": 1}
+    assert report.present_table == {"located": 0, "absent": 0, "review": 0}
+    assert math.isnan(report.mean_iou_located)
+    assert math.isnan(report.mean_iou_present)
+    assert math.isnan(report.hit_rate)
+    assert report.hits == 0
+    assert report.false_positive_rate == pytest.approx(1 / 3)
+    assert report.correct_absent_rate == pytest.approx(1 / 3)
+    text = str(report)
+    assert "3 examples (0 present + 3 absent)" in text
+    assert "mean IoU over located present targets: n/a (denominator 0" in text
+    assert "hit rate at IoU >= 0.5: n/a (denominator 0" in text
+    assert "false positive rate: 1/3 = 0.3333 (denominator 3: all absent targets)" in text
+
+
+def test_report_all_absent_and_all_correct():
+    report = vision.localization_report([ABSENT, ABSENT], [("absent", None)] * 2)
+    assert (report.correct_absents, report.false_positives) == (2, 0)
+    assert report.correct_absent_rate == 1.0
+    assert report.false_positive_rate == 0.0
+
+
+def test_report_all_review_keeps_every_example_in_the_denominator():
+    gold = [PRESENT, ABSENT, PRESENT]
+    report = vision.localization_report(gold, [("review", None)] * 3)
+    counted_once(report)
+    assert report.n_total == 3
+    assert report.present_table == {"located": 0, "absent": 0, "review": 2}
+    assert report.absent_table == {"located": 0, "absent": 0, "review": 1}
+    # No located target: the located mean has nothing to average, but the all-present mean is
+    # 0/2, not undefined: both reviewed present targets are in its denominator at 0.
+    assert math.isnan(report.mean_iou_located)
+    assert report.mean_iou_present == 0.0
+    assert report.hit_rate == 0.0
+    assert report.hits == 0
+    # A review is not an absent prediction: nothing counts as a correct absent or a miss.
+    assert (report.correct_absents, report.false_positives, report.present_missed) == (0, 0, 0)
+    assert report.correct_absent_rate == 0.0
+    assert report.false_positive_rate == 0.0
+
+
+def test_a_reviewed_present_target_changes_the_denominator_instead_of_vanishing():
+    gold = [PRESENT, PRESENT]
+    resolved = vision.localization_report(gold, [("located", SAME), ("located", HALF)])
+    reviewed = vision.localization_report(gold, [("located", SAME), ("review", None)])
+    for report in (resolved, reviewed):
+        counted_once(report)
+        assert (report.n_total, report.n_present) == (2, 2)
+    assert resolved.mean_iou_located == 0.75  # (1 + 1/2) / 2
+    assert resolved.mean_iou_present == 0.75
+    assert resolved.denominators["mean_iou_located"] == 2
+    # The reviewed target is not located (denominator 1) but still present (denominator 2).
+    assert reviewed.mean_iou_located == 1.0  # 1 / 1
+    assert reviewed.mean_iou_present == 0.5  # (1 + 0) / 2
+    assert reviewed.denominators["mean_iou_located"] == 1
+    assert reviewed.denominators["mean_iou_present"] == 2
+    assert reviewed.hit_rate == 0.5  # 1 hit of 2 present targets
+    text = str(reviewed)
+    assert "1.0000 (denominator 1: located present targets)" in text
+    assert "0.5000 (denominator 2: all present targets)" in text
+    assert "sent to review 1" in text
+
+
+def test_box_returned_for_an_absent_target_is_a_false_positive_never_an_iou():
+    # The box is identical to a rectangle that would score IoU 1 on a present target.
+    report = vision.localization_report([ABSENT], [("located", SAME)])
+    counted_once(report)
+    assert report.absent_table == {"located": 1, "absent": 0, "review": 0}
+    assert report.false_positives == 1
+    assert report.false_positive_rate == 1.0
+    assert report.correct_absent_rate == 0.0
+    assert report.ious == (None,)
+    assert math.isnan(report.mean_iou_present)
+    # Mixed with a present target, the false positive leaves the IoU means untouched.
+    both = vision.localization_report([PRESENT, ABSENT], [("located", HALF), ("located", SAME)])
+    assert both.mean_iou_located == 0.5
+    assert both.mean_iou_present == 0.5
+    assert both.hit_rate == 1.0
+
+
+def test_a_present_target_called_absent_is_a_miss_and_not_a_correct_absent():
+    report = vision.localization_report([PRESENT], [("absent", None)])
+    assert report.present_table == {"located": 0, "absent": 1, "review": 0}
+    assert report.correct_absents == 0
+    assert report.mean_iou_present == 0.0
+    assert math.isnan(report.mean_iou_located)
+
+
+def test_report_uses_each_examples_own_gold_box():
+    other = {"present": True, "box": {"top": 0.25, "bottom": 0.75, "left": 0.25, "right": 0.75}}
+    # GOLD against `other`: intersection 0.25 * 0.25 = 1/16, union 1/4 + 1/4 - 1/16 = 7/16.
+    report = vision.localization_report([other], [("located", GOLD)])
+    assert report.ious[0] == pytest.approx(1 / 7)
+    assert report.hits == 0
+
+
+def test_report_hit_threshold_is_inclusive_and_configurable():
+    gold = [PRESENT] * 3
+    outcomes = [("located", HALF), ("located", QUARTER), ("located", FAR)]
+    default = vision.localization_report(gold, outcomes)
+    assert default.iou_threshold == 0.5
+    assert default.hits == 1  # IoU exactly 1/2 counts
+    strict = vision.localization_report(gold, outcomes, iou_threshold=0.6)
+    assert (strict.hits, strict.hit_rate) == (0, 0.0)
+    loose = vision.localization_report(gold, outcomes, iou_threshold=0.25)
+    assert (loose.hits, loose.hit_rate) == (2, pytest.approx(2 / 3))  # IoU 1/2 and 1/4
+    assert vision.localization_report(gold, outcomes, iou_threshold=1).hits == 0
+    assert "hit rate at IoU >= 0.25" in str(loose)
+    # FAR touches GOLD at a corner: IoU 0, and its zero is in the mean over 3 located targets.
+    assert default.mean_iou_located == pytest.approx((0.5 + 0.25 + 0.0) / 3)
+
+
+def test_report_prints_every_denominator_for_the_documented_example():
+    text = str(
+        vision.localization_report(
+            [PRESENT] * 4 + [ABSENT] * 3,
+            [
+                ("located", SAME),
+                ("located", HALF),
+                ("review", None),
+                ("absent", None),
+                ("located", SAME),
+                ("absent", None),
+                ("review", None),
+            ],
+        )
+    )
+    assert text.splitlines() == [
+        "Localization report: 7 examples (4 present + 3 absent), each counted once",
+        "Present targets (n = 4): box returned 2, said absent (missed) 1, sent to review 1",
+        "  mean IoU over located present targets: 0.7500 (denominator 2: located present targets)",
+        "  mean IoU over all present targets, missed and review counted as 0: "
+        "0.3750 (denominator 4: all present targets)",
+        "  hit rate at IoU >= 0.5: 2/4 = 0.5000 (denominator 4: all present targets)",
+        "Absent targets (n = 3): box returned (false positive) 1, correct absent 1, "
+        "sent to review 1",
+        "  false positive rate: 1/3 = 0.3333 (denominator 3: all absent targets)",
+        "  correct absent rate: 1/3 = 0.3333 (denominator 3: all absent targets)",
+    ]
+
+
+def test_the_documented_localization_example_runs_and_prints_what_the_docs_show():
+    text = (Path(__file__).resolve().parent.parent / "docs" / "vision.md").read_text("utf-8")
+    start = text.index("from jev_cookbook.vision import localization_report")
+    code = text[start : text.index("```", start)]
+    printed = text[text.index("```text\n", start) + len("```text\n") :]
+    printed = printed[: printed.index("```")]
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        exec(compile(code, "docs/vision.md", "exec"), {})
+    assert out.getvalue() == printed
+
+
+@pytest.mark.parametrize(
+    ("gold", "outcomes", "match"),
+    [
+        ([], [], "nonempty"),
+        ([PRESENT], [], "same length"),
+        ([PRESENT], [("located", SAME)] * 2, "same length"),
+        ([{"present": "yes"}], [("absent", None)], "example 0: .*'present'"),
+        ([PRESENT, {"present": False, "box": GOLD}], [("absent", None)] * 2, "example 1"),
+        ([PRESENT], ["located"], "pair"),
+        ([PRESENT], [("located",)], "pair"),
+        ([PRESENT], [None], "pair"),
+        ([PRESENT], [("maybe", None)], "outcome kind"),
+        ([PRESENT], [("LOCATED", SAME)], "outcome kind"),
+        ([PRESENT], [("located", None)], "example 0"),
+        ([ABSENT], [("located", None)], "example 0"),
+        ([PRESENT], [("located", {**SAME, "right": 2.0})], "example 0"),
+        ([ABSENT], [("located", {**SAME, "right": 2.0})], "example 0"),  # absent gold still checked
+        ([PRESENT], [("absent", SAME)], "must carry None"),
+        ([ABSENT], [("review", SAME)], "must carry None"),
+    ],
+)
+def test_report_rejects_malformed_inputs(gold, outcomes, match):
+    with pytest.raises(ValueError, match=match):
+        vision.localization_report(gold, outcomes)
+
+
+@pytest.mark.parametrize(
+    "threshold", [0, -0.1, 1.01, float("nan"), float("inf"), True, "0.5", None]
+)
+def test_report_rejects_a_bad_threshold(threshold):
+    with pytest.raises(ValueError, match="iou_threshold"):
+        vision.localization_report([PRESENT], [("located", SAME)], iou_threshold=threshold)
+
+
+def test_report_accepts_lists_a_box_answer_object_and_any_iterable():
+    answer = SimpleNamespace(box=HALF, confidence=0.9)
+    report = vision.localization_report(
+        iter([PRESENT, ABSENT]), iter([["located", answer], ["absent", None]])
+    )
+    assert report.ious == (0.5, None)
+    assert report.correct_absents == 1
+
+
+def test_a_tiny_returned_box_on_a_present_target_scores_zero_without_raising():
+    report = vision.localization_report([PRESENT], [("located", LOCATED_TINY)])
+    assert report.ious == (0.0,)
+    assert report.mean_iou_located == 0.0
+
+
+def test_report_is_a_frozen_dataclass_and_localization_metrics_remains():
+    report = vision.localization_report([ABSENT], [("absent", None)])
+    assert is_dataclass(report)
+    with pytest.raises(AttributeError):
+        report.n_total = 5
+    assert "localization_report" in vision.__all__
+    assert "gold_box" in vision.__all__
+    assert "localization_report" in (vision.localization_metrics.__doc__ or "")
+    assert vision.localization_metrics([GOLD, None], [GOLD, None]).mean_iou == 1.0

@@ -102,6 +102,35 @@ here too.
 labels). Every `train`, `validation` and `test` example needs exactly one label; a label whose
 `id` is not in the inputs is an error.
 
+### Box labels
+
+A recipe whose question asks for a `Box` labels each example with a gold Box label, so ten
+recipes do not invent ten formats. An object with a boolean `present`:
+
+```json
+{"id": "t07", "label": {"present": true, "box": {"top": 0.25, "bottom": 0.75, "left": 0.125, "right": 0.625}}}
+{"id": "t08", "label": {"present": false}}
+```
+
+- `present: true` has exactly `present` and `box`. `box` has exactly `top`, `bottom`, `left`
+  and `right`: finite numbers in [0, 1] (normalized to the image, as in
+  [`docs/vision.md`](vision.md)), with `left < right` and `top < bottom`, and an area that
+  does not underflow to zero.
+- `present: false` has exactly `present`. It means the target is not in the image. It carries
+  no `box`, not even a `null` one; `null` is never a label.
+- `present` is a JSON boolean. `"yes"`, `1` and `null` are errors.
+
+`vision.gold_box(label)` decodes one (the rectangle, or `None` for absent) and raises
+`ValueError` on anything else; `vision.localization_report` takes these labels directly.
+
+The validator treats a label that is an object with a `present` key as a Box label: that is
+how a recipe declares the format, so `present` is reserved at the top level of a label object.
+Every such label must pass `gold_box`, and once any label in the file is a Box label, a label
+that is not (a bare box, a string) is an error. A recipe whose label holds a Box label among
+other values nests it under its own key (for example `{"tile": "b3", "target": {"present":
+false}}`) and calls `gold_box(label["target"])` in its own test; the validator does not look
+inside other labels.
+
 ## Nesting limit
 
 No JSON value in a fixture file nests deeper than **64 levels**, counting the line (or, in a
@@ -366,7 +395,7 @@ content. Recipe tests must also check image content and lineage across splits, s
 paths can contain identical pixels and the fixture validator does not open image files.
 
 The input row schema is unchanged; do not add a top-level `assets` field. Labels can contain
-normalized gold boxes or an explicit absent-target label. A response's `BoxAnswer.to_dict()`
+the gold Box label above (a normalized box, or the explicit `{"present": false}`). A response's `BoxAnswer.to_dict()`
 stores `type`, the four-edge `box`, nullable `confidence`, and the ordinary provenance.
 `DecisionResult` and the fixture validator reject malformed geometry and confidence.
 Missing confidence means unknown, never certainty. A Box is still returned for an absent
