@@ -589,7 +589,7 @@ urgency = ScoreAnswer.from_probabilities(
 import json
 from pathlib import Path
 
-from jev_cookbook import DecisionResult, Noul, NoulAnswer, Provenance, replay_key
+from jev_cookbook import DecisionResult, Noul, NoulAnswer, Provenance, dump_responses, replay_key
 
 QUESTIONS = {"billing": Noul(instructions="Is this ticket about billing?")}
 
@@ -616,7 +616,7 @@ for ident, split, fields, label, p in rows:
     responses[key] = DecisionResult({"billing": answer}, "synthetic").to_dict()
 (folder / "inputs.jsonl").write_text("".join(json.dumps(r) + "\n" for r in inputs), "utf-8")
 (folder / "labels.jsonl").write_text("".join(json.dumps(r) + "\n" for r in labels), "utf-8")
-(folder / "responses.json").write_text(json.dumps(responses, indent=2) + "\n", "utf-8")
+(folder / "responses.json").write_text(dump_responses(responses), encoding="utf-8", newline="\n")
 ```
 
 These four answers are deliberately not all right: a fixture set where every stored answer matches

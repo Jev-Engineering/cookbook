@@ -41,6 +41,18 @@ SECTIONS = [
 ]
 
 TODO_MARK = "TODO"
+# The run-mode paragraph every notebook's setup-md carries (#233). It is pinned byte for byte in
+# the template and every published notebook by tests/test_run_mode_sentence.py, which also
+# requires the scaffolded setup-md to carry it, so a new recipe starts with the true wording.
+RUN_MODE_PARAGRAPH = (
+    "Two labels may follow a number below. `(a pipeline check, not a Jev result)` marks a "
+    "synthetic or scripted run; a recorded or live run does not print it, and its header says "
+    "which mode ran. `(a selection step, not a reported result)` marks a line that is not a "
+    "result to report, such as a number from `validation`, the split settings are chosen on, or "
+    "a count of the items the frozen rule queues or would queue. A line with neither label, "
+    "such as an individual answer or a per-example line, still comes from the mode the header "
+    "names."
+)
 MODES = ("replay", "scripted")  # --mode; replay is the default and the one most recipes use
 
 
@@ -139,7 +151,11 @@ def notebook_cells(catalog: dict, recipe: dict, mode: str = "replay") -> list[di
             "setup-md",
             f"## {SECTIONS[1]}\n\n"
             "The notebook runs from its own folder with the standard library and `jev_cookbook` "
-            "only. The header states which mode ran.\n\n" + setup_prose,
+            "only. The header states which mode ran. "
+            + RUN_MODE_PARAGRAPH
+            + f" {TODO_MARK}: keep this paragraph as it is; define `selection` in the setup cell "
+            "as `recipes/_template/` does, and print `{selection}{check}` on every `validation` "
+            "number.\n\n" + setup_prose,
         ),
         code(
             "setup",
@@ -225,8 +241,11 @@ for answer in result.answers.values():
             "evaluation-md",
             f"## {SECTIONS[6]}\n\n"
             f"{TODO_MARK}: choose every setting on `validation`, freeze it, and report once on "
-            "`test` with `jev_cookbook.evaluation`. In an offline run print each number with "
-            "`check` beside it. Compare with the baseline the issue names, if there is one.",
+            "`test` with `jev_cookbook.evaluation`. In a synthetic or scripted run print each metric "
+            "with `check` beside it; an individual example listed below a metric is not a "
+            "metric and needs no label. Say which `validation` numbers your selection forces (see the "
+            "template's evaluation section), or that none is. Compare with the baseline the "
+            "issue names, if there is one.",
         ),
         code("evaluation", "# TODO: evaluate on validation, then report on test"),
         md(
@@ -461,7 +480,7 @@ import argparse
 import json
 from pathlib import Path
 
-from jev_cookbook import DecisionResult, Provenance, load_helpers, replay_key
+from jev_cookbook import DecisionResult, Provenance, dump_responses, load_helpers, replay_key
 
 HERE = Path(__file__).resolve().parent
 helpers = load_helpers(HERE)
@@ -564,12 +583,10 @@ def main() -> None:
             )
         raise SystemExit(message)
     responses = build_responses(ROWS)
-    # The same serialization jev_cookbook.live._dump writes: only the top-level keys are
-    # sorted; each response keeps the field order DecisionResult.to_dict() emits. Matching the
-    # recorder exactly, rather than json.dumps(..., sort_keys=True) (which also sorts every
-    # nested dict alphabetically), keeps a recording's diff to the values that actually changed.
-    text = json.dumps(dict(sorted(responses.items())), indent=2, ensure_ascii=False) + "\\n"
-    responses_file.write_text(text, encoding="utf-8", newline="\\n")
+    # dump_responses is the serialization the recorder writes with (top-level keys sorted, each
+    # response keeping the field order DecisionResult.to_dict() emits), so a recording's diff
+    # stays limited to the values that actually changed.
+    responses_file.write_text(dump_responses(responses), encoding="utf-8", newline="\\n")
     print(f"wrote {{len(inputs)}} examples, {{len(labels)}} labels, {{len(responses)}} responses")
 
 
@@ -745,7 +762,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from jev_cookbook.live import _dump
+from jev_cookbook import dump_responses
 
 RECIPE = Path(__file__).resolve().parent.parent
 SCRIPT = RECIPE / "build_fixtures.py"
@@ -766,20 +783,20 @@ def _jsonl(rows):
 
 
 def test_the_committed_responses_are_byte_identical_to_the_recorders_writer():
-    """jev_cookbook.live._dump sorts only the top-level keys; json.dumps(..., sort_keys=True)
+    """jev_cookbook.dump_responses sorts only the top-level keys; json.dumps(..., sort_keys=True)
     sorts every nested dict too and so disagrees with it on every response's field order. The
-    committed file must match _dump exactly, not just agree with it on top-level order.
+    committed file must match dump_responses exactly, not just agree with it on top-level order.
 
-    Comparing against _dump(json.loads(raw)) (re-dumping the file's own parsed content) cannot
-    catch a sort_keys=True regression: json.loads preserves whatever nested order the file
-    already has, and _dump only re-sorts the top level, so that round trip would pass no matter
-    which writer produced the file. Instead, import build_fixtures.py and compare against _dump
-    of what build_responses computes directly from ROWS, independent of what main() actually
-    wrote to disk."""
+    Comparing against dump_responses(json.loads(raw)) (re-dumping the file's own parsed content)
+    cannot catch a sort_keys=True regression: json.loads preserves whatever nested order the file
+    already has, and dump_responses only re-sorts the top level, so that round trip would pass no
+    matter which writer produced the file. Instead, import build_fixtures.py and compare against
+    dump_responses of what build_responses computes directly from ROWS, independent of what
+    main() actually wrote to disk."""
     raw = (RECIPE / "fixtures" / "responses.json").read_text("utf-8")
     module = load_module_at(SCRIPT, "{module_name}")
     assert len(module.ROWS) > 1
-    assert raw == _dump(module.build_responses(module.ROWS))
+    assert raw == dump_responses(module.build_responses(module.ROWS))
 
 
 def test_build_fixtures_separates_inputs_labels_from_responses(tmp_path):

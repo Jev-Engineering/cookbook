@@ -8,7 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from jev_cookbook.live import _dump
+from jev_cookbook import dump_responses
 
 RECIPE = Path(__file__).resolve().parent.parent
 SCRIPT = RECIPE / "build_fixtures.py"
@@ -29,20 +29,20 @@ def _jsonl(rows):
 
 
 def test_the_committed_responses_are_byte_identical_to_the_recorders_writer():
-    """jev_cookbook.live._dump sorts only the top-level keys; json.dumps(..., sort_keys=True)
+    """jev_cookbook.dump_responses sorts only the top-level keys; json.dumps(..., sort_keys=True)
     sorts every nested dict too and so disagrees with it on every response's field order. The
-    committed file must match _dump exactly, not just agree with it on top-level order.
+    committed file must match dump_responses exactly, not just agree with it on top-level order.
 
-    Comparing against _dump(json.loads(raw)) (re-dumping the file's own parsed content) cannot
-    catch a sort_keys=True regression: json.loads preserves whatever nested order the file
-    already has, and _dump only re-sorts the top level, so that round trip would pass no matter
-    which writer produced the file. Instead, import build_fixtures.py and compare against _dump
-    of what build_responses computes directly from ROWS, independent of what main() actually
-    wrote to disk."""
+    Comparing against dump_responses(json.loads(raw)) (re-dumping the file's own parsed content)
+    cannot catch a sort_keys=True regression: json.loads preserves whatever nested order the file
+    already has, and dump_responses only re-sorts the top level, so that round trip would pass no
+    matter which writer produced the file. Instead, import build_fixtures.py and compare against
+    dump_responses of what build_responses computes directly from ROWS, independent of what
+    main() actually wrote to disk."""
     raw = (RECIPE / "fixtures" / "responses.json").read_text("utf-8")
     module = load_module_at(SCRIPT, "recipe01_build_fixtures_for_test")
     assert len(module.ROWS) > 1
-    assert raw == _dump(module.build_responses(module.ROWS))
+    assert raw == dump_responses(module.build_responses(module.ROWS))
 
 
 def test_build_fixtures_separates_inputs_labels_from_responses(tmp_path):
