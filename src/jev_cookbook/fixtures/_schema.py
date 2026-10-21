@@ -3,7 +3,7 @@
 ``jsonschema`` is not a dependency of this package, so this implements only the keywords
 ``schema.json`` uses: ``type``, ``enum``, ``pattern``, ``minLength``, ``minItems``,
 ``uniqueItems``, ``items``, ``required``, ``properties``, ``additionalProperties`` (false),
-``oneOf`` and ``$ref`` into ``#/$defs``. A schema that uses any other validating keyword is
+``oneOf``, ``const``, ``minimum`` and ``$ref`` into ``#/$defs``. A schema that uses any other validating keyword is
 rejected, so a later edit to ``schema.json`` cannot silently become unenforced. A pattern must
 match the whole string (``re.fullmatch``), as in ECMA-262 validators: Python's ``$`` would also
 match before a trailing newline, so ``"v01<newline>"`` would pass an id pattern ending in ``$``.
@@ -19,7 +19,7 @@ from typing import Any
 _KNOWN = {
     "$schema", "$id", "$defs", "$ref", "title", "description", "type", "enum", "pattern",
     "minLength", "minItems", "uniqueItems", "items", "required", "properties",
-    "additionalProperties", "oneOf",
+    "additionalProperties", "oneOf", "const", "minimum",
 }  # fmt: skip
 _TYPES = {
     "string": lambda v: isinstance(v, str),
@@ -32,9 +32,9 @@ _TYPES = {
 }
 
 
-def load_schema() -> dict[str, Any]:
-    """The packaged ``schema.json`` as a dict."""
-    text = resources.files(__package__).joinpath("schema.json").read_text(encoding="utf-8")
+def load_schema(name: str = "schema.json") -> dict[str, Any]:
+    """A packaged schema file (default ``schema.json``) as a dict."""
+    text = resources.files(__package__).joinpath(name).read_text(encoding="utf-8")
     return json.loads(text)
 
 
@@ -62,6 +62,10 @@ def check(
         types = schema["type"] if isinstance(schema["type"], list) else [schema["type"]]
         if not any(_TYPES[t](value) for t in types):
             return [(path, f"must be {' or '.join(types)}, found {kind(value)}")]
+    if "const" in schema and (value != schema["const"] or type(value) is not type(schema["const"])):
+        problems.append((path, f"must be {json.dumps(schema['const'])}, found {json.dumps(value)}"))
+    if "minimum" in schema and _TYPES["number"](value) and value < schema["minimum"]:
+        problems.append((path, f"must be at least {schema['minimum']}, found {value}"))
     if "enum" in schema and value not in schema["enum"]:
         problems.append((path, f"must be one of {schema['enum']}, found {value!r}"))
     if isinstance(value, str):

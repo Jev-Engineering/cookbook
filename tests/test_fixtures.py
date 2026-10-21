@@ -1563,7 +1563,7 @@ def test_schema_is_packaged_and_has_the_two_row_definitions():
 
 def test_schema_checker_rejects_keywords_it_does_not_implement():
     with pytest.raises(ValueError, match="not supported"):
-        check(1, {"minimum": 3}, {})
+        check(1, {"maximum": 3}, {})
 
 
 def test_importing_the_module_does_not_import_tools_or_sdk():

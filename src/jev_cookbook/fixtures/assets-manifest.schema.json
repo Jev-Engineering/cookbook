@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Jev-Engineering/cookbook/schemas/assets-manifest.json",
+  "title": "Jev Cookbook image assets manifest",
+  "description": "A recipe's assets-manifest.json: provenance, licence and attestations for every image under its assets/ folder. Required exactly when the recipe has an assets/ folder. The validator also checks what a schema cannot: every file under assets/ is listed, every listed file exists, hash, format and size match the bytes, the generator script exists in the recipe, and no image crosses splits. See docs/fixtures.md, 'Image provenance manifest'.",
+  "type": "object",
+  "required": ["schema", "assets"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "description": "The manifest format version. Always 1.",
+      "type": "integer",
+      "const": 1
+    },
+    "assets": {
+      "description": "One entry per image file under the recipe's assets/ folder, in any order.",
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/asset"}
+    }
+  },
+  "$defs": {
+    "asset": {
+      "description": "One image file: where it is, what it is, how it was made, under what licence.",
+      "type": "object",
+      "required": [
+        "path", "sha256", "format", "width", "height", "origin", "generator", "parameters",
+        "licence", "description", "attestations"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "description": "Relative to the recipe folder, with forward slashes, starting 'assets/', lowercase .png/.jpg/.jpeg suffix. Letters, digits, '_', '.' and '-' only, no segment starting with '.', so it contains no '..' and cannot leave the folder. This is exactly the string an inputs.jsonl 'fields' value uses to name the image.",
+          "type": "string",
+          "pattern": "assets/([A-Za-z0-9][A-Za-z0-9_.-]*/)*[A-Za-z0-9][A-Za-z0-9_.-]*[.](png|jpg|jpeg)"
+        },
+        "sha256": {
+          "description": "SHA-256 of the file's bytes, 64 lowercase hex characters (the digest behind image_reference).",
+          "type": "string",
+          "pattern": "[0-9a-f]{64}"
+        },
+        "format": {
+          "description": "What the bytes are: PNG or JPEG (baseline).",
+          "enum": ["PNG", "JPEG"]
+        },
+        "width": {"description": "Pixels.", "type": "integer", "minimum": 1},
+        "height": {"description": "Pixels.", "type": "integer", "minimum": 1},
+        "origin": {
+          "description": "How the file came to exist. Only 'generated' (drawn by the recipe's own code) is allowed.",
+          "type": "string",
+          "const": "generated"
+        },
+        "generator": {
+          "description": "The code that drew it: 'build_fixtures.py:draw_dialog' (a .py file in the recipe folder, which must exist, and a function name that appears in it) or 'jev_cookbook.<module>:<function>' for shared package code.",
+          "type": "string",
+          "pattern": "([A-Za-z0-9_][A-Za-z0-9_.-]*[.]py|jev_cookbook([.][a-z_][a-z0-9_]*)+):([A-Za-z_][A-Za-z0-9_]*)"
+        },
+        "parameters": {
+          "description": "The arguments, seed included, that reproduce this file from the generator: any JSON object, {} if the generator takes none.",
+          "type": "object"
+        },
+        "licence": {
+          "description": "SPDX identifier: MIT (this repository's licence) or CC0-1.0.",
+          "type": "string",
+          "enum": ["MIT", "CC0-1.0"]
+        },
+        "description": {
+          "description": "What the image shows, in plain words, for a reader who cannot see it.",
+          "type": "string",
+          "minLength": 1
+        },
+        "attestations": {"$ref": "#/$defs/attestations"},
+        "shared_across_splits": {
+          "description": "Optional, default false. true allows examples in different splits to name this same image (a shared reference image); otherwise the same bytes in two splits is a leak.",
+          "type": "boolean"
+        }
+      }
+    },
+    "attestations": {
+      "description": "Explicit statements by the author, all required. The validator fails unless synthetic is true and each of the others is false.",
+      "type": "object",
+      "required": ["synthetic", "real_photo", "real_brand", "real_person", "third_party_content"],
+      "additionalProperties": false,
+      "properties": {
+        "synthetic": {"description": "Drawn by code; no camera or scan involved.", "type": "boolean", "const": true},
+        "real_photo": {"description": "Contains a real photograph or a pixel copied from one.", "type": "boolean", "const": false},
+        "real_brand": {"description": "Shows a real brand, logo, trademark or product.", "type": "boolean", "const": false},
+        "real_person": {"description": "Shows a real person or a real person's likeness.", "type": "boolean", "const": false},
+        "third_party_content": {"description": "Contains third-party artwork, screenshots, icons, fonts rendered from a non-redistributable file, or other copyrighted material.", "type": "boolean", "const": false}
+      }
+    }
+  }
+}
