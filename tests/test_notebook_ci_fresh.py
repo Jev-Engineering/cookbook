@@ -10,6 +10,7 @@ import copy
 import importlib.util
 import io
 import json
+import random
 import shutil
 import subprocess
 import sys
@@ -261,8 +262,282 @@ def test_png_present_only_in_one_notebook_is_stale(nb, reference):
 
 
 def test_other_image_types_are_not_normalised(nb, reference):
-    png_outputs(nb)[0]["data"]["image/jpeg"] = "AAAA"
-    assert any("image/jpeg" in p for p in problems_for(nb, reference))
+    # image/svg+xml (and any type other than PNG and JPEG) is still compared byte for byte.
+    committed, fresh = copy.deepcopy(nb), copy.deepcopy(reference)
+    png_outputs(committed)[0]["data"]["image/svg+xml"] = "<svg>a</svg>"
+    png_outputs(fresh)[0]["data"]["image/svg+xml"] = "<svg>b</svg>"
+    assert any("image/svg+xml" in p for p in problems_for(committed, fresh))
+
+
+# -- JPEG outputs are normalised like PNG outputs (#307) ------------------------------------------
+
+
+def jpeg_of(figure_png: str, quality=90, subsampling=2) -> str:
+    """The same picture as a base64 JPEG; another quality/subsampling stands in for another libjpeg."""
+    from PIL import Image
+
+    image = Image.open(io.BytesIO(base64.b64decode(figure_png))).convert("RGB")
+    buffer = io.BytesIO()
+    image.save(buffer, "JPEG", quality=quality, subsampling=subsampling)
+    return base64.b64encode(buffer.getvalue()).decode("ascii") + "\n"
+
+
+def with_jpegs(reference, committed_jpeg, fresh_jpeg):
+    committed, fresh = copy.deepcopy(reference), copy.deepcopy(reference)
+    png_outputs(committed)[0]["data"]["image/jpeg"] = committed_jpeg
+    png_outputs(fresh)[0]["data"]["image/jpeg"] = fresh_jpeg
+    return committed, fresh
+
+
+def test_a_jpeg_re_encoded_by_another_encoder_matches(reference):
+    picture = bars()
+    committed, fresh = with_jpegs(reference, jpeg_of(picture, 90, 2), jpeg_of(picture, 83, 0))
+    assert committed["cells"] != [] and (
+        png_outputs(committed)[0]["data"]["image/jpeg"]
+        != png_outputs(fresh)[0]["data"]["image/jpeg"]
+    )
+    problems, notes = fresh_tool.check(committed, fresh)
+    assert problems == []
+    assert len(notes) == 3  # the two PNGs and the JPEG
+    assert sum("matches" in n for n in notes) == 3
+
+
+def test_a_changed_jpeg_is_stale(reference):
+    committed, fresh = with_jpegs(
+        reference, jpeg_of(bars()), jpeg_of(bars(probabilities=shifted(0.3)))
+    )
+    found = problems_for(committed, fresh)
+    assert len(found) == 1
+    assert "image/jpeg" in found[0] and "stale" in found[0]
+
+
+def test_a_jpeg_present_in_only_one_notebook_is_stale(reference):
+    committed, fresh = copy.deepcopy(reference), copy.deepcopy(reference)
+    png_outputs(committed)[0]["data"]["image/jpeg"] = jpeg_of(bars())
+    found = problems_for(committed, fresh)
+    assert found and any("image/jpeg" in p for p in found)
+    found = problems_for(fresh, committed)
+    assert found and any("image/jpeg" in p for p in found)
+
+
+def test_an_undecodable_jpeg_is_stale(reference):
+    committed, fresh = with_jpegs(reference, jpeg_of(bars()), "AAAA")
+    assert any("image/jpeg" in p for p in problems_for(committed, fresh))
+
+
+def test_the_jpeg_comparison_does_not_mask_a_png_comparison(reference):
+    committed, fresh = with_jpegs(reference, jpeg_of(bars()), jpeg_of(bars()))
+    png_outputs(fresh)[0]["data"]["image/png"] = bars(probabilities=shifted(0.3))
+    found = problems_for(committed, fresh)
+    assert len(found) == 1 and "image/png" in found[0]
+
+
+# -- embedded images keep the metadata rules (#307 fix round 1) -----------------------------------
+
+
+def jpeg_with_exif(figure_png: str) -> str:
+    """The same picture as jpeg_of(), carrying an Artist tag and a local path."""
+    from PIL import Image
+
+    exif = Image.Exif()
+    exif[0x013B] = "Jane Doe"  # Artist
+    exif[0x010E] = "C:\\Users\\jane\\Desktop\\patient_scan.jpg"  # ImageDescription
+    image = Image.open(io.BytesIO(base64.b64decode(figure_png))).convert("RGB")
+    buffer = io.BytesIO()
+    image.save(buffer, "JPEG", quality=90, exif=exif)
+    return base64.b64encode(buffer.getvalue()).decode("ascii") + "\n"
+
+
+def test_a_committed_jpeg_output_with_exif_fails_even_when_a_fresh_run_shows_the_same_pixels(
+    reference,
+):
+    picture = bars()
+    committed, fresh = with_jpegs(reference, jpeg_with_exif(picture), jpeg_of(picture))
+    found = problems_for(committed, fresh)
+    assert len(found) == 1
+    assert found[0].startswith("committed:") and "[jpeg-metadata]" in found[0]
+    assert "APP1" in found[0] and "image/jpeg" in found[0]
+    # The same bytes in the fresh run are reported against the fresh run.
+    found = problems_for(fresh, committed)
+    assert len(found) == 1 and found[0].startswith("fresh run:")
+
+
+def test_png_output_metadata_fails_but_matplotlibs_software_line_passes(reference):
+    import struct
+    import zlib
+
+    def spliced(figure_png: str, kind: bytes, body: bytes) -> str:
+        data = base64.b64decode(figure_png)
+        iend = data.rindex(b"\x00\x00\x00\x00IEND")
+        new = struct.pack(">I", len(body)) + kind + body
+        new += struct.pack(">I", zlib.crc32(kind + body))
+        return base64.b64encode(data[:iend] + new + data[iend:]).decode("ascii") + "\n"
+
+    picture = bars()
+    assert not problems_for(reference, reference)  # matplotlib's own tEXt Software line
+    for kind, body in (
+        (b"tEXt", b"Author\x00Jane Doe"),
+        (b"tEXt", b"Software\x00" + b"x" * 300),
+        (b"eXIf", b"MM\x00*\x00\x00\x00\x08"),
+        (b"iTXt", b"Comment\x00\x00\x00\x00\x00C:\\Users\\jane"),
+        (b"tIME", bytes(7)),
+    ):
+        committed = copy.deepcopy(reference)
+        png_outputs(committed)[0]["data"]["image/png"] = spliced(picture, kind, body)
+        found = problems_for(committed, reference)
+        assert any("[png-metadata]" in p and p.startswith("committed:") for p in found), kind
+
+
+def test_a_png_with_text_after_its_zlib_stream_fails(reference):
+    import struct
+    import zlib
+
+    data = base64.b64decode(bars())
+    pos = data.index(b"IDAT") - 4
+    (length,) = struct.unpack(">I", data[pos : pos + 4])
+    body = data[pos + 8 : pos + 8 + length] + b"secret=hidden"
+    chunk = struct.pack(">I", len(body)) + b"IDAT" + body
+    chunk += struct.pack(">I", zlib.crc32(b"IDAT" + body))
+    forged = data[:pos] + chunk + data[pos + 12 + length :]
+    committed = copy.deepcopy(reference)
+    png_outputs(committed)[0]["data"]["image/png"] = base64.b64encode(forged).decode("ascii")
+    assert any("[trailing-data]" in p for p in problems_for(committed, reference))
+
+
+def test_what_pillow_and_ipython_display_for_a_clean_fixture_passes(reference):
+    from IPython.core.formatters import DisplayFormatter
+    from PIL import Image
+
+    buffer = io.BytesIO()
+    Image.new("RGB", (320, 320), (200, 40, 40)).save(buffer, "JPEG")
+    bundle = DisplayFormatter().format(Image.open(io.BytesIO(buffer.getvalue())))[0]
+    assert {"image/png", "image/jpeg"} <= set(bundle)
+    for mime in ("image/png", "image/jpeg"):  # IPython hands over bytes; nbformat stores base64
+        bundle[mime] = base64.b64encode(bundle[mime]).decode("ascii")
+    committed = copy.deepcopy(reference)
+    committed["cells"][0].setdefault("outputs", []).append(
+        {"output_type": "display_data", "data": bundle, "metadata": {}}
+    )
+    assert not [p for p in problems_for(committed, committed) if "image" in p]
+
+
+def test_a_markdown_cell_may_not_embed_an_image(reference):
+    uri = "data:image/png;base64," + png_of_text()
+    for field in ("attachments", "source"):
+        committed = copy.deepcopy(reference)
+        md = next(c for c in committed["cells"] if c["cell_type"] == "markdown")
+        if field == "attachments":
+            md["attachments"] = {"a.png": {"image/png": png_of_text()}}
+        else:
+            md["source"] = [f"![x]({uri})"]
+        found = [p for p in problems_for(committed, reference) if "embeds an image" in p]
+        assert len(found) == 1 and found[0].startswith("committed:"), field
+
+
+def png_of_text() -> str:
+    return bars().strip()
+
+
+def test_a_data_uri_in_an_output_is_checked_like_an_image_output(reference):
+    picture = bars()
+    for mime, payload, expect in (
+        ("jpeg", jpeg_with_exif(picture).strip(), "[jpeg-metadata]"),
+        ("jpeg", jpeg_of(picture).strip(), None),
+        ("png", picture.strip(), None),
+    ):
+        committed = copy.deepcopy(reference)
+        html = f'<img src="data:image/{mime};base64,{payload}">'
+        committed["cells"][0].setdefault("outputs", []).append(
+            {"output_type": "display_data", "data": {"text/html": [html]}, "metadata": {}}
+        )
+        found = [p for p in problems_for(committed, committed) if "data: URI" in p]
+        if expect:
+            assert len(found) == 2 and all(expect in p for p in found)  # committed and fresh
+        else:
+            assert found == []
+
+
+def test_an_output_image_of_another_type_is_a_problem(reference):
+    committed = copy.deepcopy(reference)
+    png_outputs(committed)[0]["data"]["image/gif"] = "R0lGODlhAQABAAAAACw="
+    found = problems_for(committed, committed)
+    assert any("image/gif" in p and "only PNG and JPEG" in p for p in found)
+
+
+def test_an_undecodable_embedded_image_is_a_problem(reference):
+    committed = copy.deepcopy(reference)
+    png_outputs(committed)[0]["data"]["image/png"] = "AAAA"
+    assert any("[png-structure]" in p for p in problems_for(committed, committed))
+
+
+def test_every_committed_notebook_passes_the_embedded_image_rules():
+    notebooks = sorted((REPO / "recipes").glob("*/notebook.ipynb"))
+    assert len(notebooks) >= 50
+    for path in notebooks:
+        nb = json.loads(path.read_text(encoding="utf-8"))
+        assert fresh_tool.output_problems(nb, "committed") == [], path
+
+
+# -- the output-size cap (#307) -----------------------------------------------------------------
+
+
+def with_filler(notebook, size):
+    """A copy of ``notebook`` whose outputs weigh at least ``size`` bytes in all."""
+    out = copy.deepcopy(notebook)
+    missing = size - fresh_tool.output_bytes(out)
+    out["cells"][0].setdefault("outputs", []).append(
+        {"output_type": "stream", "name": "stdout", "text": ["x" * (missing - 60)]}
+    )
+    return out
+
+
+def test_the_reference_notebook_is_far_below_the_cap(reference):
+    assert fresh_tool.output_bytes(reference) < fresh_tool.MAX_OUTPUT_BYTES // 4
+    assert fresh_tool.MAX_OUTPUT_BYTES == 2 * 1024 * 1024
+
+
+def test_outputs_exactly_at_the_cap_pass_and_one_byte_over_fails(reference):
+    cap = fresh_tool.MAX_OUTPUT_BYTES
+    nb_at = with_filler(reference, cap)
+    # Trim or pad the filler so the total is exactly the cap.
+    delta = cap - fresh_tool.output_bytes(nb_at)
+    nb_at["cells"][0]["outputs"][-1]["text"][0] += "x" * delta
+    assert fresh_tool.output_bytes(nb_at) == cap
+    assert problems_for(nb_at, nb_at) == []
+    nb_over = copy.deepcopy(nb_at)
+    nb_over["cells"][0]["outputs"][-1]["text"][0] += "x"
+    assert fresh_tool.output_bytes(nb_over) == cap + 1
+    found = problems_for(nb_over, nb_over)
+    assert len(found) == 2  # the committed file and the fresh one are each checked
+    assert all("outputs weigh" in p and "2,097,152" in p for p in found)
+
+
+def test_an_oversized_committed_notebook_is_reported_even_if_the_fresh_run_is_small(reference):
+    big = with_filler(reference, fresh_tool.MAX_OUTPUT_BYTES + 1000)
+    found = fresh_tool.check(big, reference)[0]
+    assert any(p.startswith("committed: outputs weigh") for p in found)
+
+
+def test_oversized_images_trip_the_cap(reference):
+    nb_big = copy.deepcopy(reference)
+    from PIL import Image
+
+    noise = Image.frombytes("RGB", (700, 700), random.Random(5).randbytes(700 * 700 * 3))
+    buffer = io.BytesIO()
+    noise.save(buffer, "PNG")
+    payload = base64.b64encode(buffer.getvalue()).decode("ascii")
+    for _ in range(2):
+        png_outputs(nb_big)[0]["data"]["image/png"] = payload
+        nb_big["cells"][0].setdefault("outputs", []).append(
+            {"output_type": "display_data", "data": {"image/png": payload}, "metadata": {}}
+        )
+    assert any("outputs weigh" in p for p in problems_for(nb_big, nb_big))
+
+
+def test_output_bytes_counts_text_in_utf8(reference):
+    nb_text = {"cells": [{"outputs": [{"output_type": "stream", "text": ["é"]}]}]}
+    plain = {"cells": [{"outputs": [{"output_type": "stream", "text": ["e"]}]}]}
+    assert fresh_tool.output_bytes(nb_text) == fresh_tool.output_bytes(plain) + 1
 
 
 def test_stale_figure_probe_changes_only_the_chart(nb, reference):
@@ -378,3 +653,69 @@ def test_differences_helper_names_the_path():
     found = fresh_tool.differences({"a": [1, {"b": "x"}]}, {"a": [1, {"b": "y"}]})
     assert found == ["notebook.a[1].b: committed 'x', fresh 'y'"]
     assert fresh_tool.differences({"a": 1}, {"a": True}) != []  # 1 and True are different types
+
+
+# -- text cells and metadata cannot smuggle an image in any spelling (#307 fix round 2) ---------------
+
+SPELLINGS = {
+    "upper-case scheme": "<img src='DATA:image/jpeg;base64,{b64}'>",
+    "mixed-case type": "<img src='data:IMAGE/JPEG;base64,{b64}'>",
+    "a parameter": "<img src='data:image/jpeg;charset=utf-8;base64,{b64}'>",
+    "two parameters": "<img src='data:image/jpeg;name=a.jpg;charset=utf-8;base64,{b64}'>",
+    "whitespace after the colon": "<img src='data: image/jpeg;base64,{b64}'>",
+    "an svg without base64": '<img src="data:image/svg+xml,%3Csvg%3E%3Ctext%3EJane%3C/text%3E%3C/svg%3E">',
+    "markdown image syntax": "![x](data:image/png;base64,{b64})",
+}
+
+
+@pytest.mark.parametrize("spelling", sorted(SPELLINGS))
+@pytest.mark.parametrize("cell_type", ["markdown", "raw"])
+def test_an_image_in_a_text_cell_is_a_problem_in_every_spelling(reference, spelling, cell_type):
+    committed = copy.deepcopy(reference)
+    text_cell = next(c for c in committed["cells"] if c["cell_type"] == "markdown")
+    text_cell["cell_type"] = cell_type
+    text_cell["source"] = [SPELLINGS[spelling].format(b64=jpeg_with_exif(bars()).strip())]
+    found = [p for p in problems_for(committed, reference) if "embeds an image" in p]
+    assert len(found) == 1 and found[0].startswith("committed:"), spelling
+
+
+def test_a_data_uri_in_the_notebook_or_a_cell_metadata_is_a_problem(reference):
+    uri = "data:image/jpeg;base64," + jpeg_with_exif(bars()).strip()
+    placements = {
+        "notebook metadata value": lambda nb: nb["metadata"].__setitem__("thumb", uri),
+        "notebook metadata nested": lambda nb: nb["metadata"].__setitem__("a", {"b": [uri]}),
+        "notebook metadata upper-case": lambda nb: nb["metadata"].__setitem__(
+            "thumb", uri.replace("data:", "DATA:")
+        ),
+        "notebook metadata key": lambda nb: nb["metadata"].__setitem__("image/jpeg", "AAAA"),
+        "markdown cell metadata": lambda nb: nb["cells"][0]["metadata"].__setitem__("x", uri),
+        "code cell metadata": lambda nb: next(c for c in nb["cells"] if c["cell_type"] == "code")[
+            "metadata"
+        ].__setitem__("x", [uri]),
+        "cell metadata key": lambda nb: nb["cells"][0]["metadata"].__setitem__("image/png", "x"),
+    }
+    for name, place in placements.items():
+        committed = copy.deepcopy(reference)
+        place(committed)
+        found = [p for p in problems_for(committed, reference) if "embedded image in metadata" in p]
+        assert len(found) >= 1 and found[0].startswith("committed:"), name
+    assert not [p for p in problems_for(reference, reference) if "metadata" in p]
+
+
+@pytest.mark.parametrize(
+    "spelling", ["upper-case scheme", "mixed-case type", "a parameter", "two parameters"]
+)
+def test_a_data_uri_in_an_output_is_checked_in_every_spelling(reference, spelling):
+    committed = copy.deepcopy(reference)
+    html = SPELLINGS[spelling].format(b64=jpeg_with_exif(bars()).strip())
+    committed["cells"][0].setdefault("outputs", []).append(
+        {"output_type": "display_data", "data": {"text/html": [html]}, "metadata": {}}
+    )
+    found = [p for p in problems_for(committed, committed) if "data: URI" in p]
+    assert len(found) == 2 and all("[jpeg-metadata]" in p for p in found), spelling
+
+
+def test_the_output_cap_message_recommends_displaying_the_file(reference):
+    over = with_filler(reference, fresh_tool.MAX_OUTPUT_BYTES + 10)
+    message = next(p for p in problems_for(over, over) if "outputs weigh" in p)
+    assert "IPython.display.Image(filename=path)" in message and "thumbnail" in message

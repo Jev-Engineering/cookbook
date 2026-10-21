@@ -139,10 +139,15 @@ def _check_assets(
             raise ValueError(
                 f"asset {ref!r} is not referenced in a state/instructions/criteria value"
             )
-        validate_image_asset(asset)
+        data = validate_image_asset(asset)
         # Canonical format ("jpg" -> "jpeg", lower case) so the replay key and every consumer
-        # see one spelling per set of bytes.
-        checked[ref] = {**asset, "format": canonical_image_format(asset["format"])}
+        # see one spelling per set of bytes. The digest is of the decoded file bytes, so
+        # non-canonical base64 of the same bytes ("QQ==" and "QR==") keys identically.
+        checked[ref] = {
+            **asset,
+            "format": canonical_image_format(asset["format"]),
+            "sha256": hashlib.sha256(data).hexdigest(),
+        }
     if reference_bytes > 65536:
         raise ValueError("all asset references together must be at most 65536 UTF-8 bytes")
     return checked
@@ -158,7 +163,8 @@ def replay_key(
     Choice options) and every array in the order written; no whitespace, ASCII escapes,
     shortest-repr floats. Non-empty ``assets`` adds a sorted map of reference to asset type,
     canonical format (``png`` or ``jpeg``; ``jpg`` and case variants are the same key) and
-    SHA-256 of its base64 text. Text-only requests retain their original keys.
+    SHA-256 of its decoded file bytes (the digest inside ``vision.image_reference``).
+    Text-only requests retain their original keys.
     """
     plain_state, checked = _check_request(state, questions)
     questions_json = {}
@@ -181,7 +187,7 @@ def replay_key(
             ref: {
                 "type": asset["type"],
                 "format": asset["format"],
-                "sha256": hashlib.sha256(asset["data_base64"].encode("ascii")).hexdigest(),
+                "sha256": asset["sha256"],
             }
             for ref, asset in sorted(checked_assets.items())
         }

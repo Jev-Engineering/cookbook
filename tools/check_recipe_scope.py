@@ -31,8 +31,9 @@ The allowlist, on ``git diff --raw -M -z base...head`` (``--name-status`` hides 
   ``recipes/<slug>/`` or is exactly ``README.md``;
 * inside ``recipes/<slug>/``: a deletion is allowed (it has no resulting mode); an addition must
   be mode 100644; a modification must be 100644 to 100644; a rename must be 100644 on both
-  sides; a type change, a symlink (120000), a submodule (160000), any mode change and any other
-  status (copy, unmerged, unknown) is rejected;
+  sides; an addition, modification or rename whose resulting path has an image suffix (any case)
+  must be under ``recipes/<slug>/assets/``; a type change, a symlink (120000), a submodule
+  (160000), any mode change and any other status (copy, unmerged, unknown) is rejected;
 * ``README.md`` may only be modified, 100644 to 100644, and must equal
   ``render(<base README.md>, <head catalog/recipes.json>)`` byte for byte, with the head's
   ``recipes/`` tree deciding which recipes are published. The README is rendered from the BASE
@@ -59,6 +60,13 @@ DEFAULT_REPO = "Jev-Engineering/cookbook"
 REGULAR = "100644"
 MISSING = "000000"
 BRANCH_PREFIX = "recipe/"
+# An image file belongs in recipes/<slug>/assets/ (docs/fixtures.md, "Image fixtures"). This is the
+# same tuple as tools/check_recipe_assets.IMAGE_SUFFIXES (a test compares them); it is repeated
+# here because this script runs from the base branch and imports nothing from a pull request.
+IMAGE_SUFFIXES = (
+    ".png", ".apng", ".jpg", ".jpeg", ".jpe", ".jfif", ".gif", ".webp", ".bmp", ".tif", ".tiff",
+    ".svg", ".ico", ".heic", ".heif", ".avif", ".jp2",
+)  # fmt: skip
 
 # As GitHub reads a closing reference: an ASCII keyword (so Unicode case folding cannot make
 # "Cloſes" one), ASCII digits, and the reference on the same line as the keyword.
@@ -258,11 +266,24 @@ def judge_entry(entry: Entry, slug: str) -> list[str]:
         ok = entry.old_mode == REGULAR and entry.new_mode == REGULAR
     else:
         return [f"{where}: status {status} ({modes}) is not allowed (type change or unknown)"]
-    if ok:
-        return []
-    return [
-        f"{where}: status {status}, modes {modes}; every new or resulting mode must be {REGULAR}"
-    ]
+    if not ok:
+        return [
+            f"{where}: status {status}, modes {modes}; every new or resulting mode must be "
+            f"{REGULAR}"
+        ]
+    # The resulting path of an addition, modification or rename. A deletion (above) is always
+    # allowed, so a misplaced image can be removed.
+    if image_outside_assets(entry.path, slug):
+        return [
+            f"{where}: an image file must be under recipes/{slug}/assets/ "
+            "(docs/fixtures.md, Image fixtures)"
+        ]
+    return []
+
+
+def image_outside_assets(path: str, slug: str) -> bool:
+    """Is ``path`` an image (by suffix, any case) that is not under ``recipes/<slug>/assets/``?"""
+    return path.lower().endswith(IMAGE_SUFFIXES) and not path.startswith(f"recipes/{slug}/assets/")
 
 
 def load_renderer() -> ModuleType:
