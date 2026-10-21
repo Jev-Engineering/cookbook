@@ -32,12 +32,12 @@
         "path": {
           "description": "Relative to the recipe folder, with forward slashes, starting 'assets/', lowercase .png/.jpg/.jpeg suffix. Letters, digits, '_', '.' and '-' only, no segment starting with '.', so it contains no '..' and cannot leave the folder. This is exactly the string an inputs.jsonl 'fields' value uses to name the image.",
           "type": "string",
-          "pattern": "assets/([A-Za-z0-9][A-Za-z0-9_.-]*/)*[A-Za-z0-9][A-Za-z0-9_.-]*[.](png|jpg|jpeg)"
+          "pattern": "^assets/([A-Za-z0-9][A-Za-z0-9_.-]*/)*[A-Za-z0-9][A-Za-z0-9_.-]*[.](png|jpg|jpeg)$"
         },
         "sha256": {
           "description": "SHA-256 of the file's bytes, 64 lowercase hex characters (the digest behind image_reference).",
           "type": "string",
-          "pattern": "[0-9a-f]{64}"
+          "pattern": "^[0-9a-f]{64}$"
         },
         "format": {
           "description": "What the bytes are: PNG or JPEG (baseline).",
@@ -53,7 +53,7 @@
         "generator": {
           "description": "The code that drew it: 'build_fixtures.py:draw_dialog' (a .py file in the recipe folder, which must exist, and a function name that appears in it) or 'jev_cookbook.<module>:<function>' for shared package code.",
           "type": "string",
-          "pattern": "([A-Za-z0-9_][A-Za-z0-9_.-]*[.]py|jev_cookbook([.][a-z_][a-z0-9_]*)+):([A-Za-z_][A-Za-z0-9_]*)"
+          "pattern": "^([A-Za-z0-9_][A-Za-z0-9_.-]*[.]py|jev_cookbook([.][a-z_][a-z0-9_]*)+):([A-Za-z_][A-Za-z0-9_]*)$"
         },
         "parameters": {
           "description": "The arguments, seed included, that reproduce this file from the generator: any JSON object, {} if the generator takes none.",

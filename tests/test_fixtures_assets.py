@@ -676,6 +676,53 @@ def test_the_asset_path_rule_matches_the_schema():
     assert generator == assets_module._GENERATOR.pattern
 
 
+SHA256_OF_NOTHING = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
+
+@pytest.mark.parametrize(
+    ("field", "bad"),
+    [
+        ("path", "./assets/scene-0.png"),
+        ("path", "assets/../assets/scene-0.png"),
+        ("path", "https://example.com/assets/scene-0.png"),
+        ("path", "x/assets/scene-0.png"),
+        ("path", "assets/scene-0.png.bak"),
+        ("generator", "/abs.py:f"),
+        ("generator", "../build_fixtures.py:draw_scene"),
+        ("generator", "sub/x.py:f"),
+        ("generator", "x.py:two words"),
+        ("sha256", "sha256:" + SHA256_OF_NOTHING),
+        ("sha256", SHA256_OF_NOTHING + "0"),
+        ("sha256", "0" + SHA256_OF_NOTHING),
+    ],
+)
+def test_the_published_schema_patterns_are_anchored(field, bad):
+    """JSON Schema ``pattern`` is a partial match (``re.search`` here, ``RegExp.test`` in ECMA-262),
+    so the schema file that recipe authors hand to an editor or to ``ajv`` rejects these only if
+    each pattern is anchored. ``_schema.check`` uses ``re.fullmatch`` and would reject them
+    either way, which is why this test applies the pattern the way an outside validator does."""
+    schema = load_schema(assets_module.ASSETS_SCHEMA_FILE)
+    pattern = schema["$defs"]["asset"]["properties"][field]["pattern"]
+    assert re.search(pattern, bad) is None
+    assert re.fullmatch(pattern, bad) is None
+
+
+@pytest.mark.parametrize(
+    ("field", "good"),
+    [
+        ("path", "assets/scene-0.png"),
+        ("path", "assets/sub/scene_0.jpeg"),
+        ("generator", "build_fixtures.py:draw_scene"),
+        ("generator", "jev_cookbook.vision:thumbnail"),
+        ("sha256", SHA256_OF_NOTHING),
+    ],
+)
+def test_the_published_schema_patterns_accept_what_they_describe(field, good):
+    schema = load_schema(assets_module.ASSETS_SCHEMA_FILE)
+    pattern = schema["$defs"]["asset"]["properties"][field]["pattern"]
+    assert re.search(pattern, good) and re.fullmatch(pattern, good)
+
+
 # -------------------------------------------------------- fields image paths
 
 

@@ -46,11 +46,11 @@ ASSETS_SCHEMA_FILE = "assets-manifest.schema.json"
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg")
 _MAX_READ = 16 * 1024 * 1024
 _ASSET_PATH = re.compile(
-    r"assets/([A-Za-z0-9][A-Za-z0-9_.-]*/)*[A-Za-z0-9][A-Za-z0-9_.-]*[.](png|jpg|jpeg)"
+    r"^assets/([A-Za-z0-9][A-Za-z0-9_.-]*/)*[A-Za-z0-9][A-Za-z0-9_.-]*[.](png|jpg|jpeg)$"
 )
 # Same text as the "generator" pattern of the schema; group 1 is the file or module, group 3 the function.
 _GENERATOR = re.compile(
-    r"([A-Za-z0-9_][A-Za-z0-9_.-]*[.]py|jev_cookbook([.][a-z_][a-z0-9_]*)+):([A-Za-z_][A-Za-z0-9_]*)"
+    r"^([A-Za-z0-9_][A-Za-z0-9_.-]*[.]py|jev_cookbook([.][a-z_][a-z0-9_]*)+):([A-Za-z_][A-Za-z0-9_]*)$"
 )
 _MISSING = re.compile(r"missing required field '([^']+)'")
 _INDEX = re.compile(r"assets\[(\d+)\]")

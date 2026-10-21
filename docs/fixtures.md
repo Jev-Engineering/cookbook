@@ -464,7 +464,12 @@ backslash is one too, so a typo such as `../x.png`, `fixtures/x.png`, `./assets/
 `assets/<name>.png` (or `.jpg`, `.jpeg`) with forward slashes and equal a manifest `path` exactly,
 whichever operating system runs the validator; anything else is an `asset-path` failure. A bare
 file name (`IMG_2041.JPG`), a URL in a recipe without images, and a prose sentence that mentions
-`chart.png` are not paths, so a text-only recipe is unaffected. `state` examples are not scanned,
+`chart.png` are not paths. So a text-only recipe is unaffected by the image-suffix rule, but not by
+the `assets/` prefix rule: a text-only recipe still fails if a `fields` value has no whitespace and
+starts with `assets/` (`assets/equity`). In a recipe that has images, a value that
+ends in an image suffix and contains a `/` or a backslash (an upload path, an attachment URL)
+cannot be kept in `fields` as written; keep only the bare file name, put whitespace in the value,
+or leave it out. `state` examples are not scanned,
 so an image recipe puts its image paths in `fields`, or the reference and leak checks never see
 them. `demo` examples are exempt from the leak rule, as they are from the label rule. An
 image used only in a question's criteria is named by no `fields` value, so the leak rule cannot
