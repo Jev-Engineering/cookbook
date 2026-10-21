@@ -1206,9 +1206,11 @@ def test_one_case_values_and_long_left_sides_cannot_hide_a_secret(text, tmp_path
 
 # --- keyword arguments whose constant name holds a letter-digit run (issue #243) ---------
 #
-# ``instructions=_STAGE1_INSTRUCTIONS`` is 33 characters and was scored as one token. Names
-# like STAGE1, SHA256, UTF8 and V2 are ordinary; a secret assigned to a keyword is a literal.
-# As above, the constants are assembled from pieces under 32 characters.
+# A keyword argument naming a constant such as STAGE1 (``instructions=`` plus that name, 33
+# characters in all) was scored as one token. Names like STAGE1, SHA256, UTF8 and V2 are
+# ordinary; a secret assigned to a keyword is a literal. As above, the constants are assembled
+# from pieces under 32 characters, so this file scans clean without the exemption under test
+# (``test_this_file_scans_clean_without_the_exemption``).
 
 _STAGE1_INSTRUCTIONS = "_STAGE" + "1_INSTRUCTIONS"
 _SHA256_PREFIX_NAME = "SHA256" + "_DIGEST_PREFIX_NAME"
@@ -1260,7 +1262,7 @@ def test_the_three_probes_of_the_issue_through_the_command_line(tmp_path):
     good = tmp_path / "probe_good.py"
     good.write_text(
         '_STAGE_1_INSTRUCTIONS = "Pick the span stating the invoice number."\n'
-        "q = build(instructions=_STAGE_1_INSTRUCTIONS)\n",
+        "q = build(instructions=_STAGE_1" + "_INSTRUCTIONS)\n",
         encoding="utf-8",
     )
     sha = tmp_path / "probe_sha.py"
@@ -1294,6 +1296,16 @@ SECRET_VALUES = {
     "digit-run-prefix-then-random": "STAGE1_" + KEY,
     "letter-digit-run-then-random-run": "SHA256_" + _random_text(_UPPER_DIGITS, 36, 24),
     "dotted-then-random": "settings." + KEY,
+    # Chains of short ``_``-joined chunks: the only shape the exemption could ever hide, so the
+    # boundary it draws (digits only AFTER the letters of a chunk, one case per chunk) is pinned
+    # here. A chunk with its digits in front, or letters and digits interleaved, is a finding.
+    "chunks-digits-before-letters-upper": "12ABCD34" + "_56EFGH78" + "_90IJKL12" + "_34MNOP56",
+    "chunks-digits-before-letters-lower": "12abcd34" + "_56efgh78" + "_90ijkl12" + "_34mnop56",
+    "chunks-digits-before-letters-short": "9ZQWER1" + "_4TYUIO7" + "_2PASDF8" + "_6GHJKL3",
+    "chunks-interleaved-upper": "A1B2C3D4" + "_E5F6G7H8" + "_J9K1L2M3" + "_N4P5Q6R7",
+    "chunks-interleaved-lower": "a1b2c3d4" + "_e5f6g7h8" + "_j9k1l2m3" + "_n4p5q6r7",
+    "chunks-mixed-case": "Ab12Cd34" + "_Ef56Gh78" + "_Jk90Lm12" + "_Np34Qr56",
+    "chunks-mixed-case-letters": "Abcd12" + "_Efgh34_Jklm56" + "_Npqr78_Stuv90" + "_Wxyz12",
 }
 SECRET_KEYWORD_LINES = [
     f"{name}={value}"
@@ -1351,6 +1363,68 @@ def test_a_looser_exemption_would_hide_a_secret_which_is_what_the_tests_above_pr
     assert hygiene.scan_text(line)
     monkeypatch.setattr(hygiene, "_IDENT_ASSIGNMENT", _LOOSE_EXEMPTIONS[mutant])
     assert hygiene.scan_text(line) == [], mutant
+
+
+def _exemption_with_run(name_run: str) -> re.Pattern[str]:
+    """The shipped exemption, with ``name_run`` standing in for one letters-and-digits run."""
+    run = rf"(?:{name_run}|[0-9]+)"
+    return re.compile(rf"_*{name_run}(?:_+{run})*_*=_*{run}(?:[_.]+{run})*_*")
+
+
+def test_the_mutant_builder_reproduces_the_shipped_exemption():
+    shipped = _exemption_with_run(hygiene._NAME_RUN)
+    assert shipped.pattern == hygiene._IDENT_ASSIGNMENT.pattern
+    assert shipped.pattern == packaged_scan._IDENT_ASSIGNMENT.pattern
+
+
+# Each mutant loosens ONE property of a run, and hides the chunk-chain values that rely on
+# exactly that property (see SECRET_VALUES), so none of the three can be relaxed unnoticed.
+_RUN_MUTANTS = {
+    # digits may sit in front of the letters of a run as well as behind them
+    "digits-before-letters": (
+        r"[0-9]*(?:[A-Z]+|[a-z]+)[0-9]*",
+        [
+            "chunks-digits-before-letters-upper",
+            "chunks-digits-before-letters-lower",
+            "chunks-digits-before-letters-short",
+        ],
+    ),
+    # letters and digits in any order inside a run
+    "interleaved-letters-and-digits": (
+        r"[A-Za-z0-9]+",
+        ["chunks-interleaved-upper", "chunks-interleaved-lower", "chunks-mixed-case"],
+    ),
+    # a run may change case
+    "mixed-case-run": (r"[A-Za-z]+[0-9]*", ["chunks-mixed-case-letters"]),
+}
+
+
+@pytest.mark.parametrize("mutant", sorted(_RUN_MUTANTS))
+def test_relaxing_one_property_of_a_run_would_hide_a_chunked_secret(mutant, monkeypatch):
+    name_run, hidden = _RUN_MUTANTS[mutant]
+    lines = [f"instructions={SECRET_VALUES[key]}" for key in hidden]
+    for line in lines:  # findings under the shipped rule, from the script and the packaged copy
+        assert hygiene.scan_text(line), line
+        assert packaged_scan.scan_text(line), line
+    mutated = _exemption_with_run(name_run)
+    monkeypatch.setattr(hygiene, "_IDENT_ASSIGNMENT", mutated)
+    monkeypatch.setattr(packaged_scan, "_IDENT_ASSIGNMENT", mutated)
+    for line in lines:
+        assert hygiene.scan_text(line) == [], (mutant, line)
+        assert packaged_scan.scan_text(line) == [], (mutant, line)
+
+
+def test_this_file_scans_clean_without_the_exemption(monkeypatch):
+    """No line of this file may need the exemption to scan clean (see issue #114).
+
+    The repository scan passes this file with the exemption on; with it switched off the file
+    must still be clean, so a change to the exemption cannot hide a finding in the very file
+    that tests it.
+    """
+    monkeypatch.setattr(hygiene, "_IDENT_ASSIGNMENT", re.compile(r"(?!)"))
+    # the switch really turns the exemption off: these lines are findings without it
+    assert all(hygiene.scan_text(line) for line in DIGIT_RUN_KEYWORDS)
+    assert hygiene.scan_text(Path(__file__).read_text(encoding="utf-8")) == []
 
 
 def test_the_exemption_regex_does_not_backtrack_catastrophically():
