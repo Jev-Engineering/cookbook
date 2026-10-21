@@ -26,11 +26,13 @@ Conventions that hold for every public function (see also ``docs/evaluation.md``
 from __future__ import annotations
 
 import math
-from collections.abc import Hashable, Iterable, Mapping, Sequence
+from collections.abc import Collection, Hashable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
+
+from .frames import TIME_EPSILON, _seconds
 
 __all__ = [
     "BootstrapResult",
@@ -43,6 +45,7 @@ __all__ = [
     "SelectiveCurve",
     "SelectiveResult",
     "ThresholdPoint",
+    "TransitionMetrics",
     "UsageTotals",
     "accuracy",
     "brier_score",
@@ -81,6 +84,7 @@ __all__ = [
     "top_k_accuracy",
     "top_k_query_accuracy",
     "top_probabilities",
+    "transition_metrics",
 ]
 
 
@@ -1971,4 +1975,197 @@ def sum_usage(usages: Iterable[Mapping[str, Any] | None]) -> UsageTotals:
         totals["input_tokens"] + totals["output_tokens"],
         missing["input_tokens"],
         missing["output_tokens"],
+    )
+
+
+# --------------------------------------------------------------------------- Transitions
+
+
+@dataclass(frozen=True)
+class TransitionMetrics:
+    """Event or transition accuracy over labelled frame sequences, denominators explicit.
+
+    ``n_examples`` = ``n_uncertain`` + ``n_resolved``. ``exact_correct`` and
+    ``tolerance_correct`` count resolved examples only; ``*_accuracy`` divides by
+    ``n_resolved`` and ``*_accuracy_all`` by ``n_examples`` (a review outcome counts as not
+    correct there). ``uncertain_rate`` is ``n_uncertain / n_examples``.
+
+    The headline timing error, ``mean_absolute_error_seconds`` and
+    ``mean_signed_error_seconds`` (predicted minus gold; positive means late), covers only
+    the ``n_timed`` resolved examples whose predicted **label equals gold's** and where both
+    sides give a time. A prediction of a different transition at the right second is not a
+    good timing result and is excluded. The separately named ``*_any_label`` fields
+    (``n_timed_any_label`` and the two means) include every resolved example with times on
+    both sides, whatever the label. All means are NaN when their count is 0.
+    ``n_missed_time`` (gold has a time, the resolved prediction none) and ``n_spurious_time``
+    (the reverse) describe the shape of the answer and do not depend on the label.
+
+    ``outcomes`` is one of ``"exact"``, ``"within"`` (within tolerance but not exact),
+    ``"wrong"`` or ``"review"`` per example, in input order; ``timing_errors_seconds`` is the
+    per-example headline error (``None`` where it is not defined). ``max_sampling_interval_seconds``
+    echoes the largest gap between sampled frames when the caller passed it (NaN otherwise),
+    and ``tolerance_below_sampling_interval`` is True when that gap exceeds the tolerance, in
+    which case the score mostly measures the sampling grid.
+    """
+
+    n_examples: int
+    n_uncertain: int
+    n_resolved: int
+    exact_correct: int
+    tolerance_correct: int
+    exact_accuracy: float
+    tolerance_accuracy: float
+    exact_accuracy_all: float
+    tolerance_accuracy_all: float
+    uncertain_rate: float
+    tolerance_seconds: float
+    n_timed: int
+    mean_absolute_error_seconds: float
+    mean_signed_error_seconds: float
+    n_timed_any_label: int
+    mean_absolute_error_any_label_seconds: float
+    mean_signed_error_any_label_seconds: float
+    n_missed_time: int
+    n_spurious_time: int
+    max_sampling_interval_seconds: float
+    tolerance_below_sampling_interval: bool
+    outcomes: tuple[str, ...]
+    timing_errors_seconds: tuple[float | None, ...]
+
+
+def _transition(item: Any, name: str, position: int) -> tuple[Any, float | None]:
+    if isinstance(item, (str, bytes)) or not isinstance(item, Sequence) or len(item) != 2:
+        raise ValueError(f"{name}[{position}] must be a (label, seconds_or_None) pair")
+    label, seconds = item
+    if seconds is None:
+        return label, None
+    return label, _seconds(seconds, f"{name}[{position}] seconds")
+
+
+def _mean(values: list[float], absolute: bool = False) -> float:
+    if not values:
+        return float("nan")
+    return math.fsum(abs(v) if absolute else v for v in values) / len(values)
+
+
+def transition_metrics(
+    gold: Iterable[Sequence[Any]],
+    predicted: Iterable[Sequence[Any]],
+    *,
+    tolerance_seconds: float,
+    uncertain_labels: Collection[Any] | str = ("uncertain",),
+    max_sampling_interval_seconds: float | None = None,
+) -> TransitionMetrics:
+    """Score transition labels and times against labelled sequences.
+
+    Each example is one sequence (or one transition of a longer one), written
+    ``(label, seconds)`` as a tuple or a two-element list (as JSON loads): the transition
+    label (``"opened"``, ``"unchanged"``, ...) and its time in elapsed seconds since the
+    start of the sequence, or ``None`` when the label has no time (such as ``"unchanged"``).
+    **The time is the** ``timestamp_seconds`` **of the first frame in which the new state is
+    visible** (see :func:`jev_cookbook.frames.transition_time`), for gold and predictions
+    alike. ``gold`` and ``predicted`` are equal-length and nonempty, in the same order.
+
+    A predicted label in ``uncertain_labels`` (any number of review outcomes, such as
+    ``"uncertain"``, ``"unknown"`` and ``"inconsistent"``; map the model's uncertain option
+    and Python's confidence gate to these before calling) is a review outcome. It is counted
+    in ``n_uncertain`` and is neither correct nor wrong in the ``*_accuracy`` fields. Gold may
+    not be a review label.
+
+    A resolved prediction is *exactly* correct when its label equals gold's and its time
+    equals gold's (both ``None``, or within 1e-9 s); *within tolerance* when the label
+    matches and the times are both ``None`` or differ by at most ``tolerance_seconds``
+    (plus the same 1e-9 s of float slack). The headline time error is predicted minus gold,
+    only where the labels match and both give a time; ``*_any_label`` fields drop the label
+    condition. Accuracies with a zero denominator are NaN. Pass the largest gap between the
+    sampled frames as ``max_sampling_interval_seconds`` to have the result record it and flag
+    a tolerance smaller than it.
+
+    Raises ``ValueError`` for empty or unequal inputs, a malformed pair, a negative or
+    non-finite time, tolerance or interval, or a review label in gold.
+    """
+    actual = _as_list(gold, "gold")
+    guesses = _as_list(predicted, "predicted")
+    _same_length(actual, guesses, "gold and predicted")
+    tolerance = _seconds(tolerance_seconds, "tolerance_seconds")
+    interval = (
+        float("nan")
+        if max_sampling_interval_seconds is None
+        else _seconds(max_sampling_interval_seconds, "max_sampling_interval_seconds")
+    )
+    if isinstance(uncertain_labels, str):
+        reviews = [uncertain_labels]
+    elif uncertain_labels is None or not isinstance(uncertain_labels, Collection):
+        raise ValueError("uncertain_labels must be a label or a collection of labels")
+    else:
+        reviews = list(uncertain_labels)
+
+    uncertain = exact = within = missed = spurious = 0
+    errors: list[float] = []
+    errors_any: list[float] = []
+    outcomes: list[str] = []
+    per_example: list[float | None] = []
+    for i, (g_item, p_item) in enumerate(zip(actual, guesses, strict=True)):
+        g_label, g_time = _transition(g_item, "gold", i)
+        p_label, p_time = _transition(p_item, "predicted", i)
+        if any(g_label == r for r in reviews):
+            raise ValueError(f"gold[{i}] is a review label; gold must be resolved")
+        if any(p_label == r for r in reviews):
+            uncertain += 1
+            outcomes.append("review")
+            per_example.append(None)
+            continue
+        label_ok = p_label == g_label
+        if g_time is not None and p_time is None:
+            missed += 1
+        elif g_time is None and p_time is not None:
+            spurious += 1
+        error = None
+        if g_time is not None and p_time is not None:
+            errors_any.append(p_time - g_time)
+            if label_ok:
+                error = p_time - g_time
+                errors.append(error)
+        per_example.append(error)
+        outcome = "wrong"
+        if label_ok:
+            if g_time is None and p_time is None:
+                outcome = "exact"
+            elif g_time is not None and p_time is not None:
+                gap = abs(p_time - g_time)
+                if gap <= TIME_EPSILON:
+                    outcome = "exact"
+                elif gap <= tolerance + TIME_EPSILON:
+                    outcome = "within"
+        exact += outcome == "exact"
+        within += outcome in ("exact", "within")
+        outcomes.append(outcome)
+    n = len(actual)
+    resolved = n - uncertain
+    return TransitionMetrics(
+        n_examples=n,
+        n_uncertain=uncertain,
+        n_resolved=resolved,
+        exact_correct=exact,
+        tolerance_correct=within,
+        exact_accuracy=_safe_div(exact, resolved),
+        tolerance_accuracy=_safe_div(within, resolved),
+        exact_accuracy_all=exact / n,
+        tolerance_accuracy_all=within / n,
+        uncertain_rate=uncertain / n,
+        tolerance_seconds=tolerance,
+        n_timed=len(errors),
+        mean_absolute_error_seconds=_mean(errors, absolute=True),
+        mean_signed_error_seconds=_mean(errors),
+        n_timed_any_label=len(errors_any),
+        mean_absolute_error_any_label_seconds=_mean(errors_any, absolute=True),
+        mean_signed_error_any_label_seconds=_mean(errors_any),
+        n_missed_time=missed,
+        n_spurious_time=spurious,
+        max_sampling_interval_seconds=interval,
+        tolerance_below_sampling_interval=bool(
+            not math.isnan(interval) and interval > tolerance + TIME_EPSILON
+        ),
+        outcomes=tuple(outcomes),
+        timing_errors_seconds=tuple(per_example),
     )

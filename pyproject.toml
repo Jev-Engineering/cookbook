@@ -27,7 +27,7 @@ dev = ["ruff==0.17.1", "pytest"]
 where = ["src"]
 
 [tool.setuptools.package-data]
-"jev_cookbook.fixtures" = ["schema.json"]
+"jev_cookbook.fixtures" = ["schema.json", "assets-manifest.schema.json"]
 
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib -m 'not catalog_audit'"

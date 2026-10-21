@@ -43,11 +43,14 @@ from typing import Any
 
 from .._canonical import MAX_DEPTH
 from ..answers import RECORDED_SOURCE, SYNTHETIC_SOURCE, DecisionResult
+from ._assets import ASSETS_DIR, ASSETS_MANIFEST_FILE, check_assets
 from ._scan import scan_text
 from ._schema import check, load_schema
 from .permutation import stable_permutation, stable_shuffle
 
 __all__ = [
+    "ASSETS_DIR",
+    "ASSETS_MANIFEST_FILE",
     "FIXTURES_DIR",
     "INPUTS_FILE",
     "LABELED_SPLITS",
@@ -553,6 +556,35 @@ def _check_examples(
     return problems
 
 
+def _check_box_labels(
+    labels: dict[str, Any], label_lines: dict[str, int], name: str
+) -> list[Problem]:
+    """A recipe whose labels are Box labels must use the gold Box label format everywhere.
+
+    A top-level label object with a ``present`` key declares the format (``docs/fixtures.md``,
+    "Box labels"): every such label must decode with ``vision.gold_box``, and once one label
+    declares it, a label that does not (a bare box, a string) is an error, not a quiet skip.
+    A label that nests a Box label under another key is not seen here.
+    """
+    declared = {i for i, v in labels.items() if isinstance(v, Mapping) and "present" in v}
+    if not declared:
+        return []
+    from ..vision import gold_box  # deferred: validating other recipes needs no Pillow
+
+    problems: list[Problem] = []
+    for ident, label in labels.items():
+        if ident not in declared:
+            msg = "label is not a Box label ({'present': ...}) but this recipe's other labels are"
+        else:
+            try:
+                gold_box(label)
+                continue
+            except ValueError as exc:
+                msg = f"malformed Box label: {exc}"
+        problems.append(Problem(name, msg, label_lines[ident], ident))
+    return problems
+
+
 def _check_responses(
     examples: list[Example], responses: Mapping[str, Any], name: str
 ) -> list[Problem]:
@@ -672,6 +704,24 @@ def _layout(folder: Path) -> tuple[dict[str | None, Path], list[Problem]]:
     return responses, problems
 
 
+def _read_manifest(path: Path) -> tuple[Any, str | None]:
+    """The manifest as strict JSON (no duplicate key, no NaN), or ``(None, why not)``."""
+    text, problems = _read(path)
+    if text is None:
+        return None, problems[0].message
+    try:
+        return _loads(text), None
+    except ValueError as exc:
+        return None, f"invalid JSON: {exc}"
+
+
+def _asset_problems(recipe_dir: PathLike | None, examples: list[Example]) -> list[Problem]:
+    """Image provenance (``docs/fixtures.md``): none for a recipe without an ``assets/`` folder."""
+    recipe = Path(recipe_dir if recipe_dir is not None else ".")
+    found = check_assets(recipe, examples, read_json=_read_manifest, leak_splits=LABELED_SPLITS)
+    return [Problem(file, message, ident=ident) for file, message, ident in found]
+
+
 def validate_recipe(recipe_dir: PathLike | None = None) -> Report:
     """Every problem in a recipe's ``fixtures/`` folder, and the recipe's mode.
 
@@ -680,7 +730,8 @@ def validate_recipe(recipe_dir: PathLike | None = None) -> Report:
     """
     folder = fixtures_dir(recipe_dir)
     if not folder.is_dir():
-        return Report([Problem(_display(folder), "fixtures folder is missing")])
+        missing = [Problem(_display(folder), "fixtures folder is missing")]
+        return Report(missing + _asset_problems(recipe_dir, []))
     responses_files, problems = _layout(folder)
     inputs_path, labels_path = folder / INPUTS_FILE, folder / LABELS_FILE
     examples, more, inputs_ok = _read_inputs(inputs_path)
@@ -692,6 +743,8 @@ def validate_recipe(recipe_dir: PathLike | None = None) -> Report:
     if inputs_ok:
         names = (_display(inputs_path), _display(labels_path))
         problems += _check_examples(examples, labels if labels_ok else None, label_lines, names)
+        if labels_ok:
+            problems += _check_box_labels(labels, label_lines, names[1])
     if replays and None not in responses_files:
         # Listed keys need the default file; with no key listed it is simply not needed.
         problems.append(Problem(_display(folder / RESPONSES_FILE), "file is missing"))
@@ -705,6 +758,7 @@ def validate_recipe(recipe_dir: PathLike | None = None) -> Report:
                 problems += _check_responses(examples, raw, _display(path))
     for path in scanned:
         problems += _scan_file(path)
+    problems += _asset_problems(recipe_dir, examples)
     return Report(problems, mode)
 
 

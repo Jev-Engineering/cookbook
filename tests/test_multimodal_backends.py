@@ -362,11 +362,36 @@ def test_image_metadata_fixtures_validate_box_answers(tmp_path):
     folder = tmp_path / "fixtures"
     folder.mkdir()
     (tmp_path / "assets").mkdir()
-    inputs, labels, responses = [], [], {}
+    (tmp_path / "build_fixtures.py").write_text("def draw_scene(color):\n    ...\n", "utf-8")
+    inputs, labels, responses, manifest = [], [], {}, []
     for ident, split, color in [("v01", "validation", "pink"), ("t01", "test", "blue")]:
         assets = image_assets(color)
         relative = f"assets/{ident}.png"
-        (tmp_path / relative).write_bytes(base64.b64decode(assets[REF]["data_base64"]))
+        data = base64.b64decode(assets[REF]["data_base64"])
+        (tmp_path / relative).write_bytes(data)
+        with Image.open(tmp_path / relative) as image:
+            width, height = image.size
+        manifest.append(
+            {
+                "path": relative,
+                "sha256": hashlib.sha256(data).hexdigest(),
+                "format": "PNG",
+                "width": width,
+                "height": height,
+                "origin": "generated",
+                "generator": "build_fixtures.py:draw_scene",
+                "parameters": {"color": color},
+                "licence": "CC0-1.0",
+                "description": f"A flat {color} picture.",
+                "attestations": {
+                    "synthetic": True,
+                    "real_photo": False,
+                    "real_brand": False,
+                    "real_person": False,
+                    "third_party_content": False,
+                },
+            }
+        )
         key = replay_key(STATE, QUESTIONS, assets=assets)
         inputs.append(
             {"id": ident, "split": split, "fields": {"image": relative}, "replay_keys": [key]}
@@ -376,6 +401,7 @@ def test_image_metadata_fixtures_validate_box_answers(tmp_path):
     (folder / "inputs.jsonl").write_text("".join(json.dumps(r) + "\n" for r in inputs))
     (folder / "labels.jsonl").write_text("".join(json.dumps(r) + "\n" for r in labels))
     (folder / "responses.json").write_text(json.dumps(responses))
+    (tmp_path / "assets-manifest.json").write_text(json.dumps({"schema": 1, "assets": manifest}))
     assert validate_recipe(tmp_path) == []
     examples = load_inputs(tmp_path)
     assert examples[0].fields["image"] == "assets/v01.png"

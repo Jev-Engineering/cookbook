@@ -39,6 +39,7 @@ live inference explicitly opt-in under the [contract](../CONTRIBUTING.md).
 | `helpers.py` | `build_state`, `build_questions`, and the rule Python enforces (`route`). |
 | `build_fixtures.py` | Writes `fixtures/`; the replay keys come from `helpers.py`, so they cannot drift from the questions. It lives next to the notebook, outside `fixtures/` ([fixtures.md](fixtures.md)). Generating inputs and labels is separate from generating responses: `--force` is needed to overwrite a `responses.json` that already holds a `recorded` answer. |
 | `assets/` | Multimodal recipes only (absent from the template): the image files the recipe sends to Jev, PNG or baseline JPEG, each at most 1 MiB, 8 MiB in all, with no metadata, and nowhere else in the recipe. The contract and the check that enforces it are in [fixtures.md](fixtures.md#image-fixtures); how a recipe loads them is in [vision.md](vision.md). |
+| `assets-manifest.json` | Multimodal recipes only, beside `assets/`: one entry per image with its hash, size, generator and parameters, licence and the attestations that it is synthetic and holds no real photograph, brand, person or third-party content. Required exactly when `assets/` exists; `build_fixtures.py` should write it with the images. Format, worked example and rules: [fixtures.md](fixtures.md#image-provenance-manifest). |
 | `fixtures/` | `inputs.jsonl`, `labels.jsonl`, `responses.json`: 22 examples (10 `validation`, 10 `test`, 2 `demo`), synthetic and deliberately imperfect. |
 | `tests/test_helpers.py` | Tests for the rule, a check that the stored keys match the current question, `test_stored_answers_are_not_all_right` (replay recipes only): re-derives the frozen threshold from `validation` and requires a wrong `test` answer at or above it, so a fixture set that is merely "not all correct" (but has every mistake caught by the gate) still fails, and a test that pins the threshold-selection call's own **objective** keyword against the committed cell source (see "Pin the threshold's OBJECTIVE" above) — a value-only re-derivation does not pin which objective ran. `tools/new_recipe.py` scaffolds a working copy of the stored-answers test, so no recipe has to hand-write it from scratch; the objective pin is adapted per recipe from the template's own worked example. |
 | `side_effects.json` | Written by the builder wherever the recipe has a simulated side effect (a `ReviewQueue`, `ActionLog`, `Store`, `Transactor` or `Simulator` write): `{"schema": 1, "sites": {"helpers.submit_reviews": 2}}`, the exact number of places the notebook calls each side-effect function or method, or `{"schema": 1, "none": "why"}`. The scaffolder does not write it; the recipe guard fails a recipe that has a side effect and no declaration, and a notebook that calls fewer, more or none of what it declares. Schema, keys and the two function shapes (a batch fill, a decide-and-apply function) with their test rules: [simulation.md](simulation.md). |
@@ -101,7 +102,49 @@ own first use the same way.
   a `helpers.py` wrapper rather than inline in the notebook cell, pin the wrapper function's own
   source instead (`inspect.getsource(helpers.<wrapper>)`), for the same reason. The guard check
   `threshold_objective_pin` enforces this, fail closed, over every recipe with a threshold
-  selection.
+  selection. What the check credits is what an unconditional `assert` *claims*, derived rather
+  than enumerated. Three routes are credited, and only these:
+
+  1. **A direct pin.** The assertion says the spelling is **present** in a value derived from
+     the committed source: a read of the committed `notebook.ipynb` or `helpers.py` (by
+     `read_text()`, `read_bytes()`, `open(...).read()`, `with open(...)`, any other `open` /
+     `.open` / `.read` / `.readlines` call that names the file, or a function in the same test
+     file that does one of those), or `inspect.getsource(helpers.<fn>)`, or a call to a
+     `helpers.py` function whose own body makes the selection call. A path under `tmp_path` is a
+     copy, not the committed file, so a read of it does not count.
+  2. **An extraction.** `name = _your_helper(source, ...)`, through a function defined in the
+     test file, followed by `assert name is not None`. That is the only truthiness check
+     credited here: a bare `assert name`, or any other check, is not. The strings in the call
+     are what is pinned.
+  3. **A production tie** (recipe 28's shape, which reads no file). A `helpers.py` function
+     whose body makes the real selection call is compared with `==` to a local re-derivation
+     computed with an explicit keyword, and a separate `!=` assert shows that re-derivation
+     differs from a sibling computed with a different objective.
+
+  For a direct pin, `not`, `is False`, `.count(...) == 0`, an `if`/`else` branch that asserts
+  nothing, and an `or` with a vacuous operand are read for what they claim, so none of them
+  counts as a pin. So is a needle that is also *typed into the test function* as part of the
+  value it is compared with: inline (`source + " min_coverage"`, `kws.get("objective",
+  "min_coverage")`), as a `+` of adjacent literals (`"min" + "_coverage"`), through a variable
+  the value was built from, or put into a container with `.append(...)`, `.extend(...)`,
+  `.update(...)` or `name[key] = ...`. The check looks at text typed in the function; it does not
+  follow a needle that reaches the value any other way (a module-level name, a parameter, a
+  computed string). A name counts as the read only if every binding of it is the read (or wholly
+  derived from it): once it is also bound by `+=`, a `for` target, unpacking, `:=` or a
+  hand-typed value, it does not. `all(...)`/`any(...)`/`len([...]) > 0`/`sum(...) > 0` over the
+  committed source do count (an `all(...)` needs an iterable that is visibly non-empty and bound
+  once, since it is vacuously true over nothing).
+
+  Only asserts that really run count. They are the top-level statements of a `test_` function
+  that pytest collects: a module-level function, or a method of a top-level class named `Test*`
+  that defines no `__init__`, none of them marked `skip`/`skipif`/`xfail` (on the function, on the
+  class, or by a `pytestmark` in the class body or the module), in a file with no top-level
+  `pytest.importorskip(...)` or `pytest.skip(..., allow_module_level=True)`, and not nested in
+  another function. Within it they are the statements directly in the function body, those inside
+  `with open(...)`, and those in a `for` over a non-empty literal tuple/list/set (no `else`, no
+  `break`/`continue`/`return`), only up to the first `return`, `raise` or
+  `pytest.skip`/`xfail`/`exit`/`fail` call. An assert under `if`, `try`, any other loop, or a
+  context manager such as `pytest.raises` is not credited.
 - **`evaluate_selective` reports the same split as the rule only when the rule's only review
   branch is that confidence gate — `route` here has three, so it is not that rule.**
   `helpers.py::route` sends a ticket to `review` for any of three reasons, in this order:

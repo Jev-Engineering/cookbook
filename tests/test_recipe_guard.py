@@ -87,6 +87,17 @@ check id                              rule -> detection
                                        production call (not merely co-located with a string
                                        naming the spelling) -- not a hand-written literal beside
                                        the call, and not the resulting threshold value alone.
+                                       What an assertion pins is its derived CLAIM (#276): the
+                                       truth sense is carried through ``not``, ``and``/``or``,
+                                       ``is False``, ``if``-expressions, count thresholds and
+                                       ``all``/``any``/``len`` over comprehensions, and only a
+                                       claim that the spelling is PRESENT counts; an assert that
+                                       does not always run (under ``if``, a loop,
+                                       ``pytest.raises``, or in a test pytest would not collect
+                                       or run) counts for nothing. A value is tainted by any
+                                       read of the committed file (``read_text``,
+                                       ``read_bytes``, ``open(...).read()``, ``with open``) or
+                                       by ``inspect.getsource(helpers.<fn>)``.
 ``noul_proposition_gold_coverage``    #283: for every ``Noul`` proposition this check can
                                        reach in the recipe's own code (two or more -- a
                                        battery; fewer reached and the check does not apply),
@@ -210,8 +221,10 @@ import importlib.util
 import inspect
 import io
 import json
+import operator
 import re
 import shutil
+import textwrap
 import tokenize
 from pathlib import Path
 from types import ModuleType
@@ -1555,51 +1568,187 @@ def _threshold_pin_obligations(recipe_dir_: Path) -> list[tuple[str, str, str | 
 
 
 def _test_function_defs(tree: ast.AST) -> list[ast.FunctionDef]:
-    """Every ``def test_...`` in an already-parsed test file, found by walking the module's own
-    AST -- deliberately not a text scan that locates one function by name and then regexes
-    forward to the next ``\\n(?:def |class )`` to find where it ends (``_find_function_body``,
-    above, does that for a single named function). That scan-forward shape is unsound in
-    general: a decorator line is neither ``def`` nor ``class``, so a decorated neighbour
-    (``@pytest.mark.parametrize`` on the very next function, common in this codebase) folds into
-    the "body" it returns, and parsing that text then raises a ``SyntaxError`` that is really a
-    bug in the extraction, not in the recipe (#272). Finding every function with ``ast.walk`` and
-    bounding each one with ``ast.get_source_segment`` (used below) sidesteps the whole class:
-    the parser's own ``end_lineno`` is exact regardless of what decorator, comment, or blank line
-    follows, so this check can never misreport a recipe's test file as broken when the guard's
-    own extraction is what is wrong."""
+    """Every ``test_...`` function in an already-parsed test file that pytest would actually RUN,
+    found from the module's own AST -- deliberately not a text scan that locates one function by
+    name and then regexes forward to the next ``\\n(?:def |class )`` to find where it ends
+    (``_find_function_body``, above, does that for a single named function). That scan-forward
+    shape is unsound in general: a decorator line is neither ``def`` nor ``class``, so a decorated
+    neighbour (``@pytest.mark.parametrize`` on the very next function, common in this codebase)
+    folds into the "body" it returns, and parsing that text then raises a ``SyntaxError`` that is
+    really a bug in the extraction, not in the recipe (#272).
+
+    What counts as "would run" mirrors pytest's collection rules, and fails closed where this
+    cannot tell: a module-level ``test_`` function, or a ``test_`` method of a top-level class
+    that pytest collects (named ``Test*``, defining no ``__init__``/``__new__``), unless the
+    function, the class (decorator or class-body ``pytestmark``) or the module (``pytestmark``, or
+    a top-level ``pytest.importorskip(...)`` / ``pytest.skip(..., allow_module_level=True)``)
+    carries a ``skip``/``skipif``/``xfail`` mark or skips the file. A ``test_`` def nested in
+    another function, a method of a helper class (``class Helper:``), and anything else pytest
+    would not collect is not a test and pins nothing. (A ``unittest.TestCase`` subclass not named
+    ``Test*``, a nested ``Test*`` class, and an inherited ``__init__`` are not credited either: the
+    safe, loud direction.) A module-level ``importorskip`` of a module that IS installed does not
+    really skip the file, but a static check cannot tell, so it is not credited."""
+    if _module_is_marked_not_to_run(tree) or _module_skips_itself(tree):
+        return []
+    candidates: list[ast.FunctionDef] = []
+    for node in getattr(tree, "body", []):
+        if isinstance(node, ast.FunctionDef):
+            candidates.append(node)
+        elif isinstance(node, ast.ClassDef) and _pytest_collects_class(node):
+            candidates.extend(n for n in node.body if isinstance(n, ast.FunctionDef))
     return [
         node
-        for node in ast.walk(tree)
-        if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")
+        for node in candidates
+        if node.name.startswith("test_") and not _is_marked_not_to_run(node.decorator_list)
     ]
 
 
-def _reads_real_committed_source(segment: str) -> bool:
-    """True if one piece of source text (a single statement's own segment -- see
-    ``_tainted_names_in_function`` below, which calls this once per assignment, not once per
-    whole function) is the actual FILE READ of the *actual committed* notebook or
-    ``helpers.py`` -- not a hand-typed duplicate of either, and not a later step of the same
-    chain (extracting one cell, then joining its ``"source"``) that never itself mentions the
-    file at all. Two routes, matching the two places a real threshold-selection call can live
-    (see ``_threshold_pin_obligations``): the notebook route (``notebook.ipynb`` with
-    ``read_text`` -- the parse step, which the generic name-reference propagation in
-    ``_tainted_names_in_function`` then carries forward through every later ``cell = ...``/
-    ``source = ...`` step without this function needing to see the word ``"source"`` at all)
-    and the helpers route (``inspect.getsource(`` on something named ``helpers``, or a direct
-    read of ``helpers.py``'s own text). Deliberately a text heuristic for the one, single,
-    file-opening statement rather than a full data-flow trace of its own (the data-flow tracing
-    is ``_tainted_names_in_function``'s job): this used to also require ``"source"`` to appear
-    in the SAME statement as ``"notebook.ipynb"``, which is false for the template's own three-
-    line chain (``notebook = json.loads(...)``; ``cell = next(... notebook["cells"] ...)``;
-    ``source = "".join(cell["source"])``) -- no single line of that chain contains both, so the
-    whole chain went untainted. Seeding only on the read itself and letting propagation do the
-    rest fixes that without weakening anything: the three-line chain, and each of 41's, 42's,
-    and 44's one-line or module-level-helper variants, all seed correctly either way."""
-    notebook_route = "notebook.ipynb" in segment and "read_text" in segment
-    helpers_route = ("inspect.getsource(" in segment and "helpers" in segment) or (
-        "helpers.py" in segment and "read_text" in segment
+def _pytest_collects_class(node: ast.ClassDef) -> bool:
+    """True if pytest would collect ``node``'s ``test_`` methods: the name matches the default
+    ``python_classes = Test*``, it defines no ``__init__`` / ``__new__`` (pytest warns and skips
+    such a class), and it is not marked ``skip``/``skipif``/``xfail`` by a class decorator or a
+    class-body ``pytestmark``."""
+    return (
+        node.name.startswith("Test")
+        and not any(
+            isinstance(n, ast.FunctionDef) and n.name in ("__init__", "__new__") for n in node.body
+        )
+        and not _is_marked_not_to_run(node.decorator_list)
+        and not _module_is_marked_not_to_run(node)
     )
-    return notebook_route or helpers_route
+
+
+def _module_skips_itself(tree: ast.AST) -> bool:
+    """A top-level ``pytest.importorskip(...)`` or ``pytest.skip(..., allow_module_level=True)``
+    (also under a module-level ``if``/``try``, or as the value of an assignment): the whole file is
+    skipped, so none of its asserts run. Function and class bodies are not searched."""
+    for stmt in getattr(tree, "body", []):
+        if isinstance(stmt, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            continue
+        for node in _walk_same_scope(stmt):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
+            if name == "importorskip":
+                return True
+            if name == "skip" and any(k.arg == "allow_module_level" for k in node.keywords):
+                return True
+    return False
+
+
+_NOT_RUN_MARKS = frozenset({"skip", "skipif", "xfail"})
+
+
+def _is_marked_not_to_run(decorators: list[ast.expr]) -> bool:
+    """True if a decorator list carries ``pytest.mark.skip`` / ``skipif`` / ``xfail`` (bare or
+    called): the asserts of such a test do not (reliably) run, so they pin nothing."""
+    for decorator in decorators:
+        target = decorator.func if isinstance(decorator, ast.Call) else decorator
+        if isinstance(target, ast.Attribute) and target.attr in _NOT_RUN_MARKS:
+            return True
+    return False
+
+
+def _module_is_marked_not_to_run(tree: ast.AST) -> bool:
+    """A module-level ``pytestmark = pytest.mark.skip(...)`` (or a list holding one)."""
+    for node in getattr(tree, "body", []):
+        if (
+            isinstance(node, ast.Assign)
+            and any(isinstance(t, ast.Name) and t.id == "pytestmark" for t in node.targets)
+            and _is_marked_not_to_run(
+                list(node.value.elts)
+                if isinstance(node.value, ast.List | ast.Tuple)
+                else [node.value]
+            )
+        ):
+            return True
+    return False
+
+
+_ARTEFACT_FILE_NAMES = ("notebook.ipynb", "helpers.py")
+
+# Names pytest gives a test its scratch directory under. A path rooted there is a COPY a test made
+# (usually to mutate it), not the committed artefact, so a read of it does not taint.
+_SCRATCH_DIR_NAMES = frozenset({"tmp_path", "tmp_path_factory", "tmpdir", "tmpdir_factory"})
+
+# Callables that read a file's contents. This is the set of ways Python spells "read this file",
+# not a set of spellings of an objective: it only decides whether a statement that names the
+# committed artefact also READS it (as opposed to merely mentioning its name in a string), so a
+# read via ``open(...).read()``, ``read_bytes()`` or ``with open(...) as f: f.read()`` seeds taint
+# exactly as ``read_text()`` does.
+_FILE_READ_ATTRS = frozenset({"read_text", "read_bytes", "read", "readlines", "open"})
+
+
+def _mentions_artefact_file(node: ast.AST) -> bool:
+    """True if ``node`` contains a string that IS one of the committed file names (or a path
+    ending in ``/<name>``) -- not a longer name that merely contains it (``expected_helpers.py``)."""
+    return any(
+        isinstance(n, ast.Constant)
+        and isinstance(n.value, str)
+        and any(n.value == name or n.value.endswith("/" + name) for name in _ARTEFACT_FILE_NAMES)
+        for n in ast.walk(node)
+    )
+
+
+def _mentions_scratch_dir(node: ast.AST) -> bool:
+    return any(
+        (isinstance(n, ast.Name) and n.id in _SCRATCH_DIR_NAMES)
+        or (isinstance(n, ast.arg) and n.arg in _SCRATCH_DIR_NAMES)
+        for n in ast.walk(node)
+    )
+
+
+def _performs_a_file_read(node: ast.AST) -> bool:
+    for n in ast.walk(node):
+        if not isinstance(n, ast.Call):
+            continue
+        if isinstance(n.func, ast.Name) and n.func.id == "open":
+            return True
+        if isinstance(n.func, ast.Attribute) and n.func.attr in _FILE_READ_ATTRS:
+            return True
+    return False
+
+
+def _reads_helpers_source_via_inspect(node: ast.AST) -> bool:
+    for n in ast.walk(node):
+        is_getsource = isinstance(n, ast.Call) and (
+            (isinstance(n.func, ast.Attribute) and n.func.attr == "getsource")
+            or (isinstance(n.func, ast.Name) and n.func.id == "getsource")
+        )
+        if not is_getsource:
+            continue
+        for inner in ast.walk(n):
+            if isinstance(inner, ast.Name) and "helpers" in inner.id:
+                return True
+            if isinstance(inner, ast.Attribute) and "helpers" in inner.attr:
+                return True
+    return False
+
+
+def _reads_real_committed_source(node: ast.AST) -> bool:
+    """True if one piece of syntax (a single statement's value expression, a ``with`` item's
+    context expression, or a whole function definition -- see ``_tainted_names_in_function`` and
+    ``_locally_source_reading_function_names`` below) is the actual FILE READ of the *actual
+    committed* notebook or ``helpers.py`` -- not a hand-typed duplicate of either, and not a
+    later step of the same chain (extracting one cell, then joining its ``"source"``) that never
+    itself mentions the file at all. That later step is carried by the generic name-reference
+    propagation in ``_tainted_names_in_function``, which is why this function only needs to see
+    the read itself (this used to also require ``"source"`` in the same statement as
+    ``"notebook.ipynb"``, false for the template's own three-line chain).
+
+    The property is "this syntax names the committed artefact AND performs a read": derived
+    from the AST (a ``Call`` to ``open``, or to a ``read``-family method), not from the literal
+    text ``read_text``. The earlier text test required that one spelling, so ``open(...).read()``
+    and ``read_bytes()`` -- plainly real reads of the committed source -- produced no taint at
+    all and a legitimate pin written that way was refused for how its read was spelled (#276).
+    The second route is ``inspect.getsource(...)`` on something named ``helpers``, for a test
+    that checks a helpers function's own source rather than a file."""
+    return (
+        _mentions_artefact_file(node)
+        and _performs_a_file_read(node)
+        and not _mentions_scratch_dir(node)
+    ) or _reads_helpers_source_via_inspect(node)
 
 
 def _production_wrapper_names(helpers_path: Path) -> set[str]:
@@ -1635,8 +1784,7 @@ def _locally_source_reading_function_names(tree: ast.Module, text: str) -> set[s
     names = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef):
-            segment = ast.get_source_segment(text, node) or ""
-            if _reads_real_committed_source(segment):
+            if _reads_real_committed_source(node):
                 names.add(node.name)
     return names
 
@@ -1646,101 +1794,771 @@ def _tainted_names_in_function(
 ) -> set[str]:
     """Fixed-point taint set, local to one test function: a name is tainted if the statement
     assigning it (a) itself reads the real committed source (``_reads_real_committed_source`` on
-    that one assignment's own text -- the inline case: recipes 38, 39, 41, 43, 45, the template),
+    that one assignment's value -- the inline case: recipes 38, 39, 41, 43, 45, the template),
     (b) calls a function named in ``taint_producing_names`` (a source-reading helper defined
     anywhere in this file, or a ``helpers.py`` wrapper that itself makes the real selection call
     -- recipes 28, 42, 44), or (c) its value expression references an already-tainted name
     anywhere, including as a call argument (plain data-flow propagation -- recipe 42's
     ``_call_keyword_value(source, ...)``, whose own definition never mentions
     ``notebook.ipynb`` at all, but whose result still structurally depends on it because its
-    argument, ``source``, does). Scoped to one function at a time (never a whole-file flat
+    argument, ``source``, does). The binding of ``with open(<committed file>) as f`` is the same
+    read in statement form, so ``f`` is tainted by the same rules and ``f.read()`` then carries
+    the taint on by (c). Scoped to one function at a time (never a whole-file flat
     namespace): a name is only ever compared against taint computed within the SAME function,
     so an unrelated function's own local variable sharing a common name (``source``, ``cell``)
     can never borrow another function's taint."""
     tainted: set[str] = set()
+
+    bindings = _function_bindings(func)
+
+    # names that hold a COPY under pytest's scratch directory (the fixture parameter itself, and
+    # anything assigned from it): a read of those is a read of a test-made copy, not of the
+    # committed artefact
+    scratch = set(_SCRATCH_DIR_NAMES)  # the fixture parameter (or any use of its name)
+    grew = True
+    while grew:
+        grew = False
+        for name, values in bindings.items():
+            if name not in scratch and any(
+                v is not None and scratch & _ast_names(v) for v in values
+            ):
+                scratch.add(name)
+                grew = True
+
+    def _taints(value: ast.AST | None) -> bool:
+        if value is None:  # bound by a form this cannot trace (``+=``, ``for``, unpacking, ``:=``)
+            return False
+        if scratch & _ast_names(value):
+            return False
+        calls_taint_producing = any(
+            isinstance(n, ast.Call) and _call_func_name(n) in taint_producing_names
+            for n in ast.walk(value)
+        )
+        return (
+            _reads_real_committed_source(value)
+            or calls_taint_producing
+            or _wholly_tainted(value, frozenset(tainted))
+        )
+
+    # A name is tainted only if EVERY binding of it in the function is, and is traceable: ``source
+    # = <read>`` followed by ``source = "<hand typed>"``, ``source += "<hand typed>"``, ``for source
+    # in (...)``, ``source, _ = ...`` or ``(source := ...)`` leaves a name whose value at the
+    # assert is not (only) the read. A value built from the read plus a hand-typed piece
+    # (``source + "x"``, ``source or "x"``, a dict holding both) is not tainted either: the name
+    # must be WHOLLY derived from the read.
     changed = True
     while changed:
         changed = False
-        for node in ast.walk(func):
-            if not (
-                isinstance(node, ast.Assign)
-                and len(node.targets) == 1
-                and isinstance(node.targets[0], ast.Name)
-            ):
-                continue
-            target = node.targets[0].id
-            if target in tainted:
-                continue
-            value_text = ast.get_source_segment(text, node.value) or ""
-            calls_taint_producing = any(
-                isinstance(n, ast.Call) and _call_func_name(n) in taint_producing_names
-                for n in ast.walk(node.value)
-            )
-            if (
-                _reads_real_committed_source(value_text)
-                or calls_taint_producing
-                or (tainted & _ast_names(node.value))
-            ):
-                tainted.add(target)
+        for name, values in bindings.items():
+            if name not in tainted and all(_taints(v) for v in values):
+                tainted.add(name)
                 changed = True
     return tainted
 
 
-NEGATIVE_COMPARISONS = (ast.NotIn, ast.NotEq, ast.IsNot)
+def _function_bindings(func: ast.FunctionDef) -> dict[str, list[ast.AST | None]]:
+    """Every way ``func`` binds a name: the assigned value for a plain ``name = value`` and the
+    context expression for ``with <expr> as name`` (the two forms whose value can be traced), and
+    ``None`` for every other binding of that name -- augmented or annotated assignment, a ``for``
+    target, tuple unpacking, a walrus, ``del``, ``with ... as (a, b)``. A comprehension's own
+    target is scoped to the comprehension and is handled by ``_taint_through_comprehension``."""
+    bindings: dict[str, list[ast.AST | None]] = {}
+    traced: set[int] = set()
+    scoped: set[int] = set()
+    for node in ast.walk(func):
+        if (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+        ):
+            bindings.setdefault(node.targets[0].id, []).append(node.value)
+            traced.add(id(node.targets[0]))
+        elif isinstance(node, ast.With):
+            for item in node.items:
+                if isinstance(item.optional_vars, ast.Name):
+                    bindings.setdefault(item.optional_vars.id, []).append(item.context_expr)
+                    traced.add(id(item.optional_vars))
+        elif isinstance(node, ast.comprehension):
+            scoped.update(id(n) for n in ast.walk(node.target))
+    for node in ast.walk(func):
+        if (
+            isinstance(node, ast.Name)
+            and isinstance(node.ctx, ast.Store | ast.Del)
+            and id(node) not in traced
+            and id(node) not in scoped
+        ):
+            bindings.setdefault(node.id, []).append(None)
+    return bindings
 
 
-def _effective_comparisons(expr: ast.expr, negated: bool = False):
-    """Yield ``(compare, effective_positive)`` for every ``ast.Compare`` reachable from
-    ``expr``, tracking sign through any enclosing ``not`` (``ast.UnaryOp``/``ast.Not``, which
-    flips the running sign) and through ``and``/``or`` (``ast.BoolOp``, which does NOT flip
-    anything -- it only distributes the current sign unchanged to each of its own operands).
-    ``effective_positive`` folds the enclosing-``not`` count together with the compare's own
-    operator: a ``NotIn``/``NotEq``/``IsNot`` compare is itself negative, so an even total
-    number of negations (a positive op under zero enclosing nots, or a negative op under one)
-    reads positive overall -- ``not ("x" in source)`` and ``not ("x" not in source)`` land on
-    opposite sides of this, correctly: the first says "x" must be absent, the second says it
-    must be present. A reviewer's own synthetic probe established the missing case directly:
-    this module previously had no handling for ``UnaryOp``/``Not`` at all, so ``assert not
-    ("target_accuracy" in source)`` -- which asserts the spelling is ABSENT -- credited it as
-    PINNED, the same backwards mistake the earlier ``NotIn``/``NotEq`` fix closed one level up
-    the tree from."""
+class _Taint(frozenset):
+    """The names traced to the committed source, plus -- per local name -- the hand-typed strings
+    its bindings embed (``embedded``): ``padded = source.replace("a", "min_coverage")`` is still a
+    name derived from the read, but it carries the needle ``min_coverage`` that no read put there,
+    so ``"min_coverage" in padded`` holds whatever the notebook says (see ``_embeds_text``).
+
+    A plain ``frozenset`` of names works everywhere a ``_Taint`` does and simply embeds nothing.
+    The converse is the invariant to keep: every function that derives a new taint set from a
+    ``_Taint`` must re-wrap it (``_taint_through_comprehension`` does), because a plain set
+    silently loses ``embedded`` -- and losing it can only CREDIT more, never less."""
+
+    embedded: dict[str, frozenset[str]]
+
+    def __new__(cls, names=(), embedded=None):
+        obj = super().__new__(cls, names)
+        obj.embedded = {n: frozenset(t) for n, t in (embedded or {}).items()}
+        return obj
+
+
+def _embedded_of(tainted: frozenset[str]) -> dict[str, frozenset[str]]:
+    return getattr(tainted, "embedded", {})
+
+
+def _folded_text(node: ast.AST) -> str | None:
+    """The text of a ``str``/``bytes`` constant, or of a ``+`` chain made only of such constants
+    (``"min" + "_coverage"``); ``None`` for anything else."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, str | bytes):
+        return node.value if isinstance(node.value, str) else node.value.decode("utf-8", "replace")
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left, right = _folded_text(node.left), _folded_text(node.right)
+        if left is not None and right is not None:
+            return left + right
+    return None
+
+
+def _typed_strings(node: ast.AST) -> set[str]:
+    """Every hand-typed ``str``/``bytes`` constant inside ``node`` (f-string text included), and
+    the text a ``+`` of adjacent literals spells (``"min" + "_coverage"`` types ``min_coverage``
+    although no single constant contains it)."""
+    found: set[str] = set()
+    for n in ast.walk(node):
+        text = _folded_text(n)
+        if text is not None:
+            found.add(text)
+    return found
+
+
+# Methods that put the values they are given INTO the container they are called on.
+_CONTAINER_INSERT_METHODS = frozenset(
+    {"append", "extend", "insert", "add", "update", "setdefault", "appendleft", "extendleft"}
+)
+
+
+def _in_place_contributions(func: ast.FunctionDef) -> dict[str, list[ast.AST]]:
+    """name -> the expressions that are put INTO the container ``name`` after it was bound:
+    arguments of ``name.append(...)`` / ``extend`` / ``insert`` / ``add`` / ``update`` /
+    ``setdefault``, and the value (and key) of ``name[key] = value``. They are not bindings of
+    ``name``, but what they hand-type is in ``name`` all the same."""
+    contributions: dict[str, list[ast.AST]] = {}
+    for node in ast.walk(func):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr in _CONTAINER_INSERT_METHODS
+            and isinstance(node.func.value, ast.Name)
+        ):
+            contributions.setdefault(node.func.value.id, []).extend(
+                [*node.args, *(k.value for k in node.keywords)]
+            )
+        elif isinstance(node, ast.Assign | ast.AugAssign):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            for target in targets:
+                if isinstance(target, ast.Subscript) and isinstance(target.value, ast.Name):
+                    contributions.setdefault(target.value.id, []).extend([node.value, target.slice])
+    return contributions
+
+
+def _embedded_texts(func: ast.FunctionDef, tainted: set[str]) -> dict[str, frozenset[str]]:
+    """For each local name (tainted or not), the hand-typed strings in any of its bindings or
+    put into it in place (``_in_place_contributions``), followed transitively through the local
+    names those expressions reference (so ``again = swapped`` carries what ``swapped =
+    source.replace(..., "min_coverage")`` typed, and so does ``needle = "min_coverage"`` when it
+    is then passed to ``.replace``). ``tainted`` is accepted for the callers' symmetry: every name
+    is tracked, because hand-typed text flows through untainted names too."""
+    bindings = _function_bindings(func)
+    contributions = _in_place_contributions(func)
+    names = set(bindings) | set(contributions) | set(tainted)
+    embedded: dict[str, set[str]] = {name: set() for name in names}
+    changed = True
+    while changed:
+        changed = False
+        for name in names:
+            for value in [*bindings.get(name, []), *contributions.get(name, [])]:
+                if value is None:
+                    continue
+                found = _typed_strings(value)
+                for ref in _ast_names(value):
+                    found |= embedded.get(ref, set())
+                if not found <= embedded[name]:
+                    embedded[name] |= found
+                    changed = True
+    return {name: frozenset(texts) for name, texts in embedded.items()}
+
+
+def _is_plain_open_with(node: ast.With) -> bool:
+    """A ``with open(...) as f:`` (or ``path.open()``) block: it runs its body exactly once,
+    unconditionally, so asserts inside it are as unconditional as the statement itself. Any other
+    context manager is not assumed to behave that way -- ``pytest.raises(AssertionError)`` inverts
+    the sense of every assert inside it, and ``contextlib.suppress`` can swallow them."""
+    return all(
+        isinstance(item.context_expr, ast.Call)
+        and (
+            (isinstance(item.context_expr.func, ast.Name) and item.context_expr.func.id == "open")
+            or (
+                isinstance(item.context_expr.func, ast.Attribute)
+                and item.context_expr.func.attr == "open"
+            )
+        )
+        for item in node.items
+    )
+
+
+def _unconditional_asserts(body: list[ast.stmt]) -> list[ast.Assert]:
+    """The ``assert`` statements in ``body`` that always run when the test does: direct
+    statements of the function, those inside a plain ``with open(...)`` block, and those in the
+    body of a ``for`` loop over a visibly non-empty literal tuple/list/set (no ``break``,
+    ``continue`` or ``return`` in it), which runs for every element. Collection STOPS at the first
+    statement that can end the test early (a ``return``, a ``raise`` or a ``pytest.skip`` /
+    ``xfail`` / ``exit`` / ``fail`` call, including one under an ``if``): an assert after it may
+    never run. An assert under an ``if``, any other loop, a ``try``, a nested function, or ``with
+    pytest.raises(...)`` is NOT included, because its effective truth sense depends on a context
+    this check cannot see: ``if cond: assert "x" in source`` pins nothing when ``cond`` is false,
+    and ``with pytest.raises(AssertionError): assert "x" in source`` claims the spelling is
+    ABSENT. Not crediting those is the fail-closed direction (a loud refusal, never a silent
+    pass). A test marked ``skip``/``skipif``/``xfail`` is not considered at all
+    (``_test_function_defs``)."""
+    return _collect_unconditional_asserts(body)[0]
+
+
+_LEAVING_CALL_NAMES = frozenset({"skip", "xfail", "exit", "fail", "importorskip", "_exit"})
+
+
+def _walk_same_scope(node: ast.AST):
+    """``ast.walk`` that does not descend into nested functions, lambdas or classes (a ``return``
+    in a nested helper does not end the test)."""
+    stack = [node]
+    while stack:
+        current = stack.pop()
+        yield current
+        for child in ast.iter_child_nodes(current):
+            if not isinstance(
+                child, ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda | ast.ClassDef
+            ):
+                stack.append(child)
+
+
+def _may_leave_the_test(stmt: ast.stmt, *, loop_exits: bool = False) -> bool:
+    """True if running ``stmt`` can end the test (or, with ``loop_exits``, skip the rest of the
+    enclosing loop body) before the statements after it run: a ``return``, a ``raise``, or a
+    call to ``pytest.skip`` / ``xfail`` / ``exit`` / ``fail`` (anywhere inside it, including under
+    an ``if``). An assert placed after such a statement may never run."""
+    for node in _walk_same_scope(stmt):
+        if isinstance(node, ast.Return | ast.Raise):
+            return True
+        if loop_exits and isinstance(node, ast.Break | ast.Continue):
+            return True
+        if isinstance(node, ast.Call):
+            func = node.func
+            name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
+            if name in _LEAVING_CALL_NAMES:
+                return True
+    return False
+
+
+def _collect_unconditional_asserts(body: list[ast.stmt]) -> tuple[list[ast.Assert], bool]:
+    """``(asserts, completed)``: the asserts that always run, and whether control provably reaches
+    the end of ``body`` (``False`` once a statement that can leave the test was met, after which
+    nothing further is credited). Direct statements count; a plain ``with open(...)`` block counts
+    through its body; a ``for`` loop over a visibly non-empty literal display counts through its
+    body when the body cannot ``break``/``continue``/``return`` (it then runs once per element)."""
+    found: list[ast.Assert] = []
+    for stmt in body:
+        if isinstance(stmt, ast.Assert):
+            found.append(stmt)
+        elif isinstance(stmt, ast.With) and _is_plain_open_with(stmt):
+            inner, completed = _collect_unconditional_asserts(stmt.body)
+            found.extend(inner)
+            if not completed:
+                return found, False
+        elif (
+            isinstance(stmt, ast.For)
+            and _provably_nonempty(stmt.iter, frozenset())
+            and not any(_may_leave_the_test(s, loop_exits=True) for s in stmt.body)
+            and not stmt.orelse
+        ):
+            found.extend(_collect_unconditional_asserts(stmt.body)[0])
+        elif _may_leave_the_test(stmt):
+            return found, False
+    return found, True
+
+
+# --------------------------------------------------------------------------------------------
+# effective truth sense (#276): what does an assert CLAIM about a spelling?
+#
+# The earlier walk yielded every ``ast.Compare`` under an assert and tracked only an enclosing
+# ``not`` and the comparison's own ``not in``/``!=``/``is not``, so negation expressed as a VALUE
+# (``("x" in source) is False``), by a COUNT (``source.count("x") == 0``), by CONTEXT (an
+# ``IfExp`` branch) or inside a comprehension (``len([m for m in ... if "x" in m]) == 0``) was
+# invisible, and a spelling asserted ABSENT was credited as PRESENT. A blacklist of those
+# spellings is the wrong shape (CONTRIBUTING.md section 6's list was evaded five times), so
+# this derives the property instead: ``_entailed_spellings(expr, truth, ...)`` answers "if
+# ``expr`` evaluates to ``truth``, which spellings must be present in the committed source?",
+# recursing structurally so every layer (``not``, ``and``/``or``, ``if``-expressions, ``is False``,
+# numeric thresholds on counts, ``all``/``any``/``len`` over comprehensions) contributes its own
+# sign. Anything the recursion does not understand entails NOTHING, so an unrecognised idiom is
+# refused loudly rather than credited silently.
+# --------------------------------------------------------------------------------------------
+
+_NUMERIC_COMPARE = {
+    ast.Eq: operator.eq,
+    ast.NotEq: operator.ne,
+    ast.Lt: operator.lt,
+    ast.LtE: operator.le,
+    ast.Gt: operator.gt,
+    ast.GtE: operator.ge,
+}
+_MIRRORED = {
+    ast.Eq: ast.Eq,
+    ast.NotEq: ast.NotEq,
+    ast.Lt: ast.Gt,
+    ast.LtE: ast.GtE,
+    ast.Gt: ast.Lt,
+    ast.GtE: ast.LtE,
+}
+_COMPREHENSIONS = (ast.ListComp, ast.SetComp, ast.GeneratorExp)
+
+
+def _literal_text(node: ast.AST) -> set[str] | None:
+    """The literal text a hand-written needle expression stands for: a ``str``/``bytes``
+    constant, the constant parts of an f-string, or the literal parts of a ``+`` / ``%`` join of
+    those. ``None`` when ``node`` contributes no literal text at all (a name, a call...)."""
+    if isinstance(node, ast.Constant):
+        if isinstance(node.value, str):
+            return {node.value}
+        if isinstance(node.value, bytes):
+            return {node.value.decode("utf-8", "replace")}
+        return None
+    if isinstance(node, ast.JoinedStr):
+        parts = {
+            part.value
+            for part in node.values
+            if isinstance(part, ast.Constant) and isinstance(part.value, str)
+        }
+        return parts or None
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add | ast.Mod):
+        pieces = [p for p in (_literal_text(node.left), _literal_text(node.right)) if p]
+        return set().union(*pieces) if pieces else None
+    return None
+
+
+def _truth_literal(literal: ast.AST, value: ast.AST) -> bool | None:
+    """If ``literal`` is a ``True``/``False`` constant (or ``1``/``0`` standing opposite a
+    boolean-valued expression), the truth value it names; else ``None``."""
+    if not isinstance(literal, ast.Constant):
+        return None
+    if type(literal.value) is bool:
+        return literal.value
+    if (
+        type(literal.value) is int
+        and literal.value in (0, 1)
+        and isinstance(value, ast.Compare | ast.BoolOp | ast.UnaryOp)
+    ):
+        return bool(literal.value)
+    return None
+
+
+def _taint_through_comprehension(comp: ast.expr, tainted: frozenset[str]) -> frozenset[str]:
+    """``tainted`` as seen INSIDE the comprehension: each generator's target names are tainted when
+    the iterable it ranges over is wholly tainted (``for s in sources`` with ``sources`` tainted
+    is what lets ``all("min_coverage" in s for s in sources)`` be traced to the real committed
+    source) and are SHADOWED -- removed from the set -- when it is not, so ``any("x" in source for
+    source in ["x"])`` does not borrow the outer ``source``'s taint, and neither does an iterable
+    that mixes the real read with a hand-typed copy of the needle."""
+    out = set(tainted)
+    embedded = dict(_embedded_of(tainted))
+    for gen in comp.generators:
+        targets = _ast_names(gen.target)
+        # a target carries whatever hand-typed text the iterable it ranges over carries
+        carried = _typed_strings(gen.iter)
+        for ref in _ast_names(gen.iter):
+            carried |= embedded.get(ref, frozenset())
+        for name in targets:
+            embedded[name] = frozenset(carried)
+        if _wholly_tainted(gen.iter, frozenset(out)):
+            out |= targets
+        else:
+            out -= targets
+    return _Taint(out, embedded)
+
+
+def _wholly_tainted(node: ast.AST, tainted: frozenset[str]) -> bool:
+    """True if EVERY value ``node`` can produce comes from tainted data, not merely if it
+    mentions a tainted name somewhere: a display is wholly tainted only if each element is, a
+    ``+`` or ``or`` only if each operand is, a hand-typed literal never is. Calls, subscripts and
+    attributes are wholly tainted when they reference a tainted name (``notebook["cells"]``,
+    ``"".join(cell["source"])``): data flowing out of the read stays tainted."""
+    if isinstance(node, ast.Constant | ast.JoinedStr):
+        return False
+    if isinstance(node, ast.List | ast.Tuple | ast.Set):
+        return bool(node.elts) and all(
+            _wholly_tainted(e.value if isinstance(e, ast.Starred) else e, tainted)
+            for e in node.elts
+        )
+    if isinstance(node, ast.Dict):
+        return bool(node.values) and all(_wholly_tainted(v, tainted) for v in node.values)
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        return _wholly_tainted(node.left, tainted) and _wholly_tainted(node.right, tainted)
+    if isinstance(node, ast.BoolOp):
+        return all(_wholly_tainted(v, tainted) for v in node.values)
+    if isinstance(node, ast.IfExp):
+        return _wholly_tainted(node.body, tainted) and _wholly_tainted(node.orelse, tainted)
+    return bool(tainted & _ast_names(node))
+
+
+def _embeds_text(node: ast.AST, texts: set[str], tainted: frozenset[str]) -> bool:
+    """True if a hand-typed string inside ``node`` contains one of ``texts`` -- the needle was
+    smuggled into the value it is compared with (``kws.get("objective", "min_coverage") ==
+    "min_coverage"``, ``source.replace("a", "min_coverage")``), so the comparison holds whatever
+    the committed source says; so does a needle spelled as a ``+`` of adjacent literals
+    (``"min" + "_coverage"``). A NAME counts for the hand-typed strings its own bindings embed, and
+    for what is put into it in place by ``.append(...)`` / ``name[k] = ...`` (``tainted.embedded``),
+    so the same smuggling through an intermediate variable (``swapped = source.replace("a",
+    "min_coverage")`` then ``"min_coverage" in swapped``) is seen too, not only when it is
+    spelled inline in the compared expression.
+
+    NOT seen (kept out of scope on purpose, listed in #320): a needle reaching the value through a
+    module-level name, a function parameter, a call result (``"".join(["min", "_coverage"])``), an
+    f-string split around a placeholder, or any other computation of the text -- this is a check
+    on what is TYPED in the function, not a data-flow proof that the needle came from the read."""
+    embedded = _embedded_of(tainted)
+    if any(t in typed for typed in _typed_strings(node) for t in texts):
+        return True
+    return any(
+        isinstance(n, ast.Name)
+        and any(t in typed for typed in embedded.get(n.id, ()) for t in texts)
+        for n in ast.walk(node)
+    )
+
+
+def _credible_source_operand(node: ast.AST, texts: set[str], tainted: frozenset[str]) -> bool:
+    """The operand a needle is compared against really is the committed source (wholly tainted)
+    and does not itself contain the needle as a hand-typed string, inline or through a name."""
+    return _wholly_tainted(node, tainted) and not _embeds_text(node, texts, tainted)
+
+
+def _provably_nonempty(iterable: ast.expr, nonempty: frozenset[str]) -> bool:
+    if isinstance(iterable, ast.List | ast.Tuple | ast.Set):
+        return bool(iterable.elts) and not any(isinstance(e, ast.Starred) for e in iterable.elts)
+    return isinstance(iterable, ast.Name) and iterable.id in nonempty
+
+
+_CONTAINER_VALUES = (
+    ast.List,
+    ast.Tuple,
+    ast.Set,
+    ast.Dict,
+    ast.ListComp,
+    ast.SetComp,
+    ast.DictComp,
+)
+
+
+def _name_bindings(func: ast.FunctionDef, name: str) -> list[ast.AST | None]:
+    """Every binding of ``name`` in ``func``: the assigned value for a plain ``name = value``, and
+    ``None`` for any other way of (re)binding or deleting it (augmented assignment, ``for``
+    target, tuple unpacking, ``with ... as``, walrus, ``del``, comprehension target)."""
+    values: list[ast.AST | None] = []
+    plain_targets: set[int] = set()
+    for node in ast.walk(func):
+        if (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and node.targets[0].id == name
+        ):
+            values.append(node.value)
+            plain_targets.add(id(node.targets[0]))
+    for node in ast.walk(func):
+        if (
+            isinstance(node, ast.Name)
+            and node.id == name
+            and isinstance(node.ctx, ast.Store | ast.Del)
+            and id(node) not in plain_targets
+        ):
+            values.append(None)
+    return values
+
+
+def _mutated_in_place(func: ast.FunctionDef, name: str) -> bool:
+    """``name.<anything>(...)`` (``clear``, ``pop``, ``remove``...) or a subscript store/delete on
+    ``name``: the container may not hold what it was bound to."""
+    for node in ast.walk(func):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == name
+        ):
+            return True
+        if (
+            isinstance(node, ast.Subscript)
+            and isinstance(node.ctx, ast.Store | ast.Del)
+            and isinstance(node.value, ast.Name)
+            and node.value.id == name
+        ):
+            return True
+    return False
+
+
+def _asserted_nonempty_names(func: ast.FunctionDef) -> frozenset[str]:
+    """Names this function establishes as non-empty before an ``all(...)`` over them can mean
+    anything (``all`` over an empty iterable is vacuously true and pins nothing). A name counts
+    only if it is bound ONCE in the function and never mutated in place (so a later
+    ``sources = []`` or ``sources.clear()`` cannot empty it behind the evidence), and then by:
+
+    * being bound to a non-empty literal list/tuple/set; or
+    * an unconditional ``assert len(name) > 0`` / ``>= 1`` / ``!= 0`` / ``== n`` (``n > 0``); or
+    * an unconditional bare ``assert name`` when the single binding is a container display or
+      list/set/dict comprehension -- NOT a generator, which is always truthy."""
+    candidates: dict[str, str] = {}  # name -> how it was shown non-empty
+    asserted_len: set[str] = set()
+    asserted_bare: set[str] = set()
+    for assert_ in _unconditional_asserts(func.body):
+        conjuncts = (
+            assert_.test.values
+            if isinstance(assert_.test, ast.BoolOp) and isinstance(assert_.test.op, ast.And)
+            else [assert_.test]
+        )
+        for conjunct in conjuncts:
+            if isinstance(conjunct, ast.Name):
+                asserted_bare.add(conjunct.id)
+            elif (
+                isinstance(conjunct, ast.Compare)
+                and len(conjunct.ops) == 1
+                and isinstance(conjunct.left, ast.Call)
+                and isinstance(conjunct.left.func, ast.Name)
+                and conjunct.left.func.id == "len"
+                and len(conjunct.left.args) == 1
+                and isinstance(conjunct.left.args[0], ast.Name)
+                and isinstance(conjunct.comparators[0], ast.Constant)
+                and type(conjunct.comparators[0].value) in (int, float)
+                and type(conjunct.ops[0]) in _NUMERIC_COMPARE
+                and not _NUMERIC_COMPARE[type(conjunct.ops[0])](0, conjunct.comparators[0].value)
+            ):
+                asserted_len.add(conjunct.left.args[0].id)
+    assigned = {
+        n.targets[0].id
+        for n in ast.walk(func)
+        if isinstance(n, ast.Assign) and len(n.targets) == 1 and isinstance(n.targets[0], ast.Name)
+    }
+    for name in assigned | asserted_len:
+        if _mutated_in_place(func, name):
+            continue
+        bindings = _name_bindings(func, name)
+        if len(bindings) > 1:
+            continue
+        value = bindings[0] if bindings else None
+        if value is not None and _provably_nonempty(value, frozenset()):
+            candidates[name] = "literal"
+        elif name in asserted_len:
+            candidates[name] = "len"
+        elif name in asserted_bare and isinstance(value, _CONTAINER_VALUES):
+            candidates[name] = "truthy container"
+    return frozenset(candidates)
+
+
+def _exists_entailed(
+    comp: ast.expr,
+    elt_truth: bool | None,
+    tainted: frozenset[str],
+    nonempty: frozenset[str],
+) -> set[str]:
+    """Spellings entailed by "some element of ``comp`` survives its filters (and, when
+    ``elt_truth`` is not ``None``, its element expression evaluates to ``elt_truth``)": the
+    conjunction of every filter being true for that one element, with the comprehension variable
+    tainted when it ranges over tainted data."""
+    inner = _taint_through_comprehension(comp, tainted)
+    out: set[str] = set()
+    for gen in comp.generators:
+        for condition in gen.ifs:
+            out |= _entailed_spellings(condition, True, inner, nonempty)
+    if elt_truth is not None:
+        out |= _entailed_spellings(comp.elt, elt_truth, inner, nonempty)
+    return out
+
+
+def _forall_entailed(
+    comp: ast.expr, elt_truth: bool, tainted: frozenset[str], nonempty: frozenset[str]
+) -> set[str]:
+    """Spellings entailed by "EVERY element of ``comp`` evaluates to ``elt_truth``". Only
+    meaningful when there is at least one element and no filter narrows which ones count, so a
+    filtered comprehension, or an iterable not provably non-empty, entails nothing."""
+    if any(gen.ifs for gen in comp.generators):
+        return set()
+    if not all(_provably_nonempty(gen.iter, nonempty) for gen in comp.generators):
+        return set()
+    inner = _taint_through_comprehension(comp, tainted)
+    return _entailed_spellings(comp.elt, elt_truth, inner, nonempty)
+
+
+def _quantity_spellings(
+    node: ast.AST, tainted: frozenset[str], nonempty: frozenset[str]
+) -> set[str] | None:
+    """``None`` unless ``node`` is a COUNT of something in the committed source:
+    ``<tainted>.count(<needle>)``, ``len(<comprehension>)``, ``len(<tainted>)`` or
+    ``sum(1 for ...)``. When it is, the spellings whose presence a count greater than zero
+    entails (the needle of a ``.count``, the filters of a comprehension)."""
+    if not isinstance(node, ast.Call):
+        return None
+    func = node.func
+    if isinstance(func, ast.Attribute) and func.attr == "count" and node.args:
+        if tainted & _ast_names(func.value):
+            needle = _literal_text(node.args[0]) or set()
+            if not _credible_source_operand(func.value, needle, tainted):
+                return set()  # still a count, but of something that is not the committed source
+            return needle
+        return None
+    if isinstance(func, ast.Name) and len(node.args) == 1:
+        arg = node.args[0]
+        if func.id == "len":
+            if isinstance(arg, _COMPREHENSIONS):
+                return _exists_entailed(arg, None, tainted, nonempty)
+            return set() if tainted & _ast_names(arg) else None
+        if func.id == "sum" and isinstance(arg, _COMPREHENSIONS):
+            # ``sum(1 for ...)`` counts the elements that survive the filters; ``sum(<bool or
+            # count> for ...)`` is positive only if some element's term is true / positive
+            counts_elements = isinstance(arg.elt, ast.Constant) and arg.elt.value == 1
+            return _exists_entailed(arg, None if counts_elements else True, tainted, nonempty)
+    return None
+
+
+def _combine(parts: list[set[str]], all_must_hold: bool) -> set[str]:
+    """What a conjunction (``all_must_hold``: every part is known true, so every part's
+    entailments apply) or a disjunction (some part is true, we do not know which, so only what
+    EVERY part entails applies) entails."""
+    if not parts:
+        return set()
+    if all_must_hold:
+        return set().union(*parts)
+    return set.intersection(*parts)
+
+
+def _entailed_spellings(
+    expr: ast.expr, truth: bool, tainted: frozenset[str], nonempty: frozenset[str]
+) -> set[str]:
+    """If ``expr`` evaluates to ``truth``, the spellings that must therefore be PRESENT in the
+    committed source. The effective truth sense is carried down the tree: ``not`` flips it,
+    ``and``/``or`` apply it to each operand but combine differently (a true ``and`` and a false
+    ``or`` know every operand; a false ``and`` and a true ``or`` only know what all operands
+    share), an ``if``-expression only entails what BOTH branches do, a comparison against a
+    ``True``/``False`` literal re-targets the other operand with the sign that literal implies,
+    and a count compared with a number entails presence only when the comparison excludes
+    zero. Anything not recognised entails nothing."""
     if isinstance(expr, ast.UnaryOp) and isinstance(expr.op, ast.Not):
-        yield from _effective_comparisons(expr.operand, not negated)
-        return
+        return _entailed_spellings(expr.operand, not truth, tainted, nonempty)
     if isinstance(expr, ast.BoolOp):
-        for value in expr.values:
-            yield from _effective_comparisons(value, negated)
-        return
+        parts = [_entailed_spellings(v, truth, tainted, nonempty) for v in expr.values]
+        return _combine(parts, isinstance(expr.op, ast.And) == truth)
+    if isinstance(expr, ast.IfExp):
+        branches = [
+            _entailed_spellings(expr.body, truth, tainted, nonempty),
+            _entailed_spellings(expr.orelse, truth, tainted, nonempty),
+        ]
+        return _combine(branches, all_must_hold=False)
     if isinstance(expr, ast.Compare):
-        own_negative = any(isinstance(op, NEGATIVE_COMPARISONS) for op in expr.ops)
-        yield (expr, negated == own_negative)
-        return
-    for child in ast.iter_child_nodes(expr):
-        if isinstance(child, ast.expr):
-            yield from _effective_comparisons(child, negated)
+        return _compare_entailed(expr, truth, tainted, nonempty)
+    if isinstance(expr, ast.Call):
+        return _call_entailed(expr, truth, tainted, nonempty)
+    return set()
 
 
-def _tainted_operand_constants(compare: ast.Compare, tainted: set[str]) -> set[str]:
-    """String constants found in ``compare``'s own operands (``compare.left`` and every
-    ``compare.comparators``), gated on at least ONE of those SAME operands referencing a
-    tainted name -- not merely on some unrelated tainted name appearing anywhere else in the
-    enclosing statement, which is the gap a reviewer isolated synthetically: ``assert
-    len(source) > 0 and "min_coverage" in "<hand-typed literal>"`` has a tainted name
-    (``source``) in its first half and the spelling in its second, but the two never touch
-    each other -- the ``"min_coverage" in "<hand-typed literal>"`` comparison's own two
-    operands are a bare string constant and a different, hand-typed string constant, neither
-    of which is ``source`` or anything derived from it. Gating per-comparison on its own
-    operands, not per-statement on the statement's full name set, is what closes this: this
-    specific ``Compare`` node's operands reference no tainted name, so it contributes nothing,
-    regardless of what the sibling half of the ``and`` does."""
-    operands = (compare.left, *compare.comparators)
-    if not any(tainted & _ast_names(operand) for operand in operands):
+def _call_entailed(
+    call: ast.Call, truth: bool, tainted: frozenset[str], nonempty: frozenset[str]
+) -> set[str]:
+    quantity = _quantity_spellings(call, tainted, nonempty)
+    if quantity is not None:
+        # a bare count used as a condition means "count != 0"
+        return quantity if truth else set()
+    if not (isinstance(call.func, ast.Name) and len(call.args) == 1):
+        return set()
+    name, arg = call.func.id, call.args[0]
+    if name == "bool":
+        return _entailed_spellings(arg, truth, tainted, nonempty)
+    if name not in ("all", "any"):
+        return set()
+    if isinstance(arg, _COMPREHENSIONS):
+        if (name == "any") == truth:  # some element satisfies it
+            return _exists_entailed(arg, name == "any", tainted, nonempty)
+        return _forall_entailed(arg, name == "all", tainted, nonempty)
+    if (
+        isinstance(arg, ast.List | ast.Tuple | ast.Set)
+        and arg.elts
+        and not any(isinstance(e, ast.Starred) for e in arg.elts)
+    ):
+        parts = [_entailed_spellings(e, truth, tainted, nonempty) for e in arg.elts]
+        return _combine(parts, (name == "all") == truth)
+    return set()
+
+
+def _compare_entailed(
+    compare: ast.Compare, truth: bool, tainted: frozenset[str], nonempty: frozenset[str]
+) -> set[str]:
+    if len(compare.ops) > 1:  # a < b < c is (a < b) and (b < c)
+        operands = [compare.left, *compare.comparators]
+        parts = [
+            _compare_entailed(
+                ast.Compare(left=operands[i], ops=[op], comparators=[operands[i + 1]]),
+                truth,
+                tainted,
+                nonempty,
+            )
+            for i, op in enumerate(compare.ops)
+        ]
+        return _combine(parts, all_must_hold=truth)
+    left, op, right = compare.left, compare.ops[0], compare.comparators[0]
+    op_type = type(op)
+
+    # (a) a boolean-valued operand compared with a True/False literal: ``(x in s) is False``
+    if isinstance(op, ast.Eq | ast.NotEq | ast.Is | ast.IsNot):
+        for value, literal in ((left, right), (right, left)):
+            wanted = _truth_literal(literal, value)
+            if wanted is not None:
+                positive = isinstance(op, ast.Eq | ast.Is)
+                inner = wanted if positive == truth else (not wanted)
+                return _entailed_spellings(value, inner, tainted, nonempty)
+
+    # (b) a count compared with a number: presence is entailed only if the claim excludes zero
+    for quantity_side, number_side, mirrored in ((left, right, False), (right, left, True)):
+        quantity = _quantity_spellings(quantity_side, tainted, nonempty)
+        if quantity is None:
+            continue
+        cmp_type = _MIRRORED.get(op_type) if mirrored else op_type
+        if (
+            cmp_type not in _NUMERIC_COMPARE
+            or not isinstance(number_side, ast.Constant)
+            or type(number_side.value) not in (int, float)
+        ):
+            return set()
+        zero_is_consistent = _NUMERIC_COMPARE[cmp_type](0, number_side.value) == truth
+        return set() if zero_is_consistent else quantity
+
+    # (c) membership / equality: credited only when the comparison effectively says "equal" or
+    # "contained", and one side is a hand-written needle while the other is derived from the
+    # committed source
+    if not isinstance(op, ast.In | ast.NotIn | ast.Eq | ast.NotEq | ast.Is | ast.IsNot):
+        return set()
+    if isinstance(op, ast.In | ast.Eq | ast.Is) != truth:
+        return set()
+    if isinstance(op, ast.In | ast.NotIn):
+        needle = _literal_text(left)
+        if needle and _credible_source_operand(right, needle, tainted):
+            return needle
         return set()
     found: set[str] = set()
-    for operand in operands:
-        for const in ast.walk(operand):
-            if isinstance(const, ast.Constant) and isinstance(const.value, str):
-                found.add(const.value)
+    for value, literal in ((left, right), (right, left)):
+        text = _literal_text(literal)
+        if text and _literal_text(value) is None and _credible_source_operand(value, text, tainted):
+            found |= text
     return found
 
 
@@ -1755,9 +2573,9 @@ def _extraction_checked(name: str, func: ast.FunctionDef) -> bool:
     ``not in`` comparison or a wholly disconnected ``assert len(x) > 0``. ``is not None``
     specifically claims "the extraction for this keyword actually matched something in the
     real call"; that is the one fact this idiom can honestly stand for, so it is the only one
-    this route accepts."""
-    for node in ast.walk(func):
-        if not (isinstance(node, ast.Assert) and isinstance(node.test, ast.Compare)):
+    this route accepts. Only an assert that always runs counts (``_unconditional_asserts``)."""
+    for node in _unconditional_asserts(func.body):
+        if not isinstance(node.test, ast.Compare):
             continue
         test = node.test
         if len(test.ops) != 1 or not isinstance(test.ops[0], ast.IsNot):
@@ -1775,17 +2593,17 @@ def _spellings_pinned_by_assertions(
 ) -> set[str]:
     """Objective spellings this one function's assertions pin, by two routes:
 
-    * **Direct.** An ``assert`` whose test expression contains an EFFECTIVELY POSITIVE
-      comparison (``_effective_comparisons``, which tracks sign through any enclosing ``not``)
-      whose OWN operands include both a reference to a tainted name and a string constant
-      naming the spelling (``_tainted_operand_constants`` -- gated per comparison, not per
-      statement, so an unrelated tainted reference elsewhere in the same ``assert`` cannot
-      license a hand-typed literal comparison that never touches it). This is what a
-      reviewer's ``.count('objective="f1"') == 2`` (41, 44), ``objective == "f1"`` (42), and
-      ``f"min_coverage={MIN_COVERAGE}"`` f-string (46) all need, and what the two mutation
-      findings above this function exist to close: crediting the wrong side of a negative
-      comparison, and crediting a spelling that merely co-occurs with taint rather than being
-      compared against it.
+    * **Direct.** An unconditional ``assert`` whose EFFECTIVE CLAIM, derived by
+      ``_entailed_spellings`` (the truth sense carried through ``not``, ``and``/``or``,
+      ``is False``, ``if``-expressions, count thresholds and ``all``/``any``/``len`` over
+      comprehensions), is that a spelling is present in a value traced to the real committed
+      source. Each comparison is gated on its OWN operands -- the spelling must be a
+      hand-written needle compared against a tainted operand -- so an unrelated tainted
+      reference elsewhere in the same ``assert`` cannot license a hand-typed literal comparison
+      that never touches it. This is what a reviewer's ``.count('objective="f1"') == 2`` (41,
+      44), ``objective == "f1"`` (42), and ``f"min_coverage={MIN_COVERAGE}"`` f-string (46) all
+      need, and what the mutation findings in #244 and #276 exist to close: crediting the wrong
+      side of a negative claim, and crediting a spelling that merely co-occurs with taint.
     * **Extraction.** An assignment ``name = <tainted call>`` to a LOCALLY DEFINED function
       (``locally_defined`` -- never a built-in string/list method such as ``.replace(...)`` or
       ``.count(...)``, which would otherwise let an unrelated tainted expression, such as a
@@ -1797,13 +2615,11 @@ def _spellings_pinned_by_assertions(
       not None``), so the direct route alone misses it. Credited only when the extracted name
       is checked by the one idiom ``_extraction_checked`` trusts."""
     pinned: set[str] = set()
+    frozen_taint = _Taint(tainted, _embedded_texts(func, tainted))
+    nonempty = _asserted_nonempty_names(func)
 
-    for node in ast.walk(func):
-        if not isinstance(node, ast.Assert):
-            continue
-        for compare, positive in _effective_comparisons(node.test):
-            if positive:
-                pinned |= _tainted_operand_constants(compare, tainted)
+    for node in _unconditional_asserts(func.body):
+        pinned |= _entailed_spellings(node.test, True, frozen_taint, nonempty)
 
     for node in ast.walk(func):
         if not (
@@ -1855,11 +2671,11 @@ def _spellings_pinned_by_production_discrimination(
         if objective:
             re_derivations[node.targets[0].id] = objective
 
+    unconditional = _unconditional_asserts(func.body)
     distinguished: set[str] = set()
-    for node in ast.walk(func):
+    for node in unconditional:
         if not (
-            isinstance(node, ast.Assert)
-            and isinstance(node.test, ast.Compare)
+            isinstance(node.test, ast.Compare)
             and len(node.test.ops) == 1
             and isinstance(node.test.ops[0], ast.NotEq)
         ):
@@ -1872,10 +2688,9 @@ def _spellings_pinned_by_production_discrimination(
             distinguished |= left_objs | right_objs
 
     pinned: set[str] = set()
-    for node in ast.walk(func):
+    for node in unconditional:
         if not (
-            isinstance(node, ast.Assert)
-            and isinstance(node.test, ast.Compare)
+            isinstance(node.test, ast.Compare)
             and len(node.test.ops) == 1
             and isinstance(node.test.ops[0], ast.Eq)
         ):
@@ -2110,6 +2925,586 @@ def test_import_alias_is_resolved_across_notebook_cells_not_per_cell(tmp_path):
     )
 
 
+# --------------------------------------------------------------------------------------------
+# mutation tests for the EFFECTIVE TRUTH SENSE of an objective pin (#276). Each one runs the
+# same ``_objective_pin_violations`` CI runs, on a throwaway copy of a published recipe that
+# passes today (49, whose only pin is a ``"min_coverage" in source`` assertion), with that
+# recipe's pin rewritten into the shape under test. A shape that says the spelling is ABSENT
+# must make the check go red; a shape that says it is PRESENT must keep it green; and flipping
+# the copy's objective (so the committed call no longer uses the pinned spelling) must turn every
+# green shape red again, proving the pin is really tied to the committed call.
+# --------------------------------------------------------------------------------------------
+
+_POLARITY_BASE_RECIPE = "49-multi-agent-task-assignment"
+
+_POLARITY_PREAMBLE = """\
+import json
+from pathlib import Path
+
+import pytest
+
+RECIPE = Path(__file__).resolve().parent.parent
+"""
+
+_NOTEBOOK_READ = """\
+notebook = json.loads((RECIPE / "notebook.ipynb").read_text("utf-8"))
+cell = next(c for c in notebook["cells"] if c.get("id") == "threshold-code")
+source = "".join(cell["source"])
+cells = ["".join(c["source"]) for c in notebook["cells"]]
+"""
+
+
+def _polarity_violations(
+    tmp_path: Path,
+    assertions: str,
+    *,
+    read: str = _NOTEBOOK_READ,
+    flip_objective: bool = False,
+    decorators: str = "",
+    nested: bool = False,
+    class_header: str | None = None,
+    module_prefix: str = "",
+) -> list[str] | None:
+    """Copy recipe 49 into ``tmp_path``, replace its ``tests/`` with a single test whose body is
+    ``read`` followed by ``assertions`` (optionally decorated, nested inside a helper function
+    pytest would not collect, made a method of the class ``class_header`` opens, or preceded by
+    ``module_prefix`` at module level), optionally flip the committed notebook's objective from
+    ``min_coverage`` to ``target_accuracy``, and return the check's verdict for the copy."""
+    target = tmp_path / _POLARITY_BASE_RECIPE
+    shutil.copytree(REPO / "recipes" / _POLARITY_BASE_RECIPE, target)
+    for old in (target / "tests").glob("*.py"):
+        old.unlink()
+    body = textwrap.indent(read + assertions, "    ")
+    signature = "(self)" if class_header else "()"
+    test_text = f"{decorators}def test_pin{signature}:\n{body}"
+    if class_header:  # the test becomes a method of the class the header opens
+        test_text = f"{class_header}\n" + textwrap.indent(test_text, "    ")
+    if nested:
+        test_text = "def _helper():\n" + textwrap.indent(test_text, "    ")
+    (target / "tests" / "test_threshold_pin.py").write_text(
+        f"{_POLARITY_PREAMBLE}\n\n{module_prefix}{test_text}", encoding="utf-8"
+    )
+    if flip_objective:
+        nb_path = target / "notebook.ipynb"
+        notebook = json.loads(nb_path.read_text("utf-8"))
+        flipped = 0
+        for cell in notebook["cells"]:
+            if cell.get("id") in ("threshold-code", "sweep-code"):
+                text = cell_source(cell)
+                swapped = text.replace("min_coverage=", "target_accuracy=")
+                assert swapped != text, "mutation did not take -- the replace found nothing"
+                cell["source"] = [swapped]
+                flipped += 1
+        assert flipped == 2
+        nb_path.write_text(json.dumps(notebook), encoding="utf-8")
+    return _objective_pin_violations(target)
+
+
+def test_the_unmutated_polarity_baseline_passes_and_a_hand_typed_pin_does_not(tmp_path):
+    """The baseline every mutation below departs from: recipe 49's own pin shape passes on the
+    copy, and the SAME assertion against a hand-typed duplicate of the source (not a read of the
+    committed notebook) does not."""
+    assert _polarity_violations(tmp_path / "a", 'assert "min_coverage" in source\n') == []
+    typed = "source = 'select_confidence_threshold(min_coverage=0.5)'\nassert \"min_coverage\" in source\n"
+    violations = _polarity_violations(tmp_path / "b", typed, read="")
+    assert violations and "min_coverage" in violations[0]
+
+
+# Each spelling says the objective is NOT in the committed source (or says nothing that proves
+# it is), so a recipe whose only pin is this shape is unpinned.
+_ABSENT_OR_UNPROVEN_SHAPES = {
+    # the four spellings #276 names
+    "is False": 'assert ("min_coverage" in source) is False\n',
+    "count == 0": 'assert source.count("min_coverage") == 0\n',
+    "len of filtered comprehension == 0": (
+        'assert len([s for s in cells if "min_coverage" in s]) == 0\n'
+    ),
+    "if-expression with a vacuous branch": (
+        'assert ("min_coverage" in source) if len(source) > 0 else True\n'
+    ),
+    # the same property in other clothes
+    "== False": 'assert ("min_coverage" in source) == False  # noqa: E712\n',
+    "is not True": 'assert ("min_coverage" in source) is not True\n',
+    "not in is True": 'assert ("min_coverage" not in source) is True\n',
+    "not in": 'assert "min_coverage" not in source\n',
+    "not (x in y)": 'assert not ("min_coverage" in source)\n',
+    "count < 1": 'assert source.count("min_coverage") < 1\n',
+    "count <= 0": 'assert source.count("min_coverage") <= 0\n',
+    "0 == count": 'assert 0 == source.count("min_coverage")\n',
+    "not bare count": 'assert not source.count("min_coverage")\n',
+    "not (count > 0)": 'assert not (source.count("min_coverage") > 0)\n',
+    "len of comprehension is 0": ('assert len([s for s in cells if "min_coverage" in s]) < 1\n'),
+    "sum of matches == 0": ('assert sum(1 for s in cells if "min_coverage" in s) == 0\n'),
+    "not any": 'assert not any("min_coverage" in s for s in cells)\n',
+    "all(not in)": 'assert all("min_coverage" not in s for s in cells)\n',
+    "any(not in)": 'assert any("min_coverage" not in s for s in cells)\n',
+    "not all(in)": 'assert not all("min_coverage" in s for s in cells)\n',
+    "or with a vacuous operand": 'assert ("min_coverage" in source) or len(source) > 0\n',
+    "or True": 'assert ("min_coverage" in source) or True\n',
+    "chained comparison to zero": 'assert 0 == source.count("min_coverage") == 0\n',
+    "count compared with a non-number": ('assert source.count("min_coverage") == len(cells)\n'),
+    "all over a possibly-empty iterable (vacuous)": (
+        'assert all("min_coverage" in s for s in cells)\n'
+    ),
+    "assert under pytest.raises (claims absence)": (
+        'with pytest.raises(AssertionError):\n    assert "min_coverage" in source\n'
+    ),
+    "assert under an if": 'if len(source) > 0:\n    assert "min_coverage" in source\n',
+    "assert in a loop": 'for s in cells:\n    assert "min_coverage" in s\n',
+    # review of the first head: comprehension scoping and vacuous non-emptiness
+    "any rebinding the tainted name": (
+        'assert any("min_coverage" in source for source in ["min_coverage"])\n'
+    ),
+    "all rebinding the tainted name": (
+        'assert all("min_coverage" in source for source in ["min_coverage"])\n'
+    ),
+    "any over a display mixing the read with a typed needle": (
+        'assert any("min_coverage" in s for s in [source, "min_coverage"])\n'
+    ),
+    "all over a name emptied after a non-empty assignment": (
+        'sources = [source]\nsources = []\nassert all("min_coverage" in s for s in sources)\n'
+    ),
+    "all over a name emptied in place": (
+        'sources = [source]\nsources.clear()\nassert all("min_coverage" in s for s in sources)\n'
+    ),
+    "all over a name asserted non-empty then rebound": (
+        "sources = [source]\nassert sources\nsources = []\n"
+        'assert all("min_coverage" in s for s in sources)\n'
+    ),
+    "all over a generator asserted truthy": (
+        'sources = (s for s in cells if "zzz" in s)\nassert sources\n'
+        'assert all("min_coverage" in s for s in sources)\n'
+    ),
+    # an assert that may never run
+    "assert after an early return": ('if source:\n    return\nassert "min_coverage" in source\n'),
+    "assert after pytest.skip": 'pytest.skip("later")\nassert "min_coverage" in source\n',
+    "assert after a conditional skip": (
+        'if not source:\n    pytest.skip("later")\nassert "min_coverage" in source\n'
+    ),
+    "assert after a raise": 'raise RuntimeError("x")\nassert "min_coverage" in source\n',
+    "assert in a loop with a continue before it": (
+        'for cid in ("threshold-code", "sweep-code"):\n    if cid:\n        continue\n'
+        '    assert "min_coverage" in source\n'
+    ),
+    "assert in a loop with a break": (
+        'for cid in ("threshold-code", "sweep-code"):\n    assert "min_coverage" in source\n'
+        "    break\n"
+    ),
+    # the needle is compared against a value that carries a hand-typed copy of it
+    "needle smuggled into a default": (
+        'kws = {"a": source}\nassert kws.get("objective", "min_coverage") == "min_coverage"\n'
+    ),
+    "needle smuggled through or": 'assert (source or "min_coverage") == "min_coverage"\n',
+    "needle appended to the source": 'assert "min_coverage" in source + " min_coverage"\n',
+    "needle substituted into the source": (
+        'assert "min_coverage" in source.replace("target_accuracy", "min_coverage")\n'
+    ),
+    "needle in a display with the source": 'assert "min_coverage" in [source, "min_coverage"]\n',
+    "count of the needle in a padded source": (
+        'assert (source + "min_coverage").count("min_coverage") >= 1\n'
+    ),
+    # taint ignoring reassignment
+    "source rebound to a typed string": (
+        "source = 'select_confidence_threshold(s, min_coverage=0.75)'\n"
+        'assert "min_coverage" in source\n'
+    ),
+    # re-review of the second head, finding 1: a name is tainted only if EVERY binding of it is,
+    # whatever the binding FORM (the rule used to look at ``name = ...`` and ``with ... as`` only)
+    "source extended in place": 'source += " min_coverage"\nassert "min_coverage" in source\n',
+    "source rebound as a for target (assert inside the loop)": (
+        'for source in ("min_coverage",):\n    assert "min_coverage" in source\n'
+    ),
+    "source rebound as a for target (assert after the loop)": (
+        'for source in ("min_coverage",):\n    pass\nassert "min_coverage" in source\n'
+    ),
+    "source rebound by tuple unpacking": (
+        'source, _ = "min_coverage", 1\nassert "min_coverage" in source\n'
+    ),
+    "source rebound by a walrus": (
+        'assert (source := "min_coverage")\nassert "min_coverage" in source\n'
+    ),
+    "source rebound by an annotated assignment": (
+        'source: str = "min_coverage"\nassert "min_coverage" in source\n'
+    ),
+    "source rebound by with-as unpacking": (
+        'with open(RECIPE / "notebook.ipynb") as (source, _):\n'
+        '    assert "min_coverage" in source\n'
+    ),
+    "source deleted and rebound": (
+        'del source\nsource = "min_coverage"\nassert "min_coverage" in source\n'
+    ),
+    # re-review of the second head, finding 2: the needle typed into the compared value is seen
+    # through an intermediate variable, not only when spelled inline in the assert
+    "needle appended through a variable": (
+        'padded = source + " min_coverage"\nassert "min_coverage" in padded\n'
+    ),
+    "needle appended by rebinding the source itself": (
+        'source = source + " min_coverage"\nassert "min_coverage" in source\n'
+    ),
+    "needle substituted through a variable": (
+        'swapped = source.replace("target_accuracy", "min_coverage")\n'
+        'assert "min_coverage" in swapped\n'
+    ),
+    "needle substituted through two variables": (
+        'swapped = source.replace("target_accuracy", "min_coverage")\n'
+        'again = swapped.strip()\nassert "min_coverage" in again\n'
+    ),
+    "needle smuggled through or in a variable": (
+        'val = source or "min_coverage"\nassert val == "min_coverage"\n'
+    ),
+    "needle in a dict value beside the source": (
+        'kws = {"objective": "min_coverage", "s": source}\n'
+        'assert kws["objective"] == "min_coverage"\n'
+    ),
+    "needle as a dict key of a dict of the source": (
+        'kws = {"min_coverage": source}\nassert "min_coverage" in kws\n'
+    ),
+    "needle counted in a padded variable": (
+        'padded = source + "min_coverage"\nassert padded.count("min_coverage") >= 1\n'
+    ),
+    # re-review of the third head: the needle is put into, or spelled around, the compared value
+    # without ever appearing in a binding value or as one constant
+    "needle appended to a container in place": (
+        'parts = [source, source]\nparts.append("min_coverage")\njoined = "".join(parts)\n'
+        'assert "min_coverage" in joined\n'
+    ),
+    "needle extended into a container in place": (
+        'parts = [source, source]\nparts.extend(["min_coverage"])\njoined = "".join(parts)\n'
+        'assert "min_coverage" in joined\n'
+    ),
+    "needle stored into a dict in place": (
+        'kws = {"a": source}\nkws["b"] = "min_coverage"\nassert "min_coverage" in kws["b"]\n'
+    ),
+    "needle updated into a dict in place": (
+        'kws = {"a": source}\nkws.update(b="min_coverage")\nassert "min_coverage" in kws["b"]\n'
+    ),
+    "needle spelled as a split literal": (
+        'assert "min_coverage" in source.replace("select", "min" + "_coverage")\n'
+    ),
+    "needle spelled as a split literal through a variable": (
+        'swapped = source.replace("select", "min" + "_coverage")\n'
+        'assert "min_coverage" in swapped\n'
+    ),
+    "needle held in an untainted local variable": (
+        'needle = "min_coverage"\nswapped = source.replace("select", needle)\n'
+        'assert "min_coverage" in swapped\n'
+    ),
+    "needle carried into a comprehension variable": (
+        'parts = [source.replace("a", "min_coverage")]\n'
+        'assert all("min_coverage" in p for p in parts)\n'
+    ),
+}
+
+# Shapes that need the whole test function around them rather than a body: a decorator or a
+# nesting that stops pytest from running the asserts.
+_NOT_RUN_WRAPPERS = {
+    "skip marker": {"decorators": '@pytest.mark.skip(reason="x")\n'},
+    "skipif marker": {"decorators": '@pytest.mark.skipif(True, reason="x")\n'},
+    "xfail marker": {"decorators": "@pytest.mark.xfail\n"},
+    "test nested in a helper (never collected)": {"nested": True},
+    # re-review of the third head: the same axis one scope out (class and module)
+    "class-level skip marker": {"class_header": '@pytest.mark.skip(reason="x")\nclass TestPin:'},
+    "class-level skipif marker": {
+        "class_header": '@pytest.mark.skipif(True, reason="x")\nclass TestPin:'
+    },
+    "class-level xfail marker": {"class_header": "@pytest.mark.xfail\nclass TestPin:"},
+    "class-body pytestmark": {
+        "class_header": 'class TestPin:\n    pytestmark = pytest.mark.skip(reason="x")'
+    },
+    "class not named Test* (pytest does not collect it)": {"class_header": "class Helper:"},
+    "class defining __init__ (pytest does not collect it)": {
+        "class_header": "class TestPin:\n    def __init__(self):\n        self.x = 1\n"
+    },
+    "module-level importorskip": {
+        "module_prefix": 'pytest.importorskip("no_such_module_for_the_guard")\n\n\n'
+    },
+    "module-level importorskip bound to a name": {
+        "module_prefix": 'np = pytest.importorskip("no_such_module_for_the_guard")\n\n\n'
+    },
+    "module-level skip(allow_module_level=True)": {
+        "module_prefix": 'pytest.skip("x", allow_module_level=True)\n\n\n'
+    },
+    "module-level skip under an if": {
+        "module_prefix": 'if RECIPE:\n    pytest.skip("x", allow_module_level=True)\n\n\n'
+    },
+    "module-level pytestmark skip": {
+        "module_prefix": 'pytestmark = pytest.mark.skip(reason="x")\n\n\n'
+    },
+}
+
+# What pytest DOES collect: the same assertion in these is credited (so the refusals above are
+# about the wrapper, not about the shape of the file).
+_COLLECTED_WRAPPERS = {
+    "plain function": {},
+    "method of a Test* class": {"class_header": "class TestPin:"},
+    "method of a Test* class marked only by an unrelated mark": {
+        "class_header": "@pytest.mark.slow\nclass TestPin:"
+    },
+    "importorskip inside a helper function (does not skip the file)": {
+        "module_prefix": 'def _later():\n    pytest.importorskip("x")\n\n\n'
+    },
+}
+
+# Each shape says the objective IS in the committed source.
+_PRESENT_SHAPES = {
+    "in": 'assert "min_coverage" in source\n',
+    "is True": 'assert ("min_coverage" in source) is True\n',
+    "== True": 'assert ("min_coverage" in source) == True  # noqa: E712\n',
+    "not in is False": 'assert ("min_coverage" not in source) is False\n',
+    "not (not in)": 'assert not ("min_coverage" not in source)\n',
+    "not (in is False)": 'assert not (("min_coverage" in source) is False)\n',
+    "count >= 1": 'assert source.count("min_coverage") >= 1\n',
+    "count > 0": 'assert source.count("min_coverage") > 0\n',
+    "count != 0": 'assert source.count("min_coverage") != 0\n',
+    "count == n": 'assert source.count("min_coverage") == 2\n',
+    "1 <= count": 'assert 1 <= source.count("min_coverage")\n',
+    "0 < count": 'assert 0 < source.count("min_coverage")\n',
+    "bare count": 'assert source.count("min_coverage")\n',
+    "not (count == 0)": 'assert not (source.count("min_coverage") == 0)\n',
+    "count is positive and bounded": 'assert 1 <= source.count("min_coverage") <= 9\n',
+    "len of filtered comprehension > 0": (
+        'assert len([s for s in cells if "min_coverage" in s]) > 0\n'
+    ),
+    "sum of matches >= 1": 'assert sum(1 for s in cells if "min_coverage" in s) >= 1\n',
+    "if-expression with the pin in both branches": (
+        'assert ("min_coverage" in source) if len(source) > 0 else ("min_coverage" in source)\n'
+    ),
+    "and with an unrelated absence claim": (
+        'assert "min_coverage" in source and "target_accuracy" not in source\n'
+    ),
+    "or with the pin in both operands": (
+        'assert "min_coverage" in source or source.count("min_coverage") > 0\n'
+    ),
+    "bool()": 'assert bool("min_coverage" in source)\n',
+    "any over a tainted source": 'assert any("min_coverage" in s for s in cells)\n',
+    "not all(not in)": 'assert not all("min_coverage" not in s for s in cells)\n',
+    "all over a literal non-empty display": (
+        'assert all("min_coverage" in s for s in (source, source))\n'
+    ),
+    "all over a name asserted non-empty": (
+        "sources = [s for s in cells]\nassert len(sources) > 0\n"
+        'assert all("min_coverage" in s for s in sources)\n'
+    ),
+    "not any(not in) over a literal non-empty display": (
+        'assert not any("min_coverage" not in s for s in [source, source])\n'
+    ),
+    "all([...]) of memberships": (
+        'assert all(["min_coverage" in source, source.count("min_coverage") > 0])\n'
+    ),
+    "any([...]) of identical claims": (
+        'assert any(["min_coverage" in source, source.count("min_coverage") > 0])\n'
+    ),
+    "f-string needle": 'assert f"min_coverage={0.75}" in source\n',
+    "assert inside a plain open block": 'with open(RECIPE / "notebook.ipynb") as h:\n    assert "min_coverage" in source\n',
+    # review of the first head: idioms the first derivation wrongly refused
+    "sum of booleans": 'assert sum(("min_coverage" in s) for s in cells) > 0\n',
+    "sum of counts": 'assert sum(s.count("min_coverage") for s in cells) >= 1\n',
+    "loop over a literal tuple of cell ids": (
+        'for cid in ("threshold-code", "sweep-code"):\n'
+        '    src = "".join(next(c for c in notebook["cells"] if c.get("id") == cid)["source"])\n'
+        '    assert "min_coverage" in src\n'
+    ),
+    "assert before an early return": (
+        'assert "min_coverage" in source\nif not source:\n    return\n'
+    ),
+    "all over a name asserted non-empty (list)": (
+        "sources = [s for s in cells]\nassert sources\n"
+        'assert all("min_coverage" in s for s in sources)\n'
+    ),
+    # re-review of the second head: carrying taint through names must not refuse a pin that is
+    # still wholly derived from the read and types no needle of its own
+    "a neutral transform of the source": 'lowered = source.lower()\nassert "min_coverage" in lowered\n',
+    "a name rebound to another value derived from the read": (
+        'text = source\ntext = source.strip()\nassert "min_coverage" in text\n'
+    ),
+    "a chain of neutral transforms": (
+        'a = source.strip()\nb = a.lower()\nc = b.replace(" ", "")\nassert "min_coverage" in c\n'
+    ),
+    "a container filled in place with values derived from the read": (
+        'parts = [source]\nparts.append(source.strip())\njoined = "".join(parts)\n'
+        'assert "min_coverage" in joined\n'
+    ),
+    "a dict stored into in place with a value derived from the read": (
+        'kws = {"a": source}\nkws["b"] = source.strip()\nassert "min_coverage" in kws["b"]\n'
+    ),
+    "a dict of values all derived from the read": (
+        'kws = {"one": source, "two": source.strip()}\nassert "min_coverage" in kws["one"]\n'
+    ),
+}
+
+
+@pytest.mark.parametrize("shape", sorted(_ABSENT_OR_UNPROVEN_SHAPES))
+def test_a_spelling_asserted_absent_or_unproven_is_not_credited_as_pinned(tmp_path, shape):
+    """#276: every shape here says the objective is absent from the committed source (or proves
+    nothing about it), so a recipe pinned only that way must FAIL the check. Each is planted in a
+    copy of a recipe that passes today. Reverting the polarity derivation (back to crediting any
+    comparison whose operands name the spelling) turns every case here green."""
+    violations = _polarity_violations(tmp_path, _ABSENT_OR_UNPROVEN_SHAPES[shape])
+    assert violations, f"{shape!r}: a spelling that is not asserted present was credited"
+    assert "min_coverage" in violations[0]
+
+
+@pytest.mark.parametrize("shape", sorted(_PRESENT_SHAPES))
+def test_a_spelling_asserted_present_is_still_credited_and_tied_to_the_committed_call(
+    tmp_path, shape
+):
+    """The positive half, proved by mutation both ways: the shape passes on the unmodified
+    objective, and goes red the moment the committed notebook's objective is flipped to a
+    spelling the shape does not mention (so the pin is bound to the committed call, not merely
+    accepted). Covers ``all(...)``/``any(...)`` over a tainted source (previously refused because
+    taint never reached a comprehension variable)."""
+    assertions = _PRESENT_SHAPES[shape]
+    assert _polarity_violations(tmp_path / "keep", assertions) == [], (
+        f"{shape!r}: a legitimate pin was refused"
+    )
+    flipped = _polarity_violations(tmp_path / "flip", assertions, flip_objective=True)
+    assert flipped and "target_accuracy" in flipped[0], (
+        f"{shape!r}: passed although the committed objective no longer matches the pin"
+    )
+
+
+# (read statements, assertion) pairs: a read of the committed notebook spelled without
+# ``read_text``. They taint the value they produce, so the pin passes, and flipping the objective
+# turns it red. Before #276 each of these produced NO taint and was refused.
+_READ_SPELLINGS = {
+    "open(...).read()": (
+        'source = open(RECIPE / "notebook.ipynb", encoding="utf-8").read()\n',
+        'assert "min_coverage" in source\n',
+    ),
+    "read_bytes()": (
+        'raw = (RECIPE / "notebook.ipynb").read_bytes()\n',
+        'assert b"min_coverage" in raw\n',
+    ),
+    "with open() as f: f.read()": (
+        'with open(RECIPE / "notebook.ipynb", encoding="utf-8") as handle:\n'
+        "    source = handle.read()\n",
+        'assert "min_coverage" in source\n',
+    ),
+    "json.load(open())": (
+        'notebook = json.load(open(RECIPE / "notebook.ipynb", encoding="utf-8"))\n'
+        'source = "".join(c["source"][0] for c in notebook["cells"] if c.get("id") == "threshold-code")\n',
+        'assert "min_coverage" in source\n',
+    ),
+    "read_text() (unchanged)": (
+        'source = (RECIPE / "notebook.ipynb").read_text("utf-8")\n',
+        'assert "min_coverage" in source\n',
+    ),
+    "Path.open().read()": (
+        'source = (RECIPE / "notebook.ipynb").open(encoding="utf-8").read()\n',
+        'assert "min_coverage" in source\n',
+    ),
+}
+
+
+@pytest.mark.parametrize("spelling", sorted(_READ_SPELLINGS))
+def test_a_read_of_the_committed_notebook_taints_whatever_call_performs_it(tmp_path, spelling):
+    read, assertion = _READ_SPELLINGS[spelling]
+    assert _polarity_violations(tmp_path / "keep", assertion, read=read) == [], (
+        f"{spelling}: a real read of the committed notebook did not taint its result"
+    )
+    flipped = _polarity_violations(tmp_path / "flip", assertion, read=read, flip_objective=True)
+    assert flipped and "target_accuracy" in flipped[0], (
+        f"{spelling}: the pin was not tied to the committed call"
+    )
+
+
+def test_a_read_of_something_else_does_not_taint(tmp_path):
+    """The converse of the read-spelling widening: mentioning the committed file's name is not a
+    read of it, and reading some OTHER file is not a read of the committed artefact."""
+    mentions = 'source = str(RECIPE / "notebook.ipynb")\n'
+    elsewhere = 'source = open(RECIPE / "README.md", encoding="utf-8").read()\n'
+    for index, read in enumerate((mentions, elsewhere)):
+        violations = _polarity_violations(
+            tmp_path / str(index), 'assert "min_coverage" in source\n', read=read
+        )
+        assert violations, (
+            f"credited a pin against a value that is not the committed source: {read}"
+        )
+
+
+@pytest.mark.parametrize("wrapper", sorted(_COLLECTED_WRAPPERS))
+def test_a_pin_in_a_test_pytest_does_collect_is_credited(tmp_path, wrapper):
+    """The converse of the not-run wrappers: a pin pytest really runs is still credited when it
+    sits in a collected class, so the class and module rules refuse only what pytest would not run."""
+    assertion = 'assert "min_coverage" in source\n'
+    assert _polarity_violations(tmp_path, assertion, **_COLLECTED_WRAPPERS[wrapper]) == [], wrapper
+
+
+def test_a_needle_typed_into_the_read_statement_itself_does_not_pin(tmp_path):
+    """The read is a real read of the committed notebook, so the name is tainted -- but the same
+    statement also types the needle, so the assert holds whatever the notebook says. The needle is
+    recorded against the name (``_Taint.embedded``) and refused; the same read without the
+    appended text is credited."""
+    plain = 'source = (RECIPE / "notebook.ipynb").read_text("utf-8")\n'
+    padded = 'source = (RECIPE / "notebook.ipynb").read_text("utf-8") + " min_coverage"\n'
+    assertion = 'assert "min_coverage" in source\n'
+    assert _polarity_violations(tmp_path / "plain", assertion, read=plain) == []
+    assert _polarity_violations(tmp_path / "padded", assertion, read=padded), (
+        "credited a pin whose compared value carries a needle typed in the read statement"
+    )
+
+
+@pytest.mark.parametrize("wrapper", sorted(_NOT_RUN_WRAPPERS))
+def test_asserts_of_a_test_pytest_does_not_run_are_not_credited(tmp_path, wrapper):
+    """A pin in a test that is marked skip/skipif/xfail, defined inside another function, in a
+    class pytest does not collect (not ``Test*``, an ``__init__``, a class-level mark or
+    ``pytestmark``) or in a module that skips itself (``importorskip``, ``skip(allow_module_level=
+    True)``, ``pytestmark``) never runs, so it is not a pin: the same assertion that passes in a
+    normal test is refused."""
+    assertion = 'assert "min_coverage" in source\n'
+    assert _polarity_violations(tmp_path / "plain", assertion) == []
+    violations = _polarity_violations(tmp_path / "wrapped", assertion, **_NOT_RUN_WRAPPERS[wrapper])
+    assert violations, f"{wrapper}: credited an assert that does not run"
+
+
+def test_a_read_of_a_scratch_copy_or_a_longer_file_name_does_not_taint(tmp_path):
+    """``open(tmp_path / "notebook.ipynb").read()`` reads a copy the test made, and
+    ``expected_helpers.py`` is not ``helpers.py``: neither is the committed artefact."""
+    assertion = 'assert "min_coverage" in source\n'
+    reads = {
+        "tmp_path copy": 'source = open(tmp_path / "notebook.ipynb", encoding="utf-8").read()\n',
+        "tmp_path copy via a local": (
+            'copy = tmp_path / "sub"\n'
+            'source = (copy / "notebook.ipynb").read_text(encoding="utf-8")\n'
+        ),
+        "longer file name": 'source = open(RECIPE / "expected_helpers.py").read()\n',
+    }
+    for label, read in reads.items():
+        violations = _polarity_violations(tmp_path / label.replace(" ", "_"), assertion, read=read)
+        assert violations, f"{label}: credited a read that is not the committed artefact"
+
+
+def test_the_effective_truth_sense_unit_cases():
+    """Direct unit cases for ``_entailed_spellings``, the derivation the mutation tests above
+    exercise end to end: each is (expression, truth the assert needs, spellings it entails)."""
+    cases = [
+        ('"x" in source', True, {"x"}),
+        ('"x" in source', False, set()),
+        ('"x" not in source', True, set()),
+        ('"x" not in source', False, {"x"}),
+        ('("x" in source) is False', True, set()),
+        ('("x" in source) is False', False, {"x"}),
+        ('not (("x" in source) is False)', True, {"x"}),
+        ('source.count("x") == 0', True, set()),
+        ('source.count("x") == 0', False, {"x"}),
+        ('source.count("x") >= 1', True, {"x"}),
+        ('source.count("x") >= 1', False, set()),
+        ('"x" in source and "y" in source', True, {"x", "y"}),
+        ('"x" in source and "y" in source', False, set()),
+        ('"x" in source or "y" in source', True, set()),
+        ('"x" in source or "x" in source', True, {"x"}),
+        ('"x" not in source or "y" not in source', False, {"x", "y"}),
+        ('("x" in source) if flag else True', True, set()),
+        ('("x" in source) if flag else ("x" in source)', True, {"x"}),
+        ('"x" in "hand typed"', True, set()),
+        ('"x" in other', True, set()),
+    ]
+    for source_text, truth, expected in cases:
+        expr = ast.parse(source_text, mode="eval").body
+        got = _entailed_spellings(expr, truth, frozenset({"source"}), frozenset())
+        assert got == expected, f"{source_text!r} (needs {truth}): {got} != {expected}"
+
+
 @pytest.mark.parametrize("recipe", guarded_with_template("threshold_objective_pin")())
 def test_the_threshold_objective_is_pinned_by_source_spelling(recipe):
     """#244: nothing pins a notebook's threshold-selection OBJECTIVE. A printed f-string literal
@@ -2139,13 +3534,24 @@ def test_the_threshold_objective_is_pinned_by_source_spelling(recipe):
     for the same reason. A call this check cannot identify an objective for (not observed in the
     published set), or a cell/``helpers.py`` that does not parse as plain Python at all, fails
     here too, rather than being silently skipped."""
-    obligations = _threshold_pin_obligations(recipe_dir(recipe))
-    if not obligations:
+    violations = _objective_pin_violations(recipe_dir(recipe))
+    if violations is None:
         pytest.skip(
             f"{recipe['slug']}: no select_confidence_threshold/select_threshold call in the "
             "committed notebook or helpers.py"
         )
-    pinned = _pinned_objective_spellings(recipe_dir(recipe))
+    assert not violations, f"{recipe['slug']}: " + "; ".join(violations)
+
+
+def _objective_pin_violations(recipe_dir_: Path) -> list[str] | None:
+    """The whole ``threshold_objective_pin`` verdict for one recipe directory: ``None`` when it
+    makes no threshold-selection call (the check does not apply), else the list of violations
+    (empty means the recipe passes). Factored out of the parametrised test so the mutation tests
+    below can run the SAME code path CI runs on a throwaway copy of a recipe."""
+    obligations = _threshold_pin_obligations(recipe_dir_)
+    if not obligations:
+        return None
+    pinned = _pinned_objective_spellings(recipe_dir_)
     violations = []
     for location, func_name, objective in obligations:
         if func_name == "<unparseable>":
@@ -2162,14 +3568,23 @@ def test_the_threshold_objective_is_pinned_by_source_spelling(recipe):
         if not any(_objective_token_present(objective, needle) for needle in pinned):
             violations.append(
                 f"{location} {func_name}(...): objective {objective!r} is not pinned by any "
-                "assertion in tests/ that this check can tie to the real committed call -- "
-                "either compare a string naming it against a real read of the committed "
-                "source (notebook.ipynb's cell source, or inspect.getsource(helpers.<fn>)), "
-                "or, if you extracted it via a local helper (name = _your_helper(source, ...)), "
-                "check the extracted value with `assert name is not None` specifically -- a "
-                "bare `assert name` or any other truthiness check is not credited"
+                "assertion in tests/ that this check can tie to the real committed call. Credited "
+                "routes: (1) an assert that CLAIMS the spelling is present in a value derived "
+                "from a read of the committed notebook.ipynb / helpers.py (not a tmp_path copy) "
+                "or from inspect.getsource(helpers.<fn>); (2) `name = _your_helper(source, ...)` "
+                "through a function defined in the test file, then `assert name is not None` "
+                "(the only truthiness check credited there); (3) a production call tied by `==` "
+                "to a local re-derivation, with a `!=` assert against a sibling objective. "
+                "`is False`, `.count(...) == 0` and a hand-typed copy of the needle in the "
+                "compared value do not count. Only asserts that run count: directly in a "
+                "`test_` function pytest collects (module-level, or in a `Test*` class without "
+                "`__init__`; not skip/skipif/xfail-marked, not in a file that skips itself, not "
+                "nested), inside `with open(...)`, or in a `for` over a non-empty literal "
+                "tuple/list/set, up to the first return/raise/pytest.skip -- not under `if`, "
+                "`try`, another loop, or `pytest.raises`. See docs/recipe-template.md "
+                '("Pin the threshold\'s OBJECTIVE")'
             )
-    assert not violations, f"{recipe['slug']}: " + "; ".join(violations)
+    return violations
 
 
 # --------------------------------------------------------------------------------------------
