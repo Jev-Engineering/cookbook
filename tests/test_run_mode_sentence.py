@@ -113,10 +113,27 @@ FORBIDDEN_WORDINGS = (
     # Recipe 36: "every number this notebook prints ... and says so".
     "every number this notebook prints",
     "every number here, `validation` and `test` alike",
+    # The template (review 1 of PR #317, round 2, M1): the same sentence with the split names
+    # the other way round. False for the unlabelled per-example lines of `evaluation-wrong`; the
+    # template is where every other recipe copies it from.
+    "every number here, `test` and `validation` alike",
     # Recipe 45: matrix rows and per-example lines are numbers with no label.
     "every number below already being labelled",
     # Recipe 50: its leak-check and N lines name validation and carry only the pipeline check.
     "printed on every validation line",
+)
+# Notebooks that still say a retired wording because it is TRUE of their own committed output (not
+# of the template's): recipe 40 prints no unlabelled numeric line after that sentence, so it was
+# not reworded here. Closed: the stale-exemption test below fails once the sentence is gone from
+# it, so the exemption cannot outlive the wording. Reworded with the rest in the #326 sweep.
+RETIRED_BUT_TRUE_IN = {
+    "every number here, `test` and `validation` alike": {"40-hierarchical-classification"},
+}
+# Wordings the scaffolder's own evaluation stub used to carry (review 1 of PR #317, round 2, M2):
+# a recorded replay is also an offline run, and in it `check` is empty.
+RETIRED_SCAFFOLD_WORDINGS = (
+    "In an offline run print each number",
+    "print each number with",
 )
 
 
@@ -127,7 +144,42 @@ def test_the_old_false_sentence_is_gone_everywhere():
             " ".join("".join(c["source"]) for c in nb["cells"] if c["cell_type"] == "markdown")
         )
         for wording in FORBIDDEN_WORDINGS:
+            if path.parent.name in RETIRED_BUT_TRUE_IN.get(wording, ()):
+                continue
             assert wording not in text, (path.parent.name, wording)
+
+
+def test_a_retired_wording_exemption_is_still_needed():
+    """An exemption in ``RETIRED_BUT_TRUE_IN`` must name a notebook that still says the wording,
+    and the wording must be on the forbidden list, or the entry is stale and must be removed."""
+    for wording, names in RETIRED_BUT_TRUE_IN.items():
+        assert wording in FORBIDDEN_WORDINGS
+        for name in names:
+            nb = load(REPO / "recipes" / name / "notebook.ipynb")
+            text = squash(
+                " ".join("".join(c["source"]) for c in nb["cells"] if c["cell_type"] == "markdown")
+            )
+            assert wording in text, f"{name} no longer says it; drop the exemption"
+
+
+def legacy_rank(name: str) -> int:
+    """The number before the first hyphen: ``100-slug`` is 100, not the 10 that ``name[:2]`` gives
+    (review 2 of PR #317, round 2: a three-digit multimodal recipe must not look legacy)."""
+    return int(name.split("-")[0])
+
+
+def is_legacy_rank(name: str) -> bool:
+    return legacy_rank(name) <= 50
+
+
+def test_a_three_digit_recipe_is_never_treated_as_legacy():
+    assert legacy_rank("100-multimodal-slug") == 100
+    assert not is_legacy_rank("100-multimodal-slug")
+    assert not is_legacy_rank("51-new")
+    assert is_legacy_rank("50-model-comparison-and-calibration")
+    assert is_legacy_rank("01-first")
+    # The truncating spelling this replaces would have called rank 100 legacy.
+    assert int("100-multimodal-slug"[:2]) <= 50
 
 
 def test_the_legacy_list_is_closed():
@@ -135,7 +187,7 @@ def test_the_legacy_list_is_closed():
     still exist and still lack the paragraph (remove a name when the paragraph is added)."""
     names = {p.parent.name for p in NOTEBOOKS}
     assert LEGACY_WITHOUT_THE_PARAGRAPH <= names
-    assert all(int(name[:2]) <= 50 for name in LEGACY_WITHOUT_THE_PARAGRAPH)
+    assert all(is_legacy_rank(name) for name in LEGACY_WITHOUT_THE_PARAGRAPH)
     stale = {
         name
         for name in LEGACY_WITHOUT_THE_PARAGRAPH
@@ -275,3 +327,22 @@ def test_the_scaffolded_setup_cell_carries_the_paragraph(mode):
         if "Two labels may follow" in p
     )
     assert "TODO" in paragraph  # the same \n\n block, as test_no_synthetic_claim_... requires
+
+
+@pytest.mark.parametrize("mode", ["replay", "scripted"])
+def test_the_scaffolded_evaluation_text_does_not_carry_a_retired_wording(mode):
+    """Review 1 of PR #317, round 2, M2: the scaffolder's `evaluation-md` stub said "In an offline
+    run print each number with `check` beside it", which the template's own sentence had already
+    stopped saying. It must say synthetic or scripted, and ask for a label on a metric only."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("nr_retired", REPO / "tools" / "new_recipe.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    catalog = json.loads((REPO / "catalog" / "recipes.json").read_text("utf-8"))
+    recipe = next(r for r in catalog["recipes"] if r["rank"] == 1)
+    cells = module.notebook_cells(catalog, recipe, mode=mode)
+    stub = squash("".join(next(c for c in cells if c["id"] == "evaluation-md")["source"]))
+    for wording in RETIRED_SCAFFOLD_WORDINGS + FORBIDDEN_WORDINGS:
+        assert wording not in stub, wording
+    assert "In a synthetic or scripted run print each metric" in stub

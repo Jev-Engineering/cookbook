@@ -241,8 +241,9 @@ for answer in result.answers.values():
             "evaluation-md",
             f"## {SECTIONS[6]}\n\n"
             f"{TODO_MARK}: choose every setting on `validation`, freeze it, and report once on "
-            "`test` with `jev_cookbook.evaluation`. In an offline run print each number with "
-            "`check` beside it. Say which `validation` numbers your selection forces (see the "
+            "`test` with `jev_cookbook.evaluation`. In a synthetic or scripted run print each metric "
+            "with `check` beside it; an individual example listed below a metric is not a "
+            "metric and needs no label. Say which `validation` numbers your selection forces (see the "
             "template's evaluation section), or that none is. Compare with the baseline the "
             "issue names, if there is one.",
         ),
