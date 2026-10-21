@@ -243,10 +243,12 @@ leaked-credential report). What the scanner flags and exempts:
   (also `/` outside path- and URL-shaped words) that mixes letters with digits (or `+`, `/`,
   `=`) and has an entropy of 4.2 bits per character or more. An `api_key=` value that starts with
   `EXAMPLE_` but goes on as a long mixed run of this kind is flagged by this rule, marker or not.
-  The one exception: a bare `name=VALUE` assignment (both sides runs of letters of one case or
-  of digits joined by `_`, the value also by `.`, no quotes, and a name that does not contain
-  api key, secret, token, password, access key or credential), such as the keyword argument
-  `startup_timeout=KERNEL_START_TIMEOUT`, is not scored by this rule.
+  The one exception: a bare `name=VALUE` assignment (both sides runs joined by `_`, the
+  value also by `.`, where a run is letters of one case optionally followed by digits, as in
+  `STAGE1` or `SHA256`, or digits alone; no quotes, and a name that does not contain api key,
+  secret, token, password, access key or credential), such as the keyword arguments
+  `startup_timeout=KERNEL_START_TIMEOUT` and `instructions=_STAGE1_INSTRUCTIONS`, is not scored
+  by this rule.
 
 So write a fake credential that is short (under the lengths above), low-entropy (a repeated chunk
 or plain words), or clearly not vendor-prefixed; truncate prefixes (`sk-...` is under the length
