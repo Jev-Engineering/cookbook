@@ -12,6 +12,9 @@ from jev_cookbook.simulation import (
     Store,
     ToyGrid,
     Transactor,
+    fill_review_queue,
+    record_actions,
+    route_outcomes,
 )
 ```
 
@@ -69,6 +72,228 @@ actions.to_dicts()  # every entry has "executed": False
 
 An `answer` is a typed answer object or its `to_dict()`, kept next to the reason so the notebook
 can show what triggered the review. `ActionLog` never executes anything.
+
+## Writing to the queue, the log and the store from a recipe
+
+A recipe that uses a `ReviewQueue`, an `ActionLog`, a `Store`, a `Transactor` or a `Simulator`
+performs simulated side effects, and two things must be true of them: a test can state what they
+should have been without re-typing the code that produced them, and the committed notebook really
+executes them (a notebook that quietly stopped doing so is fresh and wrong, and nothing else
+notices). Both are handled by naming the code that performs the side effect, in one function in the
+recipe's `helpers.py` that the notebook and the test both call, and by declaring the notebook's
+calls to it (below). Which function shape fits depends on whether each outcome is final before
+anything is written.
+
+### Shape 1: batch fill, when every outcome is final before the first write
+
+Recipes 02, 10, 24, 33, 34 and 38 are of this kind: the confidence gate has already produced an
+outcome per example, and the queue or log is filled from the list of outcomes. Use the shared
+helpers instead of a loop:
+
+- `fill_review_queue(queue, outcomes, needs_review=, item=, reason=, answer=, step=, key=, exclude=)`
+  submits every outcome that `needs_review` accepts.
+- `record_actions(actions, outcomes, selects=, kind=, payload=, answer=, rule=, step=, key=, exclude=)`
+  is the same for the action log.
+- `route_outcomes(outcomes, route, queue=, actions=, key=, exclude=)` is the general form when one
+  pass sends some outcomes to the queue and others to the log (the two helpers above are thin
+  wrappers over it). `route(outcome)` returns `ToReview(item, reason, answer, step)`,
+  `ToAction(kind, payload, answer, rule, step)` or `None`. Two `Routed` results can be added
+  (`first + second`) when the same list is filled in several calls.
+
+What they accept and return, decided once so that recipes do not decide it again:
+
+- **Outcomes** are any iterable of whatever record the recipe already has (a dataclass, a dict, a
+  tuple). The helper never inspects them; the callables you pass read what they need.
+- **Order** is the iteration order of the outcomes and nothing else, for both the queue ids
+  (0, 1, 2, ...) and the log `seq` values. To queue highest-first, sort before calling. To put two
+  splits into one queue, call once per split, in the order the ids should run.
+- **The reason** is the string the recipe's own outcome carries (`reason=lambda o: o.reason`), or
+  one constant string. The helper invents none, so the exact-reason rule in [glossary](glossary.md)
+  stays the recipe's.
+- **A demo or held-out case** is removed with `exclude=lambda o: o.split == "demo"`. An excluded
+  outcome never reaches the route function and is listed in `excluded_keys`, so the exclusion is
+  visible in the result instead of being a silent `continue`. Use the same `exclude` to keep a
+  second call from queueing what the first already queued.
+- **The return value** is a `Routed`: one entry per outcome in input order, with `review_keys`,
+  `review_ids`, `action_keys`, `action_seqs`, `skipped_keys` and `excluded_keys`. `key=` chooses
+  what names an outcome (the example id; default its position) and must be unique in the call.
+- **The callbacks must be free of side effects.** `route`, `key`, `exclude` and the callables of
+  `fill_review_queue` / `record_actions` all run for every outcome before the first write, so they
+  see the queue and log as they were before the call: a rule such as "queue at most three" or "skip
+  what is already queued" that reads the queue is wrong in a batch, and anything else they do (a
+  `Budget.spend`, a `Store.put`) is not undone if the pass fails. A decision that depends on earlier
+  writes belongs in shape 2.
+- **Mistakes fail before anything is written.** Predicates must return a real `bool`, a
+  destination you did not supply is an error, and a write that still fails (an item that is not
+  plain JSON) removes what the call had already added, so a queue is never half filled.
+
+The convention: put the call in a named `helpers.py` function (`helpers.queue_reviews(queue,
+results)`) so the item shape and the reason live in one place; the notebook calls it and does not
+loop over `queue.submit` itself; the recipe's test calls the same function on fixture outcomes and
+states the expected ids, count, order and split membership as **literals** typed from the
+fixtures, plus `queue.to_dicts()` (ids, reasons, items) as literals.
+
+```python
+# recipe: fill-example
+from dataclasses import dataclass
+
+from jev_cookbook.simulation import ReviewQueue, fill_review_queue
+
+
+@dataclass(frozen=True)
+class Result:
+    id: str
+    split: str
+    outcome: str
+    reason: str
+
+
+def queue_reviews(queue, results):
+    """The recipe's helper: what is queued, and why, in one place."""
+    return fill_review_queue(
+        queue,
+        results,
+        needs_review=lambda r: r.outcome == "review",
+        item=lambda r: {"ticket_id": r.id, "split": r.split},
+        reason=lambda r: r.reason,
+        key=lambda r: r.id,
+        exclude=lambda r: r.split == "demo",
+    )
+
+
+validation = [
+    Result("v1", "validation", "accepted", "confident"),
+    Result("v2", "validation", "review", "confidence below the threshold"),
+    Result("v3", "validation", "review", "confidence below the threshold"),
+]
+test = [
+    Result("d1", "demo", "review", "confidence below the threshold"),
+    Result("t1", "test", "accepted", "confident"),
+    Result("t2", "test", "review", "confidence below the threshold"),
+]
+
+# The notebook cell: one queue, one call per split.
+queue = ReviewQueue()
+validation_fill = queue_reviews(queue, validation)
+test_fill = queue_reviews(queue, test)
+
+# The recipe's test: the expected values are typed in, not derived from the helper.
+assert validation_fill.review_keys == ("v2", "v3")
+assert test_fill.review_keys == ("t2",)
+assert test_fill.review_ids == (2,)
+assert test_fill.excluded_keys == ("d1",)
+assert [(i["id"], i["item"]["ticket_id"]) for i in queue.to_dicts()] == [
+    (0, "v2"),
+    (1, "v3"),
+    (2, "t2"),
+]
+print(len(queue), "queued:", [i["item"]["ticket_id"] for i in queue.to_dicts()])
+```
+
+### Shape 2: decide-and-apply, when the destination depends on state or on a write's result
+
+Recipes 18, 19, 22, 27, 29, 30, 43, 45, 48 and 49 do not have a list of final outcomes. Each answer
+is gated, and then, depending on state that earlier answers changed (a budget that ran out, a
+register that already holds the key, an agent whose capacity is used) or on the result of the write
+itself (a transaction the validator rejected), it goes to the queue, the log or the store, and the
+function returns the recipe's own outcome record. That is the sanctioned form for stateful,
+step-dependent recipes, and recipes 57 to 60 (a transactional graph update, interlocks with a
+separate controller, game steps, factory steps) are expected to be of this kind. Do not force them
+into shape 1: the shared helpers cannot see a write's result and run before any write.
+
+The convention is the same, with the function holding the writes: one named function in
+`helpers.py` (`helpers.decide(...)`, `helpers.classify(...)`, `helpers.reconcile(...)`) takes the
+answer and the sinks (`queue=`, `actions=`, `store=` or a `Transactor`), writes with the primitives
+directly (`queue.submit`, `actions.record`, `store.put`, `tx.run`, or `route_outcomes([outcome],
+...)` for the queue and log part), and returns the outcome. The notebook calls it for every example
+or step; it does not repeat the branching inline.
+
+The test rule: call the function on fixture answers, in the order the notebook does, and state the
+expected `queue.to_dicts()`, `actions.to_dicts()`, `store.history(key)`, `tx.log` or
+`sim.trajectory()` as literals typed from the fixtures. Include the cases where the destination
+changes with state (the second ticket for a full owner, the retry after the budget is spent). Do
+not compute the expectation by calling the function or by re-typing its branches.
+
+```python
+# recipe: decide-example
+from jev_cookbook.simulation import ActionLog, ReviewQueue, Store
+
+
+def assign(ticket, owner, confidence, threshold, *, store, queue, actions):
+    """Gate one answer, then act on state the earlier tickets left behind; return the outcome."""
+    if confidence < threshold:
+        queue.submit({"ticket": ticket}, "confidence below the threshold")
+        return "review"
+    if f"owner:{owner}" in store:
+        queue.submit({"ticket": ticket, "owner": owner}, "owner already has a ticket")
+        return "review"
+    store.put(f"owner:{owner}", ticket, writer="rule:assign")
+    actions.record("assign", {"ticket": ticket, "owner": owner}, rule="owner free")
+    return "assigned"
+
+
+# The notebook cell: one call per answer, in order.
+store, queue, actions = Store(), ReviewQueue(), ActionLog()
+answers = [("t1", "ana", 0.9), ("t2", "ana", 0.9), ("t3", "bo", 0.4), ("t4", "bo", 0.8)]
+outcomes = [assign(t, o, c, 0.5, store=store, queue=queue, actions=actions) for t, o, c in answers]
+
+# The recipe's test: literals typed from the fixtures, including the state-dependent case (t2).
+assert outcomes == ["assigned", "review", "review", "assigned"]
+assert [(i["id"], i["item"]["ticket"], i["reason"]) for i in queue.to_dicts()] == [
+    (0, "t2", "owner already has a ticket"),
+    (1, "t3", "confidence below the threshold"),
+]
+assert [a["payload"]["ticket"] for a in actions.to_dicts()] == ["t1", "t4"]
+assert store.snapshot() == {"owner:ana": "t1", "owner:bo": "t4"}
+print(outcomes)
+```
+
+### Other primitives
+
+`Store.put`, `Store.delete`, `Transactor.run` and `Simulator.step` are already single calls that
+return the record they wrote, and the loops that drive them differ by recipe (a transaction's
+validator, a write's writer and step, a policy choosing the next action), so there is no shared
+loop to extract and a wrapper would only hide the argument that matters. They follow shape 2: the
+loop lives in one named function (or a `Simulator` subclass whose `_apply` performs the effect) in
+`helpers.py`, the notebook calls it, the test calls it and pins `store.history(...)`, `tx.log` or
+`sim.trajectory()` as literals.
+
+### Declaring the side effect, and what the recipe guard enforces
+
+A recipe that has a simulated side effect says so in `recipes/NN-slug/side_effects.json`, which its
+own pull request writes and its reviewer reads:
+
+```json
+{"schema": 1, "sites": {"helpers.submit_reviews": 2}}
+```
+
+```json
+{"schema": 1, "none": "returns typed outcomes only; nothing is queued, logged or stored"}
+```
+
+`sites` maps each key to the exact number of places in the notebook's executable code that call it
+(a loop body is one place, and so is a function body the notebook calls). The keys are
+`helpers.<function>` for a side-effect function of `helpers.py`, `helpers.<Class>.<method>` for a
+side-effect method of a `helpers.py` class (a `Simulator` subclass counts through `step`),
+`<Sink>.<method>` for a call on a `ReviewQueue`, `ActionLog`, `Store`, `Transactor`, `ToyGrid` or
+notebook-defined `Simulator` subclass the notebook built (`ReviewQueue.submit`, `ToyGrid.step`), and
+the names of the shared helpers above. An optional `"not_side_effects": ["Name"]` lists `helpers.py`
+functions or classes that only keep bookkeeping (a cache, a request counter) and that the analysis
+would otherwise take for a side effect.
+
+The guard (`simulated_side_effect_invoked` in `tests/test_recipe_guard.py`) parses the notebook,
+walks only code that can run, and compares what it finds with the declaration in both directions:
+fewer calls than declared is the case where someone deleted the side effect and re-executed the
+notebook, and more calls than declared is an undeclared side effect. It fails, rather than skips,
+when a recipe that has a side effect or needs a simulator has no declaration, when a
+`needs: simulator` recipe declares none or detects nothing, when `helpers.py` defines side-effect
+code the notebook never uses, when the notebook builds a sink or simulator and never mutates it,
+and when a code cell does not parse. It cannot see a call made through an alias (`f =
+helpers.submit_reviews; f(...)`, which makes the count smaller and so fails), through a container of
+callables, or through an attribute chain on an object it does not know, and it assumes a condition
+it cannot evaluate is taken. It checks that the side effect is executed, not that you used the
+shared batch helpers: a hand-rolled loop in a named function is accepted, and the convention above
+is what a reviewer asks for.
 
 ## Store
 

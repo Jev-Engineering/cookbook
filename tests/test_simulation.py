@@ -7,6 +7,7 @@ platform and Python version, checks the same cases. ``hypothesis`` is not a depe
 import json
 import random
 import re
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
@@ -25,10 +26,15 @@ from jev_cookbook.simulation import (
     StopConditionMet,
     Store,
     StoreError,
+    ToAction,
+    ToReview,
     ToyGrid,
     TransactionFailed,
     Transactor,
+    fill_review_queue,
+    record_actions,
     replay_transactions,
+    route_outcomes,
 )
 
 DOCS = Path(__file__).resolve().parent.parent / "docs" / "simulation.md"
@@ -771,3 +777,280 @@ def test_a_64_level_payload_round_trips_through_the_log_and_the_transactor() -> 
     assert tx.store.snapshot() == {"k": deep}
     assert tx.to_dicts()[0]["ops"]
     assert tx.log[0].to_dict()["ops"]
+
+
+# --------------------------------------------------------------------------------------
+# Routing outcomes: fill_review_queue, record_actions, route_outcomes
+# --------------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class _Outcome:
+    """A stand-in for a recipe's own outcome record."""
+
+    id: str
+    split: str
+    outcome: str
+    reason: str = "confidence below the threshold"
+
+
+_DEMO = _Outcome("d1", "demo", "review")
+_VALIDATION = [
+    _Outcome("v1", "validation", "accepted"),
+    _Outcome("v2", "validation", "review"),
+    _Outcome("v3", "validation", "review", "no option fits"),
+]
+_TEST = [
+    _Outcome("t1", "test", "review"),
+    _Outcome("t2", "test", "accepted"),
+]
+
+
+def _fill(queue: ReviewQueue, outcomes, **overrides):
+    """Fill ``queue`` the way a recipe notebook would: the arguments a notebook cell supplies."""
+    arguments = {
+        "needs_review": lambda o: o.outcome == "review",
+        "item": lambda o: {"id": o.id, "split": o.split},
+        "reason": lambda o: o.reason,
+        "key": lambda o: o.id,
+    }
+    arguments.update(overrides)
+    return fill_review_queue(queue, outcomes, **arguments)
+
+
+def test_fill_review_queue_pins_ids_order_count_and_both_split_membership_as_literals() -> None:
+    queue = ReviewQueue()
+    first = _fill(queue, _VALIDATION)
+    second = _fill(queue, [_DEMO, *_TEST], exclude=lambda o: o.split == "demo")
+    # Nothing below is computed from the code under test: every expectation is a literal.
+    assert first.review_keys == ("v2", "v3")
+    assert first.review_ids == (0, 1)
+    assert first.skipped_keys == ("v1",)
+    assert first.excluded_keys == ()
+    assert second.review_keys == ("t1",)
+    assert second.review_ids == (2,)
+    assert second.skipped_keys == ("t2",)
+    assert second.excluded_keys == ("d1",)
+    assert len(queue) == 3
+    assert [(i["id"], i["item"], i["reason"]) for i in queue.to_dicts()] == [
+        (0, {"id": "v2", "split": "validation"}, "confidence below the threshold"),
+        (1, {"id": "v3", "split": "validation"}, "no option fits"),
+        (2, {"id": "t1", "split": "test"}, "confidence below the threshold"),
+    ]
+
+
+def test_fill_review_queue_defaults_the_key_to_the_position_and_passes_answer_and_step() -> None:
+    queue = ReviewQueue()
+    answer = _answer()
+    result = fill_review_queue(
+        queue,
+        _VALIDATION,
+        needs_review=lambda o: o.outcome == "review",
+        item=lambda o: {"id": o.id},
+        reason="confidence below the threshold",
+        answer=lambda o: answer,
+        step=lambda o: int(o.id[1:]),
+    )
+    assert result.review_keys == (1, 2)  # positions in the outcomes
+    stored = queue.to_dicts()
+    assert [i["step"] for i in stored] == [2, 3]
+    assert all(i["answer"] == answer.to_dict() for i in stored)
+    assert {i["reason"] for i in stored} == {"confidence below the threshold"}
+    assert result.to_dicts()[0] == {"key": 0, "destination": "skipped", "id": None}
+
+
+def test_fill_review_queue_accepts_any_iterable_once() -> None:
+    queue = ReviewQueue()
+    result = _fill(queue, iter(_VALIDATION))
+    assert result.review_keys == ("v2", "v3") and len(result) == 3
+
+
+def test_route_outcomes_sends_each_outcome_to_the_queue_or_the_log_in_one_pass() -> None:
+    queue, log = ReviewQueue(), ActionLog()
+
+    def route(o: _Outcome):
+        if o.outcome == "review":
+            return ToReview({"id": o.id}, o.reason, step=1)
+        return ToAction("route_to_queue", {"id": o.id}, rule="accepted", step=1)
+
+    result = route_outcomes(
+        _VALIDATION + _TEST, route, queue=queue, actions=log, key=lambda o: o.id
+    )
+    assert result.review_keys == ("v2", "v3", "t1") and result.review_ids == (0, 1, 2)
+    assert result.action_keys == ("v1", "t2") and result.action_seqs == (0, 1)
+    assert [e["destination"] for e in result.to_dicts()] == [
+        "action",
+        "review",
+        "review",
+        "review",
+        "action",
+    ]
+    assert [a["payload"] for a in log.to_dicts()] == [{"id": "v1"}, {"id": "t2"}]
+    assert all(a["executed"] is False and a["rule"] == "accepted" for a in log.to_dicts())
+
+
+def test_record_actions_records_only_the_selected_outcomes_in_order() -> None:
+    log = ActionLog()
+    result = record_actions(
+        log,
+        _VALIDATION + _TEST,
+        selects=lambda o: o.outcome == "accepted",
+        kind="release",
+        payload=lambda o: {"id": o.id},
+        rule=lambda o: f"accepted {o.split}",
+        key=lambda o: o.id,
+    )
+    assert result.action_keys == ("v1", "t2") and result.action_seqs == (0, 1)
+    assert [(a["kind"], a["payload"], a["rule"]) for a in log.to_dicts()] == [
+        ("release", {"id": "v1"}, "accepted validation"),
+        ("release", {"id": "t2"}, "accepted test"),
+    ]
+
+
+def test_a_routing_pass_is_all_or_nothing() -> None:
+    queue, log = ReviewQueue(), ActionLog()
+    queue.submit({"id": "earlier"}, "kept")
+
+    def route(o: _Outcome):
+        # The last outcome carries an item that is not plain JSON, which only the write detects.
+        item = {"id": o} if o.id == "v3" else {"id": o.id}
+        if o.outcome == "review":
+            return ToReview(item, o.reason)
+        return ToAction("release", {"id": o.id})
+
+    with pytest.raises(TypeError):
+        route_outcomes(_VALIDATION, route, queue=queue, actions=log)
+    assert [i["item"] for i in queue.to_dicts()] == [{"id": "earlier"}]
+    assert len(log) == 0  # the action recorded before the failure was removed again
+    # A route function that raises changes nothing either.
+    with pytest.raises(ZeroDivisionError):
+        route_outcomes(_VALIDATION, lambda o: 1 / 0, queue=queue, actions=log)
+    assert len(queue) == 1 and len(log) == 0
+
+
+@pytest.mark.parametrize(
+    ("call", "message"),
+    [
+        (lambda q, a: route_outcomes(_VALIDATION, lambda o: ToReview({}, "x")), "no queue"),
+        (lambda q, a: route_outcomes(_VALIDATION, lambda o: ToAction("k"), queue=q), "no actions"),
+        (lambda q, a: route_outcomes(_VALIDATION, lambda o: "review", queue=q), "ToReview"),
+        (lambda q, a: route_outcomes(_VALIDATION, None, queue=q), "route must be callable"),
+        (lambda q, a: route_outcomes(_VALIDATION, lambda o: None, queue=[]), "ReviewQueue"),
+        (lambda q, a: route_outcomes(_VALIDATION, lambda o: None, actions=[]), "ActionLog"),
+        (
+            lambda q, a: route_outcomes(_VALIDATION, lambda o: None, key=lambda o: "same"),
+            "more than once",
+        ),
+        (
+            lambda q, a: route_outcomes(_VALIDATION, lambda o: None, exclude=lambda o: "yes"),
+            "must return a bool",
+        ),
+        (
+            lambda q, a: _fill(q, _VALIDATION, needs_review=lambda o: o.outcome),
+            "must return a bool",
+        ),
+        (lambda q, a: _fill(q, _VALIDATION, needs_review=None), "callable"),
+    ],
+)
+def test_routing_rejects_a_misuse_before_writing_anything(call, message) -> None:
+    queue, log = ReviewQueue(), ActionLog()
+    with pytest.raises(SimulationError, match=message):
+        call(queue, log)
+    assert len(queue) == 0 and len(log) == 0
+
+
+def test_the_shared_helper_reproduces_the_inline_loops_recipes_wrote_by_hand() -> None:
+    """The helper expresses the hand-written shapes published recipes use, entry for entry.
+
+    The inline versions below follow what recipes 02 (demo skipped, then an ``already_queued``
+    guard) and 38 (queue and log filled in one loop) do in their notebooks today; they are here
+    only to show the migration path is lossless, never as the expectation for a recipe's own test.
+    """
+    answer = _answer()
+    everything = [_DEMO, *_VALIDATION, *_TEST]
+
+    inline = ReviewQueue()
+    already = {"v2"}
+    for o in everything:
+        if o.split == "demo":
+            continue
+        if o.outcome != "accepted" and o.id not in already:
+            inline.submit({"ticket_id": o.id}, o.reason, answer=answer)
+    shared = ReviewQueue()
+    fill_review_queue(
+        shared,
+        everything,
+        needs_review=lambda o: o.outcome != "accepted",
+        item=lambda o: {"ticket_id": o.id},
+        reason=lambda o: o.reason,
+        answer=lambda o: answer,
+        exclude=lambda o: o.split == "demo" or o.id in already,
+    )
+    assert shared.to_dicts() == inline.to_dicts() and len(shared) == 2
+
+    inline_queue, inline_log = ReviewQueue(), ActionLog()
+    for o in _VALIDATION + _TEST:
+        if o.outcome == "accepted":
+            inline_log.record("route_to_queue", {"ticket_id": o.id}, answer=answer, rule=o.reason)
+        else:
+            inline_queue.submit({"ticket_id": o.id}, o.reason, answer=answer)
+    shared_queue, shared_log = ReviewQueue(), ActionLog()
+    route_outcomes(
+        _VALIDATION + _TEST,
+        lambda o: (
+            ToAction("route_to_queue", {"ticket_id": o.id}, answer=answer, rule=o.reason)
+            if o.outcome == "accepted"
+            else ToReview({"ticket_id": o.id}, o.reason, answer=answer)
+        ),
+        queue=shared_queue,
+        actions=shared_log,
+    )
+    assert shared_queue.to_dicts() == inline_queue.to_dicts()
+    assert shared_log.to_dicts() == inline_log.to_dicts()
+
+
+def test_the_worked_example_in_the_docs_runs_and_its_literals_hold() -> None:
+    text = DOCS.read_text(encoding="utf-8")
+    block = re.search(r"```python\n# recipe: fill-example\n(.*?)\n```", text, re.S).group(1)
+    namespace: dict = {}
+    exec(compile(block, "docs/simulation.md", "exec"), namespace)
+    assert namespace["validation_fill"].review_keys == ("v2", "v3")
+    assert namespace["test_fill"].review_ids == (2,)
+
+
+def test_a_key_that_is_not_plain_json_is_a_simulation_error() -> None:
+    queue = ReviewQueue()
+    with pytest.raises(SimulationError, match="not plain JSON"):
+        route_outcomes(_VALIDATION, lambda o: None, queue=queue, key=lambda o: object())
+    assert len(queue) == 0
+
+
+def test_routed_passes_can_be_concatenated_for_a_per_step_loop() -> None:
+    queue, log = ReviewQueue(), ActionLog()
+    total = route_outcomes([], lambda o: None)
+    for step, outcome in enumerate(_VALIDATION):
+        total += route_outcomes(
+            [outcome],
+            lambda o, step=step: (
+                ToReview({"id": o.id}, o.reason, step=step)
+                if o.outcome == "review"
+                else ToAction("release", {"id": o.id}, step=step)
+            ),
+            queue=queue,
+            actions=log,
+            key=lambda o: o.id,
+        )
+    assert total.review_keys == ("v2", "v3") and total.review_ids == (0, 1)
+    assert total.action_keys == ("v1",) and total.action_seqs == (0,)
+    assert len(total) == 3
+    assert [i["step"] for i in queue.to_dicts()] == [1, 2]
+    with pytest.raises(TypeError):
+        total + 1  # type: ignore[operator]
+
+
+def test_the_decide_and_apply_example_in_the_docs_runs_and_its_literals_hold() -> None:
+    text = DOCS.read_text(encoding="utf-8")
+    block = re.search(r"```python\n# recipe: decide-example\n(.*?)\n```", text, re.S).group(1)
+    namespace: dict = {}
+    exec(compile(block, "docs/simulation.md", "exec"), namespace)
+    assert namespace["outcomes"] == ["assigned", "review", "review", "assigned"]
