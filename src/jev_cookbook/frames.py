@@ -285,10 +285,17 @@ def frame_windows(
     (multiplied, not accumulated). ``start`` / ``end`` default to the first and last
     timestamp. Only windows that fit entirely before ``end`` are produced; a window wider than
     the range raises ``ValueError``. When the last stride-spaced window stops short of ``end``,
-    one **final window aligned to ``end``** (``[end - width, end]``, overlapping the previous
-    window by more than the stride implies) is appended, so every frame lies in some window. A window that falls in a gap between frames is **kept**
-    with ``indices == []`` so the caller decides explicitly what an empty window means. Each
-    entry is ``{"window_start_seconds", "window_end_seconds", "indices"}``; pass its indices to
+    one **final window aligned to ``end``** (``[end - width, end]``) is appended.
+
+    **Coverage.** With ``stride_seconds <= width_seconds`` every frame in ``[start, end]`` lies
+    in at least one window. With a larger stride the windows are deliberately sparse: frames
+    between one window's end and the next window's start lie in **no** window, the final
+    end-aligned window closes only the gap at the tail, and nothing is raised. Choose
+    ``stride_seconds <= width_seconds`` when every frame must be scored.
+
+    A window that falls in a gap between frames is **kept** with ``indices == []`` so the
+    caller decides explicitly what an empty window means. Each entry is
+    ``{"window_start_seconds", "window_end_seconds", "indices"}``; pass its indices to
     :func:`select_frames` or :func:`window_timestamps` as needed.
     """
     times = _ordered(timestamps)
@@ -305,7 +312,7 @@ def frame_windows(
         raise ValueError("stride_seconds yields more than 10,000,000 windows")
     starts = [low + k * stride for k in range(n_windows)]
     if high - (starts[-1] + width) > TIME_EPSILON:
-        starts.append(high - width)  # final window aligned to the end: no frame is left out
+        starts.append(high - width)  # final window aligned to the end of the range
     result = []
     for first in starts:
         last = first + width

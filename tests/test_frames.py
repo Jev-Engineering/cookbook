@@ -472,6 +472,53 @@ def test_frame_windows_cover_the_end_of_the_sequence():
     assert len(frame_windows(times, width_seconds=4.0, stride_seconds=2.0)) == 3
 
 
+def _covered(windows):
+    return {i for w in windows for i in w["indices"]}
+
+
+def test_frame_windows_cover_every_frame_when_stride_is_at_most_width():
+    # stride == width is the boundary: neighbouring windows share an edge, nothing falls between
+    times = [i / 2 for i in range(19)]  # 0.0 .. 9.0 every 0.5 s
+    exact = frame_windows(times, width_seconds=2.0, stride_seconds=2.0)
+    # windows [0,2] [2,4] [4,6] [6,8], then the end-aligned [7,9]
+    assert [(w["window_start_seconds"], w["window_end_seconds"]) for w in exact] == [
+        (0.0, 2.0),
+        (2.0, 4.0),
+        (4.0, 6.0),
+        (6.0, 8.0),
+        (7.0, 9.0),
+    ]
+    assert _covered(exact) == set(range(19))
+    # every width/stride pair on a grid with stride <= width, with and without start/end
+    for width in (0.5, 1.0, 1.5, 2.0, 3.0):
+        for stride in (0.5, 0.7, 1.0, 1.5, 2.0, 3.0):
+            if stride > width:
+                continue
+            windows = frame_windows(times, width_seconds=width, stride_seconds=stride)
+            assert _covered(windows) == set(range(19)), (width, stride)
+            inner = frame_windows(
+                times, width_seconds=width, stride_seconds=stride, start=1.0, end=8.5
+            )
+            assert _covered(inner) == set(range(2, 18)), (width, stride, "start/end")
+
+
+def test_frame_windows_with_a_stride_wider_than_the_width_leave_frames_out():
+    times = [float(i) for i in range(11)]  # 0 .. 10 s, one frame per second
+    windows = frame_windows(times, width_seconds=1.0, stride_seconds=5.0)
+    # sparse by construction: [0,1] and [5,6], plus the end-aligned [9,10]
+    assert [(w["window_start_seconds"], w["window_end_seconds"]) for w in windows] == [
+        (0.0, 1.0),
+        (5.0, 6.0),
+        (9.0, 10.0),
+    ]
+    assert [w["indices"] for w in windows] == [[0, 1], [5, 6], [9, 10]]
+    assert set(range(11)) - _covered(windows) == {2, 3, 4, 7, 8}
+    # the smallest overshoot: width 0.5, stride 1.5 over a half-second grid drops two of every three
+    half = [i / 2 for i in range(21)]  # 0.0 .. 10.0
+    narrow = frame_windows(half, width_seconds=0.5, stride_seconds=1.5)
+    assert sorted(set(range(21)) - _covered(narrow)) == [2, 5, 8, 11, 14, 17]
+
+
 def test_select_frames_validates_an_existing_frame_index():
     state = rows(0.0, 1.0)
     state[1]["frame_index"] = 7

@@ -236,7 +236,8 @@ arithmetic on a state-frame list. It is a separate module, not part of `vision`,
 frames are stills that were already extracted, and the timestamps you pass are the truth,
 **elapsed seconds since the start of the sequence** (never Unix time; the 1e-9 s slack below
 is meaningless at epoch scale). Python owns order, sampling and every time calculation; the
-model only sees the rows you choose to send.
+model only sees the rows you choose to send. The block below continues from the `frames`
+loaded above (timestamps 0.0, 0.75 and 1.5 s):
 
 ```python
 from jev_cookbook.frames import (
@@ -253,11 +254,11 @@ from jev_cookbook.frames import (
 )
 
 times = frame_timestamps(frames)  # validated: finite, nonnegative, strictly increasing
-chosen = sample_frames(times, every_seconds=2.0)  # indices, ascending, no repeats
+chosen = sample_frames(times, every_seconds=0.5)  # [0, 1, 2]: ascending, no repeats
 sampled = select_frames(frames, chosen)  # copies of those rows, each with frame_index
-gaps = frame_intervals(sampled)  # seconds between consecutive rows, n - 1 values
-labelled = relative_frames(sampled)  # adds seconds_ago = last time - time
-window = window_timestamps(sampled, 1, 2)  # start_seconds, end_seconds, duration_seconds
+gaps = frame_intervals(sampled)  # [0.75, 0.75]: seconds between rows, n - 1 values
+labelled = relative_frames(sampled)  # seconds_ago = last time - time: 1.5, 0.75, 0.0
+window = window_timestamps(sampled, 1, 2)  # start 0.75, end 1.5, duration 0.75 seconds
 ```
 
 `sample_frames(timestamps, *, every_seconds=None, count=None, start=None, end=None)`:
@@ -300,10 +301,13 @@ Other helpers:
 - `frame_windows(timestamps, *, width_seconds, stride_seconds)` enumerates sliding windows
   (ranks 89 and 92) as `{"window_start_seconds", "window_end_seconds", "indices"}`, edges
   inclusive, only windows that fit by stride. If the last of those stops short of the end, one
-  final window aligned to the end (`[end - width, end]`, overlapping the previous one) is
-  added, so no frame is left out: frames every 0.5 s to 8 s with width 3 and stride 2 give
-  windows starting at 0, 2, 4 and 5. A window in a gap is kept with `indices == []`, so the
-  recipe decides what an empty window means.
+  final window aligned to the end (`[end - width, end]`) is added: frames every 0.5 s to 8 s
+  with width 3 and stride 2 give windows starting at 0, 2, 4 and 5. **Every frame lies in some
+  window only when `stride_seconds <= width_seconds`.** A larger stride gives deliberately
+  sparse windows: with frames every second to 10 s, width 1 and stride 5 the windows are
+  `[0, 1]`, `[5, 6]` and `[9, 10]`, so frames 2, 3, 4, 7 and 8 are in none, and nothing is
+  raised. Use a stride no larger than the width when every frame must be scored. A window in
+  a gap is kept with `indices == []`, so the recipe decides what an empty window means.
 - `transition_time(frames, first_new_index)` and `earliest_transition(frames, changed)` apply
   the cookbook's single convention for when a transition happened: the timestamp of the
   **first frame in which the new state is visible**. `changed[i]` is the answer to "did the
@@ -329,7 +333,7 @@ fields = {
         {"timestamp_seconds": row["timestamp_seconds"], "frame_index": row["frame_index"]}
         for row in sampled
     ],
-    "sampling": {"every_seconds": 2.0, "start": None, "end": None, "indices": chosen},
+    "sampling": {"every_seconds": 0.5, "start": None, "end": None, "indices": chosen},
 }
 ```
 

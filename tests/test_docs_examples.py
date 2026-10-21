@@ -28,7 +28,7 @@ about it.
 **Linting never masks a new finding.** A block that fails `ruff check` with findings outside
 ``ALLOWED_FINDINGS`` below fails the test, including a *new* finding of the same code the block
 already has a pre-existing one for, because matching is by exact ``(block, code, line)``, not by
-block or by code alone. Two of the eight blocks have pre-existing findings (next section); every
+block or by code alone. Two of the nine blocks have pre-existing findings (next section); every
 other block must lint perfectly clean.
 
 **Not included.** ``docs/backends.md``, ``docs/fixtures.md`` and ``docs/live.md`` (the issue's
@@ -40,7 +40,7 @@ five blocks each reference their own example-specific placeholders (``recipe``, 
 this suite must never do (CONTRIBUTING.md section 1: no key, no network, and
 ``jev_cookbook.LiveBackend`` must never be instantiated by a test that runs in CI).
 
-**Known gaps, left for the orchestrator rather than fixed here.** Two of the eight blocks fail
+**Known gaps, left for the orchestrator rather than fixed here.** Two of the nine blocks fail
 ``ruff check`` verbatim, against the repository's real configuration, for reasons this test did
 not create and cannot fix within #152's allowed docs edit ("only for the marker convention", not
 a content change). Each is named in ``ALLOWED_FINDINGS`` by its exact ``(block, code, line)``, so
@@ -341,3 +341,52 @@ def test_block_four_equivalence_holds():
         b.accuracy,
         b.risk,
     ), "evaluate_outcomes and evaluate_selective no longer agree on block 4's synthetic data"
+
+
+def test_docstring_block_count_matches_the_assertion():
+    """The module docstring says how many blocks there are ("Two of the nine blocks ..."); it
+    must follow ``len(BLOCKS)`` so the prose cannot go stale when a block is added."""
+    words = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"]
+    words += ["ten", "eleven", "twelve"]
+    mentioned = set(re.findall(r"Two of the (\w+) blocks", __doc__))
+    assert mentioned == {words[len(BLOCKS)]}
+
+
+VISION_TEXT = (REPO / "docs" / "vision.md").read_text("utf-8")
+
+
+def _vision_block(marker: str) -> str:
+    """The one fenced python block in ``docs/vision.md`` that contains ``marker``."""
+    found = [b for b in re.findall(r"```python\n(.*?)```", VISION_TEXT, re.S) if marker in b]
+    assert len(found) == 1, f"expected exactly one docs/vision.md block containing {marker!r}"
+    return found[0]
+
+
+def test_vision_frame_walkthrough_runs_on_the_pages_own_frames(tmp_path, monkeypatch):
+    """The ordered-frame walkthrough in ``docs/vision.md`` continues from the ``load_frames``
+    example above it. Execute those blocks in one namespace, in page order, against three
+    generated stills at the paths the page names, and check the values the comments state."""
+    from PIL import Image
+
+    (tmp_path / "assets").mkdir()
+    for shade, name in enumerate(("door-closed", "door-moving", "door-open")):
+        Image.new("RGB", (280, 280), (shade * 90, 40, 40)).save(tmp_path / "assets" / f"{name}.png")
+    monkeypatch.chdir(tmp_path)
+
+    namespace: dict = {}
+    for marker in ("load_frames(", "frame_timestamps(frames)", '"sampling"'):
+        source = _vision_block(marker)
+        exec(compile(source, "docs/vision.md", "exec"), namespace)
+
+    assert namespace["times"] == [0.0, 0.75, 1.5]
+    assert namespace["chosen"] == [0, 1, 2]
+    assert [row["frame_index"] for row in namespace["sampled"]] == [0, 1, 2]
+    assert namespace["gaps"] == [0.75, 0.75]
+    assert [row["seconds_ago"] for row in namespace["labelled"]] == [1.5, 0.75, 0.0]
+    assert namespace["window"] == {
+        "start_seconds": 0.75,
+        "end_seconds": 1.5,
+        "duration_seconds": 0.75,
+    }
+    assert namespace["fields"]["sampling"]["indices"] == [0, 1, 2]
+    assert namespace["fields"]["sampling"]["every_seconds"] == 0.5
