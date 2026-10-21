@@ -1765,18 +1765,7 @@ def _tainted_names_in_function(
     can never borrow another function's taint."""
     tainted: set[str] = set()
 
-    bindings: dict[str, list[ast.AST]] = {}
-    for node in ast.walk(func):
-        if (
-            isinstance(node, ast.Assign)
-            and len(node.targets) == 1
-            and isinstance(node.targets[0], ast.Name)
-        ):
-            bindings.setdefault(node.targets[0].id, []).append(node.value)
-        elif isinstance(node, ast.With):
-            for item in node.items:
-                if isinstance(item.optional_vars, ast.Name):
-                    bindings.setdefault(item.optional_vars.id, []).append(item.context_expr)
+    bindings = _function_bindings(func)
 
     # names that hold a COPY under pytest's scratch directory (the fixture parameter itself, and
     # anything assigned from it): a read of those is a read of a test-made copy, not of the
@@ -1786,11 +1775,15 @@ def _tainted_names_in_function(
     while grew:
         grew = False
         for name, values in bindings.items():
-            if name not in scratch and any(scratch & _ast_names(v) for v in values):
+            if name not in scratch and any(
+                v is not None and scratch & _ast_names(v) for v in values
+            ):
                 scratch.add(name)
                 grew = True
 
-    def _taints(value: ast.AST) -> bool:
+    def _taints(value: ast.AST | None) -> bool:
+        if value is None:  # bound by a form this cannot trace (``+=``, ``for``, unpacking, ``:=``)
+            return False
         if scratch & _ast_names(value):
             return False
         calls_taint_producing = any(
@@ -1800,11 +1793,15 @@ def _tainted_names_in_function(
         return (
             _reads_real_committed_source(value)
             or calls_taint_producing
-            or bool(tainted & _ast_names(value))
+            or _wholly_tainted(value, frozenset(tainted))
         )
 
-    # A name is tainted only if EVERY binding of it in the function is: ``source = <read>`` followed
-    # by ``source = "<hand typed>"`` leaves a name whose value at the assert is the hand-typed one.
+    # A name is tainted only if EVERY binding of it in the function is, and is traceable: ``source
+    # = <read>`` followed by ``source = "<hand typed>"``, ``source += "<hand typed>"``, ``for source
+    # in (...)``, ``source, _ = ...`` or ``(source := ...)`` leaves a name whose value at the
+    # assert is not (only) the read. A value built from the read plus a hand-typed piece
+    # (``source + "x"``, ``source or "x"``, a dict holding both) is not tainted either: the name
+    # must be WHOLLY derived from the read.
     changed = True
     while changed:
         changed = False
@@ -1813,6 +1810,91 @@ def _tainted_names_in_function(
                 tainted.add(name)
                 changed = True
     return tainted
+
+
+def _function_bindings(func: ast.FunctionDef) -> dict[str, list[ast.AST | None]]:
+    """Every way ``func`` binds a name: the assigned value for a plain ``name = value`` and the
+    context expression for ``with <expr> as name`` (the two forms whose value can be traced), and
+    ``None`` for every other binding of that name -- augmented or annotated assignment, a ``for``
+    target, tuple unpacking, a walrus, ``del``, ``with ... as (a, b)``. A comprehension's own
+    target is scoped to the comprehension and is handled by ``_taint_through_comprehension``."""
+    bindings: dict[str, list[ast.AST | None]] = {}
+    traced: set[int] = set()
+    scoped: set[int] = set()
+    for node in ast.walk(func):
+        if (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+        ):
+            bindings.setdefault(node.targets[0].id, []).append(node.value)
+            traced.add(id(node.targets[0]))
+        elif isinstance(node, ast.With):
+            for item in node.items:
+                if isinstance(item.optional_vars, ast.Name):
+                    bindings.setdefault(item.optional_vars.id, []).append(item.context_expr)
+                    traced.add(id(item.optional_vars))
+        elif isinstance(node, ast.comprehension):
+            scoped.update(id(n) for n in ast.walk(node.target))
+    for node in ast.walk(func):
+        if (
+            isinstance(node, ast.Name)
+            and isinstance(node.ctx, ast.Store | ast.Del)
+            and id(node) not in traced
+            and id(node) not in scoped
+        ):
+            bindings.setdefault(node.id, []).append(None)
+    return bindings
+
+
+class _Taint(frozenset):
+    """The names traced to the committed source, plus -- per name -- the hand-typed strings its
+    bindings embed (``embedded``): ``padded = source.replace("a", "min_coverage")`` is still a name
+    derived from the read, but it carries the needle ``min_coverage`` that no read put there, so
+    ``"min_coverage" in padded`` holds whatever the notebook says (see ``_embeds_text``). A plain
+    ``frozenset`` of names works everywhere a ``_Taint`` does and simply embeds nothing."""
+
+    embedded: dict[str, frozenset[str]]
+
+    def __new__(cls, names=(), embedded=None):
+        obj = super().__new__(cls, names)
+        obj.embedded = {n: frozenset(t) for n, t in (embedded or {}).items() if n in obj}
+        return obj
+
+
+def _embedded_of(tainted: frozenset[str]) -> dict[str, frozenset[str]]:
+    return getattr(tainted, "embedded", {})
+
+
+def _typed_strings(node: ast.AST) -> set[str]:
+    """Every hand-typed ``str``/``bytes`` constant inside ``node`` (f-string text included)."""
+    return {
+        n.value if isinstance(n.value, str) else n.value.decode("utf-8", "replace")
+        for n in ast.walk(node)
+        if isinstance(n, ast.Constant) and isinstance(n.value, str | bytes)
+    }
+
+
+def _embedded_texts(func: ast.FunctionDef, tainted: set[str]) -> dict[str, frozenset[str]]:
+    """For each tainted name, the hand-typed strings in any of its bindings, followed transitively
+    through the tainted names those bindings reference (so ``again = swapped`` carries what
+    ``swapped = source.replace(..., "min_coverage")`` typed)."""
+    bindings = _function_bindings(func)
+    embedded: dict[str, set[str]] = {name: set() for name in tainted}
+    changed = True
+    while changed:
+        changed = False
+        for name in tainted:
+            for value in bindings.get(name, []):
+                if value is None:
+                    continue
+                found = _typed_strings(value)
+                for ref in _ast_names(value):
+                    found |= embedded.get(ref, set())
+                if not found <= embedded[name]:
+                    embedded[name] |= found
+                    changed = True
+    return {name: frozenset(texts) for name, texts in embedded.items()}
 
 
 def _is_plain_open_with(node: ast.With) -> bool:
@@ -1995,13 +2077,20 @@ def _taint_through_comprehension(comp: ast.expr, tainted: frozenset[str]) -> fro
     source in ["x"])`` does not borrow the outer ``source``'s taint, and neither does an iterable
     that mixes the real read with a hand-typed copy of the needle."""
     out = set(tainted)
+    embedded = dict(_embedded_of(tainted))
     for gen in comp.generators:
         targets = _ast_names(gen.target)
         if _wholly_tainted(gen.iter, frozenset(out)):
+            # the target carries whatever hand-typed text the iterable it ranges over carries
+            carried = _typed_strings(gen.iter)
+            for ref in _ast_names(gen.iter):
+                carried |= embedded.get(ref, frozenset())
             out |= targets
+            for name in targets:
+                embedded[name] = frozenset(carried)
         else:
             out -= targets
-    return frozenset(out)
+    return _Taint(out, embedded)
 
 
 def _wholly_tainted(node: ast.AST, tainted: frozenset[str]) -> bool:
@@ -2017,6 +2106,8 @@ def _wholly_tainted(node: ast.AST, tainted: frozenset[str]) -> bool:
             _wholly_tainted(e.value if isinstance(e, ast.Starred) else e, tainted)
             for e in node.elts
         )
+    if isinstance(node, ast.Dict):
+        return bool(node.values) and all(_wholly_tainted(v, tainted) for v in node.values)
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
         return _wholly_tainted(node.left, tainted) and _wholly_tainted(node.right, tainted)
     if isinstance(node, ast.BoolOp):
@@ -2026,23 +2117,31 @@ def _wholly_tainted(node: ast.AST, tainted: frozenset[str]) -> bool:
     return bool(tainted & _ast_names(node))
 
 
-def _embeds_text(node: ast.AST, texts: set[str]) -> bool:
+def _embeds_text(node: ast.AST, texts: set[str], tainted: frozenset[str]) -> bool:
     """True if a hand-typed string inside ``node`` contains one of ``texts`` -- the needle was
     smuggled into the value it is compared with (``kws.get("objective", "min_coverage") ==
     "min_coverage"``, ``source.replace("a", "min_coverage")``), so the comparison holds whatever
-    the committed source says."""
+    the committed source says. A tainted NAME counts for the hand-typed strings its own bindings
+    embed (``tainted.embedded``), so the same smuggling through an intermediate variable
+    (``swapped = source.replace("a", "min_coverage")`` then ``"min_coverage" in swapped``) is seen
+    too, not only when it is spelled inline in the compared expression."""
+    embedded = _embedded_of(tainted)
     for n in ast.walk(node):
         if isinstance(n, ast.Constant) and isinstance(n.value, str | bytes):
             value = n.value if isinstance(n.value, str) else n.value.decode("utf-8", "replace")
             if any(t in value for t in texts):
                 return True
+        elif isinstance(n, ast.Name) and any(
+            t in value for value in embedded.get(n.id, ()) for t in texts
+        ):
+            return True
     return False
 
 
 def _credible_source_operand(node: ast.AST, texts: set[str], tainted: frozenset[str]) -> bool:
     """The operand a needle is compared against really is the committed source (wholly tainted)
-    and does not itself contain the needle as a hand-typed string."""
-    return _wholly_tainted(node, tainted) and not _embeds_text(node, texts)
+    and does not itself contain the needle as a hand-typed string, inline or through a name."""
+    return _wholly_tainted(node, tainted) and not _embeds_text(node, texts, tainted)
 
 
 def _provably_nonempty(iterable: ast.expr, nonempty: frozenset[str]) -> bool:
@@ -2414,7 +2513,7 @@ def _spellings_pinned_by_assertions(
       not None``), so the direct route alone misses it. Credited only when the extracted name
       is checked by the one idiom ``_extraction_checked`` trusts."""
     pinned: set[str] = set()
-    frozen_taint = frozenset(tainted)
+    frozen_taint = _Taint(tainted, _embedded_texts(func, tainted))
     nonempty = _asserted_nonempty_names(func)
 
     for node in _unconditional_asserts(func.body):
@@ -2901,6 +3000,64 @@ _ABSENT_OR_UNPROVEN_SHAPES = {
         "source = 'select_confidence_threshold(s, min_coverage=0.75)'\n"
         'assert "min_coverage" in source\n'
     ),
+    # re-review of the second head, finding 1: a name is tainted only if EVERY binding of it is,
+    # whatever the binding FORM (the rule used to look at ``name = ...`` and ``with ... as`` only)
+    "source extended in place": 'source += " min_coverage"\nassert "min_coverage" in source\n',
+    "source rebound as a for target (assert inside the loop)": (
+        'for source in ("min_coverage",):\n    assert "min_coverage" in source\n'
+    ),
+    "source rebound as a for target (assert after the loop)": (
+        'for source in ("min_coverage",):\n    pass\nassert "min_coverage" in source\n'
+    ),
+    "source rebound by tuple unpacking": (
+        'source, _ = "min_coverage", 1\nassert "min_coverage" in source\n'
+    ),
+    "source rebound by a walrus": (
+        'assert (source := "min_coverage")\nassert "min_coverage" in source\n'
+    ),
+    "source rebound by an annotated assignment": (
+        'source: str = "min_coverage"\nassert "min_coverage" in source\n'
+    ),
+    "source rebound by with-as unpacking": (
+        'with open(RECIPE / "notebook.ipynb") as (source, _):\n'
+        '    assert "min_coverage" in source\n'
+    ),
+    "source deleted and rebound": (
+        'del source\nsource = "min_coverage"\nassert "min_coverage" in source\n'
+    ),
+    # re-review of the second head, finding 2: the needle typed into the compared value is seen
+    # through an intermediate variable, not only when spelled inline in the assert
+    "needle appended through a variable": (
+        'padded = source + " min_coverage"\nassert "min_coverage" in padded\n'
+    ),
+    "needle appended by rebinding the source itself": (
+        'source = source + " min_coverage"\nassert "min_coverage" in source\n'
+    ),
+    "needle substituted through a variable": (
+        'swapped = source.replace("target_accuracy", "min_coverage")\n'
+        'assert "min_coverage" in swapped\n'
+    ),
+    "needle substituted through two variables": (
+        'swapped = source.replace("target_accuracy", "min_coverage")\n'
+        'again = swapped.strip()\nassert "min_coverage" in again\n'
+    ),
+    "needle smuggled through or in a variable": (
+        'val = source or "min_coverage"\nassert val == "min_coverage"\n'
+    ),
+    "needle in a dict value beside the source": (
+        'kws = {"objective": "min_coverage", "s": source}\n'
+        'assert kws["objective"] == "min_coverage"\n'
+    ),
+    "needle as a dict key of a dict of the source": (
+        'kws = {"min_coverage": source}\nassert "min_coverage" in kws\n'
+    ),
+    "needle counted in a padded variable": (
+        'padded = source + "min_coverage"\nassert padded.count("min_coverage") >= 1\n'
+    ),
+    "needle carried into a comprehension variable": (
+        'parts = [source.replace("a", "min_coverage")]\n'
+        'assert all("min_coverage" in p for p in parts)\n'
+    ),
 }
 
 # Shapes that need the whole test function around them rather than a body: a decorator or a
@@ -2977,6 +3134,18 @@ _PRESENT_SHAPES = {
     "all over a name asserted non-empty (list)": (
         "sources = [s for s in cells]\nassert sources\n"
         'assert all("min_coverage" in s for s in sources)\n'
+    ),
+    # re-review of the second head: carrying taint through names must not refuse a pin that is
+    # still wholly derived from the read and types no needle of its own
+    "a neutral transform of the source": 'lowered = source.lower()\nassert "min_coverage" in lowered\n',
+    "a name rebound to another value derived from the read": (
+        'text = source\ntext = source.strip()\nassert "min_coverage" in text\n'
+    ),
+    "a chain of neutral transforms": (
+        'a = source.strip()\nb = a.lower()\nc = b.replace(" ", "")\nassert "min_coverage" in c\n'
+    ),
+    "a dict of values all derived from the read": (
+        'kws = {"one": source, "two": source.strip()}\nassert "min_coverage" in kws["one"]\n'
     ),
 }
 
@@ -3068,6 +3237,20 @@ def test_a_read_of_something_else_does_not_taint(tmp_path):
         assert violations, (
             f"credited a pin against a value that is not the committed source: {read}"
         )
+
+
+def test_a_needle_typed_into_the_read_statement_itself_does_not_pin(tmp_path):
+    """The read is a real read of the committed notebook, so the name is tainted -- but the same
+    statement also types the needle, so the assert holds whatever the notebook says. The needle is
+    recorded against the name (``_Taint.embedded``) and refused; the same read without the
+    appended text is credited."""
+    plain = 'source = (RECIPE / "notebook.ipynb").read_text("utf-8")\n'
+    padded = 'source = (RECIPE / "notebook.ipynb").read_text("utf-8") + " min_coverage"\n'
+    assertion = 'assert "min_coverage" in source\n'
+    assert _polarity_violations(tmp_path / "plain", assertion, read=plain) == []
+    assert _polarity_violations(tmp_path / "padded", assertion, read=padded), (
+        "credited a pin whose compared value carries a needle typed in the read statement"
+    )
 
 
 @pytest.mark.parametrize("wrapper", sorted(_NOT_RUN_WRAPPERS))

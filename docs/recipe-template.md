@@ -105,8 +105,11 @@ own first use the same way.
   `with open(...)`, whichever you use; a path under `tmp_path` is a copy, not the committed
   file). `not`, `is False`, `.count(...) == 0`, an `if`/`else` branch that asserts nothing, an
   `or` with a vacuous operand, and a needle that is also typed into the value it is compared
-  with (`source + " min_coverage"`, `kws.get("objective", "min_coverage")`) are all read for
-  what they claim, so none of them counts as a pin. `all(...)`/`any(...)`/`len([...]) > 0`/
+  with (`source + " min_coverage"`, `kws.get("objective", "min_coverage")`, also when the
+  needle was typed into an earlier variable the value was built in) are all read for what they
+  claim, so none of them counts as a pin. A name counts as the read only if every binding of it
+  is the read (or wholly derived from it): once it is also bound by `+=`, a `for` target,
+  unpacking, `:=` or a hand-typed value, it does not. `all(...)`/`any(...)`/`len([...]) > 0`/
   `sum(...) > 0` over the committed source do count (an `all(...)` needs an iterable that is
   visibly non-empty and bound once, since it is vacuously true over nothing).
 
