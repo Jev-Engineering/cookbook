@@ -185,8 +185,9 @@ does not, tightens these bounds in its own reviewed pull request. A bound change
 and no stored format.
 
 `DecisionResult(answers, model, usage)` has `answers` (a read-only mapping of answer objects),
-`model`, `usage`, `source` (`"synthetic"` or `"recorded"`), `result[name]`, and the groupings
-`nouls`, `choices`, `scores`. A result never mixes synthetic and recorded answers; a synthetic
+`model`, `usage`, `source` (`"synthetic"` or `"recorded"`), `result[name]`, `name in result` and
+`for name in result` (both by question name; any other value is simply not in the result), and the
+groupings `nouls`, `choices`, `scores`. A result never mixes synthetic and recorded answers; a synthetic
 result's model is always `"synthetic"`; for a recorded result every answer's provenance model
 equals the result's model. Each class has `to_dict()` / `from_dict()` (`answer_from_dict` for
 answers).
