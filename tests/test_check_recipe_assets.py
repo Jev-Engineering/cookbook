@@ -15,6 +15,7 @@ import shutil
 import struct
 import subprocess
 import sys
+import tracemalloc
 import zlib
 from pathlib import Path
 
@@ -810,6 +811,74 @@ def test_idat_must_be_one_clean_zlib_stream():
     assert only(f"{A}/c.png", png_edit(base, garbage)) == ["png-structure"]
 
 
+def png_with_idat(data: bytes, body: bytes) -> bytes:
+    def replace(chunks):
+        i = next(i for i, (k, _) in enumerate(chunks) if k == b"IDAT")
+        chunks[i] = (b"IDAT", body)
+
+    return png_edit(data, replace)
+
+
+def idat_rows(width=320, height=320) -> bytes:
+    return bytes(assets.png_raw_length(width, height, 2, 8, 0))
+
+
+def test_a_complete_deflate_stream_must_still_end_with_its_final_block_and_checksum():
+    # Both streams inflate to exactly the rows the header implies with no byte left over, so the
+    # only thing wrong with them is that the zlib stream does not end: the length check cannot
+    # catch them. Only the "ends cleanly" check does.
+    rows = idat_rows()
+    no_checksum = zlib.compress(rows)[:-4]  # the Adler-32 trailer is missing
+    sync = zlib.compressobj()
+    # A sync flush ends the data without a final block or a trailer.
+    no_final_block = sync.compress(rows) + sync.flush(zlib.Z_SYNC_FLUSH)
+    assert zlib.decompressobj().decompress(no_checksum) == rows
+    assert zlib.decompressobj().decompress(no_final_block) == rows
+    for name, stream in (("a", no_checksum), ("b", no_final_block)):
+        found = findings(entry(f"{A}/{name}.png", png_with_idat(png(), stream)))
+        assert [(f.rule, f.message) for f in found] == [
+            ("png-structure", "IDAT zlib stream does not end cleanly")
+        ], name
+    # The same rows in a properly ended stream are accepted.
+    assert only(f"{A}/c.png", png_with_idat(png(), zlib.compress(rows))) == []
+
+
+def test_idat_is_inflated_no_further_than_the_length_the_header_implies():
+    # A 100 MiB run of zeros is a ~100 KiB deflate stream. The checker must refuse it after
+    # inflating one byte past the 320 x 320 RGB rows, not allocate the lot.
+    bomb = zlib.compress(bytes(100 * 2**20), 9)
+    assert len(bomb) < 2**20
+    data = png_with_idat(png(), bomb)
+    expected = assets.png_raw_length(320, 320, 2, 8, 0)
+    tracemalloc.start()
+    try:
+        found = findings(entry(f"{A}/bomb.png", data))
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert [(f.rule, f.message) for f in found] == [
+        ("png-structure", f"IDAT inflates past the {expected:,} bytes the image header implies")
+    ]
+    assert peak < 2 * 2**20, f"peak {peak:,} bytes while checking a 100 MiB bomb"
+
+
+def test_the_inflate_limit_is_exactly_one_byte_past_the_expected_length():
+    # One byte too many is refused and the exact length is accepted, so neither a limit that is
+    # one too small (which would reject every good file) nor one that is too large is possible.
+    expected = assets.png_raw_length(320, 320, 2, 8, 0)
+    for extra, outcome in ((0, []), (1, ["png-structure"]), (2, ["png-structure"])):
+        data = png_with_idat(png(), zlib.compress(bytes(expected + extra)))
+        assert only(f"{A}/e{extra}.png", data) == outcome, extra
+
+
+def test_a_header_implying_more_than_the_backstop_is_refused_without_inflating(monkeypatch):
+    # A header that claims enormous dimensions would otherwise raise the inflate limit with it.
+    monkeypatch.setattr(assets, "_MAX_INFLATED", 100_000)
+    found = findings(entry(f"{A}/big.png", png()))  # 320 x 320 RGB implies 307,520 bytes
+    assert [f.rule for f in found] == ["png-structure"]
+    assert "the most inflated is 100,000" in found[0].message
+
+
 def test_idat_chunks_must_be_consecutive():
     def split(chunks):
         i = next(i for i, (k, _) in enumerate(chunks) if k == b"IDAT")
@@ -1052,16 +1121,14 @@ def test_the_checker_limits_match_the_documented_280_to_1568_contract():
     assert (assets.MIN_SIDE, assets.MAX_SIDE) == (280, 1568)
 
 
-def test_the_checker_limits_match_the_shared_image_limits_when_the_package_exports_them():
-    # `jev_cookbook.vision.IMAGE_LIMITS` arrives with the 280 px fix; until it does, there is
-    # nothing to compare, and the documented values above are the pin.
+def test_the_checker_limits_match_the_shared_image_limits():
+    # Plain attribute access: if `IMAGE_LIMITS` is renamed or removed this test must error, not
+    # quietly pass with nothing compared.
     import jev_cookbook.vision as vision
 
-    limits = getattr(vision, "IMAGE_LIMITS", None)
-    if limits is not None:
-        assert (assets.MIN_SIDE, assets.MAX_SIDE, assets.MIN_PIXELS, assets.MAX_PIXELS) == tuple(
-            limits[k] for k in ("min_side", "max_side", "min_area", "max_area")
-        )
+    assert (assets.MIN_SIDE, assets.MAX_SIDE, assets.MIN_PIXELS, assets.MAX_PIXELS) == tuple(
+        vision.IMAGE_LIMITS[k] for k in ("min_side", "max_side", "min_area", "max_area")
+    )
 
 
 def test_the_pre_commit_config_runs_the_asset_checker():
