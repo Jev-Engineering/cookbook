@@ -39,7 +39,8 @@ contained real path for code that opens files itself.
 `validate_image_asset(asset)` validates an existing raw descriptor and returns its
 decoded, still-encoded PNG/JPEG file bytes. Neither function changes those bytes.
 
-The accepted local files are PNG or JPEG stills, at most 16 MiB, with each
+The accepted local files are PNG or JPEG stills, at most 16 MiB (a committed fixture is held to
+the stricter 1 MiB, no-metadata asset rule in [`docs/fixtures.md`](fixtures.md)), with each
 dimension 280–1568 and total area 78,400–2,458,624 pixels (all ranges include both ends;
 the same numbers are `vision.IMAGE_LIMITS`). A 384 × 320 or a 280 × 280 fixture fits; a
 256 × 256 or a 279 × 400 fixture does not, and neither does 400 × 279: the API rejects an

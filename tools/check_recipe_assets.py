@@ -150,6 +150,9 @@ _ADAM7 = (
     (1, 0, 2, 2),
     (0, 1, 1, 2),
 )
+
+# Backstop for a header that claims absurd dimensions: IDAT is never inflated past the length the
+# header implies, and a header implying more than this is refused without inflating anything.
 _MAX_INFLATED = 256 * 1024 * 1024
 
 
@@ -290,18 +293,32 @@ def inspect_png(data: bytes, *, embedded: bool = False) -> tuple[int, int]:
         raise ImageError("png-structure", "no IDAT chunk")
     if colour == 3 and not palette:
         raise ImageError("png-structure", "palette PNG without a PLTE chunk")
+    expected = png_raw_length(size[0], size[1], colour, depth, interlace)
+    if expected > _MAX_INFLATED:
+        raise ImageError(
+            "png-structure",
+            f"the image header implies {expected:,} bytes of pixel data; the most inflated is "
+            f"{_MAX_INFLATED:,}",
+        )
     inflater = zlib.decompressobj()
     try:
-        inflated = inflater.decompress(bytes(idat), _MAX_INFLATED)
+        # Stop one byte past the length the header implies: a compressed bomb in a small file
+        # cannot make this job allocate more than that, and one extra byte is enough to see
+        # that the stream is too long.
+        inflated = inflater.decompress(bytes(idat), expected + 1)
     except zlib.error as error:
         raise ImageError("png-structure", f"IDAT is not a valid zlib stream ({error})") from error
-    if not inflater.eof or inflater.unconsumed_tail:
+    if len(inflated) > expected:
+        raise ImageError(
+            "png-structure",
+            f"IDAT inflates past the {expected:,} bytes the image header implies",
+        )
+    if not inflater.eof:
         raise ImageError("png-structure", "IDAT zlib stream does not end cleanly")
     if inflater.unused_data:
         raise ImageError(
             "trailing-data", f"{len(inflater.unused_data)} byte(s) after the zlib stream in IDAT"
         )
-    expected = png_raw_length(size[0], size[1], colour, depth, interlace)
     if len(inflated) != expected:
         raise ImageError(
             "png-structure",
