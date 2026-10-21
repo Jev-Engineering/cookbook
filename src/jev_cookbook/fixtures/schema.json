@@ -53,7 +53,7 @@
           "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$"
         },
         "label": {
-          "description": "The gold label. Any JSON value except null: a string, a number, a boolean, a list, or an object (for several labels).",
+          "description": "The gold label. Any JSON value except null: a string, a number, a boolean, a list, or an object (for several labels, or a Box label: see docs/fixtures.md).",
           "type": ["string", "number", "boolean", "array", "object"]
         }
       }

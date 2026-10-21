@@ -736,6 +736,38 @@ numbers, for the reason "Outcomes versus the confidence-only view" gives general
 `confidence` from `pool_label_decisions` fed to `evaluate_selective` agree with `accepted` and
 `correct` from `pool_label_outcomes` fed to `evaluate_outcomes`, on every field but `threshold`.
 
+### Box localization
+
+Box answers are scored in `jev_cookbook.vision`, not here, because they need rectangle
+geometry. `vision.localization_report(gold, outcomes, iou_threshold=0.5)` takes the gold Box
+labels (`{"present": true, "box": {...}}` or `{"present": false}`, see
+[fixtures](fixtures.md#box-labels)) and one `("located", box)`, `("absent", None)` or
+`("review", None)` outcome per example. Like every evaluation in this toolkit it states its
+denominators and lets no case disappear: reviews and absent targets are counted, never
+dropped from the report.
+
+| Number | Denominator |
+| --- | --- |
+| mean IoU over located present targets | present targets with a returned box |
+| mean IoU over all present targets (missed and reviewed count 0) | all present targets |
+| hit rate at the IoU threshold | all present targets |
+| false positive rate (a box for an absent target) | all absent targets |
+| correct absent rate | all absent targets |
+
+A present target sent to review therefore counts as 0 in the second mean and as a miss in
+the hit rate, and is simply not one of the first mean's located targets: the printed report
+shows both denominators. Only
+located boxes on present targets contribute an IoU; a box returned for an absent target is a
+false positive, because a rectangle never proves the target exists. The worked example, and
+the test that runs it, are in [vision](vision.md#the-localization-report).
+Use `evaluate_outcomes` above for the review rate of the presence question alone.
+
+In a tiled or hierarchical recipe the headline report is per image: gold is the full-image
+Box label and each outcome is the final rectangle after `tile_to_image`, with a stage-1 "no
+match" on present gold reported as `absent` and an uncertain choice as `review`. A per-tile
+report counts tiles, is a stage diagnostic and says so, and states its rule for a target a
+tile edge cuts; see [vision](vision.md#tiled-and-hierarchical-recipes).
+
 ### Calibration
 
 `reliability_table(probability, outcome, n_bins=10)` bins stated probability in equal widths

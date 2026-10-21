@@ -335,6 +335,70 @@ def test_label_without_label_field(recipe):
     expect(recipe, "labels.jsonl:1 (id 't0'): missing required field 'label'")
 
 
+# ------------------------------------------------------------------------- Box labels
+
+BOX_LABEL = {"present": True, "box": {"top": 0.25, "bottom": 0.75, "left": 0.125, "right": 0.625}}
+
+
+def box_set(*labels) -> dict:
+    data = good_set()
+    for row, label in zip(data["labels"], labels, strict=True):
+        row["label"] = label
+    return data
+
+
+def test_well_formed_box_labels_present_and_absent_are_valid(recipe):
+    write(recipe, box_set(BOX_LABEL, {"present": False}, BOX_LABEL, {"present": False}))
+    assert messages(recipe) == []
+    assert load_labels(recipe)["t1"] == {"present": False}
+
+
+@pytest.mark.parametrize(
+    ("bad", "fragment"),
+    [
+        ({"present": "yes"}, "'present' to be true or false"),
+        ({"present": 1}, "'present' to be true or false"),
+        ({"present": None}, "'present' to be true or false"),
+        ({"present": False, "box": BOX_LABEL["box"]}, "exactly {'present': false}"),
+        ({"present": False, "box": None}, "exactly {'present': false}"),
+        ({"present": True}, "exactly 'present' and 'box'"),
+        ({"present": True, "box": None}, "exactly top, bottom, left and right"),
+        ({**BOX_LABEL, "extra": 1}, "exactly 'present' and 'box'"),
+        ({"present": True, "box": {"top": 0.1, "bottom": 0.5, "left": 0.1}}, "exactly top"),
+        (
+            {"present": True, "box": {"top": 0.1, "bottom": 0.5, "left": 0.1, "right": 1.5}},
+            "right must be in [0, 1]",
+        ),
+        (
+            {"present": True, "box": {"top": 0.5, "bottom": 0.5, "left": 0.1, "right": 0.9}},
+            "positive width and height",
+        ),
+        (
+            {"present": True, "box": {"top": 0, "bottom": 1e-200, "left": 0, "right": 1e-200}},
+            "underflows to zero",
+        ),
+    ],
+)
+def test_malformed_box_labels_are_rejected(recipe, bad, fragment):
+    write(recipe, box_set(BOX_LABEL, bad, BOX_LABEL, {"present": False}))
+    expect(recipe, "labels.jsonl:2 (id 't1'): malformed Box label", fragment)
+
+
+def test_a_non_box_label_among_box_labels_is_rejected(recipe):
+    write(recipe, box_set(BOX_LABEL, "billing", BOX_LABEL, BOX_LABEL["box"]))
+    expect(
+        recipe,
+        "labels.jsonl:2 (id 't1'): label is not a Box label",
+        "labels.jsonl:4 (id 't3'): label is not a Box label",
+    )
+
+
+def test_labels_without_a_present_key_are_not_treated_as_box_labels(recipe):
+    data = box_set({"box": BOX_LABEL["box"]}, "x", ["y"], {"tags": []})
+    write(recipe, data)
+    assert messages(recipe) == []
+
+
 # --------------------------------------------------------------- responses and linking
 
 
