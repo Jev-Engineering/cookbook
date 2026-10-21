@@ -105,6 +105,46 @@ here too.
 labels). Every `train`, `validation` and `test` example needs exactly one label; a label whose
 `id` is not in the inputs is an error.
 
+### Box labels
+
+A recipe whose question asks for a `Box` labels each example with a gold Box label, so ten
+recipes do not invent ten formats. An object with a boolean `present`:
+
+```json
+{"id": "t07", "label": {"present": true, "box": {"top": 0.25, "bottom": 0.75, "left": 0.125, "right": 0.625}}}
+{"id": "t08", "label": {"present": false}}
+```
+
+- `present: true` has exactly `present` and `box`. `box` has exactly `top`, `bottom`, `left`
+  and `right`: finite numbers in [0, 1] (normalized to the image, as in
+  [`docs/vision.md`](vision.md)), with `left < right` and `top < bottom`, and an area that
+  does not underflow to zero.
+- `present: false` has exactly `present`. It means the target is not in the image. It carries
+  no `box`, not even a `null` one; `null` is never a label.
+- `present` is a JSON boolean. `"yes"`, `1` and `null` are errors.
+
+`vision.gold_box(label)` decodes one (the rectangle, or `None` for absent) and raises
+`ValueError` on anything else; `vision.localization_report` takes these labels directly.
+
+The validator treats a label that is an object with a `present` key as a Box label: that is
+how a recipe declares the format, so `present` is reserved at the top level of a label object.
+Every such label must pass `gold_box`, and once any label in the file is a Box label, a label
+that is not (a bare box, a string) is an error. A recipe whose label holds a Box label among
+other values nests it under its own key and calls `gold_box(label["target"])` in its own test;
+the validator does not look inside other labels, so that test must cover every split the
+recipe ships (`train` included), not only the one it reports:
+
+```json
+{"id": "t12", "label": {"target": {"present": true, "box": {"top": 0.25, "bottom": 0.75, "left": 0.125, "right": 0.625}}, "rubric": 3}}
+```
+
+Store the gold box once, for the whole image, as a full-image Box label. A recipe that tiles
+the image does not store a tile choice beside it: a stored tile name can disagree with the box
+(for an absent target there is no right tile at all, only "no match"), and with overlapping
+tiles a target near a seam lies in more than one tile, so one string cannot hold the gold.
+Python derives which tiles count as correct from the box and the tile bounds, and the
+headline report stays per image ([vision](vision.md#tiled-and-hierarchical-recipes)).
+
 ## Nesting limit
 
 No JSON value in a fixture file nests deeper than **64 levels**, counting the line (or, in a
@@ -370,7 +410,7 @@ content. The validator compares image bytes across splits through the manifest's
 tests must still check lineage where the same picture could be saved with different bytes.
 
 The input row schema is unchanged; do not add a top-level `assets` field. Labels can contain
-normalized gold boxes or an explicit absent-target label. A response's `BoxAnswer.to_dict()`
+the gold Box label above (a normalized box, or the explicit `{"present": false}`). A response's `BoxAnswer.to_dict()`
 stores `type`, the four-edge `box`, nullable `confidence`, and the ordinary provenance.
 `DecisionResult` and the fixture validator reject malformed geometry and confidence.
 Missing confidence means unknown, never certainty. A Box is still returned for an absent
