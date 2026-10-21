@@ -178,6 +178,46 @@ def test_a_recipe_without_assets_needs_no_manifest(tmp_path):
     assert problems(recipe) == []
 
 
+def _drop_images(recipe: Path) -> None:
+    for path in list((recipe / "assets").iterdir()):
+        path.unlink()
+    (recipe / "assets").rmdir()
+    (recipe / ASSETS_MANIFEST_FILE).unlink()
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "IMG_2041.JPG",
+        "receipt.png",
+        "https://tracker.example/att/12.png",
+        "uploads/2041.jpeg",
+        "C:\\Users\\x\\a.png",
+        "../a.png",
+    ],
+)
+def test_a_text_only_recipe_may_hold_file_names_and_links_in_fields(tmp_path, text):
+    recipe = build(tmp_path)
+    _drop_images(recipe)
+    edit_inputs(recipe, text_only)
+    edit_inputs(recipe, lambda rows: rows[0]["fields"].update(uploaded_as=text))
+    assert problems(recipe) == []
+
+
+def test_a_text_only_recipe_naming_an_assets_path_still_fails(tmp_path):
+    recipe = build(tmp_path)
+    _drop_images(recipe)
+    edit_inputs(recipe, text_only)
+    edit_inputs(recipe, lambda rows: rows[0]["fields"].update(image="assets/ghost.png"))
+    expect(recipe, "unlisted-asset", "assets/ghost.png", "e0")
+
+
+def test_an_image_recipe_may_hold_a_bare_file_name_in_fields(tmp_path):
+    recipe = build(tmp_path)
+    edit_inputs(recipe, lambda rows: rows[0]["fields"].update(uploaded_as="IMG_2041.JPG"))
+    assert problems(recipe) == []
+
+
 def test_an_empty_assets_folder_needs_no_manifest(tmp_path):
     recipe = build(tmp_path)
     for path in list((recipe / "assets").iterdir()):
@@ -232,6 +272,26 @@ def test_manifest_missing(tmp_path):
     (recipe / ASSETS_MANIFEST_FILE).unlink()
     found = expect(recipe, "manifest-missing", ASSETS_MANIFEST_FILE)
     assert not any("[unlisted-asset]" in m and "fields" not in m for m in found)
+
+
+def test_an_unreadable_manifest_is_one_line_not_one_per_reference(tmp_path):
+    recipe = build(tmp_path)
+    (recipe / ASSETS_MANIFEST_FILE).unlink()
+    assert len(problems(recipe)) == 1
+    write_manifest(recipe, '{"schema": 1, "assets": [],}')
+    found = expect(recipe, "manifest-invalid")
+    assert len(found) == 1, found
+
+
+def test_a_path_repeated_in_one_example_is_reported_once(tmp_path):
+    recipe = build(tmp_path)
+
+    def change(rows):
+        rows[0]["fields"].update(image="assets/ghost.png", also="assets/ghost.png")
+
+    edit_inputs(recipe, change)
+    ghosts = [m for m in problems(recipe) if "assets/ghost.png" in m]
+    assert len(ghosts) == 1, ghosts
 
 
 def test_image_missing_from_manifest(tmp_path):
@@ -659,19 +719,49 @@ def test_fields_path_that_escapes_or_is_not_local(tmp_path, bad):
     assert any(("[asset-path]" in m or "[unlisted-asset]" in m) and "e0" in m for m in found), found
 
 
-@pytest.mark.parametrize(
-    "bad", ["../secret.png", "assets/../../secret.png", "/etc/shadow.png", "C:/Windows/x.png"]
-)
+NOT_A_CLEAN_ASSET_PATH = [
+    "../secret.png",
+    "assets/../../secret.png",
+    "/etc/shadow.png",
+    "C:/Windows/x.png",
+    "C:\\x\\y.png",
+    "\\\\server\\share\\x.png",
+    "./assets/scene-0.png",
+    "fixtures/scene-0.png",
+    "assets\\scene-0.png",
+    "ASSETS/scene-0.png",
+    "assets/Scene-0.PNG",
+    "https://example.com/a.png",
+    "file:///etc/x.png",
+    "assets/noext",
+    "assets/a\x00.png",
+]
+
+
+@pytest.mark.parametrize("bad", NOT_A_CLEAN_ASSET_PATH)
 def test_fields_path_traversal_is_an_asset_path_problem(tmp_path, bad):
     recipe = build(tmp_path)
     edit_inputs(recipe, lambda rows: rows[0]["fields"].update(image=bad))
-    expect(recipe, "asset-path", bad, "e0")
+    found = expect(recipe, "asset-path", repr(bad), "e0")
+    assert not [m for m in found if "[unlisted-asset]" in m and repr(bad) in m]
+
+
+@pytest.mark.parametrize("bad", NOT_A_CLEAN_ASSET_PATH)
+def test_the_rule_does_not_depend_on_what_the_operating_system_makes_of_the_path(
+    tmp_path, bad, monkeypatch
+):
+    """``resolve_asset_path`` accepts ``C:/x.png`` on POSIX and refuses it on Windows. The
+    finding must be the same either way, so make it accept everything and look again."""
+    recipe = build(tmp_path)
+    edit_inputs(recipe, lambda rows: rows[0]["fields"].update(image=bad))
+    monkeypatch.setattr("jev_cookbook.vision.resolve_asset_path", lambda path, *, root: recipe)
+    expect(recipe, "asset-path", repr(bad), "e0")
 
 
 def test_fields_path_must_be_written_exactly_as_listed(tmp_path):
     recipe = build(tmp_path)
     edit_inputs(recipe, lambda rows: rows[0]["fields"].update(image="assets/../assets/scene-0.png"))
-    expect(recipe, "unlisted-asset", "exactly as listed")
+    expect(recipe, "asset-path", "assets/../assets/scene-0.png", "exactly as listed", "e0")
 
 
 def test_prose_that_mentions_an_image_is_not_a_path(tmp_path):
@@ -783,13 +873,20 @@ def test_a_leak_is_not_judged_on_a_file_whose_hash_is_wrong(tmp_path):
 def test_looks_like_image_path():
     for yes in [
         "assets/a.png",
-        "x.JPG",
         "../a.jpeg",
         "C:\\x\\a.png",
+        "C:/x/a.png",
         "https://h/a.png",
         "assets/noext",
+        "assets\\a.PNG",
+        "ASSETS/a.png",
     ]:
         assert looks_like_image_path(yes), yes
+    for bare in ["x.JPG", "IMG_2041.jpeg", "a.png"]:
+        assert not looks_like_image_path(bare), bare
+    for only_with_images in ["../a.jpeg", "https://h/a.png", "C:\\x\\a.png"]:
+        assert not looks_like_image_path(only_with_images, has_images=False), only_with_images
+    assert looks_like_image_path("assets/a.png", has_images=False)
     for no in [
         "",
         "a picture.png",
@@ -804,7 +901,8 @@ def test_looks_like_image_path():
 
 def test_image_path_strings_walks_values_not_keys():
     fields = {"a.png": "text", "b": ["assets/x.png", {"c": "y.jpg", "d": 3}], "e": None}
-    assert image_path_strings(fields) == ["assets/x.png", "y.jpg"]
+    assert image_path_strings(fields) == ["assets/x.png"]
+    assert image_path_strings({"b": ["sub/y.jpg", "z.jpg"]}) == ["sub/y.jpg"]
 
 
 def test_image_path_strings_survives_deep_nesting():
@@ -855,17 +953,13 @@ def test_the_docs_helper_builds_entries_the_validator_accepts(tmp_path):
     scope: dict = {}
     exec(code.group(1), scope)  # noqa: S102 - our own documentation snippet
     recipe = build(tmp_path)
-    old = Path.cwd()
-    os.chdir(recipe)
-    try:
-        items = [
-            scope["manifest_entry"](
-                f"assets/scene-{i}.png", "build_fixtures.py:draw_scene", {"seed": i}, "a scene"
-            )
-            for i in range(4)
-        ]
-    finally:
-        os.chdir(old)
+    assert Path.cwd() != recipe  # the helper must not depend on the current directory
+    items = [
+        scope["manifest_entry"](
+            recipe, f"assets/scene-{i}.png", "build_fixtures.py:draw_scene", {"seed": i}, "a scene"
+        )
+        for i in range(4)
+    ]
     write_manifest(recipe, {"schema": 1, "assets": items})
     assert problems(recipe) == []
 

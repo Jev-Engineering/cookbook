@@ -446,7 +446,7 @@ Each failure is one line, `path: [rule] message`, naming the image (or the manif
 | `manifest-missing` | The recipe has files under `assets/` and no `assets-manifest.json`. |
 | `manifest-invalid` | The manifest is not UTF-8 JSON (duplicate keys and `NaN` are refused) or not an object. |
 | `manifest-field` | A field is missing, unknown, or of the wrong type or value (including `origin` other than `generated`, a bad `sha256`, `format`, `width`, `height`, `generator`, `parameters`, an empty `description`). |
-| `asset-path` | A listed `path` is not a clean `assets/...` path (absolute, `..`, a backslash, a URL, a hidden or doubled segment, wrong suffix or case), or its file resolves outside `assets/` (a symbolic link); or a `fields` image path escapes the recipe through `resolve_asset_path(path, root=recipe)`. |
+| `asset-path` | A listed `path` is not a clean `assets/...` path (absolute, `..`, a backslash, a URL, a hidden or doubled segment, wrong suffix or case), or its file resolves outside `assets/` (a symbolic link); or a `fields` image path is not written `assets/<name>.png` with forward slashes (a drive letter, a backslash, `./`, `..`, a URL), or escapes the recipe through `resolve_asset_path(path, root=recipe)`. |
 | `licence` | `licence` is missing or not `MIT` or `CC0-1.0`. |
 | `attestation` | An attestation is missing, unknown, not a boolean, `synthetic` is not true, or any other is not false. |
 | `duplicate-entry` | One path is listed twice. |
@@ -457,9 +457,16 @@ Each failure is one line, `path: [rule] message`, naming the image (or the manif
 | `split-leak` | Examples in different scored splits (`train`, `validation`, `test`) name images with the same bytes, under one path or two. |
 
 A **`fields` image path** is any string value in `fields`, at any depth and under any key, that
-has no whitespace and starts with `assets/` or ends in `.png`, `.jpg` or `.jpeg` (any case). Every
-one must equal a manifest `path` exactly; a prose sentence that mentions `chart.png` has spaces and
-is not a path. `demo` examples are exempt from the leak rule, as they are from the label rule. An
+has no whitespace and starts with `assets/`. In a recipe that has images (an `assets/` folder or a
+manifest) a string that ends in `.png`, `.jpg` or `.jpeg` (any case) and contains a `/` or a
+backslash is one too, so a typo such as `../x.png`, `fixtures/x.png`, `./assets/x.png`,
+`assets\x.png` or `C:/x.png` is reported rather than ignored. Every such string must be written
+`assets/<name>.png` (or `.jpg`, `.jpeg`) with forward slashes and equal a manifest `path` exactly,
+whichever operating system runs the validator; anything else is an `asset-path` failure. A bare
+file name (`IMG_2041.JPG`), a URL in a recipe without images, and a prose sentence that mentions
+`chart.png` are not paths, so a text-only recipe is unaffected. `state` examples are not scanned,
+so an image recipe puts its image paths in `fields`, or the reference and leak checks never see
+them. `demo` examples are exempt from the leak rule, as they are from the label rule. An
 image used only in a question's criteria is named by no `fields` value, so the leak rule cannot
 see it; it still needs an entry, like every file under `assets/`. For a reference image that several splits deliberately share through `fields`, set
 `"shared_across_splits": true` on every entry that carries those bytes.
@@ -478,10 +485,11 @@ from pathlib import Path
 from PIL import Image
 
 
-def manifest_entry(path, generator, parameters, description, licence="CC0-1.0"):
-    """`path` is "assets/x.png" under the recipe folder, which is the current directory."""
-    data = Path(path).read_bytes()
-    with Image.open(path) as image:
+def manifest_entry(recipe_dir, path, generator, parameters, description, licence="CC0-1.0"):
+    """`path` is "assets/x.png" under `recipe_dir`; the current directory does not matter."""
+    file = Path(recipe_dir) / path
+    data = file.read_bytes()
+    with Image.open(file) as image:
         fmt, (width, height) = image.format, image.size
     return {
         "path": path,
@@ -504,8 +512,9 @@ def manifest_entry(path, generator, parameters, description, licence="CC0-1.0"):
     }
 ```
 
-Write `{"schema": 1, "assets": [...]}` with `json.dumps(..., indent=2)` at the end of
-`build_fixtures.py`, so the manifest is regenerated with the images and the hashes cannot drift.
+At the end of `build_fixtures.py`, write `{"schema": 1, "assets": [...]}` with
+`json.dumps(..., indent=2)`, entries sorted by `path` so a regenerated manifest diffs cleanly. The
+manifest is then regenerated with the images and the hashes cannot drift.
 
 ### Generators
 

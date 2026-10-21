@@ -93,26 +93,32 @@ def inspect_image(data: bytes) -> tuple[str, int, int] | None:
     return None
 
 
-def looks_like_image_path(value: str) -> bool:
+def looks_like_image_path(value: str, *, has_images: bool = True) -> bool:
     """Is a ``fields`` string meant as an image path?
 
-    The convention: a string with no whitespace that starts with ``assets/`` or ends in
-    ``.png``, ``.jpg`` or ``.jpeg`` (any case). Keys do not matter, nesting does not matter.
-    Prose that merely mentions a file ("see chart.png") has whitespace and is not a path.
+    The convention: a string with no whitespace that starts with ``assets/``; and, in a recipe
+    that has images (``has_images``), also one that ends in ``.png``, ``.jpg`` or ``.jpeg`` (any
+    case) and contains a ``/`` or a backslash, which catches ``../x.png``, ``C:/x.png`` and
+    ``assets\\x.png`` written as a typo for ``assets/x.png``. A bare file name ("IMG_2041.JPG")
+    or a prose mention ("see chart.png") is not a path, and a recipe without images never has
+    suffix-only strings treated as paths. Keys and nesting do not matter. The answer does not
+    depend on the operating system.
     """
     if not value or any(c.isspace() for c in value):
         return False
-    return value.startswith(f"{ASSETS_DIR}/") or value.lower().endswith(IMAGE_SUFFIXES)
+    if value.startswith(f"{ASSETS_DIR}/"):
+        return True
+    return has_images and value.lower().endswith(IMAGE_SUFFIXES) and ("/" in value or "\\" in value)
 
 
-def image_path_strings(fields: Any) -> list[str]:
+def image_path_strings(fields: Any, *, has_images: bool = True) -> list[str]:
     """Every string value in ``fields`` (at any depth) that ``looks_like_image_path``, in order."""
     found: list[str] = []
     pending = [fields]
     while pending:
         item = pending.pop()
         if isinstance(item, str):
-            if looks_like_image_path(item):
+            if looks_like_image_path(item, has_images=has_images):
                 found.append(item)
         elif isinstance(item, dict):
             pending.extend(reversed(list(item.values())))
@@ -283,23 +289,44 @@ def check_assets(
                 out.append((file, msg, None))
 
     # fields: every image path names a manifest entry; no image crosses splits.
+    # A path is judged by its text alone (_ASSET_PATH), never by what this operating system makes
+    # of it, so "C:/x.png" is the same finding on Windows and on Linux. When the manifest could not
+    # be read, that is already reported once, and a line per reference would only bury it.
     users: dict[str, dict[str, list[tuple[str, str]]]] = defaultdict(lambda: defaultdict(list))
+    has_images = bool(actual) or manifest_path.is_file()
+    manifest_reported = manifest is None and bool(out)
+    reported: set[tuple[str | None, str]] = set()
     for example in examples:
         if example.fields is None:
             continue
-        for value in image_path_strings(example.fields):
+        for value in image_path_strings(example.fields, has_images=has_images):
+            if (example.id, value) in reported:
+                continue
+            reported.add((example.id, value))
+            inputs_file = shown("fixtures/inputs.jsonl")
+            if not _ASSET_PATH.fullmatch(value):
+                msg = (
+                    f"[asset-path] fields image path {value!r} must be written as "
+                    f"{ASSETS_DIR}/<name>.png (or .jpg, .jpeg) with forward slashes, exactly as "
+                    f"listed in {ASSETS_MANIFEST_FILE}"
+                )
+                out.append((inputs_file, msg, example.id))
+                continue
             try:
                 resolve_asset_path(value, root=recipe)
-            except AssetPathError as exc:
-                msg = f"[asset-path] fields image path {value!r}: {exc}"
-                out.append((shown("fixtures/inputs.jsonl"), msg, example.id))
+            except (AssetPathError, OSError, ValueError) as exc:
+                out.append(
+                    (inputs_file, f"[asset-path] fields image path {value!r}: {exc}", example.id)
+                )
                 continue
             if value not in named:
+                if manifest_reported:
+                    continue
                 msg = (
                     f"[unlisted-asset] fields image path {value!r} has no entry in "
                     f"{ASSETS_MANIFEST_FILE}; write the path exactly as listed"
                 )
-                out.append((shown("fixtures/inputs.jsonl"), msg, example.id))
+                out.append((inputs_file, msg, example.id))
             elif value in hashes and example.split in leak_splits:
                 users[hashes[value]][example.split].append((example.id, value))
     for digest, by_split in sorted(users.items()):
