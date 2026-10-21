@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import io
 import json
 import math
 import random
@@ -22,7 +23,7 @@ FULL = {"top": 0.0, "bottom": 1.0, "left": 0.0, "right": 1.0}
 BOX = {"top": 0.25, "bottom": 0.75, "left": 0.125, "right": 0.625}
 
 
-def save_image(tmp_path, *, size=(320, 256), fmt="PNG", name="image", color="white", **kwargs):
+def save_image(tmp_path, *, size=(320, 280), fmt="PNG", name="image", color="white", **kwargs):
     path = tmp_path / name
     Image.new("RGB", size, color).save(path, format=fmt, **kwargs)
     return path
@@ -54,15 +55,69 @@ def test_image_asset_uses_actual_format_and_preserves_encoded_bytes(tmp_path, fm
     assert vision.validate_image_asset(result) == path.read_bytes()
 
 
-@pytest.mark.parametrize("size", [(280, 280), (256, 307), (1568, 1568)])
+@pytest.mark.parametrize("size", [(280, 280), (280, 1568), (1568, 280), (1568, 1568), (320, 280)])
 def test_image_asset_accepts_boundary_dimensions(tmp_path, size):
     assert vision.image_asset(save_image(tmp_path, size=size))["type"] == "image"
 
 
-@pytest.mark.parametrize("size", [(255, 400), (400, 255), (256, 306), (1569, 256), (256, 1569)])
+@pytest.mark.parametrize(
+    "size",
+    [
+        (279, 400),  # width one under the 280 minimum
+        (400, 279),  # height one under the 280 minimum
+        (279, 279),
+        (256, 307),  # accepted before the minimum was corrected from 256 to 280
+        (255, 400),
+        (400, 255),
+        (1569, 280),
+        (280, 1569),
+    ],
+)
 def test_image_asset_rejects_invalid_dimensions(tmp_path, size):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="width and height must each be 280 to 1568"):
         vision.image_asset(save_image(tmp_path, size=size))
+
+
+@pytest.mark.parametrize("size", [(279, 400), (400, 279)])
+def test_validate_image_asset_rejects_a_279_pixel_side_on_either_axis(tmp_path, size):
+    buffer = io.BytesIO()
+    Image.new("RGB", size, "white").save(buffer, format="PNG")
+    encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+    with pytest.raises(ValueError, match="280 to 1568"):
+        vision.validate_image_asset({"type": "image", "format": "png", "data_base64": encoded})
+    # 280 on the same axis is accepted.
+    good = (280, size[1] + 1) if size[0] == 279 else (size[0] + 1, 280)
+    buffer = io.BytesIO()
+    Image.new("RGB", good, "white").save(buffer, format="PNG")
+    encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+    asset = {"type": "image", "format": "png", "data_base64": encoded}
+    assert vision.validate_image_asset(asset) == buffer.getvalue()
+
+
+# The upstream numbers, copied by hand from the "Limits" table at
+# https://docs.typesafe.ai/images (fetched 2026-10-20). If the page changes, update this
+# table, vision.IMAGE_LIMITS and docs/vision.md together.
+UPSTREAM_LIMITS = {
+    "min_side": 280,
+    "max_side": 1568,
+    "min_area": 78_400,
+    "max_area": 2_458_624,
+    "max_bytes": 16 * 1024 * 1024,
+}
+
+
+def test_image_limits_match_the_upstream_table_and_the_docs():
+    assert vision.IMAGE_LIMITS == UPSTREAM_LIMITS
+    assert UPSTREAM_LIMITS["min_area"] == UPSTREAM_LIMITS["min_side"] ** 2
+    assert UPSTREAM_LIMITS["max_area"] == UPSTREAM_LIMITS["max_side"] ** 2
+    docs = (Path(__file__).resolve().parents[1] / "docs" / "vision.md").read_text("utf-8")
+    flat = " ".join(docs.split())
+    sides = f"{UPSTREAM_LIMITS['min_side']}–{UPSTREAM_LIMITS['max_side']}"
+    areas = f"{UPSTREAM_LIMITS['min_area']:,}–{UPSTREAM_LIMITS['max_area']:,}"
+    assert f"dimension {sides} and total area {areas} pixels" in flat
+    assert "at most 16 MiB" in flat
+    assert "256–1568" not in flat
+    assert "280 to 1568" in " ".join((vision.validate_image_asset.__doc__ or "").split())
 
 
 def test_image_asset_missing_file_and_url(tmp_path):
@@ -90,10 +145,10 @@ def test_image_asset_rejects_corruption_and_oversized_file(tmp_path, image_path)
 
 def test_image_asset_rejects_animated_png(tmp_path):
     path = tmp_path / "animated.png"
-    Image.new("RGB", (320, 256), "white").save(
+    Image.new("RGB", (320, 280), "white").save(
         path,
         save_all=True,
-        append_images=[Image.new("RGB", (320, 256), "black")],
+        append_images=[Image.new("RGB", (320, 280), "black")],
         duration=100,
         loop=0,
     )
@@ -750,3 +805,67 @@ def test_run_record_rejects_invalid_explicit_measurements(value, field):
 def test_run_record_rejects_unknown_mode():
     with pytest.raises(ValueError):
         vision.run_record(SimpleNamespace(), mode="unknown")
+
+
+TINY = {"top": 0.0, "bottom": 1e-200, "left": 0.0, "right": 1e-200}
+
+
+@pytest.mark.parametrize("other", [TINY, {**TINY, "right": 2e-200}])
+def test_box_iou_raises_a_value_error_when_both_areas_underflow(other):
+    # Valid boxes (positive width and height) whose areas are 0.0 in floating point.
+    assert vision.normalized_box(TINY) == TINY
+    assert (TINY["right"] - TINY["left"]) * (TINY["bottom"] - TINY["top"]) == 0.0
+    with pytest.raises(ValueError, match="union underflows"):
+        vision.box_iou(TINY, other)
+
+
+def test_localization_metrics_propagates_the_underflow_as_a_value_error():
+    with pytest.raises(ValueError, match="union underflows"):
+        vision.localization_metrics([TINY], [TINY])
+
+
+def test_box_iou_with_one_underflowing_box_is_still_defined():
+    assert vision.box_iou(TINY, BOX) == 0.0
+    assert vision.box_iou(BOX, TINY) == 0.0
+
+
+def test_generate_tiles_refuses_a_configuration_above_the_tile_cap_before_cropping(monkeypatch):
+    image = Image.new("RGB", (1568, 1568))
+    # The reviewed case that exhausted memory: overlap 511 on a 512 tile is ~1.1 million tiles.
+    monkeypatch.setattr(
+        Image.Image, "crop", lambda *a, **k: pytest.fail("cropped before checking the tile cap")
+    )
+    with pytest.raises(ValueError, match="would make 1,[0-9,]+ tiles, above max_tiles=256"):
+        vision.generate_tiles(image, tile_size=(512, 512), overlap=511)
+    with pytest.raises(ValueError, match="above max_tiles=4"):
+        vision.generate_tiles(image, tile_size=(512, 512), max_tiles=4)
+
+
+def test_generate_tiles_cap_is_inclusive_and_can_be_raised():
+    image = Image.new("RGB", (12, 8))
+    count = len(vision.generate_tiles(image, tile_size=(4, 4)))
+    assert count == 6 and vision.DEFAULT_MAX_TILES >= count
+    assert len(vision.generate_tiles(image, tile_size=(4, 4), max_tiles=6)) == 6
+    with pytest.raises(ValueError, match="above max_tiles=5"):
+        vision.generate_tiles(image, tile_size=(4, 4), max_tiles=5)
+    # A deliberate larger cap permits a heavily overlapping grid that the default refuses.
+    crowded = Image.new("RGB", (60, 60))
+    with pytest.raises(ValueError, match="max_tiles=256"):
+        vision.generate_tiles(crowded, tile_size=(4, 4), overlap=3)
+    tiles = vision.generate_tiles(crowded, tile_size=(4, 4), overlap=3, max_tiles=10_000)
+    assert len(tiles) == 57 * 57
+
+
+@pytest.mark.parametrize("max_tiles", [0, -1, True, 2.5, "9"])
+def test_generate_tiles_rejects_invalid_max_tiles(max_tiles):
+    with pytest.raises(ValueError, match="max_tiles"):
+        vision.generate_tiles(Image.new("RGB", (10, 7)), tile_size=(4, 3), max_tiles=max_tiles)
+
+
+def test_box_confidence_docstring_matches_its_behaviour():
+    doc = vision.box_confidence.__doc__ or ""
+    assert "never zero or one" not in doc
+    assert "0.0" in doc and "1.0" in doc
+    assert vision.box_confidence({"confidence": 0.0}) == 0.0
+    assert vision.box_confidence({"confidence": 1.0}) == 1.0
+    assert vision.box_confidence({}) is None

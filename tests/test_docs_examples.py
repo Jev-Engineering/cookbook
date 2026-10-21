@@ -17,8 +17,10 @@ genuine mistake (a typo, a removed ``strict=True``, a renamed function, a droppe
 argument) still fails, while an intentional, documented placeholder does not. This is the
 "explicit allowlist" the issue offers as one option for the marker convention: ``PREAMBLE``
 names, for every block, exactly what it is assumed to already have in scope. Every block costs
-at most a few hundred milliseconds to run (measured below each test, in a `SIGALRM` timeout well
-above the worst observed case), so none is skipped for being "not self-contained" -- only block 5
+at most a few hundred milliseconds to run (measured below each test, under a 10 s limit well
+above the worst observed case: ``SIGALRM`` on POSIX; on Windows a timer thread raises
+``SIGBREAK``, which cannot interrupt a blocking call such as ``time.sleep``, only pure-Python
+code), so none is skipped for being "not self-contained" -- only block 5
 is a genuine fragment (a formula shown mid-explanation, not a program with an observable result),
 and it is linted and executed the same as the rest; there is simply nothing further to assert
 about it.
@@ -63,11 +65,14 @@ If either ``I001`` or ``B015`` is ever fixed, the matching entry in ``ALLOWED_FI
 matching anything, and ``test_known_findings_still_present`` fails -- the signal to remove it.
 """
 
+import _thread
+import contextlib
 import json
 import re
 import signal
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 import pytest
@@ -232,26 +237,92 @@ def _alarm(_signum, _frame):
     raise _Timeout("docs/evaluation.md example exceeded its timeout")
 
 
+@contextlib.contextmanager
+def _time_limit(seconds):
+    """Raise ``_Timeout`` if the body runs longer than ``seconds``.
+
+    POSIX uses ``SIGALRM`` (``seconds`` must be an int there). Windows has no ``SIGALRM``, so a
+    timer thread raises Ctrl-Break (``signal.SIGBREAK``) in the main thread through a handler
+    only this helper installs: a real Ctrl-C (``SIGINT``) is never touched or reinterpreted. An
+    ``armed`` flag is cleared in ``finally`` before the timer is cancelled and joined and the old
+    handler restored, so a trip that lands late is a no-op. Limit on Windows: the handler runs
+    between Python bytecodes, so a blocking call in the body (``time.sleep(3)``, I/O) is not
+    interrupted; ``_Timeout`` arrives only once it returns. Fine for these pure-Python blocks."""
+    if _HAS_SIGALRM:
+        previous = signal.signal(signal.SIGALRM, _alarm)
+        signal.alarm(seconds)
+        try:
+            yield
+        finally:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, previous)
+        return
+    armed = True
+
+    def on_timer(_signum, _frame):
+        if armed:
+            raise _Timeout("docs/evaluation.md example exceeded its timeout")
+
+    previous = signal.signal(signal.SIGBREAK, on_timer)
+    timer = threading.Timer(seconds, _thread.interrupt_main, args=(signal.SIGBREAK,))
+    timer.start()
+    try:
+        try:
+            yield
+        finally:
+            armed = False
+            timer.cancel()
+            timer.join()
+    finally:
+        signal.signal(signal.SIGBREAK, previous)
+
+
 @pytest.mark.skipif(
-    not _HAS_SIGALRM,
-    reason="signal.SIGALRM is POSIX-only; docs/development.md also documents Windows local dev",
+    _HAS_SIGALRM, reason="exercises the Windows-only SIGBREAK timer path; POSIX uses SIGALRM"
 )
+def test_windows_time_limit_always_raises_timeout_for_a_busy_loop():
+    """The shape of the race fixed in #325 review round 1: a short limit on a pure-Python busy
+    loop used to escape as a bare ``KeyboardInterrupt`` in ~1-2% of runs, which aborts pytest."""
+    for _ in range(100):
+        try:
+            with pytest.raises(_Timeout):
+                with _time_limit(0.01):
+                    while True:
+                        pass
+        except KeyboardInterrupt:
+            pytest.fail("a timeout escaped _time_limit as a bare KeyboardInterrupt")
+
+
+@pytest.mark.skipif(_HAS_SIGALRM, reason="exercises the Windows-only SIGBREAK timer path")
+def test_windows_time_limit_leaves_a_real_ctrl_c_alone():
+    with pytest.raises(KeyboardInterrupt):
+        with _time_limit(10):
+            _thread.interrupt_main()  # SIGINT, as a real Ctrl-C delivers it
+            for _ in range(10**6):
+                pass
+
+
+@pytest.mark.skipif(_HAS_SIGALRM, reason="exercises the Windows-only SIGBREAK timer path")
+def test_windows_time_limit_ignores_a_trip_after_the_block():
+    with _time_limit(10):
+        pass
+    _thread.interrupt_main(signal.SIGBREAK)  # a timer that fired just as the block ended
+    for _ in range(10**6):
+        pass  # must not raise
+
+
 @pytest.mark.parametrize("index", sorted(EXECUTED))
 def test_block_executes(index):
-    previous = signal.signal(signal.SIGALRM, _alarm)
-    signal.alarm(10)
     try:
-        namespace: dict = {}
-        exec(compile(_source(index), f"docs/evaluation.md:block{index}", "exec"), namespace)
+        with _time_limit(10):
+            namespace: dict = {}
+            exec(compile(_source(index), f"docs/evaluation.md:block{index}", "exec"), namespace)
     finally:
-        signal.alarm(0)
-        signal.signal(signal.SIGALRM, previous)
         import matplotlib.pyplot as plt
 
         plt.close("all")  # block 6 calls plot_risk_coverage, which opens a Figure
 
 
-@pytest.mark.skipif(not _HAS_SIGALRM, reason="see test_block_executes")
 def test_block_four_equivalence_holds():
     """Block 4 ("Note the argument order") claims, in a comment the bare tuple comparison backs
     with no `assert`, that `evaluate_outcomes` and `evaluate_selective` agree on every field but
@@ -259,14 +330,9 @@ def test_block_four_equivalence_holds():
     itself (that is a content change), so this test checks the same claim here instead, against
     the real objects the block computed. Catches exactly what a bare comparison cannot: swapping
     `evaluate_selective`'s argument order silently computes something else, with no exception."""
-    previous = signal.signal(signal.SIGALRM, _alarm)
-    signal.alarm(10)
-    try:
+    with _time_limit(10):
         namespace: dict = {}
         exec(compile(_source(4), "docs/evaluation.md:block4", "exec"), namespace)
-    finally:
-        signal.alarm(0)
-        signal.signal(signal.SIGALRM, previous)
     a, b = namespace["a"], namespace["b"]
     assert (a.n_total, a.n_answered, a.coverage, a.accuracy, a.risk) == (
         b.n_total,

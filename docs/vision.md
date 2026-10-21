@@ -40,8 +40,12 @@ contained real path for code that opens files itself.
 decoded, still-encoded PNG/JPEG file bytes. Neither function changes those bytes.
 
 The accepted local files are PNG or JPEG stills, at most 16 MiB, with each
-dimension 256–1568 and total area 78,400–2,458,624 pixels. A 384 × 320 fixture fits;
-a 256 × 256 fixture does not. The loader rejects orientation metadata requiring a
+dimension 280–1568 and total area 78,400–2,458,624 pixels (all ranges include both ends;
+the same numbers are `vision.IMAGE_LIMITS`). A 384 × 320 or a 280 × 280 fixture fits; a
+256 × 256 or a 279 × 400 fixture does not, and neither does 400 × 279: the API rejects an
+image with either side under 280 pixels, never resizing it, and rejects it only after the request
+is sent, so the loader refuses it first. Scale up or pad a smaller image before saving it.
+The loader rejects orientation metadata requiring a
 rotation: prepare upright pixels explicitly with Pillow's `ImageOps.exif_transpose`
 before saving. Limits follow the experimental [Images documentation](https://docs.typesafe.ai/images).
 
@@ -115,7 +119,11 @@ backgrounds and ink text from the cookbook palette.
 
 `box_iou(first, second)` computes intersection divided by union, using continuous
 normalized geometry before pixel rounding. It returns zero for disjoint or merely
-touching rectangles and one for identical rectangles.
+touching rectangles and one for identical rectangles. A valid but vanishingly small box
+(for example 1e-200 wide) has an area that underflows to zero; when both do, the union is
+zero and `box_iou` (and `localization_metrics`) raise `ValueError` rather than invent a score.
+Because the union is at least as large as each area, this happens only when both boxes
+underflow, so in `localization_metrics` it means a degenerate gold label: fix the fixture.
 
 ## Presence, confidence and evaluation
 
@@ -123,7 +131,8 @@ A Box returns one rectangle even when its target is absent. Determine presence
 with a companion question before treating a rectangle as a detection.
 [Box documentation](https://docs.typesafe.ai/primitives/box)
 
-`box_confidence(answer)` returns the supplied confidence or `None` if missing/null;
+`box_confidence(answer)` returns the supplied confidence, including a reported `0.0`
+or `1.0`, or `None` if missing/null (absence is never turned into a number);
 invalid confidence values raise. A missing value cannot pass a confidence gate:
 
 ```python
@@ -183,7 +192,13 @@ with Image.open("assets/screenshot.png") as image:
 `.bounds` in the original image, in row-major order. `overlap` is an integer number
 of pixels smaller than both tile dimensions. The last row/column anchors to the
 bottom/right edge, which can increase overlap; there are no uncovered gaps or
-partial sliver tiles. A source smaller than a requested tile keeps its full extent.
+partial sliver tiles. A source smaller than a requested tile keeps its full extent, so a
+tile (or a source) under 280 pixels on a side must be scaled up or padded before
+`image_asset` accepts it. The tile count is computed before any tile is cropped and
+`max_tiles` (default 256) bounds it: the count grows with the inverse square of the
+stride (tile size minus overlap), so an overlap near the tile size makes it explode, and a
+configuration above the cap raises `ValueError`. Each tile is usually one API call, so
+`max_tiles` also caps cost, not only memory. Pass a larger `max_tiles=` only deliberately.
 
 `tile_to_image` applies an affine transform using the actual pixel bounds, so a
 rectangle found inside a tile maps back to the whole image. It also handles an

@@ -31,3 +31,7 @@ jobs:
       # Standard library only, so nothing is installed.
       - name: check_hygiene (every tracked file)
         run: python tools/check_hygiene.py
+      # The image-file contract (#307): where recipe images live, their format, size and
+      # metadata. Also standard library only. See docs/fixtures.md, "Image fixtures".
+      - name: check_recipe_assets (every tracked file under recipes/)
+        run: python tools/check_recipe_assets.py
