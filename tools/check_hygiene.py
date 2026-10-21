@@ -35,8 +35,9 @@ hex-format key is caught only by the header, bearer and assignment rules. ANSI c
 are stripped before scanning. UTF-8 and UTF-16/32 text is decoded; a notebook of any size is
 parsed, nbformat 3 and 4 are understood, and anything else that cannot be scanned (unknown
 notebook layout, undecodable or oversized non-image file) is reported as a finding rather than
-skipped. Zip, npz, gz and npy files are opened and their contents scanned (nesting up to 3 deep). Known image, font and PDF suffixes are skipped quietly. Findings never print the
-matched value in full.
+skipped. Zip, npz, gz and npy files are opened and their contents scanned (nesting up to 3 deep). Known image, font and PDF suffixes are skipped quietly here; the image
+files of a recipe are checked (location, format, size, metadata chunks) by
+tools/check_recipe_assets.py. Findings never print the matched value in full.
 """
 
 from __future__ import annotations

@@ -15,6 +15,7 @@ recipes/NN-slug/
 ├── notebook.ipynb     the recipe, executed, outputs committed
 ├── README.md          one page: what it teaches, how to run it, what was and was not measured
 ├── fixtures/          inputs, labels, and model responses used by the offline run
+├── assets/            multimodal only: the images sent to Jev (PNG or baseline JPEG, at most 1 MiB each, no metadata); see docs/fixtures.md
 ├── helpers.py         optional: logic too long to read comfortably in a cell (level 3 and up)
 ├── side_effects.json  required where the recipe has a simulated side effect (section 4)
 └── tests/             optional: tests for helpers.py, required wherever helpers.py enforces a rule

@@ -74,7 +74,7 @@ Both are described below and in [notebook-ci.md](notebook-ci.md).
 | `Catalog (README is current)` | `python tools/render_catalog.py --check` |
 | `Tests (py3.10)` | `pytest` on the package floor |
 | `Tests (py3.14)` | `pytest` on the newest interpreter contributors use |
-| `Hygiene (secrets and notebook outputs)` | `python tools/check_hygiene.py` (workflow `Hygiene`, `.github/workflows/hygiene.yml`) |
+| `Hygiene (secrets and notebook outputs)` | `python tools/check_hygiene.py` and `python tools/check_recipe_assets.py` (workflow `Hygiene`, `.github/workflows/hygiene.yml`) |
 
 The two test jobs differ on purpose: `Tests (py3.14)` installs `.[dev,live]` so the SDK-backed
 tests in `tests/test_live_sdk.py` run, while `Tests (py3.10)` installs `.[dev]` only and proves
@@ -271,7 +271,9 @@ it cannot see, is in [notebook-ci.md](notebook-ci.md).
 ## Repository hygiene
 
 `python tools/check_hygiene.py` scans every tracked file (or only the files you name) in a
-few seconds, with the standard library only. Run it before pushing a notebook.
+few seconds, with the standard library only. Run it before pushing a notebook. It skips image
+files; a recipe's images (location, format, size, metadata) are checked by the sibling
+`python tools/check_recipe_assets.py`, described in [fixtures.md](fixtures.md#image-fixtures).
 
 It covers, in every text file and in every notebook string (source, markdown, all text
 outputs such as stream, `text/plain`, `text/html`, error values and tracebacks, and
@@ -347,7 +349,7 @@ account-name and notebook-layout rules, which have no meaning in fixture text. A
 ### Optional pre-commit
 
 `.pre-commit-config.yaml` mirrors the CI checks (`ruff check`, `ruff format --check`, the
-hygiene script, the catalog check). `pytest` runs only at push time, so commits stay fast.
+hygiene script, the recipe image-asset check, the catalog check). `pytest` runs only at push time, so commits stay fast.
 `ruff format --check` also covers Python code blocks in `*.md` files, as in CI. `ruff check`
 does not lint Markdown, so that hook is unchanged, and `.markdown` and `.mdx` files are left
 out because `ruff format .` ignores them. It is optional:
