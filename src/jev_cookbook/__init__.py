@@ -42,6 +42,7 @@ from .live import (
     LiveResponseError,
     RecordConflict,
     RecordReport,
+    dump_responses,
     merge_responses,
     record,
 )
@@ -79,6 +80,7 @@ __all__ = [
     "ScriptedBackend",
     "Usage",
     "answer_from_dict",
+    "dump_responses",
     "get_backend",
     "load_helpers",
     "merge_responses",

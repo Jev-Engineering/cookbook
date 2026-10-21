@@ -163,6 +163,14 @@ report = record(
   with the returned model string and the date. It is written with sorted keys, two-space indent,
   UTF-8, LF and a final newline, atomically (temp file then replace). A recorded fixture replays
   byte for byte: `json.dumps(replay.decide(...).to_dict())` equals the stored value.
+- `jev_cookbook.dump_responses(data)` returns exactly that text for a `{replay_key: response}`
+  mapping and writes nothing. A scaffolded `build_fixtures.py` writes `responses.json` with it, and
+  the scaffolded `tests/test_build_fixtures.py` asserts the committed file equals
+  `dump_responses(build_responses(ROWS))`: what the synthetic generator would write, serialized
+  exactly as the recorder serializes. (That test describes a synthetic fixture set; once a recipe
+  merges a recorded answer it no longer holds.) `jev_cookbook.live._dump` is the same function
+  under its old, private name, kept only as a transitional alias for code outside `recipes/`;
+  no recipe may use it.
 - Merging: an existing file is read and extended. A key already in the file is skipped without a
   call (no budget spent) unless `overwrite=True`. `merge_responses(path, additions, *,
   overwrite=False)` is the underlying merge: a key present with a different response raises

@@ -354,9 +354,12 @@ def test_the_rule_demo_uses_the_threshold_chosen_on_validation_not_a_hardcoded_v
 def test_report_has_a_comment_about_dropping_the_reasons_tally():
     """PR #123 comment 6059256403 (suggestion): report()'s reasons tally is dead weight for a
     rule with a single review reason; the template should say so for copies with a richer
-    rule."""
+    rule. The comment used to say `route` has "exactly one review reason", which was false (it
+    has three); it now names them, and this pins that it does and that it still says how to
+    drop the tally."""
     cell = source(next(c for c in NOTEBOOK["cells"] if c.get("id") == "evaluation-validation"))
-    assert "exactly one review reason" in cell
+    assert "exactly one review reason" not in cell
+    assert "`route` has three review reasons" in cell
     assert "Drop `reasons`" in cell
 
 

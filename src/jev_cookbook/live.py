@@ -52,6 +52,7 @@ __all__ = [
     "LiveResponseError",
     "RecordConflict",
     "RecordReport",
+    "dump_responses",
     "live_backend_from_env",
     "merge_responses",
     "record",
@@ -819,9 +820,26 @@ def _load_responses(path: Path) -> dict[str, Any]:
     return data
 
 
-def _dump(data: Mapping[str, Any]) -> str:
-    """Deterministic fixture text: keys sorted, 2-space indent, UTF-8, LF, final newline."""
+def dump_responses(data: Mapping[str, Any]) -> str:
+    """Return the exact text a ``responses.json`` is stored as, for a replay-key -> response map.
+
+    This is the one serialization the recorder (:func:`record`, :func:`merge_responses`) writes
+    with, so a recipe's ``build_fixtures.py`` output can be compared byte for byte against it.
+    Only the top-level keys are sorted; each response keeps the field order
+    ``DecisionResult.to_dict()`` emits (``json.dumps(..., sort_keys=True)`` would also sort every
+    nested dict and so disagree). Indent is 2 spaces, non-ASCII stays UTF-8, and the text ends
+    with one LF. Write it with LF line endings (``newline="\\n"``) so Windows adds no carriage returns.
+
+    It returns text and writes nothing. Recipes use it in ``tests/test_build_fixtures.py`` to
+    assert the committed file is what the recorder would write.
+    """
     return json.dumps(dict(sorted(data.items())), indent=2, ensure_ascii=False) + "\n"
+
+
+# Transitional alias for the old private name, for code outside recipes/ (tests/test_live.py
+# pins it as the same object). No recipe may use it: tests/test_no_private_shared_names.py
+# fails one that does. Remove it once nothing outside this file's own tests imports it.
+_dump = dump_responses
 
 
 def _write_atomic(path: Path, text: str) -> None:
@@ -872,7 +890,7 @@ def merge_responses(
     except FixtureError as exc:
         raise RecordConflict(f"the merged responses would not load for replay: {exc}") from None
     if written:
-        _write_atomic(target, _dump(merged))
+        _write_atomic(target, dump_responses(merged))
     return written, unchanged
 
 
@@ -1009,7 +1027,7 @@ def record(
                 history.append({k: v for k, v in previous.items() if k != "superseded"})
                 line["superseded"] = history
             old[key] = line
-            _write_atomic(out_ledger, _dump(old))
+            _write_atomic(out_ledger, dump_responses(old))
             wrote_ledger = True
         try:
             w, u = merge_responses(target, {key: result.to_dict()}, overwrite=overwrite)
@@ -1081,7 +1099,7 @@ def _ledger_failure(
         "attempts": attempts,
         "retried": list(backend.last_retried),
     }
-    _write_atomic(ledger, _dump(old))
+    _write_atomic(ledger, dump_responses(old))
 
 
 def live_backend_from_env(
