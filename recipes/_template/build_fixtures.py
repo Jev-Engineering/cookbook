@@ -19,7 +19,14 @@ import argparse
 import json
 from pathlib import Path
 
-from jev_cookbook import ChoiceAnswer, DecisionResult, Provenance, load_helpers, replay_key
+from jev_cookbook import (
+    ChoiceAnswer,
+    DecisionResult,
+    Provenance,
+    dump_responses,
+    load_helpers,
+    replay_key,
+)
 
 HERE = Path(__file__).resolve().parent
 helpers = load_helpers(HERE)
@@ -170,12 +177,10 @@ def main() -> None:
             )
         raise SystemExit(message)
     responses = build_responses(ROWS)
-    # The same serialization jev_cookbook.live._dump writes: only the top-level keys are
-    # sorted; each response keeps the field order DecisionResult.to_dict() emits. Matching the
-    # recorder exactly, rather than json.dumps(..., sort_keys=True) (which also sorts every
-    # nested dict alphabetically), keeps a recording's diff to the values that actually changed.
-    text = json.dumps(dict(sorted(responses.items())), indent=2, ensure_ascii=False) + "\n"
-    responses_file.write_text(text, encoding="utf-8", newline="\n")
+    # dump_responses is the serialization the recorder writes with (top-level keys sorted, each
+    # response keeping the field order DecisionResult.to_dict() emits), so a recording's diff
+    # stays limited to the values that actually changed.
+    responses_file.write_text(dump_responses(responses), encoding="utf-8", newline="\n")
     print(f"wrote {len(inputs)} examples, {len(labels)} labels, {len(responses)} responses")
 
 

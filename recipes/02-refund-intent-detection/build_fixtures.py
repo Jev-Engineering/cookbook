@@ -290,7 +290,7 @@ def main() -> None:
             )
         raise SystemExit(message)
     responses = build_responses(ROWS)
-    # The same serialization jev_cookbook.live._dump writes: only the top-level keys are
+    # The same serialization jev_cookbook.dump_responses writes: only the top-level keys are
     # sorted; each response keeps the field order DecisionResult.to_dict() emits.
     text = json.dumps(dict(sorted(responses.items())), indent=2, ensure_ascii=False) + "\n"
     responses_file.write_text(text, encoding="utf-8", newline="\n")

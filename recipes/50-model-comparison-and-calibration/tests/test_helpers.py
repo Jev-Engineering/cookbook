@@ -21,13 +21,13 @@ from jev_cookbook import (
     NoulAnswer,
     Provenance,
     ScoreAnswer,
+    dump_responses,
     get_backend,
     load_helpers,
     replay_key,
 )
 from jev_cookbook.evaluation import select_confidence_threshold
 from jev_cookbook.fixtures import load_inputs, load_labels, responses_path
-from jev_cookbook.live import _dump
 
 RECIPE = Path(__file__).resolve().parent.parent
 helpers = load_helpers(RECIPE)
@@ -483,14 +483,14 @@ def test_every_committed_responses_file_is_byte_identical_to_the_recorders_write
     inside its own gate's band changes no printed number, so the notebook-freshness check stays
     green over it too.
 
-    Compared against ``_dump(build_responses(ROWS, backend))`` computed from ROWS -- never
+    Compared against ``dump_responses(build_responses(ROWS, backend))`` computed from ROWS -- never
     against a re-dump of the file's own parsed content, which would agree with whatever the
     file happens to hold."""
     module = load_build_fixtures(RECIPE / "build_fixtures.py", "recipe50_build_fixtures_pin")
     assert len(module.BACKEND_TAGS) == 3
     for name, tag in module.BACKEND_TAGS.items():
         raw = responses_path(RECIPE, tag=tag).read_text("utf-8")
-        assert raw == _dump(module.build_responses(module.ROWS, name)), name
+        assert raw == dump_responses(module.build_responses(module.ROWS, name)), name
 
 
 def test_the_generator_reproduces_every_committed_fixture_file(tmp_path):
