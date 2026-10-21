@@ -114,7 +114,7 @@ def assert_ticks_faithful(rendered: list[str], sources: list[str], *, exact: boo
         abbreviation = (
             not exact
             and shown.endswith("...")
-            and len(shown) < len(source)
+            and 3 < len(shown) < len(source)
             and source.startswith(shown[:-3])
         )
         assert abbreviation, f"tick renders {shown!r}, its source label is {source!r}"
@@ -325,6 +325,13 @@ def test_every_tick_renders_its_source_label(case):
     for axis, sources in ((ax.xaxis, case.x_ticks), (ax.yaxis, case.y_ticks)):
         if sources is not None:
             assert_ticks_faithful(tick_texts(axis), sources, exact=case.exact_ticks)
+        else:
+            # A numeric axis has no source strings to compare; it must still draw numbers,
+            # so this test is never an empty pass.
+            shown = tick_texts(axis)
+            assert shown, "no ticks drawn"
+            for text in shown:
+                float(text.replace("\u2212", "-"))
 
 
 def test_every_axis_title_names_what_is_plotted_on_it(case):
@@ -360,21 +367,65 @@ def _legend_and_labels(fig: Figure):
     return ax, legend.get_window_extent(), [t.get_window_extent() for t in ax.texts]
 
 
+def _separation(a, b) -> float:
+    """Gap between two display-space boxes (negative when they overlap): the larger of the
+    horizontal and vertical gaps, which is what a padded-box overlap test measures."""
+    dx = max(a.x0 - b.x1, b.x0 - a.x1)
+    dy = max(a.y0 - b.y1, b.y0 - a.y1)
+    return max(dx, dy)
+
+
+def _root(ax):
+    return ax.get_figure(root=True)
+
+
+def legend_corner(ax) -> str:
+    """Where ``ax``'s legend is drawn: a corner of the axes, "outside", or "elsewhere"."""
+    _draw(_root(ax))
+    box = ax.get_legend().get_window_extent()
+    frame = ax.get_window_extent()
+    if box.x0 >= frame.x1:
+        return "outside"
+    right = box.x0 > (frame.x0 + frame.x1) / 2
+    if right and box.y1 < (frame.y0 + frame.y1) / 2:
+        return "lower right"
+    if right and box.y0 > (frame.y0 + frame.y1) / 2:
+        return "upper right"
+    return "elsewhere"
+
+
 def test_a_confident_score_legend_does_not_cover_a_value_label():
     """#286. The highest level is the bottom bar; the lower-right legend used to sit on 0.98."""
-    ax, legend, labels = _legend_and_labels(style.plot_answer_probabilities(CONFIDENT_HIGH))
+    fig = style.plot_answer_probabilities(CONFIDENT_HIGH)
+    ax, legend, labels = _legend_and_labels(fig)
     assert len(labels) == 3
     assert not any(_intersect(legend, label) for label in labels)
-    # The legend moved to the opposite corner rather than disappearing or shrinking.
-    middle = ax.get_window_extent()
-    assert legend.y0 > (middle.y0 + middle.y1) / 2 and legend.x0 > (middle.x0 + middle.x1) / 2
+    # It moved to the opposite corner of the axes, not out of them and not to a smaller box.
+    assert legend_corner(ax) == "upper right"
 
 
-def test_a_score_legend_keeps_the_lower_right_corner_when_nothing_is_there():
-    ax, legend, labels = _legend_and_labels(style.plot_answer_probabilities(CONFIDENT_LOW))
+@pytest.mark.parametrize(
+    ("answer", "corner"),
+    [
+        # Both corners are free: the legend keeps the lower-right corner it always had, so a
+        # figure that never collided is drawn as before.
+        (MIDDLE, "lower right"),
+        (SPLIT, "lower right"),
+        # Only the lower-right corner is free (the top bar is the long one).
+        (CONFIDENT_LOW, "lower right"),
+        # Only the upper-right corner is free (the bottom bar is the long one).
+        (CONFIDENT_HIGH, "upper right"),
+        (LONG_LEGEND, "upper right"),
+        # Neither is free.
+        (BOTH_ENDS_HIGH, "outside"),
+    ],
+    ids=["middle", "split", "confident-low", "confident-high", "long-legend", "both-ends-high"],
+)
+def test_the_score_legend_corner_is_lower_right_unless_a_label_is_under_it(answer, corner):
+    fig = style.plot_answer_probabilities(answer)
+    ax, legend, labels = _legend_and_labels(fig)
     assert not any(_intersect(legend, label) for label in labels)
-    middle = ax.get_window_extent()
-    assert legend.y1 < (middle.y0 + middle.y1) / 2 and legend.x0 > (middle.x0 + middle.x1) / 2
+    assert legend_corner(ax) == corner
 
 
 def test_a_score_legend_leaves_the_axes_when_no_corner_is_free():
@@ -382,6 +433,56 @@ def test_a_score_legend_leaves_the_axes_when_no_corner_is_free():
     ax, legend, labels = _legend_and_labels(fig)
     assert not any(_intersect(legend, label) for label in labels)
     assert legend.x0 >= ax.get_window_extent().x1
+
+
+def _score(p: float, levels: int = 3) -> FakeScore:
+    """A Score whose top level has probability ``p`` (the rest on the level below it)."""
+    probs = {str(i): 0.0 for i in range(levels)}
+    probs[str(levels - 1)], probs[str(levels - 2)] = p, 1.0 - p
+    return FakeScore(levels - 2 + p, probs, 0.9, {str(i): f"level {i}" for i in range(levels)})
+
+
+def test_the_score_legend_clears_every_value_label_by_two_pixels_on_the_final_layout():
+    """The title resizes the axes under constrained layout by a few pixels. The legend must be
+    two pixels clear of every value label in the *saved* layout, whichever corner it took.
+    A corner chosen on the untitled layout breaks this for some figure heights (the number
+    of levels sets the height) and some probabilities; sweep both."""
+    figures = [(0.70 + 0.002 * step, 3) for step in range(60)]
+    figures += [(p, levels) for levels in range(2, 13) for p in (0.9, 0.98)]
+    seen = set()
+    for p, levels in figures:
+        fig = style.plot_answer_probabilities(_score(p, levels))
+        ax, legend, labels = _legend_and_labels(fig)
+        gap = min(_separation(legend, label) for label in labels)
+        assert gap >= 2.0 - 1e-6, f"p={p:.3f}, {levels} levels: legend is {gap:.2f}px from a label"
+        seen.add(legend_corner(ax))
+    assert seen == {"lower right", "upper right"}, "the sweep must cross the decision point"
+
+
+@pytest.mark.parametrize(
+    "make_axes",
+    [
+        pytest.param(lambda: Figure().subplots(), id="plain figure"),
+        pytest.param(lambda: Figure().subplots(2, 2)[0, 1], id="subplot grid"),
+        pytest.param(lambda: Figure().subfigures(1, 2)[1].subplots(), id="subfigure"),
+        pytest.param(lambda: Figure(layout="constrained").subplots(), id="constrained layout"),
+        pytest.param(
+            lambda: Figure(layout="constrained").subfigures(1, 2)[0].subplots(),
+            id="constrained subfigure",
+        ),
+    ],
+)
+@pytest.mark.parametrize("answer", [CONFIDENT_HIGH, CONFIDENT_LOW, BOTH_ENDS_HIGH])
+def test_a_caller_supplied_axes_gets_a_legend_clear_of_its_value_labels(make_axes, answer):
+    """``ax=`` is a documented parameter: it may be in a plain figure, a grid or a subfigure."""
+    ax = make_axes()
+    out = style.plot_answer_probabilities(answer, ax=ax)
+    assert out is ax.figure
+    legend = ax.get_legend()
+    assert legend is not None
+    _draw(_root(ax))
+    box = legend.get_window_extent()
+    assert not any(_intersect(box, t.get_window_extent()) for t in ax.texts)
 
 
 def test_a_label_set_sharing_eleven_characters_renders_distinct_full_ticks():
@@ -464,6 +565,7 @@ def test_planted_prefix_collision_reddens_the_tick_assertion():
         (["yez", "no"], ["yes", "no"], "its source label"),
         (["a different..."], ["a long label here"], "its source label"),
         (["x..."], ["x"], "its source label"),
+        (["..."], ["anything at all"], "its source label"),
     ],
 )
 def test_tick_assertion_rejects_misspelt_and_unrelated_ticks(rendered, sources, message):
@@ -516,5 +618,5 @@ def test_the_cases_cover_every_plotting_helper():
         "sweep": "plot_threshold_sweep",
         "risk": "plot_risk_coverage",
     }
-    exercised = {by_prefix[name.split()[0]] for name in CASES}
+    exercised = {by_prefix.get(name.split()[0], name) for name in CASES}
     assert exercised == {n for n in style.__all__ if n.startswith("plot_")}

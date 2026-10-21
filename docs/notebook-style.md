@@ -207,14 +207,21 @@ The evaluation toolkit's results are accepted by duck typing, without importing 
 (each point has `.threshold`, `.precision`, `.recall`, `.f1`; an undefined NaN value leaves a
 gap in the line), and `selective_curve(...)` results (`.coverage`, `.risk`).
 
-### What the charts promise about their own layout
+### What the rendering tests check
 
-A committed figure is content a reader trusts, so `tests/test_style_rendering.py` draws every
-helper on the Agg canvas and asserts properties of the rendered artists (no image comparison
-and no golden files, so it does not move when matplotlib is upgraded): no two text artists,
-and no text artist and legend, overlap; every tick renders its source label, or an
-ellipsis abbreviation of it that is still unique; and each axis title names the quantity
-plotted on that axis. Two behaviours follow from it:
+A committed figure is content a reader trusts, so `tests/test_style_rendering.py` draws a set
+of cases for every helper on the Agg canvas and asserts properties of the rendered artists
+(no image comparison and no golden files, so it does not move when matplotlib is upgraded).
+On those cases, at the label lengths the recipes use, it asserts that no two text artists,
+and no text artist and legend box, overlap and that none is cut off by the figure edge;
+that every tick renders its source label, or an ellipsis abbreviation of it that is still
+unique; and that each axis title names the quantity plotted on that axis. These are checks on
+the cases in the module, not a guarantee for every input. The helpers do not shrink, wrap or
+resize text: a very long option name, metric name or legend label can still be clipped by the
+figure edge. A legend is only checked against text, so it can still cover a bar. Add a case to
+that module with a new helper, or a new option on an existing one.
+
+Two behaviours follow from it:
 
 - `plot_confusion_matrix` abbreviates a label longer than 14 characters to its first 11 plus
   `...`, as it always has. If that would make two different labels look the same (they share
@@ -222,9 +229,16 @@ plotted on that axis. Two behaviours follow from it:
 - `plot_answer_probabilities` puts a Score's `score` legend in the lower-right corner, as it
   always has, unless a bar's value label would sit under it (a confident answer whose highest
   level is the bottom bar); it then moves to the upper-right corner, and outside the axes if
-  neither corner is free.
+  neither corner is free. The corner is chosen on the finished layout, after the title is set,
+  by drawing the whole top-level figure, so it needs matplotlib 3.6 or later and works for an
+  `ax` inside a subfigure or a grid. Outside the axes it can be clipped in a figure that is
+  not laid out by constrained layout.
 
-A new helper, or a new option on an existing one, should add a case to that module.
+Both rules move figures that were already committed: a notebook whose Score answer is
+confident, or whose confusion matrix has colliding labels, draws differently now. Re-execute
+such a notebook and commit its figure. `tools/check_notebook_fresh.py` compares figures on a
+coarse grid and cannot see a legend change corners, so a green freshness check does not mean
+the figure is unchanged; compare the image bytes.
 
 ### Legibility on GitHub's light and dark views
 
