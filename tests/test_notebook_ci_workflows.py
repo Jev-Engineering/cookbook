@@ -218,6 +218,27 @@ def test_development_docs_state_what_each_tests_job_installs():
         )
 
 
+def test_the_three_commands_install_what_the_tests_jobs_install():
+    """The block a contributor copies (docs/development.md, "The three commands") must install the
+    extras the 3.10 leg does: with `.[dev]` alone, a recipe whose helpers import scikit-learn aborts
+    the whole `pytest` run with a collection error that CI never shows (#238 review)."""
+    block = DEVELOPMENT.split("## The three commands")[1].split("\n## ")[0]
+    install = re.search(r'pip install -e "\.\[([^\]]*)\]"', block)
+    assert install, "no install command in The three commands"
+    assert set(ci_test_extras("3.10")) <= set(install.group(1).split(","))
+
+
+def test_the_docs_say_how_the_3_14_leg_relates_to_the_notebook_pin():
+    """The 3.14 leg takes the newest release, which today is the very release the notebook
+    constraints pin, so a doc that says it differs from the pin is false; and the claim that it
+    is the pin has to be revisited when the pin moves."""
+    flat = " ".join(DEVELOPMENT.split())
+    pinned = pins()["scikit-learn"]
+    assert f"the 3.14 leg gets scikit-learn {pinned}, the release the notebook job pins" in flat
+    assert "neither the notebook job's pin" not in flat
+    assert "differ from each other and from the notebook job's pin" not in CI
+
+
 def pins():
     return {
         line.split("==")[0]: line.split("==")[1]

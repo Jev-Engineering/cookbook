@@ -15,7 +15,9 @@ python -m venv .venv
 #   Windows, Git Bash:    source .venv/Scripts/activate
 #   Windows, PowerShell:  .venv\Scripts\Activate.ps1
 #   Windows, cmd:         .venv\Scripts\activate.bat
-pip install -e ".[dev]"
+pip install -e ".[dev,ml]"
+#    ml is scikit-learn: CI installs it, and pytest below collects every recipe's helpers.py,
+#    which may import it. Add ,live to also run tests/test_live_sdk.py (CI does on Python 3.14).
 
 # 2. Lint and format check
 ruff check .
@@ -82,14 +84,18 @@ the package and every offline test work with the SDK absent (that one module is 
 
 Both install the `ml` extra, because the test jobs import every recipe's `helpers.py` and
 `tests/`, and `ml` is the extra a recipe is told it may use. Neither applies
-`.github/constraints-notebooks.txt`: `numpy==2.5.3` needs Python 3.12 or newer, so the file cannot
-be installed on the 3.10 floor, and the two legs take the newest release each interpreter supports
-(scikit-learn 1.7.2 on 3.10, 1.9.1 on 3.14, neither the notebook job's pin). A recipe test that
-exercises a trained model therefore asserts properties that hold on every version (the shape of the
-output, that it beats the baseline, determinism under a fixed seed) and never a trained number or
-a printed `repr` that depends on the scikit-learn version; those belong in the notebook, whose
-outputs the pinned `Notebook (<recipe>)` job checks. The package itself does not import `ml`:
-`tests/test_import.py` imports every `jev_cookbook` module with scikit-learn and SciPy blocked.
+`.github/constraints-notebooks.txt`, and no single pin could serve both legs: `numpy==2.5.3` and
+`scipy==1.18.1` need Python 3.12 or newer and `scikit-learn==1.9.1` needs 3.11 or newer, so none of
+them installs on the 3.10 floor. Each leg takes the newest release its interpreter supports. Today
+the 3.14 leg gets scikit-learn 1.9.1, the release the notebook job pins, but nothing holds it
+there, so it moves when a newer release is published (numpy already differs: 2.5.4 against the
+pin 2.5.3); the 3.10 leg gets 1.7.2, an older release than the other leg, and will always lag it.
+A recipe test that exercises a trained model therefore asserts properties that hold on every
+version (the shape of the output, that it beats the baseline, determinism under a fixed seed) and
+never a trained number or a printed `repr` that depends on the scikit-learn version; those belong
+in the notebook, whose outputs the pinned `Notebook (<recipe>)` job checks. The package itself
+never imports scikit-learn, SciPy or the SDK at import time: `tests/test_import.py` imports
+every `jev_cookbook` module with all three blocked.
 
 Run the lint, test and hygiene commands from this document locally before opening a pull
 request. Third-party actions are pinned to full commit SHAs with the version in a
@@ -400,7 +406,7 @@ with at most three of its update pull requests open at once for each.
   `.github/constraints-notebooks.txt`; the `live` extra is never installed there. The `Tests` jobs
   install `ml` too (unpinned), so `helpers.py`, `build_fixtures.py` and a recipe's `tests/` may
   import scikit-learn, and `pytest` on a checkout needs `pip install -e ".[dev,ml]"` for the
-  recipes that do. A recipe that
-  needs any other extra needs the workflow's install line changed first (a foundation change; a
+  recipes that do. A recipe that needs any other extra needs the workflow's install line changed
+  first (a foundation change; a
   recipe pull request cannot touch `.github/`). Bumping the constraints is a foundation change
   that re-executes every notebook ([notebook-ci.md](notebook-ci.md#pinned-plotting-stack)).
