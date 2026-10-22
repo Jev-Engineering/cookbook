@@ -207,12 +207,17 @@ in `inputs.jsonl` must be present in every responses file**, and none may hold a
 Never mix two models in one file; that is what the extra files are for.
 
 ```python
-from jev_cookbook import get_backend
+from jev_cookbook import ReplayBackend, get_backend
 from jev_cookbook.fixtures import responses_path
 
-baseline = get_backend(fixtures=responses_path())  # responses.json
-other = get_backend(fixtures=responses_path(tag="b"))  # responses-b.json
+baseline = get_backend(fixtures=responses_path())  # responses.json; the lane that goes live
+other = ReplayBackend.from_json(responses_path(tag="b"))  # responses-b.json; always offline
 ```
+
+Only the lane meant to switch to the live model goes through `get_backend`. Under
+`JEV_COOKBOOK_LIVE=1` it ignores `fixtures` and returns a live backend, so a lane that must stay
+offline is built with `ReplayBackend` directly ([backends.md](backends.md#which-lane-goes-through-get_backend)).
+Keep `responses.json` for the live lane and give each always-offline lane its own tagged file.
 
 `responses_path(recipe_dir=None, tag=None)` and `load_responses(recipe_dir=None, tag=None)` take
 the tag; a tag that breaks the id rule is a `ValueError`.

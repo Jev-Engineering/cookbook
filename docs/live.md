@@ -42,6 +42,14 @@ export JEV_COOKBOOK_LIVE_MAX_REQUESTS=20         # optional, default 25
 `get_backend(fixtures=...)` then returns a `LiveBackend` and ignores `fixtures`/`script`, because
 in live mode the backend is the only thing that changes.
 
+**Only the lane meant to go live is built through `get_backend`.** A recipe that compares
+backends and has a lane that must stay offline (a fabricated adapter, a baseline replayed from its
+own file) builds that lane directly with `ReplayBackend(...)`, `ReplayBackend.from_json(...)` or
+`ScriptedBackend(...)`. Through `get_backend` it would become a live backend, on the model from
+`JEV_COOKBOOK_LIVE_MODEL`, in live mode. Offline runs and CI cannot show the difference. Read
+[backends.md](backends.md#which-lane-goes-through-get_backend) before writing a multi-backend
+harness.
+
 ### Model
 
 **Recordings must pin a versioned model: use `jev-1.13.0`, not an alias.** The model is passed
