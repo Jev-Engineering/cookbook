@@ -276,6 +276,20 @@ confidence, threshold)` reports coverage, accuracy, risk. Abstentions are not er
 sentinel (`-1.0`, `2.0`, ...) cannot leak through `select_confidence_threshold` into a threshold
 and reach a rule's own `min_confidence` check.
 
+**The gate comes from `select_confidence_threshold`, never from a constant.** A recipe whose rule
+compares a confidence with a bound freezes that bound with `select_confidence_threshold`, imported by
+name (`from jev_cookbook.evaluation import select_confidence_threshold`) and used: in the notebook, or
+in a thin wrapper in `helpers.py` that the notebook calls. A bare `GATE = 0.85`, a hand-picked number,
+a call written through a module attribute (`evaluation.select_confidence_threshold(...)`) and a look-alike
+function defined in the recipe are not the shared helper: the guard's objective-pin and strong-form
+checks look for a call to it and skip when they find none, so a recipe that hides its gate from them
+would pass them without being checked. The guard's `confidence_gate_from_shared_helper` check fails such
+a recipe with this requirement. A gate that is only a diagnostic (it reports how many answers a
+confidence would withhold and withholds nothing, as recipe 35's feature extraction does) is still a
+gate and is frozen the same way. A recipe whose decision compares no confidence with a bound it
+chooses has no gate to freeze and the check does not apply to it; checking that a `min_confidence`
+argument lies between 0 and 1 is not such a comparison.
+
 **`select_confidence_threshold` freezes the max-coverage cut that still meets the target, not the
 candidate nearest the target.** With `target_accuracy=...`, the value returned is the *lowest*
 threshold (so the *highest* coverage) among the distinct observed validation confidences whose
