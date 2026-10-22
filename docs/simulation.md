@@ -277,9 +277,32 @@ own pull request writes and its reviewer reads:
 side-effect method of a `helpers.py` class (a `Simulator` subclass counts through `step`),
 `<Sink>.<method>` for a call on a `ReviewQueue`, `ActionLog`, `Store`, `Transactor`, `ToyGrid` or
 notebook-defined `Simulator` subclass the notebook built (`ReviewQueue.submit`, `ToyGrid.step`), and
-the names of the shared helpers above. An optional `"not_side_effects": ["Name"]` lists `helpers.py`
-functions or classes that only keep bookkeeping (a cache, a request counter) and that the analysis
-would otherwise take for a side effect.
+the names of the shared helpers above. A simulator you get from a factory counts under the class the
+factory returns: after `sim = helpers.new_game(seed)`, where `new_game` returns `Game(...)` (a
+`Simulator` subclass in `helpers.py`), the calls on `sim` are `helpers.Game.step`. The same holds
+for a classmethod or a function the notebook defines, as long as every `return` of the factory
+builds a sink, a simulator or a `helpers.py` class.
+
+`helpers.py` functions that write to module-level state (`STATE[key] = value`, `STATE.append(...)`,
+`QUEUE.submit(...)` on a module-level object, or a `global` rebinding) are side-effect functions
+like any other and are declared under `helpers.<function>`.
+
+An optional `"not_side_effects"` object lists `helpers.py` functions or classes that only keep
+bookkeeping (a cache, a request counter) and that the analysis would otherwise take for a side
+effect, each with the reason:
+
+```json
+{"schema": 1, "none": "returns typed outcomes only", "not_side_effects": {"MemoisingBackend": "keeps its own dict of answers and a call counter; writes to no queue, log, store or simulator"}}
+```
+
+It is an exemption for bookkeeping only, and the guard refuses an entry that is not: a name whose
+code writes to a `ReviewQueue`, `ActionLog`, `Store`, `Transactor` or `Simulator` (a call of
+`submit`, `record`, `put`, `run`, `step` and the other mutating methods on a parameter, a local,
+`self` or a module-level object, a shared fill helper, directly or through other `helpers.py`
+code), or that subclasses `Simulator` or `ToyGrid`, is a side effect and is declared under `sites`.
+A reason is required for every entry. What an entry can still hide is a write to a container the
+class keeps for itself (`self.memo[key] = value`), because the guard cannot tell a cache from a
+graph held in a dict, so a reviewer reads every `not_side_effects` entry and its reason as a claim.
 
 The guard (`simulated_side_effect_invoked` in `tests/test_recipe_guard.py`) parses the notebook,
 walks only code that can run, and compares what it finds with the declaration in both directions:
@@ -294,6 +317,21 @@ callables, or through an attribute chain on an object it does not know, and it a
 it cannot evaluate is taken. It checks that the side effect is executed, not that you used the
 shared batch helpers: a hand-rolled loop in a named function is accepted, and the convention above
 is what a reviewer asks for.
+
+Known limits, which a reviewer covers by reading `side_effects.json` against the notebook:
+
+- A write the analysis cannot see is not counted: an assignment into a container passed as a
+  parameter (`def f(graph, k, v): graph[k] = v`) or reached through a local alias
+  (`g = GRAPH; g[k] = v`), `setattr`, `globals()`, a write to a file or to the environment (which
+  is not a simulated side effect). Module-level state written under its own name inside a
+  `helpers.py` function is seen; the same state reached through an alias is not.
+- A recipe that needs a simulator must declare and execute at least one side effect; the guard does
+  not know which declared key is the one the recipe is about. The reviewer checks that the declared
+  sites include the trajectory, transaction or actuation the recipe is built around (the `step`
+  loop, the `Transactor.run`, the controller's actuation), and that the counts match the number of
+  runs and splits the notebook describes (a baseline and a Jev run, validation and test).
+- A `not_side_effects` entry can name a class that keeps its real state in a container of its own.
+  The entry and its reason are in the pull request's diff; a reviewer reads them.
 
 ## Store
 

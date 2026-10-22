@@ -5893,13 +5893,19 @@ def test_every_noul_proposition_has_gold_true_and_false_in_each_scored_split(rec
 # * ``helpers.<fn>``: a call to a function of the recipe's ``helpers.py`` that is a side-effect
 #   function -- one whose body, directly or through other ``helpers.py`` functions and methods,
 #   calls a mutating method (``submit``, ``resolve``, ``record``, ``put``, ``delete``,
-#   ``rollback``, ``run``, ``step``, ``replay``) on a parameter, a local or ``self``, mutates a
-#   ``self.<attr>`` container, or calls one of the shared ``jev_cookbook.simulation`` fill
+#   ``rollback``, ``run``, ``step``, ``replay``) on a parameter, a local, ``self`` or a
+#   module-level object, mutates a ``self.<attr>`` container, writes to module-level state
+#   (``NAME[k] = v``, ``NAME.attr = v``, ``NAME.append(...)``, ``del NAME[k]``, or a
+#   ``global NAME`` rebinding), or calls one of the shared ``jev_cookbook.simulation`` fill
 #   helpers.
 # * ``helpers.<Class>.<method>``: a public side-effect method called on a name bound to
 #   ``helpers.<Class>(...)`` (or chained on the constructor call). A class is a side-effect
 #   class when it subclasses ``Simulator`` / ``ToyGrid`` (``step`` and ``replay`` are then its
-#   methods) or one of its public methods is a side-effect function in the sense above.
+#   methods) or one of its public methods is a side-effect function in the sense above. A name
+#   bound to a FACTORY holds the same thing: a function (or classmethod) of ``helpers.py``, or
+#   one the notebook defines, whose returned value is built by a sink, a simulator or a
+#   ``helpers.py`` class (``sim = helpers.new_game(seed)``, then ``sim.step(...)``) is keyed under
+#   the class it returns (``helpers.Game.step``), not under the factory's own name.
 # * ``<Sink>.<method>``: a mutating method called on a name the notebook bound to a
 #   ``jev_cookbook.simulation`` sink (``ReviewQueue.submit``, ``ActionLog.record``,
 #   ``Store.put``, ``Transactor.run``) or to a ``Simulator`` subclass (``ToyGrid.step``, or a
@@ -5929,12 +5935,28 @@ def test_every_noul_proposition_has_gold_true_and_false_in_each_scored_split(rec
 # builds must be mutated or handed to a side-effect function, and a code cell that does not
 # parse fails.
 #
+# ``not_side_effects`` (#327). A declaration may exempt a ``helpers.py`` function or class that
+# only keeps bookkeeping, each entry with a reason. The exemption is checked mechanically: an
+# entry whose code writes to a sink or a simulator (a mutating method on a parameter, a local,
+# ``self`` or a module-level object, a shared fill helper, directly or through other
+# ``helpers.py`` code) or that subclasses ``Simulator`` / ``ToyGrid`` is refused, and its side
+# effect has to be declared under ``sites``. A write to a container of the class's own, or to
+# module-level state, stays exemptable.
+#
 # Known limits: a site reached only through a container of callables, an attribute chain on an
-# object that is not ``self`` or a name the notebook bound (``a.b.queue.submit``), or an alias
-# of a helper (``f = helpers.submit_reviews; f(...)``) is not seen -- the last one makes the
-# count smaller than the declaration, so it fails closed -- and a condition the analysis cannot
-# evaluate statically is assumed to be taken. Routing callbacks passed to the shared helpers
-# are not analysed; they must be free of side effects (docs/simulation.md).
+# object that is not ``self``, a module-level name or a name the notebook bound
+# (``a.b.queue.submit``), or an alias of a helper (``f = helpers.submit_reviews; f(...)``) is not
+# seen -- the last one makes the count smaller than the declaration, so it fails closed -- and a
+# condition the analysis cannot evaluate statically is assumed to be taken. Routing callbacks
+# passed to the shared helpers are not analysed; they must be free of side effects
+# (docs/simulation.md). A write to a container through a parameter or a local alias
+# (``g = GRAPH; g[k] = v``, ``def f(d): d[k] = v``) or through ``setattr`` / ``globals()`` is not
+# seen; a write to a file or the environment is not a simulated side effect; and state kept in a
+# container of its own that a recipe lists under ``not_side_effects`` is accepted, because the
+# guard cannot tell a cache from a graph held in a dict, so a reviewer reads each entry and its
+# reason. For a ``needs: simulator`` recipe the guard requires that a side effect be declared
+# and executed, not that the declared key is the recipe's main one: the reviewer checks that the
+# declared sites are the trajectory, transaction or actuation the recipe is about.
 
 SIDE_EFFECT_SINKS = {
     "ReviewQueue": frozenset({"submit", "resolve"}),
@@ -5966,6 +5988,7 @@ CONTAINER_MUTATING_METHODS = frozenset(
 SIMULATION_MODULE = "jev_cookbook.simulation"
 SIDE_EFFECT_DECLARATION = "side_effects.json"
 SIDE_EFFECT_KEY = re.compile(r"^[A-Za-z_]\w*(\.[A-Za-z_]\w*){0,2}$")
+PLACEHOLDER_MARK = "TODO"  # what tools/new_recipe.py writes into the declaration it scaffolds
 # Catalog ranks whose open issues carry the ``needs: simulator`` flag: the recipes that are
 # applicable by definition, whatever the analysis detects.
 SIMULATOR_RANKS = frozenset({36, 43, 45, 46, 48, 57, 58, 59, 60})
@@ -6128,6 +6151,11 @@ class HelpersInfo:
         self.effect_functions: set[str] = set()
         self.effect_methods: dict[str, frozenset[str]] = {}  # public side-effect methods
         self.uses: dict[str, set[str]] = {}  # "fn:x" / "cls:X" -> symbols its body refers to
+        # Names whose code writes to a sink or a simulator (not just to a container of its own).
+        self.strong_effects: set[str] = set()
+        # Factories: "new_game" or "Class.make" -> what a call to it returns, as
+        # ("helpers", ClassName) or ("simulation", <jev_cookbook.simulation name>).
+        self.factories: dict[str, tuple[str, str]] = {}
 
     @property
     def effect_classes(self) -> set[str]:
@@ -6148,6 +6176,95 @@ class HelpersInfo:
                     seen.add(nxt)
                     todo.append(nxt)
         return seen
+
+
+def _own_statements(func: ast.FunctionDef):
+    """Every node of ``func``'s body, not entering a nested function, class or lambda."""
+    todo = list(func.body)
+    while todo:
+        node = todo.pop()
+        yield node
+        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef | ast.Lambda):
+            todo.extend(ast.iter_child_nodes(node))
+
+
+def returned_kinds(func: ast.FunctionDef, kind_of_call) -> set[tuple[str, str]] | None:
+    """What a call to ``func`` returns, when ``kind_of_call(ast.Call)`` knows the kind of every
+    value it returns (``return Cls(...)``, or ``x = Cls(...)`` and later ``return x``): the set of
+    kinds, or ``None`` when some returned value is not a call the caller can classify."""
+    assigned: dict[str, list[ast.expr]] = {}
+    returned: list[ast.expr] = []
+    for node in _own_statements(func):
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    assigned.setdefault(target.id, []).append(node.value)
+        elif isinstance(node, ast.Return) and node.value is not None:
+            returned.append(node.value)
+    if not returned:
+        return None
+    kinds: set[tuple[str, str]] = set()
+    for value in returned:
+        candidates = assigned.get(value.id, []) if isinstance(value, ast.Name) else [value]
+        found = [kind_of_call(c) for c in candidates if isinstance(c, ast.Call)]
+        if not found or None in found:
+            return None
+        kinds.update(found)
+    return kinds
+
+
+def _factories(
+    functions: dict[str, ast.FunctionDef],
+    classes: dict[str, ast.ClassDef],
+    names: dict[str, str],
+    modules: set[str],
+) -> dict[str, tuple[str, str]]:
+    """Functions (and classmethods or staticmethods) of ``helpers.py`` that hand back a new
+    sink, simulator, or instance of one of its classes, so that ``sim = helpers.new_game(seed)``
+    is known to hold what ``new_game`` builds. Keys are ``fn`` and ``Class.method``; values are
+    ``("helpers", ClassName)`` or ``("simulation", <jev_cookbook.simulation name>)``. A factory
+    that calls another factory is resolved by iterating."""
+    candidates: dict[str, tuple[ast.FunctionDef, str | None]] = {
+        name: (func, None) for name, func in functions.items()
+    }
+    for cname, cls in classes.items():
+        for item in cls.body:
+            if isinstance(item, ast.FunctionDef) and any(
+                isinstance(d, ast.Name) and d.id in ("classmethod", "staticmethod")
+                for d in item.decorator_list
+            ):
+                candidates[f"{cname}.{item.name}"] = (item, cname)
+    known: dict[str, tuple[str, str]] = {}
+
+    def make_kind_of_call(owner: str | None):
+        def kind_of_call(call: ast.Call) -> tuple[str, str] | None:
+            func = call.func
+            symbol = _simulation_symbol(func, names, modules)
+            if symbol in SIDE_EFFECT_SINKS or symbol in SIMULATOR_BASES:
+                return ("simulation", symbol)
+            if isinstance(func, ast.Name):
+                if func.id in classes:
+                    return ("helpers", func.id)
+                if func.id == "cls" and owner is not None:
+                    return ("helpers", owner)
+                return known.get(func.id)
+            if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
+                return known.get(f"{func.value.id}.{func.attr}")
+            return None
+
+        return kind_of_call
+
+    changed = True
+    while changed:
+        changed = False
+        for key, (func, owner) in candidates.items():
+            if key in known:
+                continue
+            kinds = returned_kinds(func, make_kind_of_call(owner))
+            if kinds is not None and len(kinds) == 1:
+                known[key] = next(iter(kinds))
+                changed = True
+    return known
 
 
 def _helpers_info(helpers_path: Path, ignore: frozenset[str] = frozenset()) -> HelpersInfo:
@@ -6171,6 +6288,18 @@ def _helpers_info(helpers_path: Path, ignore: frozenset[str] = frozenset()) -> H
     classes = {n.name: n for n in tree.body if isinstance(n, ast.ClassDef)}
     info.functions, info.classes = set(functions), set(classes)
     info.simulator_classes = _simulator_classes([tree], names, modules)
+    info.factories = _factories(functions, classes, names, modules)
+    # Names bound at module level (state a function could write to): assignments and classes.
+    module_state = set(classes)
+    for stmt in tree.body:
+        if isinstance(stmt, ast.Assign):
+            for target in stmt.targets:
+                module_state |= {
+                    n.id for n in ast.walk(target) if isinstance(n, ast.Name)
+                }  # a, b = ... too
+        elif isinstance(stmt, ast.AnnAssign | ast.AugAssign) and isinstance(stmt.target, ast.Name):
+            module_state.add(stmt.target.id)
+    module_state -= imported
 
     # Graph nodes: "fn:name" and "m:Class.method". Direct effects and call edges per node.
     bodies: dict[str, tuple[ast.FunctionDef, str | None]] = {
@@ -6182,7 +6311,12 @@ def _helpers_info(helpers_path: Path, ignore: frozenset[str] = frozenset()) -> H
         for item in cls.body:
             if isinstance(item, ast.FunctionDef):
                 bodies[f"m:{cname}.{item.name}"] = (item, cname)
-    direct: set[str] = set()
+    # A direct effect is STRONG when the code writes to a sink or a simulator (a mutating method
+    # on a parameter, a local, ``self`` or a module-level object, or a shared fill helper), and
+    # WEAK when it only writes to a container of its own (``self.x.append``, ``self.x[k] = v``)
+    # or to module-level state. Only the second kind can be called bookkeeping (not_side_effects).
+    strong_direct: set[str] = set()
+    weak_direct: set[str] = set()
     effect_edges: dict[str, set[str]] = {}
     attr_calls: dict[str, set[str]] = {}
     use_edges: dict[str, set[str]] = {}
@@ -6192,26 +6326,48 @@ def _helpers_info(helpers_path: Path, ignore: frozenset[str] = frozenset()) -> H
         for extra in (args.vararg, args.kwarg):
             if extra is not None:
                 params.add(extra.arg)
+        declared_global = {
+            name for n in ast.walk(func) if isinstance(n, ast.Global) for name in n.names
+        }
         stored = {
             n.id for n in ast.walk(func) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store)
         }
-        roots = (params | stored | {"self"}) - imported
+        local_names = (params | stored) - declared_global
+        roots = (local_names | {"self"}) - imported
+        # Module-level names this function reaches: bound at module level (or declared
+        # ``global``) and not shadowed by a parameter or a local.
+        module_roots = ((module_state | declared_global) - local_names - {"self"}) - imported
         effect_edges[node_id], use_edges[node_id] = set(), set()
         attr_calls[node_id] = set()
         for inner in ast.walk(func):
-            if isinstance(inner, ast.Assign | ast.AugAssign):
-                targets = inner.targets if isinstance(inner, ast.Assign) else [inner.target]
-                if any(isinstance(t, ast.Subscript) and _root_name(t) == "self" for t in targets):
-                    direct.add(node_id)
+            if isinstance(inner, ast.Assign | ast.AugAssign | ast.AnnAssign | ast.Delete):
+                if isinstance(inner, ast.Assign):
+                    targets = inner.targets
+                elif isinstance(inner, ast.Delete):
+                    targets = inner.targets
+                else:
+                    targets = [inner.target]
+                for t in targets:
+                    root = _root_name(t)
+                    if isinstance(t, ast.Subscript) and root == "self":
+                        weak_direct.add(node_id)
+                    elif isinstance(t, ast.Subscript | ast.Attribute) and root in module_roots:
+                        weak_direct.add(node_id)  # NAME[k] = v, NAME.attr = v, del NAME[k]
+                    elif isinstance(t, ast.Name) and t.id in declared_global:
+                        weak_direct.add(node_id)  # global NAME; NAME = ...
             if not isinstance(inner, ast.Call):
                 continue
             callee = inner.func
             if isinstance(callee, ast.Attribute):
                 root = _root_name(callee.value)
-                if callee.attr in HELPER_MUTATING_METHODS and root in roots:
-                    direct.add(node_id)
-                elif callee.attr in CONTAINER_MUTATING_METHODS and root == "self":
-                    direct.add(node_id)
+                if callee.attr in HELPER_MUTATING_METHODS and (
+                    root in roots or root in module_roots
+                ):
+                    strong_direct.add(node_id)
+                elif callee.attr in CONTAINER_MUTATING_METHODS and (
+                    root == "self" or root in module_roots
+                ):
+                    weak_direct.add(node_id)
                 else:
                     if owner and isinstance(callee.value, ast.Name) and callee.value.id == "self":
                         effect_edges[node_id].add(f"m:{owner}.{callee.attr}")
@@ -6219,7 +6375,7 @@ def _helpers_info(helpers_path: Path, ignore: frozenset[str] = frozenset()) -> H
                     if root in roots:
                         attr_calls[node_id].add(callee.attr)
             if _simulation_symbol(callee, names, modules) in SIDE_EFFECT_FILL_HELPERS:
-                direct.add(node_id)
+                strong_direct.add(node_id)
             elif isinstance(callee, ast.Name):
                 if callee.id in functions:
                     effect_edges[node_id].add(f"fn:{callee.id}")
@@ -6227,17 +6383,28 @@ def _helpers_info(helpers_path: Path, ignore: frozenset[str] = frozenset()) -> H
                 elif callee.id in classes:
                     effect_edges[node_id].add(f"m:{callee.id}.__init__")
                     use_edges[node_id].add(f"cls:{callee.id}")
-    effects = set(direct)
-    changed = True
-    while changed:
-        changed = False
-        public = {n.split(".", 1)[1] for n in effects if n.startswith("m:") and "._" not in n} | (
-            SIMULATOR_METHODS if info.simulator_classes else set()
-        )
-        for node_id, targets in effect_edges.items():
-            if node_id not in effects and (targets & effects or attr_calls[node_id] & public):
-                effects.add(node_id)
-                changed = True
+
+    def propagate(seed: set[str]) -> set[str]:
+        """``seed`` plus every node that calls (or constructs, or calls a public method of) one."""
+        reached = set(seed)
+        changed = True
+        while changed:
+            changed = False
+            public = {
+                n.split(".", 1)[1] for n in reached if n.startswith("m:") and "._" not in n
+            } | (SIMULATOR_METHODS if info.simulator_classes else set())
+            for node_id, targets in effect_edges.items():
+                if node_id not in reached and (targets & reached or attr_calls[node_id] & public):
+                    reached.add(node_id)
+                    changed = True
+        return reached
+
+    effects = propagate(strong_direct | weak_direct)
+    strong = propagate(strong_direct)
+    info.strong_effects = {n[3:] for n in strong if n.startswith("fn:")} | {
+        n[2:].split(".", 1)[0] for n in strong if n.startswith("m:")
+    }
+    info.strong_effects |= set(info.simulator_classes)
     info.effect_functions = {n[3:] for n in effects if n.startswith("fn:")}
     for cname in classes:
         public = {
@@ -6266,6 +6433,9 @@ class SideEffectReport:
         self.sites: dict[str, set[tuple[int, int, int]]] = {}
         self.sink_vars: dict[str, str] = {}  # notebook name -> key prefix of the object it holds
         self.touched_vars: set[str] = set()
+        # Names bound to what a factory returned (``sim = helpers.run_episode(...)``): the notebook
+        # may only read them, because the factory (or the function that built them) did the work.
+        self.handed_over: set[str] = set()
         self.helpers = HelpersInfo()
         self.used: set[str] = set()  # helpers symbols the notebook reaches
         self.problems: list[str] = []  # things the analysis could not read
@@ -6277,8 +6447,12 @@ class SideEffectReport:
     def counts(self) -> dict[str, int]:
         return {key: len(places) for key, places in sorted(self.sites.items())}
 
+    def built_vars(self) -> list[str]:
+        """Names the notebook itself built a sink or simulator into (not factory results)."""
+        return sorted(v for v in self.sink_vars if v not in self.handed_over)
+
     def untouched_sink_vars(self) -> list[str]:
-        return sorted(v for v in self.sink_vars if v not in self.touched_vars)
+        return sorted(v for v in self.built_vars() if v not in self.touched_vars)
 
     def uncalled_effect_functions(self) -> list[str]:
         """Side-effect functions and classes of ``helpers.py`` the notebook never reaches, even
@@ -6288,7 +6462,7 @@ class SideEffectReport:
     def detected(self) -> bool:
         return bool(
             self.sites
-            or self.sink_vars
+            or self.built_vars()
             or self.helpers.effect_functions
             or self.helpers.effect_classes
         )
@@ -6356,10 +6530,61 @@ def side_effect_report(recipe_dir_: Path, ignore: frozenset[str] = frozenset()) 
         attr = helper_attr(value.func)
         if attr in helpers_info.classes and helpers_info.effect_methods.get(attr):
             return f"helpers.{attr}", helpers_info.effect_methods[attr]
+        # A factory: helpers.new_game(seed), helpers.Game.from_seed(seed), or a function the
+        # notebook defines, that hands back a sink, a simulator or a helpers.py class instance.
+        func = value.func
+        factory = None
+        if attr is not None:
+            factory = helpers_info.factories.get(attr)
+        elif isinstance(func, ast.Attribute) and (owner_attr := helper_attr(func.value)):
+            factory = helpers_info.factories.get(f"{owner_attr}.{func.attr}")
+        if factory is not None:
+            return built_kind(factory)
+        if isinstance(func, ast.Name) and func.id in defs and func.id not in resolving:
+            resolving.add(func.id)
+            try:
+                kinds = returned_kinds(defs[func.id], notebook_kind_of_call)
+            finally:
+                resolving.discard(func.id)
+            if kinds is not None and len(kinds) == 1:
+                return built_kind(next(iter(kinds)))
         return None
+
+    def built_by_factory(value: ast.expr) -> bool:
+        """Whether ``value`` is a call of a factory (rather than a direct construction)."""
+        if not isinstance(value, ast.Call):
+            return False
+        func = value.func
+        attr = helper_attr(func)
+        if attr is not None:
+            return attr in helpers_info.factories
+        if isinstance(func, ast.Attribute):
+            owner_attr = helper_attr(func.value)
+            return owner_attr is not None and f"{owner_attr}.{func.attr}" in helpers_info.factories
+        return isinstance(func, ast.Name) and func.id in defs
+
+    def built_kind(kind: tuple[str, str]) -> tuple[str, frozenset[str]] | None:
+        """``(key prefix, mutating methods)`` for a factory's ``("helpers", Class)`` or
+        ``("simulation", name)`` result."""
+        where, name = kind
+        if where == "helpers":
+            methods = helpers_info.effect_methods.get(name)
+            return (f"helpers.{name}", methods) if methods else None
+        return name, SIDE_EFFECT_SINKS.get(name, SIMULATOR_METHODS)
+
+    def notebook_kind_of_call(call: ast.Call) -> tuple[str, str] | None:
+        """``object_kind(call)`` in the ``("helpers", Class)`` / ``("simulation", name)`` form
+        that ``returned_kinds`` collects."""
+        kind = object_kind(call)
+        if kind is None:
+            return None
+        if kind[0].startswith("helpers."):
+            return "helpers", kind[0][len("helpers.") :]
+        return "simulation", kind[0]
 
     var_methods: dict[str, frozenset[str]] = {}
     defs: dict[str, ast.FunctionDef] = {}
+    resolving: set[str] = set()
     entered: set[str] = set()
     current_cell = [0]
 
@@ -6384,6 +6609,10 @@ def side_effect_report(recipe_dir_: Path, ignore: frozenset[str] = frozenset()) 
             if kind is not None and isinstance(target, ast.Name):
                 report.sink_vars[target.id] = kind[0]
                 var_methods[target.id] = kind[1]
+                if built_by_factory(value):
+                    report.handed_over.add(target.id)
+                else:
+                    report.handed_over.discard(target.id)
 
     def run(stmts: list[ast.stmt]) -> None:
         for node in _live_nodes(stmts):
@@ -6391,6 +6620,14 @@ def side_effect_report(recipe_dir_: Path, ignore: frozenset[str] = frozenset()) 
                 defs[node.name] = node
             elif isinstance(node, ast.Assign):
                 bind(node)
+            elif (
+                isinstance(node, ast.Return)
+                and isinstance(node.value, ast.Name)
+                and node.value.id in report.sink_vars
+            ):
+                # A function the notebook defines hands the object it built to its caller (a
+                # factory); the caller is the one that has to mutate it.
+                report.touched_vars.add(node.value.id)
             elif isinstance(node, ast.Attribute):
                 attr = helper_attr(node)
                 if attr in helpers_info.functions:
@@ -6446,12 +6683,12 @@ _NO_SINKS = (
 )
 
 
-def _sites(sites: dict[str, int], not_side_effects: list[str] | None = None) -> dict:
-    return {"schema": 1, "sites": sites, "not_side_effects": not_side_effects or []}
+def _sites(sites: dict[str, int], not_side_effects: dict[str, str] | None = None) -> dict:
+    return {"schema": 1, "sites": sites, "not_side_effects": not_side_effects or {}}
 
 
-def _none(reason: str, not_side_effects: list[str] | None = None) -> dict:
-    return {"schema": 1, "none": reason, "not_side_effects": not_side_effects or []}
+def _none(reason: str, not_side_effects: dict[str, str] | None = None) -> dict:
+    return {"schema": 1, "none": reason, "not_side_effects": not_side_effects or {}}
 
 
 SIDE_EFFECT_INVENTORY: dict[str, dict] = {
@@ -6500,7 +6737,12 @@ SIDE_EFFECT_INVENTORY: dict[str, dict] = {
     "35-semantic-feature-extraction": _none(_NO_SINKS),
     "36-card-game-action-selection": _sites({"helpers.CardDuel.replay": 1, "helpers.play_game": 1}),
     "37-research-domain-tagging": _sites(
-        {"ReviewQueue.submit": 1}, not_side_effects=["CountingBackend"]
+        {"ReviewQueue.submit": 1},
+        not_side_effects={
+            "CountingBackend": "appends each state it is asked to decide to its own sent_states "
+            "list so the notebook can print what was sent; it writes to no queue, log, store or "
+            "simulator"
+        },
     ),
     "38-abstention-and-review-queues": _sites({"ActionLog.record": 1, "ReviewQueue.submit": 1}),
     "39-document-extraction-cascade": _none(_NO_SINKS),
@@ -6520,17 +6762,26 @@ SIDE_EFFECT_INVENTORY: dict[str, dict] = {
         {"Store.put": 1, "Store.rollback": 1, "helpers.decide": 3}
     ),
     "49-multi-agent-task-assignment": _sites({"helpers.assign": 6}),
-    "50-model-comparison-and-calibration": _none(_NO_SINKS, not_side_effects=["MemoisingBackend"]),
+    "50-model-comparison-and-calibration": _none(
+        _NO_SINKS,
+        not_side_effects={
+            "MemoisingBackend": "keeps its own dict of answers and three counters so the "
+            "notebook can print the distinct requests and the forwarded calls; it writes to no "
+            "queue, log, store or simulator"
+        },
+    ),
 }
 
 
 class SideEffectDeclaration:
     """A recipe's statement of its simulated side effects (``side_effects.json``)."""
 
-    def __init__(self, sites: dict[str, int] | None, none: str | None, not_side_effects: set[str]):
+    def __init__(
+        self, sites: dict[str, int] | None, none: str | None, not_side_effects: dict[str, str]
+    ):
         self.sites = sites
         self.none = none
-        self.not_side_effects = frozenset(not_side_effects)
+        self.not_side_effects = dict(not_side_effects)  # helpers.py name -> why it is bookkeeping
 
 
 def parse_side_effect_declaration(data: object) -> tuple[SideEffectDeclaration | None, list[str]]:
@@ -6540,9 +6791,11 @@ def parse_side_effect_declaration(data: object) -> tuple[SideEffectDeclaration |
         {"schema": 1, "sites": {"helpers.submit_reviews": 2, "ReviewQueue.submit": 1}}
         {"schema": 1, "none": "why this recipe has no simulated side effect"}
 
-    Either form may add ``"not_side_effects": ["MemoisingBackend"]``, the helpers.py functions
-    or classes that the analysis would take for a side effect but that only keep bookkeeping
-    (a cache, a request counter); each must exist in helpers.py.
+    Either form may add ``"not_side_effects": {"MemoisingBackend": "why"}``, the helpers.py
+    functions or classes that the analysis would take for a side effect but that only keep
+    bookkeeping (a cache, a request counter), each with the reason; each must exist in helpers.py
+    and may write to nothing but a container of its own (``_bookkeeping_problems``). A reason
+    that still carries the scaffolder's ``TODO`` marker is a placeholder and is rejected.
     """
     if not isinstance(data, dict):
         return None, ["the declaration must be a JSON object"]
@@ -6559,6 +6812,8 @@ def parse_side_effect_declaration(data: object) -> tuple[SideEffectDeclaration |
     if "none" in data:
         if not isinstance(data["none"], str) or not data["none"].strip():
             problems.append('"none" must be a non-empty reason string')
+        elif PLACEHOLDER_MARK in data["none"]:
+            problems.append(f'"none" is still the scaffolder\'s {PLACEHOLDER_MARK} placeholder')
         else:
             none = data["none"]
     elif "sites" in data:
@@ -6574,13 +6829,23 @@ def parse_side_effect_declaration(data: object) -> tuple[SideEffectDeclaration |
                 elif type(count) is not int or count < 1:
                     problems.append(f"{key!r}: the count must be an integer >= 1, got {count!r}")
             sites = dict(raw)
-    ignored = data.get("not_side_effects", [])
-    if not isinstance(ignored, list) or not all(isinstance(n, str) and n for n in ignored):
-        problems.append('"not_side_effects" must be a list of helpers.py names')
-        ignored = []
+    ignored = data.get("not_side_effects", {})
+    if not isinstance(ignored, dict):
+        problems.append(
+            '"not_side_effects" must be an object mapping each helpers.py name to the reason it '
+            "only keeps bookkeeping"
+        )
+        ignored = {}
+    for name, reason in ignored.items():
+        if not name:
+            problems.append('"not_side_effects" has an empty name')
+        elif not isinstance(reason, str) or not reason.strip():
+            problems.append(f'"not_side_effects": {name!r} needs a non-empty reason string')
+        elif PLACEHOLDER_MARK in reason:
+            problems.append(f'"not_side_effects": {name!r} still has the {PLACEHOLDER_MARK} marker')
     if problems:
         return None, problems
-    return SideEffectDeclaration(sites, none, set(ignored)), []
+    return SideEffectDeclaration(sites, none, ignored), []
 
 
 def read_side_effect_declaration(
@@ -6599,6 +6864,25 @@ def read_side_effect_declaration(
     return declaration, [f"{SIDE_EFFECT_DECLARATION}: {p}" for p in problems]
 
 
+def _bookkeeping_problems(recipe_dir_: Path, ignore: frozenset[str]) -> list[str]:
+    """``not_side_effects`` is for bookkeeping only. Judged on ``helpers.py`` as it is, with
+    nothing ignored, an entry fails when its code writes to a ``ReviewQueue``, ``ActionLog``,
+    ``Store``, ``Transactor`` or ``Simulator`` (a mutating method on a parameter, a local,
+    ``self`` or a module-level object, or one of the shared fill helpers, directly or through
+    other ``helpers.py`` code), or when it is a ``Simulator`` subclass. Such a side effect is
+    declared under ``sites``. What stays allowed is a write to a container of its own
+    (``self.seen.append``, ``self.memo[key] = v``) or to module-level state."""
+    if not ignore:
+        return []
+    strong = _helpers_info(recipe_dir_ / "helpers.py").strong_effects
+    return [
+        f"not_side_effects names {name!r}, whose code writes to a queue, log, store or "
+        "simulator (or subclasses Simulator): that is a side effect, declare its call sites "
+        "under sites instead"
+        for name in sorted(ignore & strong)
+    ]
+
+
 def _side_effect_violations(slug: str, recipe_dir_: Path) -> list[str] | None:
     """Reasons ``recipe_dir_``'s notebook fails the check, ``[]`` when it passes, or ``None`` when
     nothing applies (no declaration, nothing detected, no simulator need)."""
@@ -6607,11 +6891,12 @@ def _side_effect_violations(slug: str, recipe_dir_: Path) -> list[str] | None:
         declaration, problems = parse_side_effect_declaration(SIDE_EFFECT_INVENTORY[slug])
     if problems:
         return problems
-    ignore = declaration.not_side_effects if declaration else frozenset()
+    ignore = frozenset(declaration.not_side_effects) if declaration else frozenset()
     report = side_effect_report(recipe_dir_, ignore)
     violations = list(report.problems)
     for name in sorted(ignore - report.helpers.functions - report.helpers.classes):
         violations.append(f"not_side_effects names {name!r}, which helpers.py does not define")
+    violations.extend(_bookkeeping_problems(recipe_dir_, ignore))
     counts = report.counts()
     required = slug in SIMULATOR_REQUIRED
     if declaration is None:
@@ -6931,7 +7216,13 @@ def test_a_sink_the_notebook_builds_but_never_reaches_is_reported(tmp_path):
         ({"schema": 1, "sites": {"not a key": 1}}, "is not a site key"),
         ({"schema": 1, "none": " "}, "non-empty reason"),
         ({"schema": 1, "none": "x", "extra": 1}, "unknown field"),
-        ({"schema": 1, "none": "x", "not_side_effects": "Cache"}, "list of helpers.py names"),
+        ({"schema": 1, "none": "x", "not_side_effects": "Cache"}, "must be an object mapping"),
+        ({"schema": 1, "none": "x", "not_side_effects": ["Cache"]}, "must be an object mapping"),
+        ({"schema": 1, "none": "x", "not_side_effects": {"Cache": ""}}, "needs a non-empty reason"),
+        ({"schema": 1, "none": "x", "not_side_effects": {"Cache": 3}}, "needs a non-empty reason"),
+        ({"schema": 1, "none": "x", "not_side_effects": {"": "why"}}, "empty name"),
+        ({"schema": 1, "none": "TODO: why"}, "placeholder"),
+        ({"schema": 1, "none": "x", "not_side_effects": {"Cache": "TODO"}}, "marker"),
     ],
 )
 def test_a_malformed_declaration_is_rejected(data, fragment):
@@ -6943,7 +7234,9 @@ def test_a_declaration_that_is_not_json_or_names_a_missing_helper_fails(tmp_path
     copy = _mutated_recipe(tmp_path, RECIPE_24, lambda s: s)
     (copy / SIDE_EFFECT_DECLARATION).write_text("{not json", "utf-8")
     assert "not valid JSON" in _side_effect_violations("99-unlisted", copy)[0]
-    _write_declaration(copy, sites={"helpers.submit_reviews": 2}, not_side_effects=["Missing"])
+    _write_declaration(
+        copy, sites={"helpers.submit_reviews": 2}, not_side_effects={"Missing": "a counter"}
+    )
     assert any("does not define" in v for v in _side_effect_violations("99-unlisted", copy))
 
 
@@ -7284,8 +7577,427 @@ def test_bookkeeping_helpers_are_declared_not_silently_ignored(tmp_path):
     )
     assert side_effect_report(folder).helpers.effect_classes == {"Cache"}
     assert any("no side-effect declaration" in v for v in _side_effect_violations("99-x", folder))
-    _write_declaration(folder, none="a cache only", not_side_effects=["Cache"])
+    _write_declaration(folder, none="a cache only", not_side_effects={"Cache": "a lookup memo"})
     assert _side_effect_violations("99-x", folder) == []
+
+
+# --------------------------------------------------------------------------------------------
+# #327: not_side_effects is for bookkeeping only; module-level state; factory-built simulators;
+# the scaffolded declaration
+# --------------------------------------------------------------------------------------------
+
+SIM_IMPORTS = "from jev_cookbook.simulation import ActionLog, ReviewQueue, Store, Transactor\n"
+
+# helpers.py classes and functions a declaration may exempt: the only state they write is a
+# container of their own, or module-level state.
+BOOKKEEPING_ALLOWED = {
+    "a counter and a list of its own": (
+        "Counting",
+        "class Counting:\n    def __init__(self, inner):\n        self.inner = inner\n"
+        "        self.sent = []\n        self.n = 0\n\n    def decide(self, x):\n"
+        "        self.sent.append(x)\n        self.n += 1\n        return self.inner.decide(x)\n",
+    ),
+    "a memo dict of its own": (
+        "Memo",
+        "class Memo:\n    def __init__(self):\n        self.answers = {}\n\n"
+        "    def get(self, key):\n        self.answers[key] = key\n        return key\n",
+    ),
+    "a module-level cache written by a function": (
+        "cached",
+        "_SEEN = {}\n\n\ndef cached(key):\n    _SEEN.setdefault(key, 0)\n    return key\n",
+    ),
+}
+
+# The same slot used for what is not bookkeeping: each writes to a queue, a log, a store, a
+# transaction log or a simulator, in a different way. All of them were accepted before #327.
+BOOKKEEPING_REFUSED = {
+    "a queue held in self": (
+        "Stash",
+        SIM_IMPORTS
+        + "\n\nclass Stash:\n    def __init__(self):\n        self.queue = ReviewQueue()\n\n"
+        "    def add(self, item):\n        self.queue.submit(item, 'r')\n",
+    ),
+    "an action log held in self": (
+        "Journal",
+        SIM_IMPORTS
+        + "\n\nclass Journal:\n    def __init__(self):\n        self.log = ActionLog()\n\n"
+        "    def add(self, item):\n        self.log.record('k', item)\n",
+    ),
+    "a transactor held in self": (
+        "GraphStore",
+        GRAPH,
+    ),
+    "a store written through a parameter": (
+        "stash",
+        "def stash(store, key, value):\n    store.put(key, value, writer='rule')\n",
+    ),
+    "a queue built and written in a function": (
+        "enqueue",
+        SIM_IMPORTS
+        + "\n\ndef enqueue(item):\n    queue = ReviewQueue()\n    queue.submit(item, 'r')\n"
+        "    return queue\n",
+    ),
+    "a module-level queue": (
+        "enqueue",
+        SIM_IMPORTS
+        + "\nQUEUE = ReviewQueue()\n\n\ndef enqueue(item):\n    QUEUE.submit(item, 'r')\n",
+    ),
+    "a shared fill helper": (
+        "fill",
+        "from jev_cookbook.simulation import fill_review_queue\n\n\ndef fill(queue, outcomes):\n"
+        "    return fill_review_queue(queue, outcomes, needs_review=bool, item=dict, reason='r')\n",
+    ),
+    "a simulator stepped through self": (
+        "Runner",
+        "class Runner:\n    def __init__(self, sim):\n        self.sim = sim\n\n"
+        "    def go(self, action):\n        return self.sim.step(action)\n",
+    ),
+    "a Simulator subclass": ("Factory", SIM_CLASS),
+    "a ToyGrid subclass": (
+        "Maze",
+        "from jev_cookbook.simulation import ToyGrid\n\n\nclass Maze(ToyGrid):\n    pass\n",
+    ),
+    "a class that reaches the write through another helper": (
+        "Wrapper",
+        REVIEW_HELPERS + "\n\nclass Wrapper:\n    def go(self, queue, items):\n"
+        "        submit_reviews(queue, items)\n",
+    ),
+}
+
+
+@pytest.mark.parametrize("case", sorted(BOOKKEEPING_ALLOWED))
+def test_a_bookkeeping_class_may_be_listed_under_not_side_effects_with_a_reason(tmp_path, case):
+    name, helpers_source = BOOKKEEPING_ALLOWED[case]
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"], helpers_source)
+    assert name in side_effect_report(folder).helpers.effect_functions | (
+        side_effect_report(folder).helpers.effect_classes
+    ), "the analysis takes it for a side effect, which is why it has to be listed"
+    _write_declaration(folder, none="bookkeeping only", not_side_effects={name: "a counter"})
+    assert _side_effect_violations("99-x", folder) == []
+
+
+@pytest.mark.parametrize("case", sorted(BOOKKEEPING_REFUSED))
+def test_an_entry_that_writes_to_a_queue_log_store_or_simulator_is_refused(tmp_path, case):
+    """The loophole: a recipe's own side_effects.json could list its real side-effect class
+    under not_side_effects and blind the guard to it (#327, S1)."""
+    name, helpers_source = BOOKKEEPING_REFUSED[case]
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"], helpers_source)
+    _write_declaration(folder, none="bookkeeping only", not_side_effects={name: "just a counter"})
+    violations = _side_effect_violations("99-x", folder)
+    assert any(
+        v.startswith(f"not_side_effects names {name!r}, whose code writes to a queue")
+        for v in violations
+    ), violations
+
+
+def test_the_refusal_names_what_to_do_and_applies_to_a_sites_declaration_too(tmp_path):
+    folder = _synthetic_recipe(
+        tmp_path, ["x = 1\n"], BOOKKEEPING_REFUSED["a queue held in self"][1]
+    )
+    _write_declaration(
+        folder, sites={"ReviewQueue.submit": 1}, not_side_effects={"Stash": "bookkeeping"}
+    )
+    violations = _side_effect_violations("99-x", folder)
+    assert any("declare its call sites under sites instead" in v for v in violations)
+
+
+def test_an_exemption_cannot_hide_the_real_effect_of_a_recipe_that_needs_a_simulator(tmp_path):
+    """The reviewers' probe P2: recipe 57 lists the class that applies its graph under
+    not_side_effects and declares one trivial queue site. Deleting the apply loop passed."""
+    slug = UNPUBLISHED[57]
+    helpers_source = GRAPH + "\n" + REVIEW_HELPERS
+    intact = HDR + (
+        "graph = helpers.GraphStore()\nqueue = ReviewQueue()\nhelpers.submit_reviews(queue, [])\n"
+        "for u in updates:\n    graph.apply(u)\n"
+    )
+    deleted = (
+        HDR
+        + "graph = helpers.GraphStore()\nqueue = ReviewQueue()\nhelpers.submit_reviews(queue, [])\n"
+    )
+    hidden = {
+        "sites": {"helpers.submit_reviews": 1},
+        "not_side_effects": {"GraphStore": "bookkeeping"},
+    }
+    for notebook in (intact, deleted):
+        folder = _synthetic_recipe(tmp_path / str(len(notebook)), [notebook], helpers_source)
+        _write_declaration(folder, **hidden)
+        assert any(
+            "not_side_effects names 'GraphStore'" in v
+            for v in _side_effect_violations(slug, folder)
+        )
+    # Declared honestly it passes while the loop is there and fails once it is deleted.
+    honest = {"helpers.GraphStore.apply": 1, "helpers.submit_reviews": 1}
+    folder = _synthetic_recipe(tmp_path / "honest", [intact], helpers_source)
+    _write_declaration(folder, sites=honest)
+    assert _side_effect_violations(slug, folder) == []
+    folder = _synthetic_recipe(tmp_path / "honest-deleted", [deleted], helpers_source)
+    _write_declaration(folder, sites=honest)
+    assert _side_effect_violations(slug, folder)
+
+
+def test_a_declaration_with_a_list_or_a_reasonless_entry_does_not_load(tmp_path):
+    folder = _synthetic_recipe(
+        tmp_path, ["x = 1\n"], BOOKKEEPING_ALLOWED["a memo dict of its own"][1]
+    )
+    for value in (["Memo"], {"Memo": ""}, {"Memo": "TODO"}):
+        _write_declaration(folder, none="bookkeeping only", not_side_effects=value)
+        violations = _side_effect_violations("99-x", folder)
+        assert violations and all(v.startswith("side_effects.json:") for v in violations)
+
+
+def test_the_parser_accepts_the_reasoned_form():
+    declaration, problems = parse_side_effect_declaration(
+        {"schema": 1, "none": "x", "not_side_effects": {"Cache": "a lookup memo"}}
+    )
+    assert not problems and declaration.not_side_effects == {"Cache": "a lookup memo"}
+
+
+# Module-level state (S2): a helpers.py function that writes to it is a side-effect function.
+MODULE_STATE_DETECTED = {
+    "a subscript write on a module-level dict": (
+        "_G = {}\n\n\ndef put(k, v):\n    _G[k] = v\n",
+        {"put"},
+    ),
+    "an append on a module-level list": (
+        "LOG = []\n\n\ndef note(x):\n    LOG.append(x)\n",
+        {"note"},
+    ),
+    "a global rebinding": (
+        "COUNT = 0\n\n\ndef bump():\n    global COUNT\n    COUNT += 1\n",
+        {"bump"},
+    ),
+    "an attribute write on a module-level object": (
+        "class S:\n    n = 0\n\n\nSTATE = S()\n\n\ndef bump():\n    STATE.n = 1\n",
+        {"bump"},
+    ),
+    "a delete on a module-level dict": ("G = {}\n\n\ndef drop(k):\n    del G[k]\n", {"drop"}),
+    "a write to a class attribute": (
+        "class Registry:\n    items = []\n\n\ndef reg(x):\n    Registry.items.append(x)\n",
+        {"reg"},
+    ),
+    "a setdefault on an annotated module-level dict": (
+        "G: dict = {}\n\n\ndef f(k):\n    G.setdefault(k, 1)\n",
+        {"f"},
+    ),
+    "a module-level queue": (
+        SIM_IMPORTS + "Q = ReviewQueue()\n\n\ndef add(i):\n    Q.submit(i, 'r')\n",
+        {"add"},
+    ),
+    "a function that calls one of those": (
+        "G = {}\n\n\ndef a(k):\n    G[k] = 1\n\n\ndef b(k):\n    a(k)\n",
+        {"a", "b"},
+    ),
+}
+MODULE_STATE_NOT_DETECTED = {
+    "a read of a module-level dict": (
+        "T = {'a': 1}\n\n\ndef read(k):\n    return T.get(k), list(T.items())\n"
+    ),
+    "a compiled pattern": "import re\n\n_R = re.compile('x')\n\n\ndef f(s):\n    return _R.sub('', s)\n",
+    "a local that shadows the module-level name": (
+        "G = {}\n\n\ndef f(k):\n    G = {}\n    G[k] = 1\n    return G\n"
+    ),
+    "a parameter that shadows the module-level name": ("G = {}\n\n\ndef f(G, k):\n    return k\n"),
+    "a read of a module-level number": "N = 0\n\n\ndef f():\n    n = N + 1\n    return n\n",
+    "a read of the environment": "import os\n\n\ndef f():\n    return os.environ.get('X')\n",
+    # The documented limits: a write through a parameter or a local alias is not seen.
+    "a write through a parameter (documented limit)": ("def f(graph, k, v):\n    graph[k] = v\n"),
+    "a write through a local alias (documented limit)": (
+        "GRAPH = {}\n\n\ndef f(k, v):\n    g = GRAPH\n    g[k] = v\n"
+    ),
+}
+
+
+@pytest.mark.parametrize("case", sorted(MODULE_STATE_DETECTED))
+def test_a_write_to_module_level_state_makes_the_function_a_side_effect(tmp_path, case):
+    helpers_source, expected = MODULE_STATE_DETECTED[case]
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"], helpers_source)
+    assert side_effect_report(folder).effect_functions == expected
+
+
+@pytest.mark.parametrize("case", sorted(MODULE_STATE_NOT_DETECTED))
+def test_a_read_a_shadowed_name_or_an_unseen_alias_is_not_taken_for_a_module_state_write(
+    tmp_path, case
+):
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"], MODULE_STATE_NOT_DETECTED[case])
+    assert side_effect_report(folder).effect_functions == set()
+
+
+def test_a_recipe_whose_real_effect_is_a_module_level_dict_is_caught_when_it_is_deleted(tmp_path):
+    """The reviewers' probe P3: recipe 57's writes go to a module-level dict, plus one declared
+    queue site; deleting the write loop passed because the dict write was invisible."""
+    slug = UNPUBLISHED[57]
+    helpers_source = (
+        "GRAPH = {}\n\n\ndef apply_update(update):\n    GRAPH[update['key']] = update['value']\n"
+        "\n" + REVIEW_HELPERS
+    )
+    head = HDR + "queue = ReviewQueue()\nhelpers.submit_reviews(queue, [])\n"
+    intact = head + "for u in updates:\n    helpers.apply_update(u)\n"
+    declared = {"helpers.apply_update": 1, "helpers.submit_reviews": 1}
+    folder = _synthetic_recipe(tmp_path / "intact", [intact], helpers_source)
+    assert side_effect_report(folder).counts() == declared
+    _write_declaration(folder, sites=declared)
+    assert _side_effect_violations(slug, folder) == []
+    folder = _synthetic_recipe(tmp_path / "deleted", [head], helpers_source)
+    _write_declaration(folder, sites=declared)
+    violations = _side_effect_violations(slug, folder)
+    assert (
+        "the notebook executes helpers.apply_update at 0 call site(s), the declaration requires 1"
+        in violations
+    )
+    # And with only the queue site declared, the deleted notebook looks fine to the old guard but
+    # the module-level write is now an undeclared function the notebook never uses.
+    _write_declaration(folder, sites={"helpers.submit_reviews": 1})
+    assert any(
+        "never uses" in v and "apply_update" in v for v in _side_effect_violations(slug, folder)
+    )
+
+
+def test_a_recipe_with_only_a_module_level_effect_and_no_simulator_need_is_no_longer_skipped(
+    tmp_path,
+):
+    """The reviewers' probe P4: an unlisted recipe whose only effect is a module-level dict."""
+    folder = _synthetic_recipe(
+        tmp_path,
+        [HDR + "helpers.apply_update({'key': 1, 'value': 2})\n"],
+        "GRAPH = {}\n\n\ndef apply_update(update):\n    GRAPH[update['key']] = update['value']\n",
+    )
+    violations = _side_effect_violations("99-unlisted", folder)
+    assert violations and any("no side-effect declaration" in v for v in violations)
+
+
+# Factory-built simulators (S3): ``sim = helpers.new_game(seed)`` holds what ``new_game`` builds.
+FACTORY_SIM = SIM_CLASS + "\n\ndef new_game(seed):\n    return Factory(seed=seed)\n"
+FACTORY_STEP_LOOP = "while not sim.done:\n    sim.step('build')\n"
+
+FACTORY_SHAPES = {
+    "59 shape: a function that returns the simulator": (
+        59,
+        FACTORY_SIM,
+        HDR + "sim = helpers.new_game(1)\n" + FACTORY_STEP_LOOP,
+        HDR + "sim = helpers.new_game(1)\n",
+        {"helpers.Factory.step": 1},
+    ),
+    "59 shape: a function that builds, names and returns the simulator": (
+        59,
+        SIM_CLASS + "\n\ndef new_game(seed):\n    sim = Factory(seed=seed)\n    return sim\n",
+        HDR + "sim = helpers.new_game(1)\n" + FACTORY_STEP_LOOP,
+        HDR + "sim = helpers.new_game(1)\n",
+        {"helpers.Factory.step": 1},
+    ),
+    "59 shape: a factory that calls another factory": (
+        59,
+        FACTORY_SIM + "\n\ndef new_seeded_game(seed):\n    return new_game(seed + 1)\n",
+        HDR + "sim = helpers.new_seeded_game(1)\n" + FACTORY_STEP_LOOP,
+        HDR + "sim = helpers.new_seeded_game(1)\n",
+        {"helpers.Factory.step": 1},
+    ),
+    "59 shape: a classmethod that returns cls(...)": (
+        59,
+        SIM_CLASS.replace(
+            "    def _reset(self, rng):",
+            "    @classmethod\n    def fresh(cls, seed):\n        return cls(seed=seed)\n\n"
+            "    def _reset(self, rng):",
+            1,
+        ),
+        HDR + "sim = helpers.Factory.fresh(1)\n" + FACTORY_STEP_LOOP,
+        HDR + "sim = helpers.Factory.fresh(1)\n",
+        {"helpers.Factory.step": 1},
+    ),
+    "59 shape: the factory call chained on the step": (
+        59,
+        FACTORY_SIM,
+        HDR + "helpers.new_game(1).step('build')\n",
+        HDR + "helpers.new_game(1)\n",
+        {"helpers.Factory.step": 1},
+    ),
+    "59 shape: a function that returns the shared ToyGrid": (
+        59,
+        "from jev_cookbook.simulation import ToyGrid\n\n\ndef new_grid(seed):\n"
+        "    return ToyGrid(seed=seed)\n",
+        HDR
+        + "sim = helpers.new_grid(0)\nwhile not sim.done:\n    sim.step(sim.legal_actions()[0])\n",
+        HDR + "sim = helpers.new_grid(0)\n",
+        {"ToyGrid.step": 1},
+    ),
+    "57 shape: a function that returns a review queue": (
+        57,
+        "from jev_cookbook.simulation import ReviewQueue\n\n\ndef new_queue():\n"
+        "    return ReviewQueue()\n",
+        HDR + "queue = helpers.new_queue()\nqueue.submit({}, 'low confidence')\n",
+        HDR + "queue = helpers.new_queue()\n",
+        {"ReviewQueue.submit": 1},
+    ),
+    "59 shape: a factory the notebook defines itself": (
+        59,
+        "",
+        HDR
+        + "def new_game(seed):\n    grid = ToyGrid(seed=seed)\n    return grid\n\n\n"
+        + "sim = new_game(0)\nwhile not sim.done:\n    sim.step(sim.legal_actions()[0])\n",
+        HDR
+        + "def new_game(seed):\n    grid = ToyGrid(seed=seed)\n    return grid\n\n\nsim = new_game(0)\n",
+        {"ToyGrid.step": 1},
+    ),
+}
+
+
+@pytest.mark.parametrize("shape", sorted(FACTORY_SHAPES))
+def test_a_factory_built_simulator_is_declarable_and_deleting_its_use_fails(tmp_path, shape):
+    """S3: before #327 the intact notebook failed (nothing it could declare matched), so a
+    builder had to restructure; now it is declared under the class the factory returns."""
+    rank, helpers_source, intact, deleted, declared = FACTORY_SHAPES[shape]
+    slug = UNPUBLISHED[rank]
+    whole = _synthetic_recipe(tmp_path / "intact", [intact], helpers_source)
+    assert side_effect_report(whole).counts() == declared
+    _write_declaration(whole, sites=declared)
+    assert _side_effect_violations(slug, whole) == []
+    broken = _synthetic_recipe(tmp_path / "deleted", [deleted], helpers_source)
+    _write_declaration(broken, sites=declared)
+    assert _side_effect_violations(slug, broken), "deleting the simulator's use must fail"
+    (broken / SIDE_EFFECT_DECLARATION).unlink()
+    assert _side_effect_violations(slug, broken)
+
+
+def test_a_factory_that_returns_something_else_makes_nothing_of_the_name_it_is_bound_to(tmp_path):
+    helpers_source = SIM_CLASS + "\n\ndef describe(seed):\n    return {'seed': seed}\n"
+    folder = _synthetic_recipe(
+        tmp_path, [HDR + "info = helpers.describe(1)\ninfo.step('x')\n"], helpers_source
+    )
+    assert side_effect_report(folder).counts() == {}
+
+
+def test_a_factory_with_two_different_returns_is_not_guessed_at(tmp_path):
+    helpers_source = (
+        SIM_CLASS
+        + "\n\ndef new_game(seed, small):\n    if small:\n        return Factory(seed=seed)\n"
+        "    return {'seed': seed}\n"
+    )
+    folder = _synthetic_recipe(
+        tmp_path, [HDR + "sim = helpers.new_game(1, True)\nsim.step('x')\n"], helpers_source
+    )
+    assert side_effect_report(folder).counts() == {}
+
+
+def test_the_scaffolded_declaration_is_a_placeholder_the_guard_rejects_until_it_is_rewritten(
+    tmp_path,
+):
+    """S4: ``tools/new_recipe.py`` scaffolds ``side_effects.json``. Left as scaffolded it fails the
+    guard (it cannot be forgotten); rewritten as ``none`` it passes for a recipe without a
+    simulated side effect and still fails for one that needs a simulator."""
+    scaffolder = load_tool("new_recipe.py")
+    catalog = REPO / "catalog" / "recipes.json"
+    for mode in scaffolder.MODES:
+        for rank in (31, 57):
+            slug = next(r["slug"] for r in CATALOG["recipes"] if r["rank"] == rank)
+            folder = scaffolder.scaffold(rank, catalog, tmp_path / mode / str(rank), mode)
+            declaration, problems = read_side_effect_declaration(folder)
+            assert declaration is None and "placeholder" in problems[0], problems
+            assert _side_effect_violations(slug, folder) == problems
+            _write_declaration(folder, none="returns typed outcomes only")
+            violations = _side_effect_violations(slug, folder)
+            if rank == 57:
+                assert any("cannot declare none" in v for v in violations), violations
+            else:
+                assert violations == []
 
 
 def test_the_inventory_matches_what_the_published_recipes_do_today():
