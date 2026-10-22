@@ -827,7 +827,7 @@ _UNREADABLE_CITATIONS = {
     "rule-capitalised": ("Rule 12: nothing in this file pins the output", "house rule"),
     "rule-lowercase": ("which is what rule 19 is about", "house rule"),
     "rule-of-a-file-that-does-not-exist": ("rule 4 of docs/not-a-file.md", "house rule"),
-    "rule-of-a-path-that-climbs-out": ("rule 4 of ../CONTRIBUTING.md", "house rule"),
+    "rule-of-a-path-that-climbs-out": ("rule 4 of docs/../CONTRIBUTING.md", "house rule"),
     "rule-of-a-file-not-at-the-root": ("rule 4 of helpers.py", "house rule"),
     "rule-of-a-policy": ("rule 4 of the policy", "house rule"),
     "the-orchestrator": ("the orchestrator asked for this order", "orchestration role"),
@@ -1065,7 +1065,7 @@ def test_the_citations_recipe_17_carried_are_found_where_they_were_written(tmp_p
     assert _recipe_cell_id_citations(folder) == []
     _edit_markdown(
         folder,
-        "the paragraph above about `t06-adversarial-wrong` already said",
+        "The paragraph above about `t06-adversarial-wrong` already said",
         "`selective-discuss` already said",
     )
     _edit_markdown(
