@@ -351,6 +351,27 @@ derive their model and provenance from the fixtures or script.
 Values other than unset, empty, `0`, `1` are an error. The environment is read when
 `get_backend` is called, not at import.
 
+### Which lane goes through `get_backend`
+
+Under `JEV_COOKBOOK_LIVE=1`, `get_backend` ignores `fixtures` and `script` and returns a live
+backend for the model in `model` or `JEV_COOKBOOK_LIVE_MODEL`, not the model named in a fixture
+file. Use it for the one lane that is meant to switch with live mode. A lane that must stay
+offline whatever the environment says (the fabricated adapters in a recipe that compares backends,
+for instance) is constructed directly: `ReplayBackend(mapping)`, `ReplayBackend.from_json(path)`
+or `ScriptedBackend(script, seed)`. Built through `get_backend`, that lane would become a live
+backend under live mode and could send a real request for a model that does not exist. Nothing
+offline shows it, because the two branches differ only when `JEV_COOKBOOK_LIVE=1`, which no
+automated check sets. Recipe 50 is the pattern: `get_backend` for `jev` only, `ReplayBackend`
+for the other lanes, and one responses file per lane (see
+[fixtures.md](fixtures.md#comparison-recipes-responses-tagjson)).
+
+Decision (#290): nothing enforces this. A check could count `get_backend` calls in a recipe, but
+a count cannot tell whether a second backend was meant to go live, so it would stand in for
+intent the source does not carry; a recipe may also legitimately call it once or twice. The rule
+is guidance, read here, in the `get_backend` docstring and in [live.md](live.md), and held by
+review. An explicit keyword on `get_backend` that separates "may go live" from "never live" would
+be a public API change and a separately reviewed design.
+
 ## Backend attributes
 
 Every backend has `mode` (`"synthetic"`, `"recorded"`, `"scripted"` or `"live"`) and `model`

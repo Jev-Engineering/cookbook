@@ -429,6 +429,13 @@ def get_backend(
     other value than unset, empty, ``0`` or ``1`` is an error. The variable is read when
     this function is called, never at import. ``images`` and ``long_context`` enable their
     experimental headers in live mode; offline backends ignore these live options.
+
+    ``fixtures`` and ``script`` are ignored under ``JEV_COOKBOOK_LIVE=1``, so this is the
+    constructor for the one backend that should switch with live mode. A backend that must stay
+    offline whatever the environment says (a fabricated comparison lane, say) is built directly
+    with ``ReplayBackend(...)`` or ``ReplayBackend.from_json(...)`` (``ScriptedBackend(...)`` for a
+    script), never through ``get_backend``: under live mode it would return a live backend that
+    uses the configured live model, not the model named in its fixtures.
     """
     live = os.environ.get(LIVE_ENV, "")
     if live not in ("", "0", "1"):
