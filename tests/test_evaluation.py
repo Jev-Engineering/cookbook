@@ -832,6 +832,144 @@ def test_top_k_query_accuracy_errors():
         ev.top_k_query_accuracy([([1, 0], [0.1, 0.9])], k=0)
 
 
+def test_top_k_query_accuracy_a_tie_wholly_inside_the_cut_off_costs_nothing():
+    # Scores 0.9, 0.9, 0.1 with only item 0 relevant. k=2 holds both tied items: hit, 1.0.
+    # k=1 holds one of the two: P(it is the relevant one) = 1 / 2.
+    q = ([1, 0, 0], [0.9, 0.9, 0.1])
+    assert ev.top_k_query_accuracy([q], k=2) == 1.0
+    assert ev.top_k_query_accuracy([q], k=1) == 0.5
+    # the relevant item below the tie is out of reach until the cut-off passes the tie:
+    # k=2 -> 0.0, k=3 -> 1.0.
+    below = ([0, 0, 1], [0.9, 0.9, 0.1])
+    assert ev.top_k_query_accuracy([below], k=2) == 0.0
+    assert ev.top_k_query_accuracy([below], k=3) == 1.0
+
+
+def test_top_k_query_accuracy_a_tie_that_straddles_the_cut_off_is_a_hypergeometric_hit():
+    # Scores 0.9, 0.5, 0.5, 0.5; only item 1 (inside the three-way tie) is relevant.
+    # k=1: the 0.9 item (not relevant) fills the slot -> 0.
+    # k=2: one open slot among 3 tied, 1 relevant -> 1 - C(2,1)/C(3,1) = 1/3.
+    # k=3: two open slots -> 1 - C(2,2)/C(3,2) = 1 - 1/3 = 2/3.
+    # k=4: the whole tie fits -> 1.
+    q = ([0, 1, 0, 0], [0.9, 0.5, 0.5, 0.5])
+    got = [ev.top_k_query_accuracy([q], k=k) for k in (1, 2, 3, 4)]
+    assert got == [0.0, 1 / 3, 2 / 3, 1.0]
+
+
+def test_top_k_query_accuracy_a_tie_with_two_relevant_items_by_hand():
+    # Four items tied, two relevant. 4 choose s orderings of the open slots:
+    # k=1: 1 - C(2,1)/C(4,1) = 1/2.   k=2: 1 - C(2,2)/C(4,2) = 1 - 1/6 = 5/6.
+    # k=3: the two non-relevant items cannot fill three slots -> 1.
+    q = ([1, 1, 0, 0], [0.5, 0.5, 0.5, 0.5])
+    got = [ev.top_k_query_accuracy([q], k=k) for k in (1, 2, 3)]
+    assert got == [0.5, 5 / 6, 1.0]
+
+
+def test_top_k_query_accuracy_k_larger_than_the_list_is_the_whole_list():
+    # Three items, k=99: every item is in the cut-off, so any query with a relevant item is
+    # a hit, including when the relevant item has the lowest score.
+    assert ev.top_k_query_accuracy([([0, 0, 1], [0.9, 0.8, 0.1])], k=99) == 1.0
+    assert ev.top_k_query_accuracy([([0, 0, 1], [0.9, 0.8, 0.1])], k=3) == 1.0
+    assert ev.top_k_query_accuracy([([0, 0, 1], [0.9, 0.8, 0.1])], k=2) == 0.0
+    # a one-item query, k=1 and k larger
+    assert ev.top_k_query_accuracy([([1], [0.3])], k=1) == 1.0
+    assert ev.top_k_query_accuracy([([1], [0.3])], k=5) == 1.0
+
+
+def test_top_k_query_accuracy_multi_gold_is_any_hit_not_a_share():
+    # Relevant: items 1 and 2 (scores 0.5 and 0.4); the top item 0 (0.9) is not.
+    # k=1 -> top item irrelevant -> 0.   k=2 -> item 1 is in -> 1.0 (one of two found).
+    # recall_at_budget at budget 2 is 1/2: this is the second place the two questions differ.
+    rel, sc = [0, 1, 1], [0.9, 0.5, 0.4]
+    assert ev.top_k_query_accuracy([(rel, sc)], k=1) == 0.0
+    assert ev.top_k_query_accuracy([(rel, sc)], k=2) == 1.0
+    assert ev.recall_at_budget(rel, sc, 2) == 0.5
+    # Several relevant items in the top k still score 1.0 (not 2 and not 1/2).
+    assert ev.top_k_query_accuracy([([1, 1, 1], [0.3, 0.2, 0.1])], k=3) == 1.0
+
+
+def test_top_k_query_accuracy_matches_the_documented_recipe_17_case_at_every_k():
+    # The case that hid the original defect: one query with two relevant items, the top
+    # one among them. recall_at_budget(.., 1) is 0.5; the ranking accuracy is 1.0 at every k.
+    rel, sc = [1, 1, 0], [0.9, 0.1, 0.2]
+    for k in (1, 2, 3, 4):
+        assert ev.top_k_query_accuracy([(rel, sc)], k=k) == 1.0
+    assert ev.recall_at_budget(rel, sc, 1) == 0.5
+
+
+def test_top_k_query_accuracy_does_not_depend_on_the_order_items_are_listed():
+    rel = [1, 0, 1, 0, 0]
+    sc = [0.5, 0.5, 0.2, 0.5, 0.9]
+    base = [ev.top_k_query_accuracy([(rel, sc)], k=k) for k in (1, 2, 3, 4, 5)]
+    # by hand: top 0.9 (not relevant); then a three-way tie at 0.5 holding one relevant;
+    # then 0.2 (relevant). k=1 -> 0. k=2: 1 slot of 3, 1 relevant -> 1/3. k=3: 2 of 3 -> 2/3.
+    # k=4: the whole tie -> 1.  k=5 -> 1.
+    assert base == [0.0, 1 / 3, 2 / 3, 1.0, 1.0]
+    for order in ([4, 3, 2, 1, 0], [2, 0, 4, 1, 3], [1, 3, 0, 4, 2]):
+        rel_p = [rel[i] for i in order]
+        sc_p = [sc[i] for i in order]
+        got = [ev.top_k_query_accuracy([(rel_p, sc_p)], k=k) for k in (1, 2, 3, 4, 5)]
+        assert got == base
+
+
+def test_top_k_query_accuracy_equals_brute_force_enumeration_of_tie_orders():
+    # The definition, taken literally: average, over every ordering of the items that is
+    # consistent with the scores (ties in any order), of "a relevant item is in the first k".
+    # Every tie order is equally frequent among the consistent orderings, so the plain mean
+    # over them is the expectation over tie orders. Small integer scores force many ties.
+    import itertools
+
+    rng = np.random.default_rng(20240607)
+    checked = 0
+    for _ in range(60):
+        n = int(rng.integers(1, 7))
+        scores = [int(v) for v in rng.integers(0, 3, size=n)]
+        relevant = [int(v) for v in rng.integers(0, 2, size=n)]
+        if not any(relevant):
+            continue
+        consistent = [
+            perm
+            for perm in itertools.permutations(range(n))
+            if all(scores[perm[i]] >= scores[perm[i + 1]] for i in range(n - 1))
+        ]
+        for k in range(1, n + 2):
+            hits = sum(any(relevant[i] for i in perm[:k]) for perm in consistent)
+            expected = hits / len(consistent)
+            got = ev.top_k_query_accuracy([(relevant, scores)], k=k)
+            assert got == pytest.approx(expected, abs=1e-12), (scores, relevant, k)
+            checked += 1
+    assert checked > 100  # the loop really compared something
+
+
+def test_top_k_query_accuracy_mean_is_over_queries_with_a_relevant_item_only():
+    # q_tie: tied pair, one relevant -> 1/2.  q_hit: clear winner relevant -> 1.
+    # q_none: no relevant item -> undefined, left out. Mean of the two defined = 3/4.
+    q_tie = ([1, 0], [0.5, 0.5])
+    q_hit = ([0, 1], [0.1, 0.9])
+    q_none = ([0, 0, 0], [0.9, 0.5, 0.1])
+    assert ev.top_k_query_accuracy([q_tie, q_hit, q_none]) == 0.75
+    assert ev.top_k_query_accuracy([q_tie, q_hit]) == 0.75
+    # a query that is a clear miss is NOT left out: (0 + 1) / 2
+    assert ev.top_k_query_accuracy([([1, 0], [0.1, 0.9]), q_hit]) == 0.5
+
+
+def test_top_k_query_accuracy_accepts_booleans_and_rejects_non_binary_relevance():
+    assert ev.top_k_query_accuracy([([False, True], [0.1, 0.9])]) == 1.0
+    with pytest.raises(ValueError):
+        ev.top_k_query_accuracy([([2, 0], [0.9, 0.1])])  # graded relevance is not binary
+    with pytest.raises(ValueError):
+        ev.top_k_query_accuracy([([1, 0], [float("nan"), 0.1])])  # non-finite score
+
+
+def test_top_k_query_accuracy_an_empty_query_raises_even_among_valid_ones():
+    with pytest.raises(ValueError):
+        ev.top_k_query_accuracy([([1, 0], [0.9, 0.1]), ([], [])])
+    with pytest.raises(ValueError):
+        ev.top_k_query_accuracy([([], [])])
+    with pytest.raises(ValueError):
+        ev.top_k_query_accuracy([([1, 0], [])])  # items without scores
+
+
 # ---------------------------------------------------------------- Selective prediction
 SC = [1, 1, 0, 1, 0]
 SF = [0.9, 0.8, 0.7, 0.6, 0.5]

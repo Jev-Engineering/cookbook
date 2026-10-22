@@ -248,6 +248,23 @@ lists, whether any gold-relevant item is among the `k` top-scored items of that 
 names stay separate because the existing `top_k_accuracy` signature is frozen (its callers
 already rely on it); do not confuse the two from the name alone.
 
+**What `top_k_query_accuracy` does in the cases a ranking metric has to decide**
+(each is a test in `tests/test_evaluation.py`):
+
+| Case | Result |
+| --- | --- |
+| **Ties** | Ranked by score, descending; the order items are listed in never matters. A tie wholly inside the top `k` costs nothing. A tie that straddles the cut-off scores the chance that a uniformly random tie-break puts a relevant item in the open slots: `1 - C(g - r, s) / C(g, s)` for `g` tied items, `r` of them relevant and `s` open slots (`r / g` at `k=1`). Four items tied with two relevant: `1/2` at `k=1`, `5/6` at `k=2`, `1.0` at `k=3` |
+| **`k` larger than the list** | The whole list: any query with a relevant item is a hit (`1.0`) |
+| **Several relevant items** | Interchangeable. The query is a hit if any one is in the top `k`, worth `1` however many are (not a share, which is what `recall_at_budget` reports) |
+| **Duplicate gold** | There is no gold id to repeat: relevance is a `1` per item in `gold_relevant`, so two items marked `1` are two relevant items. Graded relevance (anything but `0`/`1`/booleans) raises |
+| **A query with no relevant item** | Undefined: left out of the mean, in the numerator and the denominator. If no query has one the result is NaN |
+| **Empty input** | `ValueError`: no queries, a query with no items, or `k < 1` |
+
+The result is a plain mean, so it does not say how many queries it averaged or how many were left
+out for having no relevant item. Report that count next to the number (it is
+`len(queries)` minus the queries whose `gold_relevant` has no `1`), the same rule this guide gives
+for selective accuracy: say which denominator a reported accuracy has.
+
 **A rule that excludes candidates before ranking must pass `eligible`.** `recall_at_budget` fills
 its budget purely from the list it is given, so a candidate the rule excluded (a confidence gate,
 a foreign-option check, a type or permission filter) is credited for any slot the eligible
