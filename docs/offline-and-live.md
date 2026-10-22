@@ -168,9 +168,12 @@ the README and every markdown cell for them:
 ### The older metric-line checks
 
 `validation_lines_carry_selection_and_check` and `metric_lines_carry_check` look for a `print(`
-whose call spells a rounded-float format (`{x:.4f}`) beside a metric word. They cover that one
-formatting convention. A metric printed through an aligned spec, a hoisted format string or a helper
-is outside them, as is any prose. Their existence is not evidence that section 2 is enforced;
+that spells a rounded-float format (`{x:.4f}`, or aligned, `{x:>13.4f}`) beside the word
+"validation" or a metric word. They cover that one formatting convention. The validation check
+also follows a float formatted one line up, in a string the `print(` interpolates; the other does
+not. A metric printed through a helper, `round()` or `%` formatting is outside them, as is any
+prose, and so is a validation line that never says "validation" in its own text.
+Their existence is not evidence that section 2 is enforced;
 `metric_output_lines_carry_pipeline_check` is the check that reads what was printed.
 
 ### Ideas considered and rejected
