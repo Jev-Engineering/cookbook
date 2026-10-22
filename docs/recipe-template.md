@@ -269,10 +269,24 @@ own first use the same way.
   decide anything.
 - **Per-item order comes from a seed key, never from `random.shuffle` or list position.** This
   template's one `Choice` lists its options in a fixed, meaningful order, so it needs none of
-  this. A recipe that ranks or compares several candidates, and does not want their shown order to
+  this, and it prints no first-option or other position statistic either: offline, the share of
+  gold answers on the first listed option measures the fixture author and not any model, so it
+  is never offered as a check on a model's first-option lean (CONTRIBUTING.md section 2). A
+  recipe that ranks or compares several candidates, and does not want their shown order to
   come from the data itself (which one is listed first, which side of a pairwise comparison an
   item sits on), derives it from `jev_cookbook.fixtures.stable_permutation` /
-  `stable_shuffle` ([fixtures.md](fixtures.md#per-item-option-order)) instead.
+  `stable_shuffle` ([fixtures.md](fixtures.md#per-item-option-order)) instead: a seeded
+  Fisher-Yates permutation built from nothing but `random()`, so the same seed key gives the same
+  order on every Python version.
+- **A fixture builder uses only exactly-specified float operations.** `build_fixtures.py` is
+  asserted byte for byte against the committed `responses.json` (`tests/test_build_fixtures.py`),
+  on Python 3.10 and 3.14. Accumulate floats with a left-to-right loop, not `sum()` (CPython 3.12
+  changed `sum()` over floats to compensated summation, so the two legs can differ in the last
+  bit), and build a power by repeated multiplication, not `float ** int` (the C library's
+  `pow()` is not pinned across builds). Rounding the stored value also hides a difference, but
+  prefer a construction that is deterministic to one that truncates its output. The measured
+  example, and the other operations to avoid, are in [fixtures.md](fixtures.md#floats-in-a-generator).
+  The template's own `build_fixtures.py` stores hand-typed probabilities and does neither.
 - **Neighbour links are folder links, and every linked neighbour already exists on `main`.**
   "Next steps" links a neighbouring recipe as `../NN-slug/`. `tools/render_catalog.py` renders
   each catalog row as a bare `| NN | **title**<br>use_case | category | decision | status |` with
