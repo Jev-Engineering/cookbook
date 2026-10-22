@@ -12,7 +12,7 @@ Typical notebook use (see ``docs/backends.md``)::
     result["billing"].noul
 """
 
-from .accounting import AuditedBackend
+from .accounting import AuditedBackend, audit_json
 from .answers import (
     Answer,
     BoxAnswer,
@@ -80,6 +80,7 @@ __all__ = [
     "ScriptedBackend",
     "Usage",
     "answer_from_dict",
+    "audit_json",
     "dump_responses",
     "get_backend",
     "load_helpers",

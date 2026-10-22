@@ -129,10 +129,18 @@ check id                              rule -> detection
                                        above mean "no gate".
 ``readme_sources_match_catalog``      tests/test_recipe_sources.py's own rule, reused here
                                        so the guard reports it as one of these checks too.
-``readme_budget_note_matches_stored_answers``
-                                       CONTRIBUTING.md section 2 / docs/live.md: the stated
-                                       live-mode call count equals backend-derived audit evidence,
-                                       with strict ``len(responses.json)`` legacy fallback.
+``readme_budget_note_matches_request_audit``
+                                       CONTRIBUTING.md section 2 / docs/live.md (#213): the live
+                                       request count is declared once (``request_budget.json``),
+                                       equals the audited execution of every backend, repeats no
+                                       request undeclared, and the README holds the paragraph
+                                       rendered from it; strict ``len(responses.json)`` legacy
+                                       fallback for a recipe with none of the three.
+``one_backend_per_budget``            #213: no more ``get_backend`` call sites in the notebook
+                                       and ``helpers.py`` than audited backends (an unaudited
+                                       recipe: one); the request budget belongs
+                                       to one backend object, so a second site is a second
+                                       budget no README cap or count audit sees.
 ``readme_no_dev_ml_install``          docs/recipe-template.md step 6: reproducing committed
                                        outputs installs ``.[ml]``, never ``.[dev,ml]`` (a paragraph
                                        about reproducing outputs; the tests' install line may say
@@ -265,13 +273,15 @@ Scope decisions (see the pull request body for the full reasoning):
     ``select_threshold(`` call in the recipe's committed notebook or ``helpers.py`` -- so a
     scripted recipe with a gate is checked and one without a gate (scripted or not) is skipped
     on the actual absence of anything to re-derive.
-  - ``readme_budget_note_matches_stored_answers`` compares the README's count with a
-    backend-derived ledger when the notebook adopts ``AuditedBackend``. It verifies the
-    ledger's full ordered keys, derived counts, exact replay inventory, anchored source and
-    committed output. Fresh offline execution remains the separate notebook CI job's duty.
-    Without an audit, the existing strict ``len(responses.json)`` proxy remains; unaudited
-    scripted recipes still lack a committed artifact this check can read and retain the
-    existing skip. Audited scripted recipes are checked using their actual call ledger.
+  - ``readme_budget_note_matches_request_audit`` (#213) compares the audited execution with the
+    recipe's one declaration, ``request_budget.json``, and the README with the paragraph
+    rendered from it, for a recipe that adopts the route (declaration, ``AuditedBackend``
+    notebook and rendered paragraph come together or not at all). It verifies the ledger's full
+    ordered keys, derived counts, exact replay inventory, anchored source and committed output,
+    and fails on a request decided twice unless the declaration names the repeats. Fresh
+    offline execution remains the separate notebook CI job's duty. A recipe with none of the
+    three keeps the existing strict ``len(responses.json)`` proxy, and unaudited scripted
+    recipes still lack a committed artifact this check can read and retain the existing skip.
 * ``noul_proposition_gold_coverage`` (#283) discovers a recipe's ``Noul`` propositions by
   CALLING every zero-required-argument function ``helpers.py`` defines (not imports) and
   keeping the ``Noul``-valued entries of any dict each one returns -- the recipe's own code
@@ -3505,13 +3515,8 @@ def test_readme_sources_match_the_catalog(recipe):
 
 
 # --------------------------------------------------------------------------------------------
-# check 8b: the live budget note matches backend evidence or the strict legacy proxy
+# check 8b: the live budget note matches the request audit (#213) or the strict legacy proxy
 # --------------------------------------------------------------------------------------------
-
-LIVE_CALL_COUNT = re.compile(
-    r"makes\s+exactly\s+(?:\*\*)?(\d+)(?:\*\*)?\s+(?:calls?|requests?)\b"
-    r"|makes\s+exactly\s+one\s+(?:call|request)\s+for\s+each\s+of\s+(?:the\s+)?(\d+)\b"
-)
 
 
 def _load_request_audit() -> ModuleType:
@@ -3524,39 +3529,236 @@ def _load_request_audit() -> ModuleType:
 
 
 _request_audit = _load_request_audit()
+LIVE_CALL_COUNT = _request_audit.LIVE_CALL_COUNT
 
 
-@pytest.mark.parametrize("recipe", guarded("readme_budget_note_matches_stored_answers")())
-def test_the_live_budget_note_matches_the_stored_answer_count(recipe):
-    """Actual decide calls and distinct fixture keys are different quantities.
+@pytest.mark.parametrize("recipe", guarded("readme_budget_note_matches_request_audit")())
+def test_the_live_budget_note_matches_the_request_audit(recipe):
+    """A recipe states its live request count once, in ``request_budget.json``.
 
-    An audited notebook prints the shared backend's complete ordered call ledger in its
-    final cell. The source/output verifier checks that binding, recomputes both counts,
-    and demands exact coverage of responses.json's keys. Repeated identical requests
-    count independently. Freshness is enforced by the separate offline notebook job.
+    The audited route (a recipe that declares a count, wraps its backends in
+    ``AuditedBackend`` and prints the one final audit line) is checked three ways at once:
+    the committed audit line equals the declaration (calls, distinct requests, exact fixture
+    inventory), no request is decided twice unless the declaration says so (a repeat fails and
+    names the replay key), and the README holds the paragraph rendered from the declaration
+    and the section states no other request count or cap. The declaration, the audited notebook
+    and the rendered paragraph come together or not at all (a paragraph alone fails too). Freshness of the committed line is the separate offline notebook
+    job's duty.
 
-    Recipes without audit evidence keep the existing strict fixture-count proxy (and
-    the existing unaudited-scripted skip); malformed audits never use that fallback.
+    A recipe with none of the three keeps the old strict ``len(responses.json)`` proxy, which
+    measures distinct fixture keys and so cannot see a repeated request or a second backend (see
+    #213); unaudited scripted recipes still have no artifact to read and keep the existing skip.
+    A malformed audit never falls back to the proxy.
     """
-    path = recipe_dir(recipe) / "fixtures" / "responses.json"
-    keys = set(json.loads(path.read_text("utf-8"))) if path.is_file() else None
-    actual = _request_audit.audited_call_count(notebook_cells(recipe_dir(recipe)), keys)
-    if actual is None:
-        if keys is None:
-            pytest.skip(
-                "scripted recipe: no responses.json or committed backend request audit; "
-                "actual decide() count requires execution evidence (see #249)"
-            )
-        actual = len(keys)
-    readme = (recipe_dir(recipe) / "README.md").read_text("utf-8")
+    directory = recipe_dir(recipe)
+    if _request_audit.audit_recipe(directory, notebook_cells(directory)) is not None:
+        return
+    path = directory / "fixtures" / "responses.json"
+    if not path.is_file():
+        pytest.skip(
+            "scripted recipe: no responses.json or committed backend request audit; "
+            "actual decide() count requires execution evidence (see #249)"
+        )
+    actual = len(json.loads(path.read_text("utf-8")))
+    readme = (directory / "README.md").read_text("utf-8")
     assert "## Switch to live" in readme
     section = readme.split("## Switch to live", 1)[1].split("## What was", 1)[0]
     match = LIVE_CALL_COUNT.search(section)
     assert match, f"{recipe['slug']}: no recognisable live-call-count sentence in README.md"
     stated = int(next(g for g in match.groups() if g))
     assert stated == actual, (
-        f"{recipe['slug']}: README states {stated}, backend audit or legacy fixture count is {actual}"
+        f"{recipe['slug']}: README states {stated}, legacy fixture count is {actual}"
     )
+
+
+# --------------------------------------------------------------------------------------------
+# check 8c: one budget per backend (#213): a recipe builds exactly the backends it audits
+# --------------------------------------------------------------------------------------------
+
+
+def _backend_sites(sources: list[str], name: str) -> int:
+    """How many places ``sources`` (one recipe's code, in any number of files) can reach ``name``.
+
+    Counted: every load of ``name`` or of a local alias made by ``from ... import name as alias``,
+    every ``.name`` attribute, and every string equal to ``name`` (``getattr(module, "name")``).
+    A call, a bare reference (``gb = get_backend``) and a dynamic lookup each count once, so a
+    second backend cannot hide behind a rename. The import itself is not a site.
+    """
+    trees = [ast.parse(source) for source in sources]
+    names = {name}
+    for tree in trees:
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                names.update(a.asname for a in node.names if a.name == name and a.asname)
+    count = 0
+    for tree in trees:
+        for node in ast.walk(tree):
+            count += isinstance(node, ast.Name) and node.id in names
+            count += isinstance(node, ast.Attribute) and node.attr == name
+            count += isinstance(node, ast.Constant) and node.value == name
+    return count
+
+
+def _backend_budget_verdict(folder: Path) -> tuple[str, str]:
+    """``("pass" | "fail", message)`` for one recipe folder.
+
+    ``JEV_COOKBOOK_LIVE_MAX_REQUESTS`` caps one backend object, so a second ``get_backend`` is a
+    second budget that a README cap, the count audit and a reader following either would not
+    see (recipe 37's review found 73 live requests against a README promising 37). A recipe therefore
+    has no more ``get_backend`` call sites, in its notebook and ``helpers.py``, than it has
+    audited backends (an unaudited recipe: at most one), and an audited recipe builds its
+    backends in the notebook, where the audit can see them. This counts call sites in source,
+    so one site reached many times (a loop, a helper called twice) is invisible to it; an alias
+    (``import get_backend as gb``), an attribute (``module.get_backend``), a bare reference or a
+    ``getattr`` string each count as a site. A
+    loop or comprehension is not rejected on sight: recipe 50 selects one of three lanes inside
+    a dict comprehension and builds exactly one ``get_backend``. What counts a site reached more
+    than once is the audited route's committed ledger.
+    """
+    notebook = [cell_source(cell) for cell in notebook_cells(folder) if cell["cell_type"] == "code"]
+    helpers = (
+        (folder / "helpers.py").read_text("utf-8") if (folder / "helpers.py").is_file() else ""
+    )
+    notebook_sites = _backend_sites(notebook, "get_backend")
+    helpers_sites = _backend_sites([helpers], "get_backend")
+    audited = _backend_sites(notebook, "AuditedBackend")
+    allowed = audited or 1
+    if notebook_sites + helpers_sites > allowed:
+        return "fail", (
+            f"{notebook_sites + helpers_sites} get_backend call sites "
+            f"({notebook_sites} in the notebook, {helpers_sites} in helpers.py) for "
+            f"{audited or 'no'} audited backend(s): each is its own request budget"
+        )
+    if audited and helpers_sites:
+        return "fail", "an audited recipe builds its backends in the notebook, not in helpers.py"
+    return "pass", ""
+
+
+@pytest.mark.parametrize("recipe", guarded_with_template("one_backend_per_budget")())
+def test_a_recipe_builds_exactly_the_backends_it_audits(recipe):
+    """See ``_backend_budget_verdict``: one request budget per ``get_backend`` call."""
+    status, message = _backend_budget_verdict(recipe_dir(recipe))
+    assert status == "pass", f"{recipe['slug']}: {message}"
+
+
+def _mini_recipe(tmp_path: Path, cells: list[str], helpers: str = "") -> Path:
+    folder = tmp_path / "mini"
+    folder.mkdir()
+    notebook = {
+        "cells": [{"cell_type": "code", "source": source, "outputs": []} for source in cells]
+    }
+    (folder / "notebook.ipynb").write_text(json.dumps(notebook), "utf-8")
+    (folder / "helpers.py").write_text(helpers, "utf-8")
+    return folder
+
+
+_ONE = "from jev_cookbook import get_backend\nbackend = get_backend(script=f)"
+_AUDITED_ONE = (
+    "from jev_cookbook import AuditedBackend, get_backend\n"
+    "backend = AuditedBackend(get_backend(script=f))"
+)
+_AUDITED_TWO = (
+    "from jev_cookbook import AuditedBackend, get_backend\n"
+    "a = AuditedBackend(get_backend(script=f), label='a')\n"
+    "b = AuditedBackend(get_backend(script=g), label='b')"
+)
+
+
+@pytest.mark.parametrize(
+    "cells,helpers",
+    [
+        ([_ONE], ""),
+        ([_ONE], "def decide(backend):\n    return backend\n"),
+        (
+            [
+                "from jev_cookbook import get_backend\nb = {n: get_backend(script=f) if n == 'a' else n for n in 'ab'}"
+            ],
+            "",
+        ),
+        (["from jev_cookbook import get_backend as gb\nb = gb(script=f)"], ""),
+        ([_AUDITED_ONE], ""),
+        ([_AUDITED_TWO], ""),
+        (["x = 1"], ""),
+    ],
+    ids=[
+        "one",
+        "one-and-helpers",
+        "one-in-a-comprehension",
+        "one-through-an-alias",
+        "audited",
+        "two-audited",
+        "none",
+    ],
+)
+def test_one_budget_per_backend_accepts_the_supported_shapes(tmp_path, cells, helpers):
+    assert _backend_budget_verdict(_mini_recipe(tmp_path, cells, helpers)) == ("pass", "")
+
+
+@pytest.mark.parametrize(
+    "cells,helpers,expected",
+    [
+        # recipe 37's defect: a second get_backend, hence a second, fresh budget
+        ([_ONE, "backend2 = get_backend(script=g)"], "", "2 get_backend call sites"),
+        ([_ONE], "def again():\n    return get_backend(script=g)\n", "1 in helpers.py"),
+        (
+            [_ONE, "from jev_cookbook import backends\nb = backends.get_backend(script=g)"],
+            "",
+            "2 get_backend call sites",
+        ),
+        ([_ONE + "\nbackends = [get_backend(script=g) for _ in range(2)]"], "", "2 get_backend"),
+        ([_ONE + "\nfor _ in range(2):\n    get_backend(script=g)"], "", "2 get_backend"),
+        # the same second budget behind a rename, an attribute, a bare reference or a lookup
+        (
+            [_ONE, "from jev_cookbook import get_backend as gb\nraw = gb(script=g)"],
+            "",
+            "get_backend call sites",
+        ),
+        (
+            ["from jev_cookbook import get_backend as gb\na = gb(script=f)\nb = gb(script=g)"],
+            "",
+            "2 get_backend call sites",
+        ),
+        ([_ONE, "import jev_cookbook as jc\nraw = jc.get_backend(script=g)"], "", "2 get_backend"),
+        ([_ONE, "gb = get_backend\nraw = gb(script=g)"], "", "get_backend call sites"),
+        (
+            [_ONE, "import jev_cookbook\nraw = getattr(jev_cookbook, 'get_backend')(script=g)"],
+            "",
+            "2 get_backend call sites",
+        ),
+        (
+            [_ONE],
+            "from jev_cookbook import get_backend as gb\ndef again():\n    return gb(script=g)\n",
+            "1 in helpers.py",
+        ),
+        # an audited recipe: one site per audited backend, and none in helpers.py
+        ([_AUDITED_ONE, "extra = get_backend(script=g)"], "", "2 get_backend call sites"),
+        ([_AUDITED_TWO + "\nc = get_backend(script=h)"], "", "3 get_backend call sites"),
+        (
+            [_AUDITED_ONE],
+            "def make():\n    return get_backend(script=g)\n",
+            "get_backend call sites",
+        ),
+    ],
+    ids=[
+        "second-in-notebook",
+        "second-in-helpers",
+        "attribute-call",
+        "second-in-comprehension",
+        "second-in-loop",
+        "alias-in-notebook",
+        "alias-used-twice",
+        "module-alias-attribute",
+        "bare-reference",
+        "getattr-string",
+        "alias-in-helpers",
+        "audited-plus-raw",
+        "two-audited-plus-raw",
+        "audited-helper",
+    ],
+)
+def test_one_budget_per_backend_fails_a_second_budget(tmp_path, cells, helpers, expected):
+    status, message = _backend_budget_verdict(_mini_recipe(tmp_path, cells, helpers))
+    assert status == "fail" and expected in message
 
 
 # --------------------------------------------------------------------------------------------

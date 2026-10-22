@@ -129,6 +129,14 @@ images=False, long_context=False)`.
   failed attempts, token sums, calls that did not report both counts, request ids). It holds no
   key, state or answers.
 
+- The cap is inclusive and per backend. With `JEV_COOKBOOK_LIVE_MAX_REQUESTS=N` a backend sends
+  N attempts and refuses the (N+1)th, so a recipe that makes N requests on one backend runs to the
+  end at a cap of N, and at N-1 it stops at its last request. `get_backend` reads the variable for
+  each backend it builds, so a notebook with two backends sends up to N through each: the cap is
+  never a limit on the run. A recipe's README therefore names the largest single backend's count
+  as the cap and its total as what the run spends, and a cap that is met exactly leaves no room for
+  a retry.
+
 `AuditedBackend` can wrap the same instance to count logical `decide()` invocations and emit
 offline execution evidence for a recipe's README budget note; see
 [actual calls and distinct requests](backends.md#actual-calls-and-distinct-requests).
@@ -136,6 +144,16 @@ Its count includes repeated identical requests and failed delegated calls. It is
 `requests_made`: one logical call can retry several HTTP attempts, or spend zero attempts when
 the budget is already exhausted. Distinct fixture keys count neither of those quantities.
 The wrapper forwards the live recorder's attributes and settings to this same backend instance.
+
+**A recipe's request count is declared once** in `request_budget.json`; the README's budget
+paragraph is rendered from it and the recipe guard compares both with the audited offline
+execution, so the count the README promises, the `JEV_COOKBOOK_LIVE_MAX_REQUESTS` it tells you to
+set and the requests the notebook makes cannot drift apart for a recipe that has adopted the
+declaration (the others keep the older check, which cannot see a repeated request)
+([the declaration](backends.md#the-declared-count-request_budgetjson)). The audit replays the
+committed answers; a recipe whose later requests depend on earlier answers declares the longest
+path it can take, and the README's cap follows that bound. Totals for budget arithmetic are the
+sum over a recipe's backends (what is billed); the cap is the largest single backend.
 
 An injected `client` is yours: any object with `system_one(state=..., questions=..., model=...)`
 returning an SDK-style response. The backend requires no opt-in or key for it (it reads
