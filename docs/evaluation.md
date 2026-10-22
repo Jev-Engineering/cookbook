@@ -230,10 +230,21 @@ still count as an acceptable choice for `set_agreement`): the fallback class her
 | `score_level(answer)` | most probable level; ties go to the lowest |
 | `exact_agreement(gold, predicted, tolerance=0)` | share within `tolerance` levels, using the modal level |
 | `mean_absolute_error(gold, predicted)` | mean `abs(score - gold)`, using the expected score |
-| `ndcg(gold_relevance, scores, k=None, gain="linear")`, `mean_ndcg(queries, ...)` | ranking quality, `DCG / IDCG`, discount `1 / log2(i + 1)`; linear or `2^r - 1` gain |
+| `ndcg(gold_relevance, scores, k=None, gain="linear")`, `mean_ndcg(queries, ...)` | ranking quality, `DCG / IDCG`, discount `1 / log2(i + 1)`; linear or `2^r - 1` gain. `scores` are numbers or Noul/Score answers |
 | `top_k_accuracy(gold, probabilities, k)` | gold among the k most probable options (tie-aware) |
 | `recall_at_budget(gold_relevant, scores, budget, *, eligible=None)`, `mean_recall_at_budget(queries, budget)` | relevant found in the top `budget` by score over all relevant; the mean over several queries. A rule that excludes candidates before ranking must pass `eligible` (below) |
 | `top_k_query_accuracy(queries, k=1)` | is any relevant item among the top `k` scored items of a query (a *different* question from `recall_at_budget`, below) |
+
+**One input contract for the ranking family.** `ndcg`, `mean_ndcg`, `recall_at_budget`,
+`mean_recall_at_budget` and `top_k_query_accuracy` all take `scores` as finite numbers or as
+Noul/Score answers (`.noul` or `.score` is read), through one shared extraction, so one list of
+answers can go to all five. (`ndcg` used to accept `.score` only and raise `TypeError` on a Noul
+answer while `recall_at_budget` accepted both; that difference is gone.) `mean_ndcg` and
+`mean_recall_at_budget` sum the per-query values with `math.fsum`, like every other mean here, so
+the result does not depend on the order of the queries. A query given to `mean_recall_at_budget`
+is read once with `tuple(q)`, so a one-shot iterable works; `top_k_query_accuracy` takes only
+`(gold_relevant, scores)` pairs, and a three-tuple (the `eligible` form) raises a `ValueError`
+that names the missing `eligible`.
 
 **`top_k_query_accuracy` is not `recall_at_budget` under another name.** The two differ whenever
 a query has more than one relevant item: with two relevant items among three and the top-scored
@@ -352,17 +363,17 @@ a threshold, which relates to coverage inversely: a lower threshold answers more
 | lower `target_accuracy` | stay the same or go **down** |
 
 Stricter does not mean a higher threshold: a stricter coverage floor is a more permissive gate.
+The docstring of `select_confidence_threshold` states the same table beside the parameters, and
+`tests/test_evaluation.py` pins both directions on a pool.
 
 **Both objectives are about the answered subset, not the whole split.** `target_accuracy`
 constrains accuracy over the **answered** examples only (the denominator is the examples at or
 above the threshold); `min_coverage` maximises that same answered-subset accuracy subject to a
 floor on the share answered. Neither constrains whole-split per-question accuracy, which is what
-a reader usually means by "accuracy" and which also counts every abstained example as a miss
-(or ignores it, depending on how it is scored). Use `target_accuracy` to say how right the
-answers you give must be; use `min_coverage` to say how many answers you must give. A recipe that
-reports an accuracy next to either objective says which denominator it is.
-The docstring of `select_confidence_threshold` states the same table beside the parameters, and
-`tests/test_evaluation.py` pins both directions on a pool.
+a reader usually means by "accuracy" and which counts every abstained example as a miss. Use
+`target_accuracy` to say how right the answers you give must be; use `min_coverage` to say how
+many answers you must give. A recipe that reports an accuracy next to either objective says which
+denominator it is.
 
 **The response is piecewise constant, so a parameter can move a long way and change nothing.** The
 result is always one of the observed validation confidences, so a sweep returns only as many
@@ -384,10 +395,12 @@ usually contains no numeral, so a numeral sweep over the committed output cannot
 There is a degenerate end to this. If the errors sit at the top of the confidence ordering
 (accuracy rises as the threshold falls), the lowest observed confidence is always feasible and
 always the most accurate, so `min_coverage` returns it for **every** value: the call returns a
-number and selects nothing. The pool in `test_min_coverage_selects_nothing_when_errors_sit_at_the_top_of_the_confidence_order` (one wrong answer, the most confident) is
-the shape. Check for it by sweeping the parameter across its range on your own validation pool
-and counting the distinct thresholds returned; one means the frozen number is not a choice, and
-the recipe should say so rather than present it as one.
+number, but the selection is not a choice, because every value gives the minimum confidence, which
+answers every example. The pool in
+`test_min_coverage_is_not_a_choice_when_errors_sit_at_the_top_of_the_confidence_order` (one wrong
+answer, the most confident) is the shape. Check for it by sweeping the parameter across its range
+on your own validation pool and counting the distinct thresholds returned; one means the frozen
+number is not a choice, and the recipe should say so rather than present it as one.
 
 **Verify any reader exercise by running it, never by reasoning about the parameter.** Run the
 sweep on the recipe's own pool, confirm the value you send a reader to returns a different
@@ -481,13 +494,13 @@ Use `evaluate_outcomes` as soon as the rule has a second, unconditional branch (
 option, a membership check): build `accepted` from what the rule returned on each split, and
 never invent a confidence for the examples it rejects outright.
 
-**`outcome_curve(confidences, correct, *, exempt=None)` is the risk–coverage curve for a rule
-with an unconditionally-accepted branch.** This is narrower than `evaluate_outcomes`: it models
-only the CONTRIBUTING.md section 4 shape, an explicit fallback option (`no_match`, `unclear`,
-`no_suitable_rewrite`, ...) the rule accepts *regardless of its confidence*, with every other
-example still gated on `confidence >= t` as usual. `exempt` is a boolean mask marking those
+**`outcome_curve(confidences, correct, *, exempt=None, rejected=None)` is the risk–coverage curve
+for a rule with an unconditionally-accepted branch, an unconditionally-rejected branch, or both.**
+It starts from the CONTRIBUTING.md section 4 shape, an explicit fallback option (`no_match`,
+`unclear`, `no_suitable_rewrite`, ...) the rule accepts *regardless of its confidence*, with every
+other example still gated on `confidence >= t` as usual. `exempt` is a boolean mask marking those
 fallback examples; at each distinct observed confidence `t` (descending, as in
-`selective_curve`), the selected subset is:
+`selective_curve`), the selected subset is (with `rejected` unset, below):
 
 ```python
 exempt | (~exempt & (confidence >= t))
@@ -495,6 +508,22 @@ exempt | (~exempt & (confidence >= t))
 
 An `exempt` example counts at *every* threshold, however low its confidence; every other example
 counts only once its confidence clears `t`, exactly as `selective_curve` already computes for it.
+
+`rejected` is the mirror branch, for a rule that sends an example to review *regardless of its
+confidence* (the model naming `needs_review` outright, two orderings of a pair that disagree).
+Then the selected subset at `t` is `~rejected & (exempt | (confidence >= t))`: a rejected example
+is selected at no threshold however confident it is, and an example marked both `exempt` and
+`rejected` is contradictory and raises. A rejected example that was asked a question is passed in
+like any other (its confidence enters the threshold grid, it is in the coverage denominator, its
+`correct` is read but never reaches `accuracy`), so `coverage` is the share of *all passed*
+examples the rule answered, which is what `evaluate_outcomes` reports at the same gate when
+`accepted = ~rejected & (exempt | (confidence >= t))`; the test
+`test_outcome_curve_rejected_combines_with_exempt_and_matches_evaluate_outcomes_per_row` checks
+that row by row. An example the rule settles with no question at all has no confidence to pass:
+leave it out and account for it separately, exactly as for `exempt` (below). With `rejected`
+set, a threshold can select nothing (every example not rejected is below `t`, none is exempt),
+and that row's `accuracy` and `risk` are NaN, the module's undefined-is-NaN convention.
+
 Rows have the same shape `selective_curve` returns (`thresholds`, `coverage`, `accuracy`, `risk`),
 so `plot_risk_coverage` plots either one unchanged:
 
@@ -513,13 +542,13 @@ under which the two curves coincide.** Do not pass a rule's own `accepted` array
 happened to accept this one" as "this one is exempt from the sweep" — reproduces a capped-coverage
 curve that stops rising once `t` falls below whatever gate `accepted` was built from, which is
 exactly the bug this function's signature now rules out (see "The curves coincide under a
-narrower condition" below for a worked example). Because an `exempt` example is always selected, `accuracy` (and so `risk`) is
-never NaN here: every threshold answers at least one example, unlike some other curves in this
-module where a threshold can select nothing.
+narrower condition" below for a worked example). With `rejected` unset and at least one `exempt`
+example, `accuracy` (and so `risk`) is never NaN: every threshold answers at least one example.
 
-**Which shipped rules can use this, and which cannot.** `exempt` models only an unconditionally
-*accepted* branch (CONTRIBUTING.md section 4's exemption). Checked against each recipe's own
-committed fixtures:
+**Which shipped rules `exempt` serves, and which need `rejected`.** `exempt` models an
+unconditionally *accepted* branch (CONTRIBUTING.md section 4's exemption); `rejected` models an
+unconditionally *rejected* one. Checked against each recipe's own committed fixtures, for
+`exempt` alone:
 
 | recipe | exempt-accept branch | reject-regardless branch | `exempt` suffices? |
 | --- | --- | --- | --- |
@@ -539,10 +568,15 @@ membership check in general; a future fixture that does trip one would need its 
 Recipes **19**, **21** and **23** unconditionally *reject* some examples regardless of confidence
 (the model naming `unknown` outright in 19 — a deferral under CONTRIBUTING.md section 4 part (a),
 "Coverage counts delivered answers" above — `needs_review` outright in 21; `judge_pair`'s
-disagreement check in 23, which runs before any confidence is read) — there is no single
-`exempt`-shaped argument for "always sent to review no matter how confident", so none of the
-three recipes' curves is expressible here yet. Recipe 21 is one of the three recipes whose review
-asked for this function in the first place; it still cannot use it.
+disagreement check in 23, which runs before any confidence is read) — `exempt` has no way to say
+"always sent to review no matter how confident", which is what `rejected` is for. Whether
+`rejected` (plus `exempt`, for 23's agreed `insufficient_evidence`) reproduces each of the three
+recipes' own `evaluate_outcomes` numbers on its fixtures is for the recipe to check when it adopts
+it, at its frozen gate, as the tests do for recipes 11 and 13; this guide does not assert it. In
+23 the disagreement branch runs before any confidence is read, so the recipe must decide which
+confidence a disagreeing pair is passed with, or leave those pairs out and account for them
+separately. Recipe 21 is one of the three recipes whose review asked for this function in the
+first place.
 
 **Examples with no confidence to report.** `confidences` is required for every example passed in,
 `exempt` included, and every value is validated to `[0, 1]` — but some examples never go through a
@@ -608,8 +642,8 @@ gate needs to know which one it is reading:
 * **The outcomes view** (`evaluate_outcomes`, `outcome_curve`) answers "what did the rule itself
   do": `evaluate_outcomes` from `accepted`/`correct` as the rule actually returned them;
   `outcome_curve` from `correct` and an `exempt` mask naming the rule's own unconditionally-
-  accepted examples (CONTRIBUTING.md section 4), with every other example still gated on
-  confidence.
+  accepted examples (CONTRIBUTING.md section 4) and/or a `rejected` mask naming its
+  unconditionally-rejected ones, with every other example still gated on confidence.
 
 **When the single numbers coincide.** If the rule's only review branch *is* the confidence gate —
 nothing else can send an example to review, and nothing lets one through regardless of confidence
@@ -674,6 +708,25 @@ what gating it would have looked like" are both on the page. (A recipe that deci
 exempt a qualifying option at all, gating it like everything else, needs none of this: its own
 `evaluate_outcomes` and `evaluate_selective` already agree, exactly as in "when the single numbers
 coincide" above.)
+
+### Accounting helpers for a rule's own outcomes
+
+Three helpers remove the hand-rolled glue every recipe with a non-confidence review branch wrote
+for itself. None of them reapplies a confidence gate; each reads what the rule returned.
+
+| Helper | Returns |
+| --- | --- |
+| `accepted_and_correct(results, gold, *, accepted_when, label_of, key_of=None)` | the `(accepted, correct)` pair `evaluate_outcomes` takes, so `evaluate_outcomes(*accepted_and_correct(...))` is the whole accounting. `accepted_when(result)` says whether the rule answered; `label_of(result)` is the label it answered with; `gold` is a sequence parallel to `results`, or a mapping looked up with `key_of(result)`. `correct` is computed for every result, the review ones included, because `evaluate_outcomes` requires a value there and never reads it |
+| `action_error_rate(results, gold, *, acts_when, label_of, key_of=None)` | the share of the results that triggered the side effect (`acts_when`) whose label is wrong; NaN when none acted. One name for the false merge rate (recipe 18) and the false link rate (recipe 22): a wrong result that did not act (a missed duplicate, a wrong `no_match`) lowers `evaluate_outcomes`' accuracy but is not counted here |
+| `outcome_breakdown(outcomes, correct, *, order=None)` | `{outcome: OutcomeTally(right, wrong)}`: every example counted under its own outcome, so the totals add up to the number of examples and nothing disappears. `order` lists the outcomes, in that order, with zero counts for one that never happened, so a table keeps its shape across splits. `OutcomeTally` has `right`, `wrong`, `total` and `accuracy` (NaN for a zero total) |
+
+`accepted_and_correct` fixes one spelling of the pair across recipes: `(accepted, correct)`, in the
+order `evaluate_outcomes` takes them. Its first argument is the rule's results and its second the
+gold, the order recipes 11, 18 and 22 already used; a recipe still writes its own `accepted_when`
+(for most, `lambda r: r.outcome != REVIEW`), because what counts as answering is the recipe's
+rule and CONTRIBUTING.md section 4, not something a shared helper can know. Passing the rule's own
+`accepted` back out of this function and into `outcome_curve` as `exempt` is the capped-coverage
+mistake described above.
 
 ### Rules with a deterministic branch
 
@@ -865,8 +918,8 @@ ways, and each still measures its own composition:
   `t`" the rejected side, and note that `2t - 1 = 0`, so an accept-only gate has no inert region
   to claim.
 * **A decision function that takes an answer object, not `p`**: build a synthetic answer for each
-  grid value with the same type the rule receives (`NoulAnswer` in `jev_cookbook.answers`,
-  with its `noul` field set to `p`) and call the rule's real decision function on it. Do not
+  grid value with the same type the rule receives (`NoulAnswer(p, Provenance.synthetic())`
+  from `jev_cookbook.answers`, the form recipes 02, 06 and 10 use in their tests) and call the rule's real decision function on it. Do not
   re-derive the rule inside the measurement; the point is to measure the code that ships.
 
 For a multi-label recipe whose only review branch *is* this confidence gate (no fallback label,
@@ -1030,6 +1083,7 @@ Every result type is a frozen dataclass whose fields are plain attributes, so ot
 | `ThresholdPoint` | `threshold`, `tp`, `fp`, `fn`, `tn`, `precision`, `recall`, `f1`; `threshold_sweep` returns `list[ThresholdPoint]` |
 | `SelectiveCurve` | `thresholds`, `coverage`, `accuracy`, `risk` (equal-length numpy arrays, one entry per threshold); returned by both `selective_curve` and `outcome_curve` |
 | `SelectiveResult` | `threshold`, `n_total`, `n_answered`, `coverage`, `accuracy`, `risk`; returned by both `evaluate_selective` and `evaluate_outcomes` (`threshold` is NaN from the latter) |
+| `OutcomeTally` | `right`, `wrong`, and the derived `total` and `accuracy` (NaN for a zero total); `outcome_breakdown` returns `{outcome: OutcomeTally}` |
 | `ReliabilityBin` | `lower`, `upper`, `count`, `mean_probability`, `observed_rate` (the last two are NaN for an empty bin); `reliability_table` returns `list[ReliabilityBin]` |
 | `BootstrapResult` | `difference`, `lower`, `upper`, `confidence_level`, `n`, `n_resamples`, `seed` |
 | `TransitionMetrics` | `n_examples`, `n_uncertain`, `n_resolved`, `exact_correct`, `tolerance_correct`, `exact_accuracy`, `tolerance_accuracy`, `exact_accuracy_all`, `tolerance_accuracy_all`, `uncertain_rate`, `tolerance_seconds`, `n_timed`, `mean_absolute_error_seconds`, `mean_signed_error_seconds`, `n_timed_any_label`, `mean_absolute_error_any_label_seconds`, `mean_signed_error_any_label_seconds`, `n_missed_time`, `n_spurious_time`, `max_sampling_interval_seconds`, `tolerance_below_sampling_interval`, `outcomes`, `timing_errors_seconds` |
