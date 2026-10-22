@@ -393,16 +393,17 @@ updated against current `main` with a signed merge commit, the generated README 
 computed from the **base** README, strict scope and catalog CI must pass, and the new head is
 reviewed again after any update.
 
-### `orchestration/PROMPT.md` has not been amended
+### `orchestration/PROMPT.md` and this ruling
 
-`orchestration/PROMPT.md` has not been changed to match the ruling, and this document does not
-claim it has. Its "Merging" checklist still requires that "the branch is current against `main`"
-(line 128), a foundation pull request left behind by a merge is still to be updated and reviewed
-again (line 142), and the Wave 0 rule still says foundation pull requests are each updated
-against the last and re-reviewed if the head changed (line 309). Line 136 also merges with
-`--delete-branch`, while the serial-merge steps above do not add it. Reconciling these is a
-separate reviewed change, tracked in issue #106. Until it lands the texts differ, and a merge
-that relies on the ruling should say so on the pull request.
+`orchestration/PROMPT.md` was reconciled with this ruling by issue #106, delivered in PR #112 and
+squash-merged as commit `4e64560ade10f809058b941347081a8e270355ca`. That change touched its
+"Merging" checklist, the merge command (it no longer adds `--delete-branch`, matching the
+serial-merge steps above) and the Wave 0 note, and left its recipe rules as they were. This
+document does not restate what that file now says and does not freeze a status: the file and its
+history are the record, so read `orchestration/PROMPT.md` itself, and its `git log` for any change
+since #112. The delivery does not change the limits set out above: the ruling is for foundation
+pull requests only, covers only the ancestry failure, and lapses when `main` advances again. A
+merge that relies on the ruling should still say so on the pull request.
 
 ### Recorded history
 
