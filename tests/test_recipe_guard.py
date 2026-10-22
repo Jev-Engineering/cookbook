@@ -5933,7 +5933,13 @@ def test_every_noul_proposition_has_gold_true_and_false_in_each_scored_split(rec
 # with a message. Every detected side-effect function or class must also be used by the
 # notebook (directly or through another helper it uses), every sink or simulator the notebook
 # builds must be mutated or handed to a side-effect function, and a code cell that does not
-# parse fails.
+# parse fails. A sink built through a factory that only constructs it (``helpers.new_grid(0)``)
+# is held to the same rule as a direct construction. The one exemption: a name bound to the
+# result of a ``helpers.py`` side-effect function that returns the object
+# (``sim = helpers.run_episode(...)``), or of a notebook function whose body already executed a
+# side effect, may only be read, because that function may have done the work. A function the
+# notebook defines that builds an object and returns it credits the object to its caller: the
+# caller's name must then be mutated (or be such an exempt result).
 #
 # ``not_side_effects`` (#327). A declaration may exempt a ``helpers.py`` function or class that
 # only keeps bookkeeping, each entry with a reason. The exemption is checked mechanically: an
@@ -5951,10 +5957,12 @@ def test_every_noul_proposition_has_gold_true_and_false_in_each_scored_split(rec
 # passed to the shared helpers are not analysed; they must be free of side effects
 # (docs/simulation.md). A write to a container through a parameter or a local alias
 # (``g = GRAPH; g[k] = v``, ``def f(d): d[k] = v``) or through ``setattr`` / ``globals()`` is not
-# seen; a write to a file or the environment is not a simulated side effect; and state kept in a
-# container of its own that a recipe lists under ``not_side_effects`` is accepted, because the
-# guard cannot tell a cache from a graph held in a dict, so a reviewer reads each entry and its
-# reason. For a ``needs: simulator`` recipe the guard requires that a side effect be declared
+# seen; a write to a file or the environment is not a simulated side effect; state kept in a
+# container of its own, or in module-level state, that a recipe lists under ``not_side_effects``
+# is accepted, because the guard cannot tell a cache from a graph held in a dict, so a reviewer
+# reads each entry and its reason; and the exempt factory result above is not checked for
+# mutation, so a side-effect function that returns a simulator it never steps goes unnoticed
+# (the declared sites are what bind it). For a ``needs: simulator`` recipe the guard requires that a side effect be declared
 # and executed, not that the declared key is the recipe's main one: the reviewer checks that the
 # declared sites are the trajectory, transaction or actuation the recipe is about.
 
@@ -6178,6 +6186,31 @@ class HelpersInfo:
         return seen
 
 
+def _module_scope_names(tree: ast.Module) -> set[str]:
+    """Names bound by assignment in the module's own scope: not inside a function, a class, a
+    lambda or a comprehension (their targets are local to them)."""
+    found: set[str] = set()
+    todo: list[ast.AST] = list(tree.body)
+    while todo:
+        node = todo.pop()
+        if isinstance(
+            node,
+            ast.FunctionDef
+            | ast.AsyncFunctionDef
+            | ast.ClassDef
+            | ast.Lambda
+            | ast.ListComp
+            | ast.SetComp
+            | ast.DictComp
+            | ast.GeneratorExp,
+        ):
+            continue
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+            found.add(node.id)
+        todo.extend(ast.iter_child_nodes(node))
+    return found
+
+
 def _own_statements(func: ast.FunctionDef):
     """Every node of ``func``'s body, not entering a nested function, class or lambda."""
     todo = list(func.body)
@@ -6289,17 +6322,9 @@ def _helpers_info(helpers_path: Path, ignore: frozenset[str] = frozenset()) -> H
     info.functions, info.classes = set(functions), set(classes)
     info.simulator_classes = _simulator_classes([tree], names, modules)
     info.factories = _factories(functions, classes, names, modules)
-    # Names bound at module level (state a function could write to): assignments and classes.
-    module_state = set(classes)
-    for stmt in tree.body:
-        if isinstance(stmt, ast.Assign):
-            for target in stmt.targets:
-                module_state |= {
-                    n.id for n in ast.walk(target) if isinstance(n, ast.Name)
-                }  # a, b = ... too
-        elif isinstance(stmt, ast.AnnAssign | ast.AugAssign) and isinstance(stmt.target, ast.Name):
-            module_state.add(stmt.target.id)
-    module_state -= imported
+    # Names bound at module level (state a function could write to): classes, and every name
+    # assigned in module scope, including inside ``try`` / ``if`` / ``for`` / ``with`` blocks.
+    module_state = (set(classes) | _module_scope_names(tree)) - imported
 
     # Graph nodes: "fn:name" and "m:Class.method". Direct effects and call edges per node.
     bodies: dict[str, tuple[ast.FunctionDef, str | None]] = {
@@ -6433,8 +6458,11 @@ class SideEffectReport:
         self.sites: dict[str, set[tuple[int, int, int]]] = {}
         self.sink_vars: dict[str, str] = {}  # notebook name -> key prefix of the object it holds
         self.touched_vars: set[str] = set()
-        # Names bound to what a factory returned (``sim = helpers.run_episode(...)``): the notebook
-        # may only read them, because the factory (or the function that built them) did the work.
+        # Names the notebook does not have to mutate itself: a name bound to the result of a
+        # side-effect function that returns the object (``sim = helpers.run_episode(...)``, which
+        # may have done the work), and a name a function the notebook defines builds and returns
+        # (the caller's name is checked instead). A pure-construction factory is NOT in here:
+        # its result is checked like a direct construction.
         self.handed_over: set[str] = set()
         self.helpers = HelpersInfo()
         self.used: set[str] = set()  # helpers symbols the notebook reaches
@@ -6448,7 +6476,7 @@ class SideEffectReport:
         return {key: len(places) for key, places in sorted(self.sites.items())}
 
     def built_vars(self) -> list[str]:
-        """Names the notebook itself built a sink or simulator into (not factory results)."""
+        """Names the notebook built a sink or simulator into that it has to mutate itself."""
         return sorted(v for v in self.sink_vars if v not in self.handed_over)
 
     def untouched_sink_vars(self) -> list[str]:
@@ -6550,18 +6578,23 @@ def side_effect_report(recipe_dir_: Path, ignore: frozenset[str] = frozenset()) 
                 return built_kind(next(iter(kinds)))
         return None
 
-    def built_by_factory(value: ast.expr) -> bool:
-        """Whether ``value`` is a call of a factory (rather than a direct construction)."""
+    def built_by_effect_factory(value: ast.expr) -> bool:
+        """Whether ``value`` calls a factory that could itself have done the work: a factory
+        that is a side-effect function (or classmethod) of ``helpers.py``. Its result may be only
+        read by the notebook. A pure-construction factory (``def new_grid(): return ToyGrid()``)
+        does not qualify, so its result must be mutated like a direct construction."""
         if not isinstance(value, ast.Call):
             return False
         func = value.func
         attr = helper_attr(func)
         if attr is not None:
-            return attr in helpers_info.factories
+            return attr in helpers_info.factories and attr in helpers_info.effect_functions
         if isinstance(func, ast.Attribute):
             owner_attr = helper_attr(func.value)
-            return owner_attr is not None and f"{owner_attr}.{func.attr}" in helpers_info.factories
-        return isinstance(func, ast.Name) and func.id in defs
+            if owner_attr is None or f"{owner_attr}.{func.attr}" not in helpers_info.factories:
+                return False
+            return func.attr in helpers_info.effect_methods.get(owner_attr, frozenset())
+        return False
 
     def built_kind(kind: tuple[str, str]) -> tuple[str, frozenset[str]] | None:
         """``(key prefix, mutating methods)`` for a factory's ``("helpers", Class)`` or
@@ -6586,6 +6619,9 @@ def side_effect_report(recipe_dir_: Path, ignore: frozenset[str] = frozenset()) 
     defs: dict[str, ast.FunctionDef] = {}
     resolving: set[str] = set()
     entered: set[str] = set()
+    effectful_defs: set[str] = set()  # notebook functions whose body executed a side effect
+    def_results: dict[str, str] = {}  # notebook name -> the notebook function that returned it
+    returned_by: dict[str, set[str]] = {}  # notebook function -> sink names it built and returned
     current_cell = [0]
 
     def site(key: str, call: ast.Call) -> None:
@@ -6597,7 +6633,7 @@ def side_effect_report(recipe_dir_: Path, ignore: frozenset[str] = frozenset()) 
             if isinstance(arg, ast.Name) and arg.id in report.sink_vars:
                 report.touched_vars.add(arg.id)
 
-    def bind(node: ast.Assign) -> None:
+    def bind(node: ast.Assign, bound_here: set[str]) -> None:
         pairs = []
         for target in node.targets:
             if isinstance(target, ast.Tuple) and isinstance(node.value, ast.Tuple):
@@ -6609,25 +6645,37 @@ def side_effect_report(recipe_dir_: Path, ignore: frozenset[str] = frozenset()) 
             if kind is not None and isinstance(target, ast.Name):
                 report.sink_vars[target.id] = kind[0]
                 var_methods[target.id] = kind[1]
-                if built_by_factory(value):
+                bound_here.add(target.id)
+                def_results.pop(target.id, None)
+                report.handed_over.discard(target.id)
+                if built_by_effect_factory(value):
                     report.handed_over.add(target.id)
-                else:
-                    report.handed_over.discard(target.id)
+                elif (
+                    isinstance(value, ast.Call)
+                    and isinstance(value.func, ast.Name)
+                    and value.func.id in defs
+                ):
+                    def_results[target.id] = value.func.id
 
-    def run(stmts: list[ast.stmt]) -> None:
+    def run(stmts: list[ast.stmt], owner: str | None = None) -> None:
+        bound_here: set[str] = set()  # sinks and simulators THIS body built
         for node in _live_nodes(stmts):
             if isinstance(node, ast.FunctionDef):
                 defs[node.name] = node
             elif isinstance(node, ast.Assign):
-                bind(node)
+                bind(node, bound_here)
             elif (
                 isinstance(node, ast.Return)
                 and isinstance(node.value, ast.Name)
-                and node.value.id in report.sink_vars
+                and node.value.id in bound_here
             ):
-                # A function the notebook defines hands the object it built to its caller (a
-                # factory); the caller is the one that has to mutate it.
-                report.touched_vars.add(node.value.id)
+                # A function the notebook defines builds an object and returns it (a factory).
+                # The name is credited below, and only if a caller bound the result to a name
+                # that the notebook then mutates. Only a name this very body bound to a sink
+                # counts; a `return <name>` of a parameter, a global or an unrelated local
+                # does not.
+                if owner is not None:
+                    returned_by.setdefault(owner, set()).add(node.value.id)
             elif isinstance(node, ast.Attribute):
                 attr = helper_attr(node)
                 if attr in helpers_info.functions:
@@ -6652,7 +6700,10 @@ def side_effect_report(recipe_dir_: Path, ignore: frozenset[str] = frozenset()) 
             return
         if isinstance(func, ast.Name) and func.id in defs and func.id not in entered:
             entered.add(func.id)
-            run(defs[func.id].body)
+            before = sum(len(places) for places in report.sites.values())
+            run(defs[func.id].body, owner=func.id)
+            if sum(len(places) for places in report.sites.values()) > before:
+                effectful_defs.add(func.id)
         elif isinstance(func, ast.Attribute):
             owner = func.value
             if isinstance(owner, ast.Name) and owner.id in var_methods:
@@ -6668,6 +6719,13 @@ def side_effect_report(recipe_dir_: Path, ignore: frozenset[str] = frozenset()) 
     for index, tree in blocks:
         current_cell[0] = index
         run(tree.body)
+    # The result of a notebook function whose body executed a side effect may be only read.
+    report.handed_over |= {name for name, fn in def_results.items() if fn in effectful_defs}
+    # An object a notebook function built and returned is used when the caller's name for it is:
+    # the caller either mutated it or only reads what the function already did with it.
+    for name, fn in def_results.items():
+        if name in report.touched_vars or name in report.handed_over:
+            report.touched_vars |= returned_by.get(fn, set())
     report.used = helpers_info.closure(report.used)
     return report
 
@@ -6765,7 +6823,7 @@ SIDE_EFFECT_INVENTORY: dict[str, dict] = {
     "50-model-comparison-and-calibration": _none(
         _NO_SINKS,
         not_side_effects={
-            "MemoisingBackend": "keeps its own dict of answers and three counters so the "
+            "MemoisingBackend": "keeps its own dict of answers and two counters so the "
             "notebook can print the distinct requests and the forwarded calls; it writes to no "
             "queue, log, store or simulator"
         },
@@ -6813,7 +6871,11 @@ def parse_side_effect_declaration(data: object) -> tuple[SideEffectDeclaration |
         if not isinstance(data["none"], str) or not data["none"].strip():
             problems.append('"none" must be a non-empty reason string')
         elif PLACEHOLDER_MARK in data["none"]:
-            problems.append(f'"none" is still the scaffolder\'s {PLACEHOLDER_MARK} placeholder')
+            problems.append(
+                f'"none" is still the scaffolder\'s {PLACEHOLDER_MARK} placeholder: rewrite the '
+                'reason, or replace the file with a "sites" declaration '
+                '(docs/simulation.md, "Declaring the side effect")'
+            )
         else:
             none = data["none"]
     elif "sites" in data:
@@ -6842,7 +6904,10 @@ def parse_side_effect_declaration(data: object) -> tuple[SideEffectDeclaration |
         elif not isinstance(reason, str) or not reason.strip():
             problems.append(f'"not_side_effects": {name!r} needs a non-empty reason string')
         elif PLACEHOLDER_MARK in reason:
-            problems.append(f'"not_side_effects": {name!r} still has the {PLACEHOLDER_MARK} marker')
+            problems.append(
+                f'"not_side_effects": {name!r} still has the {PLACEHOLDER_MARK} marker: write the '
+                "reason, or remove the entry"
+            )
     if problems:
         return None, problems
     return SideEffectDeclaration(sites, none, ignored), []
@@ -6911,7 +6976,7 @@ def _side_effect_violations(slug: str, recipe_dir_: Path) -> list[str] | None:
             f"{'needs a simulator' if required else 'has a side effect'}). Observed: {counts}"
         )
     elif declaration.none is not None:
-        if report.detected() or required:
+        if report.detected():
             violations.append(
                 f"the declaration says this recipe has no simulated side effect "
                 f"({declaration.none}) but its notebook builds "
@@ -6919,6 +6984,13 @@ def _side_effect_violations(slug: str, recipe_dir_: Path) -> list[str] | None:
                 f"helpers.py defines "
                 f"{sorted(report.effect_functions | report.helpers.effect_classes)}"
                 + ("; a recipe that needs a simulator cannot declare none" if required else "")
+            )
+        elif required:
+            violations.append(
+                f"the declaration says this recipe has no simulated side effect "
+                f"({declaration.none}), but a recipe that needs a simulator cannot declare none: "
+                f"declare under sites the trajectory, transaction or actuation it runs "
+                f"(nothing is detected yet; docs/simulation.md, 'Declaring the side effect')"
             )
     else:
         declared = declaration.sites or {}
@@ -7783,6 +7855,19 @@ MODULE_STATE_DETECTED = {
         SIM_IMPORTS + "Q = ReviewQueue()\n\n\ndef add(i):\n    Q.submit(i, 'r')\n",
         {"add"},
     ),
+    "a name bound inside a try block": (
+        "try:\n    GRAPH = {}\nexcept Exception:\n    GRAPH = {}\n\n\n"
+        "def put(k, v):\n    GRAPH[k] = v\n",
+        {"put"},
+    ),
+    "a name bound inside an if block": (
+        "if True:\n    LOG = []\n\n\ndef note(x):\n    LOG.append(x)\n",
+        {"note"},
+    ),
+    "a name bound by a for loop at module level": (
+        "for ROWS in ([],):\n    pass\n\n\ndef add(x):\n    ROWS.append(x)\n",
+        {"add"},
+    ),
     "a function that calls one of those": (
         "G = {}\n\n\ndef a(k):\n    G[k] = 1\n\n\ndef b(k):\n    a(k)\n",
         {"a", "b"},
@@ -7797,6 +7882,9 @@ MODULE_STATE_NOT_DETECTED = {
         "G = {}\n\n\ndef f(k):\n    G = {}\n    G[k] = 1\n    return G\n"
     ),
     "a parameter that shadows the module-level name": ("G = {}\n\n\ndef f(G, k):\n    return k\n"),
+    "a comprehension variable is not module state": (
+        "ROWS = [r for r in range(3)]\n\n\ndef f():\n    r.append(1)\n"
+    ),
     "a read of a module-level number": "N = 0\n\n\ndef f():\n    n = N + 1\n    return n\n",
     "a read of the environment": "import os\n\n\ndef f():\n    return os.environ.get('X')\n",
     # The documented limits: a write through a parameter or a local alias is not seen.
@@ -7955,6 +8043,115 @@ def test_a_factory_built_simulator_is_declarable_and_deleting_its_use_fails(tmp_
     assert _side_effect_violations(slug, broken), "deleting the simulator's use must fail"
     (broken / SIDE_EFFECT_DECLARATION).unlink()
     assert _side_effect_violations(slug, broken)
+
+
+# The "builds a sink or simulator and never mutates it" rule (#319) must survive a function the
+# notebook calls that merely returns a name equal to the sink's (#345 review: a `return <name>`
+# of a parameter, a global or an unrelated local used to mark the sink as touched).
+SIM_NB = "from jev_cookbook.simulation import Simulator\n\n\nclass Mine(Simulator):\n    pass\n\n\n"
+NEW_GAME = "def new_game(seed):\n    g = ToyGrid(seed=seed)\n    return g\n\n\n"
+UNTOUCHED_SHAPES = {
+    "a Simulator subclass never stepped, a display helper returns its parameter": (
+        SIM_NB
+        + "sim = Mine()\n\n\ndef summarise(sim):\n    print(sim.observe())\n    return sim\n\n\n"
+        "summarise(sim)\n",
+        ["sim"],
+    ),
+    "a baseline run whose step loop was deleted, an unrelated helper returns the name": (
+        SIM_NB + "base = Mine()\n\n\ndef show(base):\n    return base\n\n\nshow(base)\n",
+        ["base"],
+    ),
+    "a queue never submitted to, a function returns the global": (
+        "queue = ReviewQueue()\n\n\ndef peek():\n    return queue\n\n\npeek()\n",
+        ["queue"],
+    ),
+    "a store never written, a function returns a local string of the same name": (
+        "store = Store()\n\n\ndef label():\n    store = 'a string'\n    return store\n\n\n"
+        "label()\n",
+        ["store"],
+    ),
+    # the object the factory built is only credited when its caller uses it, so both are reported
+    "a notebook factory whose result is never stepped": (
+        NEW_GAME + "sim = new_game(0)\n",
+        ["g", "sim"],
+    ),
+    "a notebook factory whose result is thrown away": (NEW_GAME + "new_game(0)\n", ["g"]),
+}
+UNTOUCHED_CONTROLS = {
+    "a notebook factory whose result is stepped": (
+        NEW_GAME + "sim = new_game(0)\nsim.step('a')\n",
+        {"ToyGrid.step": 1},
+    ),
+    "a notebook function that steps what it builds, result only read": (
+        "def run_episode(seed):\n    g = ToyGrid(seed=seed)\n    g.step('a')\n    return g\n\n\n"
+        "ep = run_episode(0)\nprint(ep.done)\n",
+        {"ToyGrid.step": 1},
+    ),
+}
+
+
+@pytest.mark.parametrize("case", sorted(UNTOUCHED_SHAPES))
+def test_a_sink_the_notebook_builds_and_never_mutates_is_still_reported(tmp_path, case):
+    cell, untouched = UNTOUCHED_SHAPES[case]
+    folder = _synthetic_recipe(tmp_path, [HDR + cell])
+    assert side_effect_report(folder).untouched_sink_vars() == untouched
+    violations = _side_effect_violations(UNPUBLISHED[59], folder)
+    assert any("never calls a mutating method" in v for v in violations), violations
+
+
+@pytest.mark.parametrize("case", sorted(UNTOUCHED_CONTROLS))
+def test_an_object_a_notebook_function_returns_counts_when_the_caller_uses_it(tmp_path, case):
+    cell, counts = UNTOUCHED_CONTROLS[case]
+    report = side_effect_report(_synthetic_recipe(tmp_path, [HDR + cell]))
+    assert report.untouched_sink_vars() == [] and report.counts() == counts
+
+
+# A factory's result is exempt from that rule only when the factory is itself a side-effect
+# function (it may already have done the work, as recipes 43, 45 and 46 read such results). A
+# pure-construction factory is checked like a direct construction.
+PURE_FACTORY_HELPERS = (
+    "from jev_cookbook.simulation import ToyGrid\n\n\ndef new_grid(seed):\n"
+    "    return ToyGrid(seed=seed)\n\n" + REVIEW_HELPERS
+)
+EFFECT_FACTORY_HELPERS = (
+    SIM_CLASS + "\n\ndef play_game(seed):\n    sim = Factory(seed=seed)\n    while not sim.done:\n"
+    "        sim.step('build')\n    return sim\n"
+)
+
+
+@pytest.mark.parametrize("rank", [57, 59])
+def test_a_pure_construction_factory_result_that_is_never_stepped_is_reported(tmp_path, rank):
+    """The direct form `ToyGrid()` fails; so does the factory form `helpers.new_grid(0)`."""
+    slug = UNPUBLISHED[rank]
+    head = HDR + "queue = ReviewQueue()\nhelpers.submit_reviews(queue, [])\n"
+    declared = {"helpers.submit_reviews": 1}
+    builds = (("direct", "sim = ToyGrid(seed=0)\n"), ("factory", "sim = helpers.new_grid(0)\n"))
+    for label, build in builds:
+        folder = _synthetic_recipe(tmp_path / label, [head + build], PURE_FACTORY_HELPERS)
+        _write_declaration(folder, sites=declared)
+        violations = _side_effect_violations(slug, folder)
+        assert any("builds ['sim'] but never calls a mutating method" in v for v in violations), (
+            label,
+            violations,
+        )
+    stepped = head + "sim = helpers.new_grid(0)\nsim.step('a')\n"
+    folder = _synthetic_recipe(tmp_path / "stepped", [stepped], PURE_FACTORY_HELPERS)
+    _write_declaration(folder, sites={**declared, "ToyGrid.step": 1})
+    assert _side_effect_violations(slug, folder) == []
+
+
+def test_a_factory_that_is_a_side_effect_function_may_have_its_result_only_read(tmp_path):
+    slug = UNPUBLISHED[59]
+    cell = HDR + "sim = helpers.play_game(1)\nprint(sim.t)\n"
+    folder = _synthetic_recipe(tmp_path, [cell], EFFECT_FACTORY_HELPERS)
+    report = side_effect_report(folder)
+    assert report.counts() == {"helpers.play_game": 1} and report.handed_over == {"sim"}
+    _write_declaration(folder, sites={"helpers.play_game": 1})
+    assert _side_effect_violations(slug, folder) == []
+    # Delete the call: the declaration is no longer met.
+    gone = _synthetic_recipe(tmp_path / "gone", [HDR + "print(1)\n"], EFFECT_FACTORY_HELPERS)
+    _write_declaration(gone, sites={"helpers.play_game": 1})
+    assert _side_effect_violations(slug, gone)
 
 
 def test_a_factory_that_returns_something_else_makes_nothing_of_the_name_it_is_bound_to(tmp_path):
