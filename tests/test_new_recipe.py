@@ -10,6 +10,7 @@ import os
 import shutil
 import subprocess
 import sys
+import types
 from pathlib import Path
 
 import nbformat
@@ -46,22 +47,17 @@ port_collisions = load_module_at(
     Path(__file__).with_name("kernel_port_collisions.py"), "kernel_port_collisions_for_test"
 )
 
-# The most a run of the tool can take while nothing is wrong with the notebook, for the tests that
-# run it in a subprocess so that a hang is a failure rather than a stalled suite. It is not a
-# speed assertion, so it has to cover the tool's own permitted waits (#117, #328): the font-cache
-# warm-up, a kernel that is alive but silent waited for START_WAIT seconds on each of its attempts,
-# a kernel that exits at once tried again as many times as START_ATTEMPTS allows (a minute each,
-# far more than it takes), and two minutes for the cell and a loaded machine. A fixed 90 or 180
-# seconds was shorter than one such wait, so a slow start on a busy machine failed the test with a
-# timeout, whatever it asserted.
-SLOW_START = "Kernel didn't respond"
-QUICK_START = "Kernel died before replying"
-HANG_GUARD = (
-    execute_notebook.WARM_TIMEOUT
-    + execute_notebook.START_WAIT * execute_notebook.START_ATTEMPTS[SLOW_START]
-    + 60 * execute_notebook.START_ATTEMPTS[QUICK_START]
-    + 120
+executor_budget = load_module_at(
+    Path(__file__).with_name("executor_budget.py"), "executor_budget_for_test"
 )
+
+# The timeout of the subprocess tests below, so that a hang is a failure rather than a stalled
+# suite. tests/executor_budget.py has the arithmetic: the tool's own permitted waits (a silent
+# kernel's 180 seconds on each of its 2 starts, quick-exit starts, the warm-up), and no more than
+# the CI test job leaves once the rest of the suite has run (#117, #328).
+SLOW_START = executor_budget.SLOW_START
+QUICK_START = executor_budget.QUICK_START
+HANG_GUARD = executor_budget.hang_guard(execute_notebook)
 
 
 @pytest.fixture
@@ -815,6 +811,33 @@ START_MESSAGES = [
 def test_the_start_budgets_are_the_documented_ones():
     assert execute_notebook.START_ATTEMPTS == {SLOW_START: 2, QUICK_START: 4}
     assert set(execute_notebook.START_FAILURES) == {SLOW_START, QUICK_START}
+
+
+def test_every_hang_guard_fits_in_the_ci_test_job():
+    """A hang guard longer than the CI job that runs it never fires: the job is killed first and
+    the hang is not a named failure. Each guard, and the room the rest of the suite leaves, is read
+    from the tool's constants and from .github/workflows/ci.yml, not copied."""
+    job = executor_budget.ci_test_job_seconds()
+    guards = executor_budget.every_guard(execute_notebook)
+    assert HANG_GUARD == guards["tests/test_new_recipe.py"]
+    for user, guard in guards.items():
+        assert executor_budget.fits_in_the_ci_test_job(guard), (user, guard, job)
+        # and it still covers what the tool may legitimately take on a silent kernel
+        assert guard > execute_notebook.START_WAIT * execute_notebook.START_ATTEMPTS[SLOW_START]
+        if user != "tests/test_new_recipe.py":  # the other users wait with the same derivation
+            source = (REPO / user).read_text(encoding="utf-8")
+            assert "timeout=EXECUTE_TIMEOUT" in source and "hang_guard(" in source, user
+
+
+def test_the_ci_fit_check_fails_for_a_guard_that_is_too_long():
+    """The check above is not vacuous: the guard this PR started from (1020 s) does not fit."""
+    assert not executor_budget.fits_in_the_ci_test_job(1020)
+    assert not executor_budget.fits_in_the_ci_test_job(
+        executor_budget.hang_guard(
+            types.SimpleNamespace(START_WAIT=400, START_ATTEMPTS=execute_notebook.START_ATTEMPTS)
+        )
+    )
+    assert executor_budget.fits_in_the_ci_test_job(HANG_GUARD)
 
 
 def lose_starts(monkeypatch, *failures):

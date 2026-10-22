@@ -4,6 +4,7 @@ Nothing here reaches a network: with the guard on, every non-loopback attempt fa
 is sent, and the one test that needs a reachable address uses loopback.
 """
 
+import importlib.util
 import json
 import os
 import subprocess
@@ -17,6 +18,21 @@ import pytest
 REPO = Path(__file__).resolve().parent.parent
 GUARD_DIR = REPO / "tools" / "netguard"
 EXECUTE = REPO / "tools" / "execute_notebook.py"
+
+
+def _load(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+# How long to wait for the tool before calling it a hang: longer than its permitted starts (a
+# silent kernel's 180 seconds on each of 2), shorter than the CI job (tests/executor_budget.py).
+_BUDGET = _load("executor_budget_for_netguard", Path(__file__).with_name("executor_budget.py"))
+EXECUTE_TIMEOUT = _BUDGET.hang_guard(
+    _load("execute_notebook_for_netguard", EXECUTE), _BUDGET.NETGUARD_CELLS
+)
 # Built from parts so no key-shaped literal is committed.
 PLACEHOLDER_KEY = "-".join(["placeholder", "credential", "z" * 10])
 
@@ -128,7 +144,7 @@ def execute(folder, env):
         capture_output=True,
         text=True,
         env=env,
-        timeout=180,
+        timeout=EXECUTE_TIMEOUT,
         check=False,
     )
 

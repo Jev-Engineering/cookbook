@@ -70,9 +70,11 @@ never retried. How many attempts depends on the failure (``START_ATTEMPTS``), co
   ``START_WAIT`` seconds (not ``--timeout``, which is per cell), so this is the slow failure: a
   kernel that never answers fails after at most two such waits (2 x ``START_WAIT``, 360 seconds).
 
-A start that keeps failing still fails, with the kernel's last message and the number of attempts,
-and every retry prints one line to stderr, so a run that needed one says so: nothing is retried
-silently.
+The budgets are counted separately, so a run that sees both kinds can make 5 starts (three quick
+failures and two silent ones). A start that keeps failing still fails, with the kernel's last
+message and the number of attempts, and every retry prints one line to stderr, so a run that
+needed one says so: nothing is retried silently. The budgets live in ``retry_failed_starts``,
+which the tests that start kernels themselves call too, so they cannot drift from the tool's.
 
 Known limitation: "the kernel never started" is recognised by two jupyter_client messages
 ("Kernel didn't respond", "Kernel died before replying"). Any other start-up ``RuntimeError`` is
@@ -89,7 +91,9 @@ import signal
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
+from typing import TypeVar
 
 import nbformat
 from ipykernel.kernelspec import get_kernel_dict
@@ -99,6 +103,7 @@ from nbclient import NotebookClient
 from nbclient.exceptions import CellExecutionError, CellTimeoutError, DeadKernelError
 
 NOTEBOOK = "notebook.ipynb"
+T = TypeVar("T")
 KERNEL_NAME = "python3"
 SCRUBBED_PREFIXES = ("JEV_COOKBOOK_", "TYPESAFE_")
 TIMEOUT_SECONDS = 300
@@ -391,6 +396,36 @@ def start_failure(error: RuntimeError) -> str | None:
     return next((kind for kind in START_ATTEMPTS if kind in str(error)), None)
 
 
+def retry_failed_starts(attempt: Callable[[], T], name: str) -> T:
+    """Return ``attempt()``, calling it again when it fails to start a kernel, as often as
+    ``START_ATTEMPTS`` allows for that kind of failure; raise ``KernelStartError`` when it does not
+    start in the end, and anything else at once.
+
+    ``attempt`` must build its own kernel each call and run no cell before the start has
+    succeeded, which is what makes a start failure safe to retry. This is the only place that
+    holds the budgets, so every caller (this tool, and the tests that start kernels themselves)
+    gets the same ones. The budgets are counted per kind, so a run that sees both kinds can make
+    ``sum(START_ATTEMPTS.values()) - len(START_ATTEMPTS) + 1`` = 5 starts."""
+    failed_starts = dict.fromkeys(START_ATTEMPTS, 0)
+    while True:
+        try:
+            return attempt()
+        except RuntimeError as error:
+            kind = start_failure(error)
+            if kind is None:
+                raise
+            failed_starts[kind] += 1
+            if failed_starts[kind] >= START_ATTEMPTS[kind]:
+                raise KernelStartError(
+                    f"{error}; {sum(failed_starts.values())} start attempts failed"
+                ) from error
+            next_attempt = f"attempt {failed_starts[kind] + 1} of {START_ATTEMPTS[kind]}"
+            print(
+                f"{name}: the kernel did not start ({error}); starting a fresh one ({next_attempt})",
+                file=sys.stderr,
+            )
+
+
 def execute(recipe_dir: Path, timeout: int = TIMEOUT_SECONDS) -> None:
     """Run ``recipe_dir/notebook.ipynb`` and write it back with outputs.
 
@@ -402,29 +437,13 @@ def execute(recipe_dir: Path, timeout: int = TIMEOUT_SECONDS) -> None:
     recipe_dir = recipe_dir.resolve()
     path = recipe_dir / NOTEBOOK
     warm_font_cache(offline_environment(dict(os.environ)))
-    failed_starts = dict.fromkeys(START_ATTEMPTS, 0)
-    while True:
-        nb = nbformat.read(path, as_version=4)
-        try:
-            run_in_fresh_kernel(nb, recipe_dir, timeout)
-            break
-        except RuntimeError as error:
-            kind = start_failure(error)
-            if kind is None:
-                raise
-            # No cell has run: the kernel never answered, so a fresh one is tried, as often as
-            # START_ATTEMPTS allows for this kind of failure.
-            failed_starts[kind] += 1
-            if failed_starts[kind] >= START_ATTEMPTS[kind]:
-                raise KernelStartError(
-                    f"{error}; {sum(failed_starts.values())} start attempts failed"
-                ) from error
-            next_attempt = f"attempt {failed_starts[kind] + 1} of {START_ATTEMPTS[kind]}"
-            print(
-                f"{recipe_dir.name}: the kernel did not start ({error}); "
-                f"starting a fresh one ({next_attempt})",
-                file=sys.stderr,
-            )
+
+    def attempt() -> nbformat.NotebookNode:
+        nb = nbformat.read(path, as_version=4)  # re-read: a retry starts from the committed file
+        run_in_fresh_kernel(nb, recipe_dir, timeout)
+        return nb
+
+    nb = retry_failed_starts(attempt, recipe_dir.name)
     check_no_stderr(nb)
     nb.metadata = nbformat.from_dict(METADATA)
     nbformat.validate(nb)
