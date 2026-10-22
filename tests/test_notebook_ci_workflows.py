@@ -14,6 +14,8 @@ WORKFLOWS = REPO / ".github" / "workflows"
 NOTEBOOKS = (WORKFLOWS / "notebooks.yml").read_text(encoding="utf-8")
 SCOPE = (WORKFLOWS / "scope.yml").read_text(encoding="utf-8")
 CONSTRAINTS = (REPO / ".github" / "constraints-notebooks.txt").read_text(encoding="utf-8")
+CI = (WORKFLOWS / "ci.yml").read_text(encoding="utf-8")
+DEVELOPMENT = (REPO / "docs" / "development.md").read_text(encoding="utf-8")
 
 
 def code(text):
@@ -146,6 +148,74 @@ def test_every_sandboxed_python_runs_without_new_privileges():
 
 def test_notebook_job_installs_the_ml_extra_under_the_constraints():
     assert 'pip install -e ".[ml]" -c .github/constraints-notebooks.txt' in code(NOTEBOOKS)
+
+
+def ci_test_job():
+    """The ``test`` job of ci.yml without comment lines (the one the ``Tests (py...)`` checks are)."""
+    job = re.search(r"^  test:\n(.*?)(?=^  \S|\Z)", code(CI), re.DOTALL | re.MULTILINE)
+    assert job, "ci.yml has no `test` job"
+    return job.group(1)
+
+
+def ci_test_extras(version):
+    """The extras the ``Tests`` job installs on ``version``, the matrix expression evaluated.
+
+    The only expression allowed is the SDK on 3.14 (``${{ matrix.python-version == '3.14' && ',live'
+    || '' }}``); anything else fails here rather than being guessed at."""
+    install = re.search(r'pip install -e "\.\[([^\]]*)\]"([^\n]*)', ci_test_job())
+    assert install, 'the Tests job has no `pip install -e ".[...]"` step'
+    extras, rest = install.groups()
+    conditional = "${{ matrix.python-version == '3.14' && ',live' || '' }}"
+    plain = extras.replace(conditional, "")
+    assert "${{" not in plain, extras
+    names = plain.split(",")
+    if conditional in extras and version == "3.14":
+        names.append("live")
+    assert not rest.strip(), rest  # nothing after the quoted spec: no `-c constraints` either
+    return names
+
+
+def test_tests_jobs_install_the_ml_extra_on_both_legs():
+    """#238: docs/notebook-ci.md tells an author scikit-learn is available, the notebook job
+    installs it, and the Tests jobs import every recipe's helpers.py and tests. A recipe that used
+    it in helpers.py passed `Notebook (<recipe>)` and failed both `Tests` legs."""
+    for version in ("3.10", "3.14"):
+        assert {"dev", "ml"} <= set(ci_test_extras(version)), version
+
+
+def test_the_sdk_stays_on_the_3_14_leg_only():
+    """The 3.10 leg proves the package and every offline test work with the SDK absent
+    (docs/development.md); adding `ml` must not have widened that."""
+    assert "live" not in ci_test_extras("3.10")
+    assert "live" in ci_test_extras("3.14")
+
+
+def test_tests_jobs_do_not_install_under_the_notebook_constraints():
+    """numpy==2.5.3 needs Python 3.12 or newer, so the constraints file cannot be installed on
+    the 3.10 floor (`uv pip compile --python-version 3.10 -c .github/constraints-notebooks.txt`
+    finds no solution): the Tests legs install the newest release each interpreter supports."""
+    assert "constraints-notebooks" not in ci_test_job()
+    assert "numpy==2.5.3" in CONSTRAINTS  # the pin that makes it impossible; revisit if bumped
+    assert re.search(r"python-version: \[\"3\.10\", \"3\.14\"\]", ci_test_job())
+
+
+def test_the_tests_check_names_are_unchanged():
+    """Job names are the required checks' names (the header of ci.yml): #238 changes the install
+    step, not these."""
+    for name in (
+        "Lint (ruff)",
+        "Catalog (README is current)",
+        "Tests (py${{ matrix.python-version }})",
+    ):
+        assert f"    name: {name}\n" in CI, name
+
+
+def test_development_docs_state_what_each_tests_job_installs():
+    for version in ("3.10", "3.14"):
+        extras = ",".join(ci_test_extras(version))
+        assert f"`Tests (py{version})` installs `.[{extras}]`" in DEVELOPMENT.replace("\n", " "), (
+            version
+        )
 
 
 def pins():

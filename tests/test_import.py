@@ -59,3 +59,46 @@ def test_import_has_no_side_effects():
         [sys.executable, "-c", PROBE], env=env, capture_output=True, text=True, check=False
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+ML_PROBE = r"""
+import importlib
+import importlib.abc
+import pkgutil
+import sys
+
+blocked = []
+
+
+class BlockMl(importlib.abc.MetaPathFinder):
+    def find_spec(self, name, path=None, target=None):
+        if name.split(".")[0] in {"sklearn", "scipy"}:
+            blocked.append(name)
+            raise ImportError("blocked by test: " + name)
+        return None
+
+
+sys.meta_path.insert(0, BlockMl())
+
+import jev_cookbook  # noqa: E402
+
+modules = ["jev_cookbook"]
+for info in pkgutil.walk_packages(jev_cookbook.__path__, "jev_cookbook."):
+    modules.append(info.name)
+    importlib.import_module(info.name)
+
+print(f"imported {len(modules)} modules without scikit-learn or scipy")
+sys.exit(1 if blocked else 0)
+"""
+
+
+def test_the_package_imports_without_the_ml_extra():
+    """The Tests jobs install the `ml` extra (#238), so a core module that imported scikit-learn
+    or scipy would no longer fail there: this keeps the dependency policy (the extra is for
+    recipes, the package needs only the core dependencies) enforced by a test instead of by an
+    install that happened to be missing it. Every submodule is imported with both blocked."""
+    result = subprocess.run(
+        [sys.executable, "-c", ML_PROBE], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "imported" in result.stdout and "modules without" in result.stdout, result.stdout
