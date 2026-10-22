@@ -168,9 +168,20 @@ the README and every markdown cell for them:
 ### The older metric-line checks
 
 `validation_lines_carry_selection_and_check` and `metric_lines_carry_check` look for a `print(`
-whose call spells a rounded-float format (`{x:.4f}`) beside a metric word. They cover that one
-formatting convention. A metric printed through an aligned spec, a hoisted format string or a helper
-is outside them, as is any prose. Their existence is not evidence that section 2 is enforced;
+that spells a rounded-float format (`{x:.4f}`, or aligned, `{x:>13.4f}`) beside the word
+"validation" or a metric word. They cover that one formatting convention. The validation check
+also follows a float formatted one line up, in a string the `print(` interpolates, and takes the
+word "validation" from the call or from a string literal of that string; the other does not follow
+a hoisted format. A metric printed through a helper, `round()` or `%` formatting, a nested
+precision (`{x:.{p}f}`), a printer that is not literally `print(`, and any prose are outside them.
+The validation check also does not see a validation line whose word reaches it only through a loop
+variable or a name bound to `"validation"`. That region is not empty: when this was written, 26
+committed `print(` lines of that shape (a rounded float inside a `for` over a literal that holds
+`"validation"`, the word reaching the line only through the loop target) sat in 12 cells across 8
+recipes. Twenty-five of them carry both labels, because the loop's own tuple supplies the label the
+`print(` interpolates, so it is the author's care and not this check that holds them. One does not:
+recipe 39's `evaluation-t86`, which has `{check}` and no selection label (#363).
+Their existence is not evidence that section 2 is enforced;
 `metric_output_lines_carry_pipeline_check` is the check that reads what was printed.
 
 ### Ideas considered and rejected
