@@ -692,9 +692,13 @@ are a cookbook convention, not that one.)
 **A Noul confidence gate is a two-sided band, and what it changes depends on your composition.**
 Because `noul_confidence(p) = |2p - 1|` is symmetric about `0.5`, a gate `g` passes exactly when
 `p >= (1 + g) / 2` (confidently true) or `p <= (1 - g) / 2` (confidently false), and the item goes
-to review exactly when `(1 - g) / 2 < p < (1 + g) / 2`. That statement is exact and holds for
-every Noul rule; it is specific to `Noul`, because a `Choice` confidence is the top probability
-rescaled by the option count and has no such closed form. Two things look like consequences and
+to review exactly when `(1 - g) / 2 < p < (1 + g) / 2`. That statement is exact in real
+arithmetic and holds for every Noul rule; it is specific to `Noul`, because a `Choice` confidence
+is the top probability rescaled by the option count and has no such closed form. In floating point a
+value that coincides with an edge can land either side of it, so the band and the real comparison
+`noul_confidence([p])[0] >= g` can disagree for that value (see "At an edge" below). That happens for
+a gate typed as the decimal `2t - 1`, and also for a gate frozen by `select_confidence_threshold`,
+whose own validation item sits on the edge by construction. Two things look like consequences and
 are not:
 
 * **"The gate is inert" and "the gate is just a stricter business threshold" are not facts about
@@ -711,7 +715,32 @@ are not:
   so the gate withholds it, and for `t < 0.5` an accept-only gate withholds the whole interval of
   admitted `p` around `0.5`, not a lower tail (`tests/test_evaluation.py` pins this
   counterexample). Mirror the statement for a rule that gates only rejection with `t < 0.5`. All
-  of this is about that wiring and that side only. Never write "the gate cannot act" without
+  of this is about that wiring and that side only. **At an edge it is true only in real
+  arithmetic, on both sides.**
+  *Accept side, a gate typed as `2t - 1`:* it can withhold `p = t` itself. At `t = 0.6, g = 0.2`
+  the value `noul_confidence([0.6])` is `0.19999999999999996`, two ULPs under `0.2`, so the "inert"
+  gate withholds the one admitted value at the threshold. 16 of the 49 two-decimal thresholds
+  `0.51 ... 0.99` do this with `g = round(2t - 1, 2)`, by 1 to 4 ULPs (`0.57` by 4, `0.58` by 3,
+  `0.59`, `0.60`, `0.69` and `0.70` by 2, the other ten by 1); `tests/test_evaluation.py` pins
+  these, and composes the gate with `p = t` to show the withheld item. Recipe 39's
+  `t = 0.85, g = 0.70` is a case that happens to be exact (`noul_confidence([0.85])` is `0.7`), so
+  its gate withholds nothing the threshold admits; what the gate changes in that recipe's own
+  composition is what its notebook prints (0 changed outcomes and 699 changed review reasons over
+  1001 swept values), not something this arithmetic decides. *Accept side, a frozen gate:* a gate
+  frozen at the confidence of a validation item `p_i` with `0.5 <= p_i <= t` never withholds
+  `p = t`, because `noul_confidence` is monotone non-decreasing on `[0.5, 1]` (there it is exactly
+  `2p - 1` of the stored double, so the shortfall at `0.6` comes from the decimal `0.6` having no
+  exact double, not from the arithmetic). *Reject side, a frozen gate:*
+  `select_confidence_threshold` returns an observed confidence, so every frozen gate has its own
+  item on an edge, and below `0.5` the computed edge `(1 - g) / 2` can sit above that item. At
+  `p = 0.1` the frozen gate is `g = 0.8` and `(1 - g) / 2` is `0.09999999999999998`, so the band
+  statement sends `p = 0.1` to review while the real comparison passes it; 16 of the 50 two-decimal
+  `p` in `0.00 ... 0.49` do this (`0.08 ... 0.11`, `0.18 ... 0.23`, `0.41 ... 0.46`) and none of the
+  two-decimal `p` above `0.5` do (`tests/test_evaluation.py` pins both). So the band is the
+  statement to reason with, and the recipe's own `noul_confidence(p) >= g` is the statement to
+  report with: if you print a band from a frozen gate, do not use it to classify the item the
+  gate was frozen from. A gate within a few ULPs of an edge is neither "inert" nor "not inert" by
+  the algebra: measure it (below). Never write "the gate cannot act" without
   saying on which side, and never write it at all before measuring.
 * **Choosing `g` above `|2t - 1|` is not adding an independent control** in a rule that gates only
   acceptance: it silently chooses a stricter threshold. The gate's one distinct function on the
@@ -777,8 +806,10 @@ the test that runs it, are in [vision](vision.md#the-localization-report).
 Use `evaluate_outcomes` above for the review rate of the presence question alone.
 
 In a tiled or hierarchical recipe the headline report is per image: gold is the full-image
-Box label and each outcome is the final rectangle after `tile_to_image`, with a stage-1 "no
-match" on present gold reported as `absent` and an uncertain choice as `review`. A per-tile
+Box label and each outcome is the final rectangle after `tile_to_image` (or, when the recipe
+also cropped or padded inside the tile, after `ImageTransform.to_original` on the chain of
+steps), with a stage-1 "no match" on present gold reported as `absent`, an uncertain choice as
+`review` and a mapped-back answer that is only padding (`None`) as `review`. A per-tile
 report counts tiles, is a stage diagnostic and says so, and states its rule for a target a
 tile edge cuts; see [vision](vision.md#tiled-and-hierarchical-recipes).
 

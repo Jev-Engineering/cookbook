@@ -5,12 +5,15 @@ from __future__ import annotations
 import base64
 import contextlib
 import hashlib
+import importlib.util
 import io
 import json
 import math
 import random
 import re
+import sys
 from dataclasses import is_dataclass
+from fractions import Fraction
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -1291,3 +1294,935 @@ def test_report_is_a_frozen_dataclass_and_localization_metrics_remains():
     assert "gold_box" in vision.__all__
     assert "localization_report" in (vision.localization_metrics.__doc__ or "")
     assert vision.localization_metrics([GOLD, None], [GOLD, None]).mean_iou == 1.0
+
+
+# ---------------------------------------------------------------------------------------------
+# Image preparation, the tile inverse, multi-level mapping and the 280 px minimum (#310).
+# Every expectation below is worked out by hand in the comment beside it.
+# ---------------------------------------------------------------------------------------------
+
+GRAY = (128, 128, 128)
+
+
+def nb(left, top, right, bottom):
+    return {"top": top, "bottom": bottom, "left": left, "right": right}
+
+
+# image_to_tile ------------------------------------------------------------------------------
+
+# A 1000 x 800 image and the tile (200, 100)-(700, 500): 500 x 400 pixels.
+WHOLE, TILE = (1000, 800), (200, 100, 700, 500)
+
+
+def test_image_to_tile_maps_a_box_inside_the_tile_by_hand():
+    # x 0.25..0.5 is pixels 250..500 and y 0.25..0.5 is pixels 200..400. In the tile (origin
+    # 200, 100; 500 x 400) that is x 50..300 -> 0.1..0.6 and y 100..300 -> 0.25..0.75.
+    box = nb(0.25, 0.25, 0.5, 0.5)
+    assert vision.image_to_tile(box, TILE, *WHOLE) == nb(0.1, 0.25, 0.6, 0.75)
+
+
+def test_image_to_tile_clips_a_box_the_tile_edge_cuts():
+    # x 0.125..0.5 is pixels 125..500, y 0.0625..0.5 is pixels 50..400. The tile starts at x=200
+    # and y=100, so the visible part is x 200..500 -> 0..0.6 and y 100..400 -> 0..0.75.
+    box = nb(0.125, 0.0625, 0.5, 0.5)
+    assert vision.image_to_tile(box, TILE, *WHOLE) == nb(0.0, 0.0, 0.6, 0.75)
+    # The whole box is 375 x 350 = 131,250 px and the visible 300 x 300 = 90,000 px of it is 24/35.
+    transform = vision.ImageTransform.crop(TILE, *WHOLE)
+    assert transform.visible_fraction(box) == 90_000 / 131_250
+
+
+def test_image_to_tile_clips_a_box_covering_the_tile_to_the_tile():
+    assert vision.image_to_tile(FULL, TILE, *WHOLE) == FULL
+    # A box larger than the tile on every side is clipped to all four tile edges.
+    assert vision.image_to_tile(nb(0.125, 0.0625, 0.875, 0.875), TILE, *WHOLE) == FULL
+
+
+def test_image_to_tile_is_none_for_a_box_that_misses_the_tile():
+    # The tile covers x 0.2..0.7 and y 0.125..0.625.
+    assert vision.image_to_tile(nb(0.75, 0.25, 1.0, 0.5), TILE, *WHOLE) is None  # right of it
+    assert vision.image_to_tile(nb(0.25, 0.75, 0.5, 1.0), TILE, *WHOLE) is None  # below it
+    assert vision.image_to_tile(nb(0.0, 0.25, 0.125, 0.5), TILE, *WHOLE) is None  # left of it
+    assert vision.image_to_tile(nb(0.25, 0.0, 0.5, 0.0625), TILE, *WHOLE) is None  # above it
+
+
+def test_image_to_tile_is_none_for_a_box_that_only_touches_the_tile_edge():
+    # 0.2 is not exactly 1/5 in binary (it is a hair above), so without reading it as pixel 200
+    # this box would overlap the tile by 1e-17 and return a sliver instead of None.
+    assert Fraction(0.2) > Fraction(1, 5)
+    assert vision.image_to_tile(nb(0.0, 0.25, 0.2, 0.5), TILE, *WHOLE) is None
+    assert vision.image_to_tile(nb(0.7, 0.25, 0.9, 0.5), TILE, *WHOLE) is None
+    assert vision.image_to_tile(nb(0.25, 0.0, 0.5, 0.125), TILE, *WHOLE) is None
+    # One pixel of overlap is a real overlap: x 0.201 is pixel 201, one pixel inside the tile.
+    one_pixel = vision.image_to_tile(nb(0.0, 0.25, 0.201, 0.5), TILE, *WHOLE)
+    assert one_pixel == nb(0.0, 0.25, 1 / 500, 0.75)
+
+
+def test_image_to_tile_inverts_tile_to_image_for_every_generated_tile():
+    size = (1568, 1024)
+    box = nb(0.25, 0.125, 0.75, 0.5)
+    for tile in vision.generate_tiles(Image.new("RGB", size), tile_size=(512, 512), overlap=64):
+        local = vision.image_to_tile(box, tile.bounds, *size)
+        if local is None:
+            continue
+        back = vision.tile_to_image(local, tile.bounds, *size)
+        visible = vision.ImageTransform.crop(tile.bounds, *size).visible_fraction(box)
+        if visible == 1.0:
+            assert back == pytest.approx(box, abs=1e-12)
+        else:  # a cut box maps back to its visible part, which is inside the original box
+            assert 0.0 < visible < 1.0
+            assert back["left"] >= box["left"] - 1e-12 and back["right"] <= box["right"] + 1e-12
+            assert back["top"] >= box["top"] - 1e-12 and back["bottom"] <= box["bottom"] + 1e-12
+
+
+def test_image_to_tile_matches_tile_to_image_on_a_hand_computed_tile():
+    # Tile (20,10)-(60,50) of 100 x 80, from test_tile_to_image_uses_exact_pixel_bounds:
+    # the tile-local box BOX maps to x 0.25..0.45, y 0.25..0.5 of the image, and back.
+    whole = nb(0.25, 0.25, 0.45, 0.5)
+    local = vision.image_to_tile(whole, (20, 10, 60, 50), 100, 80)
+    assert local == pytest.approx(BOX)
+    assert vision.tile_to_image(local, (20, 10, 60, 50), 100, 80) == pytest.approx(whole)
+
+
+@pytest.mark.parametrize(
+    "bounds", [(0, 0, 0, 5), (-1, 0, 5, 5), (0, 0, 101, 5), (0, 0, 5, 81), (0, 0, 1.5, 5)]
+)
+def test_image_to_tile_rejects_invalid_pixel_bounds(bounds):
+    with pytest.raises(ValueError):
+        vision.image_to_tile(BOX, bounds, 100, 80)
+
+
+def test_image_to_tile_rejects_an_invalid_box_and_an_absent_one():
+    for bad in (None, {"left": 0.5, "right": 0.5, "top": 0, "bottom": 1}):
+        with pytest.raises(ValueError):
+            vision.image_to_tile(bad, TILE, *WHOLE)
+
+
+# ImageTransform.crop, validation and the float edge ----------------------------------------
+
+
+def test_crop_transform_records_the_windows_by_hand():
+    transform = vision.ImageTransform.crop((512, 0, 1024, 512), 1568, 1024)
+    assert transform.original_size == (1568, 1024) and transform.derived_size == (512, 512)
+    # x 512/1568 = 16/49, 1024/1568 = 32/49; y 0 and 512/1024 = 1/2.
+    assert transform.original_window == (
+        Fraction(16, 49),
+        Fraction(0),
+        Fraction(32, 49),
+        Fraction(1, 2),
+    )
+    assert transform.derived_window == (Fraction(0), Fraction(0), Fraction(1), Fraction(1))
+    assert transform.to_original(FULL) == nb(512 / 1568, 0.0, 1024 / 1568, 0.5)
+    assert transform.to_derived(nb(512 / 1568, 0.0, 1024 / 1568, 0.5)) == FULL
+
+
+def test_the_transform_constructor_checks_sizes_and_windows():
+    unit = (Fraction(0), Fraction(0), Fraction(1), Fraction(1))
+    assert vision.ImageTransform((4, 4), (4, 4), unit, unit).to_original(BOX) == BOX
+    bad_windows = [
+        (0.0, 0.0, 1.0, 1.0),  # floats are not exact
+        (Fraction(0), Fraction(0), Fraction(1)),  # three edges
+        (Fraction(1, 2), Fraction(0), Fraction(1, 2), Fraction(1)),  # zero width
+        (Fraction(0), Fraction(0), Fraction(3, 2), Fraction(1)),  # outside the image
+        (Fraction(-1, 2), Fraction(0), Fraction(1), Fraction(1)),
+        [Fraction(0), Fraction(0), Fraction(1), Fraction(1)],  # a list, not a tuple
+    ]
+    for window in bad_windows:
+        with pytest.raises(ValueError, match="original_window"):
+            vision.ImageTransform((4, 4), (4, 4), window, unit)
+        with pytest.raises(ValueError, match="derived_window"):
+            vision.ImageTransform((4, 4), (4, 4), unit, window)
+    for size in [(0, 4), (4, -1), (True, 4), (4, 2.5), (4,), 4]:
+        with pytest.raises(ValueError):
+            vision.ImageTransform(size, (4, 4), unit, unit)
+        with pytest.raises(ValueError):
+            vision.ImageTransform((4, 4), size, unit, unit)
+
+
+def test_a_mapped_box_too_small_for_a_float_rectangle_raises_instead_of_collapsing():
+    # The right half of a square. A derived box one float step wide at the far edge maps to
+    # 0.5 + (1 - 2**-53) / 2 = 1 - 2**-54 on the left edge, which rounds to 1.0, the right edge.
+    transform = vision.ImageTransform.crop((500, 0, 1000, 1000), 1000, 1000)
+    sliver = nb(math.nextafter(1.0, 0.0), 0.0, 1.0, 1.0)
+    with pytest.raises(ValueError, match="too small"):
+        transform.to_original(sliver)
+
+
+def test_transforms_are_immutable_and_compare_by_value():
+    first = vision.ImageTransform.crop(TILE, *WHOLE)
+    assert first == vision.ImageTransform.crop(TILE, *WHOLE)
+    assert first != vision.ImageTransform.crop((0, 0, 500, 400), *WHOLE)
+    with pytest.raises(AttributeError):
+        first.original_size = (1, 1)
+
+
+# prepare_image --------------------------------------------------------------------------------
+
+
+def window_of(transform):
+    return tuple(transform.derived_window)
+
+
+def test_prepare_image_pads_one_axis_and_keeps_every_pixel():
+    image = coordinate_image(300, 200)  # pixel (x, y) = (x, y, (x + y) % 256)
+    prepared, transform = vision.prepare_image(image, min_side=256)
+    # Height 200 -> 256: 56 rows of padding, 28 above and 28 below. Width 300 is untouched.
+    assert prepared.size == (300, 256) and prepared.mode == "RGB"
+    assert transform.original_size == (300, 200) and transform.derived_size == (300, 256)
+    assert window_of(transform) == (Fraction(0), Fraction(7, 64), Fraction(1), Fraction(57, 64))
+    assert prepared.getpixel((10, 27)) == GRAY and prepared.getpixel((10, 228)) == GRAY
+    assert prepared.getpixel((10, 28)) == (10, 0, 10)  # the original's first row
+    assert prepared.getpixel((200, 227)) == (200, 199, 143)  # its last row; (200 + 199) % 256 = 143
+    assert prepared.crop((0, 28, 300, 228)).tobytes() == image.tobytes()
+
+
+def test_prepare_image_transform_maps_a_prepared_box_back_to_the_original_exactly():
+    _, transform = vision.prepare_image(coordinate_image(300, 200), min_side=256)
+    # Rows 28..228 of 256 are the picture: 28/256 = 0.109375 and 228/256 = 0.890625.
+    assert transform.to_original(nb(0.0, 0.109375, 1.0, 0.890625)) == FULL
+    # Prepared y 0.5 (row 128) is 100 rows into the 200 row picture; 0.75 (row 192) is row 164.
+    assert transform.to_original(nb(0.25, 0.5, 0.75, 0.75)) == nb(0.25, 0.5, 0.75, 0.82)
+    # And forward: original y 0.5 (row 100) is prepared row 128 of 256.
+    assert transform.to_derived(nb(0.25, 0.5, 0.75, 0.82)) == nb(0.25, 0.5, 0.75, 0.75)
+
+
+def test_prepare_image_clips_a_box_that_reaches_into_the_padding():
+    _, transform = vision.prepare_image(coordinate_image(300, 200), min_side=256)
+    # A box over rows 0..128 of the prepared image shows picture rows 28..128 -> 0..0.5.
+    assert transform.to_original(nb(0.0, 0.0, 1.0, 0.5)) == nb(0.0, 0.0, 1.0, 0.5)
+    # A box wholly inside the padding (rows 0..16) is nothing in the original.
+    assert transform.to_original(nb(0.0, 0.0, 1.0, 0.0625)) is None
+    # One that only touches the picture (rows 0..28) is nothing as well.
+    assert transform.to_original(nb(0.0, 0.0, 1.0, 0.109375)) is None
+
+
+def test_a_box_cropped_from_the_prepared_image_holds_the_same_pixels_as_in_the_original():
+    image = coordinate_image(300, 200)
+    prepared, transform = vision.prepare_image(image, min_side=256)
+    box = nb(0.25, 0.25, 0.75, 0.75)  # original pixels x 75..225, y 50..150
+    mapped = transform.to_derived(box)
+    assert mapped == nb(0.25, 78 / 256, 0.75, 178 / 256)  # prepared y = 28 + 50 .. 28 + 150
+    assert vision.crop_bounds(mapped, 300, 256) == (75, 78, 225, 178)
+    assert vision.crop_box(prepared, mapped).tobytes() == vision.crop_box(image, box).tobytes()
+
+
+def test_prepare_image_with_the_api_limits_pads_a_short_image_to_280():
+    image = coordinate_image(300, 200)
+    prepared, transform = vision.prepare_image(image)
+    assert prepared.size == (300, 280)  # 40 rows of padding above and below
+    assert prepared.getpixel((0, 39)) == GRAY and prepared.getpixel((0, 40)) == (0, 0, 0)
+    assert prepared.getpixel((0, 239)) == (0, 199, 199) and prepared.getpixel((0, 240)) == GRAY
+    assert window_of(transform) == (Fraction(0), Fraction(1, 7), Fraction(1), Fraction(6, 7))
+
+
+def test_prepare_image_pads_both_axes_and_puts_the_odd_pixel_right_and_below():
+    prepared, transform = vision.prepare_image(Image.new("RGB", (200, 100), (255, 0, 0)))
+    # 200 -> 280 is 80 columns (40 each side); 100 -> 280 is 180 rows (90 each side).
+    assert prepared.size == (280, 280)
+    assert window_of(transform) == (
+        Fraction(1, 7),
+        Fraction(9, 28),
+        Fraction(6, 7),
+        Fraction(19, 28),
+    )
+    assert prepared.getpixel((39, 100)) == GRAY and prepared.getpixel((40, 100)) == (255, 0, 0)
+    assert prepared.getpixel((239, 100)) == (255, 0, 0) and prepared.getpixel((240, 100)) == GRAY
+    assert prepared.getpixel((100, 89)) == GRAY and prepared.getpixel((100, 90)) == (255, 0, 0)
+    assert prepared.getpixel((100, 189)) == (255, 0, 0) and prepared.getpixel((100, 190)) == GRAY
+    # Odd padding: 201 -> 280 is 79 columns, 39 on the left and 40 on the right.
+    odd, odd_transform = vision.prepare_image(Image.new("RGB", (201, 100), (255, 0, 0)))
+    assert odd.getpixel((38, 100)) == GRAY and odd.getpixel((39, 100)) == (255, 0, 0)
+    assert odd.getpixel((239, 100)) == (255, 0, 0) and odd.getpixel((240, 100)) == GRAY
+    assert odd_transform.derived_window[0] == Fraction(39, 280)
+    assert odd_transform.derived_window[2] == Fraction(240, 280)
+
+
+def test_prepare_image_leaves_an_image_that_fits_alone():
+    image = coordinate_image(400, 300)
+    prepared, transform = vision.prepare_image(image)
+    assert prepared is not image and prepared.tobytes() == image.tobytes()
+    unit = (Fraction(0), Fraction(0), Fraction(1), Fraction(1))
+    assert transform == vision.ImageTransform((400, 300), (400, 300), unit, unit)
+    assert transform.to_original(BOX) == BOX and transform.to_derived(BOX) == BOX
+    # The limits themselves fit: 280 x 280 and 1568 x 1568 are not changed.
+    for side in (280, 1568):
+        assert vision.prepare_image(Image.new("RGB", (side, side)))[0].size == (side, side)
+
+
+def test_prepare_image_scales_a_large_image_down_by_the_exact_ratio():
+    image = Image.new("RGB", (1601, 1000), (0, 0, 255))
+    prepared, transform = vision.prepare_image(image)
+    # 1601 -> 1568; 1000 * 1568 / 1601 = 979.39 -> 979. Nothing is under 280, so no padding.
+    assert prepared.size == (1568, 979)
+    assert transform.derived_window == (Fraction(0), Fraction(0), Fraction(1), Fraction(1))
+    # A tall image: 1000 x 3136 -> 500 x 1568 (a ratio of exactly one half).
+    assert vision.prepare_image(Image.new("RGB", (1000, 3136)))[0].size == (500, 1568)
+    # A square at 3136 -> 1568.
+    assert vision.prepare_image(Image.new("RGB", (3136, 3136)))[0].size == (1568, 1568)
+
+
+def test_prepare_image_rounds_scaled_sizes_half_up():
+    # max_side 5: 10 x 3 scales by 1/2 to 5 x 1.5, and 1.5 rounds up to 2.
+    assert vision.prepare_image(Image.new("RGB", (10, 3)), min_side=1, max_side=5)[0].size == (5, 2)
+    # 7 x 5 with max_side 4 scales by 4/7: 4 x 2.857 -> 4 x 3.
+    assert vision.prepare_image(Image.new("RGB", (7, 5)), min_side=1, max_side=4)[0].size == (4, 3)
+    # A side that would round to 0 stays 1 pixel: 100 x 1 with max_side 10 -> 10 x 0.1 -> 10 x 1.
+    assert vision.prepare_image(Image.new("RGB", (100, 1)), min_side=1, max_side=10)[0].size == (
+        10,
+        1,
+    )
+
+
+def test_prepare_image_scales_down_then_pads_an_extreme_aspect_ratio():
+    prepared, transform = vision.prepare_image(Image.new("RGB", (4000, 100), (0, 128, 0)))
+    # 4000 -> 1568 (x0.392); 100 * 1568 / 4000 = 39.2 -> 39 rows, padded to 280: 241 -> 120 above.
+    assert prepared.size == (1568, 280)
+    assert window_of(transform) == (
+        Fraction(0),
+        Fraction(120, 280),
+        Fraction(1),
+        Fraction(159, 280),
+    )
+    assert prepared.getpixel((800, 119)) == GRAY and prepared.getpixel((800, 120)) == (0, 128, 0)
+    assert prepared.getpixel((800, 158)) == (0, 128, 0) and prepared.getpixel((800, 159)) == GRAY
+    # The picture's middle row (original y 0.5, 19.5 of its 39 rows) is prepared row 120 + 19.5
+    # = 139.5 of 280; its bottom edge is row 159.
+    assert transform.to_derived(nb(0.0, 0.5, 0.25, 1.0)) == nb(0.0, 139.5 / 280, 0.25, 159 / 280)
+
+
+def test_prepare_image_scale_up_is_opt_in_and_keeps_the_aspect_ratio():
+    image = Image.new("RGB", (200, 100), (255, 0, 0))
+    # Default: padded, not scaled (the picture stays 200 x 100).
+    assert vision.prepare_image(image)[0].size == (280, 280)
+    # upscale: the short side 100 -> 280, so 200 -> 560. Nothing to pad.
+    prepared, transform = vision.prepare_image(image, upscale=True)
+    assert prepared.size == (560, 280)
+    assert transform.derived_window == (Fraction(0), Fraction(0), Fraction(1), Fraction(1))
+    # 101 x 100 -> 283 x 280 (101 * 2.8 = 282.8).
+    assert vision.prepare_image(Image.new("RGB", (101, 100)), upscale=True)[0].size == (283, 280)
+    # 100 x 200 -> 280 x 560 (portrait).
+    assert vision.prepare_image(Image.new("RGB", (100, 200)), upscale=True)[0].size == (280, 560)
+
+
+def test_prepare_image_scale_up_stops_at_max_side_and_pads_the_rest():
+    # 1568 x 100 cannot grow at all (its long side is already 1568): padded to 1568 x 280,
+    # picture rows 90..190.
+    prepared, transform = vision.prepare_image(Image.new("RGB", (1568, 100)), upscale=True)
+    assert prepared.size == (1568, 280)
+    assert transform.derived_window[1] == Fraction(90, 280)
+    # 800 x 100 grows by 1568 / 800 = 1.96 (not 2.8): 1568 x 196, padded to 280 rows -> 42 above.
+    prepared, transform = vision.prepare_image(Image.new("RGB", (800, 100)), upscale=True)
+    assert prepared.size == (1568, 280)
+    assert transform.derived_window[1] == Fraction(42, 280)
+    assert transform.derived_window[3] == Fraction(238, 280)
+    # An oversized image is scaled down and never up, whatever upscale says.
+    assert vision.prepare_image(Image.new("RGB", (4000, 100)), upscale=True)[0].size == (1568, 280)
+
+
+def test_prepare_image_resized_content_lands_where_the_transform_says():
+    image = Image.new("RGB", (2000, 1000), (255, 255, 255))
+    image.paste((0, 0, 255), (500, 250, 1000, 750))  # blue square at x 0.25..0.5, y 0.25..0.75
+    prepared, transform = vision.prepare_image(image)
+    assert prepared.size == (1568, 784)  # exactly x0.784
+    box = nb(0.25, 0.25, 0.5, 0.75)
+    # In the prepared image that is x 392..784, y 196..588.
+    assert transform.to_derived(box) == nb(0.25, 0.25, 0.5, 0.75)
+    assert vision.crop_bounds(transform.to_derived(box), 1568, 784) == (392, 196, 784, 588)
+    assert prepared.getpixel((392 + 6, 196 + 6)) == (0, 0, 255)
+    assert prepared.getpixel((784 - 6, 588 - 6)) == (0, 0, 255)
+    assert prepared.getpixel((392 - 6, 300)) == (255, 255, 255)
+    assert prepared.getpixel((600, 588 + 6)) == (255, 255, 255)
+
+
+SIZES = [
+    (300, 200),  # pad one axis
+    (200, 300),
+    (200, 100),  # pad both
+    (279, 1000),
+    (1000, 279),
+    (4000, 100),  # scale down, then pad
+    (100, 4000),
+    (3136, 2048),  # scale down only
+    (1601, 1000),
+    (2000, 2000),
+    (400, 300),  # nothing to do
+]
+
+
+@pytest.mark.parametrize("upscale", [False, True])
+@pytest.mark.parametrize("size", SIZES)
+def test_prepared_images_meet_the_api_limits_for_every_aspect_ratio(size, upscale):
+    prepared, _ = vision.prepare_image(Image.new("RGB", size, (10, 20, 30)), upscale=upscale)
+    width, height = prepared.size
+    assert 280 <= width <= 1568 and 280 <= height <= 1568
+    buffer = io.BytesIO()
+    prepared.save(buffer, format="PNG")
+    asset = {
+        "type": "image",
+        "format": "png",
+        "data_base64": base64.b64encode(buffer.getvalue()).decode("ascii"),
+    }
+    assert vision.validate_image_asset(asset) == buffer.getvalue()
+
+
+@pytest.mark.parametrize("upscale", [False, True])
+@pytest.mark.parametrize("size", SIZES)
+def test_boxes_round_trip_through_prepare_image_at_every_aspect_ratio(size, upscale):
+    _, transform = vision.prepare_image(Image.new("RGB", size), upscale=upscale)
+    for box in (
+        FULL,
+        BOX,
+        nb(0.0, 0.0, 0.125, 0.125),
+        nb(0.875, 0.875, 1.0, 1.0),
+        nb(0.1, 0.2, 0.3, 0.4),
+    ):
+        derived = transform.to_derived(box)
+        assert derived is not None
+        assert transform.to_original(derived) == pytest.approx(box, abs=1e-12)
+        # The picture's box sits inside the content window of the prepared image.
+        window = transform.derived_window
+        assert (
+            float(window[0]) - 1e-12
+            <= derived["left"]
+            < derived["right"]
+            <= float(window[2]) + 1e-12
+        )
+        assert (
+            float(window[1]) - 1e-12
+            <= derived["top"]
+            < derived["bottom"]
+            <= float(window[3]) + 1e-12
+        )
+        # And the other way: a prepared box inside the content maps to an original box that
+        # maps forward to it.
+        assert transform.to_derived(transform.to_original(derived)) == pytest.approx(
+            derived, abs=1e-12
+        )
+
+
+def test_prepare_image_does_not_modify_the_input_and_returns_new_pixels():
+    image = coordinate_image(300, 200)
+    before = image.tobytes()
+    prepared, _ = vision.prepare_image(image)
+    prepared.putpixel((10, 100), (1, 2, 3))
+    assert image.tobytes() == before and image.size == (300, 200)
+
+
+def test_prepare_image_pad_color_accepts_a_gray_level_or_an_rgb_tuple():
+    image = Image.new("RGB", (300, 200), (1, 2, 3))
+    assert vision.prepare_image(image, pad_color=255)[0].getpixel((0, 0)) == (255, 255, 255)
+    assert vision.prepare_image(image, pad_color=0)[0].getpixel((0, 0)) == (0, 0, 0)
+    assert vision.prepare_image(image, pad_color=(250, 245, 235))[0].getpixel((5, 5)) == (
+        250,
+        245,
+        235,
+    )
+    assert vision.prepare_image(image)[0].getpixel((5, 5)) == GRAY
+
+
+@pytest.mark.parametrize(
+    "pad_color", [256, -1, True, 1.5, "red", (1, 2), (1, 2, 3, 4), (1, 2, 256), (1.0, 2, 3), None]
+)
+def test_prepare_image_rejects_an_invalid_pad_color(pad_color):
+    with pytest.raises(ValueError, match="pad_color"):
+        vision.prepare_image(Image.new("RGB", (300, 200)), pad_color=pad_color)
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"min_side": 0},
+        {"min_side": -280},
+        {"min_side": True},
+        {"min_side": 280.0},
+        {"max_side": 0},
+        {"max_side": "1568"},
+        {"min_side": 300, "max_side": 299},
+    ],
+)
+def test_prepare_image_rejects_invalid_limits(kwargs):
+    with pytest.raises(ValueError):
+        vision.prepare_image(Image.new("RGB", (300, 200)), **kwargs)
+
+
+def test_prepare_image_accepts_color_modes_and_refuses_transparency():
+    gray = Image.new("L", (300, 200), 7)
+    prepared, _ = vision.prepare_image(gray)
+    assert prepared.mode == "RGB" and prepared.getpixel((0, 100)) == (7, 7, 7)
+    palette = Image.new("P", (300, 200), 0)
+    palette.putpalette([9, 8, 7] + [0] * 765)
+    assert vision.prepare_image(palette)[0].getpixel((0, 100)) == (9, 8, 7)
+    assert vision.prepare_image(Image.new("1", (300, 200), 1))[0].getpixel((0, 100)) == (255,) * 3
+    transparent_palette = palette.copy()
+    transparent_palette.info["transparency"] = 0
+    for image in (
+        Image.new("RGBA", (300, 200), (1, 2, 3, 0)),
+        Image.new("LA", (300, 200)),
+        transparent_palette,
+        Image.new("F", (300, 200)),
+        Image.new("I;16", (300, 200)),
+    ):
+        with pytest.raises(ValueError, match="flatten"):
+            vision.prepare_image(image)
+
+
+# Tile and crop minimums ----------------------------------------------------------------------
+
+
+def test_generate_tiles_min_side_accepts_the_documented_example_and_the_exact_minimum():
+    image = Image.new("RGB", (1000, 800))
+    tiles = vision.generate_tiles(image, tile_size=(320, 280), overlap=32, min_side=280)
+    assert len(tiles) == len(vision.generate_tiles(image, tile_size=(320, 280), overlap=32))
+    assert all(tile.image.size == (320, 280) for tile in tiles)
+    # 280 is allowed (the range includes both ends).
+    assert len(vision.generate_tiles(image, tile_size=(280, 280), min_side=280)) == 4 * 3
+    # A source smaller than a tile keeps its extent, which is fine while it is >= 280.
+    only = vision.generate_tiles(Image.new("RGB", (300, 290)), tile_size=(512, 512), min_side=280)
+    assert [tile.bounds for tile in only] == [(0, 0, 300, 290)]
+
+
+@pytest.mark.parametrize(
+    "tile_size,message",
+    [
+        ((320, 279), "tile would be 320 x 279 pixels, under min_side=280"),
+        ((279, 320), "tile would be 279 x 320 pixels, under min_side=280"),
+        ((100, 100), "tile would be 100 x 100 pixels"),
+    ],
+)
+def test_generate_tiles_min_side_refuses_a_small_tile_size_before_cropping(
+    monkeypatch, tile_size, message
+):
+    image = Image.new("RGB", (1000, 800))
+    monkeypatch.setattr(Image.Image, "crop", lambda *a, **k: pytest.fail("cropped before check"))
+    with pytest.raises(ValueError, match=message):
+        vision.generate_tiles(image, tile_size=tile_size, min_side=280)
+
+
+def test_generate_tiles_min_side_refuses_a_source_narrower_than_the_minimum():
+    # A 270 wide source with 512 tiles yields 270 x 512 tiles: refused. 1000 x 270 likewise.
+    with pytest.raises(ValueError, match="tile would be 270 x 512 pixels"):
+        vision.generate_tiles(Image.new("RGB", (270, 1000)), min_side=280)
+    with pytest.raises(ValueError, match="tile would be 512 x 270 pixels"):
+        vision.generate_tiles(Image.new("RGB", (1000, 270)), min_side=280)
+    # With no min_side the same call still works (the default checks nothing).
+    assert len(vision.generate_tiles(Image.new("RGB", (270, 1000)))) == 2
+
+
+def test_generate_tiles_min_side_message_points_at_prepare_image():
+    with pytest.raises(ValueError, match="prepare_image"):
+        vision.generate_tiles(Image.new("RGB", (1000, 800)), tile_size=(200, 200), min_side=280)
+
+
+@pytest.mark.parametrize("min_side", [0, -1, True, 280.0, "280"])
+def test_generate_tiles_and_crop_box_reject_an_invalid_min_side(min_side):
+    with pytest.raises(ValueError, match="min_side"):
+        vision.generate_tiles(Image.new("RGB", (1000, 800)), min_side=min_side)
+    with pytest.raises(ValueError, match="min_side"):
+        vision.crop_box(Image.new("RGB", (1000, 800)), FULL, min_side=min_side)
+
+
+def test_crop_box_min_side_accepts_exactly_280_and_refuses_279():
+    image = Image.new("RGB", (1000, 800))
+    # 0.28 * 1000 = 280 pixels wide; the full height is 800.
+    crop = vision.crop_box(image, nb(0.0, 0.0, 0.28, 1.0), min_side=280)
+    assert crop.size == (280, 800)
+    with pytest.raises(ValueError, match="crop would be 279 x 800 pixels, under min_side=280"):
+        vision.crop_box(image, nb(0.0, 0.0, 279 / 1000, 1.0), min_side=280)
+    with pytest.raises(ValueError, match="crop would be 1000 x 279 pixels"):
+        vision.crop_box(image, nb(0.0, 0.0, 1.0, 279 / 800), min_side=280)
+
+
+def test_crop_box_min_side_counts_the_expanded_crop_and_checks_before_cropping(monkeypatch):
+    image = Image.new("RGB", (1000, 800))
+    # 0.1 x 0.125 box = 100 x 100 px; expanding by 1.0 adds 100 px each side -> 300 x 300.
+    box = nb(0.2, 0.25, 0.3, 0.375)
+    with pytest.raises(ValueError, match="crop would be 100 x 100 pixels"):
+        vision.crop_box(image, box, min_side=280)
+    assert vision.crop_box(image, box, expand=1.0, min_side=280).size == (300, 300)
+    monkeypatch.setattr(Image.Image, "crop", lambda *a, **k: pytest.fail("cropped before check"))
+    with pytest.raises(ValueError, match="under min_side"):
+        vision.crop_box(image, box, min_side=280)
+
+
+def test_crop_box_without_min_side_still_returns_a_small_crop():
+    assert vision.crop_box(Image.new("RGB", (1000, 800)), nb(0.2, 0.25, 0.3, 0.375)).size == (
+        100,
+        100,
+    )
+
+
+def test_crop_bounds_are_the_pixels_crop_box_cuts():
+    # BOX on 16 x 8: x 2..10, y 2..6 (the crop is 8 x 4 starting at (2, 2)).
+    assert vision.crop_bounds(BOX, 16, 8) == (2, 2, 10, 6)
+    # Expanded by 0.25 of its size on each side: x 0..12 (clipped at 0), y 1..7.
+    assert vision.crop_bounds(BOX, 16, 8, expand=0.25) == (0, 1, 12, 7)
+    image = coordinate_image(16, 8)
+    for expand in (0.0, 0.25):
+        assert (
+            vision.crop_box(image, BOX, expand=expand).tobytes()
+            == image.crop(vision.crop_bounds(BOX, 16, 8, expand=expand)).tobytes()
+        )
+
+
+# Multi-level mapping -------------------------------------------------------------------------
+
+
+def test_a_box_found_two_levels_down_maps_to_the_full_image_exactly():
+    size = (1568, 1024)
+    # Level 1: the default 512 tile at (512, 0). Level 2: a 256 x 256 sub-tile at (128, 256)
+    # inside it. A box over x 0.25..0.75 and y 0.25..0.5 of that sub-tile is, in sub-tile
+    # pixels, x 64..192 and y 64..128; in the full image that is x 512+128+64 = 704 .. 832 and
+    # y 0+256+64 = 320 .. 384.
+    level_1 = vision.ImageTransform.crop((512, 0, 1024, 512), *size)
+    level_2 = vision.ImageTransform.crop((128, 256, 384, 512), 512, 512)
+    found = nb(0.25, 0.25, 0.75, 0.5)
+    expected = nb(704 / 1568, 320 / 1024, 832 / 1568, 384 / 1024)
+    both = level_1.then(level_2)
+    assert both.original_size == size and both.derived_size == (256, 256)
+    assert both.to_original(found) == expected  # equal, not approximately equal
+    # The step-by-step route through the existing function gives the same box to the last bit
+    # only by luck; it must at least agree to a tight tolerance.
+    stepwise = vision.tile_to_image(
+        vision.tile_to_image(found, (128, 256, 384, 512), 512, 512), (512, 0, 1024, 512), *size
+    )
+    assert stepwise == pytest.approx(expected, abs=1e-12)
+    # Forward is exact too: the full-image box is the sub-tile box.
+    assert both.to_derived(expected) == found
+
+
+def test_three_levels_with_a_pad_in_the_middle_map_to_the_full_image_exactly():
+    size = (1568, 1024)
+    tile = vision.generate_tiles(Image.new("RGB", size))[1]
+    assert tile.bounds == (512, 0, 1024, 512)
+    level_1 = vision.ImageTransform.crop(tile.bounds, *size)
+    level_2 = vision.ImageTransform.crop((128, 256, 384, 512), 512, 512)  # 256 x 256: too small
+    sub_image = Image.new("RGB", (256, 256))
+    padded, level_3 = vision.prepare_image(sub_image)
+    # 256 -> 280 is 24 pixels, 12 each side: the picture is x, y 12..268 of 280.
+    assert padded.size == (280, 280)
+    assert level_3.derived_window == (Fraction(3, 70),) * 2 + (Fraction(67, 70),) * 2
+    chain = level_1.then(level_2).then(level_3)
+    # A box at prepared pixels x 76..204, y 76..140 is picture pixels 64..192 and 64..128, the
+    # same box as in the previous test.
+    found = nb(76 / 280, 76 / 280, 204 / 280, 140 / 280)
+    expected = nb(704 / 1568, 320 / 1024, 832 / 1568, 384 / 1024)
+    assert chain.to_original(found) == expected
+    assert chain.to_derived(expected) == found
+    # then() is associative: the grouping does not change the result.
+    assert level_1.then(level_2.then(level_3)) == chain
+    assert chain.original_size == size and chain.derived_size == (280, 280)
+    # A box in the padding of the last level is not in the full image at all.
+    assert chain.to_original(nb(0.0, 0.0, 0.03, 0.03)) is None
+
+
+def test_chained_transforms_agree_with_pixels_on_real_images():
+    size = (1568, 1024)
+    image = Image.new("RGB", size, (255, 255, 255))
+    image.paste((0, 0, 255), (704, 320, 832, 384))  # the target, in full-image pixels
+    tile = vision.generate_tiles(image)[1]
+    sub = tile.image.crop((128, 256, 384, 512))
+    padded, level_3 = vision.prepare_image(sub)
+    chain = (
+        vision.ImageTransform.crop(tile.bounds, *size)
+        .then(vision.ImageTransform.crop((128, 256, 384, 512), 512, 512))
+        .then(level_3)
+    )
+    # The target in prepared pixels is x 76..204, y 76..140: find it from the pixels alone.
+    blue = padded.point(lambda v: 255 if v < 50 else 0).getchannel("R")
+    assert blue.getbbox() == (76, 76, 204, 140)
+    left, top, right, bottom = blue.getbbox()
+    found = nb(left / 280, top / 280, right / 280, bottom / 280)
+    assert chain.to_original(found) == nb(704 / 1568, 320 / 1024, 832 / 1568, 384 / 1024)
+    assert vision.normalized_to_pixels(chain.to_original(found), *size) == (704, 320, 832, 384)
+
+
+def test_a_resize_then_a_crop_maps_exactly():
+    # 3136 x 2048 is halved to 1568 x 1024 by prepare_image; the tile (512, 0)-(1024, 512) of that
+    # is x 1024..2048 and y 0..1024 of the original: 1024/3136 = 16/49, 2048/3136 = 32/49, 1/2.
+    _, resize = vision.prepare_image(Image.new("RGB", (3136, 2048)))
+    chain = resize.then(vision.ImageTransform.crop((512, 0, 1024, 512), 1568, 1024))
+    assert chain.original_size == (3136, 2048) and chain.derived_size == (512, 512)
+    assert chain.to_original(FULL) == nb(1024 / 3136, 0.0, 2048 / 3136, 0.5)
+
+
+def test_a_crop_then_a_resize_and_pad_maps_exactly():
+    # A 150 x 100 region cut at (400, 300) of a 1000 x 800 image, then padded to 280 x 280:
+    # 130 columns (65 each side) and 180 rows (90 each side).
+    region = vision.ImageTransform.crop((400, 300, 550, 400), 1000, 800)
+    _, prep = vision.prepare_image(Image.new("RGB", (150, 100)))
+    chain = region.then(prep)
+    # Prepared pixel x 65..215, y 90..190 is the whole region = x 400..550 of 1000, y 300..400 of 800.
+    assert chain.to_original(nb(65 / 280, 90 / 280, 215 / 280, 190 / 280)) == nb(
+        0.4, 0.375, 0.55, 0.5
+    )
+    # Prepared x 140..210 and y 140..175 are region pixels x 75..145 and y 50..85, so image pixels
+    # x 475..545 of 1000 and y 350..385 of 800.
+    assert chain.to_original(nb(0.5, 0.5, 0.75, 0.625)) == nb(
+        475 / 1000, 350 / 800, 545 / 1000, 385 / 800
+    )
+    # Prepared y 140..210 runs 20 rows into the bottom padding: clipped to the region's bottom, 400.
+    assert chain.to_original(nb(0.5, 0.5, 0.75, 0.75)) == nb(475 / 1000, 350 / 800, 545 / 1000, 0.5)
+
+
+def test_then_refuses_mismatched_sizes_and_content_that_is_all_padding():
+    tile = vision.ImageTransform.crop((0, 0, 400, 300), 1000, 800)  # derived 400 x 300
+    other = vision.ImageTransform.crop((0, 0, 100, 100), 500, 500)
+    with pytest.raises(ValueError, match=r"cannot chain.*\(400, 300\).*\(500, 500\)"):
+        tile.then(other)
+    with pytest.raises(ValueError, match="another ImageTransform"):
+        tile.then("not a transform")
+    # A 200 x 100 image is padded to 280 x 280 with the picture in rows 90..190. A crop of rows
+    # 0..50 shows only padding.
+    _, pad = vision.prepare_image(Image.new("RGB", (200, 100)))
+    padding_only = vision.ImageTransform.crop((0, 0, 280, 50), 280, 280)
+    with pytest.raises(ValueError, match="none of the first transform's content"):
+        pad.then(padding_only)
+    # A crop of rows 0..100 shows ten rows of picture (90..100): fine, and clipped on the way back.
+    partial = pad.then(vision.ImageTransform.crop((0, 0, 280, 100), 280, 280))
+    # Its derived box over the whole 280 x 100 crop is picture rows 0..10 and columns 0..200.
+    assert partial.to_original(FULL) == nb(0.0, 0.0, 1.0, 0.1)
+    # Where the crop's content sits in the *crop*: the picture is columns 40..240 of 280 and
+    # rows 90..100 of its 100 rows, i.e. x 1/7..6/7 and y 9/10..1. This is the second remap in
+    # then(); using the second step's whole derived image instead would give (0, 0, 1, 1).
+    assert partial.derived_window == (Fraction(1, 7), Fraction(9, 10), Fraction(6, 7), Fraction(1))
+    # So the top half of the crop (rows 0..50) is padding only: nothing in the original ...
+    assert partial.to_original(nb(0.0, 0.0, 1.0, 0.5)) is None
+    # ... and a box on picture rows 90..95 of the crop (y 0.9..0.95) is original rows 0..5 of
+    # 100 (0.0..0.05); its x 0.5..1.0 is clipped at the content's right edge (6/7), so the
+    # original x runs (1/2 - 1/7) / (5/7) = 1/2 to 1.
+    assert partial.to_original(nb(0.5, 0.9, 1.0, 0.95)) == nb(0.5, 0.0, 1.0, 0.05)
+
+
+def test_chain_clips_at_every_level_not_just_the_last():
+    # Level 1 shows x 0.25..0.75 (a 500-wide strip of 1000). Level 2 is the right half of that
+    # strip, x 250..500 of the strip = 0.5..1.0 of it = 0.5..0.75 of the image.
+    first = vision.ImageTransform.crop((250, 0, 750, 800), 1000, 800)
+    second = vision.ImageTransform.crop((250, 0, 500, 800), 500, 800)
+    chain = first.then(second)
+    assert chain.original_window == (Fraction(1, 2), Fraction(0), Fraction(3, 4), Fraction(1))
+    # A full-image box 0.25..1.0 only has its 0.5..0.75 part visible two levels down.
+    assert chain.to_derived(nb(0.25, 0.0, 1.0, 1.0)) == FULL
+    assert chain.visible_fraction(nb(0.25, 0.0, 1.0, 1.0)) == pytest.approx(1 / 3)
+    # A box in the middle strip but outside level 2 is nothing for the chain, though level 1 sees it.
+    assert first.to_derived(nb(0.25, 0.25, 0.5, 0.5)) is not None
+    assert chain.to_derived(nb(0.25, 0.25, 0.5, 0.5)) is None
+
+
+def test_crop_transforms_agree_with_tile_to_image_for_generated_tiles():
+    size = (1000, 777)
+    boxes = [FULL, BOX, nb(0.1, 0.2, 0.3, 0.4), nb(0.6, 0.55, 0.95, 0.99)]
+    for tile in vision.generate_tiles(Image.new("RGB", size), tile_size=(300, 300), overlap=20):
+        transform = vision.ImageTransform.crop(tile.bounds, *size)
+        for box in boxes:
+            assert transform.to_original(box) == pytest.approx(
+                vision.tile_to_image(box, tile.bounds, *size), abs=1e-12
+            )
+
+
+def test_visible_fraction_by_hand():
+    transform = vision.ImageTransform.crop(TILE, *WHOLE)  # x 200..700, y 100..500 of 1000 x 800
+    assert transform.visible_fraction(nb(0.25, 0.25, 0.5, 0.5)) == 1.0
+    assert transform.visible_fraction(nb(0.75, 0.25, 1.0, 0.5)) == 0.0
+    # x 0.5..0.9 is pixels 500..900, of which 500..700 (half) are in the tile; y fully inside.
+    assert transform.visible_fraction(nb(0.5, 0.25, 0.9, 0.5)) == 0.5
+    # A box cut at a corner: x 600..800, y 400..600 -> visible 100 x 100 of 200 x 200 = 1/4.
+    assert transform.visible_fraction(nb(0.6, 0.5, 0.8, 0.75)) == 0.25
+    # A box that only touches the edge shows nothing.
+    assert transform.visible_fraction(nb(0.0, 0.25, 0.2, 0.5)) == 0.0
+    with pytest.raises(ValueError):
+        transform.visible_fraction(None)
+
+
+def test_new_names_are_exported():
+    for name in ("ImageTransform", "crop_bounds", "image_to_tile", "prepare_image"):
+        assert name in vision.__all__ and hasattr(vision, name)
+    assert sorted(vision.__all__) == sorted(set(vision.__all__))
+
+
+def _code_block(section: str, language: str, after: str = "") -> str:
+    start = section.index(f"```{language}\n", section.index(after) if after else 0)
+    start += len(f"```{language}\n")
+    return section[start : section.index("```", start)]
+
+
+def test_the_documented_worked_example_runs_and_prints_what_the_docs_show():
+    text = (_DOCS / "vision.md").read_text("utf-8")
+    # Not _section(): the example's "# 1. Tile" comments look like headings to it.
+    start = text.index("### Worked example: tile, choose, crop, prepare, Box, map back\n")
+    section = text[start : text.index("\n## ", start)]
+    code, printed = _code_block(section, "python"), _code_block(section, "text")
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        exec(compile(code, "docs/vision.md", "exec"), {})
+    assert out.getvalue() == printed
+    # The numbers the prose quotes: padded box 80-200 x 110-170, pad (40, 80), crop (200, 300),
+    # tile (600, 0): x 600 + 200 + (80 - 40) = 840 ... 960, y 0 + 300 + (110 - 80) = 330 ... 390.
+    assert (600 + 200 + (80 - 40), 600 + 200 + (200 - 40)) == (840, 960)
+    assert (0 + 300 + (110 - 80), 0 + 300 + (170 - 80)) == (330, 390)
+    assert "box in the padded\ncrop is pixels 80-200 by 110-170" in section
+
+
+def test_the_documented_prepare_image_table_matches_the_function():
+    section = _section((_DOCS / "vision.md").read_text("utf-8"), "Preparing an image for the API")
+    rows = re.findall(r"^\| (\d+) × (\d+)(, `upscale=True`)? \| (\d+) × (\d+)", section, re.M)
+    assert len(rows) == 7
+    for width, height, upscale, out_width, out_height in rows:
+        prepared, _ = vision.prepare_image(
+            Image.new("RGB", (int(width), int(height))), upscale=bool(upscale)
+        )
+        assert prepared.size == (int(out_width), int(out_height)), (width, height, upscale)
+    # The content rectangles quoted in the third column.
+    _, transform = vision.prepare_image(Image.new("RGB", (201, 100)))
+    assert transform.derived_window[0] * 280 == 39 and transform.derived_window[2] * 280 == 240
+    _, transform = vision.prepare_image(Image.new("RGB", (4000, 100)))
+    assert transform.derived_window[1] * 280 == 120 and transform.derived_window[3] * 280 == 159
+
+
+def test_the_docs_describe_the_new_helpers_and_no_longer_say_a_transform_is_missing():
+    flat = " ".join((_DOCS / "vision.md").read_text("utf-8").split())
+    assert "Padding or further cropping requires its own transform" not in flat
+    for name in ("prepare_image", "image_to_tile", "ImageTransform", "visible_fraction"):
+        assert name in flat
+    assert "min_side=IMAGE_LIMITS[" in flat and "`min_side` defaults to `None`" in flat
+    assert "a pixel-identical copy" in flat
+    for text in (vision.generate_tiles.__doc__, vision.crop_box.__doc__):
+        assert "min_side" in text and "prepare_image" in text
+
+
+# Review fixes for #341 ------------------------------------------------------------------------
+
+
+def _asset_checker():
+    """The repository's image-file contract (tools/check_recipe_assets.py), loaded by path."""
+    path = Path(__file__).resolve().parent.parent / "tools" / "check_recipe_assets.py"
+    spec = importlib.util.spec_from_file_location("check_recipe_assets_for_vision_test", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module  # a dataclass looks its module up here
+    spec.loader.exec_module(module)
+    return module
+
+
+def _png_chunk_names(data: bytes) -> list[str]:
+    names, position = [], 8
+    while position < len(data):
+        length = int.from_bytes(data[position : position + 4], "big")
+        names.append(data[position + 4 : position + 8].decode("ascii"))
+        position += 12 + length
+    return names
+
+
+@pytest.mark.parametrize(
+    "size",
+    [(400, 300), (2000, 1500), (300, 200), (4000, 100)],
+    ids=["already-fits", "resize-only", "pad-only", "resize-and-pad"],
+)
+def test_prepared_images_carry_no_source_metadata_and_pass_the_image_file_contract(size):
+    source = Image.new("RGB", size, (200, 30, 60))
+    # A source that was opened from a file with an ICC profile, EXIF, a resolution and text.
+    exif = Image.Exif()
+    exif[0x010E] = "a description"  # ImageDescription: personal text a real file could carry
+    source.info.update(
+        icc_profile=b"not-a-real-profile", exif=exif.tobytes(), dpi=(72, 72), Comment="x"
+    )
+    prepared, _ = vision.prepare_image(source)
+    assert prepared.info == {}
+    buffer = io.BytesIO()
+    prepared.save(buffer, "PNG")
+    data = buffer.getvalue()
+    assert _png_chunk_names(data) == ["IHDR", "IDAT", "IEND"]
+    checker = _asset_checker()
+    assert checker.check_image("recipes/01-demo/assets/prepared.png", data) == []
+    # The same source saved without preparation is exactly what the contract rejects.
+    raw = io.BytesIO()
+    source.save(raw, "PNG")
+    findings = checker.check_image("recipes/01-demo/assets/raw.png", raw.getvalue())
+    assert [finding.rule for finding in findings] == ["png-metadata"]
+    assert "iCCP" in findings[0].message
+
+
+def test_prepare_image_rejects_a_zero_sized_image_with_a_value_error():
+    for upscale in (False, True):
+        with pytest.raises(ValueError, match="image width must be a positive integer"):
+            vision.prepare_image(Image.new("RGB", (0, 0)), upscale=upscale)
+        with pytest.raises(ValueError, match="image height must be a positive integer"):
+            vision.prepare_image(Image.new("RGB", (300, 0)), upscale=upscale)
+
+
+def test_prepare_image_resamples_with_an_averaging_filter_not_nearest_neighbour():
+    # Left 1001 columns black, the rest white, scaled by 0.784 (2000 -> 1568): the edge lands at
+    # column 784.78, inside a pixel. A point-sampling filter (NEAREST) can only return 0 or 255;
+    # any filter that averages, Lanczos included, returns a grey there. This does not pin the
+    # kernel's exact values, which Pillow is free to refine.
+    image = Image.new("RGB", (2000, 1000), (255, 255, 255))
+    image.paste((0, 0, 0), (0, 0, 1001, 1000))
+    prepared, _ = vision.prepare_image(image)
+    assert prepared.size == (1568, 784)
+    row = [prepared.getpixel((x, 392))[0] for x in range(1568)]
+    assert row[0] == 0 and row[-1] == 255
+    assert any(0 < value < 255 for value in row[780:790])
+
+
+def test_the_docs_say_how_to_report_a_mapped_back_answer_and_when_to_upscale():
+    flat = " ".join((_DOCS / "vision.md").read_text("utf-8").split())
+    tiled = " ".join(
+        _section((_DOCS / "vision.md").read_text("utf-8"), "Tiled and hierarchical recipes").split()
+    )
+    assert "after `ImageTransform.to_original` on the chain that `.then` built" in tiled
+    assert 'report `("review", None)`, never `("absent", None)`' in tiled
+    assert 'a `None` from `to_original` is reported as `("review", None)`' in flat
+    assert "Choose `upscale` once per recipe" in flat
+    assert "the content covering 0.13% of the image" in flat
+    assert "has not been measured against Jev; treat it as a design decision" in flat
+    assert "too little for Jev" not in flat
+    assert "orientation is not 1 raises `ValueError`" in flat
+    assert (
+        "carries none of its metadata" in flat and "`image_asset` does not check PNG chunks" in flat
+    )
+    evaluation = " ".join((_DOCS / "evaluation.md").read_text("utf-8").split())
+    assert "after `ImageTransform.to_original` on the chain of steps" in evaluation
+    assert "(`None`) as `review`" in evaluation
+    # The 10 x 10 figure: 100 of 78,400 pixels is 0.13% (0.1276 rounds up).
+    prepared, transform = vision.prepare_image(Image.new("RGB", (10, 10)))
+    assert prepared.size == (280, 280)
+    assert round(100 / 78_400 * 100, 2) == 0.13
+    assert transform.derived_window == (
+        Fraction(27, 56),
+        Fraction(27, 56),
+        Fraction(29, 56),
+        Fraction(29, 56),
+    )
+
+
+def _jpeg_with_orientation(orientation, size=(320, 300)):
+    exif = Image.Exif()
+    exif[274] = orientation
+    buffer = io.BytesIO()
+    Image.new("RGB", size, (10, 120, 200)).save(buffer, "JPEG", exif=exif)
+    return Image.open(io.BytesIO(buffer.getvalue()))
+
+
+@pytest.mark.parametrize("orientation", [2, 3, 6, 8])
+def test_prepare_image_refuses_a_non_identity_exif_orientation_like_image_asset(
+    orientation, tmp_path
+):
+    image = _jpeg_with_orientation(orientation)
+    assert image.getexif()[274] == orientation
+    with pytest.raises(ValueError, match="rotate EXIF orientation into pixels"):
+        vision.prepare_image(image)
+    # image_asset gives the same refusal for the same file, with the same message.
+    path = tmp_path / "rotated.jpg"
+    image.save(path, "JPEG", exif=image.getexif())
+    with pytest.raises(ValueError, match="rotate EXIF orientation into pixels"):
+        vision.image_asset(path)
+
+
+def test_prepare_image_accepts_exif_orientation_one_and_no_exif():
+    for image in (_jpeg_with_orientation(1), Image.new("RGB", (320, 300))):
+        prepared, _ = vision.prepare_image(image)
+        assert prepared.size == (320, 300) and prepared.info == {}
+
+
+def test_prepare_image_reports_damaged_exif_as_a_value_error():
+    image = Image.new("RGB", (320, 300))
+    image.info["exif"] = b"Exif\x00\x00II*\x00"  # a header and nothing else
+    with pytest.raises(ValueError, match="EXIF data is damaged"):
+        vision.prepare_image(image)
