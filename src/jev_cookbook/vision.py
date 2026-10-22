@@ -766,6 +766,11 @@ def prepare_image(
     copy with an identity transform. An image with transparency (an alpha channel, or a palette
     with transparency) raises ``ValueError``: flatten it onto an explicit background first,
     since the RGB it hides is arbitrary. The input is not modified.
+
+    The result carries no metadata from ``image`` on any path (no ICC profile, EXIF or text in
+    ``.info``), so saving it as PNG writes none of the chunks the image-file contract in
+    ``docs/fixtures.md`` forbids. Orientation is not applied: rotate the pixels first with
+    ``ImageOps.exif_transpose``.
     """
     min_side, max_side = _positive_int(min_side, "min_side"), _positive_int(max_side, "max_side")
     if min_side > max_side:
@@ -777,6 +782,8 @@ def prepare_image(
             "flatten it onto an explicit background and convert it to RGB first"
         )
     width, height = image.size
+    _positive_int(width, "image width")
+    _positive_int(height, "image height")
     longest, shortest = max(width, height), min(width, height)
     numerator = denominator = 1
     if longest > max_side:
@@ -808,6 +815,10 @@ def prepare_image(
         Fraction(left + content[0], size[0]),
         Fraction(top + content[1], size[1]),
     )
+    # convert() and resize() copy the source's .info (an ICC profile would become an iCCP chunk
+    # when saved); only the pad path starts from a fresh canvas. Rebuild from the pixel bytes so
+    # every path returns an image with no metadata.
+    prepared = Image.frombytes("RGB", prepared.size, prepared.tobytes())
     return prepared, ImageTransform((width, height), size, _FULL, window)
 
 

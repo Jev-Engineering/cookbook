@@ -763,8 +763,10 @@ the test that runs it, are in [vision](vision.md#the-localization-report).
 Use `evaluate_outcomes` above for the review rate of the presence question alone.
 
 In a tiled or hierarchical recipe the headline report is per image: gold is the full-image
-Box label and each outcome is the final rectangle after `tile_to_image`, with a stage-1 "no
-match" on present gold reported as `absent` and an uncertain choice as `review`. A per-tile
+Box label and each outcome is the final rectangle after `tile_to_image` (or, when the recipe
+also cropped or padded inside the tile, after `ImageTransform.to_original` on the chain of
+steps), with a stage-1 "no match" on present gold reported as `absent`, an uncertain choice as
+`review` and a mapped-back answer that is only padding (`None`) as `review`. A per-tile
 report counts tiles, is a stage diagnostic and says so, and states its rule for a target a
 tile edge cuts; see [vision](vision.md#tiled-and-hierarchical-recipes).
 

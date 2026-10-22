@@ -5,11 +5,13 @@ from __future__ import annotations
 import base64
 import contextlib
 import hashlib
+import importlib.util
 import io
 import json
 import math
 import random
 import re
+import sys
 from dataclasses import is_dataclass
 from fractions import Fraction
 from pathlib import Path
@@ -1978,6 +1980,16 @@ def test_then_refuses_mismatched_sizes_and_content_that_is_all_padding():
     partial = pad.then(vision.ImageTransform.crop((0, 0, 280, 100), 280, 280))
     # Its derived box over the whole 280 x 100 crop is picture rows 0..10 and columns 0..200.
     assert partial.to_original(FULL) == nb(0.0, 0.0, 1.0, 0.1)
+    # Where the crop's content sits in the *crop*: the picture is columns 40..240 of 280 and
+    # rows 90..100 of its 100 rows, i.e. x 1/7..6/7 and y 9/10..1. This is the second remap in
+    # then(); using the second step's whole derived image instead would give (0, 0, 1, 1).
+    assert partial.derived_window == (Fraction(1, 7), Fraction(9, 10), Fraction(6, 7), Fraction(1))
+    # So the top half of the crop (rows 0..50) is padding only: nothing in the original ...
+    assert partial.to_original(nb(0.0, 0.0, 1.0, 0.5)) is None
+    # ... and a box on picture rows 90..95 of the crop (y 0.9..0.95) is original rows 0..5 of
+    # 100 (0.0..0.05); its x 0.5..1.0 is clipped at the content's right edge (6/7), so the
+    # original x runs (1/2 - 1/7) / (5/7) = 1/2 to 1.
+    assert partial.to_original(nb(0.5, 0.9, 1.0, 0.95)) == nb(0.5, 0.0, 1.0, 0.05)
 
 
 def test_chain_clips_at_every_level_not_just_the_last():
@@ -2074,3 +2086,102 @@ def test_the_docs_describe_the_new_helpers_and_no_longer_say_a_transform_is_miss
     assert "a pixel-identical copy" in flat
     for text in (vision.generate_tiles.__doc__, vision.crop_box.__doc__):
         assert "min_side" in text and "prepare_image" in text
+
+
+# Review fixes for #341 ------------------------------------------------------------------------
+
+
+def _asset_checker():
+    """The repository's image-file contract (tools/check_recipe_assets.py), loaded by path."""
+    path = Path(__file__).resolve().parent.parent / "tools" / "check_recipe_assets.py"
+    spec = importlib.util.spec_from_file_location("check_recipe_assets_for_vision_test", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module  # a dataclass looks its module up here
+    spec.loader.exec_module(module)
+    return module
+
+
+def _png_chunk_names(data: bytes) -> list[str]:
+    names, position = [], 8
+    while position < len(data):
+        length = int.from_bytes(data[position : position + 4], "big")
+        names.append(data[position + 4 : position + 8].decode("ascii"))
+        position += 12 + length
+    return names
+
+
+@pytest.mark.parametrize(
+    "size",
+    [(400, 300), (2000, 1500), (300, 200), (4000, 100)],
+    ids=["already-fits", "resize-only", "pad-only", "resize-and-pad"],
+)
+def test_prepared_images_carry_no_source_metadata_and_pass_the_image_file_contract(size):
+    source = Image.new("RGB", size, (200, 30, 60))
+    # A source that was opened from a file with an ICC profile, EXIF, a resolution and text.
+    source.info.update(
+        icc_profile=b"not-a-real-profile", exif=b"Exif\x00\x00II*\x00", dpi=(72, 72), Comment="x"
+    )
+    prepared, _ = vision.prepare_image(source)
+    assert prepared.info == {}
+    buffer = io.BytesIO()
+    prepared.save(buffer, "PNG")
+    data = buffer.getvalue()
+    assert _png_chunk_names(data) == ["IHDR", "IDAT", "IEND"]
+    checker = _asset_checker()
+    assert checker.check_image("recipes/01-demo/assets/prepared.png", data) == []
+    # The same source saved without preparation is exactly what the contract rejects.
+    raw = io.BytesIO()
+    source.save(raw, "PNG")
+    findings = checker.check_image("recipes/01-demo/assets/raw.png", raw.getvalue())
+    assert [finding.rule for finding in findings] == ["png-metadata"]
+    assert "iCCP" in findings[0].message
+
+
+def test_prepare_image_rejects_a_zero_sized_image_with_a_value_error():
+    for upscale in (False, True):
+        with pytest.raises(ValueError, match="image width must be a positive integer"):
+            vision.prepare_image(Image.new("RGB", (0, 0)), upscale=upscale)
+        with pytest.raises(ValueError, match="image height must be a positive integer"):
+            vision.prepare_image(Image.new("RGB", (300, 0)), upscale=upscale)
+
+
+def test_prepare_image_resamples_with_an_averaging_filter_not_nearest_neighbour():
+    # Left 1001 columns black, the rest white, scaled by 0.784 (2000 -> 1568): the edge lands at
+    # column 784.78, inside a pixel. A point-sampling filter (NEAREST) can only return 0 or 255;
+    # any filter that averages, Lanczos included, returns a grey there. This does not pin the
+    # kernel's exact values, which Pillow is free to refine.
+    image = Image.new("RGB", (2000, 1000), (255, 255, 255))
+    image.paste((0, 0, 0), (0, 0, 1001, 1000))
+    prepared, _ = vision.prepare_image(image)
+    assert prepared.size == (1568, 784)
+    row = [prepared.getpixel((x, 392))[0] for x in range(1568)]
+    assert row[0] == 0 and row[-1] == 255
+    assert any(0 < value < 255 for value in row[780:790])
+
+
+def test_the_docs_say_how_to_report_a_mapped_back_answer_and_when_to_upscale():
+    flat = " ".join((_DOCS / "vision.md").read_text("utf-8").split())
+    tiled = " ".join(
+        _section((_DOCS / "vision.md").read_text("utf-8"), "Tiled and hierarchical recipes").split()
+    )
+    assert "after `ImageTransform.to_original` on the chain that `.then` built" in tiled
+    assert 'report `("review", None)`, never `("absent", None)`' in tiled
+    assert 'a `None` from `to_original` is reported as `("review", None)`' in flat
+    assert "Choose `upscale` once per recipe" in flat
+    assert "the content covering 0.13% of the image" in flat
+    assert (
+        "carries none of its metadata" in flat and "`image_asset` does not check PNG chunks" in flat
+    )
+    evaluation = " ".join((_DOCS / "evaluation.md").read_text("utf-8").split())
+    assert "after `ImageTransform.to_original` on the chain of steps" in evaluation
+    assert "(`None`) as `review`" in evaluation
+    # The 10 x 10 figure: 100 of 78,400 pixels is 0.13% (0.1276 rounds up).
+    prepared, transform = vision.prepare_image(Image.new("RGB", (10, 10)))
+    assert prepared.size == (280, 280)
+    assert round(100 / 78_400 * 100, 2) == 0.13
+    assert transform.derived_window == (
+        Fraction(27, 56),
+        Fraction(27, 56),
+        Fraction(29, 56),
+        Fraction(29, 56),
+    )
