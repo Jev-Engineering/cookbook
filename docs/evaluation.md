@@ -675,6 +675,64 @@ exempt a qualifying option at all, gating it like everything else, needs none of
 `evaluate_outcomes` and `evaluate_selective` already agree, exactly as in "when the single numbers
 coincide" above.)
 
+### Rules with a deterministic branch
+
+Some rules let a Python check fix the outcome of most of the rows the recipe counts as answered,
+without using the model's answer on them: a permission check, an approval binding that refuses an
+action outright, a spent budget, a retry limit, a stop condition, an interlock. The test is that the
+notebook can name the share ("7 of the 10 answered rows"); a check that overrides only a minority of
+rows is outside this trigger ([CONTRIBUTING.md](../CONTRIBUTING.md), section 4, states it the same
+way). The model's answer is used only on the rows the check lets through; the request may still be
+sent for every row. Coverage, accuracy and risk over the whole set are then dominated by the Python
+check. Nothing in them is false, but they describe the guard and not the decision, and a reader
+cannot tell from them what the model contributed.
+
+Recipe 41 (`recipes/41-approval-scope-review/`) is the worked example for the second and third
+reports below, and it shows the shape: on its `test` split it sends a request for all 15 actions
+(its `eval-baseline` cell prints `requests 15`), yet `decide` reads no answer on a row whose binding
+the check refuses. It prints `denied: 7  review: 5  executed: 3` and coverage 0.6667, so, derived
+from those printed counts (the notebook does not print this figure), of the 10 actions answered, 7
+are denials that are correct because `check_binding` says so, not because any answer was good
+(`always_review`'s printed coverage of 0.4667 is those same 7 of 15). It does not print the first
+report below. Recipe 43, built on a retry budget and a stop condition, is the other published recipe
+with such a check; #366 tracks bringing recipes 41 and 43 into line and settles whether 43 is in
+scope. This section is the rule new recipes are held to.
+
+A recipe with such a branch reports three things beside the whole-set figures. They add to the
+composed coverage, accuracy and risk and do not replace them.
+
+1. **The metric over the rows the model decided, beside the whole-set figure.** Filter `accepted`
+   and `correct` to the rows whose outcome the model's answer decided, which are the rows the
+   Python check did not already fix (for recipe 41, those where `check_binding` holds), whether or
+   not a request was sent for the others, and pass those to `evaluate_outcomes`. Print the two
+   results on adjacent lines, say which is which, and print N for each: the whole set and the
+   rows the model decided.
+2. **A decision-level comparison against each baseline.** Not "accuracy differs by X", but "these N
+   rows are decided differently, and M of them are right". Recipe 41's `eval-baseline` cell does
+   this: beyond what `always_review` would auto-execute (nothing), the mechanism auto-executes 3
+   actions, 2 right and 1 wrong, and against `permission_only` it cuts wrong auto-executions from
+   5 to 1, at the cost of one correct auto-execution held back for review. Those differences are
+   informative exactly where the aggregate triple is not.
+3. **Disclosure of every figure that cannot move.** A baseline whose accuracy, risk or coverage is
+   fixed by how the rule and the gold are defined says so beside the number. "1.0000, structural
+   for any gold labelling at all" is a far more useful sentence than "1.0000"; recipe 41's
+   `eval-baseline-md` cell does this for `always_review` (accuracy and risk) and `permission_only`
+   (coverage). Name the cause, as for any metric that cannot come out another way
+   ([CONTRIBUTING.md](../CONTRIBUTING.md), section 2).
+
+None of this is checked mechanically. A guard cannot tell which rows a recipe's rule settles in
+Python (that is the recipe's own function, not something its source declares), so it cannot find
+the rows for the first item; the second is a comparison between a rule and its baselines, which no
+check reads; and the third is true or false of the recipe's data, not of its source. The reviewer checks
+all three ([offline-and-live.md](offline-and-live.md#what-none-of-this-covers-the-reviewers-alone)).
+A recipe can pin a structural claim for itself with a test that recomputes the baseline under
+several gold labellings and asserts the figure does not move.
+
+This is one way among several that a headline metric can fail to support the lesson a recipe draws.
+Others are a metric the fixtures pin at its bound, which is reported as such (CONTRIBUTING.md
+section 2), and a cheaper baseline that matches the mechanism on the figures, which a recipe
+states and does not hide. Here the figure is dominated by the Python guard.
+
 ### Noul three-path pattern
 
 A Noul-gated decision often needs three outcomes, not two: answer yes, answer no, or send the

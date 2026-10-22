@@ -302,7 +302,21 @@ issue number `"12"` or `12`): a seed key is a string a person reads while debugg
 miss, and the slug is what the rest of the fixture tooling, and a recipe's own `helpers.py`,
 already use to name the recipe.
 
-Two different things go wrong otherwise:
+**A `Choice` whose options are in a fixed, meaningful order needs none of this, and prints no
+position statistic either.** Its options are listed the same way for every example (an escalation
+ladder, severity from low to high, `escalate` last on purpose), so no order is derived from the
+data and there is nothing to shuffle. Do not print the share of gold answers that fall on the
+first listed option, or any other "first-option lean" figure, as a check on the model: offline
+that share is a property of the gold labels the fixture author wrote and of the order the author
+listed the options in, and it cannot say anything about any model's position bias. Only a
+recorded run, on the held-out `test` split, could measure that
+([CONTRIBUTING.md](../CONTRIBUTING.md), section 2). The same holds when the order *is* shuffled
+per item: a table of where the gold option landed afterwards describes the fixtures (whether the
+shuffle broke the link between position and label), and is printed, if at all, as that and with
+the pipeline-check label, never as evidence about the model.
+
+When a per-item order is wanted, two different things go wrong if it does not come from the
+seed key:
 
 - **`random.shuffle` is not a documented-stable algorithm across CPython versions.** The
   `random` module's docs promise only that `random.Random.random()` keeps producing the same
@@ -641,6 +655,48 @@ in the `id` (`v07-sarcasm`) or keep your own notes in the generator, since rows 
 fields.
 
 Keep fixtures small enough to read: tens of examples at levels 1 and 2 ([CONTRIBUTING.md](../CONTRIBUTING.md), section 5).
+
+#### Floats in a generator
+
+**A builder whose output is asserted byte for byte uses only exactly-specified float operations.**
+Every replay recipe's `tests/test_build_fixtures.py` requires the committed `responses.json` to be
+identical to what the builder writes now, and CI runs it on Python 3.10 and 3.14. A stored float
+computed by an operation that IEEE 754 does not pin down can pass on one of those legs and fail on
+the other by one unit in the last place, and the failure then lands on whoever next edits the
+fixtures, not on whoever wrote the fragile line. Two operations to avoid on floats:
+
+- **`sum()`.** CPython 3.12 changed `sum()` over floats to compensated (Neumaier) summation; 3.10
+  and 3.11 add left to right. The two agree on fewer than three addends and can disagree on three
+  or more where rounding errors cancel. Measured on `sum([1.0, 0.35, 0.1225, 0.042875])`:
+
+  | Interpreter | `sum(values)` | left-to-right loop |
+  | - | - | - |
+  | Python 3.10.21 | `1.5153750000000001` | `1.5153750000000001` |
+  | Python 3.14.7 | `1.515375` | `1.5153750000000001` |
+
+  Each single addition is exactly specified; `sum()` is a reduction, and its algorithm is an
+  implementation choice that changed between the two legs. Write the accumulation as a loop:
+
+  ```python
+  values = [1.0, 0.35, 0.1225, 0.042875]
+  total = 0.0
+  for value in values:  # left to right: the same result on every interpreter
+      total += value
+  assert total == 1.5153750000000001
+  ```
+
+  `sum()` over integers (`sum(len(passage) for passage in passages)`) is exact and fine.
+- **`float ** int`.** CPython hands it to the platform's C library `pow()`, whose last-bit
+  accuracy is not guaranteed to be the same across builds. `0.5 ** k` is exact (a power of two);
+  `0.08 ** k` and `0.35 ** k` are not. Multiply in a loop instead. The same reasoning applies to
+  the other C-library functions (`math.exp`, `math.log`, the trigonometric functions) and to the
+  `numpy` reductions (`np.sum`, `np.mean`), whose summation order is also an implementation
+  choice; `+`, `-`, `*` and `/` on floats are exactly specified.
+
+Rounding the stored value (`round(x, 10)`) also hides the difference, because one unit in the last
+place does not survive it, but prefer a construction that is deterministic to a rounding that
+truncates the output: rounding hides the problem rather than removing it. Nothing checks this
+today; it is a rule for the builder and the reviewer.
 
 A generator that writes `responses.json` should not be able to silently replace a `recorded`
 answer with a synthetic one: once a response's provenance is `recorded`, regenerating fixtures
