@@ -65,6 +65,7 @@ jobs:
         env:
           EVENT: ${{ github.event_name }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           BEFORE_SHA: ${{ github.event.before }}
           FULL: ${{ github.event.inputs.full }}
           FORCED: ${{ github.event.forced }}
@@ -73,8 +74,10 @@ jobs:
             # HEAD is the pull request's merge commit (refs/pull/N/merge). --merge-ref diffs
             # against its first parent, the base branch the tree on disk was built on; BASE_SHA
             # is the base branch's tip from when the pull request was opened, which goes stale
-            # (#248) and is used only if HEAD is somehow not a two-parent merge commit.
-            python tools/notebook_ci.py matrix --base "$BASE_SHA" --head HEAD --merge-ref --github-output "$GITHUB_OUTPUT"
+            # (#248) and is used only if HEAD is not the merge commit of this pull request: the
+            # tool checks that HEAD's second parent is PR_HEAD_SHA (#316), so a checkout of the
+            # branch itself, even one whose tip is a merge of main, cannot be mistaken for it.
+            python tools/notebook_ci.py matrix --base "$BASE_SHA" --head HEAD --merge-ref --pr-head "$PR_HEAD_SHA" --github-output "$GITHUB_OUTPUT"
           elif [ "$EVENT" = "push" ] && [ "$FORCED" != "true" ]; then
             python tools/notebook_ci.py matrix --base "$BEFORE_SHA" --head HEAD --push --github-output "$GITHUB_OUTPUT"
           elif [ "$EVENT" = "push" ]; then
