@@ -677,24 +677,36 @@ coincide" above.)
 
 ### Rules with a deterministic branch
 
-Some rules let Python settle most of the rows before the model's answer matters: a permission
-check, an approval binding that refuses an action outright, a spent budget, a retry limit, a stop
-condition, an interlock. The model is consulted only for the rows the check lets through. Coverage,
-accuracy and risk over the whole set are then dominated by the Python check. Nothing in them is
-false, but they describe the guard and not the decision, and a reader cannot tell from them what
-the model contributed. Recipe 41 (`recipes/41-approval-scope-review/`) is the worked example: on
-its `test` split of 15 actions the binding check refuses 7 whatever either proposition reads
-(`always_review`'s coverage of 0.4667 is those 7 of 15), so of the 10 actions the mechanism answers
-(coverage 0.6667), 7 are correct because `check_binding` says so, not because any answer was good.
-A recipe built on any of the checks above has this shape.
+Some rules let a Python check fix the outcome of most of the rows the recipe counts as answered,
+without using the model's answer on them: a permission check, an approval binding that refuses an
+action outright, a spent budget, a retry limit, a stop condition, an interlock. The test is that the
+notebook can name the share ("7 of the 10 answered rows"); a check that overrides only a minority of
+rows is outside this trigger ([CONTRIBUTING.md](../CONTRIBUTING.md), section 4, states it the same
+way). The model's answer is used only on the rows the check lets through; the request may still be
+sent for every row. Coverage, accuracy and risk over the whole set are then dominated by the Python
+check. Nothing in them is false, but they describe the guard and not the decision, and a reader
+cannot tell from them what the model contributed.
+
+Recipe 41 (`recipes/41-approval-scope-review/`) is the worked example for the second and third
+reports below, and it shows the shape: on its `test` split it sends a request for all 15 actions
+(its `eval-baseline` cell prints `requests 15`), yet `decide` reads no answer on a row whose binding
+the check refuses. It prints `denied: 7  review: 5  executed: 3` and coverage 0.6667, so, derived
+from those printed counts (the notebook does not print this figure), of the 10 actions answered, 7
+are denials that are correct because `check_binding` says so, not because any answer was good
+(`always_review`'s printed coverage of 0.4667 is those same 7 of 15). It does not print the first
+report below. Recipe 43, built on a retry budget and a stop condition, is the other published recipe
+with such a check; #366 tracks bringing recipes 41 and 43 into line and settles whether 43 is in
+scope. This section is the rule new recipes are held to.
 
 A recipe with such a branch reports three things beside the whole-set figures. They add to the
 composed coverage, accuracy and risk and do not replace them.
 
 1. **The metric over the rows the model decided, beside the whole-set figure.** Filter `accepted`
-   and `correct` to the rows the rule actually asked the model about (the binding held, the budget
-   was not spent) and pass those to `evaluate_outcomes`. Print the two results on adjacent lines,
-   say which is which, and print N for each: the whole set and the rows the model decided.
+   and `correct` to the rows whose outcome the model's answer decided, which are the rows the
+   Python check did not already fix (for recipe 41, those where `check_binding` holds), whether or
+   not a request was sent for the others, and pass those to `evaluate_outcomes`. Print the two
+   results on adjacent lines, say which is which, and print N for each: the whole set and the
+   rows the model decided.
 2. **A decision-level comparison against each baseline.** Not "accuracy differs by X", but "these N
    rows are decided differently, and M of them are right". Recipe 41's `eval-baseline` cell does
    this: beyond what `always_review` would auto-execute (nothing), the mechanism auto-executes 3

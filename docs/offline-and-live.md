@@ -158,14 +158,18 @@ the README and every markdown cell for them:
 - A metric that is perfect by construction, printed with its pipeline-check label and without
   saying that the fixtures or the selection force it. [CONTRIBUTING.md](../CONTRIBUTING.md), section 2,
   defines "cannot come out otherwise" and lists the three signs to look for by hand.
-- A composed coverage, accuracy or risk that a Python check dominates (a permission, a budget, an
-  interlock), reported with no split over the rows the model decided, no decision-level comparison
-  with its baselines, or a baseline figure that cannot move given without saying so
-  ([evaluation.md](evaluation.md#rules-with-a-deterministic-branch)).
+- A composed coverage, accuracy or risk that a Python check dominates (it fixes the outcome of most
+  of the rows counted as answered), reported with no split over the rows whose outcome the model's
+  answer decided, no decision-level comparison with its baselines, or a baseline figure that cannot
+  move and is not said to be fixed ([evaluation.md](evaluation.md#rules-with-a-deterministic-branch)).
+  The rule binds new recipes; recipes 41 and 43 are tracked by #366.
 - A prose quantity about the committed structure written as a word ("nine leaves"). The prose check
   reads digits, so the reviewer reads the number words in the README and every markdown cell and
-  checks each against the committed data or a test; a quantity claim needs a test whatever spelling
-  the number uses ([CONTRIBUTING.md](../CONTRIBUTING.md), section 6).
+  checks each against the committed data: such a quantity is asserted by a test, whatever spelling
+  the number uses, or printed by a committed cell as that very number
+  ([CONTRIBUTING.md](../CONTRIBUTING.md), section 6). The rule binds recipes written or touched
+  after it; the published recipes predate it, and #367 sweeps the phrases that are neither printed
+  nor pinned.
 - A sentence that misdescribes the notebook's own committed output ("each misses one record",
   "every answer is on the correct side of its threshold") without quoting a number the output did
   not print.
