@@ -10,10 +10,12 @@ import os
 import shutil
 import subprocess
 import sys
+import types
 from pathlib import Path
 
 import nbformat
 import pytest
+from nbclient.exceptions import DeadKernelError
 
 from jev_cookbook import load_helpers
 from jev_cookbook.fixtures import validate_recipe
@@ -41,6 +43,21 @@ def load_module_at(path, name):
 
 new_recipe = load_tool("new_recipe.py")
 execute_notebook = load_tool("execute_notebook.py")
+port_collisions = load_module_at(
+    Path(__file__).with_name("kernel_port_collisions.py"), "kernel_port_collisions_for_test"
+)
+
+executor_budget = load_module_at(
+    Path(__file__).with_name("executor_budget.py"), "executor_budget_for_test"
+)
+
+# The timeout of the subprocess tests below, so that a hang is a failure rather than a stalled
+# suite. tests/executor_budget.py has the arithmetic: the tool's own permitted waits (a silent
+# kernel's 180 seconds on each of its 2 starts, quick-exit starts, the warm-up), and no more than
+# the CI test job leaves once the rest of the suite has run (#117, #328).
+SLOW_START = executor_budget.SLOW_START
+QUICK_START = executor_budget.QUICK_START
+HANG_GUARD = executor_budget.hang_guard(execute_notebook)
 
 
 @pytest.fixture
@@ -707,38 +724,94 @@ def test_a_printed_line_is_one_stream_output_even_when_the_flush_lands_in_the_mi
     assert [(o.output_type, o.name, o.text) for o in outputs] == [("stream", "stdout", "ab\n")]
 
 
-def test_a_dead_kernel_fails_the_run_quickly_and_leaves_the_file(tmp_path):
+# A kernel is a child process that inherits this process's stderr, so what it prints when it
+# fails to start (a ZMQError traceback for a port it could not bind, say) lands in the stderr of
+# the tool that started it. The tool absorbs that failure by starting another kernel, but its
+# stderr still holds the dead one's traceback, and a test asserting on the tool's own output (no
+# traceback, no exit-time noise) then fails for a reason that is not the tool's (#328). The tests
+# that run the tool in a subprocess therefore give its kernels a log file of their own, so
+# ``result.stderr`` is the tool's alone; the kernels' output is kept and shown when a test fails.
+RUN_APART_FROM_ITS_KERNELS = """
+import jupyter_client.provisioning.local_provisioner as provisioner
+kernel_log = open({log!r}, "w", encoding="utf-8")
+launch = provisioner.launch_kernel
+def launch_with_a_stderr_of_its_own(cmd, **kwargs):
+    return launch(cmd, stderr=kernel_log, **kwargs)
+provisioner.launch_kernel = launch_with_a_stderr_of_its_own
+"""
+
+RUN_THE_TOOL_AS_A_SCRIPT = """
+import runpy, sys
+sys.argv = [{tool!r}, *{arguments!r}]
+runpy.run_path({tool!r}, run_name="__main__")
+"""
+
+LOSE_PORTS_FIRST = """
+import sys
+sys.path.insert(0, {tests!r})
+import kernel_port_collisions
+kernel_port_collisions.PortCollisions({collisions}).install()
+"""
+
+
+def run_script(tmp_path, body, **fields):
+    """Run ``body`` as a script in a subprocess, with its kernels' stderr in a file. Returns the
+    completed process (its ``stderr`` is the script's own) and the kernels' stderr."""
+    log = tmp_path / "kernels.log"
+    script = tmp_path / "script.py"
+    source = (RUN_APART_FROM_ITS_KERNELS + body).format(log=str(log), **fields)
+    script.write_text(source, encoding="utf-8")
+    result = subprocess.run(
+        [sys.executable, str(script)], capture_output=True, text=True, timeout=HANG_GUARD
+    )
+    return result, log.read_text("utf-8") if log.exists() else ""
+
+
+def run_tool(tmp_path, *arguments, collisions=0):
+    """``python tools/execute_notebook.py <arguments>`` in a subprocess, apart from its kernels,
+    the first ``collisions`` of which lose the race for their port (kernel_port_collisions.py)."""
+    body = (LOSE_PORTS_FIRST if collisions else "") + RUN_THE_TOOL_AS_A_SCRIPT
+    return run_script(
+        tmp_path,
+        body,
+        tool=str(REPO / "tools" / "execute_notebook.py"),
+        arguments=[str(argument) for argument in arguments],
+        tests=str(Path(__file__).resolve().parent),
+        collisions=collisions,
+    )
+
+
+# Run with and without a start that loses its port: the second kernel's run must read the same.
+THE_FIRST_START_MAY_LOSE_ITS_PORT = pytest.mark.parametrize(
+    "collisions", [pytest.param(0, id="clean-start"), pytest.param(1, id="lost-port")]
+)
+
+
+@THE_FIRST_START_MAY_LOSE_ITS_PORT
+def test_a_dead_kernel_fails_the_run_quickly_and_leaves_the_file(tmp_path, collisions):
     """A cell that kills the kernel used to hang the executor forever, the cell timeout
     notwithstanding. It runs in a subprocess so that a regression is a failure, not a hang."""
     folder = tmp_path / "dead"
     write_notebook(folder, "import os\nos._exit(1)")
     before = (folder / "notebook.ipynb").read_bytes()
-    tool = REPO / "tools" / "execute_notebook.py"
-    result = subprocess.run(
-        [sys.executable, str(tool), str(folder)],
-        capture_output=True,
-        text=True,
-        timeout=90,
-    )
-    assert result.returncode == 1
-    assert "the kernel died" in result.stderr
+    result, kernels = run_tool(tmp_path, folder, collisions=collisions)
+    assert result.returncode == 1, (result.stderr, kernels)
+    assert "the kernel died" in result.stderr, (result.stderr, kernels)
     assert (folder / "notebook.ipynb").read_bytes() == before
 
 
-def test_a_looping_cell_hits_the_timeout_with_one_line_and_leaves_the_file(tmp_path):
+@THE_FIRST_START_MAY_LOSE_ITS_PORT
+def test_a_looping_cell_hits_the_timeout_with_one_line_and_leaves_the_file(tmp_path, collisions):
     folder = tmp_path / "loop"
     write_notebook(folder, "while True:\n    pass")
     before = (folder / "notebook.ipynb").read_bytes()
-    tool = REPO / "tools" / "execute_notebook.py"
-    result = subprocess.run(
-        [sys.executable, str(tool), str(folder), "--timeout", "3"],
-        capture_output=True,
-        text=True,
-        timeout=90,
-    )
-    assert result.returncode == 1
-    assert "ran longer than 3 s" in result.stderr
-    assert "Traceback" not in result.stderr
+    result, kernels = run_tool(tmp_path, folder, "--timeout", 3, collisions=collisions)
+    assert result.returncode == 1, (result.stderr, kernels)
+    assert "ran longer than 3 s" in result.stderr, (result.stderr, kernels)
+    assert "Traceback" not in result.stderr, (result.stderr, kernels)
+    if collisions:  # the first kernel did fail on its port, and said so in its own stderr
+        assert "in use" in kernels, kernels
+        assert "starting a fresh one" in result.stderr, result.stderr
     assert (folder / "notebook.ipynb").read_bytes() == before
 
 
@@ -756,50 +829,182 @@ def test_a_kernel_that_never_starts_exits_1_with_one_line(tmp_path, monkeypatch,
     assert (folder / "notebook.ipynb").read_bytes() == before
 
 
+# Each way a kernel fails to start, with how many starts the tool makes before it gives up. These
+# are written out here, not read from the tool, so that raising a budget is a decision made twice.
 START_MESSAGES = [
-    "Kernel didn't respond in 60 seconds",
-    "Kernel died before replying to kernel_info",
+    pytest.param("Kernel didn't respond in 60 seconds", 2, id="alive-but-silent"),
+    pytest.param("Kernel died before replying to kernel_info", 4, id="exited-at-once"),
 ]
 
 
-@pytest.mark.parametrize("message", START_MESSAGES)
-def test_a_kernel_start_failure_is_retried_once_and_then_the_notebook_runs(
-    tmp_path, monkeypatch, message
-):
-    folder = tmp_path / "flaky"
-    write_notebook(folder, "print('ran')")
-    real = execute_notebook.NotebookClient.execute
-    calls = []
+def test_the_start_budgets_are_the_documented_ones():
+    assert execute_notebook.START_ATTEMPTS == {SLOW_START: 2, QUICK_START: 4}
+    assert set(execute_notebook.START_FAILURES) == {SLOW_START, QUICK_START}
 
-    def lose_the_first_start(self, *args, **kwargs):
-        calls.append(1)
-        if len(calls) == 1:
-            raise RuntimeError("Kernel died before replying to kernel_info")
+
+def test_every_hang_guard_fits_in_the_ci_test_job():
+    """A hang guard longer than the CI job that runs it never fires: the job is killed first and
+    the hang is not a named failure. Each guard, and the room the rest of the suite leaves, is read
+    from the tool's constants and from .github/workflows/ci.yml, not copied."""
+    job = executor_budget.ci_test_job_seconds()
+    guards = executor_budget.every_guard(execute_notebook)
+    assert HANG_GUARD == guards["tests/test_new_recipe.py"]
+    for user, guard in guards.items():
+        assert executor_budget.fits_in_the_ci_test_job(guard), (user, guard, job)
+        # and it still covers what the tool may legitimately take on a silent kernel
+        assert guard > execute_notebook.START_WAIT * execute_notebook.START_ATTEMPTS[SLOW_START]
+        if user != "tests/test_new_recipe.py":  # the other users wait with the same derivation
+            source = (REPO / user).read_text(encoding="utf-8")
+            assert "timeout=EXECUTE_TIMEOUT" in source and "hang_guard(" in source, user
+
+
+def test_the_ci_fit_check_fails_for_a_guard_that_is_too_long():
+    """The check above is not vacuous: the guard this PR started from (1020 s) does not fit."""
+    assert not executor_budget.fits_in_the_ci_test_job(1020)
+    assert not executor_budget.fits_in_the_ci_test_job(
+        executor_budget.hang_guard(
+            types.SimpleNamespace(START_WAIT=400, START_ATTEMPTS=execute_notebook.START_ATTEMPTS)
+        )
+    )
+    assert executor_budget.fits_in_the_ci_test_job(HANG_GUARD)
+
+
+def lose_starts(monkeypatch, *failures):
+    """Make the kernel start fail with each of ``failures`` in turn (a message, or an exception),
+    then run for real. Returns the list that counts the starts."""
+    real = execute_notebook.NotebookClient.execute
+    starts = []
+
+    def execute(self, *args, **kwargs):
+        index = len(starts)
+        starts.append(index)
+        if index < len(failures):
+            failure = failures[index]
+            raise failure if isinstance(failure, BaseException) else RuntimeError(failure)
         return real(self, *args, **kwargs)
 
-    monkeypatch.setattr(execute_notebook.NotebookClient, "execute", lose_the_first_start)
+    monkeypatch.setattr(execute_notebook.NotebookClient, "execute", execute)
+    return starts
+
+
+@pytest.mark.parametrize(("message", "attempts"), START_MESSAGES)
+def test_a_kernel_start_failure_is_retried_and_then_the_notebook_runs(
+    tmp_path, monkeypatch, capsys, message, attempts
+):
+    """Every start but the last fails and the run still succeeds: the budget is spent in full."""
+    folder = tmp_path / "flaky"
+    write_notebook(folder, "print('ran')")
+    starts = lose_starts(monkeypatch, *[message] * (attempts - 1))
     assert execute_notebook.main([str(folder)]) == 0
-    assert len(calls) == 2
+    assert len(starts) == attempts
+    err = capsys.readouterr().err
+    assert err.count("starting a fresh one") == attempts - 1  # a retry is never silent
+    assert f"(attempt {attempts} of {attempts})" in err
     nb = nbformat.read(folder / "notebook.ipynb", as_version=4)
     assert nb.cells[0].outputs[0].text == "ran\n"
 
 
-@pytest.mark.parametrize("message", START_MESSAGES)
-def test_a_kernel_that_fails_to_start_twice_is_tried_exactly_twice(
-    tmp_path, monkeypatch, capsys, message
+@pytest.mark.parametrize(("message", "attempts"), START_MESSAGES)
+def test_a_kernel_that_never_starts_is_tried_exactly_as_often_as_its_failure_allows(
+    tmp_path, monkeypatch, capsys, message, attempts
 ):
     folder = tmp_path / "nostart2"
     write_notebook(folder, "1 + 1")
-    calls = []
-
-    def refuse(self, *args, **kwargs):
-        calls.append(1)
-        raise RuntimeError(message)
-
-    monkeypatch.setattr(execute_notebook.NotebookClient, "execute", refuse)
+    before = (folder / "notebook.ipynb").read_bytes()
+    starts = lose_starts(monkeypatch, *[message] * (attempts + 3))
     assert execute_notebook.main([str(folder)]) == 1
-    assert len(calls) == 2
-    assert "the kernel did not start" in capsys.readouterr().err
+    assert len(starts) == attempts
+    err = capsys.readouterr().err
+    assert "the kernel did not start" in err
+    assert message in err  # the kernel's own last message is not replaced
+    assert f"{attempts} start attempts failed" in err
+    assert (folder / "notebook.ipynb").read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    ("failures", "status"),
+    [
+        pytest.param([SLOW_START, QUICK_START, QUICK_START, QUICK_START], 0, id="one-silent"),
+        pytest.param([QUICK_START] * 3 + [SLOW_START, SLOW_START], 1, id="two-silent"),
+    ],
+)
+def test_the_two_budgets_are_counted_separately(tmp_path, monkeypatch, failures, status):
+    """A silent kernel costs START_WAIT seconds a time and is tried twice; a kernel that exits at
+    once is tried four times. One kind's failures do not use up the other's budget, so a silent
+    start after three quick exits is still tried again, and a second silent one ends the run
+    though a quick exit would have had one start left."""
+    folder = tmp_path / "mixed"
+    write_notebook(folder, "print('ran')")
+    starts = lose_starts(monkeypatch, *failures)
+    assert execute_notebook.main([str(folder)]) == status
+    # one-silent: four starts fail and the fifth runs; two-silent: all five fail
+    assert len(starts) == 5
+
+
+def test_a_kernel_that_died_after_starting_is_never_retried(tmp_path, monkeypatch, capsys):
+    """``DeadKernelError`` is a ``RuntimeError`` and may carry the start-up wording; it means a
+    running kernel died, perhaps in a cell, so it ends the run at once."""
+    folder = tmp_path / "died"
+    write_notebook(folder, "1 + 1")
+    starts = lose_starts(monkeypatch, DeadKernelError(f"{QUICK_START} to kernel_info"))
+    assert execute_notebook.main([str(folder)]) == 1
+    assert len(starts) == 1
+    assert "the kernel died" in capsys.readouterr().err
+
+
+def test_an_unrecognised_start_up_error_is_never_retried(tmp_path, monkeypatch):
+    folder = tmp_path / "unknown"
+    write_notebook(folder, "1 + 1")
+    starts = lose_starts(monkeypatch, "the disk is on fire")
+    with pytest.raises(RuntimeError, match="the disk is on fire"):
+        execute_notebook.main([str(folder)])
+    assert len(starts) == 1
+
+
+@pytest.fixture
+def lost_ports():
+    """Make kernel starts lose the race for a port, for real: set ``lost_ports.left`` to the number
+    of the next starts that get their shell port taken between jupyter_client choosing it and the
+    kernel binding it, which is what happens on Windows under load (``ZMQError: Address in use``).
+    See tests/kernel_port_collisions.py."""
+    collisions = port_collisions.PortCollisions(0).install()
+    yield collisions
+    collisions.uninstall()
+
+
+@pytest.mark.parametrize("collisions", [1, 3])
+def test_a_port_lost_to_another_process_is_absorbed_by_starting_a_fresh_kernel(
+    tmp_path, lost_ports, capsys, collisions
+):
+    """With one collision the second start works; with three in a row the fourth does, which the
+    two starts the tool used to make could not."""
+    folder = tmp_path / "taken"
+    write_notebook(folder, "print('ran')")
+    lost_ports.left = collisions
+    assert execute_notebook.main([str(folder)]) == 0
+    err = capsys.readouterr().err
+    assert err.count("Kernel died before replying") == collisions  # each taken port killed a kernel
+    assert err.count("starting a fresh one") == collisions
+    assert len(lost_ports.starts) == collisions + 1
+    assert len(set(lost_ports.starts)) == collisions + 1  # each start drew new ports
+    nb = nbformat.read(folder / "notebook.ipynb", as_version=4)
+    assert nb.cells[0].outputs[0].text == "ran\n"
+
+
+def test_a_port_that_is_never_free_still_fails_after_the_last_attempt(tmp_path, lost_ports, capsys):
+    """The retry does not hide a kernel that cannot start: when every attempt loses its port the
+    run fails, with the kernel's own error, a count, and the notebook untouched."""
+    folder = tmp_path / "never"
+    write_notebook(folder, "print('ran')")
+    before = (folder / "notebook.ipynb").read_bytes()
+    lost_ports.left = 99
+    assert execute_notebook.main([str(folder)]) == 1
+    err = capsys.readouterr().err
+    attempts = execute_notebook.START_ATTEMPTS[QUICK_START]
+    assert len(lost_ports.starts) == attempts
+    assert "the kernel did not start" in err
+    assert f"{attempts} start attempts failed" in err
+    assert (folder / "notebook.ipynb").read_bytes() == before
 
 
 PROBE = """
@@ -821,17 +1026,17 @@ sys.exit(tool.main([{folder!r}]))
 
 def test_a_failed_start_leaves_no_exit_time_noise(tmp_path):
     """After a failed first start and a successful retry, the process exits silently: nbclient's
-    exit-time cleanup hook for the failed client (an AssertionError at exit) is unregistered."""
+    exit-time cleanup hook for the failed client (an AssertionError at exit) is unregistered.
+
+    The probe fails its first start on purpose, so only the retries are left to absorb a real
+    failure; the kernels' own stderr is kept apart from the probe's (``run_script``), because a
+    kernel that lost a port prints a traceback that is not this process's exit noise."""
     folder = tmp_path / "quiet"
     write_notebook(folder, "1 + 1")
-    script = tmp_path / "probe.py"
-    script.write_text(PROBE.format(tools=str(REPO / "tools"), folder=str(folder)), encoding="utf-8")
-    result = subprocess.run(
-        [sys.executable, str(script)], capture_output=True, text=True, timeout=180
-    )
-    assert result.returncode == 0, result.stderr
-    assert "AssertionError" not in result.stderr
-    assert "atexit" not in result.stderr
+    result, kernels = run_script(tmp_path, PROBE, tools=str(REPO / "tools"), folder=str(folder))
+    assert result.returncode == 0, (result.stderr, kernels)
+    assert "AssertionError" not in result.stderr, (result.stderr, kernels)
+    assert "atexit" not in result.stderr, (result.stderr, kernels)
 
 
 def test_a_failing_cell_is_never_retried(tmp_path, monkeypatch):

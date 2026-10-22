@@ -10,7 +10,7 @@ These things are fixed so that running it twice gives the same file:
   as a copy and passed to the kernel; this process's own environment is never changed, so
   several notebooks can be executed in parallel (on Windows, starting several kernels at the same
   time can fail with a ZMQ "Address in use" error, which the tool absorbs by starting a fresh kernel
-  once more, see below);
+  again, up to a stated number of times, see below);
 * the kernel is the interpreter running this tool (``sys.executable``), not whichever
   ``python3`` kernelspec Jupyter finds first, so a user-level kernelspec cannot swap the
   environment the committed outputs were made in;
@@ -52,13 +52,29 @@ cell wrote to stderr (one line on stderr, the file left unchanged), or
 ``JEV_COOKBOOK_REQUIRE_PID_NAMESPACE`` was set and the PID namespace it demands was not active, and
 2 for a usage error. #69 builds CI (network guard, staleness check) on this.
 
-Starting the kernel is retried once, and only that: when the machine is loaded (several notebooks
-executing at once) a kernel can lose a race for a TCP port ("Address in use"), exit before it
-replies, or take longer than jupyter_client's default 60 seconds to answer. Each of those is a
-``RuntimeError`` raised before any cell has run, so a second attempt with a fresh kernel cannot hide
-a failing cell; a cell that fails, times out or kills the kernel is never retried. The wait for the
-kernel to answer is ``START_WAIT`` seconds (not ``--timeout``, which is per cell), so a kernel that
-never starts fails after at most two such waits (2 x ``START_WAIT``, 360 seconds).
+Starting the kernel is retried, and only that: when the machine is loaded (several notebooks
+executing at once, in this process or in another suite) a kernel can lose a race for a TCP port
+("Address in use"), exit before it replies, or take longer than jupyter_client's default 60 seconds
+to answer. Each of those is a ``RuntimeError`` raised before any cell has run, so another attempt
+with a fresh kernel cannot hide a failing cell; a cell that fails, times out or kills the kernel is
+never retried. How many attempts depends on the failure (``START_ATTEMPTS``), counted separately:
+
+* a kernel that exits before it replies ("Kernel died before replying") is tried up to 4 times. The
+  usual cause is the port race (#328): jupyter_client picks a kernel's five ports by binding and
+  closing a probe socket for each, and the kernel binds them only when it has started, seconds
+  later on a loaded machine, so the ports are unreserved for that long and another process can take
+  one. Each attempt draws five new ports and a failed one costs seconds (the kernel has already
+  exited), so several are affordable; two were not enough in the Windows runs behind #328, where
+  full suites ran at the same time on one machine;
+* a kernel that is alive but silent ("Kernel didn't respond") is tried twice. The wait for it is
+  ``START_WAIT`` seconds (not ``--timeout``, which is per cell), so this is the slow failure: a
+  kernel that never answers fails after at most two such waits (2 x ``START_WAIT``, 360 seconds).
+
+The budgets are counted separately, so a run that sees both kinds can make 5 starts (three quick
+failures and two silent ones). A start that keeps failing still fails, with the kernel's last
+message and the number of attempts, and every retry prints one line to stderr, so a run that
+needed one says so: nothing is retried silently. The budgets live in ``retry_failed_starts``,
+which the tests that start kernels themselves call too, so they cannot drift from the tool's.
 
 Known limitation: "the kernel never started" is recognised by two jupyter_client messages
 ("Kernel didn't respond", "Kernel died before replying"). Any other start-up ``RuntimeError`` is
@@ -75,7 +91,9 @@ import signal
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
+from typing import TypeVar
 
 import nbformat
 from ipykernel.kernelspec import get_kernel_dict
@@ -85,11 +103,15 @@ from nbclient import NotebookClient
 from nbclient.exceptions import CellExecutionError, CellTimeoutError, DeadKernelError
 
 NOTEBOOK = "notebook.ipynb"
+T = TypeVar("T")
 KERNEL_NAME = "python3"
 SCRUBBED_PREFIXES = ("JEV_COOKBOOK_", "TYPESAFE_")
 TIMEOUT_SECONDS = 300
 START_WAIT = 180
-START_FAILURES = ("Kernel didn't respond", "Kernel died before replying")
+# jupyter_client's two start-up failures, each with the number of times a start is tried before the
+# run fails (why they differ: see the module docstring).
+START_ATTEMPTS = {"Kernel didn't respond": 2, "Kernel died before replying": 4}
+START_FAILURES = tuple(START_ATTEMPTS)
 METADATA = {
     "kernelspec": {"display_name": "Python 3", "language": "python", "name": KERNEL_NAME},
     "language_info": {"name": "python"},
@@ -363,6 +385,47 @@ def kill_everyone_else_in_my_pid_namespace(timeout: float = KILL_OTHER_PROCESSES
     )
 
 
+def start_failure(error: RuntimeError) -> str | None:
+    """Which ``START_ATTEMPTS`` kind of failed start ``error`` is, or ``None`` for anything else
+    (a ``DeadKernelError``, an unknown ``RuntimeError``), which is never retried.
+
+    ``DeadKernelError`` is a ``RuntimeError`` and can carry the same words, but it means a kernel
+    that was running died, and a cell may have run by then."""
+    if isinstance(error, DeadKernelError):
+        return None
+    return next((kind for kind in START_ATTEMPTS if kind in str(error)), None)
+
+
+def retry_failed_starts(attempt: Callable[[], T], name: str) -> T:
+    """Return ``attempt()``, calling it again when it fails to start a kernel, as often as
+    ``START_ATTEMPTS`` allows for that kind of failure; raise ``KernelStartError`` when it does not
+    start in the end, and anything else at once.
+
+    ``attempt`` must build its own kernel each call and run no cell before the start has
+    succeeded, which is what makes a start failure safe to retry. This is the only place that
+    holds the budgets, so every caller (this tool, and the tests that start kernels themselves)
+    gets the same ones. The budgets are counted per kind, so a run that sees both kinds can make
+    ``sum(START_ATTEMPTS.values()) - len(START_ATTEMPTS) + 1`` = 5 starts."""
+    failed_starts = dict.fromkeys(START_ATTEMPTS, 0)
+    while True:
+        try:
+            return attempt()
+        except RuntimeError as error:
+            kind = start_failure(error)
+            if kind is None:
+                raise
+            failed_starts[kind] += 1
+            if failed_starts[kind] >= START_ATTEMPTS[kind]:
+                raise KernelStartError(
+                    f"{error}; {sum(failed_starts.values())} start attempts failed"
+                ) from error
+            next_attempt = f"attempt {failed_starts[kind] + 1} of {START_ATTEMPTS[kind]}"
+            print(
+                f"{name}: the kernel did not start ({error}); starting a fresh one ({next_attempt})",
+                file=sys.stderr,
+            )
+
+
 def execute(recipe_dir: Path, timeout: int = TIMEOUT_SECONDS) -> None:
     """Run ``recipe_dir/notebook.ipynb`` and write it back with outputs.
 
@@ -374,19 +437,13 @@ def execute(recipe_dir: Path, timeout: int = TIMEOUT_SECONDS) -> None:
     recipe_dir = recipe_dir.resolve()
     path = recipe_dir / NOTEBOOK
     warm_font_cache(offline_environment(dict(os.environ)))
-    for attempt in (1, 2):
-        nb = nbformat.read(path, as_version=4)
-        try:
-            run_in_fresh_kernel(nb, recipe_dir, timeout)
-            break
-        except RuntimeError as error:
-            if isinstance(error, DeadKernelError) or not any(
-                message in str(error) for message in START_FAILURES
-            ):
-                raise
-            # No cell has run: the kernel never answered, so a fresh one is tried once.
-            if attempt == 2:
-                raise KernelStartError(str(error)) from error
+
+    def attempt() -> nbformat.NotebookNode:
+        nb = nbformat.read(path, as_version=4)  # re-read: a retry starts from the committed file
+        run_in_fresh_kernel(nb, recipe_dir, timeout)
+        return nb
+
+    nb = retry_failed_starts(attempt, recipe_dir.name)
     check_no_stderr(nb)
     nb.metadata = nbformat.from_dict(METADATA)
     nbformat.validate(nb)

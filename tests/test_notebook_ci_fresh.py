@@ -30,6 +30,23 @@ REPO = Path(__file__).resolve().parent.parent
 TEMPLATE = REPO / "recipes" / "_template"
 TOOL = REPO / "tools" / "check_notebook_fresh.py"
 
+
+def _load(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+# How long to wait for the tool before calling it a hang: longer than its permitted starts (a
+# silent kernel's 180 seconds on each of 2) plus the template's cells, shorter than the CI job
+# (tests/executor_budget.py).
+_BUDGET = _load("executor_budget_for_fresh", Path(__file__).with_name("executor_budget.py"))
+EXECUTE_TIMEOUT = _BUDGET.hang_guard(
+    _load("execute_notebook_for_fresh", REPO / "tools" / "execute_notebook.py"),
+    _BUDGET.TEMPLATE_CELLS,
+)
+
 spec = importlib.util.spec_from_file_location("check_notebook_fresh_for_test", TOOL)
 fresh_tool = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = fresh_tool
@@ -155,7 +172,7 @@ def reference(tmp_path_factory):
         [sys.executable, str(REPO / "tools" / "execute_notebook.py"), str(folder)],
         capture_output=True,
         text=True,
-        timeout=240,
+        timeout=EXECUTE_TIMEOUT,
         check=False,
     )
     assert result.returncode == 0, result.stderr
