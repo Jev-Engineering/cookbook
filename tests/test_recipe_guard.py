@@ -325,8 +325,8 @@ Scope decisions (see the pull request body for the full reasoning):
     answers") is the subject of an evaluative adverb or adjective, with no negation, hypothetical
     or attribution in it. The unit a hedge covers is its own sentence, heading, list item (with
     its wrapped lines) or table row (``_markdown_units``): a hedge word in a neighbouring bullet or
-    in the heading above excuses nothing. Measured over the 7093 such units of the published
-    READMEs and markdown cells: 2 match, both hedged ("not", "not a finding about Jev"), so it
+    in the heading above excuses nothing. Measured over the 7093 sentences of the 3517 units of
+    the published READMEs and markdown cells: 2 match, both hedged ("not", "not a finding about Jev"), so it
     lands with 0 violations. REJECTED, the wide form (any evaluative word near a mention of Jev): 644
     sentences match an ordinary lexicon, nearly all of them disclosures that name accuracy,
     cost or latency in order to deny them, comparisons between a recipe's own baselines on its
@@ -8916,7 +8916,10 @@ _ADJECTIVE = (
     r"|right|correct|perfect)\b"
 )
 _QUALITY_CLAIMS = (
-    re.compile(rf"\b{_SUBJECT}[^.!?]{{0,80}}?{_ADVERB}", re.IGNORECASE),
+    # ``_sentences`` has already split on a full stop followed by space, so a "." left inside a
+    # sentence is a decimal point, a version or a file name; the span may cross it ("Jev handles
+    # 97.4% of these messages reliably"). It still stops at "!" and "?".
+    re.compile(rf"\b{_SUBJECT}[^!?]{{0,80}}?{_ADVERB}", re.IGNORECASE),
     re.compile(
         rf"\b{_SUBJECT}\s+(?:is|are|was|were|gets?|got|stays?|remains?)\s+{_ADJECTIVE}",
         re.IGNORECASE,
@@ -8927,7 +8930,7 @@ _QUALITY_CLAIMS = (
 # ("not measured live"), a hypothetical, or an attribution to documentation.
 _HEDGES = re.compile(
     r"\b(?:not|nothing|never|cannot|without|whether|if|would|could|may|might|unless"
-    r"|says?|said|according|TypeSafe|documentation|docs|S\d{2})\b|n['’]t\b",
+    r"|says?|said|according)\b|n['’]t\b",
     re.IGNORECASE,
 )
 
@@ -9796,6 +9799,19 @@ _UNHEDGED_CLAIMS = {
     "outperforms": "Jev outperforms the keyword baseline here.",
     "always-right": "Jev is always right when it is confident.",
     "reads-the-evidence-properly": "Given the whole record, the model reads the evidence properly.",
+    # A decimal point between the subject and the adverb (the span used to stop at it).
+    "a-percentage-then-reliably": "Jev handles 97.4% of these messages reliably.",
+    "a-percentage-then-well": "Jev answers 97.4% of the hard cases well.",
+    "a-fraction-then-correctly": "Jev judges 0.9 of these tickets correctly.",
+    "a-version-then-reliably": "Jev v1.2 handles these tickets reliably.",
+    # Words that name a source are not attributions: only a verb of saying hedges.
+    "typesafes-jev": "TypeSafe's Jev judges these tickets correctly.",
+    "see-the-docs": "Jev judges these tickets correctly; see the docs for the question definition.",
+    "a-link-to-the-docs": (
+        "Jev judges these tickets correctly, as [the docs](../../docs/glossary.md) define it."
+    ),
+    "a-cited-source-id": "Jev is accurate on these tickets (S07).",
+    "the-documentation-describes": "Jev is accurate, as the documentation describes it.",
 }
 
 
@@ -9831,6 +9847,13 @@ _HEDGED_OR_DESCRIPTIVE = {
     "a-baseline": "The lexical baseline does better than pure position.",
     "a-compound-word": "Jev returns a well-formed answer for every question.",
     "the-pipeline": "The pipeline checks that the catalog is read correctly.",
+    # Sentence-final periods, decimals and versions inside a sentence do not join two sentences.
+    "a-decimal-then-a-new-sentence": "Jev reads 97.4 tickets. The pipeline runs well.",
+    "a-version-then-a-new-sentence": "Jev v1.2 reads the ticket. The rule is checked correctly.",
+    "a-decimal-claim-with-its-hedge": (
+        "Jev handles 97.4% of these messages reliably, which is not measured live."
+    ),
+    "an-attribution-with-a-verb": "TypeSafe's documentation says Jev judges each level on its own.",
 }
 
 
@@ -10082,6 +10105,9 @@ _CLAIMS_IN_STRUCTURE = {
     "under-a-document-heading": "# Document classification\nJev judges these tickets correctly.",
     "after-the-verb-note": "Jev is accurate on these tickets, so note the review rate falls.",
     "a-table-row": "| a | b |\n| Jev handles ambiguous tickets reliably | x |",
+    "a-table-row-under-a-hedged-header-row": (
+        "| not measured | x |\n| Jev handles ambiguous tickets reliably | y |"
+    ),
     "a-wrapped-bullet": "- Jev judges these tickets\n  correctly every time\n- fine",
     "after-a-hedged-sentence-on-the-same-line": (
         "This is not measured live. Jev judges these tickets correctly."
