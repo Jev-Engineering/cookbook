@@ -11,8 +11,10 @@ import binascii
 import hashlib
 import io
 import math
+import struct
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from fractions import Fraction
 from numbers import Integral, Real
 from pathlib import Path
 from typing import Any
@@ -28,10 +30,12 @@ __all__ = [
     "IMAGE_LIMITS",
     "AssetPathError",
     "ImageTile",
+    "ImageTransform",
     "LocalizationMetrics",
     "LocalizationReport",
     "box_confidence",
     "box_iou",
+    "crop_bounds",
     "crop_box",
     "draw_boxes",
     "expand_box",
@@ -40,11 +44,13 @@ __all__ = [
     "image_asset",
     "image_assets",
     "image_reference",
+    "image_to_tile",
     "load_frames",
     "localization_metrics",
     "localization_report",
     "normalized_box",
     "normalized_to_pixels",
+    "prepare_image",
     "resolve_asset_path",
     "run_record",
     "tile_to_image",
@@ -73,6 +79,12 @@ _EDGES = ("top", "bottom", "left", "right")
 PixelBounds = tuple[int, int, int, int]
 
 
+_ORIENTATION_MESSAGE = (
+    "rotate EXIF orientation into pixels with ImageOps.exif_transpose "
+    "and save the upright image before loading it"
+)
+
+
 def _image_format(data: bytes) -> str:
     if not data or len(data) > _MAX_IMAGE_BYTES:
         raise ValueError("image must contain 1 byte to 16 MiB of encoded PNG or JPEG data")
@@ -94,10 +106,7 @@ def _image_format(data: bytes) -> str:
         # verify() checks file integrity; load() also catches truncated pixel data.
         with Image.open(io.BytesIO(data)) as image:
             if image.getexif().get(274, 1) != 1:
-                raise ValueError(
-                    "rotate EXIF orientation into pixels with ImageOps.exif_transpose "
-                    "and save the upright image before loading it"
-                )
+                raise ValueError(_ORIENTATION_MESSAGE)
             image.load()
     except (UnidentifiedImageError, OSError, SyntaxError, Image.DecompressionBombError) as exc:
         raise ValueError("image bytes are damaged or are not a supported still image") from exc
@@ -362,9 +371,41 @@ def expand_box(box: Any, fraction: float = 0.0) -> dict[str, float]:
     }
 
 
-def crop_box(image: Image.Image, box: Any, *, expand: float = 0.0) -> Image.Image:
-    """Copy the enclosed crop, with optional proportional expansion and clipping."""
-    return image.crop(normalized_to_pixels(expand_box(box, expand), *image.size))
+def crop_bounds(box: Any, width: int, height: int, *, expand: float = 0.0) -> PixelBounds:
+    """Pixel ``(left, top, right, bottom)`` that :func:`crop_box` crops, for a ``width`` x ``height`` image.
+
+    Use these bounds with :meth:`ImageTransform.crop` to map a box found on the crop back to
+    the image it was cut from.
+    """
+    return normalized_to_pixels(expand_box(box, expand), width, height)
+
+
+def _require_min_side(width: int, height: int, min_side: Any, what: str) -> None:
+    """Refuse a ``what`` (a crop or tile) with a side under ``min_side``; ``None`` skips the check."""
+    if min_side is None:
+        return
+    min_side = _positive_int(min_side, "min_side")
+    if min(width, height) < min_side:
+        raise ValueError(
+            f"{what} would be {width} x {height} pixels, under min_side={min_side} on a side; "
+            "the API rejects such an image. Pad or scale it up with prepare_image, or use a "
+            "larger region"
+        )
+
+
+def crop_box(
+    image: Image.Image, box: Any, *, expand: float = 0.0, min_side: int | None = None
+) -> Image.Image:
+    """Copy the enclosed crop, with optional proportional expansion and clipping.
+
+    With ``min_side`` (use ``IMAGE_LIMITS["min_side"]``, 280) a crop with a side under it raises
+    ``ValueError`` before anything is cropped, instead of returning an image the API would
+    reject. The default ``None`` checks nothing: a small crop must still go through
+    :func:`prepare_image` before it is saved as an asset.
+    """
+    bounds = crop_bounds(box, *image.size, expand=expand)
+    _require_min_side(bounds[2] - bounds[0], bounds[3] - bounds[1], min_side, "crop")
+    return image.crop(bounds)
 
 
 def _pixel_bounds(bounds: Any, width: int, height: int) -> PixelBounds:
@@ -383,7 +424,9 @@ def tile_to_image(box: Any, tile_bounds: PixelBounds, width: int, height: int) -
     """Map tile-local normalized edges to whole-image normalized edges by affine scaling.
 
     ``tile_bounds`` are the exact pixel bounds used to crop the tile. This also works
-    after an entire tile is resized without changing its aspect-relative coordinates.
+    after an entire tile is resized without changing its aspect-relative coordinates. A tile
+    that was padded or cropped again needs :class:`ImageTransform` (``crop(...).then(...)``);
+    :func:`image_to_tile` is the inverse of this function.
     """
     width, height = _positive_int(width, "width"), _positive_int(height, "height")
     left, top, right, bottom = _pixel_bounds(tile_bounds, width, height)
@@ -410,6 +453,7 @@ def generate_tiles(
     tile_size: tuple[int, int] = (512, 512),
     overlap: int = 0,
     max_tiles: int = DEFAULT_MAX_TILES,
+    min_side: int | None = None,
 ) -> list[ImageTile]:
     """Cover an image in row-major order with tiles of at most ``(width, height)``.
 
@@ -417,6 +461,13 @@ def generate_tiles(
     right/bottom boundary, so they may overlap more. Images smaller than a tile yield
     their full extent. Tile sizes are geometry choices; validate saved tiles with
     :func:`image_asset` before sending them to the API.
+
+    With ``min_side`` (use ``IMAGE_LIMITS["min_side"]``, 280) a request whose tiles would have
+    a side under it raises ``ValueError``: a ``tile_size`` under ``min_side``, or a source
+    narrower than it (a source smaller than a tile keeps its extent). Every tile has the same
+    size, ``min(tile_width, width)`` by ``min(tile_height, height)``, so the check is made
+    once, before any tile is cropped. The default ``None`` checks nothing; send small tiles
+    through :func:`prepare_image` instead.
 
     The number of tiles grows with the inverse square of the stride (tile size minus
     ``overlap``), so the tile count is computed first and a configuration above
@@ -440,6 +491,7 @@ def generate_tiles(
     width, height = image.size
     _positive_int(width, "image width")
     _positive_int(height, "image height")
+    _require_min_side(min(tile_width, width), min(tile_height, height), min_side, "tile")
 
     def starts(length: int, window: int) -> list[int]:
         if length <= window:
@@ -462,6 +514,323 @@ def generate_tiles(
             bounds = (left, top, min(left + tile_width, width), min(top + tile_height, height))
             tiles.append(ImageTile(bounds, image.crop(bounds)))
     return tiles
+
+
+_Edges = tuple[Fraction, Fraction, Fraction, Fraction]  # left, top, right, bottom
+_FULL: _Edges = (Fraction(0), Fraction(0), Fraction(1), Fraction(1))
+
+
+def _snap(value: float, dimension: int) -> Fraction:
+    """``value`` exactly, except the double nearest ``k / dimension`` is read as ``k / dimension``.
+
+    A pixel edge stored as ``k / dimension`` is not exactly that fraction in binary (0.2 is a
+    hair above 1/5), so a box that really touches a tile edge would overlap it by 1e-17 and
+    leave a sliver. This is the same rule :func:`normalized_to_pixels` applies to integer edges.
+    """
+    nearest = round(value * dimension)
+    return Fraction(nearest, dimension) if value == nearest / dimension else Fraction(value)
+
+
+def _edges(box: Any, size: tuple[int, int]) -> _Edges:
+    """A validated normalized box on a ``size`` image as exact ``(left, top, right, bottom)``."""
+    box = normalized_box(box)
+    return (
+        _snap(box["left"], size[0]),
+        _snap(box["top"], size[1]),
+        _snap(box["right"], size[0]),
+        _snap(box["bottom"], size[1]),
+    )
+
+
+def _clip(edges: _Edges, window: _Edges) -> _Edges | None:
+    """The part of ``edges`` inside ``window``, or ``None`` when it has no area there."""
+    left, top = max(edges[0], window[0]), max(edges[1], window[1])
+    right, bottom = min(edges[2], window[2]), min(edges[3], window[3])
+    return (left, top, right, bottom) if left < right and top < bottom else None
+
+
+def _remap(edges: _Edges, source: _Edges, target: _Edges) -> _Edges:
+    """Carry edges linearly from the ``source`` window onto the ``target`` window."""
+    fx = (target[2] - target[0]) / (source[2] - source[0])
+    fy = (target[3] - target[1]) / (source[3] - source[1])
+    return (
+        target[0] + (edges[0] - source[0]) * fx,
+        target[1] + (edges[1] - source[1]) * fy,
+        target[0] + (edges[2] - source[0]) * fx,
+        target[1] + (edges[3] - source[1]) * fy,
+    )
+
+
+def _as_box(edges: _Edges) -> dict[str, float]:
+    left, top, right, bottom = (float(value) for value in edges)
+    if left >= right or top >= bottom:
+        raise ValueError("the mapped box is too small to represent as a float rectangle")
+    return {"top": top, "bottom": bottom, "left": left, "right": right}
+
+
+def _size_pair(value: Any, name: str) -> tuple[int, int]:
+    try:
+        width, height = value
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must be a (width, height) pair of positive integers") from exc
+    return _positive_int(width, f"{name} width"), _positive_int(height, f"{name} height")
+
+
+@dataclass(frozen=True)
+class ImageTransform:
+    """How a box on one image maps to and from the image derived from it.
+
+    The *original* image is the one you started from and the *derived* image is what you sent
+    to Jev: a tile or crop of the original, an original resized and padded by
+    :func:`prepare_image`, or a chain of those joined by :meth:`then`. Boxes on both images are
+    normalized ``top/bottom/left/right`` mappings.
+
+    Two windows say which part of each image the transform covers, as exact
+    ``(left, top, right, bottom)`` fractions of that image:
+
+    * ``original_window``: the part of the original the derived image shows (the whole
+      original for a resize or a pad; the tile or crop rectangle for a crop);
+    * ``derived_window``: where that part sits in the derived image (the whole derived image
+      for a crop; the content rectangle, inside the padding, after a pad).
+
+    :meth:`to_derived` and :meth:`to_original` map linearly between the windows and clip to
+    them. Arithmetic is exact (:class:`fractions.Fraction`) and each edge is rounded to a float
+    once, so a box mapped through any chain of steps equals the true position rounded once, not
+    the sum of a rounding error per step. An input edge that is the double nearest ``k / width``
+    (or ``k / height``) of the image the box is on is read as exactly that pixel edge, so a box
+    that touches a tile edge does not spill a sliver across it. Build one with :meth:`crop`, :func:`prepare_image`
+    or :meth:`then`; the constructor only checks that the sizes and windows are valid.
+    """
+
+    original_size: tuple[int, int]
+    derived_size: tuple[int, int]
+    original_window: _Edges
+    derived_window: _Edges
+
+    def __post_init__(self) -> None:
+        _size_pair(self.original_size, "original_size")
+        _size_pair(self.derived_size, "derived_size")
+        for name in ("original_window", "derived_window"):
+            window = getattr(self, name)
+            if (
+                not isinstance(window, tuple)
+                or len(window) != 4
+                or not all(isinstance(value, Fraction) for value in window)
+            ):
+                raise ValueError(f"{name} must be four exact fractions: left, top, right, bottom")
+            left, top, right, bottom = window
+            if not (0 <= left < right <= 1 and 0 <= top < bottom <= 1):
+                raise ValueError(f"{name} must be a positive-area rectangle inside the image")
+
+    @classmethod
+    def crop(cls, bounds: PixelBounds, width: int, height: int) -> ImageTransform:
+        """The transform of cutting ``bounds`` (pixel ``left, top, right, bottom``) from an image.
+
+        ``bounds`` is a tile's ``.bounds`` or :func:`crop_bounds`, and ``width`` and ``height``
+        are the size of the image it was cut from. The derived image is the cut, unscaled.
+        """
+        width, height = _positive_int(width, "width"), _positive_int(height, "height")
+        left, top, right, bottom = _pixel_bounds(bounds, width, height)
+        return cls(
+            (width, height),
+            (right - left, bottom - top),
+            (
+                Fraction(left, width),
+                Fraction(top, height),
+                Fraction(right, width),
+                Fraction(bottom, height),
+            ),
+            _FULL,
+        )
+
+    def to_derived(self, box: Any) -> dict[str, float] | None:
+        """Map a box on the original image onto the derived image, clipped to what it shows.
+
+        Returns ``None`` when the box has no area inside ``original_window`` (a box beside the
+        tile, or one that only touches its edge). A box the window cuts is clipped to it, so the
+        result covers only the visible part: use :meth:`visible_fraction` to decide whether
+        enough of the target remains to count it as present.
+        """
+        visible = _clip(_edges(box, self.original_size), self.original_window)
+        if visible is None:
+            return None
+        return _as_box(_remap(visible, self.original_window, self.derived_window))
+
+    def to_original(self, box: Any) -> dict[str, float] | None:
+        """Map a box on the derived image back to the original, clipped to the content.
+
+        Padding is not part of the original, so a box that extends into padding is clipped to
+        the content, and a box entirely in padding returns ``None``. A box found partly in
+        padding is a signal worth checking, not a result to trust blindly.
+        """
+        visible = _clip(_edges(box, self.derived_size), self.derived_window)
+        if visible is None:
+            return None
+        return _as_box(_remap(visible, self.derived_window, self.original_window))
+
+    def visible_fraction(self, box: Any) -> float:
+        """The fraction of an original-image box's area that the derived image shows.
+
+        Exactly ``1.0`` when the whole box is visible and ``0.0`` when :meth:`to_derived`
+        returns ``None``. Use it to state the per-tile rule for a target that a tile edge cuts.
+        """
+        edges = _edges(box, self.original_size)
+        visible = _clip(edges, self.original_window)
+        if visible is None:
+            return 0.0
+        whole = (edges[2] - edges[0]) * (edges[3] - edges[1])
+        return float(((visible[2] - visible[0]) * (visible[3] - visible[1])) / whole)
+
+    def then(self, other: ImageTransform) -> ImageTransform:
+        """Chain ``other`` (made from this transform's derived image) after this one.
+
+        The result maps between this transform's original image and ``other``'s derived image
+        in one step, for any number of levels (``a.then(b).then(c)``). ``other.original_size``
+        must equal ``self.derived_size``. Raises ``ValueError`` when ``other`` shows none of
+        this transform's content (it cropped only padding), since nothing could be mapped.
+        """
+        if not isinstance(other, ImageTransform):
+            raise ValueError("then() needs another ImageTransform")
+        if self.derived_size != other.original_size:
+            raise ValueError(
+                f"cannot chain: the first transform makes a {self.derived_size} image but the "
+                f"second starts from a {other.original_size} image"
+            )
+        shared = _clip(self.derived_window, other.original_window)
+        if shared is None:
+            raise ValueError("the second transform shows none of the first transform's content")
+        return ImageTransform(
+            self.original_size,
+            other.derived_size,
+            _remap(shared, self.derived_window, self.original_window),
+            _remap(shared, other.original_window, other.derived_window),
+        )
+
+
+def image_to_tile(
+    box: Any, tile_bounds: PixelBounds, width: int, height: int
+) -> dict[str, float] | None:
+    """Map a whole-image box into a tile, the inverse of :func:`tile_to_image`.
+
+    ``tile_bounds`` are the tile's exact pixel bounds in the ``width`` x ``height`` image. The
+    result is tile-local, clipped to the tile: a box the tile edge cuts keeps only its visible
+    part. ``None`` means the box has no area inside the tile (disjoint, or only touching an
+    edge), so a gold label for that tile is "absent". See :meth:`ImageTransform.visible_fraction`
+    to apply a minimum-visible-fraction rule first.
+    """
+    return ImageTransform.crop(tile_bounds, width, height).to_derived(box)
+
+
+_PAD_COLOR = (128, 128, 128)
+_PREPARABLE_MODES = ("1", "L", "P", "RGB", "CMYK", "YCbCr")
+
+
+def _pad_color(value: Any) -> tuple[int, int, int]:
+    channels = (value,) * 3 if isinstance(value, Integral) else value
+    try:
+        red, green, blue = channels
+    except (TypeError, ValueError):
+        red = None
+    else:
+        if all(
+            isinstance(c, Integral) and not isinstance(c, bool) and 0 <= c <= 255
+            for c in (red, green, blue)
+        ):
+            return int(red), int(green), int(blue)
+    raise ValueError("pad_color must be a gray level 0-255 or an (r, g, b) tuple of 0-255")
+
+
+def prepare_image(
+    image: Image.Image,
+    *,
+    min_side: int = _MIN_SIDE,
+    max_side: int = _MAX_SIDE,
+    pad_color: int | tuple[int, int, int] = _PAD_COLOR,
+    upscale: bool = False,
+) -> tuple[Image.Image, ImageTransform]:
+    """Resize and pad an image to the API's side limits; return it with its transform.
+
+    Returns ``(prepared, transform)``: a new RGB image whose width and height are each between
+    ``min_side`` and ``max_side`` (default 280 and 1568, the Images API limits), and the
+    :class:`ImageTransform` that maps a box on ``prepared`` back to ``image`` and a box on
+    ``image`` forward. The area limits follow: 280 x 280 = 78,400 and 1568 x 1568 = 2,458,624.
+
+    1. An image whose longest side exceeds ``max_side`` is scaled down, keeping its aspect
+       ratio, until that side is ``max_side``.
+    2. With ``upscale=True``, an image that is not too large and has a side under ``min_side``
+       is scaled up, keeping its aspect ratio, until its shorter side is ``min_side`` (not
+       beyond ``max_side`` on the long side). The default ``upscale=False`` never scales up:
+       it adds no pixels that were not there.
+    3. A side still under ``min_side`` is padded with ``pad_color`` (a gray level or an
+       ``(r, g, b)`` tuple, default mid-gray, not measured against Jev), the content centered,
+       the odd pixel going right or bottom.
+
+    Scaled sizes are the exact ratio rounded half up, so they are reproducible; resampling is
+    Lanczos. Nothing is cropped. An image that already fits comes back as a pixel-identical RGB
+    copy with an identity transform. An image with transparency (an alpha channel, or a palette
+    with transparency) raises ``ValueError``: flatten it onto an explicit background first,
+    since the RGB it hides is arbitrary. The input is not modified.
+
+    The result carries no metadata from ``image`` on any path (no ICC profile, EXIF or text in
+    ``.info``), so saving it as PNG writes none of the chunks the image-file contract in
+    ``docs/fixtures.md`` forbids. Because that drops the EXIF tag, an image whose EXIF
+    orientation is not 1 raises ``ValueError`` (as :func:`image_asset` does): rotate the pixels
+    first with ``ImageOps.exif_transpose``.
+    """
+    min_side, max_side = _positive_int(min_side, "min_side"), _positive_int(max_side, "max_side")
+    if min_side > max_side:
+        raise ValueError("min_side must not exceed max_side")
+    fill = _pad_color(pad_color)
+    if image.mode not in _PREPARABLE_MODES or "transparency" in image.info:
+        raise ValueError(
+            f"cannot prepare a {image.mode!r} image with transparency or an unusual pixel mode; "
+            "flatten it onto an explicit background and convert it to RGB first"
+        )
+    try:
+        orientation = image.getexif().get(274, 1)  # the rebuild below drops EXIF and this evidence
+    except (struct.error, SyntaxError, OSError) as exc:
+        raise ValueError("the image's EXIF data is damaged; remove it before preparing") from exc
+    if orientation != 1:
+        raise ValueError(_ORIENTATION_MESSAGE)
+    width, height = image.size
+    _positive_int(width, "image width")
+    _positive_int(height, "image height")
+    longest, shortest = max(width, height), min(width, height)
+    numerator = denominator = 1
+    if longest > max_side:
+        numerator, denominator = max_side, longest
+    elif upscale and shortest < min_side:
+        # Grow until the short side reaches min_side, unless the long side would pass max_side.
+        if longest * min_side <= max_side * shortest:
+            numerator, denominator = min_side, shortest
+        else:
+            numerator, denominator = max_side, longest
+
+    def scaled(length: int) -> int:
+        rounded = (2 * length * numerator + denominator) // (2 * denominator)
+        return min(max_side, max(1, rounded))
+
+    content = (scaled(width), scaled(height))
+    size = (max(content[0], min_side), max(content[1], min_side))
+    left, top = (size[0] - content[0]) // 2, (size[1] - content[1]) // 2
+    prepared = image.convert("RGB")
+    if content != (width, height):
+        prepared = prepared.resize(content, Image.Resampling.LANCZOS)
+    if size != content:
+        canvas = Image.new("RGB", size, fill)
+        canvas.paste(prepared, (left, top))
+        prepared = canvas
+    window = (
+        Fraction(left, size[0]),
+        Fraction(top, size[1]),
+        Fraction(left + content[0], size[0]),
+        Fraction(top + content[1], size[1]),
+    )
+    # convert() and resize() copy the source's .info (an ICC profile would become an iCCP chunk
+    # when saved); only the pad path starts from a fresh canvas. Rebuild from the pixel bytes so
+    # every path returns an image with no metadata.
+    prepared = Image.frombytes("RGB", prepared.size, prepared.tobytes())
+    return prepared, ImageTransform((width, height), size, _FULL, window)
 
 
 def draw_boxes(image: Image.Image, boxes: Mapping[str, Any]) -> Image.Image:
