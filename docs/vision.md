@@ -113,8 +113,10 @@ Other fractional edges retain the outward rounding rule.
 
 `expand_box(box, fraction)` adds that fraction of the original box's width or height
 to **each** side and clips to the image boundary. `crop_box(..., expand=fraction)`
-uses the same operation. Geometry does not resize crops to API limits; save and
-validate a prepared crop with `image_asset` before using it as a request asset.
+uses the same operation. Geometry does not resize crops to API limits: a crop under 280 pixels
+on a side is refused by `crop_box(..., min_side=280)` or padded by `prepare_image` (see
+[Preparing an image for the API](#preparing-an-image-for-the-api)), and a prepared crop is saved
+and validated with `image_asset` before it is used as a request asset.
 `draw_boxes` returns a separate RGB image with named pink rectangles, paper label
 backgrounds and ink text from the cookbook palette.
 
@@ -301,7 +303,8 @@ of pixels smaller than both tile dimensions. The last row/column anchors to the
 bottom/right edge, which can increase overlap; there are no uncovered gaps or
 partial sliver tiles. A source smaller than a requested tile keeps its full extent, so a
 tile (or a source) under 280 pixels on a side must be scaled up or padded before
-`image_asset` accepts it. The tile count is computed before any tile is cropped and
+`image_asset` accepts it: pass `min_side=280` to refuse such tiles up front (see
+[Minimum size for tiles and crops](#minimum-size-for-tiles-and-crops)). The tile count is computed before any tile is cropped and
 `max_tiles` (default 256) bounds it: the count grows with the inverse square of the
 stride (tile size minus overlap), so an overlap near the tile size makes it explode, and a
 configuration above the cap raises `ValueError`. Each tile is usually one API call, so
@@ -310,7 +313,190 @@ configuration above the cap raises `ValueError`. Each tile is usually one API ca
 `tile_to_image` applies an affine transform using the actual pixel bounds, so a
 rectangle found inside a tile maps back to the whole image. It also handles an
 entire tile resized before inference, provided coordinates still describe that
-tile's full extent. Padding or further cropping requires its own transform.
+tile's full extent. It knows nothing about padding or a second crop: for those, and for the
+opposite direction, use the `ImageTransform` helpers below.
+
+### Minimum size for tiles and crops
+
+The API rejects an image with a side under 280 pixels, and rejects it only after the request is
+sent. `generate_tiles` and `crop_box` take `min_side=` to refuse such a tile or crop first:
+
+```python
+from PIL import Image
+
+from jev_cookbook.vision import IMAGE_LIMITS, generate_tiles
+
+image = Image.new("RGB", (1000, 800))
+tiles = generate_tiles(image, tile_size=(320, 280), min_side=IMAGE_LIMITS["min_side"])  # fine
+# generate_tiles(image, tile_size=(320, 200), min_side=280)  -> ValueError, before any crop
+# crop_box(image, small_box, min_side=280)                   -> ValueError for a crop under 280
+```
+
+`ValueError` names the size and points at `prepare_image`. The check is on the finished tile or
+crop (after `expand`), a side of exactly 280 passes, and it runs before anything is cropped.
+`min_side` defaults to `None`, which checks nothing, because the geometry functions are also used
+on tiny synthetic images in tests; **a recipe that sends tiles or crops to Jev passes
+`min_side=IMAGE_LIMITS["min_side"]` or runs each through `prepare_image`.** Refusing is the right
+choice for tiles (a tile size under 280 is a configuration mistake). A crop around a found region
+is often legitimately small, so pad or scale it instead.
+
+### Preparing an image for the API
+
+`prepare_image(image, *, min_side=280, max_side=1568, pad_color=(128, 128, 128), upscale=False)`
+returns `(prepared, transform)`: a new RGB image with both sides between `min_side` and
+`max_side` (so its area is inside 78,400 to 2,458,624 as well), and the transform that maps
+boxes between `prepared` and the image you passed in. The [Images
+documentation](https://docs.typesafe.ai/images) asks for this: scale the image so its longest
+side is at most 1568, and scale up or pad an image smaller than the minimum. In order:
+
+1. A longest side over `max_side` is scaled down to `max_side`, keeping the aspect ratio.
+2. With `upscale=True` only, an image with a side under `min_side` that was not scaled down is
+   scaled up (aspect ratio kept) until its shorter side is `min_side`, but not past `max_side`
+   on the long side. The default never scales up, so no pixel is invented and the padded image
+   holds the original pixels unchanged.
+3. A side still under `min_side` is padded with `pad_color` (a gray level 0 to 255 or an `(r, g,
+   b)` tuple), the content centered, an odd leftover pixel going to the right or bottom.
+
+Scaled sizes are the exact ratio rounded half up (1000 × 1568 / 1601 = 979.39, so 979),
+resampling is Lanczos, and nothing is cropped:
+
+| Image | `prepare_image` result | Content inside it |
+| --- | --- | --- |
+| 400 × 300 | 400 × 300, a pixel-identical copy | the whole image |
+| 300 × 200 | 300 × 280 | rows 40 to 240 |
+| 200 × 100 | 280 × 280 | columns 40 to 240, rows 90 to 190 |
+| 201 × 100 | 280 × 280 | columns 39 to 240 (79 pad pixels: 39 left, 40 right) |
+| 1601 × 1000 | 1568 × 979 | the whole image, scaled |
+| 4000 × 100 | 1568 × 280 | rows 120 to 159 (scaled to 1568 × 39, then padded) |
+| 200 × 100, `upscale=True` | 560 × 280 | the whole image, scaled ×2.8 |
+
+The mid-gray default is a neutral choice that has not been measured against Jev; pass `pad_color`
+to use another, and keep it the same across a recipe's images. An image with transparency raises
+`ValueError`: flatten it onto an explicit background first, since the colors under a transparent
+pixel are arbitrary. The input image is not modified.
+
+`prepare_image` does not certify the result for the API: save the prepared image and load it with
+`image_asset`, which re-checks format, size and the file limit.
+
+### Mapping boxes between an image and what you sent
+
+A box that Jev returns is relative to the image it was shown. `ImageTransform` carries it back
+(and carries a gold label forward). Every step that changes the image makes one, and they chain:
+
+| Step | Transform |
+| --- | --- |
+| a tile from `generate_tiles` | `ImageTransform.crop(tile.bounds, *image.size)` |
+| a crop around a region | `ImageTransform.crop(crop_bounds(box, *image.size, expand=...), *image.size)` |
+| `prepare_image(image)` | the second value it returns |
+| several steps, outermost first | `first.then(second).then(third)` |
+
+```python
+transform.to_original(box)  # a box on the derived image -> the original, or None
+transform.to_derived(box)  # a box on the original -> the derived image, or None
+transform.visible_fraction(box)  # share of an original box's area the derived image shows
+```
+
+- The *original* is the image you started from and the *derived* image is the one you sent.
+  `chain = tile_step.then(crop_step).then(prepared_step)` maps between the full image and the
+  prepared crop in one call, for any number of levels. `then` raises `ValueError` if the sizes
+  do not line up (the second step must start from the first step's result) or if the second
+  step only shows padding.
+- Results are clipped. A derived box that reaches into padding comes back clipped to the content;
+  one wholly in padding returns `None`. A full-image box a tile edge cuts is clipped to the tile,
+  and one with no area inside it, including one that only touches the edge, returns `None`.
+  A box found partly in padding is worth a look, not a result to trust blindly.
+- `image_to_tile(box, tile_bounds, width, height)` is `tile_to_image`'s inverse (a single crop
+  step): the tile-local, clipped box, or `None` when the box misses the tile. Use it to label the
+  gold box per tile when evaluating tile selection, as a stage diagnostic (see "Tiled and
+  hierarchical recipes" above); the per-image gold stays the full-image label.
+  `visible_fraction` applies the minimum-visible-fraction rule that a per-tile report must state.
+- Mapping is exact. Edges are held as exact fractions and rounded to a float once at the end,
+  so a box found two or three levels down is the true full-image position, not a sum of one
+  rounding error per level. A normalized edge that is the float nearest `k / width` is read as
+  pixel `k`, so a box built from pixel coordinates that ends exactly on a tile edge returns
+  `None` for the next tile rather than a sliver about 1e-17 wide.
+- A mapped box too small to be a float rectangle raises `ValueError`, never a collapsed box.
+
+### Worked example: tile, choose, crop, prepare, Box, map back
+
+The example generates its own synthetic page, so it runs offline. The two model answers (which
+tile, and where the target is) are written in the code where a recipe would call Jev; the
+target's location is then read from pixels so that the arithmetic can be checked.
+
+```python
+from PIL import Image
+
+from jev_cookbook.vision import (
+    IMAGE_LIMITS,
+    ImageTransform,
+    box_iou,
+    crop_bounds,
+    crop_box,
+    generate_tiles,
+    image_to_tile,
+    normalized_to_pixels,
+    prepare_image,
+)
+
+MIN = IMAGE_LIMITS["min_side"]
+
+# A synthetic 1200 x 900 page with a 120 x 60 blue target at pixels x 840-960, y 330-390.
+page = Image.new("RGB", (1200, 900), "white")
+page.paste((0, 0, 255), (840, 330, 960, 390))
+gold = {"left": 840 / 1200, "top": 330 / 900, "right": 960 / 1200, "bottom": 390 / 900}
+
+# 1. Tile: four 600 x 450 tiles, none under the 280 pixel minimum.
+tiles = generate_tiles(page, tile_size=(600, 450), min_side=MIN)
+print(len(tiles), "tiles of", tiles[0].image.size)
+
+# 2. Choose: a Choice question would pick the tile. Gold labels for tile selection come from
+#    the inverse mapping: which tiles hold the target?
+holding = [i for i, t in enumerate(tiles) if image_to_tile(gold, t.bounds, *page.size)]
+print("tiles holding the target:", holding)
+chosen = tiles[1]  # the recorded Choice answer for this example
+
+# 3. Crop: a first Box question over the tile returned this region (written in here). It is
+#    200 x 120 pixels, so crop_box with min_side refuses it ...
+region = {"left": 200 / 600, "top": 300 / 450, "right": 400 / 600, "bottom": 420 / 450}
+try:
+    crop_box(chosen.image, region, min_side=MIN)
+except ValueError as error:
+    print(error)
+
+# ... and prepare_image pads the crop to 280 x 280.
+bounds = crop_bounds(region, *chosen.image.size)
+crop = chosen.image.crop(bounds)
+prepared, step_3 = prepare_image(crop)
+print(bounds, crop.size, prepared.size)
+
+# 4. Box: ask the Box question on `prepared`. Here the answer is read from the pixels instead.
+mask = prepared.getchannel("R").point(lambda value: 255 if value < 50 else 0)
+left, top, right, bottom = mask.getbbox()
+answer = {"left": left / 280, "top": top / 280, "right": right / 280, "bottom": bottom / 280}
+
+# 5. Map back through every level at once: tile, then crop, then prepare.
+chain = (
+    ImageTransform.crop(chosen.bounds, *page.size)
+    .then(ImageTransform.crop(bounds, *chosen.image.size))
+    .then(step_3)
+)
+found = chain.to_original(answer)
+print(normalized_to_pixels(found, *page.size), found == gold)
+assert box_iou(found, gold) == 1.0
+```
+
+```text
+4 tiles of (600, 450)
+tiles holding the target: [1]
+crop would be 200 x 120 pixels, under min_side=280 on a side; the API rejects such an image. Pad or scale it up with prepare_image, or use a larger region
+(200, 300, 400, 420) (200, 120) (280, 280)
+(840, 330, 960, 390) True
+```
+
+`tests/test_vision.py` runs this example and compares the printed text. The box in the padded
+crop is pixels 80-200 by 110-170; the three steps add the padding offset (40, 80), the crop
+origin (200, 300) and the tile origin (600, 0), and divide by the page size, which is what
+`found == gold` checks to the last bit.
 
 ## Explicitly timestamped still frames
 
