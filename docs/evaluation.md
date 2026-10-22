@@ -38,9 +38,12 @@ out-of-range probabilities and invalid settings. No metric returns a number for 
 so an unused label does not lower the mean. Within a present class, an undefined precision or
 recall counts as 0.0.
 
-**Ties in rankings** are resolved in expectation: tied items share the average gain (nDCG,
-recall at a budget) or the fraction of the tied group that fits (top-k, `top_k_query_accuracy`'s
-hit probability). Results never depend on input order.
+**Ties in rankings** are resolved in expectation over the orderings consistent with the scores:
+tied items share the average gain (nDCG, recall at a budget); `top_k_accuracy` gives the gold
+option the fraction of its tied group that fits in the top `k`; `top_k_query_accuracy` gives the
+probability that a uniformly random tie-break puts at least one relevant item in the slots left
+open (four tied items, two relevant, `k=2`: `5/6`, not the `2/4` fraction that fits). Results
+never depend on input order.
 
 **Randomness** takes a required `seed` and uses `numpy.random.default_rng(seed)`.
 
@@ -247,6 +250,41 @@ probability distribution; `top_k_query_accuracy(queries, k)` asks, for each of s
 lists, whether any gold-relevant item is among the `k` top-scored items of that list. The two
 names stay separate because the existing `top_k_accuracy` signature is frozen (its callers
 already rely on it); do not confuse the two from the name alone.
+
+**What `top_k_query_accuracy` does in the cases a ranking metric has to decide**
+(each is a test in `tests/test_evaluation.py`):
+
+| Case | Result |
+| --- | --- |
+| **Ties** | Ranked by score, descending; the order items are listed in never matters. A tie wholly inside the top `k` costs nothing. A tie that straddles the cut-off scores the chance that a uniformly random tie-break puts a relevant item in the open slots: `1 - C(g - r, s) / C(g, s)` for `g` tied items, `r` of them relevant and `s` open slots (`r / g` at `k=1`). Four items tied with two relevant: `1/2` at `k=1`, `5/6` at `k=2`, `1.0` at `k=3` |
+| **`k` larger than the list** | The whole list: any query with a relevant item is a hit (`1.0`) |
+| **Several relevant items** | Interchangeable. The query is a hit if any one is in the top `k`, worth `1` however many are (not a share, which is what `recall_at_budget` reports) |
+| **Duplicate gold** | There is no gold id to repeat: relevance is a `1` per item in `gold_relevant`, so two items marked `1` are two relevant items. Graded relevance (anything but `0`/`1`/booleans) raises |
+| **A query with no relevant item** | Undefined: left out of the mean, in the numerator and the denominator. If no query has one the result is NaN |
+| **Empty input** | `ValueError`: no queries, a query with no items, or `k < 1` |
+| **A rule that excludes candidates before ranking** | **Not expressible: there is no `eligible` argument.** The helper ranks every item it is given, so a relevant item the rule excluded counts as a hit the rule's own pick can never produce. Dropping the excluded items before the call is not a fix either (below) |
+
+**`top_k_query_accuracy` cannot score a rule that excludes candidates before ranking.** It has no
+`eligible` argument (the one `recall_at_budget` has, below), so the mandatory rule below does not
+make it safe: the same trap as #231, in binary form. Take a query whose relevant item scores
+highest but is excluded by a gate, so the rule's own pick is a different, irrelevant item. The
+helper answers `1.0` (the top item is relevant) where the rule's pick gives `0.0`, a hit the rule
+can never produce. Filtering the excluded items out before the call changes the question instead of
+fixing it: the query now has no relevant item, so it is undefined and silently leaves the
+denominator. With that query and one ordinary hit, the rule's own composition scores `0.5`; the
+helper on the full lists scores `1.0`; the helper on the pre-filtered lists scores `1.0` over one
+query. What to do instead: when every query has exactly one relevant item,
+`mean_recall_at_budget(queries, k)` with each query's `eligible` mask is exactly the top-`k`
+accuracy of the rule's pick (a relevant item that is ineligible scores `0.0`, not undefined). With
+several relevant items per query no shared helper expresses it: compute the metric from the item or
+items the rule actually picked, assert it on every committed example, and report both the number of
+queries and how many the gate excluded. A recipe must never hand gated lists to
+`top_k_query_accuracy` and report the result.
+
+The result is a plain mean, so it does not say how many queries it averaged or how many were left
+out for having no relevant item. Report that count next to the number (it is
+`len(queries)` minus the queries whose `gold_relevant` has no `1`), the same rule this guide gives
+for selective accuracy: say which denominator a reported accuracy has.
 
 **A rule that excludes candidates before ranking must pass `eligible`.** `recall_at_budget` fills
 its budget purely from the list it is given, so a candidate the rule excluded (a confidence gate,
