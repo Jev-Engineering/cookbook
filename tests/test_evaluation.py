@@ -1041,9 +1041,9 @@ def test_noul_confidence_gate_is_a_two_sided_band_and_its_effect_depends_on_the_
     # equivalent to a stricter threshold, is a fact about one composition, not about (t, g):
     # the same t and g below change 0 outcomes in one wiring and 199 in another.
     g, t = 0.5, 0.8
-    grid = [
-        i / 400 for i in range(401)
-    ]  # 0.0025 steps; no grid point sits within an ULP of an edge
+    # 0.0025 steps; the edges 0.25 and 0.75 are grid points, and |2n - 1| = 0.5 is exact there in
+    # binary, so the exact comparison below is safe (arbitrary edges are not: see the next tests)
+    grid = [i / 400 for i in range(401)]
     for n in grid:
         in_band = (1 - g) / 2 < n < (1 + g) / 2
         assert (ev.noul_confidence([n])[0] >= g) == (not in_band), n
@@ -1087,6 +1087,26 @@ def test_accept_side_gate_inertness_needs_t_above_one_half():
     withheld = [p for p in grid if p >= t and ev.noul_confidence([p])[0] < g]
     assert min(withheld) < 0.5 < max(withheld)
     assert all(t <= p <= (1 + g) / 2 for p in withheld)
+
+
+def test_accept_side_floor_at_exactly_two_t_minus_one_holds_only_in_real_arithmetic():
+    # The floor g <= 2t - 1 is exact in real arithmetic. A gate typed as the decimal 2t - 1 sits ON
+    # the edge, where binary floating point can put the admitted value p = t one ULP below it.
+    # Hand-computed: 2 * max(0.6, 0.4) - 1 = 0.19999999999999996 (< 0.2), so at t = 0.6, g = 0.2
+    # the "inert" gate withholds p = 0.6, which the threshold admits.
+    assert ev.noul_confidence([0.6])[0] == 0.19999999999999996 < 0.2
+    # Recipe 39's frozen pair (t = 0.85, g = 0.70) is the case that happens to be exact.
+    assert ev.noul_confidence([0.85])[0] == 0.7 >= 0.70
+    # Exhaustive over the two-decimal thresholds 0.51 ... 0.99 with g = round(2t - 1, 2): the gate
+    # withholds p = t for exactly these 16.
+    ts = [i / 100 for i in range(51, 100)]
+    on_edge = [t for t in ts if ev.noul_confidence([t])[0] < round(2 * t - 1, 2)]
+    assert len(on_edge) == 16 and 0.6 in on_edge and 0.85 not in on_edge
+    # Clear of the edge the floor holds with no exception: g = 2t - 1 - 1e-9 withholds no p >= t.
+    grid = [i / 400 for i in range(401)]
+    for t in ts:
+        g = 2 * t - 1 - 1e-9
+        assert all(ev.noul_confidence([p])[0] >= g for p in grid if p >= t), t
 
 
 def test_select_confidence_threshold_errors():

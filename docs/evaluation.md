@@ -692,10 +692,12 @@ are a cookbook convention, not that one.)
 **A Noul confidence gate is a two-sided band, and what it changes depends on your composition.**
 Because `noul_confidence(p) = |2p - 1|` is symmetric about `0.5`, a gate `g` passes exactly when
 `p >= (1 + g) / 2` (confidently true) or `p <= (1 - g) / 2` (confidently false), and the item goes
-to review exactly when `(1 - g) / 2 < p < (1 + g) / 2`. That statement is exact and holds for
-every Noul rule; it is specific to `Noul`, because a `Choice` confidence is the top probability
-rescaled by the option count and has no such closed form. Two things look like consequences and
-are not:
+to review exactly when `(1 - g) / 2 < p < (1 + g) / 2`. That statement is exact in real
+arithmetic and holds for every Noul rule; it is specific to `Noul`, because a `Choice` confidence
+is the top probability rescaled by the option count and has no such closed form. In floating point
+a value sitting *on* an edge can land either side of it, by a few ULPs (see "At an edge" below), so
+a gate typed to equal an edge exactly is the one place the algebra and the arithmetic can
+disagree. Two things look like consequences and are not:
 
 * **"The gate is inert" and "the gate is just a stricter business threshold" are not facts about
   `t` and `g`.** They are facts about one rule's composition. Gating both branches, gating only
@@ -711,7 +713,17 @@ are not:
   so the gate withholds it, and for `t < 0.5` an accept-only gate withholds the whole interval of
   admitted `p` around `0.5`, not a lower tail (`tests/test_evaluation.py` pins this
   counterexample). Mirror the statement for a rule that gates only rejection with `t < 0.5`. All
-  of this is about that wiring and that side only. Never write "the gate cannot act" without
+  of this is about that wiring and that side only. **At an edge it is true only in real
+  arithmetic.** Setting the gate to exactly `2t - 1`, typed as a decimal, can withhold `p = t`
+  itself: at `t = 0.6, g = 0.2` the value `noul_confidence([0.6])` is
+  `0.19999999999999996`, one ULP under `0.2`, so the "inert" gate withholds the one admitted
+  value at the threshold (16 of the 49 two-decimal thresholds `0.51 ... 0.99` do this with
+  `g = round(2t - 1, 2)`; `tests/test_evaluation.py` pins `0.6` and the count). Recipe 39's
+  `t = 0.85, g = 0.70` is the case that happens to be exact (`noul_confidence([0.85])` is
+  `0.7`), which is why its gate changed nothing. So a gate within a few ULPs of `2t - 1` is
+  neither "inert" nor "not inert" by the algebra: measure it (below), or move it clear of the
+  edge. A gate frozen by `select_confidence_threshold` is an observed confidence, so it meets
+  this only when some validation item sits at the edge. Never write "the gate cannot act" without
   saying on which side, and never write it at all before measuring.
 * **Choosing `g` above `|2t - 1|` is not adding an independent control** in a rule that gates only
   acceptance: it silently chooses a stricter threshold. The gate's one distinct function on the
