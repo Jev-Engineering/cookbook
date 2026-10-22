@@ -36,9 +36,11 @@ check id                              rule -> detection
 ``stored_answers_strong_form``        G1(c): ``test_stored_answers_are_not_all_right``
                                        re-derives the frozen threshold (preferring the
                                        confidence gate over a plain business threshold when
-                                       a recipe has both) and binds an ``assert`` to a
-                                       wrong-answer-at-or-above-it comparison, not merely
-                                       "some wrong answer somewhere".
+                                       a recipe has both), written out or through a function
+                                       of the recipe's own ``helpers.py`` that reaches the
+                                       shared selection function (#222), and binds an
+                                       ``assert`` to a wrong-answer-at-or-above-it comparison,
+                                       not merely "some wrong answer somewhere".
 ``validation_lines_carry_selection_and_check``
                                        G1(d) clause 1, CONTRIBUTING.md section 2: a printed
                                        validation metric line carries both ``{selection}``
@@ -65,9 +67,26 @@ check id                              rule -> detection
                                        where it exists; traced through the confidence-gated
                                        reason string where it does not, less one named
                                        domain exemption (recipe 16's ``ESCALATE``).
-``review_reason_string``              docs/glossary.md#review: the exact reason string
-                                       ``"confidence below the threshold"`` appears in
-                                       ``helpers.py``.
+``review_reason_string``              docs/glossary.md#review: where ``helpers.py`` produces
+                                       the confidence-gated review's reason in executable
+                                       code, it is exactly ``"confidence below the
+                                       threshold"`` on a branch a confidence comparison
+                                       controls (#227), that branch is reachable from the
+                                       notebook, and a committed output shows a review the
+                                       rule produced. Not a comment, an unused constant or a
+                                       literal-only ``print``. A recipe with no such branch
+                                       fails unless it is a named gate-free design
+                                       (``GATE_FREE_DESIGNS``), which is not applicable.
+``confidence_gate_from_shared_helper``
+                                       #282: a recipe whose executable code gates on
+                                       confidence freezes the gate through a used call to
+                                       ``select_confidence_threshold`` imported from
+                                       ``jev_cookbook.evaluation``, in the notebook or a
+                                       ``helpers.py`` wrapper; a constant, a look-alike, a
+                                       module-attribute call or an unread result fails. A
+                                       recipe that gates on nothing passes. This is what
+                                       makes the "no resolvable call" skips of the checks
+                                       above mean "no gate".
 ``readme_sources_match_catalog``      tests/test_recipe_sources.py's own rule, reused here
                                        so the guard reports it as one of these checks too.
 ``readme_budget_note_matches_stored_answers``
@@ -212,6 +231,20 @@ Scope decisions (see the pull request body for the full reasoning):
   gold-coverage-per-proposition is the #283 battery property, and a single proposition's
   ``labels.jsonl`` entry in this cookbook is often a bare boolean with no proposition key at
   all (recipes 02, 10, 15), which this check does not attempt to read.
+* ``review_reason_string`` (#227) and ``confidence_gate_from_shared_helper`` (#282) read the same
+  analysis of ``helpers.py`` and the notebook's code cells, by AST: where a confidence is
+  compared with a bound (a gate), where the confidence-gated review's reason is produced by
+  executable code, and whether a comparison controls that branch. The glossary's rule is
+  conditional (it words a confidence-gated review; it does not require one), so a recipe with
+  no gate is not applicable and a recipe may not satisfy the check by a comment. Two closed,
+  named lists record what the published set looked like when this landed, in the style of
+  ``NAMED_DOMAIN_OUTCOME_EXEMPTIONS``: ``GATE_FREE_DESIGNS`` (recipe 28, by design) and
+  ``REASON_NOT_IN_COMMITTED_OUTPUT`` (eight recipes whose live gate no committed output shows
+  producing a review: an open finding, not a justification). Both are strict, so a stale entry
+  fails. A recipe pull request cannot edit this file, so neither list grows from a recipe.
+  The checks that skip on "no resolvable ``select_confidence_threshold(`` call"
+  (``threshold_objective_pin`` and ``stored_answers_strong_form``) are unchanged: ``confidence_gate_from_shared_helper`` is what makes the
+  skip mean "no gate" rather than "a gate the finder cannot see".
 """
 
 from __future__ import annotations
@@ -493,20 +526,163 @@ PLAIN_THRESHOLD_ASSIGN = re.compile(r"(\w+)\s*=\s*select_threshold\(")
 
 
 def _find_function_body(source: str, def_line: str) -> str | None:
-    """``source`` from ``def_line`` to the next top-level ``def``/``class``, or EOF. ``None`` if
-    ``def_line`` is not in ``source``."""
+    """``source`` from ``def_line`` to the next top-level decorator, ``def`` or ``class``, or EOF.
+    ``None`` if ``def_line`` is not in ``source``.
+
+    The scan stops at a decorator as well as a definition (#272): a decorator line is neither
+    ``def `` nor ``class ``, so a decorated neighbour (``@pytest.mark.parametrize`` on the very
+    next test function, the common case here) used to be folded into the extracted body, and
+    ``ast.parse`` of the result then raised a ``SyntaxError`` about a line the recipe's author
+    never wrote, in a function this check does not audit. Only a decorator at column zero ends
+    the scan: an indented ``@`` (a nested function's or a class body's own decorator, inside the
+    audited body) is part of the body and must not cut it short. Like the ``def``/``class``
+    stop, this is a text scan: a column-zero ``@``/``def ``/``class `` inside a multi-line
+    string literal in the audited function would also end it."""
     idx = source.find(def_line)
     if idx == -1:
         return None
     rest = source[idx:]
     body = rest[len(def_line) :]
-    next_def = re.search(r"\n(?:def |class )", body)
+    next_def = re.search(r"\n(?:@|def |class )", body)
     return def_line + (body[: next_def.start()] if next_def else body)
 
 
-def _derives_threshold_name(body: str) -> str | None:
-    match = CONFIDENCE_GATE_ASSIGN.search(body) or PLAIN_THRESHOLD_ASSIGN.search(body)
-    return match.group(1) if match else None
+def _shared_selector_imports(trees: list[ast.AST]) -> dict[str, str]:
+    """``{local name: real name}`` for ``select_confidence_threshold``/``select_threshold``
+    imported from ``jev_cookbook.evaluation`` (the shared helper), across ``trees``, less any
+    local name those trees also define or rebind themselves: a recipe's own
+    ``def select_confidence_threshold(...)`` that returns a constant is a look-alike, not the
+    shared helper, and must not be credited as one (#282). ``from jev_cookbook.evaluation
+    import select_confidence_threshold as pick`` is credited under ``pick``."""
+    imported: dict[str, str] = {}
+    rebound: set[str] = set()
+    for tree in trees:
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.ImportFrom)
+                and node.module == "jev_cookbook.evaluation"
+                and node.level == 0
+            ):
+                for alias in node.names:
+                    if alias.name in THRESHOLD_OBJECTIVE_SPELLINGS:
+                        imported[alias.asname or alias.name] = alias.name
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                rebound.add(node.name)
+            elif isinstance(node, ast.Assign):
+                for target in node.targets:
+                    rebound |= {n.id for n in ast.walk(target) if isinstance(n, ast.Name)}
+    return {local: real for local, real in imported.items() if local not in rebound}
+
+
+def _threshold_selecting_helpers(helpers_path: Path) -> dict[str, frozenset[str]]:
+    """``{function name: the shared threshold functions it reaches}`` for every function in a
+    recipe's own ``helpers.py`` that selects a threshold, directly (a call to
+    ``select_confidence_threshold``/``select_threshold`` imported from the shared helper) or
+    through another function of the same module that does (a wrapper around a wrapper). Name-
+    based and call-graph only: a function that merely returns a number, or that happens to share
+    a name with one that selects, is not in the result unless it really reaches the shared call.
+    An unreadable or unparseable ``helpers.py`` has none."""
+    try:
+        tree = ast.parse(helpers_path.read_text("utf-8"))
+    except (OSError, SyntaxError):
+        return {}
+    selectors = _shared_selector_imports([tree])
+    defs: dict[str, list[ast.AST]] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            defs.setdefault(node.name, []).append(node)
+    reached: dict[str, set[str]] = {name: set() for name in defs}
+    calls: dict[str, set[str]] = {name: set() for name in defs}
+    for name, nodes in defs.items():
+        for func in nodes:
+            for call in (n for n in ast.walk(func) if isinstance(n, ast.Call)):
+                if isinstance(call.func, ast.Name) and call.func.id in selectors:
+                    reached[name].add(selectors[call.func.id])
+                callee = _call_func_name(call)
+                if callee in defs and callee != name:
+                    calls[name].add(callee)
+    changed = True
+    while changed:
+        changed = False
+        for name, callees in calls.items():
+            for callee in callees:
+                if not reached[callee] <= reached[name]:
+                    reached[name] |= reached[callee]
+                    changed = True
+    return {name: frozenset(kinds) for name, kinds in reached.items() if kinds}
+
+
+def _load_helpers_aliases(*trees: ast.AST) -> set[str]:
+    """Names bound to ``load_helpers(...)`` anywhere in ``trees``: how a recipe's test module
+    names its own ``helpers.py`` (``helpers = load_helpers(RECIPE)``)."""
+    aliases: set[str] = set()
+    for tree in trees:
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Assign)
+                and isinstance(node.value, ast.Call)
+                and _call_func_name(node.value) == "load_helpers"
+            ):
+                aliases |= {t.id for t in node.targets if isinstance(t, ast.Name)}
+    return aliases
+
+
+def _assigned_from_helper_selector(
+    tree: ast.AST,
+    selectors: dict[str, frozenset[str]],
+    aliases: set[str],
+    real_name: str,
+) -> str | None:
+    """The name ``x`` in the first ``x = <alias>.<fn>(...)`` of ``tree`` (source order) where
+    ``<alias>`` is bound to this recipe's own ``load_helpers(...)`` and ``<fn>`` is a function of
+    that ``helpers.py`` that reaches ``real_name`` (``selectors``, from
+    ``_threshold_selecting_helpers``). The callee must be BOTH reached through the recipe's own
+    helpers module AND really select a threshold: an unrelated helper function, an attribute of
+    some other object, or a helper that only returns a number is not a re-derivation."""
+    found: list[tuple[int, str]] = []
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and isinstance(node.value, ast.Call)
+            and isinstance(node.value.func, ast.Attribute)
+            and isinstance(node.value.func.value, ast.Name)
+            and node.value.func.value.id in aliases
+            and real_name in selectors.get(node.value.func.attr, frozenset())
+        ):
+            found.append((node.lineno, node.targets[0].id))
+    return min(found)[1] if found else None
+
+
+def _derives_threshold_name(
+    body: str,
+    tree: ast.AST | None = None,
+    selectors: dict[str, frozenset[str]] | None = None,
+    aliases: set[str] | None = None,
+) -> str | None:
+    """The name the strong-form test binds its re-derived threshold to: ``x =
+    select_confidence_threshold(...)``, else ``x = <helpers>.<fn>(...)`` where ``<fn>`` is a
+    function of this recipe's own ``helpers.py`` that reaches ``select_confidence_threshold``
+    (#222 gap 2: correct factoring behind a named wrapper is not punished, and a test that
+    wants a fully independent re-derivation can still write the call out), else the same two
+    shapes for ``select_threshold``. The confidence gate is preferred over a plain business
+    threshold when both are present, whichever is written first."""
+    match = CONFIDENCE_GATE_ASSIGN.search(body)
+    if match:
+        return match.group(1)
+    if tree is not None and selectors:
+        via_helper = _assigned_from_helper_selector(
+            tree, selectors, aliases or set(), "select_confidence_threshold"
+        )
+        if via_helper:
+            return via_helper
+    match = PLAIN_THRESHOLD_ASSIGN.search(body)
+    if match:
+        return match.group(1)
+    if tree is not None and selectors:
+        return _assigned_from_helper_selector(tree, selectors, aliases or set(), "select_threshold")
+    return None
 
 
 def _ast_names(node: ast.AST) -> set[str]:
@@ -563,10 +739,21 @@ def _an_assert_depends_on(tree: ast.AST, names: set[str]) -> bool:
 @pytest.mark.parametrize("recipe", guarded_with_template("stored_answers_strong_form")())
 def test_stored_answers_are_not_all_right_is_the_strong_form(recipe):
     """G1(c): the strong form re-derives the frozen confidence threshold from ``validation``
-    (an assignment from ``select_confidence_threshold(`` or, lacking that, ``select_threshold(``)
+    (an assignment from ``select_confidence_threshold(`` or, lacking that, ``select_threshold(``;
+    in either case the call may be written out in the test or made through a function of the
+    recipe's own ``helpers.py`` that reaches it, ``gate = helpers.choose_gate(...)``, #222 gap 2)
     and binds an ``assert`` to a wrong-answer-at-or-above-it comparison -- not merely performs
     the comparison somewhere dead, and not merely asserts "some wrong answer exists" (the weak
     form, R7, which has no such assignment to find at all).
+
+    Accepting a call through ``helpers`` stops the check punishing correct factoring (a recipe
+    that names its objective once, in ``helpers.py``, no longer has to restate the call here
+    only to satisfy a text pattern) and leaves independence available by choice: a strong-form
+    test that must not agree with the production path by construction still writes the call out.
+    What the callee has to be is checked, not assumed: ``helpers`` must be bound to
+    ``load_helpers(...)`` in the test module, and the function must exist in that recipe's
+    ``helpers.py`` and reach the shared selection function through its own call graph.
+    The test module's name for this function is also load-bearing, and the failure says so.
 
     "Binds" is checked with ``ast``, not text: find every name whose value structurally depends
     on a ``>= <derived name>`` comparison (a list/generator comprehension's filter or element
@@ -593,25 +780,56 @@ def test_stored_answers_are_not_all_right_is_the_strong_form(recipe):
             "no real select_confidence_threshold(/select_threshold( call in this recipe's "
             "notebook or helpers.py: this recipe freezes no threshold for G1(c) to re-derive"
         )
-    tests_dir = recipe_dir(recipe) / "tests"
-    bodies = [
-        body
-        for test_file in sorted(tests_dir.glob("*.py"))
-        if (body := _find_function_body(test_file.read_text("utf-8"), STRONG_FORM_DEF)) is not None
-    ]
-    assert bodies, f"{recipe['slug']}: no {STRONG_FORM_DEF} in tests/"
-    body = bodies[0]
-    target = _derives_threshold_name(body)
-    assert target, (
-        f"{recipe['slug']}: does not re-derive the threshold "
-        "(no 'x = select_confidence_threshold(...)' or 'x = select_threshold(...)')"
-    )
-    tree = ast.parse(body)
+    failure = _strong_form_failure(recipe_dir(recipe), recipe["slug"])
+    assert failure is None, failure
+
+
+def _strong_form_failure(recipe_dir_: Path, slug: str) -> str | None:
+    """The whole G1(c) verdict for one recipe directory once the check applies: ``None`` when
+    it passes, else the message. Factored out of the parametrised test so the table and mutation
+    tests below run the SAME code path CI runs, on a throwaway recipe."""
+    tests_dir = recipe_dir_ / "tests"
+    found: list[tuple[str, str]] = []
+    for test_file in sorted(tests_dir.glob("*.py")):
+        text = test_file.read_text("utf-8")
+        if (body := _find_function_body(text, STRONG_FORM_DEF)) is not None:
+            found.append((text, body))
+    if not found:
+        return (
+            f"{slug}: no {STRONG_FORM_DEF} in tests/ -- the guard locates the strong-form test "
+            "by this name (a longer name that continues it, such as "
+            f"{STRONG_FORM_DEF}_above_the_frozen_gate, is found too), so the name is part of "
+            "the contract; a correctly shaped test under any other name is not seen"
+        )
+    text, body = found[0]
+    try:
+        tree = ast.parse(body)
+    except SyntaxError as error:
+        return (
+            f"{slug}: the extracted {STRONG_FORM_DEF} body does not parse ({error.msg} at "
+            f"line {error.lineno} of the extracted text). The guard cuts the function out of "
+            "its test file at the next column-zero decorator, def or class; check that the "
+            "function and the lines directly after it are plain Python"
+        )
+    try:
+        module_tree = ast.parse(text)
+    except SyntaxError:
+        module_tree = ast.parse("")
+    selectors = _threshold_selecting_helpers(recipe_dir_ / "helpers.py")
+    aliases = _load_helpers_aliases(module_tree, tree)
+    target = _derives_threshold_name(body, tree, selectors, aliases)
+    if not target:
+        return (
+            f"{slug}: does not re-derive the threshold (no 'x = select_confidence_threshold(...)' "
+            "or 'x = select_threshold(...)', and no 'x = helpers.<fn>(...)' where <fn> is a "
+            "function of this recipe's own helpers.py that calls one of them)"
+        )
     confirmed = _vars_bound_to_the_gte_comparison(tree, target)
-    assert confirmed, f"{recipe['slug']}: nothing is derived from a '>= {target}' comparison"
-    assert _an_assert_depends_on(tree, confirmed), (
-        f"{recipe['slug']}: no assert's own test expression names {sorted(confirmed)}"
-    )
+    if not confirmed:
+        return f"{slug}: nothing is derived from a '>= {target}' comparison"
+    if not _an_assert_depends_on(tree, confirmed):
+        return f"{slug}: no assert's own test expression names {sorted(confirmed)}"
+    return None
 
 
 def test_stored_answers_strong_form_skip_fires_only_when_no_threshold_is_frozen(tmp_path):
@@ -665,6 +883,360 @@ def test_stored_answers_strong_form_skip_fires_only_when_no_threshold_is_frozen(
     assert obligations == [], (
         f"expected no threshold obligations once the real call is gone, got {obligations}"
     )
+
+
+# --- fixtures for the tests that run a check on a throwaway recipe ------------------------------
+
+
+def _copy_recipe(tmp_path: Path, slug: str) -> Path:
+    """A throwaway copy of the published recipe (or ``_template``) ``slug``."""
+    target = tmp_path / slug
+    shutil.copytree(RECIPES_DIR / slug, target, ignore=shutil.ignore_patterns("__pycache__"))
+    return target
+
+
+def _edit_text(path: Path, old: str, new: str) -> None:
+    """Replace ``old`` with ``new`` in the file at ``path``; ``old`` must occur exactly once, so a
+    mutation that silently missed its target cannot pass for a mutation that was caught."""
+    text = path.read_text("utf-8")
+    assert text.count(old) == 1, (
+        f"{path.name}: expected exactly one {old!r}, found {text.count(old)}"
+    )
+    path.write_text(text.replace(old, new), "utf-8")
+
+
+def _edit_notebook_code(folder: Path, old: str, new: str) -> None:
+    """Like ``_edit_text`` for the notebook's code cells, as one text (``old`` occurs once)."""
+    path = folder / "notebook.ipynb"
+    notebook = json.loads(path.read_text("utf-8"))
+    hits = 0
+    for cell in notebook["cells"]:
+        if cell["cell_type"] == "code":
+            source = cell_source(cell)
+            hits += source.count(old)
+            cell["source"] = source.replace(old, new).splitlines(keepends=True)
+    assert hits == 1, f"notebook: expected exactly one {old!r}, found {hits}"
+    path.write_text(json.dumps(notebook), "utf-8")
+
+
+# --- #272: the function body stops at a column-zero decorator -----------------------------------
+
+# The scan before #272, kept here as the red-before evidence: a decorator line is neither of these.
+_LEGACY_NEXT_DEF = re.compile(r"\n(?:def |class )")
+
+_AUDITED = """
+def test_stored_answers_are_not_all_right():
+    gate = select_confidence_threshold(a, b, target_accuracy=1.0)
+    wrong = [e for e in test if e.confidence >= gate]
+    assert wrong
+"""
+
+
+@pytest.mark.parametrize(
+    "neighbour",
+    [
+        '@pytest.mark.parametrize("x", [1, 2])\ndef test_other(x):\n    assert x\n',
+        "@pytest.fixture\n@pytest.mark.slow\ndef thing():\n    return 1\n",
+        '@pytest.mark.parametrize(\n    "x",\n    [1, 2],\n)\ndef test_other(x):\n    assert x\n',
+        "class TestThing:\n    def test_a(self):\n        assert 1\n",
+        "def test_plain():\n    assert 1\n",
+        "",
+    ],
+    ids=["decorated", "two-decorators", "multi-line-decorator", "class", "plain-def", "eof"],
+)
+def test_the_function_body_stops_at_whatever_follows_it(neighbour):
+    """#272: the extracted body ends at the next column-zero decorator, def or class, so whatever
+    follows the audited function is never folded into it and ``ast.parse`` of the body is the
+    audited function alone."""
+    source = "import pytest\n" + _AUDITED + "\n\n" + neighbour
+    body = _find_function_body(source, STRONG_FORM_DEF)
+    assert body is not None
+    ast.parse(body)
+    assert body.rstrip().endswith("assert wrong")
+    if neighbour:
+        assert neighbour.splitlines()[0] not in body
+
+
+def test_the_legacy_scan_folded_a_decorated_neighbour_into_the_body():
+    """The red-before for #272, in the repository rather than in a pull request body: the scan this
+    module used before the fix, run on the same source, hands ``ast.parse`` a decorator with no
+    function under it and raises the ``SyntaxError`` the issue reproduces."""
+    source = (
+        "import pytest\n"
+        + _AUDITED
+        + '\n\n@pytest.mark.parametrize("x", [1, 2])\ndef t(x):\n    pass\n'
+    )
+    rest = source[source.find(STRONG_FORM_DEF) :]
+    legacy_body = rest[: _LEGACY_NEXT_DEF.search(rest).start()]
+    assert legacy_body.rstrip().endswith('@pytest.mark.parametrize("x", [1, 2])')
+    with pytest.raises(SyntaxError):
+        ast.parse(legacy_body)
+    ast.parse(_find_function_body(source, STRONG_FORM_DEF))
+
+
+def test_an_indented_decorator_inside_the_body_does_not_end_the_scan_early():
+    """#272's negative case: ``\\n@`` at column zero and an indented ``@`` are different things.
+    A nested function (or a class body) inside the audited function is decorated at its own
+    indentation, and the lines after it, including the assert the check is looking for, are
+    still the audited function's."""
+    source = (
+        "def test_stored_answers_are_not_all_right():\n"
+        "    gate = select_confidence_threshold(a, b, target_accuracy=1.0)\n"
+        "\n"
+        "    @staticmethod\n"
+        "    def nested(e):\n"
+        "        return e.confidence >= gate\n"
+        "\n"
+        "    wrong = [e for e in test if nested(e)]\n"
+        "    assert wrong\n"
+        "\n\n"
+        '@pytest.mark.parametrize("x", [1])\n'
+        "def test_other(x):\n"
+        "    pass\n"
+    )
+    body = _find_function_body(source, STRONG_FORM_DEF)
+    assert "@staticmethod" in body
+    assert body.rstrip().endswith("assert wrong")
+    assert "test_other" not in body
+    ast.parse(body)
+
+
+# --- #222 gap 2: the strong-form test may re-derive through a helpers function -------------------
+
+_STRONG_FORM_HELPERS = """
+from jev_cookbook.evaluation import select_confidence_threshold, select_threshold
+
+
+def choose_gate(correct, confidence):
+    return select_confidence_threshold(correct, confidence, min_coverage=0.5)
+
+
+def choose_gate_twice_removed(correct, confidence):
+    return choose_gate(correct, confidence)
+
+
+def choose_business(gold, noul):
+    return select_threshold(gold, noul, objective="f1")
+
+
+def fixed_gate(correct, confidence):
+    return 0.85
+"""
+
+_LOOK_ALIKE_HELPERS = """
+def select_confidence_threshold(correct, confidence, **kwargs):
+    return 0.85
+
+
+def choose_gate(correct, confidence):
+    return select_confidence_threshold(correct, confidence, min_coverage=0.5)
+"""
+
+_STRONG_FORM_TEST = """
+from types import SimpleNamespace
+
+import pytest
+from jev_cookbook import load_helpers
+from jev_cookbook.evaluation import select_confidence_threshold, select_threshold
+
+{binding}
+{extra}
+
+def {name}():
+{derive}
+    wrong_and_confident = [e for e in test if e.confidence >= {var} and not e.ok]
+    assert {assertion}
+{tail}
+"""
+
+_DECORATED_TAIL = """
+
+@pytest.mark.parametrize("x", [1, 2])
+def test_something_else(x):
+    assert x
+"""
+
+
+def _strong_form_recipe(
+    tmp_path: Path,
+    *,
+    derive: str,
+    var: str = "gate",
+    assertion: str = "wrong_and_confident",
+    helpers: str = _STRONG_FORM_HELPERS,
+    extra: str = "",
+    binding: str = "helpers = load_helpers(RECIPE)",
+    name: str = "test_stored_answers_are_not_all_right",
+    tail: str = "",
+) -> Path:
+    folder = tmp_path / "synthetic-recipe"
+    (folder / "tests").mkdir(parents=True)
+    (folder / "helpers.py").write_text(helpers, "utf-8")
+    (folder / "tests" / "test_helpers.py").write_text(
+        _STRONG_FORM_TEST.format(
+            derive=textwrap.indent(derive, "    "),
+            var=var,
+            assertion=assertion,
+            extra=extra,
+            binding=binding,
+            name=name,
+            tail=tail,
+        ),
+        "utf-8",
+    )
+    return folder
+
+
+_STRONG_FORM_CASES = {
+    # shapes that pass: the written-out call (unchanged), then a call through the recipe's helpers
+    "written-out": ("gate = select_confidence_threshold(c, f, target_accuracy=1.0)", {}, None),
+    "helpers-wrapper": ("gate = helpers.choose_gate(c, f)", {}, None),
+    "wrapper-of-a-wrapper": ("gate = helpers.choose_gate_twice_removed(c, f)", {}, None),
+    "business-wrapper": (
+        "threshold = helpers.choose_business(g, n)",
+        {"var": "threshold"},
+        None,
+    ),
+    "local-helpers-name": (
+        "h = load_helpers(RECIPE)\ngate = h.choose_gate(c, f)",
+        {},
+        None,
+    ),
+    "gate-preferred-over-business": (
+        "threshold = helpers.choose_business(g, n)\ngate = helpers.choose_gate(c, f)",
+        {},
+        None,
+    ),
+    "decorated-neighbour-after-it": (
+        "gate = helpers.choose_gate(c, f)",
+        {"tail": _DECORATED_TAIL},
+        None,
+    ),
+    "longer-name-is-found": (
+        "gate = helpers.choose_gate(c, f)",
+        {"name": "test_stored_answers_are_not_all_right_above_the_gate"},
+        None,
+    ),
+    # shapes that must still fail: the relaxation accepts a real selection, nothing else
+    "constant-from-helpers": (
+        "gate = helpers.fixed_gate(c, f)",
+        {},
+        "does not re-derive the threshold",
+    ),
+    "function-helpers-does-not-have": (
+        "gate = helpers.no_such_function(c, f)",
+        {},
+        "does not re-derive the threshold",
+    ),
+    "object-that-is-not-load-helpers": (
+        "gate = helpers.choose_gate(c, f)",
+        {"binding": "helpers = SimpleNamespace(choose_gate=lambda c, f: 0.85)"},
+        "does not re-derive the threshold",
+    ),
+    "same-function-on-another-object": (
+        "gate = other.choose_gate(c, f)",
+        {"extra": "other = SimpleNamespace(choose_gate=lambda c, f: 0.85)"},
+        "does not re-derive the threshold",
+    ),
+    "look-alike-in-helpers": (
+        "gate = helpers.choose_gate(c, f)",
+        {"helpers": _LOOK_ALIKE_HELPERS},
+        "does not re-derive the threshold",
+    ),
+    "business-compared-but-gate-derived": (
+        "threshold = helpers.choose_business(g, n)\ngate = helpers.choose_gate(c, f)",
+        {"var": "threshold"},
+        "nothing is derived from a '>= gate' comparison",
+    ),
+    "derived-name-never-compared": (
+        "gate = helpers.choose_gate(c, f)",
+        {"var": "something_else"},
+        "nothing is derived from a '>= gate' comparison",
+    ),
+    "compared-but-never-asserted": (
+        "gate = helpers.choose_gate(c, f)",
+        {"assertion": "True"},
+        "no assert's own test expression names",
+    ),
+    "wrong-name": (
+        "gate = helpers.choose_gate(c, f)",
+        {"name": "test_every_wrong_answer_is_caught"},
+        "the name is part of the contract",
+    ),
+}
+
+
+@pytest.mark.parametrize("case", sorted(_STRONG_FORM_CASES))
+def test_the_strong_form_accepts_a_call_into_helpers_only_when_it_really_selects(tmp_path, case):
+    """#222 gap 2: the check used to require ``x = select_confidence_threshold(`` written out in the
+    test, so a recipe that named its objective once in ``helpers.py`` (31, 35) had to restate the
+    call. A call into the recipe's own helpers is now accepted when it is made through the module
+    ``load_helpers`` returned AND the function exists there and reaches the shared selection
+    function. Every row that must still fail names why."""
+    derive, kwargs, expected = _STRONG_FORM_CASES[case]
+    folder = _strong_form_recipe(tmp_path, derive=derive, **kwargs)
+    failure = _strong_form_failure(folder, "synthetic")
+    if expected is None:
+        assert failure is None, failure
+    else:
+        assert failure is not None and expected in failure, failure
+
+
+def test_the_old_patterns_find_nothing_in_a_helpers_derivation():
+    """Red-before for #222 gap 2: the two regexes the check relied on match neither shape the
+    relaxation accepts, so on the previous code every ``helpers-wrapper`` row above failed with
+    "does not re-derive the threshold"."""
+    for line in (
+        "gate = helpers.choose_gate(c, f)",
+        "gate = helpers.choose_gate_twice_removed(c, f)",
+    ):
+        assert CONFIDENCE_GATE_ASSIGN.search(line) is None
+        assert PLAIN_THRESHOLD_ASSIGN.search(line) is None
+
+
+def test_recipe_31s_strong_form_passes_with_its_gate_derived_through_helpers(tmp_path):
+    """The published recipe the issue's second comment is about: 31's strong-form test restates
+    ``select_confidence_threshold(...)`` inline only because the guard demanded the text. Replace
+    that call with the ``helpers.choose_gate`` wrapper the notebook already uses and the check
+    still passes -- and the previous patterns find no derivation in the result, so on the
+    previous code this same mutation failed."""
+    folder = _copy_recipe(tmp_path, "31-patch-risk-triage")
+    test_file = folder / "tests" / "test_helpers.py"
+    assert _strong_form_failure(folder, "31") is None
+    _edit_text(
+        test_file,
+        "    gate = select_confidence_threshold(\n"
+        "        val_correct, val_confidence, min_coverage=helpers.MIN_COVERAGE\n"
+        "    )\n",
+        "    gate = helpers.choose_gate(val_correct, val_confidence)\n",
+    )
+    assert _strong_form_failure(folder, "31") is None
+    body = _find_function_body(test_file.read_text("utf-8"), STRONG_FORM_DEF)
+    assert CONFIDENCE_GATE_ASSIGN.search(body) is None
+    assert PLAIN_THRESHOLD_ASSIGN.search(body) is None
+    # ... and a wrapper that selects nothing is still not a re-derivation.
+    _edit_text(
+        folder / "helpers.py",
+        "    return select_confidence_threshold(correct, confidence, min_coverage=MIN_COVERAGE)",
+        "    return 0.85",
+    )
+    failure = _strong_form_failure(folder, "31")
+    assert failure is not None and "does not re-derive the threshold" in failure
+
+
+def test_a_strong_form_body_that_does_not_parse_is_reported_as_such(tmp_path):
+    """#272's other half: an extracted body that cannot be parsed is reported as what it is, with
+    the cut the guard made, never as a bare ``SyntaxError`` traceback blamed on the recipe."""
+    folder = _strong_form_recipe(tmp_path, derive="gate = helpers.choose_gate(c, f)")
+    test_file = folder / "tests" / "test_helpers.py"
+    test_file.write_text(
+        test_file.read_text("utf-8").replace(
+            "    assert wrong_and_confident\n", "    assert wrong_and_confident\n  )\n"
+        ),
+        "utf-8",
+    )
+    failure = _strong_form_failure(folder, "synthetic")
+    assert failure is not None and "does not parse" in failure and "column-zero" in failure
 
 
 # --------------------------------------------------------------------------------------------
@@ -1183,15 +1755,822 @@ def test_review_outcome_value_is_review_where_it_exists(recipe):
     )
 
 
+# --- the reason string must be produced by a live review branch (#227) --------------------------
+#
+# docs/glossary.md#review words the rule conditionally -- "the reason string for a
+# confidence-gated review is exactly ..." -- so it governs how a confidence-gated review is
+# worded, not whether a recipe has one. The check used to be an unconditional substring search of
+# helpers.py's text, which enforced something both stronger (every recipe has a gated review) and
+# weaker (a comment, an unused constant or a dead function satisfies it): recipe 28 passed it on a
+# sentence about a branch that does not exist, and recipe 35's first build passed it on a function
+# nothing called. What it checks now is the property the glossary names, in three states:
+#
+# 1. a gate exists (the exact words are produced by executable code in helpers.py): the words
+#    must be the reason of a branch a confidence comparison controls, that branch's function
+#    must be reachable from the notebook, and a committed notebook output must show a review
+#    whose reason came out of the rule rather than being typed into the cell that shows it;
+# 2. no gate, and the recipe is a named gate-free design (``GATE_FREE_DESIGNS``): not applicable,
+#    said so in the skip. The exemption is checked too: it fails once the recipe grows a live gate;
+# 3. no gate, and no named design: a failure that names the absence, not "string missing".
+
+# Recipes whose rule has no confidence-gated review by design. A named, reviewed exception in the
+# module's existing style (see NAMED_DOMAIN_OUTCOME_EXEMPTIONS); a recipe pull request cannot edit
+# this file, so a new gate-free recipe is a foundation-reviewed decision, never a string parked in
+# a comment. Adding an entry here does not add a gate, and a dead gate is not the way out.
+GATE_FREE_DESIGNS = {
+    "28-skill-selection": (
+        "score-and-margin selection with no per-answer confidence check: a gate chosen by "
+        "select_confidence_threshold on its own auto-selected pool is inert on the committed "
+        "fixtures (helpers.py, 'Why this rule has two review branches, not three', and "
+        "test_no_confidence_gate_could_have_caught_the_wrong_selections_without_also_losing_"
+        "correct_ones); reviewed as the recipe's design, not padding to be restored"
+    ),
+}
+
+# Published recipes whose rule has a live confidence-gated review branch but whose committed
+# notebook output never shows a review produced by it. This is a FINDING recorded for
+# adjudication (#227), not a justification: the gate may be exercised on the committed fixtures
+# without the notebook printing it, or it may not be exercised at all, and nothing here decides
+# which. The list is closed (a recipe pull request cannot add to it), strict in both directions
+# (a recipe on it whose output starts showing the reason must be removed; a recipe off it must
+# show it), and measured against the published set when it was written.
+REASON_NOT_IN_COMMITTED_OUTPUT = {
+    slug: (
+        "the live confidence-gated review branch is reachable from the notebook, but no committed "
+        "output shows a review whose reason it produced; whether the gate is exercised on the "
+        "committed fixtures is an open finding (#227)"
+    )
+    for slug in (
+        "42-outbound-disclosure-screening",
+        "43-failure-recovery-selection",
+        "45-memory-reconciliation",
+        "46-semantic-context-paging",
+        "48-document-revision-consistency",
+        "49-multi-agent-task-assignment",
+        "50-model-comparison-and-calibration",
+    )
+} | {
+    "36-card-game-action-selection": (
+        "the live confidence-gated review branch is reachable from the notebook, and the "
+        "evaluation cell prints how many turns the gate sends to review, but labels the count "
+        "with helpers.REASON_LOW_CONFIDENCE and takes it from evaluate_selective, which re-applies "
+        "the gate, rather than from a review the rule returned; an open finding (#227)"
+    ),
+}
+
+_ORDERING_OPS = (ast.Lt, ast.LtE, ast.Gt, ast.GtE)
+_LEAVES_THE_BLOCK = (ast.Return, ast.Raise, ast.Continue, ast.Break)
+_FUNCTION_NODES = (ast.FunctionDef, ast.AsyncFunctionDef)
+
+
+def _identifier(node: ast.AST) -> str | None:
+    """The name an expression is written with: ``x`` for ``x``, ``attr`` for ``obj.attr``."""
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return None
+
+
+def _compares_confidence(node: ast.AST) -> bool:
+    """True if ``node``'s subtree has an ordering comparison (``<``, ``<=``, ``>``, ``>=``) with a
+    confidence on either side: some name or attribute in the comparison with ``confidence`` in
+    it (``answer.confidence``, ``min_confidence``, ``noul_confidence(noul)``). The property a
+    confidence gate has by definition, rather than any spelling of the gate itself."""
+    for compare in ast.walk(node):
+        if isinstance(compare, ast.Compare) and any(
+            isinstance(op, _ORDERING_OPS) for op in compare.ops
+        ):
+            for part in ast.walk(compare):
+                name = _identifier(part)
+                if name and "confidence" in name.lower():
+                    return True
+    return False
+
+
+def _confidence_derived_names(tree: ast.AST) -> set[str]:
+    """Identifiers whose value is computed from a confidence comparison, to a fixpoint: a
+    variable assigned, or a keyword argument given, an expression holding one
+    (``gated = confidence < confidence_gate``), and anything assigned from those. A record built
+    with ``LabelDecision(..., gated)`` and read back as ``decision.gated`` in another function
+    is the multi-label recipes' shape, and ``if decision.gated:`` is a confidence-controlled
+    branch even though the comparison itself sits elsewhere. By name, not by value: a name reused
+    for something unrelated is over-credited, which this check accepts and says so."""
+    derived: set[str] = set()
+    changed = True
+    while changed:
+        changed = False
+        for node in ast.walk(tree):
+            pairs: list[tuple[ast.AST, ast.AST]] = []
+            if isinstance(node, ast.Assign):
+                pairs = [(target, node.value) for target in node.targets]
+            elif isinstance(node, ast.AnnAssign) and node.value is not None:
+                pairs = [(node.target, node.value)]
+            elif isinstance(node, ast.NamedExpr):
+                pairs = [(node.target, node.value)]
+            elif isinstance(node, ast.keyword) and node.arg is not None:
+                names = {node.arg}
+                if (
+                    _compares_confidence(node.value) or _mentions_any(node.value, derived)
+                ) and not names <= derived:
+                    derived |= names
+                    changed = True
+                continue
+            for target, value in pairs:
+                names = {n.id for n in ast.walk(target) if isinstance(n, ast.Name)}
+                if (
+                    _compares_confidence(value) or _mentions_any(value, derived)
+                ) and not names <= derived:
+                    derived |= names
+                    changed = True
+    return derived
+
+
+def _mentions_any(node: ast.AST, names: set[str]) -> bool:
+    return any(_identifier(part) in names for part in ast.walk(node))
+
+
+def _is_confidence_test(test: ast.AST, derived: set[str]) -> bool:
+    """Whether a condition is a confidence comparison, or reads something derived from one."""
+    return _compares_confidence(test) or _mentions_any(test, derived)
+
+
+def _docstring_constant_ids(tree: ast.AST) -> set[int]:
+    ids: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.ClassDef, *_FUNCTION_NODES)):
+            first = node.body[0] if node.body else None
+            if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant):
+                ids.add(id(first.value))
+    return ids
+
+
+def _reason_constant_names(tree: ast.Module) -> set[str]:
+    """Module-level names bound to a string holding the reason (``REASON_REVIEW = "confidence
+    below the threshold"``), so a use of the NAME inside a function counts as a use of the words."""
+    names: set[str] = set()
+    for node in tree.body:
+        value = getattr(node, "value", None)
+        if isinstance(value, ast.Constant) and isinstance(value.value, str):
+            if REASON_STRING in value.value:
+                targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                names |= {t.id for t in targets if isinstance(t, ast.Name)}
+    return names
+
+
+def _parents(tree: ast.AST) -> dict[ast.AST, ast.AST]:
+    return {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+
+
+def _live_reason_uses(tree: ast.Module) -> list[ast.AST]:
+    """Every use of the reason string in EXECUTABLE code: the literal itself, or a module-level
+    constant holding it, inside a function body. Not a comment (not in the AST at all), not a
+    docstring, and not an unused module-level constant: those are the words without a branch."""
+    docstrings = _docstring_constant_ids(tree)
+    constants = _reason_constant_names(tree)
+    parents = _parents(tree)
+    uses: list[ast.AST] = []
+    for node in ast.walk(tree):
+        is_literal = (
+            isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and REASON_STRING in node.value
+            and id(node) not in docstrings
+        )
+        is_constant = isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
+        is_constant = is_constant and node.id in constants
+        if not (is_literal or is_constant):
+            continue
+        scope = node
+        while scope in parents and not isinstance(scope, _FUNCTION_NODES):
+            scope = parents[scope]
+        if isinstance(scope, _FUNCTION_NODES):
+            uses.append(node)
+    return uses
+
+
+def _near_miss_reasons(tree: ast.Module) -> list[str]:
+    """Executable string literals that word a confidence-gated review's reason differently from
+    the glossary ("confidence below the review cutoff"): recipe 06 once did, and the exact-text
+    rule exists to stop the next one."""
+    docstrings = _docstring_constant_ids(tree)
+    return sorted(
+        {
+            node.value
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and id(node) not in docstrings
+            and node.value.startswith("confidence below")
+            and REASON_STRING not in node.value
+        }
+    )
+
+
+def _controlled_by_confidence(
+    node: ast.AST, parents: dict[ast.AST, ast.AST], derived: set[str]
+) -> bool:
+    """Whether ``node`` runs only because of a confidence comparison: it sits inside an ``if``
+    (either arm) or a conditional expression whose condition is one, or it follows, in the same
+    block, an ``if`` on one whose body leaves the block (the guard clause
+    ``if confidence >= gate: return ok`` then ``return REVIEW, reason``). Polarity is not judged:
+    this establishes that a confidence comparison decides whether the reason is produced, not
+    that it is the right way round -- the recipe's own tests own that."""
+    child = node
+    while child in parents:
+        parent = parents[child]
+        if (
+            isinstance(parent, (ast.If, ast.IfExp))
+            and child is not parent.test
+            and _is_confidence_test(parent.test, derived)
+        ):
+            return True
+        for field in ("body", "orelse", "finalbody"):
+            block = getattr(parent, field, None)
+            if isinstance(block, list) and child in block:
+                for earlier in block[: block.index(child)]:
+                    if (
+                        isinstance(earlier, ast.If)
+                        and isinstance(earlier.body[-1], _LEAVES_THE_BLOCK)
+                        and _is_confidence_test(earlier.test, derived)
+                    ):
+                        return True
+        if isinstance(parent, _FUNCTION_NODES):
+            return False
+        child = parent
+    return False
+
+
+def _notebook_code_trees(recipe_dir_: Path) -> tuple[list[tuple[dict, ast.Module]], list[str]]:
+    """``([(cell, tree)], [ids of code cells that do not parse])`` for the committed notebook."""
+    trees: list[tuple[dict, ast.Module]] = []
+    unparseable: list[str] = []
+    if (recipe_dir_ / "notebook.ipynb").is_file():
+        for cell in notebook_cells(recipe_dir_):
+            if cell["cell_type"] != "code":
+                continue
+            try:
+                trees.append((cell, ast.parse(cell_source(cell))))
+            except SyntaxError:
+                unparseable.append(str(cell.get("id", "?")))
+    return trees, unparseable
+
+
+def _identifiers_in(tree: ast.AST) -> set[str]:
+    return {name for part in ast.walk(tree) if (name := _identifier(part))}
+
+
+def _reachable_helper_functions(
+    helpers_tree: ast.Module, notebook_trees: list[ast.Module]
+) -> set[str]:
+    """Names of ``helpers.py`` functions the notebook can run: those it names, and, to a fixpoint,
+    those named inside any such function. Name-based, so a different object's method of the same
+    name over-counts; what it catches is a branch in a function nothing in the notebook mentions
+    (recipe 35's first build)."""
+    defs: dict[str, list[ast.AST]] = {}
+    for node in ast.walk(helpers_tree):
+        if isinstance(node, _FUNCTION_NODES):
+            defs.setdefault(node.name, []).append(node)
+    reachable = {name for tree in notebook_trees for name in _identifiers_in(tree)} & set(defs)
+    frontier = list(reachable)
+    while frontier:
+        for func in defs[frontier.pop()]:
+            for name in _identifiers_in(func) & set(defs):
+                if name not in reachable:
+                    reachable.add(name)
+                    frontier.append(name)
+    return reachable
+
+
+def _cell_types_the_reason(tree: ast.Module, constant_names: set[str]) -> bool:
+    """Whether a cell's own code writes the reason: the words as a string literal, or a
+    ``helpers`` constant holding them. Output from such a cell shows what the cell typed, not
+    what the rule produced."""
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            if REASON_STRING in node.value:
+                return True
+    return bool(_identifiers_in(tree) & constant_names)
+
+
+def _output_text(cell: dict) -> str:
+    parts: list[str] = []
+    for output in cell.get("outputs", []):
+        if output.get("output_type") == "stream":
+            parts.append("".join(output.get("text", "")))
+        else:
+            parts.append("".join(output.get("data", {}).get("text/plain", "")))
+            parts.append("".join(output.get("data", {}).get("text/html", "")))
+    return "\n".join(parts)
+
+
+def _cells_showing_the_reason(
+    notebook_trees: list[tuple[dict, ast.Module]], constant_names: set[str]
+) -> list[str]:
+    """Ids of the code cells whose committed output holds the reason string and whose own code
+    does not write it: evidence that a review the rule produced reached the reader."""
+    return [
+        str(cell.get("id", "?"))
+        for cell, tree in notebook_trees
+        if REASON_STRING in _output_text(cell) and not _cell_types_the_reason(tree, constant_names)
+    ]
+
+
+def _reason_string_verdict(recipe_dir_: Path, slug: str) -> tuple[str, str]:
+    """``("ok" | "not-applicable" | "fail", message)`` for one recipe directory: the whole
+    ``review_reason_string`` verdict, factored out so the mutation and table tests below run the
+    SAME code path CI runs on a throwaway recipe."""
+    try:
+        helpers_tree = ast.parse((recipe_dir_ / "helpers.py").read_text("utf-8"))
+    except (OSError, SyntaxError) as error:
+        return "fail", f"{slug}: helpers.py cannot be read as Python ({error})"
+    uses = _live_reason_uses(helpers_tree)
+    near_misses = _near_miss_reasons(helpers_tree)
+    if near_misses:
+        return "fail", (
+            f"{slug}: a review reason is worded {near_misses[0]!r}; docs/glossary.md#review "
+            f"fixes the reason of a confidence-gated review to exactly {REASON_STRING!r}"
+        )
+    if not uses:
+        if slug in GATE_FREE_DESIGNS:
+            return "not-applicable", f"{slug}: named gate-free design -- {GATE_FREE_DESIGNS[slug]}"
+        return "fail", (
+            f"{slug}: no executable branch of helpers.py produces {REASON_STRING!r} -- the words "
+            "are absent, or only in a comment, a docstring or a constant nothing uses. If this "
+            "rule has a confidence-gated review, add the branch (docs/glossary.md#review). If it "
+            "genuinely has none, that is a design decision a foundation pull request records in "
+            "GATE_FREE_DESIGNS with the reason; do not park the words in a comment and do not "
+            "add a gate nothing exercises"
+        )
+    if slug in GATE_FREE_DESIGNS:
+        return "fail", (
+            f"{slug}: listed in GATE_FREE_DESIGNS but helpers.py now produces {REASON_STRING!r} "
+            "in executable code; remove the entry so the gate is held to this check"
+        )
+    derived = _confidence_derived_names(helpers_tree)
+    parents = _parents(helpers_tree)
+    controlled = [use for use in uses if _controlled_by_confidence(use, parents, derived)]
+    if not controlled:
+        return "fail", (
+            f"{slug}: helpers.py uses {REASON_STRING!r} in code, but no use is on a branch a "
+            "confidence comparison controls (an `if`/conditional on a comparison with a "
+            "confidence, a guard clause after one, or a flag derived from one). Put the reason "
+            "on the branch the comparison decides; a shape this check cannot read is reported "
+            "for adjudication, not satisfied by moving the words"
+        )
+    notebook, unparseable = _notebook_code_trees(recipe_dir_)
+    if unparseable:
+        return "fail", (
+            f"{slug}: notebook code cell(s) {unparseable} do not parse as plain Python, so "
+            "the committed output cannot be tied to the rule"
+        )
+    reachable = _reachable_helper_functions(helpers_tree, [tree for _, tree in notebook])
+    functions = []
+    for use in controlled:
+        scope = use
+        while not isinstance(scope, _FUNCTION_NODES):
+            scope = parents[scope]
+        functions.append(scope.name)
+    if not set(functions) & reachable:
+        return "fail", (
+            f"{slug}: the confidence-gated review in helpers.py ({', '.join(sorted(set(functions)))}) "
+            "is not reachable from the notebook: nothing in its code cells names those "
+            "functions, directly or through another function of helpers.py. A gate the notebook "
+            "never runs is the dead branch the reason string was meant to prove is absent"
+        )
+    shown = _cells_showing_the_reason(notebook, _reason_constant_names(helpers_tree))
+    if slug in REASON_NOT_IN_COMMITTED_OUTPUT:
+        if shown:
+            return "fail", (
+                f"{slug}: listed in REASON_NOT_IN_COMMITTED_OUTPUT but cell(s) {shown} now show a "
+                "review produced by the rule; remove the entry so the output is held to this check"
+            )
+        return "ok", ""
+    if not shown:
+        return "fail", (
+            f"{slug}: no committed notebook output shows a review whose reason the rule produced "
+            f"({REASON_STRING!r} in an output of a cell that does not itself write those words). "
+            "Print the outcome the rule returns for an example it sends to review (its `.reason`) "
+            "and re-execute the notebook, or, if the gate is never exercised on the committed "
+            "fixtures, that is the finding to bring to review, not something to type into a print"
+        )
+    return "ok", ""
+
+
 @pytest.mark.parametrize("recipe", guarded_with_template("review_reason_string")())
 def test_the_confidence_gate_reason_string_is_exact(recipe):
     """docs/glossary.md#review: "the reason string for a confidence-gated review is exactly
     'confidence below the threshold', so two recipes' readers see the same words for the same
-    cause." A plain substring search of helpers.py's full text (this is a literal string argument
-    in the rule's own code, not prose, so it is not restricted to docstrings and comments the way
-    the issue-citation check is)."""
-    text = (recipe_dir(recipe) / "helpers.py").read_text("utf-8")
-    assert REASON_STRING in text
+    cause." The rule is conditional -- it words a confidence-gated review, it does not require a
+    recipe to have one -- and the check used to be an unconditional substring search of
+    ``helpers.py``'s text, satisfied by a comment (#227). It now requires, where the words are
+    produced by executable code at all, that:
+
+    * the words are the reason of a branch a confidence comparison controls
+      (``_controlled_by_confidence``); not a comment, a docstring, an unused constant, or a use
+      with no such comparison deciding it;
+    * that branch's function is reachable from the notebook (``_reachable_helper_functions``);
+    * a committed notebook output shows a review whose reason the rule produced: the words in the
+      output of a cell whose own code does not write them (``_cells_showing_the_reason``), so a
+      literal-only ``print`` is not evidence. The eight published recipes whose output shows no
+      such review are named in ``REASON_NOT_IN_COMMITTED_OUTPUT`` as an open finding, strictly
+      (see its comment);
+    * no executable string words a confidence review differently (a near miss is a failure).
+
+    A recipe whose rule has no confidence-gated review at all is not applicable
+    (``GATE_FREE_DESIGNS``, named and checked), and a recipe with neither a live branch nor a
+    named design fails with a message that names the absence. What the static half cannot see is
+    disclosed, not assumed away: control is judged by name and shape, polarity is not judged, and
+    a branch that exists, is reachable and is shown in an output may still not be the gate that
+    the rule's frozen threshold feeds -- ``confidence_gate_from_shared_helper`` and the recipe's
+    own tests own that."""
+    status, message = _reason_string_verdict(recipe_dir(recipe), recipe["slug"])
+    if status == "not-applicable":
+        pytest.skip(message)
+    assert status == "ok", message
+
+
+# --- #227: the reason string must be produced by a live review branch ----------------------------
+
+_GATE_HELPERS = '''
+from jev_cookbook.evaluation import select_confidence_threshold
+
+REVIEW = "review"
+
+
+def route(answer, min_confidence):
+    """Send an answer to review below the gate."""
+    if answer.confidence < min_confidence:
+        return REVIEW, "confidence below the threshold"
+    return answer.choice, "confident match"
+'''
+
+_GATE_CELLS = [
+    (
+        "from jev_cookbook.evaluation import select_confidence_threshold\n"
+        "helpers = load_helpers()\n"
+        "gate = select_confidence_threshold(ok, conf, target_accuracy=1.0)\n"
+        "print(helpers.route(answer, gate))\n",
+        "('review', 'confidence below the threshold')\n",
+    ),
+]
+
+
+def _gate_recipe(tmp_path: Path, helpers: str = _GATE_HELPERS, cells=_GATE_CELLS) -> Path:
+    """A minimal recipe folder: a ``helpers.py`` and a notebook of ``(source, stdout)`` code cells."""
+    folder = tmp_path / "synthetic-gate"
+    folder.mkdir(parents=True)
+    (folder / "helpers.py").write_text(textwrap.dedent(helpers), "utf-8")
+    notebook = {
+        "cells": [
+            {
+                "cell_type": "code",
+                "id": f"c{i}",
+                "metadata": {},
+                "execution_count": i,
+                "source": source.splitlines(keepends=True),
+                "outputs": (
+                    [{"output_type": "stream", "name": "stdout", "text": output.splitlines(True)}]
+                    if output
+                    else []
+                ),
+            }
+            for i, (source, output) in enumerate(cells)
+        ],
+        "metadata": {},
+        "nbformat": 4,
+        "nbformat_minor": 5,
+    }
+    (folder / "notebook.ipynb").write_text(json.dumps(notebook), "utf-8")
+    return folder
+
+
+def _guard_clause_helpers() -> str:
+    return """
+        def route(answer, min_confidence):
+            if answer.confidence >= min_confidence:
+                return answer.choice, "confident match"
+            return "review", "confidence below the threshold"
+    """
+
+
+_REASON_PASSES = {
+    "the-branch-itself": (_GATE_HELPERS, _GATE_CELLS),
+    "guard-clause-then-fall-through": (_guard_clause_helpers(), _GATE_CELLS),
+    "conditional-expression": (
+        """
+        def route(answer, min_confidence):
+            reason = "confidence below the threshold" if answer.confidence < min_confidence else "ok"
+            return reason
+        """,
+        _GATE_CELLS,
+    ),
+    "reason-held-in-a-module-constant": (
+        """
+        REASON_REVIEW = "confidence below the threshold"
+
+        def route(answer, min_confidence):
+            if answer.confidence < min_confidence:
+                return "review", REASON_REVIEW
+            return answer.choice, "ok"
+        """,
+        _GATE_CELLS,
+    ),
+    "flag-derived-from-the-comparison-and-read-elsewhere": (
+        """
+        from collections import namedtuple
+
+        Decision = namedtuple("Decision", "label gated")
+
+        def decide(answer, gate):
+            gated = answer.confidence < gate
+            return Decision(answer.choice, gated)
+
+        def route(answer, gate):
+            decision = decide(answer, gate)
+            if decision.gated:
+                return "review", "confidence below the threshold"
+            return decision.label, "ok"
+        """,
+        [("print(helpers.route(answer, 0.5))\n", "('review', 'confidence below the threshold')\n")],
+    ),
+    "reached-through-another-function": (
+        """
+        def route(answer, gate):
+            if answer.confidence < gate:
+                return "review", "confidence below the threshold"
+            return answer.choice, "ok"
+
+        def route_all(answers, gate):
+            return [route(a, gate) for a in answers]
+        """,
+        [
+            (
+                "print(helpers.route_all(answers, 0.5))\n",
+                "[('review', 'confidence below the threshold')]\n",
+            )
+        ],
+    ),
+}
+
+
+@pytest.mark.parametrize("shape", sorted(_REASON_PASSES))
+def test_a_live_confidence_gated_review_shown_in_an_output_passes(tmp_path, shape):
+    helpers, cells = _REASON_PASSES[shape]
+    folder = _gate_recipe(tmp_path, helpers, cells)
+    status, message = _reason_string_verdict(folder, "synthetic")
+    assert (status, message) == ("ok", "")
+
+
+_UNTYPED_PRINT = [
+    ("print('confidence below the threshold')\n", "confidence below the threshold\n"),
+]
+
+_REASON_FAILS = {
+    # the words without a branch: what the substring search accepted
+    "words-only-in-a-comment": (
+        """
+        def route(answer, gate):
+            # the review reason would be "confidence below the threshold"
+            return answer.choice, "ok"
+        """,
+        _GATE_CELLS,
+        "no executable branch of helpers.py produces",
+    ),
+    "words-only-in-a-docstring": (
+        '''
+        def route(answer, gate):
+            """Review reason: "confidence below the threshold"."""
+            return answer.choice, "ok"
+        ''',
+        _GATE_CELLS,
+        "no executable branch of helpers.py produces",
+    ),
+    "unused-module-constant": (
+        """
+        REASON_REVIEW = "confidence below the threshold"
+
+        def route(answer, gate):
+            return answer.choice, "ok"
+        """,
+        _GATE_CELLS,
+        "no executable branch of helpers.py produces",
+    ),
+    "words-nowhere": (
+        """
+        def route(answer, gate):
+            return answer.choice, "ok"
+        """,
+        _GATE_CELLS,
+        "GATE_FREE_DESIGNS",
+    ),
+    # a branch that exists but no confidence comparison decides it
+    "returned-unconditionally": (
+        """
+        def route(answer, gate):
+            return "review", "confidence below the threshold"
+        """,
+        _GATE_CELLS,
+        "no use is on a branch a confidence comparison controls",
+    ),
+    "under-a-condition-that-is-not-about-confidence": (
+        """
+        def route(answer, gate):
+            if answer.choice == "none":
+                return "review", "confidence below the threshold"
+            return answer.choice, "ok"
+        """,
+        _GATE_CELLS,
+        "no use is on a branch a confidence comparison controls",
+    ),
+    "set-in-a-function-no-comparison-reaches": (
+        """
+        def _review():
+            return "review", "confidence below the threshold"
+
+        def route(answer, gate):
+            if answer.confidence < gate:
+                return _review()
+            return answer.choice, "ok"
+        """,
+        _GATE_CELLS,
+        "no use is on a branch a confidence comparison controls",
+    ),
+    # a branch the notebook never runs (recipe 35's first build)
+    "gate-in-a-function-the-notebook-never-names": (
+        """
+        def route(answer, gate):
+            return answer.choice, "ok"
+
+        def confidence_outcome(answer, gate):
+            if answer.confidence < gate:
+                return "review", "confidence below the threshold"
+            return "ok", "ok"
+        """,
+        [("print(helpers.route(answer, 0.5))\n", "('review', 'confidence below the threshold')\n")],
+        "is not reachable from the notebook",
+    ),
+    # a reason that never reached a reader, or that the cell typed itself
+    "no-output-at-all": (
+        _GATE_HELPERS,
+        [("print(helpers.route(answer, 0.5))\n", "")],
+        "no committed notebook output shows a review",
+    ),
+    "a-literal-only-print": (
+        _GATE_HELPERS,
+        [("helpers.route(answer, 0.5)\n", ""), *_UNTYPED_PRINT],
+        "no committed notebook output shows a review",
+    ),
+    "the-cell-prints-the-constant-itself": (
+        """
+        REASON_REVIEW = "confidence below the threshold"
+
+        def route(answer, gate):
+            if answer.confidence < gate:
+                return "review", REASON_REVIEW
+            return answer.choice, "ok"
+        """,
+        [
+            (
+                "helpers.route(answer, 0.5)\nprint(helpers.REASON_REVIEW)\n",
+                "confidence below the threshold\n",
+            ),
+        ],
+        "no committed notebook output shows a review",
+    ),
+    "a-print-that-types-the-words-beside-the-call": (
+        _GATE_HELPERS,
+        [
+            (
+                "print(helpers.route(answer, 0.5), 'confidence below the threshold')\n",
+                "x confidence below the threshold\n",
+            )
+        ],
+        "no committed notebook output shows a review",
+    ),
+    # wording
+    "near-miss-wording": (
+        """
+        def route(answer, gate):
+            if answer.confidence < gate:
+                return "review", "confidence below the review cutoff"
+            return answer.choice, "ok"
+        """,
+        _GATE_CELLS,
+        "fixes the reason of a confidence-gated review to exactly",
+    ),
+    "unparseable-notebook-cell": (
+        _GATE_HELPERS,
+        [("%matplotlib inline\nhelpers.route(answer, 0.5)\n", "confidence below the threshold\n")],
+        "do not parse as plain Python",
+    ),
+}
+
+
+@pytest.mark.parametrize("shape", sorted(_REASON_FAILS))
+def test_a_reason_string_without_a_live_reachable_shown_branch_fails(tmp_path, shape):
+    """Every row names the shape it stands for. The first three are the shapes the substring
+    search of ``helpers.py`` accepted (a comment, a docstring, an unused constant); the rest are
+    the ways a branch can exist and still prove nothing. Each failure says what to do."""
+    helpers, cells, expected = _REASON_FAILS[shape]
+    folder = _gate_recipe(tmp_path, helpers, cells)
+    status, message = _reason_string_verdict(folder, "synthetic")
+    assert status == "fail" and expected in message, (status, message)
+    if shape.startswith("words-only") or shape == "unused-module-constant":
+        # the check this replaces was green on exactly these
+        assert REASON_STRING in (folder / "helpers.py").read_text("utf-8")
+
+
+def test_a_named_gate_free_design_is_not_applicable_and_a_stale_exemption_fails(tmp_path):
+    comment_only = textwrap.dedent(
+        """
+        def route(answer, gate):
+            # a review would say "confidence below the threshold" -- this rule has none
+            return answer.choice, "ok"
+        """
+    )
+    folder = _gate_recipe(tmp_path, comment_only, [("print(helpers.route(answer, 0.5))\n", "ok\n")])
+    status, message = _reason_string_verdict(folder, "28-skill-selection")
+    assert status == "not-applicable" and "named gate-free design" in message
+    # the same recipe under a slug nobody named is a failure that names the absence
+    status, message = _reason_string_verdict(folder, "some-new-recipe")
+    assert (
+        status == "fail" and "GATE_FREE_DESIGNS" in message and "do not park the words" in message
+    )
+    # an exemption does not outlive the absence it records
+    live = _gate_recipe(tmp_path / "live")
+    status, message = _reason_string_verdict(live, "28-skill-selection")
+    assert status == "fail" and "remove the entry" in message
+
+
+def test_a_recipe_listed_as_not_showing_the_reason_is_held_to_it_both_ways(tmp_path):
+    hidden = _gate_recipe(
+        tmp_path / "hidden", _GATE_HELPERS, [("print(helpers.route(answer, 0.5))\n", "")]
+    )
+    status, _ = _reason_string_verdict(hidden, "49-multi-agent-task-assignment")
+    assert status == "ok"  # recorded finding: the static half still held
+    status, message = _reason_string_verdict(hidden, "some-new-recipe")
+    assert status == "fail" and "no committed notebook output shows a review" in message
+    shown = _gate_recipe(tmp_path / "shown")
+    status, message = _reason_string_verdict(shown, "49-multi-agent-task-assignment")
+    assert status == "fail" and "remove the entry" in message
+    # the static half is not waived by being listed
+    dead = _gate_recipe(tmp_path / "dead", "def route(a, g):\n    return a, g\n", [("1\n", "")])
+    status, message = _reason_string_verdict(dead, "49-multi-agent-task-assignment")
+    assert status == "fail" and "no executable branch" in message
+
+
+def test_every_exemption_names_a_published_recipe_and_gate_free_ones_have_no_live_gate():
+    published = {recipe["slug"] for recipe in PUBLISHED}
+    assert set(GATE_FREE_DESIGNS) <= published
+    assert set(REASON_NOT_IN_COMMITTED_OUTPUT) <= published
+    assert not set(GATE_FREE_DESIGNS) & set(REASON_NOT_IN_COMMITTED_OUTPUT)
+
+
+def test_the_template_and_a_simple_published_recipe_pass_with_their_own_outputs(tmp_path):
+    for slug in ("_template", "01-sentiment-classification", "31-patch-risk-triage"):
+        assert _reason_string_verdict(_copy_recipe(tmp_path, slug), slug) == ("ok", "")
+
+
+def test_a_branch_replaced_by_a_comment_in_a_published_recipe_is_caught(tmp_path):
+    """The mutation proof on a published recipe (01): replace the live gated return with a
+    comment that carries the words. The substring check this replaces stays green, the new one
+    goes red, naming the absence."""
+    folder = _copy_recipe(tmp_path, "01-sentiment-classification")
+    _edit_text(
+        folder / "helpers.py",
+        '        return Classification(review_id, answer.choice, REVIEW, "confidence below the threshold")\n',
+        '        # the reason would be "confidence below the threshold"\n        pass\n',
+    )
+    assert REASON_STRING in (folder / "helpers.py").read_text("utf-8")  # the old check: green
+    status, message = _reason_string_verdict(folder, "01-sentiment-classification")
+    assert status == "fail" and "no executable branch of helpers.py produces" in message
+
+
+def test_a_branch_the_notebook_stops_calling_is_caught(tmp_path):
+    """Remove the call: 01's notebook stops routing through ``classify`` (its output is stale but
+    still holds the words, as it would between an edit and a re-execution). The static half
+    notices before the freshness job has to."""
+    folder = _copy_recipe(tmp_path, "01-sentiment-classification")
+    notebook = json.loads((folder / "notebook.ipynb").read_text("utf-8"))
+    for cell in notebook["cells"]:
+        if cell["cell_type"] == "code":
+            cell["source"] = [line.replace("classify", "unrelated") for line in cell["source"]]
+    (folder / "notebook.ipynb").write_text(json.dumps(notebook), "utf-8")
+    status, message = _reason_string_verdict(folder, "01-sentiment-classification")
+    assert status == "fail" and "is not reachable from the notebook" in message
+
+
+def test_a_removed_branch_in_a_published_recipe_is_caught(tmp_path):
+    folder = _copy_recipe(tmp_path, "01-sentiment-classification")
+    _edit_text(
+        folder / "helpers.py",
+        "    if answer.confidence < min_confidence:\n"
+        '        return Classification(review_id, answer.choice, REVIEW, "confidence below the threshold")\n',
+        "",
+    )
+    status, message = _reason_string_verdict(folder, "01-sentiment-classification")
+    assert status == "fail" and "no executable branch of helpers.py produces" in message
 
 
 # --------------------------------------------------------------------------------------------
@@ -3585,6 +4964,345 @@ def _objective_pin_violations(recipe_dir_: Path) -> list[str] | None:
                 '("Pin the threshold\'s OBJECTIVE")'
             )
     return violations
+
+
+# --------------------------------------------------------------------------------------------
+# check: a recipe that gates on confidence freezes the gate through the shared helper (#282)
+# --------------------------------------------------------------------------------------------
+
+
+def _confidence_gate_locations(
+    helpers_tree: ast.Module, notebook: list[tuple[dict, ast.Module]]
+) -> list[str]:
+    """Where this recipe's executable code gates on confidence: ``helpers.py`` when it compares a
+    confidence with a bound or produces the confidence-gated review's reason, and each notebook
+    code cell that compares one. The property, not a spelling of how the gate was frozen:
+    it is exactly what the three checks that skip on "no resolvable call" cannot see."""
+    where = []
+    if _compares_confidence(helpers_tree) or _live_reason_uses(helpers_tree):
+        where.append("helpers.py")
+    where += [
+        f"cell {cell.get('id', '?')}" for cell, tree in notebook if _compares_confidence(tree)
+    ]
+    return where
+
+
+def _shared_gate_freezes(helpers_tree: ast.Module, notebook: list[ast.Module]) -> list[str]:
+    """Locations of every call that freezes a confidence gate through the shared helper: a call to
+    ``select_confidence_threshold`` imported by name from ``jev_cookbook.evaluation`` (under any
+    alias, and not rebound by a local definition), whose result is used -- returned, passed on, or
+    assigned to a name something reads. A bare call statement, a result stored and never read, a
+    look-alike defined in the recipe, and a call written through a module attribute are not
+    credited. ``select_threshold`` is not credited either: it picks a Noul business threshold,
+    not the gate (a Noul gate is ``select_confidence_threshold`` over ``noul_confidence``)."""
+    units = {"helpers.py": [helpers_tree], "notebook": notebook}
+    everything = [helpers_tree, *notebook]
+    read = {
+        _identifier(node)
+        for tree in everything
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.Name, ast.Attribute)) and isinstance(node.ctx, ast.Load)
+    }
+    found: list[str] = []
+    for unit, trees in units.items():
+        selectors = _shared_selector_imports(trees)
+        for tree in trees:
+            parents = _parents(tree)
+            for call in (n for n in ast.walk(tree) if isinstance(n, ast.Call)):
+                if not (
+                    isinstance(call.func, ast.Name)
+                    and selectors.get(call.func.id) == "select_confidence_threshold"
+                ):
+                    continue
+                parent = parents.get(call)
+                if isinstance(parent, ast.Expr):
+                    continue
+                if isinstance(parent, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
+                    targets = parent.targets if isinstance(parent, ast.Assign) else [parent.target]
+                    if all(isinstance(t, ast.Name) for t in targets) and not any(
+                        t.id in read for t in targets
+                    ):
+                        continue
+                found.append(f"{unit} line {call.lineno}")
+    return found
+
+
+def _gate_freeze_verdict(recipe_dir_: Path, slug: str) -> tuple[str, str]:
+    """``("ok" | "not-applicable" | "fail", message)`` for one recipe directory: the whole
+    ``confidence_gate_from_shared_helper`` verdict, factored out for the mutation and table
+    tests, which run the SAME code path CI runs on a throwaway recipe."""
+    try:
+        helpers_tree = ast.parse((recipe_dir_ / "helpers.py").read_text("utf-8"))
+    except (OSError, SyntaxError) as error:
+        return "fail", f"{slug}: helpers.py cannot be read as Python ({error})"
+    notebook, unparseable = _notebook_code_trees(recipe_dir_)
+    if unparseable:
+        return "fail", (
+            f"{slug}: notebook code cell(s) {unparseable} do not parse as plain Python, so this "
+            "check cannot see whether a confidence gate is frozen through the shared helper"
+        )
+    gated_in = _confidence_gate_locations(helpers_tree, notebook)
+    if not gated_in:
+        return "not-applicable", (
+            f"{slug}: no confidence is compared with a bound in helpers.py or any notebook code "
+            "cell, so nothing is gated and there is no gate to freeze"
+        )
+    if _shared_gate_freezes(helpers_tree, [tree for _, tree in notebook]):
+        return "ok", ""
+    return "fail", (
+        f"{slug}: this recipe gates on confidence ({', '.join(gated_in)}) but freezes no gate "
+        "through the shared helper. Choose the gate with `select_confidence_threshold(...)`, "
+        "imported by name (`from jev_cookbook.evaluation import select_confidence_threshold`) and "
+        "used, never a constant or a hand-picked number (CONTRIBUTING.md section 4, "
+        "docs/evaluation.md 'Selective prediction'). A hardcoded gate, a call through a module "
+        "attribute and a look-alike function are invisible to threshold_objective_pin, "
+        "stored_answers_strong_form and review_reason_string, which skip when they find no call, "
+        "so they would pass the recipe without checking it"
+    )
+
+
+@pytest.mark.parametrize("recipe", guarded_with_template("confidence_gate_from_shared_helper")())
+def test_a_confidence_gate_is_frozen_through_the_shared_helper(recipe):
+    """#282: two checks (``threshold_objective_pin`` and ``stored_answers_strong_form``) key on
+    finding a RESOLVABLE ``select_confidence_threshold(``/``select_threshold(`` call and skip when
+    they find none -- the quietest possible outcome, which reads as a pass -- and the third
+    (``review_reason_string``, before #227) only searched text. A recipe that freezes its gate as
+    a bare constant (``GATE = 0.85``) or through a call the finder does not resolve
+    (``evaluation.select_...``) therefore removes all three. Widening the finder is the wrong direction (this repository
+    has five findings about checks keyed on source idioms, and #276 tracks the same problem in
+    the adjacent machinery); making the skips fail closed would turn every genuinely gate-free
+    recipe red. The distinction the guard needs is between NO gate and an UNSEEN gate, and only
+    a positive requirement supplies it: a recipe that gates on confidence must freeze the gate
+    through the shared helper, so "no resolvable call" afterwards means "no gate".
+
+    Whether a recipe gates is decided by what it does, not by how it froze the number: executable
+    code that compares a confidence with a bound, or produces the confidence-gated review's
+    reason (``_confidence_gate_locations``). A recipe with neither passes: there is nothing to
+    freeze (published recipe 28 is the one such recipe today; the verdict function says why).
+    A recipe with one passes by a used call to ``select_confidence_threshold`` imported from
+    ``jev_cookbook.evaluation`` in its notebook OR in a wrapper in ``helpers.py``
+    (``_shared_gate_freezes``), so factoring the call behind a named function is accepted -- the
+    finder the three skipping checks share already reads both files. The three skip conditions
+    are deliberately left as they are: this is what makes them sound.
+
+    What it does not establish, said once: that the number frozen is the number the rule's
+    confidence parameter receives. A recipe with a shared-helper call AND a separate hardcoded
+    gate passes this check; ``threshold_objective_pin`` and the recipe's own consequence tests
+    are what bind the objective to the call, and a dataflow from the call to the rule is a
+    larger instrument than this positive requirement was filed to be."""
+    status, message = _gate_freeze_verdict(recipe_dir(recipe), recipe["slug"])
+    assert status in ("ok", "not-applicable"), message
+
+
+# --- #282: a gate that gates must be frozen through the shared helper ----------------------------
+
+_IMPORT_SHARED = "from jev_cookbook.evaluation import select_confidence_threshold"
+
+_FREEZE_PASSES = {
+    "call-in-the-notebook": (_GATE_HELPERS, _GATE_CELLS),
+    "aliased-import": (
+        _GATE_HELPERS,
+        [
+            (
+                "from jev_cookbook.evaluation import select_confidence_threshold as pick\n"
+                "gate = pick(ok, conf, min_coverage=0.5)\n"
+                "print(gate)\n",
+                "",
+            )
+        ],
+    ),
+    "wrapper-in-helpers-the-notebook-calls": (
+        _GATE_HELPERS
+        + """
+def choose_gate(correct, confidence):
+    return select_confidence_threshold(correct, confidence, min_coverage=0.5)
+""",
+        [("gate = helpers.choose_gate(ok, conf)\nprint(helpers.route(answer, gate))\n", "")],
+    ),
+    "result-passed-straight-on": (
+        _GATE_HELPERS,
+        [
+            (
+                f"{_IMPORT_SHARED}\n"
+                "print(helpers.route(answer, select_confidence_threshold(ok, conf, min_coverage=0.5)))\n",
+                "",
+            )
+        ],
+    ),
+    "no-gate-anywhere": (
+        "def total(xs):\n    return sum(xs)\n",
+        [("print(helpers.total([1, 2]))\n", "")],
+    ),
+}
+
+
+@pytest.mark.parametrize("shape", sorted(_FREEZE_PASSES))
+def test_a_gate_frozen_through_the_shared_helper_or_no_gate_passes(tmp_path, shape):
+    helpers, cells = _FREEZE_PASSES[shape]
+    folder = _gate_recipe(tmp_path, helpers, cells)
+    status, message = _gate_freeze_verdict(folder, "synthetic")
+    assert status in ("ok", "not-applicable"), message
+    assert (status == "not-applicable") == (shape == "no-gate-anywhere")
+
+
+_FREEZE_FAILS = {
+    "bare-constant": (
+        _GATE_HELPERS,
+        [("GATE = 0.85\nprint(helpers.route(answer, GATE))\n", "")],
+    ),
+    "constant-and-the-import-left-unused": (
+        _GATE_HELPERS,
+        [(f"{_IMPORT_SHARED}\nGATE = 0.85\nprint(helpers.route(answer, GATE))\n", "")],
+    ),
+    "call-through-a-module-attribute": (
+        _GATE_HELPERS,
+        [
+            (
+                "from jev_cookbook import evaluation\n"
+                "gate = evaluation.select_confidence_threshold(ok, conf, min_coverage=0.5)\n"
+                "print(helpers.route(answer, gate))\n",
+                "",
+            )
+        ],
+    ),
+    "look-alike-defined-in-the-recipe": (
+        _GATE_HELPERS
+        + """
+def select_confidence_threshold(correct, confidence, **kwargs):
+    return 0.85
+""",
+        [
+            (
+                "gate = helpers.select_confidence_threshold(ok, conf)\nprint(helpers.route(answer, gate))\n",
+                "",
+            )
+        ],
+    ),
+    "look-alike-defined-in-the-notebook": (
+        _GATE_HELPERS,
+        [
+            (
+                f"{_IMPORT_SHARED}\n"
+                "def select_confidence_threshold(correct, confidence, **kwargs):\n"
+                "    return 0.85\n"
+                "gate = select_confidence_threshold(ok, conf)\n"
+                "print(helpers.route(answer, gate))\n",
+                "",
+            )
+        ],
+    ),
+    "call-result-thrown-away": (
+        _GATE_HELPERS,
+        [
+            (
+                f"{_IMPORT_SHARED}\nselect_confidence_threshold(ok, conf, min_coverage=0.5)\nprint(helpers.route(answer, 0.85))\n",
+                "",
+            )
+        ],
+    ),
+    "call-result-stored-and-never-read": (
+        _GATE_HELPERS,
+        [
+            (
+                f"{_IMPORT_SHARED}\nunused = select_confidence_threshold(ok, conf, min_coverage=0.5)\nprint(helpers.route(answer, 0.85))\n",
+                "",
+            )
+        ],
+    ),
+    "the-business-threshold-function-is-not-the-gate": (
+        _GATE_HELPERS,
+        [
+            (
+                "from jev_cookbook.evaluation import select_threshold\n"
+                "t = select_threshold(gold, noul, 'f1')\n"
+                "print(helpers.route(answer, t))\n",
+                "",
+            )
+        ],
+    ),
+    "gate-in-the-notebook-only": (
+        "def total(xs):\n    return sum(xs)\n",
+        [("kept = [a for a in answers if a.confidence >= 0.85]\nprint(kept)\n", "")],
+    ),
+}
+
+
+@pytest.mark.parametrize("shape", sorted(_FREEZE_FAILS))
+def test_a_gate_not_frozen_through_the_shared_helper_fails_naming_the_requirement(tmp_path, shape):
+    helpers, cells = _FREEZE_FAILS[shape]
+    folder = _gate_recipe(tmp_path, helpers, cells)
+    status, message = _gate_freeze_verdict(folder, "synthetic")
+    assert status == "fail", message
+    # the message names the requirement, not a shape
+    assert "freezes no gate through the shared helper" in message
+    assert "select_confidence_threshold" in message and "jev_cookbook.evaluation" in message
+
+
+def test_a_gate_the_helper_call_in_helpers_never_reaches_is_not_credited_from_another_unit(
+    tmp_path,
+):
+    """An import in one file does not credit a call in the other: each unit is judged against its
+    own imports, so a look-alike in ``helpers.py`` is not rescued by the notebook's import."""
+    helpers = (
+        _GATE_HELPERS
+        + """
+def select_confidence_threshold(correct, confidence, **kwargs):
+    return 0.85
+
+def choose_gate(correct, confidence):
+    return select_confidence_threshold(correct, confidence)
+"""
+    )
+    folder = _gate_recipe(
+        tmp_path,
+        helpers,
+        [(f"{_IMPORT_SHARED}\nunused = 1\ngate = helpers.choose_gate(ok, conf)\n", "")],
+    )
+    status, _ = _gate_freeze_verdict(folder, "synthetic")
+    assert status == "fail"
+
+
+def test_a_hardcoded_gate_in_a_published_recipe_is_caught_where_three_checks_skip(tmp_path):
+    """The mutation proof on a published recipe (01), and the FAIL->SKIP conversion the issue
+    measured: convert the notebook's helper call to a constant and show what each check says.
+    The objective pin skips (no call to find), the strong-form check skips (no frozen
+    threshold), the reason-string check is green -- the quietest possible outcome -- and the new
+    check is red, naming the requirement."""
+    folder = _copy_recipe(tmp_path, "01-sentiment-classification")
+    assert _gate_freeze_verdict(folder, "01") == ("ok", "")
+    _edit_notebook_code(
+        folder,
+        "threshold = select_confidence_threshold(val_correct, val_confidence, target_accuracy=1.0)",
+        "threshold = 0.85",
+    )
+    assert _objective_pin_violations(folder) is None  # threshold_objective_pin: skips
+    assert _threshold_pin_obligations(folder) == []  # stored_answers_strong_form: skips
+    assert _reason_string_verdict(folder, "01")[0] == "ok"  # review_reason_string: green
+    status, message = _gate_freeze_verdict(folder, "01")
+    assert status == "fail"
+    assert "freezes no gate through the shared helper" in message and "helpers.py" in message
+
+
+def test_a_hardcoded_gate_behind_a_helpers_wrapper_is_caught(tmp_path):
+    """Recipe 31 freezes its gate only in a ``helpers.py`` wrapper (its notebook calls the wrapper),
+    which the check accepts; replace the wrapper's call with a constant and it fails."""
+    folder = _copy_recipe(tmp_path, "31-patch-risk-triage")
+    assert _gate_freeze_verdict(folder, "31") == ("ok", "")
+    _edit_text(
+        folder / "helpers.py",
+        "    return select_confidence_threshold(correct, confidence, min_coverage=MIN_COVERAGE)",
+        "    return 0.85",
+    )
+    status, message = _gate_freeze_verdict(folder, "31")
+    assert status == "fail" and "freezes no gate through the shared helper" in message
+
+
+def test_a_genuinely_gate_free_published_recipe_passes(tmp_path):
+    """Recipe 28 compares no confidence with a bound anywhere, so there is no gate to freeze --
+    the same fact ``GATE_FREE_DESIGNS`` records for the reason-string check."""
+    status, message = _gate_freeze_verdict(RECIPES_DIR / "28-skill-selection", "28")
+    assert status == "not-applicable" and "nothing is gated" in message
+    assert "28-skill-selection" in GATE_FREE_DESIGNS
 
 
 # --------------------------------------------------------------------------------------------
