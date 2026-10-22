@@ -43,6 +43,9 @@ def load_module_at(path, name):
 
 new_recipe = load_tool("new_recipe.py")
 execute_notebook = load_tool("execute_notebook.py")
+readme_install = load_module_at(
+    Path(__file__).with_name("readme_install.py"), "readme_install_for_test"
+)
 port_collisions = load_module_at(
     Path(__file__).with_name("kernel_port_collisions.py"), "kernel_port_collisions_for_test"
 )
@@ -1580,7 +1583,8 @@ def test_build_fixtures_writes_responses_byte_identical_to_the_recorders_writer(
 
 # The install command the `Notebook (<recipe>)` job in .github/workflows/notebooks.yml runs, and
 # the one docs/recipe-template.md step 6 documents as reproducing committed outputs byte for
-# byte: one wording everywhere (issue #137). ".[dev,ml]" is the old, no longer accurate wording.
+# byte: one wording everywhere (issue #137). ".[dev,ml]" is the old, no longer accurate wording
+# for that paragraph; since #238 it is the right one for the tests' install line.
 INSTALL_LINE = 'pip install -e ".[ml]" -c .github/constraints-notebooks.txt'
 
 
@@ -1593,7 +1597,22 @@ def test_the_scaffold_install_line_matches_ci_and_the_docs(catalog, recipes):
     run(1, catalog, recipes)
     readme = (recipes / recipe["slug"] / "README.md").read_text("utf-8")
     assert INSTALL_LINE in readme
-    assert '".[dev,ml]"' not in readme
+    assert readme_install.combined_reproduction_installs(readme) == []
+
+
+def test_the_scaffold_readme_install_rule_accepts_the_tests_install_and_refuses_the_old_one(
+    catalog, recipes
+):
+    """#238: ``.[dev,ml]`` in the scaffold's output is fine as the install for the tests and still
+    refused in the paragraph that reproduces committed outputs (what ``".[dev,ml]" not in readme``
+    used to forbid everywhere)."""
+    _, recipe = entry(catalog, 1)
+    run(1, catalog, recipes)
+    readme = (recipes / recipe["slug"] / "README.md").read_text("utf-8")
+    documented = readme_install.with_documented_test_install(readme)
+    assert readme_install.combined_reproduction_installs(documented) == []
+    old = readme_install.with_pre_162_reproduction_install(readme)
+    assert len(readme_install.combined_reproduction_installs(old)) == 1
 
 
 def test_the_scaffold_readme_has_pull_request_rules_matching_contributing(catalog, recipes):
