@@ -124,11 +124,17 @@ track (01–60) or the multimodal track (61–100).
   `pyproject.toml` selected every notebook on every open pull request. The first parent is the
   base the tree on disk was actually built on, so the diff is exactly what the pull request
   changes, and every rule above (shared code selects everything, `README.md` is exempt, a deleted
-  notebook runs nothing) applies to that diff unchanged. Only a `--head` with exactly two parents
-  is trusted to be the merge commit; for anything else the tool keeps `--base` (which can select
-  more than needed, never less). To reproduce a selection locally, rebuild the merge: from a
-  clone, `git checkout --detach origin/main && git merge --no-ff <pr-head>`, then
-  `python tools/notebook_ci.py matrix --base <the PR's base.sha> --head HEAD --merge-ref`;
+  notebook runs nothing) applies to that diff unchanged. `--merge-ref` always comes with
+  `--pr-head` (the event's `pull_request.head.sha`), and `--head` is trusted to be the merge commit
+  only if it has exactly two parents **and its second parent is that commit** (#316); for anything
+  else the tool keeps `--base` and says why on stderr (that can select more than needed, never
+  less). Two parents alone would not do: a pull request branch whose tip merged `main` into it has
+  two as well, and its first parent is the branch's own previous commit, so the diff would leave
+  out most of the change. This is also why the discover job's checkout names no `ref:` (it gets the
+  merge ref), which `tests/test_notebook_ci_workflows.py` pins. To reproduce a selection locally,
+  rebuild the merge: from a clone, `git checkout --detach origin/main && git merge --no-ff
+  <pr-head>`, then `python tools/notebook_ci.py matrix --base <the PR's base.sha> --head HEAD
+  --merge-ref --pr-head <pr-head>`;
   `tests/test_notebook_ci_gates.py` does exactly this against a temporary repository.
 - A pull request that changes anything else (shared code, tools, docs, workflows, the template's
   neighbours) runs every notebook, because shared code can change any recipe's result. **That
@@ -399,9 +405,19 @@ kernel's environment, hence the same cache directory), so no cell ever builds it
 `tests/test_new_recipe.py` reproduces the failure with the timer shortened to zero and an empty
 cache (the control), and shows the same notebook passing once the executor warms the cache first.
 
-When a cell does write to stderr the executor now prints what it wrote, redacted (absolute paths
-and long unbroken runs replaced) and bounded (8 lines, 600 characters), so the log is enough to
-diagnose it. The text is a diagnosis aid, never a licence: it is not matched against anything.
+The warm-up never fails the run, but it is not silent: if it times out, cannot start or exits
+non-zero, the executor prints one line on its own stderr saying so ("font-cache warm-up exited
+with status 1: ...", with the last line the child wrote, redacted), so a cache that did not get
+built is visible in the log the next time this flakes (#316). Its interpreter runs with `-s`, like
+the sandbox's own `python -s tools/execute_notebook.py`.
+
+When a cell does write to stderr the executor now prints what it wrote, redacted (POSIX, Windows
+and UNC absolute paths, including ones with spaces, and long unbroken runs replaced) and bounded
+(8 lines, 600 characters), so the log is enough to diagnose it. Every line of that excerpt starts
+with `  | `: the text is a cell's, the log is scanned by the Actions runner for `::` workflow
+commands, and the runner ignores leading whitespace, so indenting alone would not stop a line such
+as `::warning::...` from being run (#316). The text is a diagnosis aid, never a licence: it is not
+matched against anything.
 
 ## The staleness check
 

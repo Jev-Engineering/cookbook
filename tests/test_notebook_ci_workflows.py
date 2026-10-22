@@ -214,7 +214,8 @@ def test_a_weekly_schedule_runs_every_notebook():
 
 def test_a_pull_request_is_diffed_against_its_merge_commits_first_parent_not_a_stale_base():
     """#248: pull_request.base.sha is the base branch's tip when the pull request was opened. The
-    discover step must pass --merge-ref so the tool diffs against the merge commit's first parent,
+    discover step must pass --merge-ref (with --pr-head, so the tool checks that HEAD really is
+    the pull request's merge commit) so the tool diffs against the merge commit's first parent,
     and must fetch the history that needs (fetch-depth: 0). The push, forced-push, manual and
     scheduled branches never use it."""
     body = code(NOTEBOOKS)
@@ -224,12 +225,19 @@ def test_a_pull_request_is_diffed_against_its_merge_commits_first_parent_not_a_s
     assert pull_request, "the discover step must have a pull_request branch"
     assert re.fullmatch(
         r'\s*python tools/notebook_ci\.py matrix --base "\$BASE_SHA" --head HEAD --merge-ref '
-        r'--github-output "\$GITHUB_OUTPUT"',
+        r'--pr-head "\$PR_HEAD_SHA" --github-output "\$GITHUB_OUTPUT"',
         pull_request.group(1),
     )
     assert body.count("--merge-ref") == 1
+    # #316: the tool trusts HEAD as the merge commit only if its second parent is the pull
+    # request's head, and the head it is told is the event's, not anything the checkout produced.
+    assert body.count("--pr-head") == 1
+    assert "PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}" in body
     discover = body.split("  execute:")[0]
     assert "fetch-depth: 0" in discover
+    # HEAD is the merge ref only because the checkout names no ref: `ref:` set to the head sha
+    # would check out the branch tip instead (#316).
+    assert not re.search(r"^\s+ref:", discover, re.MULTILINE)
 
 
 def test_execute_job_caps_its_own_concurrency():

@@ -302,8 +302,44 @@ def test_windows_time_limit_leaves_a_real_ctrl_c_alone():
                 pass
 
 
+def test_windows_time_limit_ignores_a_trip_that_lands_while_its_handler_is_still_installed(
+    monkeypatch,
+):
+    """The case the ``armed`` flag exists for (#325 review): the body is done, the timer's trip
+    arrives before the handler is restored. A fake ``Timer`` whose ``join()`` fires the trip makes
+    that deterministic. The Windows branch is driven on any platform: where there is no
+    ``SIGBREAK`` the shim uses ``SIGUSR1``, and ``_HAS_SIGALRM`` is switched off. Without the flag
+    the handler raises ``_Timeout`` out of a block that finished in time."""
+    sigbreak = getattr(signal, "SIGBREAK", signal.SIGUSR1)
+    monkeypatch.setattr(signal, "SIGBREAK", sigbreak, raising=False)
+    monkeypatch.setitem(globals(), "_HAS_SIGALRM", False)
+
+    class LateTimer:
+        def __init__(self, _seconds, function, args=()):
+            self.function, self.args = function, args
+
+        def start(self):
+            pass
+
+        def cancel(self):
+            pass
+
+        def join(self):
+            self.function(*self.args)  # the trip, after the body and before the restore
+
+    monkeypatch.setattr(threading, "Timer", LateTimer)
+    previous = signal.getsignal(sigbreak)
+    with _time_limit(10):
+        pass  # must not raise _Timeout, here or when the block exits
+    for _ in range(10**5):
+        pass  # a trip still pending would surface here
+    assert signal.getsignal(sigbreak) == previous
+
+
 @pytest.mark.skipif(_HAS_SIGALRM, reason="exercises the Windows-only SIGBREAK timer path")
-def test_windows_time_limit_ignores_a_trip_after_the_block():
+def test_windows_time_limit_ignores_a_trip_after_the_handler_is_restored():
+    """Only what happens once the handler is gone (``interrupt_main`` then does nothing); the
+    ``armed`` flag itself is pinned by the test above."""
     with _time_limit(10):
         pass
     _thread.interrupt_main(signal.SIGBREAK)  # a timer that fired just as the block ended

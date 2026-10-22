@@ -592,9 +592,80 @@ def test_stderr_excerpt_is_bounded_in_lines_and_characters():
     assert out.endswith("[... truncated]")
     long_line = "word " * 500
     out = execute_notebook.stderr_excerpt(long_line)
-    assert len(out) <= execute_notebook.STDERR_EXCERPT_CHARS + len("\n[... truncated]")
+    marker = f"\n{execute_notebook.STDERR_LINE_PREFIX}{execute_notebook.STDERR_TRUNCATED}"
+    assert len(out) <= execute_notebook.STDERR_EXCERPT_CHARS + len(marker)
     assert out.endswith("[... truncated]")
-    assert execute_notebook.stderr_excerpt("\x1b[31mred\x1b[0m\x07 text") == "red text"
+    assert (
+        execute_notebook.stderr_excerpt("\x1b[31mred\x1b[0m\x07 text")
+        == execute_notebook.STDERR_LINE_PREFIX + "red text"
+    )
+
+
+WORKFLOW_COMMANDS = (
+    "::error::boom",
+    "   ::warning::indented with spaces",
+    "\t::notice::indented with a tab",
+    "::stop-commands::token",
+    "::add-mask::value",
+)
+
+
+def test_no_line_of_the_stderr_excerpt_can_be_read_as_a_workflow_command():
+    """#316: the excerpt is a cell's text in a log that GitHub Actions scans for ``::command::``
+    lines. The runner trims leading whitespace before it looks, so indenting is not enough: each
+    line must start with something that is not whitespace and not ``::``."""
+    out = execute_notebook.stderr_excerpt("\n".join(WORKFLOW_COMMANDS))
+    assert out.count("\n") == len(WORKFLOW_COMMANDS) - 1
+    for line in out.splitlines():
+        assert line.startswith(execute_notebook.STDERR_LINE_PREFIX), line
+        assert not line.lstrip().startswith("::"), line
+    assert "boom" in out  # the text is still shown, only inert
+
+
+def test_the_stderr_failure_message_has_no_workflow_command_line(tmp_path, capsys):
+    code = "import sys\n" + "".join(
+        f"print({command!r}, file=sys.stderr)\n" for command in WORKFLOW_COMMANDS
+    )
+    folder = tmp_path / "commands"
+    write_notebook(folder, code)
+    assert execute_notebook.main([str(folder)]) == 1
+    err = capsys.readouterr().err
+    assert "boom" in err and "wrote to stderr" in err
+    for line in err.splitlines():
+        assert not line.lstrip().startswith("::"), line
+
+
+@pytest.mark.parametrize(
+    "text, hidden",
+    [
+        (r"C:\Program Files\Python314\Lib\secretproj\x.py", ["Files", "secretproj", "Python314"]),
+        ("C:/Program Files/secretproj/x.py", ["Files", "secretproj"]),
+        (r"c:\Users\Jane Doe", ["Jane", "Doe"]),
+        (r"\\fileserver\share\secretproj\x.py", ["fileserver", "share", "secretproj"]),
+        (r"\\?\C:\Users\Jane Doe\My Folder\x.py", ["Jane", "Doe", "Folder"]),
+        (r"\\wsl$\Ubuntu\home\me\secretproj", ["Ubuntu", "secretproj"]),
+        (r"opened D:\Work Files\secretproj\a.py now", ["Work", "Files", "secretproj"]),
+    ],
+)
+def test_windows_and_unc_paths_are_redacted_whole_even_with_spaces(text, hidden):
+    out = execute_notebook.stderr_excerpt(text)
+    assert "<path>" in out, out
+    for word in hidden:
+        assert word not in out, (word, out)
+
+
+def test_a_quoted_windows_path_leaves_the_rest_of_the_line_readable():
+    out = execute_notebook.stderr_excerpt(
+        'File "C:\\Users\\Jane Doe\\x.py", line 3, in <module>\nOSError: bad'
+    )
+    assert "Jane" not in out and "Doe" not in out
+    assert '"<path>", line 3, in <module>' in out
+    assert "OSError: bad" in out
+
+
+def test_text_that_only_looks_like_a_drive_is_not_redacted():
+    """A letter and a colon at the end of a word (``NOTE:/``) is not a drive."""
+    assert "NOTE:" in execute_notebook.stderr_excerpt("see NOTE: this, and NOTE:/x")
 
 
 # A sitecustomize that makes matplotlib's "building the font cache" timer (5 seconds on a slow
@@ -666,6 +737,84 @@ def test_the_warm_up_uses_the_kernels_environment_and_never_fails_the_run(tmp_pa
 
     monkeypatch.setattr(execute_notebook.subprocess, "run", missing)
     execute_notebook.warm_font_cache(environment)  # an unrunnable interpreter is absorbed
+
+
+def run_warm_up_with(monkeypatch, outcome):
+    """``warm_font_cache`` with ``subprocess.run`` replaced: ``outcome`` is an exception to raise
+    or a CompletedProcess to return. What it printed is read by the caller from capsys."""
+
+    def fake_run(command, **kwargs):
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome
+
+    monkeypatch.setattr(execute_notebook.subprocess, "run", fake_run)
+    execute_notebook.warm_font_cache({})
+
+
+def completed(returncode, stderr=b""):
+    return subprocess.CompletedProcess(["python"], returncode, b"", stderr)
+
+
+def test_a_timed_out_warm_up_leaves_one_line_in_the_log(monkeypatch, capsys):
+    run_warm_up_with(monkeypatch, subprocess.TimeoutExpired(["python"], 1))
+    err = capsys.readouterr().err
+    assert err.count("\n") == 1 and err.startswith("font-cache warm-up timed out after ")
+
+
+def test_a_failed_warm_up_leaves_one_line_with_its_status_and_last_message(monkeypatch, capsys):
+    stderr = b'Traceback (most recent call last):\n  File "/srv/secret/x.py"\nImportError: boom\n'
+    run_warm_up_with(monkeypatch, completed(3, stderr))
+    err = capsys.readouterr().err
+    assert err.count("\n") == 1
+    assert err.startswith("font-cache warm-up exited with status 3: ImportError: boom")
+    assert "secret" not in err
+
+
+def test_a_warm_up_that_cannot_run_leaves_one_line_naming_the_error_not_its_text(
+    monkeypatch, capsys
+):
+    run_warm_up_with(monkeypatch, FileNotFoundError("/home/someone/python"))
+    err = capsys.readouterr().err
+    assert err.count("\n") == 1 and "could not run (FileNotFoundError)" in err
+    assert "someone" not in err
+
+
+def test_a_warm_up_note_is_bounded_and_redacted(monkeypatch, capsys):
+    run_warm_up_with(monkeypatch, completed(1, b"error /home/x/y " + b"word " * 200 + b"\n"))
+    err = capsys.readouterr().err
+    assert err.count("\n") == 1
+    frame = execute_notebook.font_cache_warmup_note("exited with status 1: ")
+    assert len(err) == len(frame) + execute_notebook.WARM_NOTE_CHARS + len("\n")
+    assert "/home" not in err and "error <path> word" in err
+
+
+def test_a_clean_warm_up_prints_nothing(monkeypatch, capsys):
+    run_warm_up_with(monkeypatch, completed(0, b"harmless chatter"))
+    assert capsys.readouterr().err == ""
+
+
+def test_the_warm_up_interpreter_runs_without_the_user_site(monkeypatch, capsys):
+    """#316: ``-s``, like the CI sandbox's own interpreter. Checked on a real process that fails
+    (and so says so) unless the user site directory is off."""
+    monkeypatch.setattr(
+        execute_notebook,
+        "FONT_CACHE_WARMUP",
+        "import sys; sys.exit(0 if sys.flags.no_user_site else 7)",
+    )
+    monkeypatch.delenv("PYTHONNOUSERSITE", raising=False)
+    execute_notebook.warm_font_cache(dict(os.environ))
+    assert capsys.readouterr().err == ""
+
+    seen = {}
+
+    def fake_run(command, **kwargs):
+        seen["command"] = command
+        return completed(0)
+
+    monkeypatch.setattr(execute_notebook.subprocess, "run", fake_run)
+    execute_notebook.warm_font_cache({})
+    assert seen["command"][1] == "-s"
 
 
 def test_execute_warms_the_cache_with_the_scrubbed_kernel_environment(tmp_path, monkeypatch):
