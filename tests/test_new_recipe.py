@@ -91,9 +91,38 @@ def test_it_creates_the_folder_named_by_the_catalog(catalog, recipes):
         "README.md",
         "helpers.py",
         "build_fixtures.py",
+        "side_effects.json",
         "tests/test_helpers.py",
         "tests/test_build_fixtures.py",
     }
+
+
+@pytest.mark.parametrize("mode", new_recipe.MODES)
+def test_the_scaffold_writes_a_side_effects_declaration_with_a_placeholder_reason(
+    catalog, recipes, mode
+):
+    """#327: a new recipe starts with a ``side_effects.json`` it must edit, not with nothing to
+    forget. The placeholder is a ``none`` declaration whose reason carries the scaffold's TODO
+    marker, so ``grep -rn TODO`` lists it with everything else the builder still owes."""
+    _, recipe = entry(catalog, 31)
+    new_recipe.scaffold(31, catalog, recipes, mode)
+    text = (recipes / recipe["slug"] / "side_effects.json").read_text("utf-8")
+    assert text.endswith("\n") and "\r" not in text
+    declaration = json.loads(text)
+    assert set(declaration) == {"schema", "none"} and declaration["schema"] == 1
+    assert "TODO" in declaration["none"]
+    assert "TODO" in text.splitlines()[2]  # a grep for TODO lists the line to rewrite
+
+
+def test_the_command_line_names_the_side_effects_file_among_the_todo_files(catalog, recipes):
+    _, recipe = entry(catalog, 31)
+    assert run(31, catalog, recipes) == 0
+    todo_files = {
+        p.name
+        for p in (recipes / recipe["slug"]).rglob("*")
+        if p.is_file() and "TODO" in p.read_text("utf-8")
+    }
+    assert "side_effects.json" in todo_files
 
 
 def test_the_catalog_fields_are_filled_in_the_notebook_and_the_readme(catalog, recipes):
