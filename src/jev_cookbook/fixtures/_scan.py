@@ -100,16 +100,19 @@ _DATA_URI = re.compile(r"data:[\w./+-]+;base64,[A-Za-z0-9+/=]+")
 _ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 _ENTROPY_THRESHOLD = 4.2
 # A name assigned a bare name, such as a ruff-style keyword argument
-# ``startup_timeout=KERNEL_START_TIMEOUT``, is code, not a secret. Both sides are runs of
-# letters or of digits joined by "_" (the right side also by "."), where no run mixes letters
-# with digits and no run mixes cases (SCREAMING_SNAKE or lower_snake, no quotes); the left side
-# starts with a letter run. A left side that names a secret (api key, secret, token, password,
-# access key, credential) is never exempt, because a one-case value such as ``token=`` plus
-# 36 lowercase letters is a real secret shape. A mixed-case or letter-and-digit run on either
-# side is still scored, so ``token=a1B2c3...``, a key followed by ``=1`` and a quoted
-# string are all still scored.
-_RUN = r"(?:[A-Z]+|[a-z]+|[0-9]+)"
-_IDENT_ASSIGNMENT = re.compile(rf"_*(?:[A-Z]+|[a-z]+)(?:_+{_RUN})*_*=_*{_RUN}(?:[_.]+{_RUN})*_*")
+# ``startup_timeout=KERNEL_START_TIMEOUT``, is code, not a secret. Both sides are runs joined
+# by "_" (the right side also by "."). A run is a block of letters of ONE case with optional
+# digits AFTER it (``STAGE1``, ``SHA256``, ``utf8``, ``V2``), or a block of digits alone; the
+# left side starts with a letter run. Digits never sit between letters inside a run, so a run
+# that alternates letters and digits, as random text does, is not exempt. A left side that
+# names a secret (api key, secret, token, password, access key, credential) is never exempt,
+# because a one-case value such as ``token=`` plus 36 lowercase letters is a real secret
+# shape. A mixed-case run, or a run with a digit before a letter, on either side is still
+# scored, so ``token=a1B2c3...``, a key followed by ``=1`` and a quoted string are all still
+# scored, as is ``name=`` plus random lowercase letters and digits.
+_NAME_RUN = r"(?:[A-Z]+|[a-z]+)[0-9]*"
+_RUN = rf"(?:{_NAME_RUN}|[0-9]+)"
+_IDENT_ASSIGNMENT = re.compile(rf"_*{_NAME_RUN}(?:_+{_RUN})*_*=_*{_RUN}(?:[_.]+{_RUN})*_*")
 _SECRET_NAME = re.compile(
     r"api[_-]?key|secret|token|passw(?:or)?d|access[_-]?key|credential", re.IGNORECASE
 )
