@@ -34,12 +34,15 @@ check id                              rule -> detection
                                        comments in ``.py`` files, full text of ``README.md``
                                        and notebook markdown cells), and none of the other
                                        spellings of a document a reader cannot open (#225):
-                                       a pull request's description, body or ``PR``, a wave
-                                       or batch number, a house rule number ("rule 12", unless
-                                       it names a committed file that exists), "the
-                                       orchestrator", "the brief", "the reviewer's finding",
-                                       a review finding label ``(M3)``, "acceptance
-                                       criteria", a review or fix round, and a recipe
+                                       a pull request's description,
+                                       body or text, a bare ``PR`` (not "PR curve", "PR AUC"
+                                       or "recall (PR)", the metric), a wave or batch number,
+                                       a house rule number ("rule 12", unless it is followed
+                                       by of/in/from and a path from the repository root that
+                                       exists), "the orchestrator", "the brief", "the
+                                       reviewer's finding", a review finding label ``(M3)``,
+                                       "acceptance criteria" (not "acceptance test", ordinary
+                                       vocabulary), a review or fix round, and a recipe
                                        number or ``../NN-slug/`` link that is not published.
                                        Quoted fixture text is stripped as before. Not seen:
                                        any other way to cite a document outside the tree.
@@ -617,8 +620,14 @@ def _prose_of_python(source: str) -> str:
 # says "a reviewer" freely, and only "the reviewer's finding", "the brief" and the like are
 # pointers at a document the reader cannot open.
 PROCESS_CITATIONS: dict[str, re.Pattern[str]] = {
+    # A bare ``PR`` is a pointer ("as the PR says"), but "PR curve", "PR AUC" and "precision-recall
+    # (PR)" are the metric, ordinary evaluation vocabulary, so a ``PR`` that is followed by one of
+    # the metric's own words, or introduced by "recall (", is not one.
     "pull request pointer": re.compile(
-        r"\b(?-i:PRs?)\b|\bpull[- ]request\s+(?:description|body|text)\b", re.IGNORECASE
+        r"(?<!recall \()\b(?-i:PRs?)\b"
+        r"(?!\)?[\s-]*(?:curves?|AUC|AP\b|areas?|plots?|precision|recall|scores?|points?|metrics?))"
+        r"|\bpull[- ]request(?:'s)?\s+(?:description|body|text)\b",
+        re.IGNORECASE,
     ),
     "wave or batch number": re.compile(r"\b(?:wave|batch)\s+\d+\b", re.IGNORECASE),
     "review round": re.compile(r"\b(?:review|fix)\s+round\b", re.IGNORECASE),
@@ -630,17 +639,19 @@ PROCESS_CITATIONS: dict[str, re.Pattern[str]] = {
         re.IGNORECASE,
     ),
     "review finding label": re.compile(r"\(\s*[MSBN][1-9]\s*\)"),
-    "acceptance criteria": re.compile(
-        r"\bacceptance\s+(?:criteri(?:a|on)|tests?)\b", re.IGNORECASE
-    ),
+    # "Acceptance criteria" is a private issue's checklist. "Acceptance test" is NOT in this list:
+    # it is ordinary vocabulary for a recipe about CI failures or test selection (19, 32) and
+    # cites nothing the reader cannot open.
+    "acceptance criteria": re.compile(r"\bacceptance\s+criteri(?:a|on)\b", re.IGNORECASE),
 }
 # A rule number whose target is a committed file is a citation a reader CAN open ("rule 4 of
 # docs/x.md"), the one carve-out #225 asks for. The identifiers the repository itself defines
 # (G1(c), R21, CONTRIBUTING.md section 6, S07) match none of the shapes above, so they need no
-# allowlist; this is only for a numbered rule that names where it is written.
-COMMITTED_RULE_TARGET = re.compile(
-    r"\s*(?:of|in|from)\s+`?((?:CONTRIBUTING|README)\.md|(?:docs|tools|tests|catalog)/[\w./-]*[\w])"
-)
+# allowlist; this is only for a numbered rule that names where it is written. The target is
+# `of`/`in`/`from` and a path from the repository root that looks like one (it has a "/" or a
+# ".") and EXISTS in the tree being checked: any committed file qualifies, a neighbouring
+# recipe's README included, and a path that names nothing, or climbs out with "..", does not.
+COMMITTED_RULE_TARGET = re.compile(r"\s*(?:of|in|from)\s+`?([\w./-]*[/.][\w./-]*[\w])")
 # A recipe reference ("recipe 30", "../30-citation-verification/") the reader cannot follow
 # because that recipe is not published (#225's second comment). Pointing at a published
 # neighbour is what section 6 asks for.
@@ -655,7 +666,9 @@ def _published_recipe_numbers() -> set[int]:
 def _names_a_committed_file(text: str, end: int) -> bool:
     """Whether the text right after position ``end`` names a file or folder that exists."""
     found = COMMITTED_RULE_TARGET.match(text, end)
-    return bool(found) and (REPO / found.group(1)).exists()
+    if not found or ".." in found.group(1).split("/"):
+        return False
+    return (REPO / found.group(1)).exists()
 
 
 def _citation_hits(text: str, location: str) -> list[str]:
@@ -731,7 +744,8 @@ def _hyphenated_cell_ids(recipe_dir_: Path) -> set[str]:
 
 def _cell_id_citations(text: str, ids: set[str], location: str) -> list[str]:
     """Every backticked span of ``text`` that is exactly one of ``ids``. Fenced blocks are
-    code, not prose addressed to the reader, and are skipped."""
+    code, not prose addressed to the reader, and are skipped (a fence of three backticks or three
+    tildes at the start of a line; a longer fence or an indented block is not recognised)."""
     text = CODE_FENCE.sub(" ", text)
     return [
         f"{location}: `{m.group(1)}` is a cell id, which only the .ipynb JSON shows"
@@ -789,6 +803,13 @@ _UNREADABLE_CITATIONS = {
     "pull-request-description": ("see the pull request description", "pull request"),
     "pull-request-body": ("the pull request body has the numbers", "pull request"),
     "the-pr": ("as the PR says, this is a floor", "pull request"),
+    "possessive-pr": ("the PR's description proves it", "pull request"),
+    "possessive-pull-request-description": (
+        "the pull request's description proves it",
+        "pull request",
+    ),
+    "possessive-pull-request-body": ("the pull-request's body has the mutation", "pull request"),
+    "pr-then-pr-curve": ("see the PR, then the PR curve", "pull request"),
     "this-pr": ("this PR changes the gate", "pull request"),
     "wave-and-batch": ("Fixture-generation consistency (Wave 3 batch 1)", "wave or batch"),
     "wave-alone": ("it fixes something a Wave 1 review noted", "wave or batch"),
@@ -796,6 +817,8 @@ _UNREADABLE_CITATIONS = {
     "rule-capitalised": ("Rule 12: nothing in this file pins the output", "house rule"),
     "rule-lowercase": ("which is what rule 19 is about", "house rule"),
     "rule-of-a-file-that-does-not-exist": ("rule 4 of docs/not-a-file.md", "house rule"),
+    "rule-of-a-path-that-climbs-out": ("rule 4 of ../CONTRIBUTING.md", "house rule"),
+    "rule-of-a-file-not-at-the-root": ("rule 4 of helpers.py", "house rule"),
     "rule-of-a-policy": ("rule 4 of the policy", "house rule"),
     "the-orchestrator": ("the orchestrator asked for this order", "orchestration role"),
     "the-brief": ("as the brief says, keep it short", "orchestration role"),
@@ -821,6 +844,14 @@ _READABLE_CITATIONS = {
     "a-catalog-source": "TypeSafe's notes on Jev 1.13 (S07) document it",
     "a-numbered-rule-that-names-its-file": "rule 4 of docs/glossary.md says so",
     "a-numbered-rule-in-contributing": "rule 4 in CONTRIBUTING.md says so",
+    "a-numbered-rule-of-a-neighbours-readme": (
+        "rule 4 of recipes/38-abstention-and-review-queues/README.md says so"
+    ),
+    "a-numbered-rule-of-the-package": "rule 4 of src/jev_cookbook/evaluation.py says so",
+    "a-pr-curve": "the PR curve and PR AUC are reported",
+    "the-metric-abbreviated": "precision-recall (PR) curves and precision and recall (PR) at k",
+    "pr-auc-hyphenated": "PR-AUC and PR AP, not PR scores",
+    "an-acceptance-test": "an acceptance test the customer signs off, and the acceptance tests",
     "a-published-neighbour": "see recipe 30 and ../30-citation-verification/ for the shape",
     "a-human-reviewer": "a reviewer decides what the model could not",
     "reviewers-in-the-queue": "the reviewers who work the review queue see the reason",
@@ -948,7 +979,10 @@ _CELL_ID_CASES_THAT_PASS = {
     "not-the-whole-span": "Set `python-rule-2` or `my.python-rule` and see.",
     "a-hyphenated-token-that-is-no-cell": "The label `needs-review` is the review value.",
     "a-heading-instead": 'Change it in the cell under "Python\'s part" that prints the gate.',
-    "inside-a-fence": "```python\nnext(c for c in cells if c['id'] == 'python-rule')\n```",
+    # A backticked span INSIDE a fence: only the fence strip keeps these from being hits (the same
+    # text outside a fence is "the-cell-below" in the cases that fail).
+    "inside-a-backtick-fence": "```text\nthe `python-rule` cell\n```",
+    "inside-a-tilde-fence": "~~~\nthe `python-rule` cell below\n~~~",
     "a-quoted-lookup-not-backticked": 'The tests find it with c.get("id") == "python-rule".',
 }
 
