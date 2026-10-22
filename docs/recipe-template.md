@@ -93,9 +93,13 @@ own first use the same way.
   reason string `confidence below the threshold` is produced by the branch that comparison controls
   (not a comment, a docstring or an unused constant), that branch's function is reachable from the
   notebook, and a committed output shows a review the rule produced: print the result's `.reason` for
-  an example the gate sends to review, not the words. A rule with no confidence-gated review at all
-  (a margin, a budget, a top-k cut) does not add one to satisfy the guard; the guard's
-  `GATE_FREE_DESIGNS` list names the recipes that have none, and a new entry is a foundation decision.
+  an example the gate sends to review, not the words (words typed into the cell, or bound to a name in
+  any cell and printed from another, are not evidence). Keep the reason in the comparison's own
+  function, on the branch it controls or behind a flag derived from it; a private helper the branch
+  calls to build the reason is not seen. A rule with no confidence-gated review at all (a margin, a
+  budget, a top-k cut; validating that an argument lies between 0 and 1 is not a gate) does not add
+  one to satisfy the guard; the guard's `GATE_FREE_DESIGNS` list names the recipes that have none, a
+  new entry is a foundation decision, and both checks are not applicable to a recipe on it.
 - **Pin the threshold's OBJECTIVE, not only the value it lands on.** `select_confidence_threshold`
   takes exactly one of `target_accuracy` or `min_coverage`; `select_threshold` takes an `objective`
   of `"f1"`, `"recall_at_precision"`, or `"precision_at_recall"`. Neither a printed f-string beside

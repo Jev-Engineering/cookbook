@@ -286,8 +286,9 @@ checks look for a call to it and skip when they find none, so a recipe that hide
 would pass them without being checked. The guard's `confidence_gate_from_shared_helper` check fails such
 a recipe with this requirement. A gate that is only a diagnostic (it reports how many answers a
 confidence would withhold and withholds nothing, as recipe 35's feature extraction does) is still a
-gate and is frozen the same way. A recipe whose decision compares no confidence with a bound has no
-gate to freeze and the check does not apply to it.
+gate and is frozen the same way. A recipe whose decision compares no confidence with a bound it
+chooses has no gate to freeze and the check does not apply to it; checking that a `min_confidence`
+argument lies between 0 and 1 is not such a comparison.
 
 **`select_confidence_threshold` freezes the max-coverage cut that still meets the target, not the
 candidate nearest the target.** With `target_accuracy=...`, the value returned is the *lowest*
