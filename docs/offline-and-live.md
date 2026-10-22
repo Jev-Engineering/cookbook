@@ -201,7 +201,8 @@ A live backend counts every attempt it sends and refuses to send more than a lim
 yourself). The next attempt past the limit raises `BudgetExceeded` before anything is sent.
 Retries count against the limit, so a limit of N can give fewer than N responses. The guard belongs
 to one backend object: starting a new one starts a new count, so keeping a running total across runs
-is up to you. The backend's `ledger()` gives a plain record of what was sent, with no key and no
+is up to you, and a notebook with two backends has two budgets (a recipe's README cap is the
+largest single backend; what it spends is the sum, declared once in `request_budget.json`). The backend's `ledger()` gives a plain record of what was sent, with no key and no
 state in it ([live.md](live.md#budget-guard)).
 
 ### The recorder

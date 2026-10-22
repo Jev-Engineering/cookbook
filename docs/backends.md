@@ -35,9 +35,10 @@ result["tone"].provenance.source  # "synthetic" or "recorded"
 A replay fixture map stores one response per distinct request key. Calling `decide` twice
 with the same state, questions and assets makes two logical calls but uses one fixture key.
 In a live comparison those calls may produce different answers; the audit never deduplicates
-them or changes their state, questions, assets, answers, or replay keys.
+them or changes their state, questions, assets, answers, or replay keys. A live backend
+caches nothing, so each of those calls is one paid request.
 
-Wrap the notebook's sole backend when its actual call count needs execution evidence:
+Wrap each backend whose live requests a notebook needs counted:
 
 ```python
 from jev_cookbook import AuditedBackend, get_backend
@@ -53,26 +54,86 @@ wrapped backend. At the end of the notebook, add a standalone final code cell:
 print(backend.audit_json())
 ```
 
-The `JEV_REQUEST_AUDIT ` line contains schema version 1, `decide_calls`, `distinct_requests`,
-and an ordered `calls` list with each `replay_key` and whether the delegate `returned`.
-Counts derive from this list; repeated keys remain repeated. A delegated exception propagates
-unchanged and leaves `returned: false`. A request rejected by the wrapper's replay-key
-validation never reaches the delegate and is not counted. `backend.audit()` returns a fresh
-dictionary snapshot if code needs to inspect the ledger.
+A notebook with more than one audited backend gives each its own `label="..."` (a lowercase
+name; `"main"` when there is one) and prints them together, in the order they were created:
 
-The recipe budget guard ties the final output to the shared wrapper's direct construction and
-print, recomputes both counts, rejects failed calls, and compares the exact distinct key set
-with `fixtures/responses.json`. Extra unused fixtures and missing fixtures both fail this
-audited route. Scripted runs can print the same evidence without a fixture inventory.
-The README's existing “makes exactly N calls” sentence names the actual call count.
+```python
+from jev_cookbook import AuditedBackend, audit_json, get_backend
+
+arm_a = AuditedBackend(get_backend(fixtures="fixtures/a.json"), label="arm-a")
+arm_b = AuditedBackend(get_backend(fixtures="fixtures/b.json"), label="arm-b")
+```
+
+```python
+print(audit_json(arm_a, arm_b))
+```
+
+The live budget belongs to one backend object (`JEV_COOKBOOK_LIVE_MAX_REQUESTS` is the cap of
+each, not of the run), so a second backend is a second budget and is named, counted and declared
+as such rather than merged into one number.
+
+The `JEV_REQUEST_AUDIT ` line is `{"schema": 2, "backends": [...]}`. Each backend entry holds its
+`label`, `decide_calls`, `distinct_requests` and an ordered `calls` list with each `replay_key`
+and whether the delegate `returned`. Counts derive from the list; repeated keys remain repeated.
+A delegated exception propagates unchanged and leaves `returned: false`. A request rejected by the
+wrapper's replay-key validation never reaches the delegate and is not counted.
+`backend.audit()` returns a fresh dictionary snapshot of that backend's entry.
+
+**Adding a counted quantity later** (the images a request carries, for example) does not change
+these fields. A quantity is registered once with `jev_cookbook.accounting.register_profile(name,
+counter)`; a call then carries `"profile": {name: n}` and the entry carries `"profile_totals":
+{name: sum}`. Zeros and empty mappings are omitted, so a notebook that never uses the quantity
+prints byte for byte the line it printed before, and its committed output stays valid. The guard
+accepts exactly the registered names, recomputes every total, and compares it with the recipe's
+declared `profile`. Only a change to a core field bumps `schema`.
+
+### The declared count: `request_budget.json`
+
+A recipe states its live request count once, in `request_budget.json` beside the notebook:
+
+```text
+{
+  "schema": 1,
+  "backends": {
+    "main": { "requests": 40, "fixtures": "fixtures/responses.json" }
+  }
+}
+```
+
+Per backend: `requests` (the `decide` calls the notebook makes), `fixtures` (the recipe-relative
+replay file whose keys the backend must exercise exactly, or `null` for a scripted backend), and
+optionally `distinct` (when the notebook repeats a request on purpose, such as a simulation that
+reaches the same state again: `requests` calls, `distinct` different ones; the default is
+`requests`), `at_most` (when the count depends on the answers, such as a second stage that runs
+only for some first-stage answers: the audit replays the committed answers and measures `requests`;
+`at_most` is the author's stated bound for every other path, and the cap is sized by it) and
+`profile`.
+
+The README's budget paragraph is rendered from this file, not typed:
+`python -c "from jev_cookbook.accounting import render_recipe_note as r; print(r('recipes/NN-slug'), end='')"`
+prints it between `<!-- request-budget:begin -->` and `<!-- request-budget:end -->`, and the
+guard re-renders it and requires the README to hold it unchanged and to state no other count or
+cap. The cap it names is the largest single backend's bound, because the cap is inclusive and per
+backend (a run of N requests is allowed by a cap of N, and stopped at request N+1); the total is
+what the run is billed.
+
+The recipe guard (`readme_budget_note_matches_request_audit`) ties the final output to the shared
+wrapper's direct construction and print, recomputes every count, rejects failed calls, and checks
+the execution against the declaration: calls, distinct requests, the exact fixture inventory
+(extra unused and missing fixtures both fail), and any profile. **A request decided twice fails on
+its own and names its replay key**, unless the declaration says how many repeats are intended.
+The declaration, an audited notebook and the rendered paragraph come together or not at all.
 The separate fresh-kernel notebook check verifies that committed output is current; the unit
-guard does not execute the notebook or prove arbitrary helper behavior. Use the direct imports
-and construction above, one backend binding, and the final standalone print: extra backend
-construction, protected-name rebinding, or detached summary strings are rejected.
+guard does not execute the notebook or prove arbitrary helper behavior. Use the direct imports and
+constructions above, one top-level binding per audited backend, and the final standalone print:
+extra backend construction, protected-name rebinding, or detached summary strings are rejected.
+`one_backend_per_budget` separately fails a recipe with more `get_backend` call sites than
+audited backends.
 
-Unaudited recipes retain the existing strict fixture-count check. It remains a proxy and cannot
-distinguish repeated calls or unused fixture inventory. An attempted but malformed audit fails
-instead of falling back to that proxy.
+A recipe with no declaration, no `AuditedBackend` and no rendered paragraph keeps the strict
+`len(responses.json)` check against its hand-written README sentence. That is a proxy: it
+measures distinct fixture keys, so it cannot see a repeated request, a second backend, or an unused
+fixture. An attempted but malformed audit fails instead of falling back to it.
 
 This audit describes logical calls on the executed path. It contains no response contents or
 HTTP-attempt evidence, and is not a measurement of live usage, latency, cost, or model quality.
