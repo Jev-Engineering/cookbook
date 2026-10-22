@@ -128,9 +128,21 @@ def test_no_name_the_generator_can_return_contains_a_denied_word():
         assert name in clean, (seed, name)
 
 
+def first_draw(seed: int) -> str:
+    """What fictional_name returned before the deny filter existed: the first draw of the seeded
+    stream, built from the same syllable table (so no offensive word is written out here)."""
+    rng = si.Rng(seed)
+    syllables = [rng.choice(si._ONSETS) + rng.choice(si._VOWELS) for _ in range(rng.between(2, 3))]
+    return ("".join(syllables) + rng.choice(si._CODAS)).upper()
+
+
 def test_the_names_reviewers_found_are_gone_and_every_other_name_is_unchanged():
-    # fictional_name(1996) was "BONER", (395) "NIGANUS" and (159) "FAGIPON" before the filter
+    # Seeds 1996, 395 and 159 were found by reviewers: their first draws spell offensive words.
+    # Each of those words is caught by one entry of the deny-list, so removing any of the three
+    # entries makes fictional_name return the first draw again and this test fail.
     for seed in (1996, 395, 159):
+        assert not si._is_clean(first_draw(seed)), seed
+        assert si.fictional_name(seed) != first_draw(seed), seed
         assert re.fullmatch(r"[A-Z]{4,10}", si.fictional_name(seed))
         assert not any(word in si.fictional_name(seed) for word in si._DENY)
     # a seed whose first draw is clean maps to the same name as before (the gallery depends on it)
@@ -1058,7 +1070,7 @@ def test_a_png_over_the_byte_cap_is_refused_at_encode_time():
 
 def tree(folder: Path) -> list[str]:
     """Every file and folder under ``folder``, so "nothing was written" is checked literally."""
-    return sorted(str(p.relative_to(folder)) for p in folder.rglob("*"))
+    return sorted(p.relative_to(folder).as_posix() for p in folder.rglob("*"))
 
 
 def icc_tagged() -> Image.Image:
@@ -1136,15 +1148,39 @@ def test_the_api_limits_are_checked_through_vision_on_the_encoded_bytes(monkeypa
     assert not (tmp_path / "assets" / "b.png").exists()
 
 
+def symlink_or_skip(link: Path, target: Path) -> None:
+    """Create a directory symlink, or skip the test where the platform cannot (Windows without
+    Developer Mode raises OSError 1314). The idiom of tests/test_fixtures_assets.py's _symlink
+    and tests/test_vision.py's escape test."""
+    try:
+        link.symlink_to(target, target_is_directory=True)
+    except (OSError, NotImplementedError):  # pragma: no cover - platform without symlinks
+        pytest.skip("this platform cannot create symbolic links")
+
+
 def test_a_path_that_escapes_the_recipe_is_refused_before_any_write(tmp_path):
     recipe = tmp_path / "recipe"
     recipe.mkdir()
     outside = tmp_path / "outside"
     outside.mkdir()
-    (recipe / "assets").symlink_to(outside, target_is_directory=True)
+    symlink_or_skip(recipe / "assets", outside)
     with pytest.raises(vision.AssetPathError):
         si.login_screen().write(recipe, "assets/a.png")
     assert tree(outside) == []
+
+
+@pytest.mark.parametrize(
+    "error",
+    [OSError(1314, "A required privilege is not held by the client"), NotImplementedError()],
+)
+def test_the_symlink_test_skips_where_symlinks_cannot_be_created(tmp_path, monkeypatch, error):
+    def refuse(self, target, target_is_directory=False):
+        raise error
+
+    monkeypatch.setattr(Path, "symlink_to", refuse)
+    with pytest.raises(pytest.skip.Exception, match="cannot create symbolic links"):
+        test_a_path_that_escapes_the_recipe_is_refused_before_any_write(tmp_path)
+    assert tree(tmp_path) == ["outside", "recipe"]  # it skipped before writing anything
 
 
 def test_a_failure_while_writing_leaves_no_file_and_no_temporary_file(tmp_path, monkeypatch):
