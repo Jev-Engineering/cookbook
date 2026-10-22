@@ -2,10 +2,12 @@
 
 Pillow and the standard library only; no system font, no real photograph, brand or screenshot.
 Everything is drawn with integer arithmetic (a built-in 5x7 bitmap font, integer ellipse,
-triangle and line rasterisers, a splitmix64 random stream), so the *pixels* of an image are a
+triangle and line rasterisers, a splitmix64 random stream); a float argument is converted
+exactly through ``fractions.Fraction`` before it can matter, and floats otherwise appear only in
+reported values (``Drawn.box``, timestamps) and comparisons. So the *pixels* of an image are a
 pure function of the arguments and the seed. They do not depend on FreeType, on Pillow's
 anti-aliasing or on the platform. Only the PNG *encoding* of those pixels (zlib) can differ
-between Pillow builds, which is what :func:`write_asset` and ``CANONICAL_PILLOW`` handle.
+between Pillow builds, which is what :func:`write_asset` and :func:`bytes_are_canonical` handle.
 
 Every primitive returns a :class:`Drawn` with the exact pixel rectangle it drew, and its
 normalized ``box`` (``top``/``bottom``/``left``/``right``, the form ``jev_cookbook.vision``
@@ -14,6 +16,7 @@ and the gold Box labels use), so a recipe derives its labels instead of typing t
 
 from __future__ import annotations
 
+import base64
 import functools
 import hashlib
 import importlib
@@ -21,8 +24,10 @@ import inspect
 import io
 import json
 import math
+import os
 import re
 import struct
+import tempfile
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from fractions import Fraction
@@ -31,12 +36,13 @@ from pathlib import Path
 from typing import Any
 
 import PIL
-from PIL import Image, ImageChops, ImageDraw
+from PIL import Image, ImageChops, ImageDraw, features
 
-from .vision import IMAGE_LIMITS, image_asset
+from .vision import IMAGE_LIMITS, resolve_asset_path, validate_image_asset
 
 __all__ = [
     "CANONICAL_PILLOW",
+    "CANONICAL_ZLIB",
     "GLYPH_HEIGHT",
     "GLYPH_PITCH",
     "GLYPH_WIDTH",
@@ -50,6 +56,7 @@ __all__ = [
     "RegenerationMismatch",
     "Rng",
     "absent_label",
+    "bytes_are_canonical",
     "build_frames",
     "check_reproducible",
     "deck_hud",
@@ -73,10 +80,17 @@ __all__ = [
     "write_png",
 ]
 
-# The Pillow release whose PNG encoder produced the committed bytes: the one pinned in
-# .github/constraints-notebooks.txt (a test keeps the two equal). Under any other Pillow the
-# decoded pixels are the contract, not the bytes (see write_asset).
+# The environment whose PNG encoder produced the committed bytes. The bytes of a PNG come from
+# Pillow's encoder (filter choice, written chunks) and from the zlib it is linked to, so both are
+# recorded. CANONICAL_PILLOW is the Pillow pinned in .github/constraints-notebooks.txt (a test
+# keeps the two equal); CANONICAL_ZLIB is the zlib that pinned PyPI wheel bundles, as reported by
+# PIL.features.version("zlib") (the 12.3.0 and 13.0.0 wheels both bundle 1.2.13, which is why
+# their bytes agree today). Only when BOTH match are the bytes the contract; under any other
+# environment, including a Pillow 12.3.0 linked against a system zlib, the decoded pixels are
+# (see write_asset and bytes_are_canonical). After a Pillow pin bump re-record both constants,
+# the byte digests in tests/test_synthetic_images.py and the gallery (docs/synthetic-images.md).
 CANONICAL_PILLOW = "12.3.0"
+CANONICAL_ZLIB = "1.2.13"
 # This repository's per-file cap (tools/check_recipe_assets.py MAX_FILE_BYTES; a test compares).
 MAX_ASSET_BYTES = 1024 * 1024
 # The only PNG chunks the encoder may emit; tools/check_recipe_assets.py allows more, this is
@@ -340,13 +354,34 @@ class Rng:
 _ONSETS = ("b", "br", "d", "f", "g", "k", "l", "m", "n", "p", "pr", "r", "s", "t", "v", "z")
 _VOWELS = ("a", "e", "i", "o", "u")
 _CODAS = ("", "n", "x", "m", "r", "s")
+# Substrings no generated name may contain (upper case, plain ASCII, kept short: the obvious slurs
+# and vulgarities that a random syllable chain can spell, including across a syllable boundary).
+_DENY = (
+    "ANUS", "BONER", "COCK", "CUNT", "DICK", "FAG", "FUCK", "NAZI", "NIG", "PISS", "RAPE", "SEX",
+    "SHIT", "TIT",
+)  # fmt: skip
+
+
+def _is_clean(name: str) -> bool:
+    return not any(word in name for word in _DENY)
 
 
 def fictional_name(seed: int = 0) -> str:
-    """A pronounceable invented name in upper case, e.g. for a wordmark. Not a trademark search."""
+    """A pronounceable invented name in upper case, e.g. for a wordmark.
+
+    The name never contains a substring of ``_DENY`` (a short list of offensive words): a draw
+    that would is discarded and the next one from the same seeded stream is used, so every seed
+    still maps to one fixed name and a seed whose first draw is clean is unaffected. The output
+    space is finite (about 3.1 million strings), and a test enumerates it. A name is **not** a
+    trademark search: a reviewer still rejects one that happens to match a real company, and an
+    author should read the name before committing the picture it appears in.
+    """
     rng = Rng(seed)
-    syllables = [rng.choice(_ONSETS) + rng.choice(_VOWELS) for _ in range(rng.between(2, 3))]
-    return ("".join(syllables) + rng.choice(_CODAS)).upper()
+    while True:
+        syllables = [rng.choice(_ONSETS) + rng.choice(_VOWELS) for _ in range(rng.between(2, 3))]
+        name = ("".join(syllables) + rng.choice(_CODAS)).upper()
+        if _is_clean(name):
+            return name
 
 
 # --- gold geometry ------------------------------------------------------------------------------
@@ -1625,7 +1660,10 @@ def encode_png(image: Image.Image) -> bytes:
     """RGB PNG bytes with only the IHDR, IDAT and IEND chunks (no text, time, profile or dpi).
 
     The *pixels* are exactly the image's; the *bytes* come from Pillow's zlib at a fixed
-    compression level and are canonical only under ``CANONICAL_PILLOW`` (see :func:`write_asset`).
+    compression level and are canonical only where :func:`bytes_are_canonical` is true (see
+    :func:`write_asset`). Raises ``ValueError`` before anything is written for an image outside
+    the API's limits (``vision.validate_image_asset``: a side under 280 pixels, say), for stray
+    chunks, and for a file over ``MAX_ASSET_BYTES``.
     """
     if image.mode != "RGB":
         image = image.convert("RGB")
@@ -1633,6 +1671,11 @@ def encode_png(image: Image.Image) -> bytes:
     image.save(buffer, "PNG", **_PNG_SAVE)
     data = buffer.getvalue()
     _check_png(data)
+    # The API's size limits (280 to 1568 pixels a side, the area range): checked on the exact
+    # bytes that would be written, so a rejected image never reaches the disk.
+    validate_image_asset(
+        {"type": "image", "format": "png", "data_base64": base64.b64encode(data).decode("ascii")}
+    )
     return data
 
 
@@ -1660,6 +1703,15 @@ def pixels_sha256(source: Image.Image | bytes) -> str:
 _ASSET_PATH = re.compile(r"^assets/([A-Za-z0-9][A-Za-z0-9_.-]*/)*[A-Za-z0-9][A-Za-z0-9_.-]*[.]png$")
 
 
+def bytes_are_canonical() -> bool:
+    """Are the PNG bytes this environment produces the repository's canonical bytes?
+
+    True only for the pinned Pillow (``CANONICAL_PILLOW``) linked to the zlib its wheel bundles
+    (``CANONICAL_ZLIB``). Elsewhere equal decoded pixels are what counts.
+    """
+    return PIL.__version__ == CANONICAL_PILLOW and features.version("zlib") == CANONICAL_ZLIB
+
+
 def _compare(existing: bytes, regenerated: bytes, label: str) -> str:
     """'unchanged' or 'kept-committed-bytes', else RegenerationMismatch."""
     if existing == regenerated:
@@ -1670,12 +1722,19 @@ def _compare(existing: bytes, regenerated: bytes, label: str) -> str:
         same_pixels = False
     if not same_pixels:
         raise RegenerationMismatch(
-            f"{label}: the regenerated pixels differ from the committed file; nothing written"
+            f"{label}: the regenerated pixels differ from the committed file, so the generator, "
+            "its parameters or the seed changed the picture; nothing written"
         )
-    if PIL.__version__ == CANONICAL_PILLOW:
+    if bytes_are_canonical():
+        # The pixels are equal, so this encoder would have written exactly the committed bytes
+        # had it written them: the committed file was not written by the canonical encoder.
+        # The generator is not at fault.
         raise RegenerationMismatch(
-            f"{label}: same pixels but different bytes under the canonical Pillow "
-            f"{CANONICAL_PILLOW}; the generator or its parameters changed the encoding"
+            f"{label}: same pixels, but the committed bytes are not what the canonical encoder "
+            f"(Pillow {CANONICAL_PILLOW}, zlib {CANONICAL_ZLIB}) writes for them, so the file "
+            "was created under another Pillow or zlib, re-saved by another tool, or written with "
+            "other encoder settings. Recreate it under the notebook constraints pin "
+            "(docs/synthetic-images.md) with overwrite=True; nothing written"
         )
     return "kept-committed-bytes"
 
@@ -1687,29 +1746,33 @@ def write_asset(
 
     * file absent: written; returns ``'created'``;
     * same bytes: returns ``'unchanged'``;
-    * different bytes, same decoded pixels, Pillow is not ``CANONICAL_PILLOW``: the committed
+    * different bytes, same decoded pixels, and ``bytes_are_canonical()`` is false: the committed
       bytes are kept (they are canonical); returns ``'kept-committed-bytes'``;
-    * anything else, different pixels, or different bytes under the canonical Pillow: raises
+    * different pixels, or different bytes where ``bytes_are_canonical()`` is true: raises
       :class:`RegenerationMismatch` and writes nothing, unless ``overwrite=True`` (returns
       ``'rewritten'``). Rewriting changes the file's hash, so rebuild ``replay_keys`` after it.
 
-    A written file is checked with ``vision.image_asset(path, root=recipe_dir)``.
+    Create committed assets under the notebook constraints pin, so the bytes are canonical.
+    Everything is checked before any file is touched: the path (``vision.resolve_asset_path``),
+    the image against the API's limits (``vision.validate_image_asset``), the chunks and the
+    1 MiB cap. A rejected image raises ``ValueError`` and leaves nothing on disk; a file is
+    written to a temporary name and renamed, so a failure part-way leaves none either.
     """
     if not isinstance(path, str) or not _ASSET_PATH.match(path):
         raise ValueError("path must look like 'assets/name.png' (forward slashes, lowercase .png)")
-    root = Path(recipe_dir)
-    status = write_png(image, root / path, overwrite=overwrite)
-    image_asset(path, root=root)
-    return status
+    return _store(image, resolve_asset_path(path, root=recipe_dir), overwrite)
 
 
 def write_png(image: Image.Image | Canvas, target: Any, *, overwrite: bool = False) -> str:
     """:func:`write_asset` for any file path (documentation images, scratch files): the same
-    four outcomes, without the ``assets/`` path rule and the recipe validation."""
+    four outcomes and the same checks, without the ``assets/`` path rule."""
+    return _store(image, Path(target), overwrite)
+
+
+def _store(image: Image.Image | Canvas, target: Path, overwrite: bool) -> str:
     if isinstance(image, Canvas):
         image = image.image
-    target = Path(target)
-    data = encode_png(image)
+    data = encode_png(image)  # raises before anything exists on disk
     status = "created"
     if target.exists():
         existing = target.read_bytes()
@@ -1719,7 +1782,14 @@ def write_png(image: Image.Image | Canvas, target: Any, *, overwrite: bool = Fal
             return _compare(existing, data, target.name)
         status = "rewritten"
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(data)
+    handle, name = tempfile.mkstemp(dir=target.parent, prefix=".tmp-", suffix=".part")
+    try:
+        with os.fdopen(handle, "wb") as out:
+            out.write(data)
+        os.replace(name, target)
+    except BaseException:
+        Path(name).unlink(missing_ok=True)
+        raise
     return status
 
 

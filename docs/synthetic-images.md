@@ -15,8 +15,10 @@ Pillow and the standard library only, no system font, no download, and no real p
 
 The provenance manifest ([fixtures.md](fixtures.md#image-provenance-manifest)) makes the author
 attest this for every file, and a reviewer checks the picture against it. The kit makes the rule
-cheap to keep: `fictional_name` invents names (pronounceable nonsense, not a trademark search, so a
-reviewer still rejects one that happens to match a real company), `wordmark` draws an invented logo
+cheap to keep: `fictional_name` invents names (pronounceable nonsense that can never contain a
+word from a short deny-list of offensive substrings; it is still not a trademark search, so a
+reviewer rejects one that happens to match a real company and an author reads the name before
+committing the picture it is in), `wordmark` draws an invented logo
 from geometric shapes, and everything else is flat shapes and a small built-in font.
 
 What the kit **does not** do: it does not make photographs. A "product photograph" in a recipe is a
@@ -263,9 +265,15 @@ Each frame is a still: there is no video file or codec anywhere (see the
 ## Saving and the manifest
 
 `canvas.write(recipe_dir, "assets/name.png")` (or `write_asset`) saves RGB PNG bytes with only the
-`IHDR`, `IDAT` and `IEND` chunks, so no text, time, profile or resolution chunk can appear, and
-checks the file with `vision.image_asset(..., root=recipe_dir)`. A file over 1 MiB is refused when
-it is encoded. The image-file contract, with the 280 pixel minimum, is in
+`IHDR`, `IDAT` and `IEND` chunks, so no text, time, profile or resolution chunk can appear.
+**Everything is checked before a file is touched**: the path (`vision.resolve_asset_path`, so a
+link that leaves the recipe is refused), the exact bytes against the API's limits
+(`vision.validate_image_asset`: each side 280 to 1568 pixels, the area range), the chunk set and
+the 1 MiB cap. An image that fails raises `ValueError` and leaves nothing on disk (not the file,
+not an empty `assets/`, not a temporary file), and a file is written to a temporary name and
+renamed, so a failure part-way leaves none either. `Canvas` cannot make an undersized image, but
+`write_asset` and `write_png` also take a raw Pillow image, which is where this matters. The
+image-file contract, with the 280 pixel minimum, is in
 [fixtures.md](fixtures.md#the-image-file-contract) and is enforced by
 `python tools/check_recipe_assets.py`; the tests run that checker over what the kit writes.
 
@@ -303,21 +311,34 @@ An image's bytes are part of the replay key (`backends.replay_key` hashes them),
 file that differs by one byte silently invalidates every fixture that names it. Two layers keep
 that from happening.
 
-**The pixels are exactly reproducible.** Nothing here uses FreeType, anti-aliasing, floating point
-or `random`: the font, ellipses, triangles, lines, blur and noise are integer arithmetic, so the
-decoded pixels are a pure function of the arguments and seed, on every Python (3.10 and 3.14 are
-tested), operating system and Pillow version. The tests pin the pixel hash of every example scene.
+**The pixels are exactly reproducible.** Nothing here uses FreeType, anti-aliasing or `random`,
+and no floating-point arithmetic decides which pixel is painted: the font, ellipses, triangles,
+lines, blur, noise and lighting are integer arithmetic, and every float a caller passes
+(`bar`'s fraction, `occlude`'s fraction, a time) is converted exactly through
+`fractions.Fraction` before it matters. Floats appear only in values the kit reports (the
+normalized `box` edges, which are integer divisions, a `fraction` attribute, timestamps) and in
+comparisons. So the decoded pixels are a pure function of the arguments and seed, on every Python
+(3.10 and 3.14 are tested), operating system and Pillow version. The tests pin the pixel hash of
+every example scene.
 
-**The bytes are canonical only under the pinned Pillow.** The PNG encoder's zlib output can change
-between Pillow builds (a different zlib), so:
+**The bytes are canonical only in the pinned environment.** A PNG's bytes come from Pillow's
+encoder and from the zlib it is linked to, so the gate is both: `CANONICAL_PILLOW` (the Pillow in
+[`.github/constraints-notebooks.txt`](../.github/constraints-notebooks.txt), kept equal by a
+test) **and** `CANONICAL_ZLIB` (the zlib that pinned PyPI wheel bundles, `PIL.features.version("zlib")`),
+and `bytes_are_canonical()` is true only when both match. The evidence so far: the 12.3.0 and
+13.0.0 wheels both bundle zlib 1.2.13 and wrote identical bytes for every example scene and every
+gallery sheet. A Pillow 12.3.0 built against a system zlib (a distribution package, conda) is
+therefore not canonical, however its version reads.
 
 1. **Committed asset bytes are canonical.** What is in the repository is the truth; its SHA-256 is
-   in the manifest.
-2. **Under the notebook constraints pin** (`CANONICAL_PILLOW`, which a test keeps equal to the
-   Pillow in [`.github/constraints-notebooks.txt`](../.github/constraints-notebooks.txt)),
-   regenerating must reproduce the committed bytes exactly.
-3. **Under any other Pillow** the check is the decoded pixels: if they match, the committed bytes
-   stay (nothing is rewritten); if they differ, it is a mismatch.
+   in the manifest. **Create them under the notebook constraints pin**
+   (`pip install -e ".[dev]" -c .github/constraints-notebooks.txt`, as for notebook outputs), not
+   under whatever Pillow is installed: a file created elsewhere is later refused where the bytes
+   are canonical.
+2. **Where `bytes_are_canonical()` is true**, regenerating must reproduce the committed bytes
+   exactly.
+3. **Anywhere else** the check is the decoded pixels: if they match, the committed bytes stay
+   (nothing is rewritten); if they differ, it is a mismatch.
 4. **A mismatch never rewrites anything.** `write_asset` and `write_png` raise
    `RegenerationMismatch` and leave the file alone. `overwrite=True` (the demo's `--overwrite`) is
    the explicit decision; after it the file has a new hash, so rebuild the manifest, the
@@ -327,14 +348,28 @@ between Pillow builds (a different zlib), so:
 | - | - |
 | `created` | The file did not exist. |
 | `unchanged` | The bytes are the same. |
-| `kept-committed-bytes` | Different bytes, same decoded pixels, and the Pillow is not `CANONICAL_PILLOW`. Nothing written. |
+| `kept-committed-bytes` | Different bytes, same decoded pixels, and `bytes_are_canonical()` is false. Nothing written. |
 | `rewritten` | `overwrite=True` and the bytes differed. |
-| raises `RegenerationMismatch` | Different pixels, or different bytes under `CANONICAL_PILLOW` (the generator changed the encoding), and no `overwrite`. |
+| raises `RegenerationMismatch` | Different pixels (the message says the generator, its parameters or the seed changed the picture), or the same pixels with different bytes where `bytes_are_canonical()` is true (the message says the committed file was not written by the canonical encoder, so recreate it under the pin; the generator is not at fault, since equal pixels encode to the canonical bytes), and no `overwrite`. |
+| raises `ValueError` | The image is outside the API's limits, carries metadata or is over 1 MiB. Nothing is written. |
 
-CI installs Pillow unpinned for the test matrix, so a regenerated gallery or recipe image on a
-newer Pillow is compared by pixels there; the notebook job and anyone who installs with the
-constraints file compare bytes. Only PNG is generated: a JPEG's bytes depend on the libjpeg build,
-so a lossy variant of a picture should be made with `blur` or `noise`, not by saving as JPEG.
+**Bumping the Pillow pin** in `.github/constraints-notebooks.txt` is a foundation change with
+consequences here, and `test_canonical_pillow_is_the_version_pinned_for_the_notebooks` fails with
+these steps: set `CANONICAL_PILLOW` and `CANONICAL_ZLIB` in `synthetic_images.py`; re-record the
+PNG byte digests in `tests/test_synthetic_images.py` (the second element of each `GOLDEN` entry);
+run `python docs/assets/synthetic-images/build_gallery.py --overwrite` and commit the gallery if
+its bytes moved; and rebuild the committed assets, manifest hashes and `replay_keys` of every recipe
+whose bytes changed.
+
+**Which CI job runs the byte pins.** The test matrix installs Pillow unpinned and no job installs
+with the constraints file, so the ten byte pins (and the gallery's byte comparison) run only where
+the resolved environment is canonical. Today that is `Tests (py3.10)`: Pillow 13 needs Python
+3.11 or later, so Python 3.10 resolves 12.3.0. `Tests (py3.14)` resolves a newer Pillow and skips
+them, reporting why; its pixel pins still run. If the floor moves to 3.11 the byte pins stop
+running in CI until a job installs under the constraints, so run them yourself before a pin bump:
+`pip install -e ".[dev]" -c .github/constraints-notebooks.txt && pytest tests/test_synthetic_images.py`.
+Only PNG is generated: a JPEG's bytes depend on the libjpeg build, so a lossy variant of a picture
+should be made with `blur` or `noise`, not by saving as JPEG.
 
 ## A checklist for a recipe
 
@@ -344,6 +379,7 @@ so a lossy variant of a picture should be made with `blur` or `noise`, not by sa
 3. Build hard cases with `blur`, `noise`, `lighting` and `occlude`, and keep ambiguous and absent
    examples in the data.
 4. Save with `canvas.write`, never `Image.save`; write the manifest with `canvas.manifest_entry`.
+   Create the committed files under the notebook constraints pin (see "Byte stability").
 5. Put image paths in `fields` (`assets/name.png`) and compute `replay_keys` with
    `replay_key(state, questions, assets=assets)` in the same script.
 6. Add a recipe test like the block above so a changed scene fails loudly.

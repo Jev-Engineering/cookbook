@@ -19,7 +19,7 @@ from pathlib import Path
 
 import PIL
 import pytest
-from PIL import Image, ImageChops
+from PIL import Image, ImageChops, features
 
 from jev_cookbook import synthetic_images as si
 from jev_cookbook import vision
@@ -90,6 +90,62 @@ def test_below_and_between_stay_in_range_and_reach_every_value():
 def test_bytes_are_the_stream_in_little_endian_order():
     # 0xE220A8397B1DCDAF written least significant byte first
     assert si.Rng(0).bytes(10) == bytes.fromhex("afcd1d7b39a820e2") + bytes.fromhex("f465")
+
+
+def raw_names():
+    """Every string the generator's syllable table can spell, before the deny filter."""
+    import itertools
+
+    syllables = [onset + vowel for onset in si._ONSETS for vowel in si._VOWELS]
+    for count in (2, 3):
+        for chain in itertools.product(syllables, repeat=count):
+            stem = "".join(chain)
+            for coda in si._CODAS:
+                yield (stem + coda).upper()
+
+
+def test_no_name_the_generator_can_return_contains_a_denied_word():
+    # The generator is a loop over draws from a finite table that returns the first clean one, so
+    # whatever seed it is given (all 2**64 of them) the result is one of the clean strings of
+    # this exhaustively enumerated space. The enumeration is checked independently of the
+    # module's own filter, by a regular expression built from the published list.
+    pattern = re.compile("|".join(si._DENY))
+    total = rejected = 0
+    clean = set()
+    for name in raw_names():
+        total += 1
+        if pattern.search(name):
+            rejected += 1
+        else:
+            clean.add(name)
+    assert total == (80**2 + 80**3) * 6  # 3,110,400 strings
+    assert (
+        0 < rejected < total // 20
+    )  # the list bites, and is small enough not to hollow out the space
+    assert all(not pattern.search(name) for name in clean)
+    for seed in range(0, 250_000):
+        name = si.fictional_name(seed)
+        assert name in clean, (seed, name)
+
+
+def test_the_names_reviewers_found_are_gone_and_every_other_name_is_unchanged():
+    # fictional_name(1996) was "BONER", (395) "NIGANUS" and (159) "FAGIPON" before the filter
+    for seed in (1996, 395, 159):
+        assert re.fullmatch(r"[A-Z]{4,10}", si.fictional_name(seed))
+        assert not any(word in si.fictional_name(seed) for word in si._DENY)
+    # a seed whose first draw is clean maps to the same name as before (the gallery depends on it)
+    assert [si.fictional_name(seed) for seed in (1, 2, 3, 4)] == [
+        "MAREBAM",
+        "DEGUM",
+        "PUZEMIR",
+        "BIVEN",
+    ]
+
+
+def test_the_deny_list_is_short_plain_ascii_and_upper_case():
+    assert 5 <= len(si._DENY) <= 20
+    assert all(word.isascii() and word.isupper() and word.isalpha() for word in si._DENY)
+    assert len(set(si._DENY)) == len(si._DENY)
 
 
 def test_fictional_names_are_deterministic_upper_case_and_varied():
@@ -1000,6 +1056,107 @@ def test_a_png_over_the_byte_cap_is_refused_at_encode_time():
         c.png()
 
 
+def tree(folder: Path) -> list[str]:
+    """Every file and folder under ``folder``, so "nothing was written" is checked literally."""
+    return sorted(str(p.relative_to(folder)) for p in folder.rglob("*"))
+
+
+def icc_tagged() -> Image.Image:
+    image = Image.new("RGB", (300, 300))
+    image.info["icc_profile"] = b"x" * 128  # Pillow writes an iCCP chunk for this
+    return image
+
+
+def noisy_canvas() -> si.Canvas:
+    canvas = si.Canvas(700, 700, (128, 128, 128), seed=1)
+    canvas.noise(127, grey=False)  # colour noise does not compress: over the 1 MiB cap
+    return canvas
+
+
+REJECTED = {
+    "16x16": lambda: Image.new("RGB", (16, 16), "white"),
+    "279 wide": lambda: Image.new("RGB", (279, 300), "white"),
+    "279 tall": lambda: Image.new("RGB", (300, 279), "white"),
+    "1569 wide": lambda: Image.new("RGB", (1569, 300), "white"),
+    "metadata": icc_tagged,
+    "over 1 MiB": lambda: noisy_canvas().image,
+}
+
+
+def rejected_image(kind: str) -> Image.Image:
+    return REJECTED[kind]()
+
+
+@pytest.mark.parametrize("kind", sorted(REJECTED))
+def test_write_asset_rejects_an_unfit_image_before_writing_anything(tmp_path, kind):
+    with pytest.raises(ValueError):
+        si.write_asset(rejected_image(kind), tmp_path, "assets/a.png")
+    assert tree(tmp_path) == []  # not the file, not the assets folder, not a temporary file
+
+
+@pytest.mark.parametrize("kind", sorted(REJECTED))
+def test_write_png_and_encode_png_reject_the_same_images(tmp_path, kind):
+    with pytest.raises(ValueError):
+        si.write_png(rejected_image(kind), tmp_path / "docs" / "x.png")
+    assert tree(tmp_path) == []
+    with pytest.raises(ValueError):
+        si.encode_png(rejected_image(kind))
+
+
+def test_a_rejected_image_leaves_the_committed_file_alone(tmp_path):
+    si.login_screen().write(tmp_path, "assets/a.png")
+    committed = (tmp_path / "assets" / "a.png").read_bytes()
+    with pytest.raises(ValueError, match="280 to 1568"):
+        si.write_asset(Image.new("RGB", (16, 16)), tmp_path, "assets/a.png", overwrite=True)
+    assert (tmp_path / "assets" / "a.png").read_bytes() == committed
+    assert tree(tmp_path) == ["assets", "assets/a.png"]
+
+
+def test_the_api_limits_are_checked_through_vision_on_the_encoded_bytes(monkeypatch, tmp_path):
+    calls = []
+    real = si.validate_image_asset
+
+    def spy(asset):
+        calls.append(asset)
+        return real(asset)
+
+    monkeypatch.setattr(si, "validate_image_asset", spy)
+    c = si.login_screen()
+    c.write(tmp_path, "assets/a.png")
+    assert len(calls) == 1
+    assert set(calls[0]) == {"type", "format", "data_base64"} and calls[0]["format"] == "png"
+    import base64
+
+    assert base64.b64decode(calls[0]["data_base64"]) == (tmp_path / "assets" / "a.png").read_bytes()
+    monkeypatch.setattr(
+        si, "validate_image_asset", lambda asset: (_ for _ in ()).throw(ValueError("no"))
+    )
+    with pytest.raises(ValueError, match="no"):
+        c.write(tmp_path, "assets/b.png")
+    assert not (tmp_path / "assets" / "b.png").exists()
+
+
+def test_a_path_that_escapes_the_recipe_is_refused_before_any_write(tmp_path):
+    recipe = tmp_path / "recipe"
+    recipe.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (recipe / "assets").symlink_to(outside, target_is_directory=True)
+    with pytest.raises(vision.AssetPathError):
+        si.login_screen().write(recipe, "assets/a.png")
+    assert tree(outside) == []
+
+
+def test_a_failure_while_writing_leaves_no_file_and_no_temporary_file(tmp_path, monkeypatch):
+    def broken(source, destination):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(si.os, "replace", broken)
+    with pytest.raises(OSError, match="disk full"):
+        si.login_screen().write(tmp_path, "assets/a.png")
+    assert tree(tmp_path) == ["assets"]
+
+
 def test_a_non_rgb_image_is_converted_and_stray_chunks_are_refused():
     rgba = Image.new("RGBA", (300, 300), (10, 20, 30, 255))
     assert si.pixels_sha256(si.encode_png(rgba)) == si.pixels_sha256(rgba.convert("RGB"))
@@ -1043,6 +1200,7 @@ def test_other_bytes_with_the_same_pixels_are_kept_off_the_canonical_pillow(tmp_
     assert foreign != c.png() and si.png_pixels_equal(foreign, c.png())
     target.write_bytes(foreign)  # as if committed by a build with another zlib
     monkeypatch.setattr(si, "CANONICAL_PILLOW", "0.0.0")
+    assert not si.bytes_are_canonical()
     assert c.write(tmp_path, "assets/a.png") == "kept-committed-bytes"
     assert target.read_bytes() == foreign  # never rewritten
 
@@ -1054,9 +1212,35 @@ def test_other_bytes_under_the_canonical_pillow_are_a_mismatch_not_a_rewrite(tmp
     foreign = other_encoding(c)
     target.write_bytes(foreign)
     monkeypatch.setattr(si, "CANONICAL_PILLOW", PIL.__version__)
-    with pytest.raises(si.RegenerationMismatch, match="canonical"):
+    monkeypatch.setattr(si, "CANONICAL_ZLIB", features.version("zlib"))
+    assert si.bytes_are_canonical()
+    with pytest.raises(si.RegenerationMismatch, match="canonical") as raised:
         c.write(tmp_path, "assets/a.png")
     assert target.read_bytes() == foreign
+    # equal pixels cannot be the generator's doing, and the message says what to do instead
+    message = str(raised.value)
+    assert "generator" not in message.split("Recreate")[0]
+    assert "created under another Pillow or zlib" in message and "constraints pin" in message
+
+
+def test_different_pixels_blame_the_generator_not_the_encoder(tmp_path):
+    first, second = si.login_screen(state="normal"), si.login_screen(state="error")
+    first.write(tmp_path, "assets/a.png")
+    with pytest.raises(si.RegenerationMismatch) as raised:
+        second.write(tmp_path, "assets/a.png")
+    assert "generator, its parameters or the seed changed the picture" in str(raised.value)
+    assert "Pillow" not in str(raised.value)
+
+
+def test_the_byte_gate_needs_both_the_pillow_and_the_zlib_of_the_canonical_wheel(monkeypatch):
+    monkeypatch.setattr(si, "CANONICAL_PILLOW", PIL.__version__)
+    monkeypatch.setattr(si, "CANONICAL_ZLIB", features.version("zlib"))
+    assert si.bytes_are_canonical()
+    monkeypatch.setattr(si, "CANONICAL_ZLIB", "0.0.0")  # the same Pillow linked to another zlib
+    assert not si.bytes_are_canonical()
+    monkeypatch.setattr(si, "CANONICAL_ZLIB", features.version("zlib"))
+    monkeypatch.setattr(si, "CANONICAL_PILLOW", "0.0.0")  # another Pillow, the same zlib
+    assert not si.bytes_are_canonical()
 
 
 def test_different_pixels_are_a_mismatch_until_overwrite_is_explicit(tmp_path):
@@ -1251,7 +1435,29 @@ def test_check_reproducible_accepts_a_matching_file_and_rejects_another_picture(
 
 def test_canonical_pillow_is_the_version_pinned_for_the_notebooks():
     pins = (REPO / ".github" / "constraints-notebooks.txt").read_text("utf-8")
-    assert re.search(r"(?mi)^pillow==(\S+)$", pins).group(1) == si.CANONICAL_PILLOW
+    pinned = re.search(r"(?mi)^pillow==(\S+)$", pins).group(1)
+    assert pinned == si.CANONICAL_PILLOW, (
+        f"the notebook constraints now pin Pillow {pinned} but CANONICAL_PILLOW is "
+        f"{si.CANONICAL_PILLOW}. After a pin bump: (1) set CANONICAL_PILLOW and CANONICAL_ZLIB "
+        "in src/jev_cookbook/synthetic_images.py (CANONICAL_ZLIB is "
+        'PIL.features.version("zlib") of the pinned wheel); (2) re-record the PNG byte digests '
+        "(the second element of each GOLDEN entry in this file); (3) run "
+        "`python docs/assets/synthetic-images/build_gallery.py --overwrite` and commit the "
+        "gallery if its bytes moved; (4) rebuild every recipe's committed assets, manifest "
+        "hashes and replay_keys that a changed byte touches. See 'Byte stability and "
+        "regeneration' in docs/synthetic-images.md."
+    )
+
+
+def test_canonical_zlib_is_what_the_pinned_wheel_bundles():
+    if PIL.__version__ != si.CANONICAL_PILLOW:
+        pytest.skip(f"only the pinned Pillow {si.CANONICAL_PILLOW} bundles the canonical zlib")
+    assert features.version("zlib") == si.CANONICAL_ZLIB, (
+        f"Pillow {PIL.__version__} reports zlib {features.version('zlib')}, not the canonical "
+        f"{si.CANONICAL_ZLIB}. Either this Pillow is linked to a system zlib (install the PyPI "
+        "wheel with the notebook constraints pin; the byte pins are skipped meanwhile) or "
+        "CANONICAL_ZLIB is stale after a pin bump: re-record it and the byte digests."
+    )
 
 
 def test_limits_agree_with_the_checker_and_vision():
@@ -1342,9 +1548,17 @@ def test_example_scene_pixels_are_pinned_on_every_python_and_pillow(name):
 
 
 @pytest.mark.parametrize("name", sorted(GOLDEN))
-def test_example_scene_bytes_are_pinned_under_the_canonical_pillow(name):
-    if PIL.__version__ != si.CANONICAL_PILLOW:
-        pytest.skip(f"PNG bytes are canonical only under Pillow {si.CANONICAL_PILLOW}")
+def test_example_scene_bytes_are_pinned_under_the_canonical_encoder(name):
+    # Which CI leg runs these: Pillow 13 needs Python 3.11 or later, so the unpinned
+    # `Tests (py3.10)` job resolves the canonical Pillow 12.3.0 and runs them, while
+    # `Tests (py3.14)` resolves a newer Pillow and skips them (the pixel pins above still run).
+    # No job installs with the notebook constraints. Run them anywhere with:
+    #   pip install -e ".[dev]" -c .github/constraints-notebooks.txt
+    if not si.bytes_are_canonical():
+        pytest.skip(
+            f"PNG bytes are canonical only under Pillow {si.CANONICAL_PILLOW} with zlib "
+            f"{si.CANONICAL_ZLIB}; this is Pillow {PIL.__version__}, zlib {features.version('zlib')}"
+        )
     assert hashlib.sha256(example_canvases()[name].png()).hexdigest() == GOLDEN[name][1]
 
 
@@ -1491,7 +1705,7 @@ def test_the_committed_gallery_is_what_the_script_draws():
         committed = (GALLERY / name).read_bytes()
         assert si.pixels_sha256(committed) == si.pixels_sha256(image), name
         assert checker.check_image(f"docs/assets/synthetic-images/{name}", committed) == [], name
-        if PIL.__version__ == si.CANONICAL_PILLOW:
+        if si.bytes_are_canonical():
             assert committed == si.encode_png(image), name
 
 
