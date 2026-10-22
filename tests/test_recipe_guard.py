@@ -51,12 +51,16 @@ check id                              rule -> detection
                                        the call interpolates (traced through simple
                                        bindings, #234) and the labels may sit in that
                                        string. Not seen: a float rounded by ``round()``/
-                                       ``%``/``format()``, a line that never says
-                                       "validation" in its own text or in the float string it
-                                       prints (the word reaching it through a loop variable
-                                       or a name bound to ``"validation"``), and a number
-                                       that is a validation figure only by its variable name.
-                                       A suffix built by concatenation fails on purpose.
+                                       ``%``/the builtin ``format()``, a line that never says
+                                       "validation" in its own text or in a string literal of
+                                       the float string it prints (the word reaching it through
+                                       a loop variable -- recipe 39's ``evaluation-t86`` is one
+                                       today -- or a name bound to ``"validation"``), a number
+                                       that is a validation figure only by its variable name,
+                                       a float hoisted by anything but a simple binding, a
+                                       nested precision, and a printer that is not literally
+                                       ``print(``. A suffix built by concatenation fails on
+                                       purpose.
 ``metric_lines_carry_check``          G1(d) clause 2: every printed metric line (a
                                        coverage/accuracy/risk/precision/recall/F1/nDCG
                                        keyword with a rounded-float format) carries at
@@ -377,6 +381,7 @@ import tokenize
 from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal
 from pathlib import Path
 from types import ModuleType
+from typing import NamedTuple
 
 import pytest
 
@@ -1370,22 +1375,38 @@ FLOAT_FORMAT = re.compile(r"\{[^{}]*:" + _FORMAT_SPEC_BEFORE_PRECISION + r"\.\d+
 SELECTION_AND_CHECK = ("{selection}", "{check}")
 
 
-def _hoisted_float_strings(
-    code: list[tuple[str, str, ast.Module]],
-) -> dict[str, list[tuple[str, frozenset[str]]]]:
-    """``{name: [(source text of a value assigned to it, the names that value references)]}`` for
-    every simple binding (``name = <expr>``, ``name: T = <expr>``) in the notebook's code cells
-    whose value *builds a rounded-float string*: its own text spells a float format
-    (``FLOAT_FORMAT``), or it references a name that does (``line = f"({text})"`` after ``text =
-    f"{x:.2f}"``), to a fixed point. This is what lets the guards below follow a ``print`` to the
-    line that actually formats the number (#234).
+class _Binding(NamedTuple):
+    """One value assigned to a name: its source ``text``, the ``names`` it references, the string
+    ``literals`` it spells (the characters it can print, as opposed to identifiers and keyword
+    names that merely appear in its source), and whether it ``builds_float`` (see
+    ``_hoisted_float_strings``)."""
 
-    Only float-building bindings are followed, never any binding, on purpose: ``other_split =
+    text: str
+    names: frozenset[str]
+    literals: str
+    builds_float: bool
+
+
+def _hoisted_float_strings(code: list[tuple[str, str, ast.Module]]) -> dict[str, list[_Binding]]:
+    """``{name: [every value assigned to it]}`` for each name with a simple binding
+    (``name = <expr>``, ``name: T = <expr>``) in the notebook's code cells that *builds a
+    rounded-float string*: a value of it spells a float format (``FLOAT_FORMAT``), or references a
+    name that does (``line = f"({text})"`` after ``text = f"{x:.2f}"``), to a fixed point. This is
+    what lets the guard below follow a ``print`` to the line that actually formats the number
+    (#234).
+
+    Only float-building names are followed, never any name, on purpose: ``other_split =
     "validation"`` or ``selection = " (selection: chosen on validation)"`` would otherwise put the
     word "validation" into every line that mentions the name, and recipe 32's test-split overlap
     figure (a fixture-composition statistic, not a validation metric) would become a validation
-    metric line. A name bound more than once keeps every value (a later cell may rebind it)."""
-    bindings: dict[str, list[tuple[str, frozenset[str]]]] = {}
+    metric line.
+
+    A followed name keeps EVERY value it is assigned, with ``builds_float`` saying which build a
+    float: the labels a name carries are those of all its values (``_tokens_through``), so a later
+    ``row = "no float here"`` does not leave the label of an earlier ``row = f"{a:.2f}{check}"``
+    credited to a line that prints the later one. What a line can say ("validation") and whether it
+    prints a float are read from the float-building values only."""
+    bindings: dict[str, list[_Binding]] = {}
     for _cell_id, source, tree in code:
         for node in ast.walk(tree):
             if isinstance(node, ast.Assign) and len(node.targets) == 1:
@@ -1396,22 +1417,28 @@ def _hoisted_float_strings(
                 continue
             if isinstance(target, ast.Name):
                 text = ast.get_source_segment(source, value) or ""
-                bindings.setdefault(target.id, []).append((text, frozenset(_ast_names(value))))
+                literals = " ".join(
+                    n.value
+                    for n in ast.walk(value)
+                    if isinstance(n, ast.Constant) and isinstance(n.value, str)
+                )
+                bindings.setdefault(target.id, []).append(
+                    _Binding(text, frozenset(_ast_names(value)), literals, False)
+                )
     float_building: set[str] = set()
     changed = True
     while changed:
         changed = False
         for name, values in bindings.items():
             if name not in float_building and any(
-                FLOAT_FORMAT.search(text) or names & float_building for text, names in values
+                FLOAT_FORMAT.search(v.text) or v.names & float_building for v in values
             ):
                 float_building.add(name)
                 changed = True
     return {
         name: [
-            (text, names)
-            for text, names in values
-            if FLOAT_FORMAT.search(text) or names & float_building
+            v._replace(builds_float=bool(FLOAT_FORMAT.search(v.text) or v.names & float_building))
+            for v in values
         ]
         for name, values in bindings.items()
         if name in float_building
@@ -1420,26 +1447,30 @@ def _hoisted_float_strings(
 
 def _tokens_through(
     names: set[str],
-    hoisted: dict[str, list[tuple[str, frozenset[str]]]],
+    hoisted: dict[str, list[_Binding]],
     tokens: tuple[str, ...],
     _visiting: frozenset[str] = frozenset(),
-) -> tuple[set[str], set[str]]:
-    """``(texts, carried)`` for the float-building names among ``names``: every value text they are
-    bound to, transitively, and the subset of ``tokens`` carried by *every* value of *some* name --
-    a label that sits in only one of two assignments of a name is not a label the line prints."""
-    texts: set[str] = set()
+) -> tuple[list[_Binding], set[str]]:
+    """``(printed, carried)`` for the followed names among ``names``: the float-building values
+    they are bound to, transitively, and the subset of ``tokens`` carried by *every* value (float
+    building or not) of *some* name -- a label that sits in only one of two assignments of a name
+    is not a label the line prints. Not flow-sensitive: every assignment of the name anywhere in
+    the notebook counts, so a print that comes before a later unlabelled rebinding is reported
+    too (the safe direction)."""
+    printed: list[_Binding] = []
     carried: set[str] = set()
     for name in names & hoisted.keys() - _visiting:
         per_value = []
-        for text, referenced in hoisted[name]:
-            texts.add(text)
-            deeper_texts, deeper_carried = _tokens_through(
-                set(referenced), hoisted, tokens, _visiting | {name}
+        for value in hoisted[name]:
+            deeper_printed, deeper_carried = _tokens_through(
+                set(value.names), hoisted, tokens, _visiting | {name}
             )
-            texts |= deeper_texts
-            per_value.append({t for t in tokens if t in text} | deeper_carried)
-        carried |= set.intersection(*per_value) if per_value else set()
-    return texts, carried
+            if value.builds_float:
+                printed.append(value)
+                printed += deeper_printed
+            per_value.append({t for t in tokens if t in value.text} | deeper_carried)
+        carried |= set.intersection(*per_value)
+    return printed, carried
 
 
 def _validation_metric_lines_missing_labels(
@@ -1453,8 +1484,11 @@ def _validation_metric_lines_missing_labels(
     may be formatted in the call or in a string the call interpolates (``text = f"{c:.2f}"`` /
     ``print(f"validation ...: {text}")``, traced through simple bindings, #234), and the format may
     carry alignment or a width (``FLOAT_FORMAT``, #270). The word "validation" must be in the
-    call's own text or in a float-building string it prints; a name bound to some other string is
-    not followed (see ``_hoisted_float_strings``).
+    call's own text (any part of it, as it always was) or in a string literal of a float-building
+    value the call prints (``line = f"validation accuracy: {a:.2f}"``); an identifier or a keyword
+    argument inside that value (``for n, v in input_validation_concerns``) is not something the
+    line prints and does not count. A name bound to some other string is not followed (see
+    ``_hoisted_float_strings``).
 
     The labels are the literal tokens ``{selection}`` and ``{check}``, in the call or in a
     float-building string it prints. A line that builds its suffix by concatenation or through a
@@ -1462,8 +1496,18 @@ def _validation_metric_lines_missing_labels(
     it is the safe direction, and it keeps one spelling of the label across the published set. Do
     not read it as a defect of this check (#234, quirk 1).
 
-    A cell that does not parse is read the way it always was, by the text of each ``print(``
-    call, rather than skipped."""
+    Quirk 3 of #234 (the bare word "validation" makes a line a validation line) is not removed, and
+    the hoist makes its surface slightly wider, not narrower: the word may now also arrive from a
+    string literal of the float string the call interpolates.
+
+    Not seen, so a reader knows what a green result does not say: a float rounded by ``round()``
+    or ``%`` or the builtin ``format()``; a "validation" that reaches the line only through a
+    loop variable (recipe 39's ``evaluation-t86`` is one, today) or a name bound to
+    ``"validation"``; a float hoisted by anything but a simple binding (a tuple unpack, ``+=``, a
+    ``for`` target, a function's return); a nested precision (``{x:.{p}f}``); and a printer that is
+    not literally ``print(`` (``pprint(``, ``obj.print(``), which the text scan this replaced did
+    inspect and the published set has none of. A cell that does not parse is read the way it always
+    was, by the text of each ``print(`` call, rather than skipped."""
     code = []
     unparsable = []
     for cell_id, source in cells:
@@ -1478,7 +1522,7 @@ def _validation_metric_lines_missing_labels(
             if not (isinstance(node, ast.Call) and getattr(node.func, "id", None) == "print"):
                 continue
             call = ast.get_source_segment(source, node) or ""
-            extra_texts, carried = _tokens_through(
+            printed, carried = _tokens_through(
                 {
                     n
                     for arg in (*node.args, *(kw.value for kw in node.keywords))
@@ -1487,10 +1531,9 @@ def _validation_metric_lines_missing_labels(
                 hoisted,
                 SELECTION_AND_CHECK,
             )
-            line = [call, *sorted(extra_texts)]
-            if not any(FLOAT_FORMAT.search(t) for t in line):
+            if not any(FLOAT_FORMAT.search(t) for t in [call, *(v.text for v in printed)]):
                 continue
-            if not any("validation" in t.lower() for t in line):
+            if not any("validation" in t.lower() for t in [call, *(v.literals for v in printed)]):
                 continue
             missing = [t for t in SELECTION_AND_CHECK if t not in call and t not in carried]
             if missing:
@@ -1520,10 +1563,12 @@ def test_validation_metric_lines_carry_selection_and_check(recipe):
     ``{selection}`` and ``{check}``. A line that builds those by concatenation fails although what
     it prints is right: deliberate, the safe direction, and not to be loosened. This does not catch
     a validation line with no rounded float (a plain status line with no number carries no
-    selection/check obligation either), a float formatted by ``round()``, ``%`` or ``format()``, a
-    line whose only mention of validation is in a string that is not itself a float format (a loop
-    variable, a name bound to ``"validation"``), or a printed number that never says "validation"
-    on the line: see the module docstring."""
+    selection/check obligation either), a float formatted by ``round()``, ``%`` or the builtin
+    ``format()``, a line whose only mention of validation is in a string that is not itself a float
+    format (a loop variable, a name bound to ``"validation"``), or a printed number that never says
+    "validation" on the line. The word "validation" is still the trigger (quirk 3 of #234 is not
+    removed), now also read from the string literals of the float string the call interpolates.
+    The full list of what is not seen is in ``_validation_metric_lines_missing_labels``."""
     nb = recipe_dir(recipe) / "notebook.ipynb"
     cells = [
         (str(cell.get("id", "?")), cell_source(cell))
@@ -1744,6 +1789,7 @@ _SPECS_THAT_ARE_NOT = [
     "{x:.4f",  # not closed
     "x:>13.4f",  # not a replacement field
     "{x:.f}",
+    "{x:.{prec}f}",  # a nested precision is real Python, and not read: documented, not accidental
 ]
 
 
@@ -1821,6 +1867,17 @@ _VALIDATION_LINES = {
         'print(f"test accuracy: {a:.4f}{selection}{check}")',
         [],
     ),
+    # "validation" only in an identifier or keyword inside the float string is not printed: not a
+    # validation line
+    "the-word-only-in-an-identifier-of-the-float-string": (
+        'rows = ", ".join(f"{n} {v:.2f}" for n, v in input_validation_concerns)\n'
+        'print(f"concern scores: {rows}")',
+        [],
+    ),
+    "the-word-only-in-a-keyword-of-the-float-string": (
+        'rows = fmt(v, mode="x", validation=1) + f" {v:.2f}"\nprint(f"concern scores: {rows}")',
+        [],
+    ),
     # a float rounded by a call, not a format spec, is outside this check (documented)
     "rounding-by-round-is-not-a-format-spec": (
         'print(f"validation accuracy: {round(a, 4)}")',
@@ -1867,7 +1924,15 @@ _VALIDATION_LINES = {
         'text = f"{a:.2f}"' + NEXT_CELL + 'print(f"validation accuracy: {text}")',
         [BOTH],
     ),
-    # a name assigned twice carries a label only if every assignment does
+    # a name assigned twice carries a label only if every assignment does, including an
+    # assignment that builds no float
+    "label-in-an-earlier-assignment-that-the-line-no-longer-prints": (
+        'row = f"{a:.2f}{selection}{check}"\n'
+        'print(f"validation accuracy: {row}")\n'
+        'row = "no float here"\n'
+        'print(f"validation risk: {row} {b:.4f}")',
+        [BOTH, BOTH],  # flow-insensitive: the first print is reported too, the safe direction
+    ),
     "label-in-only-one-of-two-assignments": (
         'text = f"{a:.2f}{selection}{check}"\ntext = f"{b:.2f}"\n'
         'print(f"validation accuracy {text}")',
@@ -1960,6 +2025,9 @@ _ALIGNED_METRIC_LINES = {
     "unlabelled-centred": ('print(f"accuracy {a:^10.4f}")', True),
     "label-bound-to-a-suffix": ('suffix = check\nprint(f"accuracy {a:>10.4f}{suffix}")', False),
     "no-metric-word": ('print(f"{name:<28} {value:>13.4f}")', False),
+    # METRIC_KEYWORD's \bcoverage\b does not see inside min_coverage: out of scope, on purpose
+    # (#270's second comment, the other direction)
+    "min_coverage-is-not-the-word-coverage": ('print(f"min_coverage {x:>8.4f}")', False),
     "not-a-float": ('print(f"accuracy {a:>10}")', False),
 }
 

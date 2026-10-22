@@ -170,11 +170,16 @@ the README and every markdown cell for them:
 `validation_lines_carry_selection_and_check` and `metric_lines_carry_check` look for a `print(`
 that spells a rounded-float format (`{x:.4f}`, or aligned, `{x:>13.4f}`) beside the word
 "validation" or a metric word. They cover that one formatting convention. The validation check
-also follows a float formatted one line up, in a string the `print(` interpolates; the other does
-not. A metric printed through a helper, `round()` or `%` formatting is outside them, as is any
-prose, and so is a validation line that never says "validation" in its own text.
-Their existence is not evidence that section 2 is enforced;
-`metric_output_lines_carry_pipeline_check` is the check that reads what was printed.
+also follows a float formatted one line up, in a string the `print(` interpolates, and takes the
+word "validation" from the call or from a string literal of that string; the other does not follow
+a hoisted format. A metric printed through a helper, `round()` or `%` formatting, a nested
+precision (`{x:.{p}f}`), a printer that is not literally `print(`, and any prose are outside them.
+The validation check also does not see a validation line whose word reaches it only through a loop
+variable or a name bound to `"validation"`. One such line is committed today: recipe 39's
+`evaluation-t86` prints `{split_name} fields at business threshold ...` inside a loop over
+`("validation", "test")`, with `{check}` and no selection label. Their existence is not evidence
+that section 2 is enforced; `metric_output_lines_carry_pipeline_check` is the check that reads
+what was printed.
 
 ### Ideas considered and rejected
 
