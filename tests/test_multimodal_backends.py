@@ -770,3 +770,46 @@ def test_the_live_ledger_carries_image_counts_beside_the_token_fields(fake_sdk, 
     assert (summary["images"], summary["distinct_images"]) == (4, 1)
     # The counts say nothing about bytes, content or references.
     assert "data_base64" not in json.dumps([line, summary]) and REF not in json.dumps(line)
+
+
+def test_the_worked_example_in_docs_vision_is_what_the_helper_computes():
+    from pathlib import Path
+
+    from jev_cookbook.vision import image_request_profile, preflight_image_request
+
+    chart = {"<chart>": sized(2 * MIB)}
+    twenty = {f"q{n}": Noul(instructions="Read <chart>.") for n in range(20)}
+    in_instructions = image_request_profile("x", twenty, chart)
+    assert (in_instructions.copies, in_instructions.expanded_bytes) == (20, 40 * MIB)
+    with pytest.raises(ValueError, match="expanded request"):
+        preflight_image_request(in_instructions)
+    in_state = image_request_profile(
+        {"chart": "<chart>"}, {n: Noul(instructions="Read `chart`.") for n in twenty}, chart
+    )
+    assert (in_state.copies, in_state.expanded_bytes) == (1, 2 * MIB)
+    preflight_image_request(in_state)
+    # The prose says the same thing, and names all three of the upstream caps.
+    text = " ".join((Path(__file__).parents[1] / "docs" / "vision.md").read_text("utf-8").split())
+    assert "twenty questions is twenty copies, 40 MiB, over the expanded cap" in text
+    assert "three separate 32 MiB caps" in text and "the request-body cap is not modelled" in text
+
+
+def test_a_blank_reference_is_refused_instead_of_matching_everywhere():
+    from jev_cookbook.vision import image_request_profile
+
+    for ref in ("", "  ", "\n"):
+        with pytest.raises(ValueError, match="non-empty"):
+            image_request_profile("hello", {"q": Noul()}, {ref: sized(10)})
+
+
+def test_the_refusal_at_one_byte_over_names_exact_bytes_not_a_rounded_figure():
+    from jev_cookbook.vision import (
+        ImageRequestProfile,
+        ImageRequestTooLarge,
+        preflight_image_request,
+    )
+
+    cap = 32 * MIB
+    with pytest.raises(ImageRequestTooLarge) as over:
+        preflight_image_request(ImageRequestProfile(1, cap + 1, 1, cap + 1, 1, {}))
+    assert "33,554,433 bytes" in str(over.value) and "33,554,432 bytes" in str(over.value)

@@ -82,11 +82,12 @@ _MIN_AREA = IMAGE_LIMITS["min_area"]
 _MAX_AREA = IMAGE_LIMITS["max_area"]
 _MAX_IMAGE_BYTES = IMAGE_LIMITS["max_bytes"]
 DEFAULT_MAX_TILES = 256
-# The two aggregate caps of the same page: "All images in the request: 32 MiB, shared by every
-# distinct image after the API processes it" and "Expanded request: 32 MiB for the text,
-# questions, structure, and images after every reference is replaced by its image". Local file
-# validation cannot see either (see ``validate_image_asset``); ``preflight_image_request`` checks
-# the part of them that is knowable offline.
+# The same page lists three aggregate caps of 32 MiB: "Request body" (including the JSON, base64
+# text and multipart framing), "All images in the request" (shared by every distinct image after
+# the API processes it) and "Expanded request" (the text, questions, structure, and images after
+# every reference is replaced by its image). Local file validation sees none of them (see
+# ``validate_image_asset``). ``preflight_image_request`` checks the two image caps in file bytes;
+# the request-body cap is not modelled.
 REQUEST_IMAGE_LIMITS = {
     "distinct_bytes": 32 * 1024 * 1024,
     "expanded_bytes": 32 * 1024 * 1024,
@@ -309,6 +310,9 @@ def image_request_profile(
     ``assets`` maps reference to a raw asset dictionary, as for ``decide``; sizes come from the
     length of ``data_base64`` (the file bytes), so the asset is not decoded or validated here.
     """
+    for ref in assets or ():
+        if type(ref) is not str or not ref.strip():
+            raise ValueError("asset references must be non-empty, non-whitespace strings")
     sizes = {ref: _encoded_size(asset) for ref, asset in (assets or {}).items()}
     if not sizes:
         return ImageRequestProfile(0, 0, 0, 0, 0, {name: 0 for name in questions})
@@ -343,20 +347,27 @@ def image_request_profile(
 def preflight_image_request(profile: ImageRequestProfile) -> None:
     """Raise :class:`ImageRequestTooLarge` when the images alone exceed an aggregate cap.
 
-    Uses no network and spends nothing. Passing is necessary, not sufficient: the API measures
-    after processing and counts the text and structure of the expanded request as well.
+    Uses no network and spends nothing. Passing is necessary, not sufficient: the API measures the
+    images after processing, counts the text and structure of the expanded request as well, and
+    has a separate request-body cap (base64 text and multipart framing included) checked here not
+    at all.
     """
-    mib = 1024 * 1024
+
+    def size(n: int) -> str:
+        return f"{n:,} bytes ({n / (1024 * 1024):.2f} MiB)"
+
     if profile.distinct_bytes > REQUEST_IMAGE_LIMITS["distinct_bytes"]:
         raise ImageRequestTooLarge(
             f"the request's {profile.distinct_assets} distinct image(s) are "
-            f"{profile.distinct_bytes / mib:.1f} MiB, over the 32 MiB cap on all images in a "
+            f"{size(profile.distinct_bytes)}, over the 32 MiB "
+            f"({REQUEST_IMAGE_LIMITS['distinct_bytes']:,} bytes) cap on all images in a "
             "request; use fewer or smaller images. Nothing was sent."
         )
     if profile.expanded_bytes > REQUEST_IMAGE_LIMITS["expanded_bytes"]:
         raise ImageRequestTooLarge(
             f"the request expands to {profile.copies} image copies of "
-            f"{profile.expanded_bytes / mib:.1f} MiB, over the 32 MiB cap on the expanded request "
+            f"{size(profile.expanded_bytes)}, over the 32 MiB "
+            f"({REQUEST_IMAGE_LIMITS['expanded_bytes']:,} bytes) cap on the expanded request "
             f"(each use of a reference adds the image again; {profile.state_copies} in the state, "
             f"per question {dict(profile.per_question)}). Put a shared image in the state once "
             "and refer to it by path, or use fewer references. Nothing was sent."
