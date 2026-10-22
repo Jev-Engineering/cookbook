@@ -107,6 +107,71 @@ A recipe that does carry recorded fixtures states, for every number it reports, 
 API returned, the capture date and N. Those numbers describe that sample and nothing wider: not
 Jev's quality in general, and not latency or cost unless those were measured and recorded.
 
+## What the recipe guard checks about section 2
+
+[CONTRIBUTING.md](../CONTRIBUTING.md), section 2, is a rule about meaning: no notebook, README or
+pull request may state or imply anything about Jev's quality, latency or cost except as measured on
+N examples with the returned model version and capture date. No test can judge meaning, so a green
+guard is **not** a guarantee that a recipe is honest. `tests/test_recipe_guard.py` enforces a
+floor, built only from what is decidable from the files. Each check below runs over every
+published recipe and the template, and its failure message points here.
+
+| Check | A recipe fails it when |
+| --- | --- |
+| `reported_provenance_matches_fixtures` | The mode the committed output reports (the `Mode:` header, a `Provenance:` line, the measured cell's offline disclosure, a `Captured:` line) is not the provenance the stored answers carry. All-synthetic fixtures must report `synthetic` and the disclosure; recorded fixtures must report `recorded`, the model, the capture dates, and no pipeline-check label. A header, a provenance line or a fixture the check cannot read is a failure, not a pass. |
+| `readme_states_fixture_provenance` | The README's `**Mode:**` line names another mode than the fixtures carry, a recipe with no live run never says "not measured live", or a recorded recipe's README omits its model or capture dates. |
+| `metric_output_lines_carry_pipeline_check` | In a synthetic or scripted run, a committed output line names a metric (coverage, accuracy, risk, precision, recall, F1, nDCG, agreement, AUC, MRR, Brier, error rate, hit rate) and prints a decimal or a percentage without `(a pipeline check, not a Jev result)` on the same line. It reads the printed line, so `{x:.2f}` versus `{x:.4f}`, an aligned spec, or a format hoisted into a variable does not change the result. |
+| `prose_quantities_are_printed` | The README or a notebook markdown cell quotes a percentage or decimal next to a metric word, a price, a latency or a throughput, and no committed output prints that number (or, for a metric, the recipe's own tests type it). A quote of `0.92` is backed by a printed `0.9167`; `97.4%` by `0.974`; `1,250` by `1250`. Risk and accuracy back each other (risk is one minus accuracy among the answered). A price or a latency is backed only by a printed price or latency, so a printed sample size does not back "180 ms". |
+| `no_unhedged_quality_claim_about_jev` | In a synthetic or scripted recipe, a README or markdown sentence has Jev or the model as the subject of an evaluative adverb or adjective (correctly, reliably, well, accurate, fast, cheap, right) or says it outperforms something, and the sentence has no negation, hypothetical or attribution ("not measured live", "would", "TypeSafe's notes say"). |
+
+A fabricated "97.4% accuracy, 180 ms median latency, $0.0004 a call" fails
+`prose_quantities_are_printed` in the README and in a notebook cell alike.
+
+### What none of this covers: the reviewer's alone
+
+These parts of section 2 have no mechanical check. The reviewer is the only enforcement, and reads
+the README and every markdown cell for them:
+
+- A claim about what Jev does that has no number and no evaluative word ("Jev judges from the
+  evidence as a whole"). The claim check above flags `Jev judges these correctly`, and passes a
+  synonym or a plain assertion.
+- A true number given a false interpretation. The prose check confirms a quoted number was
+  printed somewhere, not that it is the right number in the right place: a quoted `1.0000` is
+  backed by any printed `1.0000`.
+- A fixture-derived statistic offered as evidence about the model, such as the share of
+  comparisons whose first-listed option was chosen, which offline measures only the person who wrote
+  the fixtures.
+- A metric that is perfect by construction, printed with its pipeline-check label and without
+  saying that the fixtures or the selection force it.
+- A sentence that misdescribes the notebook's own committed output ("each misses one record",
+  "every answer is on the correct side of its threshold") without quoting a number the output did
+  not print.
+- A count with no decimal, such as `15 of 15`, which is not a metric line to the label check.
+- Any statement in a pull request description or comment: the guard reads files, not pull requests.
+- A quality, latency or cost figure attributed to TypeSafe or a third party that the check above does not
+  see (it quotes no number beside a metric word, a price or a latency). Section 2 forbids
+  it without the same recorded, held-out evidence.
+
+### The older metric-line checks
+
+`validation_lines_carry_selection_and_check` and `metric_lines_carry_check` look for a `print(`
+whose call spells a rounded-float format (`{x:.4f}`) beside a metric word. They cover that one
+formatting convention. A metric printed through an aligned spec, a hoisted format string or a helper
+is outside them, as is any prose. Their existence is not evidence that section 2 is enforced;
+`metric_output_lines_carry_pipeline_check` is the check that reads what was printed.
+
+### Ideas considered and rejected
+
+- A notebook that says `recorded` must have a non-synthetic response: every recipe, the template
+  included, says `recorded` in its prose, to state what a recorded recipe would add. The structural
+  form above compares what the output reports with what the fixtures carry.
+- Any evaluative word in a sentence that mentions Jev: most of those sentences are disclosures that
+  name accuracy, cost or latency in order to deny them, comparisons between a recipe's own baselines
+  on its own fixtures, or quotations of TypeSafe's documentation. Only the narrow form above is
+  checked.
+- A warning the author answers in the pull request: a recipe pull request can change only its own
+  folder, so it has no place to answer one.
+
 ## The live path
 
 Three things are needed: the SDK (`pip install -e ".[live]"` from a checkout), `JEV_COOKBOOK_LIVE=1`
