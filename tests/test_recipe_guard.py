@@ -63,7 +63,7 @@ check id                              rule -> detection
                                        (``reported_provenance_matches_fixtures`` ...) are
                                        what #218 added, and
                                        docs/offline-and-live.md lists what none of them reach.
-``figure_titles_check_only``        docs/notebook-style.md "Title convention": a
+``figure_titles_check_only``          docs/notebook-style.md "Title convention": a
                                        ``plot_confusion_matrix``/``plot_threshold_sweep``/
                                        ``plot_risk_coverage`` title carries ``{check}`` and
                                        not ``{selection}``.
@@ -178,7 +178,8 @@ check id                              rule -> detection
                                        scripted recipe, no README or markdown sentence says Jev
                                        or the model does something correctly/reliably/well ...
                                        or is accurate/fast/cheap ..., or outperforms something,
-                                       unless the same sentence negates, hedges or attributes it.
+                                       unless the same sentence, heading, list item or
+                                       table row negates, hedges or attributes it.
 ====================================  =====================================================
 
 Scope decisions (see the pull request body for the full reasoning):
@@ -322,9 +323,11 @@ Scope decisions (see the pull request body for the full reasoning):
   - IMPLEMENTED NARROWLY, item 1 (claim vocabulary): ``no_unhedged_quality_claim_about_jev``
     flags only a sentence in which Jev or the model (not a possessive: "the model's stored
     answers") is the subject of an evaluative adverb or adjective, with no negation, hypothetical
-    or attribution in it. Measured over about 5700 sentences of the published READMEs and markdown
-    cells: 2 sentences match, both hedged ("not", "not a finding about Jev"), so it lands with 0
-    violations. REJECTED, the wide form (any evaluative word near a mention of Jev): 644
+    or attribution in it. The unit a hedge covers is its own sentence, heading, list item (with
+    its wrapped lines) or table row (``_markdown_units``): a hedge word in a neighbouring bullet or
+    in the heading above excuses nothing. Measured over the 7093 such units of the published
+    READMEs and markdown cells: 2 match, both hedged ("not", "not a finding about Jev"), so it
+    lands with 0 violations. REJECTED, the wide form (any evaluative word near a mention of Jev): 644
     sentences match an ordinary lexicon, nearly all of them disclosures that name accuracy,
     cost or latency in order to deny them, comparisons between a recipe's own baselines on its
     own fixtures ("beats"), or TypeSafe's documentation quoted. A recipe pull request cannot edit
@@ -8334,6 +8337,21 @@ _DISCLOSURE_LINE = re.compile(
     r"^Provenance: (?P<mode>\w+)\. Not measured live: a pipeline check, not a Jev result\.$"
 )
 _CAPTURE_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_DATE = r"\b\d{4}-\d{2}-\d{2}\b"
+# The four lines a recorded run prints about itself, exactly as ``style.run_header_text``, the
+# measured cell and ``style.format_answer`` produce them. Each is matched in full, so a model or
+# a date the line states beyond the fixtures' is a line this check cannot read, not a pass.
+_RECORDED_HEADER = re.compile(
+    r"^The answers were captured from real Jev calls to model (?P<model>\S+) "
+    rf"(?:on (?P<first>{_DATE})|between (?P<from>{_DATE}) and (?P<to>{_DATE}))\. "
+    r"Any numbers below describe only that recorded sample(?: of \d+ examples?)?\.$"
+)
+_RECORDED_MODEL_LINE = re.compile(r"^Provenance: recorded, model (?P<model>\S+)$")
+_CAPTURED_LINE = re.compile(rf"^Captured: (?P<dates>{_DATE}(?:, {_DATE})*)$")
+_RECORDED_ANSWER_LINE = re.compile(
+    rf"^Provenance: recorded(?: \((?P<model>[^,()]+)(?:, (?P<date>{_DATE}))?\))?$"
+)
+_MODEL_TOKEN = re.compile(r"\bjev-\d+(?:\.\d+)+\b", re.IGNORECASE)
 _README_MODE = re.compile(r"\*\*Mode:\*\*\s+(\w+)")
 
 
@@ -8489,28 +8507,90 @@ def _provenance_violations(recipe_dir_: Path) -> list[str]:
                     f"but the fixtures carry only {mode!r} answers"
                 )
     else:
-        model = models[0]
-        if "a pipeline check, not a Jev result" in text:
-            violations.append(
-                "the committed output carries the pipeline-check disclosure but the fixtures hold "
-                "recorded answers"
-            )
-        if not any(line == f"Provenance: recorded, model {model}" for _, line in lines):
-            violations.append(
-                f"no `Provenance: recorded, model {model}` line in the committed output"
-            )
-        captured = " ".join(line for _, line in lines if line.startswith("Captured:"))
-        if not captured or not all(date in captured for date in dates):
-            violations.append(f"no `Captured:` line naming every capture date {dates}")
-        header = " ".join(
-            line for _, line in lines if "captured from real Jev calls to model" in line
-        )
-        if not all(s in header for s in (model, dates[0], dates[-1])):
-            violations.append(
-                f"the header does not say the answers were captured from model {model} "
-                f"between {dates[0]} and {dates[-1]}"
-            )
+        violations += _recorded_run_violations(lines, models[0], dates)
     return violations
+
+
+def _recorded_run_violations(
+    lines: list[tuple[str, str]], model: str, dates: list[str]
+) -> list[str]:
+    """A recorded run states, in its committed output, exactly the model and the capture dates the
+    fixtures carry: the header (``on D`` or ``between FIRST and LAST``), every ``Provenance:
+    recorded`` line (the measured cell's ``, model M`` and each answer's ``(M, D)``), and the
+    ``Captured:`` lines (every date, comma separated). Two-directional: a line missing, a line
+    this check cannot read, a model or a date the fixtures do not carry, and a ``jev-N.N.N`` model
+    string anywhere in the output other than the fixtures' are each a violation."""
+    text = "\n".join(line for _, line in lines)
+    out: list[str] = []
+    if "a pipeline check, not a Jev result" in text:
+        out.append(
+            "the committed output carries the pipeline-check disclosure but the fixtures hold "
+            "recorded answers"
+        )
+    span = f"{dates[0]} to {dates[-1]}"
+    headers = [(c, line) for c, line in lines if "captured from real Jev calls" in line]
+    if not headers:
+        out.append("the committed output has no recorded-run header (`run_header`)")
+    for cell_id, line in headers:
+        match = _RECORDED_HEADER.match(line)
+        if match is None:
+            out.append(f"cell {cell_id}: a recorded header this check cannot read: {line!r}")
+            continue
+        first = match.group("first") or match.group("from")
+        last = match.group("first") or match.group("to")
+        if (match.group("model"), first, last) != (model, dates[0], dates[-1]):
+            out.append(
+                f"cell {cell_id}: the header says model {match.group('model')} from {first} to "
+                f"{last}, but the fixtures carry model {model} from {span}"
+            )
+    stated_model_lines = 0
+    for cell_id, line in lines:
+        if not line.startswith("Provenance: recorded"):
+            continue
+        if line.startswith("Provenance: recorded,"):
+            match = _RECORDED_MODEL_LINE.match(line)
+            if match is None:
+                out.append(f"cell {cell_id}: a `Provenance:` line this check cannot read: {line!r}")
+            elif match.group("model") != model:
+                out.append(
+                    f"cell {cell_id}: {line!r} names model {match.group('model')!r}, not {model!r}"
+                )
+            else:
+                stated_model_lines += 1
+            continue
+        match = _RECORDED_ANSWER_LINE.match(line)
+        if match is None:
+            out.append(f"cell {cell_id}: a `Provenance:` line this check cannot read: {line!r}")
+            continue
+        if match.group("model") not in (None, model):
+            out.append(
+                f"cell {cell_id}: {line!r} names model {match.group('model')!r}, not {model!r}"
+            )
+        if match.group("date") not in (None, *dates):
+            out.append(
+                f"cell {cell_id}: {line!r} names date {match.group('date')!r}, not one of {dates}"
+            )
+    if not stated_model_lines:
+        out.append(f"no `Provenance: recorded, model {model}` line in the committed output")
+    stated: set[str] = set()
+    captured = [(c, line) for c, line in lines if line.startswith("Captured:")]
+    if not captured:
+        out.append(f"no `Captured:` line naming the capture dates {dates}")
+    for cell_id, line in captured:
+        match = _CAPTURED_LINE.match(line)
+        if match is None:
+            out.append(f"cell {cell_id}: a `Captured:` line this check cannot read: {line!r}")
+        else:
+            stated |= set(match.group("dates").split(", "))
+    if captured and stated != set(dates):
+        out.append(
+            f"the `Captured:` lines state capture dates {sorted(stated)} but the fixtures carry {dates}"
+        )
+    out += [
+        f"the committed output states model {token!r} but the fixtures carry {model!r}"
+        for token in sorted(set(_MODEL_TOKEN.findall(text)) - {model})
+    ]
+    return out
 
 
 def _readme_provenance_violations(recipe_dir_: Path) -> list[str]:
@@ -8544,6 +8624,14 @@ def _readme_provenance_violations(recipe_dir_: Path) -> list[str]:
             f"the README does not state {needle!r}, a recorded recipe's model or capture date"
             for needle in (*models, *dates)
             if needle not in text
+        ]
+        violations += [
+            f"the README states the date {extra}, which the fixtures do not carry"
+            for extra in sorted(set(re.findall(_DATE, text)) - set(dates))
+        ]
+        violations += [
+            f"the README states model {extra!r}, which the fixtures do not carry"
+            for extra in sorted({t.lower() for t in _MODEL_TOKEN.findall(text)} - set(models))
         ]
     return violations
 
@@ -8601,6 +8689,8 @@ _AMOUNT_THEN_METRIC = re.compile(
 # backed by a printed accuracy and the other way round (recipe 05 quotes a validation risk of
 # 0.0526 beside a printed accuracy of 0.9474).
 _COMPLEMENTARY_RATES = frozenset({"risk", "accuracy", "error rate"})
+_RATE_LINE = re.compile(r"\b(?:accuracy|risk|error rate)\b", re.IGNORECASE)
+_PERCENT = re.compile(r"(\d+(?:\.\d+)?)\s?%")
 # A price, as a price per unit of work ("$0.0004 a call"), or as a price in a sentence that talks
 # about cost and about Jev, the model or the API. A bare "$500" in a sentence about a fixture's
 # invoice is a number in the example, not a claim about Jev.
@@ -8626,7 +8716,13 @@ _THROUGHPUT = re.compile(
     re.IGNORECASE,
 )
 _SECONDS = re.compile(r"(?P<q>\d[\d,]*(?:\.\d+)?\s?(?:seconds?|secs?|minutes?)\b)", re.IGNORECASE)
-_SPEED_WORD = re.compile(r"\b(?:latency|response time|slow|fast|speed|takes?)\b", re.IGNORECASE)
+# A duration is a claim about Jev when the sentence says latency or response time, or says slow,
+# fast, speed or takes AND names Jev, the model, the API, inference or a live run. A sentence about
+# how long the notebook, an install or the offline replay takes names none of these, and a recipe
+# pull request, which cannot edit this file, would have no way to answer a failure on it.
+_SERVICE_SPEED_WORD = re.compile(r"\b(?:latency|response time)\b", re.IGNORECASE)
+_SPEED_WORD = re.compile(r"\b(?:slow|fast|speed|takes?)\b", re.IGNORECASE)
+_LIVE_RUN = re.compile(r"\blive\b", re.IGNORECASE)
 _NUMBER = re.compile(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?")
 
 
@@ -8666,9 +8762,51 @@ def _is_printed(quote: str, printed: list[Decimal]) -> bool:
     return False
 
 
-def _prose_of(recipe_dir_: Path) -> list[tuple[str, str]]:
-    """``(where, text)`` for the README and every notebook markdown cell, whitespace collapsed,
-    less fenced code, HTML comments and link targets, which hold commands and URLs, not claims."""
+def _clean_markdown(text: str) -> str:
+    """``text`` less fenced code, HTML comments and link targets, which hold commands and URLs,
+    not claims. Line breaks are kept: they are what ``_markdown_units`` splits on."""
+    text = re.sub(r"^\s*(```|~~~).*?^\s*\1", " ", text, flags=re.DOTALL | re.MULTILINE)
+    text = re.sub(r"<!--.*?-->", " ", text, flags=re.DOTALL)
+    return re.sub(r"\]\([^)]*\)", "]", text)
+
+
+_MD_HEADING = re.compile(r"\s*#{1,6}\s")
+_MD_TABLE_ROW = re.compile(r"\s*\|")
+_MD_LIST_ITEM = re.compile(r"\s*(?:[-*+]|\d+[.)])\s")
+
+
+def _markdown_units(text: str) -> list[str]:
+    """The statements a markdown block makes, each whitespace-collapsed: a heading, a table row,
+    a list item (with its wrapped continuation lines) and a paragraph are separate units, so a
+    hedge word in a heading or in the next bullet can never excuse a sentence in another unit.
+    Sentence punctuation then splits a unit further (``_sentences``)."""
+    units: list[str] = []
+    current: list[str] = []
+
+    def flush() -> None:
+        if current:
+            units.append(" ".join(" ".join(current).split()))
+            current.clear()
+
+    for line in text.splitlines():
+        if not line.strip():
+            flush()
+        elif _MD_HEADING.match(line) or _MD_TABLE_ROW.match(line):
+            flush()
+            current.append(line)
+            flush()
+        elif _MD_LIST_ITEM.match(line):
+            flush()
+            current.append(line)
+        else:
+            current.append(line)
+    flush()
+    return units
+
+
+def _prose_blocks(recipe_dir_: Path) -> list[tuple[str, str]]:
+    """``(where, markdown)`` for the README and every notebook markdown cell, cleaned but with
+    its line structure intact."""
     blocks = []
     readme = recipe_dir_ / "README.md"
     if readme.is_file():
@@ -8676,13 +8814,16 @@ def _prose_of(recipe_dir_: Path) -> list[tuple[str, str]]:
     for cell in notebook_cells(recipe_dir_):
         if cell["cell_type"] == "markdown":
             blocks.append((f"notebook.ipynb cell {cell.get('id', '?')}", cell_source(cell)))
-    cleaned = []
-    for where, text in blocks:
-        text = re.sub(r"^\s*(```|~~~).*?^\s*\1", " ", text, flags=re.DOTALL | re.MULTILINE)
-        text = re.sub(r"<!--.*?-->", " ", text, flags=re.DOTALL)
-        text = re.sub(r"\]\([^)]*\)", "]", text)
-        cleaned.append((where, " ".join(text.split())))
-    return cleaned
+    return [(where, _clean_markdown(text)) for where, text in blocks]
+
+
+def _prose_of(recipe_dir_: Path) -> list[tuple[str, str]]:
+    """``(where, unit)`` for every unit of the README and of every notebook markdown cell."""
+    return [
+        (where, unit)
+        for where, text in _prose_blocks(recipe_dir_)
+        for unit in _markdown_units(text)
+    ]
 
 
 def _sentences(text: str) -> list[str]:
@@ -8705,7 +8846,10 @@ def _quoted_quantities(text: str) -> list[tuple[str, str]]:
             found += [("price", m.group(0)) for m in re.finditer(_PRICE_AMOUNT, sentence, re.I)]
         for pattern in (_LATENCY_MS, _THROUGHPUT):
             found += [("speed", m.group("q")) for m in pattern.finditer(sentence)]
-        if _SPEED_WORD.search(sentence):
+        if _SERVICE_SPEED_WORD.search(sentence) or (
+            _SPEED_WORD.search(sentence)
+            and (_ABOUT_JEV.search(sentence) or _LIVE_RUN.search(sentence))
+        ):
             found += [("speed", m.group("q")) for m in _SECONDS.finditer(sentence)]
     return found
 
@@ -8714,7 +8858,9 @@ def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     """The numbers a quote of each kind can be backed by. A ``metric`` quote: any number a code
     cell's committed output prints, or the recipe's own ``tests/`` type (CONTRIBUTING.md section
     6: a quoted figure is allowed when "a test re-derives it through the shared helpers"). A
-    ``rate`` quote (risk, accuracy, error rate): those numbers or their complements. A ``price``
+    ``rate`` quote (risk, accuracy, error rate): those numbers, or the complement of a number
+    printed on a line that names accuracy, risk or error rate (a decimal in [0, 1] with two or more
+    places, or a printed percentage). A printed percentage also backs its fraction. A ``price``
     or ``speed`` quote: only a price, a latency or a throughput the output prints with its unit,
     so a printed sample size of 180 does not back "180 ms"."""
     output = "\n".join(
@@ -8734,7 +8880,16 @@ def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
         for m in pattern.finditer(output)
         for n in _decimals(m.group("q"))
     ]
-    complements = [1 - n for n in metric if 0 <= n <= 1] + [100 - n for n in metric if 1 < n <= 100]
+    percentages = [Decimal(m.group(1)) for m in _PERCENT.finditer(output)]
+    metric += [pct / 100 for pct in percentages]
+    complements: list[Decimal] = []
+    for line in output.splitlines():
+        if not _RATE_LINE.search(line):
+            continue
+        complements += [
+            1 - n for n in _decimals(line) if 0 <= n <= 1 and -n.as_tuple().exponent >= 2
+        ]
+        complements += [100 - Decimal(m.group(1)) for m in _PERCENT.finditer(line)]
     return {"metric": metric, "rate": metric + complements, "price": price, "speed": speed}
 
 
@@ -8772,26 +8927,49 @@ _QUALITY_CLAIMS = (
 # ("not measured live"), a hypothetical, or an attribution to documentation.
 _HEDGES = re.compile(
     r"\b(?:not|nothing|never|cannot|without|whether|if|would|could|may|might|unless"
-    r"|says?|said|documents?|notes?|claims?|according)\b|n['’]t\b",
+    r"|says?|said|according|TypeSafe|documentation|docs|S\d{2})\b|n['’]t\b",
     re.IGNORECASE,
 )
+
+
+def _excerpt(sentence: str, match: re.Match) -> str:
+    """The sentence, or, for a long one, the stretch around the match: what a builder must change
+    is always in what is printed."""
+    if len(sentence) <= 240:
+        return sentence
+    start, end = max(0, match.start() - 100), match.end() + 100
+    return ("..." if start else "") + sentence[start:end] + ("..." if end < len(sentence) else "")
+
+
+def _claims_in_markdown(text: str) -> list[str]:
+    """Each sentence of ``text`` (a markdown block) that says Jev or the model does something
+    well and has no hedge in its OWN sentence, heading, list item or table row."""
+    found = []
+    for unit in _markdown_units(_clean_markdown(text)):
+        for sentence in _sentences(unit):
+            for pattern in _QUALITY_CLAIMS:
+                match = pattern.search(sentence)
+                if match:
+                    if not _HEDGES.search(sentence):
+                        found.append(_excerpt(sentence, match))
+                    break
+    return found
 
 
 def _unhedged_quality_claims(recipe_dir_: Path) -> list[str]:
     """In a recipe whose stored answers are all synthetic (or scripted), each sentence of the
     README or a markdown cell that says Jev or the model does something correctly, reliably,
     well ... or is accurate, fast, cheap ..., or outperforms something, and carries no negation,
-    hypothetical or attribution. Synthetic answers were written, so no sentence may say how well
-    the model does. Does not apply to a recorded recipe, which the reviewer holds to its model,
-    date and N."""
+    hypothetical or attribution in that same sentence (a heading, a bullet and a table row are
+    each their own unit). Synthetic answers were written, so no sentence may say how well the
+    model does. Does not apply to a recorded recipe, which the reviewer holds to its model, date
+    and N."""
     if _fixture_provenance(recipe_dir_)[0] not in SYNTHETIC_RUN_MODES:
         return []
     return [
-        f"{where}: {sentence[:140]!r}"
-        for where, text in _prose_of(recipe_dir_)
-        for sentence in _sentences(text)
-        if any(pattern.search(sentence) for pattern in _QUALITY_CLAIMS)
-        and not _HEDGES.search(sentence)
+        f"{where}: {claim!r}"
+        for where, text in _prose_blocks(recipe_dir_)
+        for claim in _claims_in_markdown(text)
     ]
 
 
@@ -8956,32 +9134,46 @@ def _record(index: int, answer: dict) -> None:
     answer["provenance"] = {"source": "recorded", "model": _RECORDED_MODEL, "date": _RECORDED_DATE}
 
 
-def _make_recorded(folder: Path) -> None:
+def _make_recorded(folder: Path, dates: tuple[str, ...] = (_RECORDED_DATE,)) -> None:
     """Turn a copy of the template into the recipe it would be if its answers had been captured
-    live: recorded fixtures, and the committed output and README that such a run states
-    (``run_header``'s recorded form, ``Provenance: recorded, model ...`` and ``Captured:``, no
-    pipeline-check label)."""
-    _rewrite_responses(folder, _record)
+    live on ``dates``: recorded fixtures, and the committed output and README that such a run
+    states (``run_header``'s recorded form, ``Provenance: recorded, model ...``, ``Captured:``
+    and the ``recorded (model, date)`` line ``show_answer`` prints, no pipeline-check label)."""
+    _rewrite_responses(
+        folder,
+        lambda i, a: a.update(
+            provenance={
+                "source": "recorded",
+                "model": _RECORDED_MODEL,
+                "date": dates[i % len(dates)],
+            }
+        ),
+    )
+    when = f"on {dates[0]}" if len(dates) == 1 else f"between {dates[0]} and {dates[-1]}"
     _edit_streams(
         folder,
         "Mode: offline replay of synthetic fixtures, pipeline check on a fixture sample of 20 "
         "examples\nMetrics in this run are checks that the pipeline works. They are not Jev "
         "results.",
         "Mode: offline replay of recorded fixtures\nThe answers were captured from real Jev calls "
-        f"to model {_RECORDED_MODEL} on {_RECORDED_DATE}. Any numbers below describe only that "
+        f"to model {_RECORDED_MODEL} {when}. Any numbers below describe only that "
         "recorded sample of 20 examples.",
     )
     _edit_streams(
         folder,
         "Provenance: synthetic. Not measured live: a pipeline check, not a Jev result.",
-        f"Provenance: recorded, model {_RECORDED_MODEL}\nCaptured: {_RECORDED_DATE}",
+        f"Provenance: recorded, model {_RECORDED_MODEL}\nCaptured: {', '.join(dates)}",
     )
-    _edit_streams(folder, "Provenance: synthetic\n", f"Provenance: recorded ({_RECORDED_MODEL})\n")
+    _edit_streams(
+        folder,
+        "Provenance: synthetic\n",
+        f"Provenance: recorded ({_RECORDED_MODEL}, {dates[0]})\n",
+    )
     _edit_streams(folder, f" {PIPELINE_CHECK_LABEL}", "", count=None)
     _edit_readme(
         folder,
         r"- \*\*Mode:\*\* synthetic \(offline replay of hand-written answers\)\. Not measured live\.",
-        f"- **Mode:** recorded (answers captured from {_RECORDED_MODEL} on {_RECORDED_DATE}).",
+        f"- **Mode:** recorded (answers captured from {_RECORDED_MODEL} {when}).",
     )
 
 
@@ -9198,7 +9390,7 @@ _RECORDED_FAILS = {
     ),
     "header-names-another-model": (
         lambda f: _edit_streams(f, f"to model {_RECORDED_MODEL}", "to model jev-9.9.9"),
-        "the header does not say the answers were captured from model",
+        "the header says model jev-9.9.9",
     ),
     "provenance-line-names-another-model": (
         lambda f: _edit_streams(
@@ -9210,11 +9402,69 @@ _RECORDED_FAILS = {
         lambda f: _edit_streams(f, "Mode: offline replay of recorded fixtures", _REPLAY_HEADER),
         "the header reports 'synthetic' but the fixtures carry 'recorded'",
     ),
+    # Two-directional: what the output states must equal what the fixtures carry, so a fabricated
+    # EXTRA date or model fails as surely as a missing one.
+    "extra-capture-date-in-the-captured-line": (
+        lambda f: _edit_streams(
+            f, f"Captured: {_RECORDED_DATE}", f"Captured: {_RECORDED_DATE}, 2026-12-25"
+        ),
+        "state capture dates",
+    ),
+    "extra-date-in-the-header": (
+        lambda f: _edit_streams(
+            f,
+            f"calls to model {_RECORDED_MODEL} on {_RECORDED_DATE}.",
+            f"calls to model {_RECORDED_MODEL} between {_RECORDED_DATE} and 2026-12-25.",
+        ),
+        "the header says",
+    ),
+    "extra-model-in-the-header": (
+        lambda f: _edit_streams(
+            f, f"to model {_RECORDED_MODEL} on", f"to model {_RECORDED_MODEL} and jev-9.9.9 on"
+        ),
+        "cannot read",
+    ),
+    "extra-model-in-the-provenance-line": (
+        lambda f: _edit_streams(
+            f,
+            f"Provenance: recorded, model {_RECORDED_MODEL}",
+            f"Provenance: recorded, model {_RECORDED_MODEL} and jev-9.9.9",
+        ),
+        "cannot read",
+    ),
+    "another-model-in-an-answer-line": (
+        lambda f: _edit_streams(f, f"recorded ({_RECORDED_MODEL},", "recorded (jev-9.9.9,"),
+        "names model 'jev-9.9.9'",
+    ),
+    "another-date-in-an-answer-line": (
+        lambda f: _edit_streams(
+            f, f"({_RECORDED_MODEL}, {_RECORDED_DATE})", f"({_RECORDED_MODEL}, 2026-12-25)"
+        ),
+        "names date '2026-12-25'",
+    ),
+    "a-model-stated-elsewhere-in-the-output": (
+        lambda f: _edit_streams(f, "N: 10 validation", "answered by jev-9.9.9; N: 10 validation"),
+        "jev-9.9.9",
+    ),
+    "captured-line-with-extra-words": (
+        lambda f: _edit_streams(
+            f, f"Captured: {_RECORDED_DATE}", f"Captured: {_RECORDED_DATE} (approximately)"
+        ),
+        "cannot read",
+    ),
+    "header-reworded": (
+        lambda f: _edit_streams(
+            f,
+            "Any numbers below describe only that recorded sample",
+            "These numbers describe Jev in general; the recorded sample",
+        ),
+        "cannot read",
+    ),
 }
 
 
 @pytest.mark.parametrize("case", sorted(_RECORDED_FAILS))
-def test_a_recorded_run_must_say_so_and_name_its_model_and_dates(tmp_path, case):
+def test_a_recorded_run_must_say_so_and_state_exactly_its_model_and_dates(tmp_path, case):
     mutate, needle = _RECORDED_FAILS[case]
     folder = _copy_recipe(tmp_path, "_template")
     _make_recorded(folder)
@@ -9362,7 +9612,11 @@ _UNPRINTED = {
     "decimal-with-a-connective": "precision of about 0.9731 on the test split.",
     "recall-and-f1": "recall: 0.92, f1: 0.91",
     "latency-in-milliseconds": "A median latency of 180 ms per call.",
-    "latency-in-seconds": "Each call takes 2.5 seconds.",
+    "latency-in-seconds": "A latency of 2.5 seconds per call.",
+    "jev-takes-seconds": "Jev takes 2.5 seconds per call.",
+    "the-api-is-slow-in-seconds": "The API is slow: 3 seconds a request.",
+    "a-live-call-takes-seconds": "In a live run each call takes under 1.5 seconds.",
+    "response-time-in-minutes": "The response time is 2 minutes.",
     "price-per-call": "It costs $0.0004 a call.",
     "price-per-1k-tokens": "Priced at $0.002 per 1k tokens.",
     "price-in-a-sentence-about-the-api": "The API charges $12 for the whole run.",
@@ -9501,6 +9755,12 @@ _NOT_A_QUANTITY_CLAIM = {
     "n": "N: 10 validation and 10 test examples.",
     "a-link-target": "See [the docs](https://example.com/accuracy-0.974-benchmark).",
     "a-shell-command": "```bash\npytest --accuracy 0.974\n```",
+    # About the notebook's own run, not about Jev: no way for a recipe pull request to answer a
+    # failure on these, so they must not fail.
+    "the-notebook-takes-minutes": "Running this notebook takes about 2 minutes on a laptop.",
+    "the-run-takes-seconds": "The whole run takes 30 seconds offline.",
+    "installing-takes-seconds": "Installing the dependencies takes about 45 seconds.",
+    "the-offline-replay-is-fast": "The offline replay is fast: 3 seconds for all 22 examples.",
 }
 
 
@@ -9732,11 +9992,14 @@ def test_every_honesty_check_fails_on_each_recipe_when_that_recipe_is_made_to_ov
     # (3) the README and a markdown cell quote the fabricated triple
     triple = "Jev reaches 97.31% accuracy at a 180 ms median latency and $0.0004 a call."
     readme = folder / "README.md"
-    readme.write_text(readme.read_text("utf-8") + "\n\nOK.\n\n" + triple + "\n", "utf-8")
-    _append_cell(folder, "markdown", "OK. " + triple)
+    readme.write_text(readme.read_text("utf-8") + "\n\n" + triple + "\n", "utf-8")
+    _append_cell(folder, "markdown", triple)
     violations = _unprinted_quantities(folder)
-    assert len(violations) == 6, violations
-    assert sum("README.md" in v for v in violations) == 3
+    # One failure per fabricated quote and place. A recipe that already prints one of these numbers
+    # would back it, which is why this asserts each quote rather than an exact total.
+    for quote in ("97.31%", "180 ms", "$0.0004 a call"):
+        assert any("README.md" in v and quote in v for v in violations), (quote, violations)
+        assert any("honesty-probe" in v and quote in v for v in violations), (quote, violations)
 
     # (4) the README names another mode than the fixtures carry, and drops "not measured live"
     mode = _fixture_provenance(folder)[0]
@@ -9745,11 +10008,263 @@ def test_every_honesty_check_fails_on_each_recipe_when_that_recipe_is_made_to_ov
     readme.write_text(text.replace(f"**Mode:** {mode}", "**Mode:** recorded", 1), "utf-8")
     assert any("states mode 'recorded'" in v for v in _readme_provenance_violations(folder))
 
-    # (5) a sentence saying Jev does well, in the README
+    # (5) a sentence saying Jev does well, written the way a builder writes it: as a bullet with
+    # no terminator after whatever the README ends with, and as the first line under the heading
+    # of the "What was and was not measured" cell, whose heading says "not".
     folder2 = _copy_recipe(tmp_path / "second", recipe["slug"])
     assert _unhedged_quality_claims(folder2) == []
     readme2 = folder2 / "README.md"
     readme2.write_text(
-        readme2.read_text("utf-8") + "\n\nOK.\n\nJev judges these correctly.\n", "utf-8"
+        readme2.read_text("utf-8") + "\n- Jev judges these tickets correctly\n", "utf-8"
     )
-    assert len(_unhedged_quality_claims(folder2)) == 1
+    violations = _unhedged_quality_claims(folder2)
+    assert len(violations) == 1 and "Jev judges these tickets correctly" in violations[0], (
+        violations
+    )
+    folder3 = _copy_recipe(tmp_path / "third", recipe["slug"])
+    heading_cell = next(
+        cell.get("id")
+        for cell in notebook_cells(folder3)
+        if cell["cell_type"] == "markdown"
+        and "## What was and was not measured\n" in cell_source(cell)
+    )
+    _edit_markdown(
+        folder3,
+        "## What was and was not measured\n",
+        "## What was and was not measured\nJev judges these tickets correctly\n",
+    )
+    violations = _unhedged_quality_claims(folder3)
+    assert len(violations) == 1 and f"cell {heading_cell}:" in violations[0], violations
+    assert "Jev judges these tickets correctly" in violations[0]
+
+
+def test_a_claim_is_caught_in_every_markdown_block_of_every_recipe_wherever_it_is_put():
+    """Reviewer 1 of PR #351 put ``Jev judges these tickets correctly`` first in each of the 955
+    markdown blocks of the 50 recipes and the template and 75 were missed, 51 of them the
+    ``measured`` cell whose heading says "not". At the top, at the bottom, as a bullet, as a
+    table row and with no terminator, none may be."""
+    placements = {
+        "first": lambda block, claim: claim + "\n\n" + block,
+        "last": lambda block, claim: block + "\n\n" + claim,
+        "first-as-a-bullet": lambda block, claim: "- " + claim + "\n\n" + block,
+        "last-as-a-bullet": lambda block, claim: block + "\n\n- " + claim,
+        "a-bullet-straight-after-text": lambda block, claim: block + "\n- " + claim,
+        "as-a-table-row": lambda block, claim: block + "\n\n| " + claim + " | x |",
+    }
+    claim = "Jev judges these tickets correctly"
+    blocks = 0
+    missed = []
+    for recipe in [*PUBLISHED, {"slug": "_template"}]:
+        for where, raw in _prose_blocks(recipe_dir(recipe)):
+            blocks += 1
+            before = len(_claims_in_markdown(raw))
+            for name, place in placements.items():
+                if len(_claims_in_markdown(place(raw, claim))) != before + 1:
+                    missed.append((recipe["slug"], where, name))
+    assert blocks > 900
+    assert not missed, missed[:10]
+
+
+_CLAIMS_IN_STRUCTURE = {
+    "a-bullet-beside-a-hedged-bullet": (
+        "- Notes: the gate is frozen on validation\n- Jev judges these tickets correctly"
+    ),
+    "a-bullet-after-a-nothing-bullet": (
+        "- Nothing else to note here.\n- Jev is accurate on these tickets"
+    ),
+    "under-a-heading-containing-not": (
+        "## What was and was not measured\nJev judges these tickets correctly."
+    ),
+    "under-a-heading-and-no-terminator": (
+        "## What was and was not measured\n\nJev judges these tickets correctly"
+    ),
+    "under-a-notes-heading": "## Notes\nJev is accurate on these tickets.",
+    "under-a-document-heading": "# Document classification\nJev judges these tickets correctly.",
+    "after-the-verb-note": "Jev is accurate on these tickets, so note the review rate falls.",
+    "a-table-row": "| a | b |\n| Jev handles ambiguous tickets reliably | x |",
+    "a-wrapped-bullet": "- Jev judges these tickets\n  correctly every time\n- fine",
+    "after-a-hedged-sentence-on-the-same-line": (
+        "This is not measured live. Jev judges these tickets correctly."
+    ),
+}
+
+
+@pytest.mark.parametrize("where", ["readme", "markdown"])
+@pytest.mark.parametrize("case", sorted(_CLAIMS_IN_STRUCTURE))
+def test_a_claim_in_a_list_or_under_a_heading_is_not_hedged_by_its_neighbours(
+    tmp_path, case, where
+):
+    """The unit a hedge word covers is one sentence, a heading, a list item or a table row, never
+    the block around it (PR #351, both reviews)."""
+    folder = _copy_recipe(tmp_path, "_template")
+    assert _unhedged_quality_claims(folder) == []
+    text = _CLAIMS_IN_STRUCTURE[case]
+    if where == "readme":
+        (folder / "README.md").write_text(
+            (folder / "README.md").read_text("utf-8") + "\n" + text + "\n", "utf-8"
+        )
+    else:
+        _append_cell(folder, "markdown", text)
+    violations = _unhedged_quality_claims(folder)
+    assert len(violations) == 1, (case, violations)
+    assert ("README.md" if where == "readme" else "honesty-probe") in violations[0]
+
+
+_HEDGED_WITHIN_ITS_OWN_UNIT = {
+    "same-bullet-hedge": "- Jev judges these tickets correctly, which is not measured live",
+    "wrapped-bullet-hedge": "- Jev judges these tickets\n  correctly only if the gate is frozen",
+    "hedged-sentence-then-plain-text": "Whether Jev judges these correctly is not measured live.",
+    "a-heading-that-is-only-a-hedge": "## Not measured\n- The pipeline reads the catalog correctly.",
+    "an-attribution": "According to the documentation, the model judges each level on its own.",
+    "typesafe-notes": "TypeSafe's notes say Jev judges each level on its own.",
+}
+
+
+@pytest.mark.parametrize("case", sorted(_HEDGED_WITHIN_ITS_OWN_UNIT))
+def test_a_hedge_in_the_claims_own_sentence_or_list_item_still_hedges_it(tmp_path, case):
+    folder = _copy_recipe(tmp_path, "_template")
+    _append_cell(folder, "markdown", _HEDGED_WITHIN_ITS_OWN_UNIT[case])
+    assert _unhedged_quality_claims(folder) == []
+
+
+def test_the_failure_message_prints_the_offending_sentence_not_the_start_of_its_block(tmp_path):
+    folder = _copy_recipe(tmp_path, "01-sentiment-classification")
+    readme = folder / "README.md"
+    readme.write_text(
+        readme.read_text("utf-8") + "\n- Jev outperforms atlas-compact on every ticket\n", "utf-8"
+    )
+    (message,) = _unhedged_quality_claims(folder)
+    assert "Jev outperforms atlas-compact on every ticket" in message
+    assert "README.md" in message and len(message) < 400
+
+
+def test_the_claim_planted_in_recipe_26s_measured_cell_is_caught_inside_the_cell(tmp_path):
+    """#218's first reproduction used this cell; its heading says "not" and every claim in it used
+    to be hedged by that word."""
+    folder = _copy_recipe(tmp_path, "26-prompt-injection-screening")
+    assert _unhedged_quality_claims(folder) == []
+    _edit_markdown(
+        folder,
+        "## What was and was not measured\n",
+        "## What was and was not measured\n\nJev judges these prompts correctly\n",
+    )
+    (message,) = _unhedged_quality_claims(folder)
+    assert "measured-md" in message and "Jev judges these prompts correctly" in message
+
+
+def test_an_attributed_quality_claim_is_a_known_pass_that_section_2_forbids(tmp_path):
+    """Section 2 holds even when a figure is attributed to someone else, and the claim check treats
+    an attribution as a hedge, so "TypeSafe says Jev is accurate" passes. Pinned, and listed as the
+    reviewer's alone in docs/offline-and-live.md."""
+    folder = _copy_recipe(tmp_path, "_template")
+    _append_cell(folder, "markdown", "TypeSafe says Jev is accurate on tickets like these.")
+    assert _unhedged_quality_claims(folder) == []
+
+
+# --- the rate pool: the complement of a RATE, not of every printed number -------------------------
+
+_BACKED_PLUS = {
+    "a-bare-integer-does-not-back-a-complement": ("N: 7 examples", "the accuracy was 93%", 1),
+    "a-probability-does-not-back-a-complement": ("probability 0.05", "accuracy 0.95", 1),
+    "a-threshold-does-not-back-a-complement": ("threshold 0.30", "risk 0.70", 1),
+    "a-rate-line-backs-its-complement": ("risk among the answered: 0.0526", "accuracy 0.9474", 0),
+    "a-percentage-line-backs-its-complement": ("accuracy 94.74%", "risk 5.26%", 0),
+    "a-printed-percentage-backs-the-fraction": ("accuracy 77.0%", "accuracy 0.77", 0),
+    "one-decimal-is-not-complemented": ("accuracy 0.9", "risk 0.1", 1),
+    "the-complement-needs-a-rate-word-on-its-line": ("recall 0.9474", "risk 0.0526", 1),
+}
+
+
+@pytest.mark.parametrize("case", sorted(_BACKED_PLUS))
+def test_only_a_number_printed_on_a_rate_line_has_its_complement_backed(tmp_path, case):
+    printed, prose, unbacked = _BACKED_PLUS[case]
+    folder = _synthetic_recipe(tmp_path, ["print('probe')\n"])
+    _append_cell(folder, "code", printed, cell_id="printed")
+    _append_cell(folder, "markdown", prose, cell_id="prose")
+    assert len(_unprinted_quantities(folder)) == unbacked, _unprinted_quantities(folder)
+
+
+# What each recipe's own printed numbers back by coincidence differs, so each folder is held to the
+# round quotes that were measured to be unbacked there (reviewer 2 measured the template and 01).
+_ROUND_QUOTES = {
+    "_template": [
+        "Jev reaches 97% accuracy.",
+        "accuracy 95%",
+        "accuracy 0.95",
+        "The accuracy is 93%.",
+    ],
+    "01-sentiment-classification": ["Jev reaches 97% accuracy.", "The accuracy is 93%."],
+}
+
+
+@pytest.mark.parametrize(
+    ("slug", "claim"),
+    [(slug, claim) for slug, claims in _ROUND_QUOTES.items() for claim in claims],
+)
+def test_a_round_fabricated_accuracy_is_caught_where_it_used_to_be_backed_by_a_complement(
+    tmp_path, slug, claim
+):
+    """Reviewer 2 of PR #351: with the complement of every printed number in the pool, these four
+    passed in the template and in recipe 01 (and ``97%`` in recipe 26)."""
+    folder = _copy_recipe(tmp_path, slug)
+    assert _unprinted_quantities(folder) == []
+    _append_cell(folder, "markdown", claim)
+    assert _unprinted_quantities(folder), claim
+
+
+_TWO_DATES = ("2026-03-02", "2026-03-09")
+
+
+def test_a_recording_over_several_dates_states_the_first_and_last_in_the_header_and_all_in_captured(
+    tmp_path,
+):
+    """``run_header`` says "between FIRST and LAST" and the measured cell lists every date: both
+    are exact, in both directions."""
+    folder = _copy_recipe(tmp_path, "_template")
+    _make_recorded(folder, _TWO_DATES)
+    assert _fixture_provenance(folder)[2] == list(_TWO_DATES)
+    assert _all_clear(folder), _violations(folder)
+    _edit_streams(folder, "Captured: 2026-03-02, 2026-03-09", "Captured: 2026-03-02")
+    assert any("state capture dates" in v for v in _provenance_violations(folder))
+    _edit_streams(folder, "Captured: 2026-03-02", "Captured: 2026-03-02, 2026-03-09, 2026-04-01")
+    assert any("state capture dates" in v for v in _provenance_violations(folder))
+    _edit_streams(
+        folder, "Captured: 2026-03-02, 2026-03-09, 2026-04-01", "Captured: 2026-03-02, 2026-03-09"
+    )
+    _edit_streams(folder, "between 2026-03-02 and 2026-03-09", "on 2026-03-02")
+    assert any("the header says" in v for v in _provenance_violations(folder))
+
+
+_RECORDED_README_FAILS = {
+    "an-extra-capture-date": ("a model captured on 2026-12-25 too", "2026-12-25"),
+    "an-extra-model": ("compared with jev-9.9.9 elsewhere", "jev-9.9.9"),
+}
+
+
+@pytest.mark.parametrize("case", sorted(_RECORDED_README_FAILS))
+def test_a_recorded_readme_may_not_state_a_date_or_a_model_the_fixtures_do_not_carry(
+    tmp_path, case
+):
+    sentence, needle = _RECORDED_README_FAILS[case]
+    folder = _copy_recipe(tmp_path, "_template")
+    _make_recorded(folder)
+    assert _readme_provenance_violations(folder) == []
+    readme = folder / "README.md"
+    readme.write_text(readme.read_text("utf-8") + "\nThe run was " + sentence + ".\n", "utf-8")
+    assert any(needle in v for v in _readme_provenance_violations(folder))
+
+
+def test_a_recorded_answer_with_a_malformed_date_is_a_fixture_problem(tmp_path):
+    """The date pattern is load-bearing: a recorded answer dated "yesterday" is not a capture date."""
+    folder = _copy_recipe(tmp_path, "_template")
+    for n, bad in enumerate(("yesterday", "2026-3-2", "2026-03-02T10:00:00Z", "")):
+        folder_i = _copy_recipe(tmp_path / f"case{n}", "_template")
+        _rewrite_responses(
+            folder_i,
+            lambda i, a, bad=bad: a.update(
+                provenance={"source": "recorded", "model": _RECORDED_MODEL, "date": bad}
+            ),
+        )
+        mode, _, _, problems = _fixture_provenance(folder_i)
+        assert mode is None and any("no capture date" in p for p in problems), bad
+    assert _fixture_provenance(folder)[0] == "synthetic"

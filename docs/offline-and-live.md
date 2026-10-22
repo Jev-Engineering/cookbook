@@ -118,11 +118,11 @@ published recipe and the template, and its failure message points here.
 
 | Check | A recipe fails it when |
 | --- | --- |
-| `reported_provenance_matches_fixtures` | The mode the committed output reports (the `Mode:` header, a `Provenance:` line, the measured cell's offline disclosure, a `Captured:` line) is not the provenance the stored answers carry. All-synthetic fixtures must report `synthetic` and the disclosure; recorded fixtures must report `recorded`, the model, the capture dates, and no pipeline-check label. A header, a provenance line or a fixture the check cannot read is a failure, not a pass. |
-| `readme_states_fixture_provenance` | The README's `**Mode:**` line names another mode than the fixtures carry, a recipe with no live run never says "not measured live", or a recorded recipe's README omits its model or capture dates. |
-| `metric_output_lines_carry_pipeline_check` | In a synthetic or scripted run, a committed output line names a metric (coverage, accuracy, risk, precision, recall, F1, nDCG, agreement, AUC, MRR, Brier, error rate, hit rate) and prints a decimal or a percentage without `(a pipeline check, not a Jev result)` on the same line. It reads the printed line, so `{x:.2f}` versus `{x:.4f}`, an aligned spec, or a format hoisted into a variable does not change the result. |
-| `prose_quantities_are_printed` | The README or a notebook markdown cell quotes a percentage or decimal next to a metric word, a price, a latency or a throughput, and no committed output prints that number (or, for a metric, the recipe's own tests type it). A quote of `0.92` is backed by a printed `0.9167`; `97.4%` by `0.974`; `1,250` by `1250`. Risk and accuracy back each other (risk is one minus accuracy among the answered). A price or a latency is backed only by a printed price or latency, so a printed sample size does not back "180 ms". |
-| `no_unhedged_quality_claim_about_jev` | In a synthetic or scripted recipe, a README or markdown sentence has Jev or the model as the subject of an evaluative adverb or adjective (correctly, reliably, well, accurate, fast, cheap, right) or says it outperforms something, and the sentence has no negation, hypothetical or attribution ("not measured live", "would", "TypeSafe's notes say"). |
+| `reported_provenance_matches_fixtures` | The mode the committed output reports (the `Mode:` header, a `Provenance:` line, the measured cell's offline disclosure, a `Captured:` line) is not the provenance the stored answers carry. All-synthetic fixtures must report `synthetic` and the disclosure. Recorded fixtures must report `recorded` and state exactly the model and the capture dates the fixtures carry, in both directions: the header says `on D` or `between FIRST and LAST`, every `Provenance: recorded` line names that model (and, per answer, one of those dates), the `Captured:` lines list exactly those dates, no other `jev-N.N.N` model string appears in the output, and no pipeline-check label does. A date or a model the output states beyond the fixtures', or a line of those forms the check cannot read, is a failure, as is a missing one. A header, a provenance line or a fixture the check cannot read is a failure, not a pass. |
+| `readme_states_fixture_provenance` | The README's `**Mode:**` line names another mode than the fixtures carry, a recipe with no live run never says "not measured live", or a recorded recipe's README omits its model or capture dates, or states a date or a `jev-N.N.N` model string the fixtures do not carry. The mode must be the first word after `**Mode:**` (`synthetic`, `scripted` or `recorded`); only the first `**Mode:**` is read. |
+| `metric_output_lines_carry_pipeline_check` | In a synthetic or scripted run, a committed output line names a metric (coverage, accuracy, risk, precision, recall, F1, nDCG, agreement, AUC, MRR, Brier, error rate, hit rate) and prints a decimal or a percentage without `(a pipeline check, not a Jev result)` on the same line. It reads the printed line, so `{x:.2f}` versus `{x:.4f}`, an aligned spec, or a format hoisted into a variable does not change the result, as long as a metric word is on the same line as the number: an aligned table whose header names the metrics and whose rows carry only numbers, a word on one line and its number on the next, and a metric named by none of the words above are not seen. |
+| `prose_quantities_are_printed` | The README or a notebook markdown cell quotes a percentage or decimal next to a metric word, a price, a latency or a throughput, and no committed output prints that number (or, for a metric, the recipe's own tests type it). A quote of `0.92` is backed by a printed `0.9167`; `97.4%` by `0.974`; `1,250` by `1250`. Risk and accuracy back each other, but only through a printed rate: a quoted risk or accuracy is also backed by one minus a decimal (two or more places, between 0 and 1) or by 100 minus a percentage that was printed on a line naming accuracy, risk or error rate, so a printed `accuracy 0.9474` backs a quoted risk of `0.0526`, and a printed confidence or a count does not. A printed percentage also backs its fraction. A price or a latency is backed only by a printed price or latency, so a printed sample size does not back "180 ms". A duration is read as a claim about Jev only when its sentence says latency or response time, or says slow, fast, speed or takes together with Jev, the model, the API, inference or a live run; "the notebook takes about 2 minutes" is not. A quote is read when it sits next to the metric word through only a connective ("is", "of", "at", "reaches", "about" and a few more). |
+| `no_unhedged_quality_claim_about_jev` | In a synthetic or scripted recipe, a README or markdown sentence has Jev or the model as the subject of an evaluative adverb or adjective (correctly, reliably, well, accurate, fast, cheap, right) or says it outperforms something, and the sentence has no negation, hypothetical or attribution ("not measured live", "would", "according to", "TypeSafe's notes say"). A sentence here is a heading, a table row, a list item (with its wrapped lines) or one sentence of a paragraph: a hedge word in a neighbouring bullet, or in the heading above, does not excuse it. The failure message prints the sentence. |
 
 A fabricated "97.4% accuracy, 180 ms median latency, $0.0004 a call" fails
 `prose_quantities_are_printed` in the README and in a notebook cell alike.
@@ -134,10 +134,23 @@ the README and every markdown cell for them:
 
 - A claim about what Jev does that has no number and no evaluative word ("Jev judges from the
   evidence as a whole"). The claim check above flags `Jev judges these correctly`, and passes a
-  synonym or a plain assertion.
+  synonym ("flawless"), a plain assertion, and a claim whose subject is a model string such as
+  `jev-1.13.0` rather than Jev or the model.
+- An attributed quality claim ("TypeSafe says Jev is accurate"). The claim check reads an
+  attribution as a hedge, but section 2 holds even when a figure is attributed to someone else.
 - A true number given a false interpretation. The prose check confirms a quoted number was
   printed somewhere, not that it is the right number in the right place: a quoted `1.0000` is
-  backed by any printed `1.0000`.
+  backed by any printed `1.0000`. Backing is by existence, so it is strong for a four-decimal
+  quote and weak for a round one: in a recipe that prints many numbers, a fabricated two-decimal
+  value is often already printed by coincidence (measured across the published set, roughly a
+  third to four fifths of all two-decimal values per recipe, against a few percent at four
+  decimals). The check also reads no latency written `0.18 s` or in words, no price with neither a
+  cost word nor a unit of work ("Jev at $0.0004 is affordable"), and no number spelled in words.
+  A quoted parameter or target ("coverage stays at 0.70 by construction") is read as a quote, so
+  it must be printed.
+- A stale or inflated N ("20 examples" printed where the fixtures hold 22), and a header line that
+  claims real measurement while the mode word is unchanged: the mode and the disclosure are
+  checked, N is only required to be printed.
 - A fixture-derived statistic offered as evidence about the model, such as the share of
   comparisons whose first-listed option was chosen, which offline measures only the person who wrote
   the fixtures.
