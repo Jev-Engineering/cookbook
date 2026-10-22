@@ -3043,8 +3043,8 @@ def test_the_live_budget_note_matches_the_request_audit(recipe):
     the committed audit line equals the declaration (calls, distinct requests, exact fixture
     inventory), no request is decided twice unless the declaration says so (a repeat fails and
     names the replay key), and the README holds the paragraph rendered from the declaration
-    and no other count. The declaration, the audited notebook and the rendered paragraph come
-    together or not at all. Freshness of the committed line is the separate offline notebook
+    and the section states no other request count or cap. The declaration, the audited notebook
+    and the rendered paragraph come together or not at all (a paragraph alone fails too). Freshness of the committed line is the separate offline notebook
     job's duty.
 
     A recipe with none of the three keeps the old strict ``len(responses.json)`` proxy, which
@@ -3078,18 +3078,26 @@ def test_the_live_budget_note_matches_the_request_audit(recipe):
 # --------------------------------------------------------------------------------------------
 
 
-def _backend_sites(source: str, name: str) -> int:
-    """How many calls of ``name`` (a bare name or an attribute) ``source`` contains."""
+def _backend_sites(sources: list[str], name: str) -> int:
+    """How many places ``sources`` (one recipe's code, in any number of files) can reach ``name``.
+
+    Counted: every load of ``name`` or of a local alias made by ``from ... import name as alias``,
+    every ``.name`` attribute, and every string equal to ``name`` (``getattr(module, "name")``).
+    A call, a bare reference (``gb = get_backend``) and a dynamic lookup each count once, so a
+    second backend cannot hide behind a rename. The import itself is not a site.
+    """
+    trees = [ast.parse(source) for source in sources]
+    names = {name}
+    for tree in trees:
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                names.update(a.asname for a in node.names if a.name == name and a.asname)
     count = 0
-    for node in ast.walk(ast.parse(source)):
-        if isinstance(node, ast.Call):
-            func = node.func
-            called = (
-                func.id
-                if isinstance(func, ast.Name)
-                else (func.attr if isinstance(func, ast.Attribute) else None)
-            )
-            count += called == name
+    for tree in trees:
+        for node in ast.walk(tree):
+            count += isinstance(node, ast.Name) and node.id in names
+            count += isinstance(node, ast.Attribute) and node.attr == name
+            count += isinstance(node, ast.Constant) and node.value == name
     return count
 
 
@@ -3102,7 +3110,9 @@ def _backend_budget_verdict(folder: Path) -> tuple[str, str]:
     has no more ``get_backend`` call sites, in its notebook and ``helpers.py``, than it has
     audited backends (an unaudited recipe: at most one), and an audited recipe builds its
     backends in the notebook, where the audit can see them. This counts call sites in source,
-    so one site reached many times (a loop, a helper called twice) is invisible to it. A
+    so one site reached many times (a loop, a helper called twice) is invisible to it; an alias
+    (``import get_backend as gb``), an attribute (``module.get_backend``), a bare reference or a
+    ``getattr`` string each count as a site. A
     loop or comprehension is not rejected on sight: recipe 50 selects one of three lanes inside
     a dict comprehension and builds exactly one ``get_backend``. What counts a site reached more
     than once is the audited route's committed ledger.
@@ -3111,9 +3121,9 @@ def _backend_budget_verdict(folder: Path) -> tuple[str, str]:
     helpers = (
         (folder / "helpers.py").read_text("utf-8") if (folder / "helpers.py").is_file() else ""
     )
-    notebook_sites = sum(_backend_sites(source, "get_backend") for source in notebook)
-    helpers_sites = _backend_sites(helpers, "get_backend")
-    audited = sum(_backend_sites(source, "AuditedBackend") for source in notebook)
+    notebook_sites = _backend_sites(notebook, "get_backend")
+    helpers_sites = _backend_sites([helpers], "get_backend")
+    audited = _backend_sites(notebook, "AuditedBackend")
     allowed = audited or 1
     if notebook_sites + helpers_sites > allowed:
         return "fail", (
@@ -3167,11 +3177,20 @@ _AUDITED_TWO = (
             ],
             "",
         ),
+        (["from jev_cookbook import get_backend as gb\nb = gb(script=f)"], ""),
         ([_AUDITED_ONE], ""),
         ([_AUDITED_TWO], ""),
         (["x = 1"], ""),
     ],
-    ids=["one", "one-and-helpers", "one-in-a-comprehension", "audited", "two-audited", "none"],
+    ids=[
+        "one",
+        "one-and-helpers",
+        "one-in-a-comprehension",
+        "one-through-an-alias",
+        "audited",
+        "two-audited",
+        "none",
+    ],
 )
 def test_one_budget_per_backend_accepts_the_supported_shapes(tmp_path, cells, helpers):
     assert _backend_budget_verdict(_mini_recipe(tmp_path, cells, helpers)) == ("pass", "")
@@ -3190,6 +3209,29 @@ def test_one_budget_per_backend_accepts_the_supported_shapes(tmp_path, cells, he
         ),
         ([_ONE + "\nbackends = [get_backend(script=g) for _ in range(2)]"], "", "2 get_backend"),
         ([_ONE + "\nfor _ in range(2):\n    get_backend(script=g)"], "", "2 get_backend"),
+        # the same second budget behind a rename, an attribute, a bare reference or a lookup
+        (
+            [_ONE, "from jev_cookbook import get_backend as gb\nraw = gb(script=g)"],
+            "",
+            "get_backend call sites",
+        ),
+        (
+            ["from jev_cookbook import get_backend as gb\na = gb(script=f)\nb = gb(script=g)"],
+            "",
+            "2 get_backend call sites",
+        ),
+        ([_ONE, "import jev_cookbook as jc\nraw = jc.get_backend(script=g)"], "", "2 get_backend"),
+        ([_ONE, "gb = get_backend\nraw = gb(script=g)"], "", "get_backend call sites"),
+        (
+            [_ONE, "import jev_cookbook\nraw = getattr(jev_cookbook, 'get_backend')(script=g)"],
+            "",
+            "2 get_backend call sites",
+        ),
+        (
+            [_ONE],
+            "from jev_cookbook import get_backend as gb\ndef again():\n    return gb(script=g)\n",
+            "1 in helpers.py",
+        ),
         # an audited recipe: one site per audited backend, and none in helpers.py
         ([_AUDITED_ONE, "extra = get_backend(script=g)"], "", "2 get_backend call sites"),
         ([_AUDITED_TWO + "\nc = get_backend(script=h)"], "", "3 get_backend call sites"),
@@ -3205,6 +3247,12 @@ def test_one_budget_per_backend_accepts_the_supported_shapes(tmp_path, cells, he
         "attribute-call",
         "second-in-comprehension",
         "second-in-loop",
+        "alias-in-notebook",
+        "alias-used-twice",
+        "module-alias-attribute",
+        "bare-reference",
+        "getattr-string",
+        "alias-in-helpers",
         "audited-plus-raw",
         "two-audited-plus-raw",
         "audited-helper",

@@ -148,7 +148,8 @@ The wrapper forwards the live recorder's attributes and settings to this same ba
 **A recipe's request count is declared once** in `request_budget.json`; the README's budget
 paragraph is rendered from it and the recipe guard compares both with the audited offline
 execution, so the count the README promises, the `JEV_COOKBOOK_LIVE_MAX_REQUESTS` it tells you to
-set and the requests the notebook makes cannot drift apart
+set and the requests the notebook makes cannot drift apart for a recipe that has adopted the
+declaration (the others keep the older check, which cannot see a repeated request)
 ([the declaration](backends.md#the-declared-count-request_budgetjson)). The audit replays the
 committed answers; a recipe whose later requests depend on earlier answers declares the longest
 path it can take, and the README's cap follows that bound. Totals for budget arithmetic are the

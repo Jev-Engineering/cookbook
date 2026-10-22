@@ -242,6 +242,71 @@ def test_rebinding_bypass_or_extra_backend_construction_fails(cells, extra):
         audit_guard.audited_evidence(cells)
 
 
+# A second backend the ledger cannot see. Each of these made the audit line accept a notebook
+# whose second backend sent requests on its own budget (the recipe-37 defect), or hid a
+# constructor behind a rename, a classmethod, a module attribute, a lookup by name or a subclass.
+HIDDEN_BACKENDS = [
+    "from jev_cookbook import get_backend as gb\nraw = gb(script=lambda *args: {})",
+    "from jev_cookbook import ScriptedBackend as SB\nraw = SB(lambda *args: {})",
+    "from jev_cookbook import ReplayBackend\nraw = ReplayBackend.from_json('other.json')",
+    "from jev_cookbook import ReplayBackend as RB\nraw = RB.from_json('other.json')",
+    "from jev_cookbook import ReplayBackend\nraw = ReplayBackend({})",
+    "from jev_cookbook import LiveBackend\nraw = LiveBackend('jev-preview')",
+    "from jev_cookbook.backends import ScriptedBackend\nraw = ScriptedBackend(lambda *args: {})",
+    "import jev_cookbook\nraw = jev_cookbook.ReplayBackend.from_json('other.json')",
+    "import jev_cookbook.backends as b\nraw = b.get_backend(script=lambda *args: {})",
+    "import jev_cookbook as jc\nraw = jc.get_backend(script=lambda *args: {})",
+    "from jev_cookbook.live import live_backend_from_env\nraw = live_backend_from_env()",
+    "gb = get_backend\nraw = gb(script=lambda *args: {})",
+    "make = ReplayBackend.from_json\nraw = make('other.json')",
+    "class Mine(ScriptedBackend):\n    pass",
+    "import jev_cookbook\nraw = getattr(jev_cookbook, 'get_backend')(script=lambda *args: {})",
+    "import jev_cookbook\nraw = getattr(jev_cookbook, 'get_back' + 'end')(script=lambda *args: {})",
+    "raw = getattr(__import__('jev_cookbook'), 'get_backend')(script=lambda *args: {})",
+    "raw = globals()['get_backend'](script=lambda *args: {})",
+    "raw = eval('get_backend')(script=lambda *args: {})",
+    "exec('raw = get_backend(script=lambda *args: {})')",
+    "import importlib\nraw = importlib.import_module('jev_cookbook').get_backend(script=lambda *a: {})",
+    "import jev_cookbook\nraw = jev_cookbook.__dict__['get_backend'](script=lambda *args: {})",
+    "name = 'get_backend'",
+]
+
+
+@pytest.mark.parametrize("extra", HIDDEN_BACKENDS)
+def test_a_backend_the_ledger_cannot_see_is_rejected_in_every_spelling(cells, extra):
+    cells[1]["source"] += "\n" + extra
+    with pytest.raises(AssertionError):
+        audit_guard.audited_evidence(cells)
+
+
+def test_the_aliased_second_backend_that_made_four_extra_requests_is_rejected(monkeypatch):
+    """The measured bypass: the audit line honestly reports 3 calls and a second, unaudited
+    backend decides four more on its own budget."""
+    sources = (
+        SETUP
+        + "from jev_cookbook import get_backend as gb\nraw = gb(script=lambda *a: {'present': 0.5})\n",
+        CALLS + '\nfor state in ("d", "e", "f", "g"):\n    raw.decide(state, questions)',
+        FINAL,
+    )
+    cells = execute(sources, monkeypatch)
+    assert cells[-1]["outputs"][0]["text"].count('"returned":true') == 3  # the audit says 3
+    with pytest.raises(AssertionError, match="alias hides a backend constructor"):
+        audit_guard.audited_evidence(cells)
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        "from jev_cookbook import ReplayBackend",
+        "from jev_cookbook import ScriptedBackend, ReplayBackend, LiveBackend",
+        "from jev_cookbook.live import BudgetExceeded\ntry:\n    pass\nexcept BudgetExceeded:\n    pass",
+    ],
+)
+def test_naming_a_constructor_without_using_it_is_not_a_second_backend(cells, extra):
+    cells[1]["source"] += "\n" + extra
+    audit_guard.audited_evidence(cells)
+
+
 @pytest.mark.parametrize(
     "extra",
     [
@@ -533,6 +598,64 @@ def test_a_second_hand_typed_count_outside_the_paragraph_fails(prose):
         audit_guard.check_readme_note(readme, DECLARED)
 
 
+# The cap and count phrasings the published READMEs use, which the two literal shapes above miss.
+UNSHAPED_COUNT_PROSE = [
+    "Raise `JEV_COOKBOOK_LIVE_MAX_REQUESTS` to at least **99** before running this notebook live.",
+    "Set it to 99 or higher before running this notebook live.",
+    "raise `JEV_COOKBOOK_LIVE_MAX_REQUESTS` to at least 99",
+    "raise JEV_COOKBOOK_LIVE_MAX_REQUESTS to at least **44**.",
+    "This notebook makes **74** calls in live mode.",
+    "In live mode this notebook sends 74 requests.",
+    "This notebook issues 99 live requests in total.",
+    "A live run of this notebook costs 99 requests.",
+    "It sends one request per example, 99 in all.",
+    "Of the 192 task-level calls, 158 ask a request already asked.",
+    "99 is above the default budget of 25, so raise the cap first.",
+    "The budget is 99.",
+    "Live mode needs a cap of at least 99.",
+    "A run can use up to 99 attempts.",
+]
+
+
+@pytest.mark.parametrize("prose", UNSHAPED_COUNT_PROSE)
+def test_a_count_or_cap_in_other_words_outside_the_paragraph_fails(prose):
+    section = README_HEAD + render_budget_note(DECLARED) + "\n" + prose + "\n" + README_TAIL
+    with pytest.raises(AssertionError, match="outside the rendered block"):
+        audit_guard.check_readme_note(section, DECLARED)
+
+
+@pytest.mark.parametrize(
+    "prose",
+    [
+        "The live backend's default request budget is 25 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, "
+        "[docs/live.md](../../docs/live.md)); every attempt counts against that budget.",
+        'Install the SDK (`pip install -e ".[live]"`) on Python 3.14 and set `TYPESAFE_API_KEY`.',
+        "See [docs/live.md](../../docs/live.md#budget-guard) for retries.",
+        "Pin a versioned model such as `jev-1.13.0`.",
+    ],
+)
+def test_ordinary_live_section_prose_is_not_mistaken_for_a_count(prose):
+    readme = README_HEAD + render_budget_note(DECLARED) + "\n" + prose + "\n" + README_TAIL
+    audit_guard.check_readme_note(readme, DECLARED)
+
+
+def test_the_measurements_section_may_state_numbers_freely():
+    """Only the budget section is read: N in '## What was and was not measured' is not a cap."""
+    readme = readme_with(render_budget_note(DECLARED)) + "- N: 36 validation and 36 test calls.\n"
+    audit_guard.check_readme_note(readme, DECLARED)
+
+
+def test_the_stray_count_scan_names_the_sentence_and_how_many_more():
+    readme = (
+        README_HEAD
+        + render_budget_note(DECLARED)
+        + "\nSet it to 99 or higher. This notebook makes 74 calls.\n"
+        + README_TAIL
+    )
+    with pytest.raises(AssertionError, match=r"'Set it to 99 or higher\.' and 1 more"):
+        audit_guard.check_readme_note(readme, DECLARED)
+
+
 def test_naming_the_variable_without_a_number_is_not_a_second_count():
     readme = (
         readme_with(render_budget_note(DECLARED)) + "\n`JEV_COOKBOOK_LIVE_MAX_REQUESTS` caps it.\n"
@@ -566,6 +689,8 @@ def make_recipe(tmp_path, cells, *, declaration=DECLARED, readme=None, inventory
         (folder / BUDGET_FILE).write_text(json.dumps(body))
     if readme is None:
         readme = readme_with(render_budget_note(declaration or DECLARED))
+        if declaration is None:
+            readme = LEGACY_README
     (folder / "README.md").write_text(readme)
     return folder
 
@@ -580,11 +705,39 @@ def test_a_complete_route_returns_the_declared_total(cells, tmp_path):
     assert audit_guard.audit_recipe(folder, cells) == 3
 
 
-def test_neither_declaration_nor_audit_is_the_legacy_route(cells, tmp_path):
+LEGACY_README = "## Switch to live\nThis notebook makes exactly 2 calls.\n## What was\n"
+
+
+def legacy_cells(cells):
     legacy = copy.deepcopy(cells[:2])
     legacy[0]["source"] = "from jev_cookbook import get_backend"
-    folder = make_recipe(tmp_path, legacy, declaration=None)
+    return legacy
+
+
+def test_neither_declaration_nor_audit_nor_paragraph_is_the_legacy_route(cells, tmp_path):
+    legacy = legacy_cells(cells)
+    folder = make_recipe(tmp_path, legacy, declaration=None, readme=LEGACY_README)
     assert audit_guard.audit_recipe(folder, legacy) is None
+
+
+@pytest.mark.parametrize("marker", [NOTE_BEGIN, NOTE_END, NOTE_BEGIN + "\n" + NOTE_END])
+def test_a_rendered_paragraph_without_a_declaration_or_an_audit_fails(cells, tmp_path, marker):
+    """The third direction: a README that reads like audited output while nothing audits it
+    (for a scripted recipe the legacy proxy would skip, so nothing at all would check it)."""
+    legacy = legacy_cells(cells)
+    readme = LEGACY_README.replace("## What was", marker + "\n## What was")
+    folder = make_recipe(tmp_path, legacy, declaration=None, readme=readme)
+    with pytest.raises(AssertionError, match="come together or not at all"):
+        audit_guard.audit_recipe(folder, legacy)
+
+
+def test_the_full_rendered_paragraph_alone_fails_with_an_actionable_message(cells, tmp_path):
+    legacy = legacy_cells(cells)
+    folder = make_recipe(
+        tmp_path, legacy, declaration=None, readme=readme_with(render_budget_note(DECLARED))
+    )
+    with pytest.raises(AssertionError, match=f"no {BUDGET_FILE} and no audited notebook"):
+        audit_guard.audit_recipe(folder, legacy)
 
 
 def test_an_audited_notebook_without_a_declaration_fails(cells, tmp_path):

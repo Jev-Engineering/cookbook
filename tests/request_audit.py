@@ -11,7 +11,7 @@ fixture file states about itself:
    declared (the offending key is named), the exact fixture inventory, and any registered
    profile quantity.
 3. ``check_readme_note``: the README holds the paragraph rendered from the declaration, byte for
-   byte, and states no other count.
+   byte, and its ``## Switch to live`` section states no other request count or cap.
 
 The supported notebook convention is deliberately small. Source anchoring rejects detached
 or literal summaries; the separate fresh-kernel notebook CI check establishes freshness.
@@ -41,6 +41,7 @@ from jev_cookbook.accounting import (
     render_budget_note,
     repeated_keys,
 )
+from jev_cookbook.live import DEFAULT_MAX_REQUESTS
 
 # The README sentence shapes older recipes state their count in; outside the rendered block
 # a recipe that has a declaration may not state a count at all.
@@ -50,6 +51,25 @@ LIVE_CALL_COUNT = re.compile(
 )
 STORED_RESPONSES = "fixtures/responses.json"
 CAP_ASSIGNMENT = re.compile(r"JEV_COOKBOOK_LIVE_MAX_REQUESTS\s*=\s*\d+")
+
+# Every way into a backend object. An audited notebook may name these only in the one spelling
+# the audit anchors on (``AuditedBackend(get_backend(...), label=...)``); any other reference,
+# alias, attribute access, subclass or string naming one is a backend the ledger cannot see.
+CONSTRUCTORS = frozenset(
+    {
+        "AuditedBackend",
+        "get_backend",
+        "live_backend_from_env",
+        "ReplayBackend",
+        "ScriptedBackend",
+        "LiveBackend",
+    }
+)
+# Ways to reach a name without writing it: the audit fails closed on these rather than guess.
+DYNAMIC_NAMES = frozenset(
+    {"getattr", "__import__", "eval", "exec", "compile", "globals", "locals", "vars", "importlib"}
+)
+DYNAMIC_ATTRS = frozenset({"__dict__", "__getattribute__", "__builtins__", "__globals__"})
 
 
 class BackendEvidence(NamedTuple):
@@ -189,25 +209,42 @@ def audited_evidence(cells: list[dict]) -> list[BackendEvidence] | None:
                     assert statements.index(node) < statements.index(creations[0]), (
                         "request audit: shared imports must precede backend construction"
                     )
-    constructors = {
-        "AuditedBackend",
-        "get_backend",
-        "ReplayBackend",
-        "ScriptedBackend",
-        "LiveBackend",
-    }
     targets = {creation.targets[0] for creation in creations}
+    approved_names = {wrapper.func for wrapper in wrappers} | {
+        factory.func for factory in factories
+    }
     for node in nodes:
-        if isinstance(node, ast.Call):
-            name = (
-                node.func.id
-                if isinstance(node.func, ast.Name)
-                else (node.func.attr if isinstance(node.func, ast.Attribute) else None)
-            )
-            if name in constructors:
-                assert node in wrappers or node in factories, (
-                    "request audit: additional backend construction bypasses the audit"
+        if isinstance(node, ast.ImportFrom):
+            for name in node.names:
+                assert name.name not in CONSTRUCTORS or name.asname in (None, name.name), (
+                    f"request audit: import {name.name} under its own name, not as "
+                    f"{name.asname!r}: an alias hides a backend constructor from the audit"
                 )
+        if isinstance(node, ast.Import):
+            for name in node.names:
+                assert name.name.split(".")[0] != "importlib", (
+                    "request audit: importlib can reach a backend constructor the audit cannot see"
+                )
+        if isinstance(node, ast.Name):
+            assert node.id not in DYNAMIC_NAMES, (
+                f"request audit: {node.id} can reach a backend constructor the audit cannot see"
+            )
+            assert node.id not in CONSTRUCTORS or node in approved_names, (
+                f"request audit: {node.id} is used outside AuditedBackend(get_backend(...)): "
+                "additional backend construction bypasses the audit"
+            )
+        if isinstance(node, ast.Attribute):
+            assert node.attr not in CONSTRUCTORS, (
+                f"request audit: .{node.attr} reaches a backend constructor outside "
+                "AuditedBackend(get_backend(...)): additional backend construction bypasses the audit"
+            )
+            assert node.attr not in DYNAMIC_ATTRS, (
+                f"request audit: .{node.attr} can reach a backend constructor the audit cannot see"
+            )
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            assert node.value not in CONSTRUCTORS, (
+                f"request audit: the string {node.value!r} names a backend constructor"
+            )
         if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
             if node.id in protected:
                 assert node in targets, "request audit: protected binding was replaced"
@@ -392,7 +429,8 @@ def check_against_declaration(
 
 
 def check_readme_note(readme: str, budget: RequestBudget) -> None:
-    """The README holds the paragraph rendered from the declaration and states no other count."""
+    """The README holds the paragraph rendered from the declaration, in ``## Switch to live``, and
+    that section states no other request count or cap (see ``stray_count_sentences`` for the reach)."""
     expected = render_budget_note(budget)
     assert readme.count(NOTE_BEGIN) == 1 and readme.count(NOTE_END) == 1, (
         f"request audit: README needs exactly one {NOTE_BEGIN} ... {NOTE_END} block "
@@ -414,18 +452,63 @@ def check_readme_note(readme: str, budget: RequestBudget) -> None:
         f"request audit: README states a request count or cap outside the rendered block; "
         f"{BUDGET_FILE} is the one source"
     )
+    section_end = readme.find("\n## ", end)
+    section_end = len(readme) if section_end == -1 else section_end
+    stray = stray_count_sentences(readme[heading:start] + readme[end:section_end])
+    assert not stray, (
+        "request audit: a sentence in '## Switch to live' outside the rendered block states a "
+        f"number beside request, call, budget, cap or raise wording ({stray[0]!r}"
+        + (f" and {len(stray) - 1} more" if len(stray) > 1 else "")
+        + f"); {BUDGET_FILE} is the one source, so remove it"
+    )
+
+
+# Wording that makes a number in the budget section a claim about requests or the cap.
+CLAIM_WORDS = re.compile(
+    r"requests?|calls?|budget|\bcap\b|JEV_COOKBOOK_LIVE_MAX_REQUESTS|\braise\b|set it to"
+    r"|or higher|at least|at most|up to",
+    re.IGNORECASE,
+)
+
+
+def stray_count_sentences(section: str) -> list[str]:
+    """Sentences of ``section`` that pair a number with request/call/budget/cap/raise wording.
+
+    A number in a link target or a version (``3.14``) is not a count, and the library default
+    (``DEFAULT_MAX_REQUESTS``) may be named in a sentence that says "default". Spelled-out numbers
+    ("forty") and prose outside the budget section are not read: this is a reach to state, not a
+    proof, and a migrating recipe's reviewer still reads the section.
+    """
+    text = re.sub(r"\]\([^)]*\)", "]", section)
+    text = re.sub(r"\b\d+(?:\.\d+)+\b", "", text)
+    found = []
+    for sentence in re.split(r"(?<=[.!?])\s+|\n\s*\n", text):
+        numbers = [int(n) for n in re.findall(r"\d+", sentence)]
+        if "default" in sentence.lower():
+            numbers = [n for n in numbers if n != DEFAULT_MAX_REQUESTS]
+        if numbers and CLAIM_WORDS.search(sentence):
+            found.append(" ".join(sentence.split())[:100])
+    return found
 
 
 def audit_recipe(recipe_dir: Path, cells: list[dict]) -> int | None:
     """Verify one recipe's audit route; return the declared live total, or None for the legacy route.
 
     The declaration, an audited notebook and the rendered README paragraph come together or
-    not at all: any one of them without the others fails, so neither the notebook nor the
-    README can quietly keep the old proxy.
+    not at all: any one of them without the other two fails (a paragraph with neither of the
+    others, a declaration or an audit line without the rest), so nothing can quietly keep the
+    old proxy while reading like audited output.
     """
     evidence = audited_evidence(cells)
     declared = (recipe_dir / BUDGET_FILE).is_file()
     if evidence is None and not declared:
+        readme = recipe_dir / "README.md"
+        text = readme.read_text("utf-8") if readme.is_file() else ""
+        assert NOTE_BEGIN not in text and NOTE_END not in text, (
+            f"request audit: the README holds the rendered budget paragraph but the recipe has no "
+            f"{BUDGET_FILE} and no audited notebook; the paragraph, the declaration and the audit "
+            "line come together or not at all"
+        )
         return None
     assert declared, f"request audit: an audited notebook needs {BUDGET_FILE} (the declared count)"
     assert evidence is not None, (

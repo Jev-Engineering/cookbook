@@ -112,8 +112,11 @@ only for some first-stage answers: the audit replays the committed answers and m
 The README's budget paragraph is rendered from this file, not typed:
 `python -c "from jev_cookbook.accounting import render_recipe_note as r; print(r('recipes/NN-slug'), end='')"`
 prints it between `<!-- request-budget:begin -->` and `<!-- request-budget:end -->`, and the
-guard re-renders it and requires the README to hold it unchanged and to state no other count or
-cap. The cap it names is the largest single backend's bound, because the cap is inclusive and per
+guard re-renders it and requires the README to hold it unchanged. It also rejects any other
+sentence in `## Switch to live` that pairs a number with request, call, budget, cap, "raise",
+"set it to", "at least" or "up to" wording (the library default may be named in a sentence that
+says "default"). That is a reach, not a proof: a number spelled out in words, or prose in another
+section, is not read, so a migrating recipe's reviewer still reads the section. The cap it names is the largest single backend's bound, because the cap is inclusive and per
 backend (a run of N requests is allowed by a cap of N, and stopped at request N+1); the total is
 what the run is billed.
 
@@ -122,13 +125,23 @@ wrapper's direct construction and print, recomputes every count, rejects failed 
 the execution against the declaration: calls, distinct requests, the exact fixture inventory
 (extra unused and missing fixtures both fail), and any profile. **A request decided twice fails on
 its own and names its replay key**, unless the declaration says how many repeats are intended.
-The declaration, an audited notebook and the rendered paragraph come together or not at all.
+The declaration, an audited notebook and the rendered paragraph come together or not at all:
+a README holding the paragraph with neither of the others, a declaration with no audit line, and
+an audited notebook with no declaration each fail.
 The separate fresh-kernel notebook check verifies that committed output is current; the unit
 guard does not execute the notebook or prove arbitrary helper behavior. Use the direct imports and
-constructions above, one top-level binding per audited backend, and the final standalone print:
-extra backend construction, protected-name rebinding, or detached summary strings are rejected.
-`one_backend_per_budget` separately fails a recipe with more `get_backend` call sites than
-audited backends.
+constructions above, one top-level binding per audited backend, and the final standalone print.
+Rejected, because each is a backend the ledger cannot see: protected-name rebinding; detached
+summary strings; importing `get_backend`, `ReplayBackend`, `ScriptedBackend`, `LiveBackend` or
+`AuditedBackend` under another name; any other use of those names or of `.get_backend` and the like
+as an attribute (so `ReplayBackend.from_json(...)` is rejected as well as `ReplayBackend(...)`);
+a string equal to one of them; and `getattr`, `globals`, `eval`, `exec`, `__import__`, `importlib`
+and `__dict__`, which can reach one without naming it. This is deliberate: a backend of any kind
+that is not wrapped is not counted, so an audited notebook has no unaudited lane yet, including a
+never-live `ReplayBackend` comparison lane (how such a lane is declared is open and belongs to the
+first recipe that needs it). `one_backend_per_budget` separately fails a recipe with more
+`get_backend` call sites than audited backends, counting aliases, attributes, bare references and
+`getattr` strings; a call reached many times through one site is only visible to the ledger.
 
 A recipe with no declaration, no `AuditedBackend` and no rendered paragraph keeps the strict
 `len(responses.json)` check against its hand-written README sentence. That is a proxy: it
