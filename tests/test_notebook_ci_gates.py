@@ -473,6 +473,16 @@ def test_merge_ref_and_pr_head_go_together(tree):
         assert "go together" in result.stderr, flags
 
 
+@pytest.mark.parametrize("empty", ["", " ", "\t"])
+@pytest.mark.parametrize("flags", [["--merge-ref"], []])
+def test_an_empty_pr_head_is_a_usage_error_not_a_skipped_check(tree, flags, empty):
+    """#316 review: ``--pr-head ""`` is not ``None``, so the pairing guard let it through and the
+    check then quietly fell back to the given base. Empty means missing."""
+    result, _ = push_matrix(tree, "main", "work", *flags, "--pr-head", empty)
+    assert result.returncode == 2, result.stderr
+    assert "--pr-head" in result.stderr and "empty" in result.stderr
+
+
 def branch_that_merged_main(root):
     """What CI would check out if it checked out the pull request's branch instead of its merge
     ref, for a branch that merged ``main`` into itself: a two-parent head whose first parent is the
@@ -495,6 +505,7 @@ def test_merge_ref_head_that_is_a_merge_of_main_into_the_branch_is_not_trusted(t
     assert result.returncode == 0, result.stderr
     assert names == ["01-first", "02-second", "04-late", "_template"]
     assert "second parent is not the pull request head" in result.stderr
+    assert "is not a commit in this clone" not in result.stderr
 
 
 def test_merge_ref_head_whose_second_parent_is_the_pull_request_head_is_trusted(tree):
@@ -522,7 +533,10 @@ def test_merge_ref_with_an_unknown_pull_request_head_keeps_the_given_base(tree, 
     result, names = push_matrix(tree, stale, "HEAD", "--merge-ref", "--pr-head", pr_head)
     assert result.returncode == 0, result.stderr
     assert names == ["01-first", "04-late"]
-    assert "second parent is not the pull request head" in result.stderr
+    # The realistic way the check silently stops applying in CI (a head this clone cannot see) must
+    # not read like a real mismatch of the merge ref's shape.
+    assert "is not a commit in this clone" in result.stderr
+    assert "second parent is not" not in result.stderr
 
 
 def test_the_real_repository_matrix_has_the_template():

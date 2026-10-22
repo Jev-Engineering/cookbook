@@ -128,7 +128,9 @@ track (01–60) or the multimodal track (61–100).
   `--pr-head` (the event's `pull_request.head.sha`), and `--head` is trusted to be the merge commit
   only if it has exactly two parents **and its second parent is that commit** (#316); for anything
   else the tool keeps `--base` and says why on stderr (that can select more than needed, never
-  less). Two parents alone would not do: a pull request branch whose tip merged `main` into it has
+  less). An empty `--pr-head` is a usage error (exit 2), and a `--pr-head` the clone does not have
+  is reported as exactly that ("is not a commit in this clone"), not as a merge ref of the wrong
+  shape: a shallow clone is the realistic way this optimisation would stop applying unnoticed. Two parents alone would not do: a pull request branch whose tip merged `main` into it has
   two as well, and its first parent is the branch's own previous commit, so the diff would leave
   out most of the change. This is also why the discover job's checkout names no `ref:` (it gets the
   merge ref), which `tests/test_notebook_ci_workflows.py` pins. To reproduce a selection locally,

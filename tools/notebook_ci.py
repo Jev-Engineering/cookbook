@@ -150,13 +150,20 @@ def merge_ref_base(root: Path, base: str, head: str, pr_head: str) -> str:
     merged ``main`` into it also has two, and its first parent is the branch's own previous commit,
     which would hide most of the change and select too few notebooks. For any other ``head`` the
     ``base`` given is kept, and the reason is printed: that can select more than needed, never
-    less.
+    less. Three reasons are told apart, since only the first is a silent degradation in CI:
+    ``pr_head`` is not a commit in this clone, ``head`` is not a two-parent commit, or its second
+    parent is not ``pr_head``.
     """
     found = parents(root, head)
     expected = resolve_commit(root, pr_head)
     if found is not None and len(found) == 2 and expected is not None and found[1] == expected:
         return found[0]
-    if found is None or len(found) != 2:
+    if expected is None:
+        # The one realistic way this check silently stops applying in CI: the clone does not have
+        # the pull request head (a shallow or partial fetch), so every pull request would quietly
+        # go back to the stale base. Say that, and not that the merge ref has the wrong shape.
+        why = f"cannot be checked: the pull request head {pr_head!r} is not a commit in this clone"
+    elif found is None or len(found) != 2:
         why = "is not a merge commit"
     else:
         why = f"is a merge commit whose second parent is not the pull request head {pr_head!r}"
@@ -187,6 +194,9 @@ def command_matrix(args: argparse.Namespace) -> int:
         return 2
     base, head = args.base, args.head
     dots = "..."
+    if args.pr_head is not None and not args.pr_head.strip():
+        print("--pr-head must not be empty: an empty value would skip the check", file=sys.stderr)
+        return 2
     if args.merge_ref != (args.pr_head is not None):
         print("--merge-ref and --pr-head go together", file=sys.stderr)
         return 2

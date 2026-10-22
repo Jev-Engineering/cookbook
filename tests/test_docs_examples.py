@@ -73,6 +73,7 @@ import signal
 import subprocess
 import sys
 import threading
+import types
 from pathlib import Path
 
 import pytest
@@ -302,6 +303,24 @@ def test_windows_time_limit_leaves_a_real_ctrl_c_alone():
                 pass
 
 
+def _sigbreak_of(signal_module):
+    """The signal the Windows timer branch uses, or a stand-in where the platform has none: only
+    the attribute that exists is looked up, since ``getattr``'s default is evaluated eagerly and
+    ``SIGUSR1`` does not exist on Windows."""
+    return signal_module.SIGBREAK if hasattr(signal_module, "SIGBREAK") else signal_module.SIGUSR1
+
+
+def test_the_sigbreak_shim_never_looks_up_a_signal_the_platform_lacks():
+    """The shim of the test below ran ``getattr(signal, "SIGBREAK", signal.SIGUSR1)``, which raises
+    ``AttributeError`` on Windows (no ``SIGUSR1``) before it looks at ``SIGBREAK``. Stand-ins for
+    both platforms' ``signal`` modules, each lacking the other's signal."""
+    windows = types.SimpleNamespace(SIGBREAK=21)
+    posix = types.SimpleNamespace(SIGUSR1=10)
+    assert _sigbreak_of(windows) == 21
+    assert _sigbreak_of(posix) == 10
+    assert _sigbreak_of(types.SimpleNamespace(SIGBREAK=21, SIGUSR1=10)) == 21
+
+
 def test_windows_time_limit_ignores_a_trip_that_lands_while_its_handler_is_still_installed(
     monkeypatch,
 ):
@@ -310,7 +329,7 @@ def test_windows_time_limit_ignores_a_trip_that_lands_while_its_handler_is_still
     that deterministic. The Windows branch is driven on any platform: where there is no
     ``SIGBREAK`` the shim uses ``SIGUSR1``, and ``_HAS_SIGALRM`` is switched off. Without the flag
     the handler raises ``_Timeout`` out of a block that finished in time."""
-    sigbreak = getattr(signal, "SIGBREAK", signal.SIGUSR1)
+    sigbreak = _sigbreak_of(signal)
     monkeypatch.setattr(signal, "SIGBREAK", sigbreak, raising=False)
     monkeypatch.setitem(globals(), "_HAS_SIGALRM", False)
 

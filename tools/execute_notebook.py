@@ -151,8 +151,8 @@ STDERR_EXCERPT_CHARS = 600
 STDERR_LINE_PREFIX = "  | "
 STDERR_TRUNCATED = "[... truncated]"
 _ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
-# A Windows path: a drive letter (after a non-alphanumeric, so not the end of a word like ``NOTE:/``)
-# with either slash, or a UNC path (``\\server\share``, ``\\?\C:\``). Windows names may hold spaces,
+# A Windows path: a drive letter (after a non-alphanumeric, so not the end of a word like
+# ``NOTE:/``) with either slash, or a UNC path (``\\server\share``, ``\\?\C:\``). Windows names may hold spaces,
 # commas and brackets, so after the prefix everything up to a character Windows forbids in a name
 # (a quote, ``<>|*?`` or a colon) or the end of the line belongs to the path: that can swallow the
 # words after an unquoted path, which is the safe direction, and never leaves the tail of a
