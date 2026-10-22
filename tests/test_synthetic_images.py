@@ -1,0 +1,1519 @@
+"""jev_cookbook.synthetic_images (#314): the shared generator of synthetic test images.
+
+Most expectations here are worked out by hand from the definitions (a 5x5 ellipse has rows of
+3, 5, 5, 5 and 3 pixels; the first splitmix64 outputs for seed 0 are published; a one-pixel
+blur spreads 255 - 85 into a 3x3 block of 227) rather than read back from the code. The
+``GOLDEN`` tables near the end are the exception: they are regression pins that make an
+unintended change to an example scene fail, and they say nothing about whether a scene is right.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import importlib.util
+import io
+import json
+import re
+import sys
+from pathlib import Path
+
+import PIL
+import pytest
+from PIL import Image, ImageChops
+
+from jev_cookbook import synthetic_images as si
+from jev_cookbook import vision
+from jev_cookbook.fixtures import _assets as assets_module
+
+REPO = Path(__file__).resolve().parent.parent
+
+_spec = importlib.util.spec_from_file_location(
+    "check_recipe_assets_for_synth", REPO / "tools" / "check_recipe_assets.py"
+)
+checker = importlib.util.module_from_spec(_spec)
+sys.modules[_spec.name] = checker
+_spec.loader.exec_module(checker)
+
+W, H = 300, 280  # a small canvas just above the API's 280 pixel minimum
+BLANK = (250, 250, 245)  # PALETTE["paper"]
+
+
+def blank() -> si.Canvas:
+    return si.Canvas(W, H)
+
+
+def changed(before: Image.Image, after: Image.Image) -> tuple[int, int, int, int] | None:
+    """The bounding box of every pixel that differs: the drawn pixels, found independently."""
+    return ImageChops.difference(before.convert("RGB"), after.convert("RGB")).getbbox()
+
+
+def drawn_pixels(canvas: si.Canvas) -> set[tuple[int, int]]:
+    base = Image.new("RGB", canvas.size, canvas.background)
+    diff = ImageChops.difference(base, canvas.image)
+    data = diff.convert("L").tobytes()
+    return {(i % canvas.width, i // canvas.width) for i, v in enumerate(data) if v}
+
+
+# -- the random stream and names ------------------------------------------------------------
+
+
+def test_the_stream_is_splitmix64_with_its_published_seed_zero_outputs():
+    rng = si.Rng(0)
+    assert [rng.u64() for _ in range(3)] == [
+        0xE220A8397B1DCDAF,
+        0x6E789E6AA1B965F4,
+        0x06C45D188009454F,
+    ]
+
+
+def test_the_stream_depends_only_on_the_seed_and_validates_it():
+    assert [si.Rng(7).u64() for _ in range(2)] == [si.Rng(7).u64(), si.Rng(7).u64()]
+    assert si.Rng(1).u64() != si.Rng(2).u64()
+    for bad in (-1, 2**64, 1.5, True, "0"):
+        with pytest.raises(ValueError):
+            si.Rng(bad)
+
+
+def test_below_and_between_stay_in_range_and_reach_every_value():
+    rng = si.Rng(3)
+    seen = {rng.below(5) for _ in range(200)}
+    assert seen == {0, 1, 2, 3, 4}
+    assert {rng.between(-2, 1) for _ in range(200)} == {-2, -1, 0, 1}
+    with pytest.raises(ValueError):
+        rng.below(0)
+    with pytest.raises(ValueError):
+        rng.between(3, 2)
+    with pytest.raises(ValueError):
+        rng.choice([])
+
+
+def test_bytes_are_the_stream_in_little_endian_order():
+    # 0xE220A8397B1DCDAF written least significant byte first
+    assert si.Rng(0).bytes(10) == bytes.fromhex("afcd1d7b39a820e2") + bytes.fromhex("f465")
+
+
+def test_fictional_names_are_deterministic_upper_case_and_varied():
+    assert si.fictional_name(5) == si.fictional_name(5)
+    names = {si.fictional_name(seed) for seed in range(30)}
+    assert len(names) >= 20
+    assert all(re.fullmatch(r"[A-Z]{4,10}", name) for name in names)
+
+
+# -- the font ---------------------------------------------------------------------------------
+
+
+def test_every_glyph_is_five_by_seven_and_the_fold_is_documented():
+    assert all(len(rows) == 7 for rows in (g.split("/") for g in si._GLYPH_SOURCE.values()))
+    assert all(len(r) == 5 for g in si._GLYPH_SOURCE.values() for r in g.split("/"))
+    assert si.text_width("A", 1) == 5
+    assert si.text_width("HH", 2) == 22  # (2 * 6 - 1) * 2
+    c = blank()
+    assert c.text(10, 10, "ab", "ink", 1).attrs["text"] == "AB"
+
+
+def test_text_draws_the_hand_written_pixels_of_an_h():
+    c = blank()
+    c.text(10, 10, "H", (0, 0, 0), 1)
+    ink = (0, 0, 0)
+    px = c.image.load()
+    # H is #...# on rows 0-2 and 4-6 and ##### on row 3
+    assert [px[10 + x, 10] for x in range(5)] == [ink, BLANK, BLANK, BLANK, ink]
+    assert [px[10 + x, 13] for x in range(5)] == [ink] * 5
+    assert [px[10 + x, 16] for x in range(5)] == [ink, BLANK, BLANK, BLANK, ink]
+    assert px[9, 13] == BLANK and px[15, 13] == BLANK and px[12, 17] == BLANK
+
+
+def test_scale_multiplies_pixels_and_the_line_box_is_the_cell_box():
+    c = blank()
+    box = c.text(10, 20, "HH", "ink", 2)
+    assert box.pixels == (10, 20, 32, 34)
+    assert changed(Image.new("RGB", c.size, BLANK), c.image) == (
+        10,
+        20,
+        32,
+        34,
+    )  # H touches all sides
+
+
+def test_text_ink_stays_inside_the_returned_box_for_every_character():
+    for char in si.SUPPORTED_CHARACTERS:
+        c = blank()
+        box = c.text(30, 40, char * 3, "ink", 3)
+        ink = changed(Image.new("RGB", c.size, c.background), c.image)
+        if char != " ":
+            assert ink is not None
+            assert box.left <= ink[0] and ink[2] <= box.right
+            assert box.top <= ink[1] and ink[3] <= box.bottom
+        else:
+            assert ink is None
+
+
+def test_a_character_without_a_glyph_is_refused_not_drawn_blank():
+    with pytest.raises(ValueError, match="no glyph"):
+        blank().text(0, 0, "café")
+    with pytest.raises(ValueError):
+        blank().text(0, 0, "")
+    with pytest.raises(ValueError):
+        blank().text(0, 0, "A", "ink", 0)
+
+
+def test_fit_scale_picks_the_largest_scale_that_fits():
+    assert si.fit_scale("AB", 22, 14) == 2  # width 22 at scale 2, height 14
+    assert si.fit_scale("AB", 21, 14) == 1
+    assert si.fit_scale("AB", 1000, 1000, maximum=3) == 3
+    with pytest.raises(ValueError):
+        si.fit_scale("AB", 10, 7)
+
+
+def test_text_block_lines_are_ten_rows_apart_at_leading_three():
+    c = blank()
+    block = c.text_block(10, 20, ["ABC", "WXYZ"], "ink", 1, name="note")
+    assert [p.pixels for p in block.parts] == [(10, 20, 27, 27), (10, 30, 33, 37)]
+    assert block.pixels == (10, 20, 33, 37)
+    assert set(c.objects) == {"note", "note.line0", "note.line1"}
+
+
+# -- the canvas and the shapes ----------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("size", "ok"),
+    [((280, 280), True), ((279, 300), False), ((300, 1569), False), ((1568, 1568), True)],
+)
+def test_the_canvas_enforces_the_api_size(size, ok):
+    if ok:
+        assert si.Canvas(*size).size == size
+    else:
+        with pytest.raises(ValueError):
+            si.Canvas(*size)
+
+
+def test_1568_squared_is_exactly_the_maximum_area_and_a_float_is_not_a_size():
+    assert 1568 * 1568 == vision.IMAGE_LIMITS["max_area"]
+    with pytest.raises(ValueError):
+        si.Canvas(280.0, 280)
+
+
+def test_rect_returns_its_exact_pixels_and_normalized_box():
+    c = blank()
+    box = c.rect(10, 20, 30, 40, (0, 0, 0), name="r")
+    assert box.pixels == (10, 20, 40, 60)
+    assert box.box == {"top": 20 / 280, "bottom": 60 / 280, "left": 10 / 300, "right": 40 / 300}
+    assert changed(Image.new("RGB", c.size, BLANK), c.image) == (10, 20, 40, 60)
+    assert c.objects["r"] is box
+    assert box.center == (25, 40)
+    assert box.label() == {"present": True, "box": box.box}
+
+
+def test_rect_outline_is_inside_the_box_and_fill_is_inset():
+    c = blank()
+    c.rect(10, 10, 20, 20, (255, 255, 255), outline=(0, 0, 0), outline_width=2)
+    px = c.image.load()
+    assert px[10, 10] == px[11, 15] == px[28, 15] == (0, 0, 0)
+    assert px[12, 12] == px[27, 15] == px[15, 27] == (255, 255, 255)
+    assert px[30, 15] == BLANK
+
+
+def test_a_shape_is_clipped_to_the_canvas_and_one_fully_outside_is_refused():
+    c = blank()
+    assert c.rect(280, 270, 50, 50, "ink").pixels == (280, 270, 300, 280)
+    with pytest.raises(ValueError, match="outside"):
+        c.rect(300, 10, 5, 5, "ink")
+    with pytest.raises(ValueError):
+        c.rect(0, 0, 0, 5, "ink")
+    with pytest.raises(ValueError):
+        c.rect(0, 0, 5, 5)
+
+
+def test_a_name_can_be_used_once():
+    c = blank()
+    c.rect(0, 0, 5, 5, "ink", name="a")
+    with pytest.raises(ValueError, match="already used"):
+        c.rect(10, 0, 5, 5, "ink", name="a")
+
+
+def test_a_5x5_ellipse_has_rows_of_3_5_5_5_3_pixels():
+    # pixel centres inside (dx/2.5)^2 + (dy/2.5)^2 <= 1: row 0 holds 3, rows 1-3 hold 5
+    c = blank()
+    box = c.ellipse(100, 100, 5, 5, (0, 0, 0))
+    rows = {}
+    for _x, y in drawn_pixels(c):
+        rows[y] = rows.get(y, 0) + 1
+    assert [rows[y] for y in range(100, 105)] == [3, 5, 5, 5, 3]
+    assert box.pixels == (100, 100, 105, 105)
+    assert (100, 100) not in drawn_pixels(c) and (101, 100) in drawn_pixels(c)
+
+
+def test_ellipse_outline_leaves_a_ring():
+    c = blank()
+    c.ellipse(100, 100, 40, 40, (255, 255, 255), outline=(0, 0, 0), outline_width=3)
+    px = c.image.load()
+    assert px[120, 100] == (0, 0, 0) and px[120, 102] == (0, 0, 0)
+    assert px[120, 103] == (255, 255, 255) and px[120, 120] == (255, 255, 255)
+    assert px[100, 100] == BLANK  # the corner is outside the ellipse
+
+
+def test_triangle_up_5x3_has_rows_of_1_3_5_pixels():
+    c = blank()
+    box = c.triangle(50, 50, 5, 3, (0, 0, 0))
+    assert drawn_pixels(c) == {
+        (52, 50),
+        (51, 51),
+        (52, 51),
+        (53, 51),
+        *((x, 52) for x in range(50, 55)),
+    }
+    assert box.pixels == (50, 50, 55, 53)
+
+
+def test_triangle_directions_put_the_apex_where_named():
+    right = blank()
+    right.triangle(10, 10, 3, 5, "ink", direction="right")  # 1, 3, 5 pixels per column
+    assert drawn_pixels(right) == {
+        (12, 12),
+        (11, 11),
+        (11, 12),
+        (11, 13),
+        *((10, y) for y in range(10, 15)),
+    }
+    down = blank()
+    down.triangle(10, 10, 5, 3, "ink", direction="down")
+    assert (12, 12) in drawn_pixels(down) and (10, 12) not in drawn_pixels(down)
+    assert (10, 10) in drawn_pixels(down)
+    with pytest.raises(ValueError):
+        blank().triangle(0, 0, 5, 3, "ink", direction="sideways")
+
+
+def test_a_triangle_box_is_the_drawn_extent_not_the_requested_one():
+    # at 4x4 the apex row (half-width 0.25 pixels) holds no pixel centre, so the first row is empty
+    c = blank()
+    box = c.triangle(10, 10, 4, 4, "ink")
+    assert box.pixels == (10, 11, 14, 14)
+
+
+def test_line_horizontal_diagonal_and_thick_boxes():
+    c = blank()
+    assert c.line(10, 20, 19, 20, "ink").pixels == (10, 20, 20, 21)
+    assert c.line(10, 30, 19, 30, "ink", 3).pixels == (9, 29, 21, 32)  # brush offset (3 - 1) // 2
+    d = blank()
+    assert d.line(10, 10, 14, 14, "ink").pixels == (10, 10, 15, 15)
+    assert drawn_pixels(d) == {(10 + i, 10 + i) for i in range(5)}
+
+
+def test_bresenham_ties_round_up_as_y_equals_x_over_2():
+    c = blank()
+    c.line(0, 0, 4, 2, "ink")
+    assert drawn_pixels(c) == {(0, 0), (1, 1), (2, 1), (3, 2), (4, 2)}
+    reverse = blank()
+    reverse.line(4, 2, 0, 0, "ink")
+    assert len(drawn_pixels(reverse)) == 5
+
+
+def test_a_line_leaving_the_canvas_is_clipped_to_it():
+    c = blank()
+    box = c.line(-10, 5, 20, 5, "ink")
+    assert box.pixels == (0, 5, 21, 6)
+
+
+def test_labelled_objects_report_the_shape_box_and_centre_the_label():
+    c = blank()
+    obj = c.labelled_object(40, 50, 100, 40, "blue", name="gate", label="OK", shape="rect")
+    assert obj.pixels == (40, 50, 140, 90)
+    label = obj.parts[1]
+    assert label.attrs["text"] == "OK"
+    assert label.pixels == (79, 63, 101, 77)  # x 40 + 39, y 50 + 13, a 22 x 14 label
+    assert obj.attrs["label"] == "OK"
+    with pytest.raises(ValueError):
+        c.labelled_object(0, 0, 10, 10, "red", name="x", shape="hexagon")
+
+
+def test_a_label_too_big_for_its_shape_is_an_error():
+    with pytest.raises(ValueError, match="does not fit"):
+        blank().labelled_object(0, 0, 20, 20, "red", name="x", label="LONG LABEL")
+
+
+@pytest.mark.parametrize("kind", ["resistor", "capacitor", "valve", "ground"])
+def test_a_symbol_box_is_exactly_the_pixels_it_changed(kind):
+    c = blank()
+    drawn = c.schematic_symbol(20, 30, 60, 40, kind)
+    assert changed(Image.new("RGB", c.size, BLANK), c.image) == drawn.pixels
+
+
+def test_stamp_and_signature_boxes_are_exact_too():
+    c = blank()
+    stamp = c.stamp(20, 20, 90, 90, "OK", paper=BLANK)
+    assert changed(Image.new("RGB", c.size, BLANK), c.image) == stamp.pixels
+    d = blank()
+    sig = d.signature(150, 30, 100, 40)
+    assert changed(Image.new("RGB", d.size, BLANK), d.image) == sig.pixels
+
+
+def test_a_signature_is_seeded_and_stays_in_its_area():
+    shapes = set()
+    for seed in range(5):
+        c = si.Canvas(W, H, seed=seed)
+        sig = c.signature(150, 30, 100, 40)
+        assert 150 <= sig.left and sig.right <= 250 and 30 <= sig.top and sig.bottom <= 70
+        shapes.add(sig.pixels)
+        again = si.Canvas(W, H, seed=seed)
+        assert again.signature(150, 30, 100, 40).pixels == sig.pixels
+    assert len(shapes) > 1
+
+
+# -- gold geometry agrees with jev_cookbook.vision --------------------------------------------
+
+
+def test_normalized_boxes_round_trip_through_the_vision_helpers():
+    c = blank()
+    drawn = c.rect(13, 27, 111, 53, "ink")
+    assert vision.normalized_to_pixels(drawn.box, W, H) == drawn.pixels
+    assert vision.gold_box(drawn.label()) == drawn.box
+    assert vision.gold_box(si.absent_label()) is None
+    assert vision.crop_box(c.image, drawn.box).size == (111, 53)
+
+
+def test_a_drawn_rectangle_must_be_non_empty_and_inside_its_canvas():
+    with pytest.raises(ValueError):
+        si.Drawn("x", "rect", 5, 5, 5, 9, (300, 280))
+    with pytest.raises(ValueError):
+        si.Drawn("x", "rect", 0, 0, 301, 9, (300, 280))
+
+
+def test_grid_positions_walk_rows_left_to_right():
+    assert si.grid_positions(10, 20, 3, 2, 50, 40, 5) == [
+        (10, 20),
+        (65, 20),
+        (120, 20),
+        (10, 65),
+        (65, 65),
+        (120, 65),
+    ]
+    with pytest.raises(ValueError):
+        si.grid_positions(0, 0, 0, 1, 5, 5)
+
+
+# -- the UI mock -------------------------------------------------------------------------------
+
+
+def test_window_has_a_title_bar_controls_and_a_content_area():
+    c = blank()
+    win = c.window(20, 20, 260, 200, "DEMO", name="w")
+    assert win.pixels == (20, 20, 280, 220)
+    assert win.attrs["title"] == "DEMO"
+    assert win.attrs["content"] == (21, 46, 279, 219)  # below the 26 pixel bar, inside the frame
+    assert c.objects["w.title_bar"].pixels == (20, 20, 280, 46)
+    assert c.objects["w.close"].pixels == (258, 25, 274, 41)  # a 16 pixel square, 5 below the top
+    assert c.image.getpixel((22, 22)) == si.PALETTE["dark"]
+    with pytest.raises(ValueError):
+        c.window(0, 0, 100, 100, "TOO SMALL")
+    with pytest.raises(ValueError, match="title"):
+        blank().window(20, 20, 200, 100, "A VERY LONG WINDOW TITLE")
+
+
+def test_button_styles_and_centred_label():
+    c = blank()
+    primary = c.button(20, 20, 120, 40, "GO", name="b")
+    assert primary.pixels == (20, 20, 140, 60)
+    assert primary.attrs == {"style": "primary", "label": "GO"}
+    assert c.image.getpixel((22, 22)) == si.PALETTE["blue"]
+    c.button(20, 80, 120, 40, "GO", style="disabled")
+    assert c.image.getpixel((22, 82)) == si.PALETTE["grey"]
+    with pytest.raises(ValueError, match="does not fit"):
+        c.button(20, 140, 40, 40, "TOO WIDE")
+    with pytest.raises(ValueError):
+        c.button(20, 140, 120, 40, "OK", style="fancy")
+
+
+def test_text_input_shows_value_mask_or_placeholder_and_flags_state():
+    c = blank()
+    masked = c.text_input(20, 40, 200, 34, "SECRET", masked=True, name="pw", label="PASSWORD")
+    assert masked.attrs["value"] == "******"
+    assert masked.pixels == (20, 40, 220, 74)
+    # the label sits 6 pixels above the field, 14 tall: y 20..34, 94 wide, outside the box
+    assert c.objects["pw.label"].pixels == (20, 20, 114, 34)
+    bad = c.text_input(20, 100, 200, 34, invalid=True, placeholder="NAME")
+    assert c.image.getpixel((20, 100)) == si.PALETTE["red"]
+    assert bad.attrs["placeholder"] == "NAME" and bad.attrs["value"] == ""
+    with pytest.raises(ValueError, match="does not fit"):
+        c.text_input(20, 160, 60, 34, "WAY TOO LONG FOR IT")
+
+
+def test_error_banner_levels_and_dialog_with_backdrop_dim():
+    c = blank()
+    banner = c.error_banner(10, 10, 280, 32, "FAILED", name="e")
+    assert banner.attrs == {"level": "error", "message": "FAILED"}
+    assert c.image.getpixel((10, 10)) == si.PALETTE["red"]
+    assert c.image.getpixel((14, 14)) == (252, 228, 228)
+    with pytest.raises(ValueError):
+        c.error_banner(10, 60, 100, 32, "A MESSAGE THAT IS FAR TOO LONG")
+    d = blank()
+    dialog = d.dialog(
+        40, 40, 220, 180, "NOTICE", ["BODY"], buttons=("OK",), dim_backdrop=50, name="d"
+    )
+    # the backdrop is the canvas colour at 50 percent, each channel rounded half up: 125, 125, 122.5 -> 123
+    assert d.image.getpixel((0, 0)) == (125, 125, 123)
+    assert dialog.pixels == (40, 40, 260, 220)
+    ok = d.objects["d.button0"]
+    assert (ok.right, ok.bottom, ok.width, ok.height) == (244, 206, 80, 30)
+    with pytest.raises(ValueError, match="do not fit"):
+        blank().dialog(10, 10, 100, 60, "T", ["A LINE"], buttons=("OK",))
+
+
+def test_mix_rounds_half_up_with_hand_computed_values():
+    # 40 * 43 + 200 * 57 = 13120 -> +50 -> 131; 100 * 43 + 203 * 57 = 15871 -> 159; 220 * 43 + 210 * 57 = 21430 -> 214
+    assert si.mix((40, 100, 220), (200, 203, 210), 57) == (131, 159, 214)
+    assert si.mix("black", "white", 0) == (0, 0, 0)
+    assert si.mix("black", "white", 100) == (255, 255, 255)
+    assert si.mix((0, 0, 0), (255, 255, 255), 50) == (128, 128, 128)  # 127.5 up
+    with pytest.raises(ValueError):
+        si.mix("black", "white", 101)
+    with pytest.raises(ValueError):
+        si.mix("black", (1, 2), 5)
+
+
+def test_spinner_box_is_the_union_of_eight_spokes_and_phase_moves_the_dark_one():
+    # radius 20: inner 8, thickness 3, brush offset 1; the up spoke runs from y 92 to 80, the left
+    # spoke ends at x 80 and the right and down spokes at 120, so the box is (79, 79, 122, 122)
+    c = blank()
+    s = c.spinner(100, 100, 20, name="s")
+    assert s.pixels == (79, 79, 122, 122)
+    assert c.image.getpixel((100, 85)) == si.PALETTE["blue"]  # spoke 0 is darkest at phase 0
+    assert c.image.getpixel((100, 115)) == (131, 159, 214)  # the down spoke, 4 steps on: 57 percent
+    d = blank()
+    d.spinner(100, 100, 20, phase=4)
+    assert d.image.getpixel((100, 115)) == si.PALETTE["blue"]
+    assert d.image.getpixel((100, 85)) == (131, 159, 214)
+    assert changed(Image.new("RGB", c.size, BLANK), d.image) == s.pixels
+
+
+def test_bar_fills_floor_fraction_times_the_interior():
+    c = blank()
+    bar = c.bar(10, 10, 102, 12, 0.5, name="hp")
+    assert bar.pixels == (10, 10, 112, 22)
+    assert bar.attrs["filled_pixels"] == 50
+    assert c.image.getpixel((60, 15)) == si.PALETTE["green"]
+    assert c.image.getpixel((61, 15)) == si.PALETTE["dark"]
+    assert blank().bar(10, 10, 102, 12, 1).attrs["filled_pixels"] == 100
+    with pytest.raises(ValueError):
+        blank().bar(10, 10, 102, 12, 1.5)
+
+
+# -- the logo ------------------------------------------------------------------------------------
+
+
+def test_a_wordmark_is_deterministic_and_each_seed_looks_different():
+    a, b = blank(), blank()
+    a.wordmark(20, 20, 220, 60, style_seed=4, name="m")
+    b.wordmark(20, 20, 220, 60, style_seed=4)
+    assert a.image.tobytes() == b.image.tobytes()
+    seen = set()
+    for seed in range(8):
+        c = blank()
+        c.wordmark(20, 20, 220, 60, style_seed=seed)
+        seen.add(c.image.tobytes())
+    assert len(seen) == 8
+
+
+def test_wordmark_overrides_make_an_off_brand_variant_and_report_what_was_used():
+    c = blank()
+    mark = c.wordmark(20, 20, 220, 60, style_seed=1, text="Zorvex", emblem="disc", colour="red")
+    assert mark.attrs == {"text": "ZORVEX", "emblem": "disc", "colour": [210, 50, 50]}
+    emblem, text = mark.parts
+    assert emblem.pixels == (20, 20, 80, 80)  # a 60 pixel disc
+    assert text.left == 20 + 60 + 15  # the gap is h // 4 = 15
+    assert changed(Image.new("RGB", c.size, BLANK), c.image) == mark.pixels
+    with pytest.raises(ValueError):
+        blank().wordmark(20, 20, 100, 60, text="A MUCH TOO LONG NAME")
+    with pytest.raises(ValueError):
+        blank().wordmark(20, 20, 220, 60, emblem="star")
+
+
+@pytest.mark.parametrize("emblem", ["disc", "ring", "triangle", "bars", "stack"])
+def test_every_emblem_stays_inside_its_square(emblem):
+    c = blank()
+    mark = c.wordmark(20, 20, 220, 60, emblem=emblem, text="ABC")
+    assert changed(Image.new("RGB", c.size, BLANK), c.image) == mark.pixels
+    first = mark.parts[0]
+    assert 20 <= first.left and first.right <= 80 and 20 <= first.top and first.bottom <= 80
+
+
+# -- defects ----------------------------------------------------------------------------------
+
+
+def test_scratch_with_explicit_ends_has_the_hand_computed_box():
+    c = blank()
+    c.rect(40, 40, 100, 100, (120, 120, 120), name="part")
+    scratch = c.scratch("part", start=(50, 60), end=(100, 90), colour=(255, 255, 255), name="s")
+    assert scratch.pixels == (50, 60, 101, 91)
+    assert scratch.kind == "scratch" and scratch.attrs["start"] == [50, 60]
+    assert c.image.getpixel((50, 60)) == (255, 255, 255)
+    assert c.image.getpixel((100, 90)) == (255, 255, 255)
+    with pytest.raises(ValueError, match="inside"):
+        c.scratch("part", start=(40, 60), end=(100, 90))
+
+
+def test_a_seeded_scratch_stays_inside_its_target_and_is_reproducible():
+    for seed in range(12):
+        c = si.Canvas(W, H, seed=seed)
+        target = c.rect(40, 40, 100, 100, (120, 120, 120))
+        scratch = c.scratch(target, colour="white")
+        assert target.left <= scratch.left and scratch.right <= target.right
+        assert target.top <= scratch.top and scratch.bottom <= target.bottom
+        assert (
+            scratch.width >= 100 - 2 * 10 - 2 * 30 - 1
+        )  # start in the left 40%, end in the right 40%
+        twin = si.Canvas(W, H, seed=seed)
+        twin.rect(40, 40, 100, 100, (120, 120, 120))
+        assert twin.scratch(target, colour="white").pixels == scratch.pixels
+    with pytest.raises(ValueError):
+        blank().scratch((0, 0, 30, 30))
+
+
+def test_a_dent_darkens_exactly_four_centre_pixels_to_100_and_reports_what_changed():
+    # 200 grey, depth 50 percent, 40 x 40 ellipse (size_percent 40 of a 100 pixel target). Each
+    # of the four centre pixels has (2x+1-40)^2 = (2y+1-40)^2 = 1, so with q = 40^4 the new value is
+    # (200 * (100q - 50 * (q - 3200)) + 50q) // 100q = 100 (100.6 rounded down).
+    c = si.Canvas(W, H, (200, 200, 200), seed=2)
+    target = c.rect(50, 50, 100, 100, (200, 200, 200))
+    dent = c.dent(target, depth_percent=50, size_percent=40, name="d")
+    lows = [
+        (x, y) for x in range(W) for y in range(H) if c.image.getpixel((x, y)) == (100, 100, 100)
+    ]
+    assert len(lows) == 4
+    xs, ys = sorted({x for x, _ in lows}), sorted({y for _, y in lows})
+    assert xs[1] - xs[0] == 1 and ys[1] - ys[0] == 1
+    assert target.left <= dent.left and dent.right <= target.right
+    assert target.top <= dent.top and dent.bottom <= target.bottom
+    assert changed(Image.new("RGB", c.size, (200, 200, 200)), c.image) == dent.pixels
+    values = c.image.tobytes()
+    assert min(values) == 100 and max(values) == 200  # darker only, never lighter
+
+
+def test_a_dent_that_changes_nothing_is_refused():
+    c = si.Canvas(W, H, (0, 0, 0))
+    with pytest.raises(ValueError, match="changed no pixel"):
+        c.dent((0, 0, 100, 100), depth_percent=50)
+
+
+def test_missing_part_paints_the_part_out_and_reports_where_it_was():
+    c = blank()
+    c.ellipse(100, 100, 24, 24, "mid", outline="ink", name="screw")
+    gone = c.missing_part("screw", name="gap")
+    assert gone.pixels == (100, 100, 124, 124)
+    assert gone.attrs["part"] == "screw" and gone.kind == "missing-part"
+    assert "screw" not in c.objects and "gap" in c.objects
+    assert changed(Image.new("RGB", c.size, BLANK), c.image) is None
+    with pytest.raises(ValueError, match="nothing"):
+        c.missing_part((10, 10, 30, 30))
+
+
+# -- perturbations ----------------------------------------------------------------------------
+
+
+def test_a_radius_one_blur_spreads_one_black_pixel_into_a_3x3_block_of_227():
+    # horizontal pass: (255 + 255 + 0 + 1) // 3 = 170 on x 149..151; vertical pass over
+    # (255, 170, 255) and its neighbours: (255 + 255 + 170 + 1) // 3 = 227 on y 139..141
+    c = si.Canvas(W, H, (255, 255, 255))
+    c.image.putpixel((150, 140), (0, 0, 0))
+    region = c.blur(1)
+    assert region.pixels == (0, 0, W, H)
+    px = c.image.load()
+    block = {(x, y) for x in range(149, 152) for y in range(139, 142)}
+    assert {(x, y) for x in range(W) for y in range(H) if px[x, y] != (255, 255, 255)} == block
+    assert all(px[x, y] == (227, 227, 227) for x, y in block)
+
+
+def test_blur_clamps_at_the_region_edge():
+    c = si.Canvas(W, H, (255, 255, 255))
+    for y in range(H):
+        c.image.putpixel((0, y), (0, 0, 0))
+    c.blur(1)
+    # x 0: (0 + 0 + 255 + 1) // 3 = 85 (the missing left neighbour repeats x 0); x 1: 511 // 3 = 170
+    assert [c.image.getpixel((x, 100))[0] for x in range(4)] == [85, 170, 255, 255]
+
+
+def test_blur_only_touches_its_region_and_checks_its_arguments():
+    c = si.Canvas(W, H, (255, 255, 255))
+    c.image.putpixel((150, 140), (0, 0, 0))
+    c.image.putpixel((10, 10), (0, 0, 0))
+    region = c.blur(2, region=(100, 100, 200, 200))
+    assert region.pixels == (100, 100, 200, 200)
+    assert c.image.getpixel((10, 10)) == (0, 0, 0)
+    # radius 2: (4 * 255 + 0 + 2) // 5 = 204 across, then (4 * 255 + 204 + 2) // 5 = 245 down
+    assert c.image.getpixel((150, 140)) == (245, 245, 245)
+    with pytest.raises(ValueError):
+        c.blur(0)
+    with pytest.raises(ValueError):
+        c.blur(21)
+    with pytest.raises(ValueError):
+        c.blur(1, region=(0, 0, W + 1, H))
+
+
+def test_noise_follows_the_published_splitmix_stream():
+    # the first stream bytes for seed 0 are af cd 1d 7b; each mod 11 (amount 5) minus 5 is added
+    # to a 128 grey: 175 % 11 = 10 -> 133, 205 % 11 = 7 -> 130, 29 % 11 = 7 -> 130, 123 % 11 = 2 -> 125
+    c = si.Canvas(W, H, (128, 128, 128), seed=0)
+    c.noise(5)
+    assert [c.image.getpixel((x, 0)) for x in range(4)] == [
+        (133, 133, 133),
+        (130, 130, 130),
+        (130, 130, 130),
+        (125, 125, 125),
+    ]
+    values = c.image.tobytes()
+    assert min(values) >= 123 and max(values) <= 133
+
+
+def test_colour_noise_differs_per_channel_and_noise_clamps():
+    c = si.Canvas(W, H, (128, 128, 128), seed=0)
+    c.noise(5, grey=False)
+    assert c.image.getpixel((0, 0)) == (133, 130, 130)  # bytes af cd 1d
+    white = si.Canvas(W, H, (255, 255, 255), seed=0)
+    white.noise(100)
+    assert max(white.image.tobytes()) == 255
+    with pytest.raises(ValueError):
+        white.noise(128)
+
+
+def test_lighting_scales_brightness_with_half_up_rounding():
+    c = si.Canvas(W, H, (101, 201, 255))
+    region = c.lighting(50)
+    assert region.pixels == (0, 0, W, H)
+    assert c.image.getpixel((5, 5)) == (51, 101, 128)  # 5100 // 100, 10100 // 100, 12800 // 100
+
+
+def test_a_lighting_gradient_runs_left_to_right_around_the_brightness():
+    # region 100 wide, 100 percent, gradient 40: column 0 gets 100 + (40 * -99) // 200 = 80
+    # (floor of -19.8 is -20) and column 99 gets 100 + (40 * 99) // 200 = 119
+    c = si.Canvas(W, H, (200, 200, 200))
+    c.lighting(100, gradient_percent=40, region=(0, 0, 100, 280))
+    assert c.image.getpixel((0, 5)) == (160, 160, 160)
+    assert c.image.getpixel((99, 5)) == (238, 238, 238)  # (200 * 119 + 50) // 100
+    assert c.image.getpixel((100, 5)) == (200, 200, 200)
+
+
+@pytest.mark.parametrize(
+    ("side", "fraction", "expected"),
+    [
+        ("left", 0.25, (50, 30, 75, 70)),
+        ("right", 0.5, (100, 30, 150, 70)),
+        ("top", 0.25, (50, 30, 150, 40)),
+        ("bottom", 0.5, (50, 50, 150, 70)),
+    ],
+)
+def test_occlusion_covers_the_stated_fraction_from_the_named_side(side, fraction, expected):
+    c = blank()
+    c.rect(50, 30, 100, 40, (0, 120, 0), name="target")
+    patch = c.occlude("target", fraction=fraction, side=side, name="o")
+    assert patch.pixels == expected
+    assert patch.kind == "occlusion" and patch.attrs["side"] == side
+    assert c.objects["target"].pixels == (50, 30, 150, 70)  # the target keeps its own gold box
+
+
+def test_occlusion_rounds_half_up_and_refuses_nothing_or_bad_sides():
+    c = blank()
+    c.rect(50, 30, 25, 40, (0, 120, 0), name="narrow")
+    assert c.occlude("narrow", fraction=0.5, side="left").width == 13  # 12.5 rounds up
+    with pytest.raises(ValueError):
+        c.occlude("narrow", fraction=0.0)
+    with pytest.raises(ValueError):
+        c.occlude("narrow", side="middle")
+    with pytest.raises(ValueError):
+        c.occlude("missing")
+
+
+# -- frame sequences ----------------------------------------------------------------------------
+
+
+def test_interpolate_is_exact_clamped_and_rounds_half_up():
+    assert si.interpolate(20, 320, 1, 0, 4) == 95
+    assert si.interpolate(20, 320, 2.5, 0, 4) == 208  # 187.5 rounds up to 188
+    assert si.interpolate(20, 320, -3, 0, 4) == 20
+    assert si.interpolate(20, 320, 9, 0, 4) == 320
+    assert si.interpolate(100, 40, 1, 0, 2) == 70  # downwards: 100 - 30
+    assert si.interpolate(0, 1, 0.1 + 0.2, 0, 1) == 0  # 0.30000000000000004 is still below .5
+    with pytest.raises(ValueError):
+        si.interpolate(0, 1, 0, 2, 2)
+
+
+def test_a_moving_object_has_a_gold_box_per_frame_and_none_before_it_appears():
+    frames = si.moving_object_frames([0, 1, 2.5, 4], appear_at=0.5)
+    assert [f.timestamp_seconds for f in frames] == [0.0, 1.0, 2.5, 4.0]
+    assert "item" not in frames[0].objects
+    assert frames[1].objects["item"].pixels == (95, 110, 155, 160)
+    assert frames[2].objects["item"].pixels == (208, 110, 268, 160)
+    assert frames[3].objects["item"].pixels == (320, 110, 380, 160)
+    assert frames[1].objects["item"].box["left"] == 95 / 400
+    assert changed(frames[0].image, frames[1].image) == (95, 110, 155, 160)
+
+
+def test_an_object_can_leave_and_stay_gone():
+    frames = si.moving_object_frames([0, 1, 2], disappear_at=1)
+    assert "item" in frames[0].objects and "item" not in frames[1].objects
+    assert frames[1].image.tobytes() == frames[2].image.tobytes()  # the belt alone, both times
+
+
+def test_frame_times_must_be_explicit_finite_and_increasing():
+    for bad in ([], [1, 1], [2, 1], [-1], [float("nan")], [True], "01"):
+        with pytest.raises(ValueError):
+            si.build_frames(bad, lambda t: si.Canvas())
+    with pytest.raises(ValueError):
+        si.moving_object_frame(t=-1)
+    with pytest.raises(TypeError):
+        si.moving_object_frame(0.0)  # keyword only, so a manifest's parameters can rebuild it
+
+
+def test_save_frames_returns_pairs_that_load_frames_accepts(tmp_path):
+    frames = si.moving_object_frames([0, 0.75, 1.5], appear_at=0)
+    pairs = si.save_frames(frames, tmp_path, "belt")
+    assert pairs == [
+        (0.0, "assets/belt-00.png"),
+        (0.75, "assets/belt-01.png"),
+        (1.5, "assets/belt-02.png"),
+    ]
+    state, assets = vision.load_frames(pairs, root=tmp_path)
+    assert [row["timestamp_seconds"] for row in state] == [0.0, 0.75, 1.5]
+    assert len(assets) == 3  # three different pictures, three assets
+    assert si.save_frames(frames, tmp_path, "belt") == pairs  # unchanged files are accepted again
+
+
+# -- every primitive reports the box of the pixels it changed -------------------------------------
+
+PRIMITIVES = {
+    "rect": lambda c: c.rect(10, 10, 50, 30, "blue", outline="ink", outline_width=3),
+    "ellipse": lambda c: c.ellipse(10, 10, 50, 30, "blue", outline="ink", outline_width=2),
+    "triangle-up": lambda c: c.triangle(10, 10, 50, 30, "red"),
+    "triangle-down": lambda c: c.triangle(10, 10, 50, 30, "red", direction="down"),
+    "triangle-left": lambda c: c.triangle(10, 10, 31, 50, "red", direction="left"),
+    "triangle-right": lambda c: c.triangle(10, 10, 31, 50, "red", direction="right"),
+    "line": lambda c: c.line(10, 10, 80, 50, "ink", 3),
+    "text": lambda c: c.text(10, 10, "HELLO 42", "ink", 3),
+    "text_block": lambda c: c.text_block(10, 10, ["AB", "CD"], "ink", 2),
+    "labelled_rect": lambda c: c.labelled_object(10, 10, 80, 40, "teal", name="o", label="OK"),
+    "labelled_ellipse": lambda c: c.labelled_object(
+        10, 10, 80, 40, "teal", name="o", label="OK", shape="ellipse"
+    ),
+    "labelled_triangle": lambda c: c.labelled_object(
+        10, 10, 80, 60, "teal", name="o", label="A", shape="triangle"
+    ),
+    "window": lambda c: c.window(10, 10, 260, 200, "DEMO"),
+    "button": lambda c: c.button(10, 10, 120, 40, "GO", style="danger"),
+    "text_input": lambda c: c.text_input(10, 10, 200, 34, "HELLO"),
+    "dialog": lambda c: c.dialog(10, 10, 240, 180, "NOTICE", ["BODY", "MORE"], buttons=("A", "B")),
+    "banner": lambda c: c.error_banner(10, 10, 280, 32, "FAILED", level="warning"),
+    "bar": lambda c: c.bar(10, 10, 102, 12, 0.3),
+    "stamp": lambda c: c.stamp(10, 10, 90, 90, "OK", paper=BLANK),
+    "signature": lambda c: c.signature(10, 10, 120, 40),
+    "wordmark": lambda c: c.wordmark(10, 10, 220, 60, style_seed=2),
+    "spinner": lambda c: c.spinner(100, 100, 24, phase=3),
+}
+
+
+@pytest.mark.parametrize("name", sorted(PRIMITIVES))
+def test_a_primitive_changes_exactly_the_pixels_of_its_box(name):
+    c = blank()
+    before = c.image.copy()
+    drawn = PRIMITIVES[name](c)
+    assert changed(before, c.image) == drawn.pixels
+    # and the normalized box maps back to those pixels through the vision helpers
+    assert vision.normalized_to_pixels(drawn.box, *c.size) == drawn.pixels
+
+
+# -- the example scenes ---------------------------------------------------------------------------
+
+
+def test_login_screen_geometry_is_stable_and_state_specific():
+    for state in ("normal", "error", "loading", "crash"):
+        c = si.login_screen(state=state, seed=3)
+        assert c.size == (640, 400)
+        assert c.objects["window"].pixels == (60, 30, 580, 370)
+        assert c.objects["username"].pixels == (80, 132, 380, 166)
+        assert c.objects["password"].pixels == (80, 200, 380, 234)
+        assert c.objects["submit"].pixels == (80, 262, 220, 302)
+        assert c.objects["window"].attrs["title"] == f"{si.fictional_name(3)} SIGN IN"
+        extras = {"error_banner", "spinner", "dialog"} & set(c.objects)
+        assert (
+            extras
+            == {
+                "normal": set(),
+                "error": {"error_banner"},
+                "loading": {"spinner"},
+                "crash": {"dialog"},
+            }[state]
+        )
+    error = si.login_screen(state="error")
+    assert error.objects["error_banner"].pixels == (80, 66, 560, 98)
+    assert error.objects["password"].attrs["invalid"] is True
+    loading = si.login_screen(state="loading")
+    assert loading.objects["submit"].attrs == {"style": "disabled", "label": "SIGNING IN"}
+    assert loading.objects["spinner"].pixels == (234, 266, 268, 300)
+    crash = si.login_screen(state="crash")
+    assert crash.objects["dialog"].pixels == (150, 110, 490, 280)
+    assert crash.image.getpixel((0, 0)) == (
+        128,
+        129,
+        133,
+    )  # the 232, 235, 241 backdrop at 55 percent
+    with pytest.raises(ValueError):
+        si.login_screen(state="blank")
+
+
+def test_the_four_login_states_are_four_different_pictures():
+    images = {
+        s: si.login_screen(state=s).image.tobytes() for s in ("normal", "error", "loading", "crash")
+    }
+    assert len(set(images.values())) == 4
+    assert si.login_screen(seed=1).image.tobytes() != si.login_screen(seed=2).image.tobytes()
+
+
+def test_part_photo_geometry_and_each_defect():
+    clean = si.part_photo()
+    assert clean.size == (480, 360)
+    assert clean.objects["part"].pixels == (90, 50, 390, 300)
+    assert clean.objects["screw_tl"].pixels == (110, 70, 134, 94)
+    assert clean.objects["screw_br"].pixels == (346, 256, 370, 280)
+    assert clean.objects["connector"].pixels == (170, 130, 310, 210)
+    assert "defect" not in clean.objects
+    part = clean.objects["part"]
+    scratch = si.part_photo(defect="scratch", seed=5).objects["defect"]
+    dent = si.part_photo(defect="dent", seed=5).objects["defect"]
+    for found in (scratch, dent):
+        assert part.left <= found.left and found.right <= part.right
+        assert part.top <= found.top and found.bottom <= part.bottom
+    assert (scratch.kind, dent.kind) == ("scratch", "dent")
+    gone = si.part_photo(defect="missing_screw")
+    assert gone.objects["defect"].pixels == (346, 256, 370, 280)
+    assert "screw_br" not in gone.objects and "screw_bl" in gone.objects
+    assert gone.image.getpixel((358, 268)) == gone.image.getpixel((350, 150))  # plate shows through
+    with pytest.raises(ValueError):
+        si.part_photo(defect="rust")
+
+
+def test_each_defect_makes_a_different_picture_and_the_seed_moves_it():
+    pictures = {
+        d: si.part_photo(defect=d, seed=5).image.tobytes()
+        for d in ("none", "scratch", "dent", "missing_screw")
+    }
+    assert len(set(pictures.values())) == 4
+    assert (
+        si.part_photo(defect="scratch", seed=1).objects["defect"].pixels
+        != si.part_photo(defect="scratch", seed=2).objects["defect"].pixels
+    )
+
+
+def test_deck_hud_geometry_counts_and_limits():
+    hud = si.deck_hud(cards=5, enemies=3, energy=2, seed=4)
+    assert hud.size == (800, 450)
+    assert hud.objects["end_turn"].pixels == (676, 386, 788, 434)
+    assert hud.objects["energy"].pixels == (20, 330, 100, 410)
+    assert hud.objects["player"].pixels == (80, 170, 170, 280)
+    assert hud.objects["card_0"].pixels == (130, 300, 230, 440)
+    assert hud.objects["card_4"].pixels == (570, 300, 670, 440)
+    assert {n for n in hud.objects if re.fullmatch(r"card_\d", n)} == {
+        f"card_{i}" for i in range(5)
+    }
+    assert {n for n in hud.objects if re.fullmatch(r"enemy_\d", n)} == {
+        "enemy_0",
+        "enemy_1",
+        "enemy_2",
+    }
+    for i in range(3):
+        enemy = hud.objects[f"enemy_{i}"]
+        assert (enemy.left, enemy.right) == (440 + 120 * i, 540 + 120 * i) or enemy.width <= 100
+        assert enemy.top >= 120 and enemy.bottom <= 240
+    quiet = si.deck_hud(cards=1, enemies=0)
+    assert not [n for n in quiet.objects if n.startswith("enemy")]
+    for bad in (
+        {"cards": 0},
+        {"cards": 6},
+        {"enemies": 4},
+        {"energy": 4},
+        {"energy": 1, "energy_max": 10},
+    ):
+        with pytest.raises(ValueError):
+            si.deck_hud(**bad)
+
+
+def test_every_object_of_every_scene_round_trips_through_vision_and_stays_in_bounds():
+    scenes = [
+        *(si.login_screen(state=s, seed=1) for s in ("normal", "error", "loading", "crash")),
+        *(si.part_photo(defect=d, seed=1) for d in ("none", "scratch", "dent", "missing_screw")),
+        si.deck_hud(cards=5, enemies=3),
+        *si.moving_object_frames([0, 2, 4]),
+    ]
+    scenes = [s.canvas if isinstance(s, si.Frame) else s for s in scenes]
+    seen = 0
+    for scene in scenes:
+        for drawn in scene.objects.values():
+            assert 0 <= drawn.left < drawn.right <= scene.width
+            assert 0 <= drawn.top < drawn.bottom <= scene.height
+            assert vision.normalized_to_pixels(drawn.box, *scene.size) == drawn.pixels
+            vision.normalized_box(drawn.box)
+            seen += 1
+    assert seen > 100
+
+
+# -- saving, the checker and the byte policy -------------------------------------------------------
+
+
+def chunk_names(data: bytes) -> list[bytes]:
+    import struct
+
+    names, position = [], 8
+    while position < len(data):
+        (length,) = struct.unpack(">I", data[position : position + 4])
+        names.append(data[position + 4 : position + 8])
+        position += 12 + length
+    return names
+
+
+def example_canvases() -> dict[str, si.Canvas]:
+    out = {
+        f"login-{s}": si.login_screen(state=s, seed=3)
+        for s in ("normal", "error", "loading", "crash")
+    }
+    out.update(
+        {
+            f"part-{d}": si.part_photo(defect=d, seed=1)
+            for d in ("none", "scratch", "dent", "missing_screw")
+        }
+    )
+    out["hud"] = si.deck_hud(cards=5, enemies=3, energy=2, seed=4)
+    out["belt"] = si.moving_object_frame(t=1.0, appear_at=0.5)
+    return out
+
+
+def test_encoded_pngs_hold_only_the_three_chunks_and_pass_the_repository_checker():
+    for name, canvas in example_canvases().items():
+        data = canvas.png()
+        names = chunk_names(data)
+        assert names[0] == b"IHDR" and names[-1] == b"IEND", name
+        assert set(names) <= {b"IHDR", b"IDAT", b"IEND"}, name
+        assert checker.check_image(f"recipes/99-demo/assets/{name}.png", data) == [], name
+        assert len(data) < checker.MAX_FILE_BYTES
+
+
+def test_a_png_over_the_byte_cap_is_refused_at_encode_time():
+    c = si.Canvas(700, 700, (128, 128, 128), seed=1)
+    c.noise(127, grey=False)
+    with pytest.raises(ValueError, match="may hold"):
+        c.png()
+
+
+def test_a_non_rgb_image_is_converted_and_stray_chunks_are_refused():
+    rgba = Image.new("RGBA", (300, 300), (10, 20, 30, 255))
+    assert si.pixels_sha256(si.encode_png(rgba)) == si.pixels_sha256(rgba.convert("RGB"))
+    tagged = Image.new("RGB", (300, 300))
+    tagged.info["icc_profile"] = b"x" * 128  # Pillow would write an iCCP chunk for this
+    with pytest.raises(ValueError, match="chunks"):
+        si.encode_png(tagged)
+
+
+def test_pixels_sha256_is_the_hash_of_size_and_raw_pixels():
+    image = Image.new("RGB", (280, 281), (1, 2, 3))
+    expected = hashlib.sha256(b"280x281:" + bytes((1, 2, 3)) * (280 * 281)).hexdigest()
+    assert si.pixels_sha256(image) == expected
+    assert si.pixels_sha256(si.encode_png(image)) == expected
+    assert not si.png_pixels_equal(
+        si.encode_png(image), si.encode_png(Image.new("RGB", (281, 280), (1, 2, 3)))
+    )
+
+
+def other_encoding(canvas: si.Canvas) -> bytes:
+    buffer = io.BytesIO()
+    canvas.image.save(
+        buffer, "PNG", compress_level=1
+    )  # the same pixels through a different zlib setting
+    return buffer.getvalue()
+
+
+def test_write_asset_creates_then_recognises_its_own_file(tmp_path):
+    c = si.login_screen(seed=2)
+    assert c.write(tmp_path, "assets/a.png") == "created"
+    assert (tmp_path / "assets" / "a.png").read_bytes() == c.png()
+    assert c.write(tmp_path, "assets/a.png") == "unchanged"
+    assert vision.image_asset("assets/a.png", root=tmp_path)["format"] == "png"
+
+
+def test_other_bytes_with_the_same_pixels_are_kept_off_the_canonical_pillow(tmp_path, monkeypatch):
+    c = si.login_screen(seed=2)
+    target = tmp_path / "assets" / "a.png"
+    c.write(tmp_path, "assets/a.png")
+    foreign = other_encoding(c)
+    assert foreign != c.png() and si.png_pixels_equal(foreign, c.png())
+    target.write_bytes(foreign)  # as if committed by a build with another zlib
+    monkeypatch.setattr(si, "CANONICAL_PILLOW", "0.0.0")
+    assert c.write(tmp_path, "assets/a.png") == "kept-committed-bytes"
+    assert target.read_bytes() == foreign  # never rewritten
+
+
+def test_other_bytes_under_the_canonical_pillow_are_a_mismatch_not_a_rewrite(tmp_path, monkeypatch):
+    c = si.login_screen(seed=2)
+    target = tmp_path / "assets" / "a.png"
+    c.write(tmp_path, "assets/a.png")
+    foreign = other_encoding(c)
+    target.write_bytes(foreign)
+    monkeypatch.setattr(si, "CANONICAL_PILLOW", PIL.__version__)
+    with pytest.raises(si.RegenerationMismatch, match="canonical"):
+        c.write(tmp_path, "assets/a.png")
+    assert target.read_bytes() == foreign
+
+
+def test_different_pixels_are_a_mismatch_until_overwrite_is_explicit(tmp_path):
+    first, second = si.login_screen(state="normal"), si.login_screen(state="error")
+    target = tmp_path / "assets" / "a.png"
+    first.write(tmp_path, "assets/a.png")
+    committed = target.read_bytes()
+    with pytest.raises(si.RegenerationMismatch, match="pixels differ"):
+        second.write(tmp_path, "assets/a.png")
+    assert target.read_bytes() == committed
+    assert second.write(tmp_path, "assets/a.png", overwrite=True) == "rewritten"
+    assert si.png_pixels_equal(target.read_bytes(), second.png())
+
+
+def test_an_unreadable_committed_file_is_a_mismatch(tmp_path):
+    c = si.login_screen()
+    target = tmp_path / "assets" / "a.png"
+    target.parent.mkdir()
+    target.write_bytes(b"not a png")
+    with pytest.raises(si.RegenerationMismatch):
+        c.write(tmp_path, "assets/a.png")
+    assert target.read_bytes() == b"not a png"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "a.png",
+        "assets/a.jpg",
+        "assets/A.PNG",
+        "assets/../a.png",
+        "/abs/a.png",
+        "assets\\a.png",
+        "assets/.hidden.png",
+    ],
+)
+def test_write_asset_refuses_paths_the_manifest_would_refuse(tmp_path, path):
+    with pytest.raises(ValueError, match="assets/name.png"):
+        si.login_screen().write(tmp_path, path)
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_write_png_has_the_same_outcomes_for_any_path(tmp_path):
+    c = si.login_screen()
+    target = tmp_path / "docs" / "x.png"
+    assert si.write_png(c, target) == "created"
+    assert si.write_png(c.image, target) == "unchanged"
+    with pytest.raises(si.RegenerationMismatch):
+        si.write_png(si.login_screen(state="error"), target)
+
+
+# -- the manifest --------------------------------------------------------------------------------
+
+
+def read_json(path):
+    return json.loads(path.read_text("utf-8")), None
+
+
+def problems(recipe: Path) -> list:
+    return assets_module.check_assets(
+        recipe, [], read_json=read_json, leak_splits=("train", "validation", "test")
+    )
+
+
+def write_manifest(recipe: Path, entries: list) -> None:
+    (recipe / "assets-manifest.json").write_text(
+        json.dumps({"schema": 1, "assets": entries}), "utf-8"
+    )
+
+
+def test_scene_manifest_entries_pass_the_fixture_validator(tmp_path):
+    entries = []
+    for index, (name, canvas) in enumerate(example_canvases().items()):
+        path = f"assets/{name}.png"
+        canvas.write(tmp_path, path)
+        entries.append(canvas.manifest_entry(tmp_path, path, f"Example scene {index}."))
+    write_manifest(tmp_path, entries)
+    assert problems(tmp_path) == []
+    entry = entries[0]
+    assert entry["generator"] == "jev_cookbook.synthetic_images:login_screen"
+    assert entry["parameters"] == {"state": "normal", "seed": 3}
+    assert entry["origin"] == "generated" and entry["licence"] == "CC0-1.0"
+    assert entry["attestations"] == {
+        "synthetic": True,
+        "real_photo": False,
+        "real_brand": False,
+        "real_person": False,
+        "third_party_content": False,
+    }
+    assert (entry["width"], entry["height"], entry["format"]) == (640, 400, "PNG")
+
+
+def test_a_script_generator_must_exist_in_the_recipe_and_name_the_function(tmp_path):
+    c = si.Canvas(300, 300)
+    c.rect(10, 10, 50, 50, "blue", name="box")
+    c.write(tmp_path, "assets/a.png")
+    c.provenance("build_fixtures.py:draw_box", {"size": 50})
+    with pytest.raises(ValueError, match="build_fixtures.py"):
+        c.manifest_entry(tmp_path, "assets/a.png", "A blue box.")
+    (tmp_path / "build_fixtures.py").write_text("def other():\n    pass\n", "utf-8")
+    with pytest.raises(ValueError, match="draw_box"):
+        c.manifest_entry(tmp_path, "assets/a.png", "A blue box.")
+    (tmp_path / "build_fixtures.py").write_text("def draw_box(size):\n    pass\n", "utf-8")
+    write_manifest(tmp_path, [c.manifest_entry(tmp_path, "assets/a.png", "A blue box.")])
+    assert problems(tmp_path) == []
+
+
+def test_a_shared_generator_must_name_a_real_function():
+    c = si.Canvas(300, 300)
+    for bad in ("jev_cookbook.synthetic_images:nope", "jev_cookbook.no_such_module:x", "os:system"):
+        c.provenance(bad, {})
+        with pytest.raises(ValueError):
+            c.manifest_entry(Path("."), "assets/a.png", "x")
+
+
+def test_manifest_entry_needs_provenance_and_a_description(tmp_path):
+    c = si.Canvas(300, 300)
+    c.write(tmp_path, "assets/a.png")
+    with pytest.raises(ValueError, match="provenance"):
+        c.manifest_entry(tmp_path, "assets/a.png", "x")
+    c.provenance("jev_cookbook.synthetic_images:login_screen", {"seed": 1})
+    with pytest.raises(ValueError, match="description"):
+        c.manifest_entry(tmp_path, "assets/a.png", "  ")
+    with pytest.raises(ValueError, match="JSON"):
+        c.provenance("jev_cookbook.synthetic_images:login_screen", {"seed": object()})
+    with pytest.raises(ValueError, match="JSON"):
+        c.provenance("jev_cookbook.synthetic_images:login_screen", {"seed": float("nan")})
+
+
+def test_a_tampered_file_fails_the_validator_hash_check(tmp_path):
+    c = si.login_screen()
+    c.write(tmp_path, "assets/a.png")
+    write_manifest(tmp_path, [c.manifest_entry(tmp_path, "assets/a.png", "A screen.")])
+    assert problems(tmp_path) == []
+    (tmp_path / "assets" / "a.png").write_bytes(si.login_screen(state="error").png())
+    assert any("[hash-mismatch]" in message for _, message, _ in problems(tmp_path))
+
+
+def test_manifest_entry_equals_the_helper_printed_in_fixtures_md(tmp_path):
+    text = (REPO / "docs" / "fixtures.md").read_text("utf-8")
+    code = re.search(r"```python\n(import hashlib\n.*?)\n```", text, re.S)
+    scope: dict = {}
+    exec(code.group(1), scope)  # our own documentation snippet
+    c = si.part_photo(defect="dent", seed=2)
+    c.write(tmp_path, "assets/p.png")
+    mine = si.manifest_entry(tmp_path, "assets/p.png", c.generator, c.parameters, "A part.")
+    docs = scope["manifest_entry"](tmp_path, "assets/p.png", c.generator, c.parameters, "A part.")
+    assert mine == docs == c.manifest_entry(tmp_path, "assets/p.png", "A part.")
+
+
+def test_every_scene_generator_matches_the_schemas_pattern_and_rebuilds_from_json():
+    assert set(si.SCENES) == {"login_screen", "part_photo", "deck_hud", "moving_object_frame"}
+    for name, scene in si.SCENES.items():
+        canvas = scene(t=1.0) if name == "moving_object_frame" else scene()
+        assert assets_module._GENERATOR.fullmatch(canvas.generator)
+        assert canvas.generator == f"jev_cookbook.synthetic_images:{name}"
+        rebuilt = si.reproduce(canvas.generator, json.loads(json.dumps(canvas.parameters)))
+        assert rebuilt.image.tobytes() == canvas.image.tobytes()
+        assert rebuilt.parameters == canvas.parameters
+
+
+def test_parameters_hold_every_argument_with_its_default_and_tuples_become_lists():
+    assert si.part_photo().parameters == {"defect": "none", "seed": 0}
+    belt = si.moving_object_frame(t=2.5)
+    assert belt.parameters["start"] == [20, 110] and belt.parameters["travel_seconds"] == [0.0, 4.0]
+    assert belt.parameters["appear_at"] is None and belt.parameters["t"] == 2.5
+
+
+def test_reproduce_runs_only_the_scenes_of_this_module():
+    for bad in (
+        "os:system",
+        "jev_cookbook.synthetic_images:Canvas",
+        "jev_cookbook.vision:image_asset",
+        "login_screen",
+    ):
+        with pytest.raises(ValueError):
+            si.reproduce(bad, {})
+
+
+def test_check_reproducible_accepts_a_matching_file_and_rejects_another_picture(tmp_path):
+    c = si.login_screen(state="error", seed=2)
+    c.write(tmp_path, "assets/a.png")
+    entry = c.manifest_entry(tmp_path, "assets/a.png", "A screen.")
+    assert si.check_reproducible(tmp_path, entry) == "unchanged"
+    entry["parameters"] = {"state": "normal", "seed": 2}
+    with pytest.raises(si.RegenerationMismatch):
+        si.check_reproducible(tmp_path, entry)
+
+
+# -- constants that must agree with the rest of the repository ----------------------------------
+
+
+def test_canonical_pillow_is_the_version_pinned_for_the_notebooks():
+    pins = (REPO / ".github" / "constraints-notebooks.txt").read_text("utf-8")
+    assert re.search(r"(?mi)^pillow==(\S+)$", pins).group(1) == si.CANONICAL_PILLOW
+
+
+def test_limits_agree_with_the_checker_and_vision():
+    assert si.MAX_ASSET_BYTES == checker.MAX_FILE_BYTES
+    assert (vision.IMAGE_LIMITS["min_side"], vision.IMAGE_LIMITS["max_side"]) == (
+        checker.MIN_SIDE,
+        checker.MAX_SIDE,
+    )
+    assert (vision.IMAGE_LIMITS["min_area"], vision.IMAGE_LIMITS["max_area"]) == (
+        checker.MIN_PIXELS,
+        checker.MAX_PIXELS,
+    )
+    assert si._PNG_CHUNKS and set(si._PNG_CHUNKS) <= {
+        c.encode() for c in checker.PNG_ALLOWED_CHUNKS
+    }
+
+
+def test_the_module_uses_no_font_file_or_pillow_text_rendering():
+    source = (REPO / "src" / "jev_cookbook" / "synthetic_images.py").read_text("utf-8")
+    for word in (
+        "ImageFont",
+        "truetype",
+        "load_default",
+        "textbbox",
+        "textlength",
+        "import random",
+    ):
+        assert word not in source, word
+
+
+def test_every_name_in___all___exists():
+    assert all(hasattr(si, name) for name in si.__all__)
+    assert len(set(si.__all__)) == len(si.__all__)
+
+
+# Regression pins: (sha256 of the decoded pixels, sha256 of the PNG bytes) of each example scene.
+# They were recorded from the code and say nothing about whether a scene is right (the tests above
+# do); they make an unintended change to a scene fail, and they were identical on Python 3.10 and
+# 3.14 and on Pillow 12.3.0 and 13.0.0. Changing a scene on purpose means re-recording them, and
+# re-running every recipe that uses it (its committed images, hashes and replay keys).
+GOLDEN = {
+    "login-normal": (
+        "5995bdfd5fdd7f79bc40fa6e86a932597a2f79fc056464e1ddce144e187da936",
+        "d672e369432cef4326e03e177ddbb176c859446622b3a652e652e91de0eb7792",
+    ),
+    "login-error": (
+        "5af6c9279222cb68c3cba166c23d52d6c3b0cca59924994110b4bcc5b598bd61",
+        "60717a841404d6ac926c793597b75856d8fe140f050c112d77bc5673398f1387",
+    ),
+    "login-loading": (
+        "57882af9a9af257f06eb85fdeea8812590a8e909998916f7943de4c0e3170f8d",
+        "9467f71c92e892794386426ba66f64208a717b26b4a9d3f699d3ad4f07e20d1c",
+    ),
+    "login-crash": (
+        "e75b2eedd876fb8424220166eb5b590fd1f6528cc1a7922b2fa3b6e3575ba17e",
+        "21064f0b0358bb302d66f844c420318be93843d9436db55f3b713d0f490a00ac",
+    ),
+    "part-none": (
+        "1792ef17d695f71013bf7ff42078e849e032ee52dd3d9e7c5bfb6b5bcd410cc2",
+        "c7e557048ed070802d9d3196c80cad267caf673a547d55ce12b6a15ea01e3b76",
+    ),
+    "part-scratch": (
+        "41f05210b8f4c9fab2a5875f14e52965f7da66af9ac3581ea768251dc9be041c",
+        "15cc9d99f9a5673811a80023654b83b2a8e1f79937247c56f686244d95172269",
+    ),
+    "part-dent": (
+        "1d5224d7b1d1b98a16942e1a4abbf46164dd9d16df3dea4c69a684284ae0236d",
+        "a6e5a161eac203aa19d140073c0fe92ede862edf51c21e6f145d6915ac351bda",
+    ),
+    "part-missing_screw": (
+        "f01cdc628ce08f0ff9387add8fd07ec0f94776dd76cc3d6401d1473d8843d4e6",
+        "dac83bf4cdb4e45c3ad0590f1f86b8ded70ce473f8f08c25dc4e6eeb856084b2",
+    ),
+    "hud": (
+        "cfdde47152eb7af0c6b1f1f821603950c4a053ca841e67adae9665cd9423c218",
+        "c1002d3b58370c31ab9ced87a15550c53ccb1e75f4235fc392c17d355f620546",
+    ),
+    "belt": (
+        "db279bc3550c583438573090dd6a5824bb702a8a9507607122da7939e6146084",
+        "823c2993c49988c277d2d761ad214e104032d8e4676a0aad16fb63551a379dcf",
+    ),
+}
+
+
+@pytest.mark.parametrize("name", sorted(GOLDEN))
+def test_example_scene_pixels_are_pinned_on_every_python_and_pillow(name):
+    assert si.pixels_sha256(example_canvases()[name].image) == GOLDEN[name][0]
+
+
+@pytest.mark.parametrize("name", sorted(GOLDEN))
+def test_example_scene_bytes_are_pinned_under_the_canonical_pillow(name):
+    if PIL.__version__ != si.CANONICAL_PILLOW:
+        pytest.skip(f"PNG bytes are canonical only under Pillow {si.CANONICAL_PILLOW}")
+    assert hashlib.sha256(example_canvases()[name].png()).hexdigest() == GOLDEN[name][1]
+
+
+def test_the_golden_table_covers_every_scene_and_every_state():
+    assert set(GOLDEN) == set(example_canvases())
+    assert len({pixels for pixels, _ in GOLDEN.values()}) == len(GOLDEN)  # ten different pictures
+
+
+# -- the documentation ----------------------------------------------------------------------------
+
+DOC = REPO / "docs" / "synthetic-images.md"
+BLOCKS = re.findall(r"```python\n(.*?)```", DOC.read_text("utf-8"), re.S)
+
+
+def block_with(text: str) -> str:
+    found = [b for b in BLOCKS if text in b]
+    assert len(found) == 1, f"expected exactly one documented block containing {text!r}"
+    return found[0]
+
+
+def run_script(folder: Path, *args: str):
+    import subprocess
+
+    return subprocess.run(
+        [sys.executable, "build_fixtures.py", *args],
+        cwd=folder,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+
+@pytest.fixture
+def demo_recipe(tmp_path):
+    recipe = tmp_path / "99-demo"
+    recipe.mkdir()
+    (recipe / "build_fixtures.py").write_text(block_with("def draw_shelf"), "utf-8")
+    return recipe
+
+
+def test_the_worked_example_builds_a_recipe_the_validators_accept(demo_recipe):
+    first = run_script(demo_recipe)
+    assert first.returncode == 0, first.stderr
+    lines = first.stdout.splitlines()
+    assert lines[:4] == [
+        "created: assets/login-normal.png",
+        "created: assets/login-error.png",
+        "created: assets/shelf-full.png",
+        "created: assets/shelf-gap.png",
+    ]
+    # the label of the gap is product 3's slot: x 30 + 2 * 70 .. +60, y 40 .. 130 on a 480 x 320 image
+    label = json.loads(lines[4])
+    assert label == {
+        "present": True,
+        "box": {"top": 40 / 320, "bottom": 130 / 320, "left": 170 / 480, "right": 230 / 480},
+    }
+    assert re.fullmatch(r"image:sha256:[0-9a-f]{64}", lines[5])
+    assert problems(demo_recipe) == []
+    for image in sorted((demo_recipe / "assets").iterdir()):
+        data = image.read_bytes()
+        assert checker.check_image(f"recipes/99-demo/assets/{image.name}", data) == []
+    manifest = json.loads((demo_recipe / "assets-manifest.json").read_text("utf-8"))
+    generators = [entry["generator"] for entry in manifest["assets"]]
+    assert (
+        generators
+        == ["jev_cookbook.synthetic_images:login_screen"] * 2 + ["build_fixtures.py:draw_shelf"] * 2
+    )
+    assert manifest["assets"][3]["parameters"] == {"gaps": [2], "seed": 0}
+
+
+def test_the_worked_example_is_stable_and_refuses_a_changed_picture(demo_recipe):
+    assert run_script(demo_recipe).returncode == 0
+    again = run_script(demo_recipe)
+    assert again.returncode == 0 and again.stdout.count("unchanged: ") == 4
+    target = demo_recipe / "assets" / "shelf-gap.png"
+    original = target.read_bytes()
+    # the committed picture is no longer what the code draws (a different scene was saved over it)
+    target.write_bytes((demo_recipe / "assets" / "shelf-full.png").read_bytes())
+    refused = run_script(demo_recipe)
+    assert (
+        refused.returncode == 1
+        and "refused:" in refused.stdout
+        and "pixels differ" in refused.stdout
+    )
+    assert target.read_bytes() != original  # nothing was rewritten
+    accepted = run_script(demo_recipe, "--overwrite")
+    assert accepted.returncode == 0 and "rewritten: assets/shelf-gap.png" in accepted.stdout
+    assert target.read_bytes() == original
+
+
+def test_the_other_documented_blocks_run(demo_recipe, monkeypatch):
+    assert run_script(demo_recipe).returncode == 0
+    monkeypatch.chdir(demo_recipe)
+    for needle in ("Path.cwd()", "screen.blur(1)", "moving_object_frames([0.0, 1.0, 2.5, 4.0]"):
+        exec(
+            compile(block_with(needle), str(DOC), "exec"), {"__name__": "__docs__"}
+        )  # our own docs
+
+
+def test_every_documented_block_is_lint_clean_and_the_set_is_complete():
+    import subprocess
+
+    assert len(BLOCKS) == 4
+    for index, block in enumerate(BLOCKS):
+        done = subprocess.run(
+            [sys.executable, "-m", "ruff", "check", "--stdin-filename", f"block{index}.py", "-"],
+            input=block,
+            capture_output=True,
+            text=True,
+            cwd=REPO,
+        )
+        assert done.returncode == 0, done.stdout + done.stderr
+
+
+def test_the_docs_link_to_the_page_and_its_images_exist():
+    text = DOC.read_text("utf-8")
+    links = re.findall(r"\]\((assets/synthetic-images/[^)]+)\)", text)
+    assert len(links) >= 6
+    for link in links:
+        assert (REPO / "docs" / link).is_file(), link
+    for page in ("vision.md", "fixtures.md"):
+        assert "synthetic-images.md" in (REPO / "docs" / page).read_text("utf-8")
+    for needle in ("no real photograph", "fictional", "invented", "byte"):
+        assert needle in text.lower().replace("**", "")
+
+
+GALLERY = REPO / "docs" / "assets" / "synthetic-images"
+
+
+def load_gallery():
+    spec = importlib.util.spec_from_file_location(
+        "build_gallery_for_test", GALLERY / "build_gallery.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_committed_gallery_is_what_the_script_draws():
+    module = load_gallery()
+    drawn = module.gallery()
+    assert sorted(drawn) == sorted(p.name for p in GALLERY.glob("*.png"))
+    for name, image in drawn.items():
+        committed = (GALLERY / name).read_bytes()
+        assert si.pixels_sha256(committed) == si.pixels_sha256(image), name
+        assert checker.check_image(f"docs/assets/synthetic-images/{name}", committed) == [], name
+        if PIL.__version__ == si.CANONICAL_PILLOW:
+            assert committed == si.encode_png(image), name
+
+
+def test_the_gallery_script_refuses_a_changed_picture_and_never_rewrites_it(
+    tmp_path, monkeypatch, capsys
+):
+    module = load_gallery()
+    monkeypatch.setattr(module, "HERE", tmp_path)
+    assert module.main([]) == 0
+    stale = tmp_path / "deck-hud.png"
+    original = stale.read_bytes()
+    stale.write_bytes((tmp_path / "frames.png").read_bytes())
+    assert module.main([]) == 1
+    assert "MISMATCH" in capsys.readouterr().out
+    assert stale.read_bytes() != original
+    assert module.main(["--overwrite"]) == 0
+    assert stale.read_bytes() == original
+
+
+def test_the_package_does_not_import_the_drawing_kit_on_import():
+    import subprocess
+
+    code = "import sys, jev_cookbook; print('jev_cookbook.synthetic_images' in sys.modules)"
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
+    assert out.stdout.strip() == "False"

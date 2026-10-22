@@ -336,6 +336,10 @@ per-item order is derived the same documented-stable way; recipe 12's `shuffled_
 ### Image fixtures
 
 Keep small synthetic PNG/JPEG files in the recipe's `assets/` directory, beside `fixtures/`.
+Draw them with the shared kit, [`jev_cookbook.synthetic_images`](synthetic-images.md): it needs no
+real photograph, brand or screenshot, returns the exact box of what it draws so labels are derived,
+writes files that pass the contract below, and its `manifest_entry` is what the manifest's
+`generator` field points at.
 The fixture directory continues to contain only its documented JSON/JSONL files; image bytes
 and base64 do not belong in those files.
 

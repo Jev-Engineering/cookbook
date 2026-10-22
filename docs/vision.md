@@ -4,6 +4,11 @@ Import these helpers from `jev_cookbook.vision`. They run locally with Pillow an
 not import the TypeSafe SDK, contact a service, decode video or perform an action.
 The shared backend accepts their raw asset dictionaries through `assets=`.
 
+The images themselves are drawn, not photographed: [`jev_cookbook.synthetic_images`](synthetic-images.md)
+generates deterministic synthetic screenshots, defects, HUDs, logos and frame sequences, returns the
+exact box of everything it draws (so gold labels are derived, not typed), and saves them under the
+byte-stability rule that keeps replay keys valid.
+
 ## Image assets and reproducible references
 
 ```python
