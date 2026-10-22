@@ -49,6 +49,20 @@ check id                              rule -> detection
                                        coverage/accuracy/risk/precision/recall/F1/nDCG
                                        keyword with a rounded-float format) carries at
                                        least ``{check}``, traced through simple bindings.
+                                       NOT the honesty rule: it covers one formatting
+                                       convention (a ``print(`` that spells ``{x:.Nf}``
+                                       beside one of those seven words) and nothing else.
+                                       Outside it: a metric printed through an aligned spec
+                                       (#270), a hoisted format string (#234), a helper, or
+                                       ``round()``; a metric whose line names none of the
+                                       seven words; every sentence of prose in a markdown
+                                       cell or a README; and every claim about quality,
+                                       latency or cost that is not a printed metric line.
+                                       Its existence is not evidence that section 2 is
+                                       enforced; the five checks at the end of this table
+                                       (``reported_provenance_matches_fixtures`` ...) are
+                                       what #218 added, and
+                                       docs/offline-and-live.md lists what none of them reach.
 ``figure_titles_check_only``          docs/notebook-style.md "Title convention": a
                                        ``plot_confusion_matrix``/``plot_threshold_sweep``/
                                        ``plot_risk_coverage`` title carries ``{check}`` and
@@ -134,6 +148,38 @@ check id                              rule -> detection
                                        an argument is NOT reached (recipe 39; see below), and
                                        the skip says so rather than claiming the recipe builds
                                        fewer than two.
+``reported_provenance_matches_fixtures``
+                                       #218, CONTRIBUTING.md section 2: the mode the
+                                       committed output reports (the ``Mode:`` header, every
+                                       ``Provenance:`` line, the measured cell's offline
+                                       disclosure, ``Captured:``) is the provenance the stored
+                                       answers carry (``responses.json -> answers -> name ->
+                                       provenance.source``), and fails closed on a header, a
+                                       provenance line or a fixture it cannot read. Not a
+                                       vocabulary check: see "Honesty checks" below.
+``readme_states_fixture_provenance``  #218: the README's ``**Mode:**`` line names the mode the
+                                       fixtures carry, a recipe with no live run says "not
+                                       measured live", and a recorded recipe names its model and
+                                       capture dates.
+``metric_output_lines_carry_pipeline_check``
+                                       #218: in a synthetic or scripted run (read from the
+                                       fixtures), every committed output line that names a
+                                       metric word and prints a decimal or a percentage
+                                       carries ``(a pipeline check, not a Jev result)`` on the
+                                       same line. Keyed on the printed line, so precision,
+                                       alignment and hoisting do not matter.
+``prose_quantities_are_printed``      #218: a percentage or decimal quoted next to a metric
+                                       word, a price, a latency or a throughput in the README
+                                       or a markdown cell is a number the committed output
+                                       printed (or the recipe's own tests type), at the quote's
+                                       precision, as a percentage or a fraction.
+``no_unhedged_quality_claim_about_jev``
+                                       #218 item 1, the narrow form: in a synthetic or
+                                       scripted recipe, no README or markdown sentence says Jev
+                                       or the model does something correctly/reliably/well ...
+                                       or is accurate/fast/cheap ..., or outperforms something,
+                                       unless the same sentence, heading, list item or
+                                       table row negates, hedges or attributes it.
 ====================================  =====================================================
 
 Scope decisions (see the pull request body for the full reasoning):
@@ -254,6 +300,49 @@ Scope decisions (see the pull request body for the full reasoning):
   The checks that skip on "no resolvable ``select_confidence_threshold(`` call"
   (``threshold_objective_pin`` and ``stored_answers_strong_form``) are unchanged:
   ``confidence_gate_from_shared_helper`` is what makes the skip mean "no gate" rather than "a gate the finder cannot see".
+* Honesty checks (#218, CONTRIBUTING.md section 2). The rule "no notebook, README or pull request
+  may state or imply anything about Jev's real quality, latency or cost except as measured" had
+  no check, and a fabricated "97.4% accuracy, 180 ms median latency, $0.0004 a call" passed every
+  test in the repository twice. A check cannot judge meaning, and none of these claims to. They
+  are a floor, built on what is decidable, and ``docs/offline-and-live.md`` ("What the recipe
+  guard checks about section 2") is where a reviewer reads what is NOT covered. The decisions:
+
+  - IMPLEMENTED (items 2 and 3, and the quoted-value check from #218's third comment):
+    ``reported_provenance_matches_fixtures``, ``readme_states_fixture_provenance``,
+    ``metric_output_lines_carry_pipeline_check`` and ``prose_quantities_are_printed``. Measured
+    over the 50 published recipes and the template when they landed: 0 violations, so none is in
+    ``tests/recipe_guard_known_failures.py``. Each examined real input (6548 committed output
+    lines, 1190 metric lines, 213 quoted quantities, none of them a price or a latency), and
+    ``test_each_detector_sees_something_...`` pins floors so a parser that finds nothing cannot
+    pass for a clean tree.
+  - REJECTED, item 3 as worded ("a notebook that says ``recorded`` must have a non-synthetic
+    response"): every one of the 51 recipe folders says ``recorded`` in its prose (214 times in
+    READMEs and markdown cells), in the contract's own counterfactual and for a logged action,
+    so it would reject the template. The replacement compares the mode the output REPORTS with
+    the mode the fixtures CARRY.
+  - IMPLEMENTED NARROWLY, item 1 (claim vocabulary): ``no_unhedged_quality_claim_about_jev``
+    flags only a sentence in which Jev or the model (not a possessive: "the model's stored
+    answers") is the subject of an evaluative adverb or adjective, with no negation, hypothetical
+    or attribution in it. The unit a hedge covers is its own sentence, heading, list item (with
+    its wrapped lines) or table row (``_markdown_units``): a hedge word in a neighbouring bullet or
+    in the heading above excuses nothing. Measured over the 7093 sentences of the 3517 units of
+    the published READMEs and markdown cells: 2 match, both hedged ("not", "not a finding about Jev"), so it
+    lands with 0 violations. REJECTED, the wide form (any evaluative word near a mention of Jev): 644
+    sentences match an ordinary lexicon, nearly all of them disclosures that name accuracy,
+    cost or latency in order to deny them, comparisons between a recipe's own baselines on its
+    own fixtures ("beats"), or TypeSafe's documentation quoted. A recipe pull request cannot edit
+    this file, so an allowlist of reviewed sentences cannot be answered from the recipe that
+    trips it.
+  - REJECTED, a warning tier: pytest has no channel through which a recipe pull request can
+    "answer" a warning inside its own scope, so a warning here would be noise nobody is required
+    to read. A rule this important is a failure or it is the reviewer's.
+  - NOT COVERED, written down rather than omitted: a claim about Jev with no evaluative word
+    ("Jev judges from the evidence as a whole"), a true number given a false interpretation, a
+    fixture-derived statistic offered as evidence about the model, a metric that is perfect by
+    construction and reported without saying so, a statement that misdescribes the notebook's own
+    output (#221's six findings; none quotes a number the output did not print), counts with no
+    decimal ("15 of 15", #326), and pull request text. ``_REVIEWER_ONLY`` below pins that these
+    pass, so a later check that starts catching one must move it deliberately.
 """
 
 from __future__ import annotations
@@ -268,6 +357,7 @@ import re
 import shutil
 import textwrap
 import tokenize
+from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal
 from pathlib import Path
 from types import ModuleType
 
@@ -8202,3 +8292,2005 @@ def test_the_inventory_matches_what_the_published_recipes_do_today():
     for recipe in PUBLISHED:
         if recipe["slug"] in SIDE_EFFECT_INVENTORY:
             assert _side_effect_violations(recipe["slug"], recipe_dir(recipe)) == [], recipe["slug"]
+
+
+# --------------------------------------------------------------------------------------------
+# checks 12-16: CONTRIBUTING.md section 2, the honesty rule (#218)
+# --------------------------------------------------------------------------------------------
+#
+# Five checks, each keyed on the PRINTED value or the PROVENANCE the fixtures carry, never on
+# how the source happens to be spelled. What each can and cannot say is written up for readers
+# in docs/offline-and-live.md ("What the recipe guard checks about section 2"); every message
+# below cites it, and the module docstring at the top of this file lists the check ids.
+#
+# * ``reported_provenance_matches_fixtures``: the mode the committed output reports (header,
+#   ``Provenance:`` lines, the measured cell's disclosure) agrees with the provenance the stored
+#   answers carry.
+# * ``readme_states_fixture_provenance``: the README's ``**Mode:**`` line agrees with it too, and a
+#   recipe with no live run says "not measured live".
+# * ``metric_output_lines_carry_pipeline_check``: in a synthetic or scripted run, every committed
+#   output line that names a metric and prints a decimal or percentage carries the label.
+# * ``prose_quantities_are_printed``: a number the README or a markdown cell quotes next to a
+#   metric, as a price, or as a latency or throughput is a number the run printed.
+# * ``no_unhedged_quality_claim_about_jev``: in a recipe whose answers are all synthetic, no
+#   sentence says Jev or the model does something correctly, reliably, well ... or is accurate,
+#   fast, cheap ... without a negation, a hypothetical or an attribution in the same sentence.
+
+PIPELINE_CHECK_LABEL = "(a pipeline check, not a Jev result)"
+SYNTHETIC_RUN_MODES = ("synthetic", "scripted")
+# Every message below cites this section, which is also where the limits are written down.
+HONESTY_DOC = "docs/offline-and-live.md#what-the-recipe-guard-checks-about-section-2"
+HONESTY_CHECKS = (
+    "reported_provenance_matches_fixtures",
+    "readme_states_fixture_provenance",
+    "metric_output_lines_carry_pipeline_check",
+    "prose_quantities_are_printed",
+    "no_unhedged_quality_claim_about_jev",
+)
+
+_MODE_LINE = re.compile(
+    r"^Mode: (?:offline replay of (?P<replay>\w+) fixtures|offline, (?P<scripted>scripted) backend"
+    r"|(?P<live>live)\b)"
+)
+_PROVENANCE_LINE = re.compile(r"^Provenance: (?P<word>\w+)")
+_DISCLOSURE_LINE = re.compile(
+    r"^Provenance: (?P<mode>\w+)\. Not measured live: a pipeline check, not a Jev result\.$"
+)
+_CAPTURE_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_DATE = r"\b\d{4}-\d{2}-\d{2}\b"
+# The four lines a recorded run prints about itself, exactly as ``style.run_header_text``, the
+# measured cell and ``style.format_answer`` produce them. Each is matched in full, so a model or
+# a date the line states beyond the fixtures' is a line this check cannot read, not a pass.
+_RECORDED_HEADER = re.compile(
+    r"^The answers were captured from real Jev calls to model (?P<model>\S+) "
+    rf"(?:on (?P<first>{_DATE})|between (?P<from>{_DATE}) and (?P<to>{_DATE}))\. "
+    r"Any numbers below describe only that recorded sample(?: of \d+ examples?)?\.$"
+)
+_RECORDED_MODEL_LINE = re.compile(r"^Provenance: recorded, model (?P<model>\S+)$")
+_CAPTURED_LINE = re.compile(rf"^Captured: (?P<dates>{_DATE}(?:, {_DATE})*)$")
+_RECORDED_ANSWER_LINE = re.compile(
+    rf"^Provenance: recorded(?: \((?P<model>[^,()]+)(?:, (?P<date>{_DATE}))?\))?$"
+)
+_MODEL_TOKEN = re.compile(r"\bjev-\d+(?:\.\d+)+\b", re.IGNORECASE)
+_README_MODE = re.compile(r"\*\*Mode:\*\*\s+(\w+)")
+
+
+def _committed_output_lines(recipe_dir_: Path) -> list[tuple[str, str]]:
+    """``(cell id, line)`` for every line of every code cell's committed output (printed text and
+    the text/plain of a displayed value). The printed value, not the source that produced it: a
+    check on these lines does not care whether a number was formatted with ``:.4f``, ``:.2f``, an
+    aligned spec, or in a helper the ``print`` only mentions by name."""
+    return [
+        (str(cell.get("id", "?")), line)
+        for cell in notebook_cells(recipe_dir_)
+        if cell["cell_type"] == "code"
+        for line in _output_text(cell).splitlines()
+    ]
+
+
+def _scripted_recipe(recipe_dir_: Path) -> bool:
+    """A recipe with no stored responses whose ``helpers.py`` defines the ``script`` function and
+    ``SEED`` that ``tools/new_recipe.py --mode scripted`` scaffolds (docs/recipe-template.md)."""
+    try:
+        tree = ast.parse((recipe_dir_ / "helpers.py").read_text("utf-8"))
+    except (OSError, SyntaxError):
+        return False
+    functions = {n.name for n in tree.body if isinstance(n, ast.FunctionDef)}
+    assigned = {
+        t.id
+        for n in tree.body
+        if isinstance(n, ast.Assign)
+        for t in n.targets
+        if isinstance(t, ast.Name)
+    }
+    return "script" in functions and "SEED" in assigned
+
+
+def _fixture_provenance(recipe_dir_: Path) -> tuple[str | None, list[str], list[str], list[str]]:
+    """``(mode, models, dates, problems)`` read from what the fixtures themselves carry: the
+    ``source`` of every stored answer's provenance (``responses.json -> <replay key> -> answers ->
+    <question> -> provenance.source``, one level deeper than the response, which carries only its
+    ``model``). ``mode`` is ``None`` when the fixtures cannot be read as one honest set, and then
+    ``problems`` says why: a file that cannot be read, or an answer without provenance, is a
+    problem rather than an empty set that every notebook would trivially agree with."""
+    path = recipe_dir_ / "fixtures" / "responses.json"
+    if not path.is_file():
+        if _scripted_recipe(recipe_dir_):
+            return "scripted", [], [], []
+        return (
+            None,
+            [],
+            [],
+            ["no fixtures/responses.json, and helpers.py defines no `script` and `SEED`"],
+        )
+    try:
+        data = json.loads(path.read_text("utf-8"))
+    except (OSError, ValueError) as exc:
+        return None, [], [], [f"fixtures/responses.json cannot be read: {exc}"]
+    if not isinstance(data, dict) or not data:
+        return None, [], [], ["fixtures/responses.json holds no stored responses"]
+    problems: list[str] = []
+    sources: set[str] = set()
+    models: set[str] = set()
+    dates: set[str] = set()
+    answers_seen = 0
+    for key, response in data.items():
+        answers = response.get("answers") if isinstance(response, dict) else None
+        if not isinstance(answers, dict) or not answers:
+            problems.append(f"response {key[:12]} stores no answers")
+            continue
+        for name, answer in answers.items():
+            provenance = answer.get("provenance") if isinstance(answer, dict) else None
+            source = provenance.get("source") if isinstance(provenance, dict) else None
+            if source not in ("synthetic", "recorded"):
+                problems.append(f"answer {name!r} of response {key[:12]} has provenance {source!r}")
+                continue
+            answers_seen += 1
+            sources.add(source)
+            if source == "recorded":
+                model, date = provenance.get("model"), provenance.get("date")
+                if isinstance(model, str) and model and model != "synthetic":
+                    models.add(model)
+                else:
+                    problems.append(f"recorded answer {name!r} names no model")
+                if isinstance(date, str) and _CAPTURE_DATE.match(date):
+                    dates.add(date)
+                else:
+                    problems.append(f"recorded answer {name!r} has no capture date")
+    if not answers_seen:
+        problems.append("no stored answer carries a readable provenance")
+    if len(sources) > 1:
+        problems.append("the stored answers mix synthetic and recorded provenance")
+    if len(models) > 1:
+        problems.append(f"the recorded answers come from more than one model: {sorted(models)}")
+    if problems:
+        return None, sorted(models), sorted(dates), problems
+    return sources.pop(), sorted(models), sorted(dates), []
+
+
+def _provenance_violations(recipe_dir_: Path) -> list[str]:
+    """What the committed output REPORTS about provenance, held against what the fixtures CARRY.
+
+    Fails closed in both directions: fixtures that cannot be read, a header or a provenance line
+    the parser does not find, and a mode the output states that the fixtures do not carry are all
+    violations, so a reader that finds nothing cannot pass for a recipe that agrees."""
+    mode, models, dates, problems = _fixture_provenance(recipe_dir_)
+    violations = [f"fixtures: {problem}" for problem in problems]
+    if mode is None:
+        return violations
+    lines = _committed_output_lines(recipe_dir_)
+    reported = []
+    for cell_id, line in lines:
+        if line.startswith("Mode:"):
+            match = _MODE_LINE.match(line)
+            if match is None:
+                violations.append(
+                    f"cell {cell_id}: a `Mode:` line this check cannot read: {line!r}"
+                )
+            else:
+                word = match.group("replay") or match.group("scripted") or "live"
+                reported.append((cell_id, word))
+    if not reported:
+        violations.append("the committed output has no `Mode:` header line (`run_header`)")
+    for cell_id, word in reported:
+        if word != mode:
+            violations.append(
+                f"cell {cell_id}: the header reports {word!r} but the fixtures carry {mode!r} answers"
+            )
+    words = [
+        (cell_id, match.group("word"), line)
+        for cell_id, line in lines
+        if (match := _PROVENANCE_LINE.match(line))
+    ]
+    if not words:
+        violations.append("the committed output has no `Provenance:` line")
+    allowed = {"synthetic": {"synthetic"}, "scripted": {"scripted", "synthetic"}}.get(
+        mode, {"recorded"}
+    )
+    for cell_id, word, line in words:
+        if word not in allowed:
+            violations.append(
+                f"cell {cell_id}: {line!r} reports {word!r} but the fixtures carry {mode!r} answers"
+            )
+    text = "\n".join(line for _, line in lines)
+    disclosed = {m.group("mode") for _, line in lines if (m := _DISCLOSURE_LINE.match(line))}
+    if mode in SYNTHETIC_RUN_MODES:
+        if mode not in disclosed:
+            violations.append(
+                f"no `Provenance: {mode}. Not measured live: a pipeline check, not a Jev result.` "
+                "line in the committed output (the measured cell's offline branch)"
+            )
+        for marker in ("Captured:", "captured from real Jev calls"):
+            if marker in text:
+                violations.append(
+                    f"the committed output says {marker!r}, a recorded run's wording, "
+                    f"but the fixtures carry only {mode!r} answers"
+                )
+    else:
+        violations += _recorded_run_violations(lines, models[0], dates)
+    return violations
+
+
+def _recorded_run_violations(
+    lines: list[tuple[str, str]], model: str, dates: list[str]
+) -> list[str]:
+    """A recorded run states, in its committed output, exactly the model and the capture dates the
+    fixtures carry: the header (``on D`` or ``between FIRST and LAST``), every ``Provenance:
+    recorded`` line (the measured cell's ``, model M`` and each answer's ``(M, D)``), and the
+    ``Captured:`` lines (every date, comma separated). Two-directional: a line missing, a line
+    this check cannot read, a model or a date the fixtures do not carry, and a ``jev-N.N.N`` model
+    string anywhere in the output other than the fixtures' are each a violation."""
+    text = "\n".join(line for _, line in lines)
+    out: list[str] = []
+    if "a pipeline check, not a Jev result" in text:
+        out.append(
+            "the committed output carries the pipeline-check disclosure but the fixtures hold "
+            "recorded answers"
+        )
+    span = f"{dates[0]} to {dates[-1]}"
+    headers = [(c, line) for c, line in lines if "captured from real Jev calls" in line]
+    if not headers:
+        out.append("the committed output has no recorded-run header (`run_header`)")
+    for cell_id, line in headers:
+        match = _RECORDED_HEADER.match(line)
+        if match is None:
+            out.append(f"cell {cell_id}: a recorded header this check cannot read: {line!r}")
+            continue
+        first = match.group("first") or match.group("from")
+        last = match.group("first") or match.group("to")
+        if (match.group("model"), first, last) != (model, dates[0], dates[-1]):
+            out.append(
+                f"cell {cell_id}: the header says model {match.group('model')} from {first} to "
+                f"{last}, but the fixtures carry model {model} from {span}"
+            )
+    stated_model_lines = 0
+    for cell_id, line in lines:
+        if not line.startswith("Provenance: recorded"):
+            continue
+        if line.startswith("Provenance: recorded,"):
+            match = _RECORDED_MODEL_LINE.match(line)
+            if match is None:
+                out.append(f"cell {cell_id}: a `Provenance:` line this check cannot read: {line!r}")
+            elif match.group("model") != model:
+                out.append(
+                    f"cell {cell_id}: {line!r} names model {match.group('model')!r}, not {model!r}"
+                )
+            else:
+                stated_model_lines += 1
+            continue
+        match = _RECORDED_ANSWER_LINE.match(line)
+        if match is None:
+            out.append(f"cell {cell_id}: a `Provenance:` line this check cannot read: {line!r}")
+            continue
+        if match.group("model") not in (None, model):
+            out.append(
+                f"cell {cell_id}: {line!r} names model {match.group('model')!r}, not {model!r}"
+            )
+        if match.group("date") not in (None, *dates):
+            out.append(
+                f"cell {cell_id}: {line!r} names date {match.group('date')!r}, not one of {dates}"
+            )
+    if not stated_model_lines:
+        out.append(f"no `Provenance: recorded, model {model}` line in the committed output")
+    stated: set[str] = set()
+    captured = [(c, line) for c, line in lines if line.startswith("Captured:")]
+    if not captured:
+        out.append(f"no `Captured:` line naming the capture dates {dates}")
+    for cell_id, line in captured:
+        match = _CAPTURED_LINE.match(line)
+        if match is None:
+            out.append(f"cell {cell_id}: a `Captured:` line this check cannot read: {line!r}")
+        else:
+            stated |= set(match.group("dates").split(", "))
+    if captured and stated != set(dates):
+        out.append(
+            f"the `Captured:` lines state capture dates {sorted(stated)} but the fixtures carry {dates}"
+        )
+    out += [
+        f"the committed output states model {token!r} but the fixtures carry {model!r}"
+        for token in sorted(set(_MODEL_TOKEN.findall(text)) - {model})
+    ]
+    return out
+
+
+def _readme_provenance_violations(recipe_dir_: Path) -> list[str]:
+    """The README's statement of the run, held against the fixtures (CONTRIBUTING.md section 2:
+    "If no live run was made, the recipe README says 'not measured live'"; a recorded recipe
+    names the model and the capture date)."""
+    mode, models, dates, problems = _fixture_provenance(recipe_dir_)
+    violations = [f"fixtures: {problem}" for problem in problems]
+    if mode is None:
+        return violations
+    readme = recipe_dir_ / "README.md"
+    if not readme.is_file():
+        return [*violations, "no README.md"]
+    text = " ".join(readme.read_text("utf-8").split())
+    match = _README_MODE.search(text)
+    if match is None:
+        violations.append(
+            "the README has no `**Mode:**` line under 'What was and was not measured'"
+        )
+    elif match.group(1) != mode:
+        violations.append(
+            f"the README states mode {match.group(1)!r} but the fixtures carry {mode!r}"
+        )
+    if mode in SYNTHETIC_RUN_MODES:
+        if "not measured live" not in text.lower():
+            violations.append(
+                "the README never says 'not measured live' for a recipe with no live run"
+            )
+    else:
+        violations += [
+            f"the README does not state {needle!r}, a recorded recipe's model or capture date"
+            for needle in (*models, *dates)
+            if needle not in text
+        ]
+        violations += [
+            f"the README states the date {extra}, which the fixtures do not carry"
+            for extra in sorted(set(re.findall(_DATE, text)) - set(dates))
+        ]
+        violations += [
+            f"the README states model {extra!r}, which the fixtures do not carry"
+            for extra in sorted({t.lower() for t in _MODEL_TOKEN.findall(text)} - set(models))
+        ]
+    return violations
+
+
+# What a printed metric is, by the words and numbers on the committed line. It needs no source at
+# all, which is the point: ``METRIC_KEYWORD`` and ``FLOAT_FORMAT`` above key on a `print(` whose
+# call spells a rounded float, and an aligned spec (#270) or a hoisted format (#234) leaves them
+# with nothing to say.
+OUTPUT_METRIC_WORD = re.compile(
+    r"\b(coverage|accuracy|risk|precision|recall|f1|ndcg|agreement|auc|mrr|brier|"
+    r"error rate|hit rate)\b",
+    re.IGNORECASE,
+)
+# A decimal such as 0.8750 or 3.8, or a percentage; not a bare integer. A count ("15 of 19") is not
+# a metric by this check's reading: the unlabelled counts of recipes 07 and 47 are #326's.
+OUTPUT_NUMBER = re.compile(r"(?<![\w.])\d+\.\d+(?!\w|\.\w)|(?<![\w.])\d+(?:\.\d+)?\s?%")
+
+
+def _unlabelled_metric_output_lines(recipe_dir_: Path) -> list[str]:
+    """In a synthetic or scripted run, every committed output line that names a metric and prints
+    a decimal or a percentage must carry ``(a pipeline check, not a Jev result)`` on the same line
+    (CONTRIBUTING.md section 2: "any metric is a check that the pipeline works, and the notebook
+    says so next to the number"). Whether the run is synthetic is read from the fixtures, never
+    from the output's own say-so."""
+    if _fixture_provenance(recipe_dir_)[0] not in SYNTHETIC_RUN_MODES:
+        return []
+    return [
+        f"cell {cell_id}: {line.strip()[:110]!r}"
+        for cell_id, line in _committed_output_lines(recipe_dir_)
+        if OUTPUT_METRIC_WORD.search(line)
+        and OUTPUT_NUMBER.search(line)
+        and PIPELINE_CHECK_LABEL not in line
+    ]
+
+
+# --- prose: a quantity quoted next to a metric, a price or a latency must have been printed -------
+
+_METRIC_NOUN = (
+    r"(?:accuracy|precision|recall|f1|f-score|ndcg|coverage|risk|agreement|auc|mrr|brier|"
+    r"error rate|hit rate|top-\d+|pass rate|false[- ]positive rate|false[- ]negative rate)"
+)
+_AMOUNT = r"(?:\d[\d,]*(?:\.\d+)?\s?%|(?<![\w.])\d[\d,]*\.\d+(?!\w|\.\w))"
+_CONNECTIVES = (
+    r"(?:[\s,:=()`*_~]|\b(?:is|are|was|were|be|been|would|will|could|should|can|of|at|to|in|up|down"
+    r"|from|only|just|about|around|roughly|nearly|exactly|reaches|reached|rises|rose|falls|fell"
+    r"|drops|dropped|climbs|climbed|stays|stayed|remains|remained|equals|becomes|became|comes)\b)*"
+)
+_METRIC_THEN_AMOUNT = re.compile(
+    rf"\b(?P<n>{_METRIC_NOUN})\b{_CONNECTIVES}(?P<q>{_AMOUNT})", re.IGNORECASE
+)
+_AMOUNT_THEN_METRIC = re.compile(
+    rf"(?P<q>{_AMOUNT})[\s`*_~]*\b(?P<n>{_METRIC_NOUN})\b", re.IGNORECASE
+)
+# Risk is one minus accuracy among the answered (``evaluate_selective``), so a quoted risk is
+# backed by a printed accuracy and the other way round (recipe 05 quotes a validation risk of
+# 0.0526 beside a printed accuracy of 0.9474).
+_COMPLEMENTARY_RATES = frozenset({"risk", "accuracy", "error rate"})
+_RATE_LINE = re.compile(r"\b(?:accuracy|risk|error rate)\b", re.IGNORECASE)
+_PERCENT = re.compile(r"(\d+(?:\.\d+)?)\s?%")
+# A price, as a price per unit of work ("$0.0004 a call"), or as a price in a sentence that talks
+# about cost and about Jev, the model or the API. A bare "$500" in a sentence about a fixture's
+# invoice is a number in the example, not a claim about Jev.
+_PRICE_AMOUNT = (
+    r"(?:[$€£]\s?\d[\d,]*(?:\.\d+)?|\d[\d,]*(?:\.\d+)?\s?(?:USD|EUR|GBP|cents?|dollars?)\b)"
+)
+_UNIT_OF_WORK = (
+    r"(?:call|request|token|query|queries|inference|decision|answer|question|example|prediction"
+    r"|1k|1,000|1m|million)s?\b"
+)
+_PRICE_PER_UNIT = re.compile(
+    rf"(?P<q>{_PRICE_AMOUNT}\s?(?:per|a|an|each|every|/)\s?{_UNIT_OF_WORK})", re.IGNORECASE
+)
+_COST_WORD = re.compile(
+    r"\b(?:cost|costs|costing|price|prices|priced|pricing|charge|charges|charged|billing|bills?)\b",
+    re.IGNORECASE,
+)
+_ABOUT_JEV = re.compile(r"\b(?:Jev|the model|the API|System One|inference)\b", re.IGNORECASE)
+_LATENCY_MS = re.compile(r"(?P<q>\d[\d,]*(?:\.\d+)?\s?(?:ms|milliseconds?)\b)", re.IGNORECASE)
+_THROUGHPUT = re.compile(
+    r"(?P<q>\d[\d,]*(?:\.\d+)?\s?(?:calls?|requests?|tokens?)\s?(?:/|per )\s?"
+    r"(?:s|sec|second|minute)\b)",
+    re.IGNORECASE,
+)
+_SECONDS = re.compile(r"(?P<q>\d[\d,]*(?:\.\d+)?\s?(?:seconds?|secs?|minutes?)\b)", re.IGNORECASE)
+# A duration is a claim about Jev when the sentence says latency or response time, or says slow,
+# fast, speed or takes AND names Jev, the model, the API, inference or a live run. A sentence about
+# how long the notebook, an install or the offline replay takes names none of these, and a recipe
+# pull request, which cannot edit this file, would have no way to answer a failure on it.
+_SERVICE_SPEED_WORD = re.compile(r"\b(?:latency|response time)\b", re.IGNORECASE)
+_SPEED_WORD = re.compile(r"\b(?:slow|fast|speed|takes?)\b", re.IGNORECASE)
+_LIVE_RUN = re.compile(r"\blive\b", re.IGNORECASE)
+_NUMBER = re.compile(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?")
+
+
+def _decimals(text: str) -> list[Decimal]:
+    return [Decimal(m.group(0).replace(",", "")) for m in _NUMBER.finditer(text)]
+
+
+def _quoted_candidates(quote: str) -> list[tuple[Decimal, int]]:
+    """``(value, decimal places)`` readings of a quoted amount: a percentage is read as itself
+    and as the fraction it stands for (97.4% as 97.4 and as 0.974)."""
+    digits = _NUMBER.search(quote)
+    if digits is None:
+        return []
+    value = Decimal(digits.group(0).replace(",", ""))
+    places = max(0, -value.as_tuple().exponent)
+    if "%" in quote:
+        return [(value, places), (value / 100, places + 2)]
+    return [(value, places)]
+
+
+def _is_printed(quote: str, printed: list[Decimal]) -> bool:
+    """Whether some printed number is ``quote``'s value at the quote's own precision: the same
+    number, or a longer printed number that rounds to it (0.9167 printed, 0.92 quoted; 0.974
+    printed, 97.4% quoted). Precision-independent on purpose: a ``:.2f`` and a ``:.4f`` print of
+    one value are one value. Rounds half up and half even, so a printed 0.8650 backs 0.87 and
+    0.86. A bare integer printed anywhere backs the same integer (100% and a printed 100)."""
+    for value, places in _quoted_candidates(quote):
+        step = Decimal(1).scaleb(-places)
+        for number in printed:
+            if number == value:
+                return True
+            if -number.as_tuple().exponent > places and value in (
+                number.quantize(step, ROUND_HALF_UP),
+                number.quantize(step, ROUND_HALF_EVEN),
+            ):
+                return True
+    return False
+
+
+def _clean_markdown(text: str) -> str:
+    """``text`` less fenced code, HTML comments and link targets, which hold commands and URLs,
+    not claims. Line breaks are kept: they are what ``_markdown_units`` splits on."""
+    text = re.sub(r"^\s*(```|~~~).*?^\s*\1", " ", text, flags=re.DOTALL | re.MULTILINE)
+    text = re.sub(r"<!--.*?-->", " ", text, flags=re.DOTALL)
+    return re.sub(r"\]\([^)]*\)", "]", text)
+
+
+_MD_HEADING = re.compile(r"\s*#{1,6}\s")
+_MD_TABLE_ROW = re.compile(r"\s*\|")
+_MD_LIST_ITEM = re.compile(r"\s*(?:[-*+]|\d+[.)])\s")
+
+
+def _markdown_units(text: str) -> list[str]:
+    """The statements a markdown block makes, each whitespace-collapsed: a heading, a table row,
+    a list item (with its wrapped continuation lines) and a paragraph are separate units, so a
+    hedge word in a heading or in the next bullet can never excuse a sentence in another unit.
+    Sentence punctuation then splits a unit further (``_sentences``)."""
+    units: list[str] = []
+    current: list[str] = []
+
+    def flush() -> None:
+        if current:
+            units.append(" ".join(" ".join(current).split()))
+            current.clear()
+
+    for line in text.splitlines():
+        if not line.strip():
+            flush()
+        elif _MD_HEADING.match(line) or _MD_TABLE_ROW.match(line):
+            flush()
+            current.append(line)
+            flush()
+        elif _MD_LIST_ITEM.match(line):
+            flush()
+            current.append(line)
+        else:
+            current.append(line)
+    flush()
+    return units
+
+
+def _prose_blocks(recipe_dir_: Path) -> list[tuple[str, str]]:
+    """``(where, markdown)`` for the README and every notebook markdown cell, cleaned but with
+    its line structure intact."""
+    blocks = []
+    readme = recipe_dir_ / "README.md"
+    if readme.is_file():
+        blocks.append(("README.md", readme.read_text("utf-8")))
+    for cell in notebook_cells(recipe_dir_):
+        if cell["cell_type"] == "markdown":
+            blocks.append((f"notebook.ipynb cell {cell.get('id', '?')}", cell_source(cell)))
+    return [(where, _clean_markdown(text)) for where, text in blocks]
+
+
+def _prose_of(recipe_dir_: Path) -> list[tuple[str, str]]:
+    """``(where, unit)`` for every unit of the README and of every notebook markdown cell."""
+    return [
+        (where, unit)
+        for where, text in _prose_blocks(recipe_dir_)
+        for unit in _markdown_units(text)
+    ]
+
+
+def _sentences(text: str) -> list[str]:
+    return re.split(r"(?<=[.!?])\s+", text)
+
+
+def _quoted_quantities(text: str) -> list[tuple[str, str]]:
+    """``(kind, quote)`` for every quantity ``text`` quotes next to a metric word (``metric``, or
+    ``rate`` for risk, accuracy and error rate, which are each other's complement), as a price
+    (``price``), or as a latency or a throughput (``speed``)."""
+    found = []
+    for sentence in _sentences(text):
+        for pattern in (_METRIC_THEN_AMOUNT, _AMOUNT_THEN_METRIC):
+            found += [
+                ("rate" if m.group("n").lower() in _COMPLEMENTARY_RATES else "metric", m.group("q"))
+                for m in pattern.finditer(sentence)
+            ]
+        found += [("price", m.group("q")) for m in _PRICE_PER_UNIT.finditer(sentence)]
+        if _COST_WORD.search(sentence) and _ABOUT_JEV.search(sentence):
+            found += [("price", m.group(0)) for m in re.finditer(_PRICE_AMOUNT, sentence, re.I)]
+        for pattern in (_LATENCY_MS, _THROUGHPUT):
+            found += [("speed", m.group("q")) for m in pattern.finditer(sentence)]
+        if _SERVICE_SPEED_WORD.search(sentence) or (
+            _SPEED_WORD.search(sentence)
+            and (_ABOUT_JEV.search(sentence) or _LIVE_RUN.search(sentence))
+        ):
+            found += [("speed", m.group("q")) for m in _SECONDS.finditer(sentence)]
+    return found
+
+
+def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
+    """The numbers a quote of each kind can be backed by. A ``metric`` quote: any number a code
+    cell's committed output prints, or the recipe's own ``tests/`` type (CONTRIBUTING.md section
+    6: a quoted figure is allowed when "a test re-derives it through the shared helpers"). A
+    ``rate`` quote (risk, accuracy, error rate): those numbers, or the complement of a number
+    printed on a line that names accuracy, risk or error rate (a decimal in [0, 1] with two or more
+    places, or a printed percentage). A printed percentage also backs its fraction. A ``price``
+    or ``speed`` quote: only a price, a latency or a throughput the output prints with its unit,
+    so a printed sample size of 180 does not back "180 ms"."""
+    output = "\n".join(
+        _output_text(cell) for cell in notebook_cells(recipe_dir_) if cell["cell_type"] == "code"
+    )
+    metric = _decimals(output)
+    tests_dir = recipe_dir_ / "tests"
+    if tests_dir.is_dir():
+        for path in sorted(tests_dir.glob("*.py")):
+            metric += _decimals(path.read_text("utf-8"))
+    price = [
+        n for m in re.finditer(_PRICE_AMOUNT, output, re.IGNORECASE) for n in _decimals(m.group(0))
+    ]
+    speed = [
+        n
+        for pattern in (_LATENCY_MS, _THROUGHPUT, _SECONDS)
+        for m in pattern.finditer(output)
+        for n in _decimals(m.group("q"))
+    ]
+    percentages = [Decimal(m.group(1)) for m in _PERCENT.finditer(output)]
+    metric += [pct / 100 for pct in percentages]
+    complements: list[Decimal] = []
+    for line in output.splitlines():
+        if not _RATE_LINE.search(line):
+            continue
+        complements += [
+            1 - n for n in _decimals(line) if 0 <= n <= 1 and -n.as_tuple().exponent >= 2
+        ]
+        complements += [100 - Decimal(m.group(1)) for m in _PERCENT.finditer(line)]
+    return {"metric": metric, "rate": metric + complements, "price": price, "speed": speed}
+
+
+def _unprinted_quantities(recipe_dir_: Path) -> list[str]:
+    printed = _printed_numbers(recipe_dir_)
+    return [
+        f"{where}: {quote.strip()!r} is quoted but no committed output of the notebook prints it"
+        for where, text in _prose_of(recipe_dir_)
+        for kind, quote in _quoted_quantities(text)
+        if not _is_printed(quote, printed[kind])
+    ]
+
+
+# --- prose: Jev or the model, said to do something well, with nothing hedging the sentence ---------
+
+_SUBJECT = r"(?:Jev|the model|System One)(?!['’]s)\b"
+_ADVERB = (
+    r"(?<!how )(?<!as )\b(?:correctly|reliably|accurately|robustly|consistently|perfectly"
+    r"|flawlessly|properly|well)\b(?!-)"
+)
+_ADJECTIVE = (
+    r"(?:very |highly |extremely |quite |always )?(?:accurate|reliable|robust|fast|quick|cheap"
+    r"|inexpensive|affordable|precise|dependable|trustworthy|good|excellent|better|best|superior"
+    r"|right|correct|perfect)\b"
+)
+_QUALITY_CLAIMS = (
+    # ``_sentences`` has already split on a full stop followed by space, so a "." left inside a
+    # sentence is a decimal point, a version or a file name; the span may cross it ("Jev handles
+    # 97.4% of these messages reliably"). It still stops at "!" and "?".
+    re.compile(rf"\b{_SUBJECT}[^!?]{{0,80}}?{_ADVERB}", re.IGNORECASE),
+    re.compile(
+        rf"\b{_SUBJECT}\s+(?:is|are|was|were|gets?|got|stays?|remains?)\s+{_ADJECTIVE}",
+        re.IGNORECASE,
+    ),
+    re.compile(rf"\b{_SUBJECT}\s+(?:outperforms?|beats?|surpass\w*|exceeds?)\b", re.IGNORECASE),
+)
+# What makes a sentence about Jev not an assertion that Jev does well: a negation or a disclosure
+# ("not measured live"), a hypothetical, or an attribution to documentation.
+_HEDGES = re.compile(
+    r"\b(?:not|nothing|never|cannot|without|whether|if|would|could|may|might|unless"
+    r"|says?|said|according)\b|n['’]t\b",
+    re.IGNORECASE,
+)
+
+
+def _excerpt(sentence: str, match: re.Match) -> str:
+    """The sentence, or, for a long one, the stretch around the match: what a builder must change
+    is always in what is printed."""
+    if len(sentence) <= 240:
+        return sentence
+    start, end = max(0, match.start() - 100), match.end() + 100
+    return ("..." if start else "") + sentence[start:end] + ("..." if end < len(sentence) else "")
+
+
+def _claims_in_markdown(text: str) -> list[str]:
+    """Each sentence of ``text`` (a markdown block) that says Jev or the model does something
+    well and has no hedge in its OWN sentence, heading, list item or table row."""
+    found = []
+    for unit in _markdown_units(_clean_markdown(text)):
+        for sentence in _sentences(unit):
+            for pattern in _QUALITY_CLAIMS:
+                match = pattern.search(sentence)
+                if match:
+                    if not _HEDGES.search(sentence):
+                        found.append(_excerpt(sentence, match))
+                    break
+    return found
+
+
+def _unhedged_quality_claims(recipe_dir_: Path) -> list[str]:
+    """In a recipe whose stored answers are all synthetic (or scripted), each sentence of the
+    README or a markdown cell that says Jev or the model does something correctly, reliably,
+    well ... or is accurate, fast, cheap ..., or outperforms something, and carries no negation,
+    hypothetical or attribution in that same sentence (a heading, a bullet and a table row are
+    each their own unit). Synthetic answers were written, so no sentence may say how well the
+    model does. Does not apply to a recorded recipe, which the reviewer holds to its model, date
+    and N."""
+    if _fixture_provenance(recipe_dir_)[0] not in SYNTHETIC_RUN_MODES:
+        return []
+    return [
+        f"{where}: {claim!r}"
+        for where, text in _prose_blocks(recipe_dir_)
+        for claim in _claims_in_markdown(text)
+    ]
+
+
+def _honesty_failure(check: str, violations: list[str]) -> str:
+    return f"{check}: " + "; ".join(violations) + f" (see {HONESTY_DOC})"
+
+
+@pytest.mark.parametrize("recipe", guarded_with_template("reported_provenance_matches_fixtures")())
+def test_the_reported_provenance_agrees_with_what_the_fixtures_carry(recipe):
+    """CONTRIBUTING.md section 2 (#218 item 3): "The notebook states near the top which mode it
+    ran in." The vocabulary form of this check (a notebook that says ``recorded`` must have a
+    non-synthetic response) is rejected: all 50 published recipes and the template say
+    ``recorded`` (143 times across 35 of them when #218 measured it), in the contract's own
+    counterfactual and for a simulated action logged as recorded, so it would reject every
+    one. The structural form is exact: ``backend.mode`` is derived from the fixtures and printed
+    into the committed output (``Mode:`` header, ``Provenance:`` lines, the measured cell's
+    disclosure), and this check asserts that what is printed is what the fixtures carry. It reads
+    the fixtures one level below the response, at ``answers -> <name> -> provenance.source``
+    (``test_the_provenance_reader_agrees_with_the_replay_backend`` proves the reader against the
+    shared backend), and fails closed: nothing found is a violation, not a pass. It cannot tell
+    whether the prose around an honestly declared synthetic run overclaims."""
+    violations = _provenance_violations(recipe_dir(recipe))
+    assert not violations, _honesty_failure("provenance", violations)
+
+
+@pytest.mark.parametrize("recipe", guarded_with_template("readme_states_fixture_provenance")())
+def test_the_readme_states_the_mode_the_fixtures_carry(recipe):
+    """CONTRIBUTING.md section 2: the README says "not measured live" when no live run was made,
+    and a recorded recipe names the model and the capture dates. Its ``**Mode:**`` line must name
+    the mode the fixtures carry. The README is published material in exactly the way a notebook is
+    (#218's second reproduction put a fabricated claim in both)."""
+    violations = _readme_provenance_violations(recipe_dir(recipe))
+    assert not violations, _honesty_failure("README provenance", violations)
+
+
+@pytest.mark.parametrize(
+    "recipe", guarded_with_template("metric_output_lines_carry_pipeline_check")()
+)
+def test_every_metric_line_of_a_synthetic_run_carries_the_pipeline_check_label(recipe):
+    """CONTRIBUTING.md section 2: "In a synthetic run, any metric is a check that the pipeline
+    works, and the notebook says so next to the number." Read off the committed output, so it
+    holds whatever precision (``:.2f``, ``:.4f``), alignment or hoisting produced the number.
+
+    What ``test_every_printed_metric_line_carries_at_least_check`` (check 4b) does not cover, and
+    this does: that check keys on a ``print(`` whose call spells ``{x:.Nf}`` together with a
+    metric keyword, so a metric printed through an aligned spec (``{x:>13.4f}``, #270), a
+    hoisted format string (#234), a helper that prints, or ``%``/``round()`` formatting is outside
+    it. It also does not cover a label that is in the source but absent from the committed
+    output. The limits of this one: a count with no decimal ("15 of 15") is not a metric here
+    (#326 owns those), the label must be on the same line as the number, and a metric whose line
+    names none of ``OUTPUT_METRIC_WORD`` is invisible."""
+    violations = _unlabelled_metric_output_lines(recipe_dir(recipe))
+    assert not violations, _honesty_failure(
+        f"a metric printed without {PIPELINE_CHECK_LABEL}", violations
+    )
+
+
+@pytest.mark.parametrize("recipe", guarded_with_template("prose_quantities_are_printed")())
+def test_a_quantity_quoted_in_prose_is_a_number_the_run_printed(recipe):
+    """CONTRIBUTING.md section 2: no sentence about Jev's quality, latency or cost appears unless
+    it comes from recorded live inference. The decidable part of that is a NUMBER: a percentage or
+    decimal quoted next to a metric word, a price, a latency or a throughput in the README or a
+    markdown cell is a number the notebook's committed output printed (rounding, a percentage
+    for a fraction and a thousands separator are the same number), or one the recipe's own tests
+    type. A fabricated "97.4% accuracy, 180 ms median latency, $0.0004 a call" quotes numbers
+    nothing printed, in both places. Limits: it checks that the number EXISTS in the output, not
+    that it is the right number in the right place (a quoted 1.0000 is backed by any printed
+    1.0000), and it reads no number that is not next to a metric word, a price or a latency, and no
+    number spelled in words."""
+    violations = _unprinted_quantities(recipe_dir(recipe))
+    assert not violations, _honesty_failure("quoted quantity", violations)
+
+
+@pytest.mark.parametrize("recipe", guarded_with_template("no_unhedged_quality_claim_about_jev")())
+def test_no_sentence_says_jev_does_well_in_a_synthetic_recipe(recipe):
+    """CONTRIBUTING.md section 2 (#218 item 1, the narrow form): where every stored answer is
+    synthetic, no README or markdown sentence says Jev or the model does something correctly,
+    reliably, well ... or is accurate, fast, cheap ..., unless the same sentence negates,
+    hedges or attributes it ("not measured live", "would", "TypeSafe's notes say ..."). The wider
+    form, any evaluative word in a sentence that mentions Jev, is rejected: see the module
+    docstring. This is a floor: a synonym passes, and so does a claim with no evaluative word at
+    all ("Jev judges from the evidence as a whole"); the reviewer reads for those."""
+    violations = _unhedged_quality_claims(recipe_dir(recipe))
+    assert not violations, _honesty_failure("claim about Jev", violations)
+
+
+# --- the tests for checks 12-16 ----------------------------------------------------------------
+#
+# Every case below runs against a throwaway copy of the template (or of a published recipe), is
+# built by one mutation of what was committed, and asserts the mutation took effect exactly where
+# intended (``_edit_streams``/``_edit_markdown``/``_edit_text`` insist on the expected number of
+# hits), so a mutation that silently missed its target cannot pass for a check that caught it.
+
+_RECORDED_MODEL = "jev-1.13.0"
+_RECORDED_DATE = "2026-03-02"
+
+
+def _edit_streams(folder: Path, old: str, new: str, count: int | None = 1) -> None:
+    """Replace ``old`` with ``new`` in every committed stream output of the notebook; exactly
+    ``count`` occurrences must exist (``None``: at least one)."""
+    path = folder / "notebook.ipynb"
+    notebook = json.loads(path.read_text("utf-8"))
+    hits = 0
+    for cell in notebook["cells"]:
+        for output in cell.get("outputs", []):
+            if output.get("output_type") == "stream":
+                text = "".join(output["text"])
+                hits += text.count(old)
+                output["text"] = text.replace(old, new).splitlines(keepends=True)
+    assert hits >= 1 if count is None else hits == count, f"{old!r}: found {hits}"
+    path.write_text(json.dumps(notebook), "utf-8")
+
+
+def _append_cell(folder: Path, cell_type: str, text: str, cell_id: str = "honesty-probe") -> None:
+    """A markdown cell with ``text``, or a code cell whose committed stdout is ``text``."""
+    path = folder / "notebook.ipynb"
+    notebook = json.loads(path.read_text("utf-8"))
+    cell = {"cell_type": cell_type, "id": cell_id, "metadata": {}, "source": [text]}
+    if cell_type == "code":
+        cell["execution_count"] = None
+        cell["outputs"] = [{"name": "stdout", "output_type": "stream", "text": [text + "\n"]}]
+        cell["source"] = ["print('probe')\n"]
+    notebook["cells"].append(cell)
+    path.write_text(json.dumps(notebook), "utf-8")
+
+
+def _edit_markdown(folder: Path, old: str, new: str) -> None:
+    """Replace ``old`` (which occurs in exactly one markdown cell, once) with ``new``."""
+    path = folder / "notebook.ipynb"
+    notebook = json.loads(path.read_text("utf-8"))
+    hits = 0
+    for cell in notebook["cells"]:
+        if cell["cell_type"] == "markdown":
+            source = cell_source(cell)
+            hits += source.count(old)
+            cell["source"] = source.replace(old, new).splitlines(keepends=True)
+    assert hits == 1, f"{old!r}: found {hits} in markdown"
+    path.write_text(json.dumps(notebook), "utf-8")
+
+
+def _edit_readme(folder: Path, pattern: str, replacement: str, count: int = 1) -> None:
+    """Regex-replace in the README, case-insensitively; exactly ``count`` matches must exist."""
+    path = folder / "README.md"
+    text, hits = re.subn(pattern, replacement, path.read_text("utf-8"), flags=re.IGNORECASE)
+    assert hits == count, f"{pattern!r}: matched {hits} times in README.md"
+    path.write_text(text, "utf-8")
+
+
+def _rewrite_responses(folder: Path, change) -> None:
+    """Apply ``change(index, answer)`` to every stored answer of the fixtures."""
+    path = folder / "fixtures" / "responses.json"
+    data = json.loads(path.read_text("utf-8"))
+    index = 0
+    for response in data.values():
+        for answer in response["answers"].values():
+            change(index, answer)
+            index += 1
+    path.write_text(json.dumps(data), "utf-8")
+
+
+def _record(index: int, answer: dict) -> None:
+    answer["provenance"] = {"source": "recorded", "model": _RECORDED_MODEL, "date": _RECORDED_DATE}
+
+
+def _make_recorded(folder: Path, dates: tuple[str, ...] = (_RECORDED_DATE,)) -> None:
+    """Turn a copy of the template into the recipe it would be if its answers had been captured
+    live on ``dates``: recorded fixtures, and the committed output and README that such a run
+    states (``run_header``'s recorded form, ``Provenance: recorded, model ...``, ``Captured:``
+    and the ``recorded (model, date)`` line ``show_answer`` prints, no pipeline-check label)."""
+    _rewrite_responses(
+        folder,
+        lambda i, a: a.update(
+            provenance={
+                "source": "recorded",
+                "model": _RECORDED_MODEL,
+                "date": dates[i % len(dates)],
+            }
+        ),
+    )
+    when = f"on {dates[0]}" if len(dates) == 1 else f"between {dates[0]} and {dates[-1]}"
+    _edit_streams(
+        folder,
+        "Mode: offline replay of synthetic fixtures, pipeline check on a fixture sample of 20 "
+        "examples\nMetrics in this run are checks that the pipeline works. They are not Jev "
+        "results.",
+        "Mode: offline replay of recorded fixtures\nThe answers were captured from real Jev calls "
+        f"to model {_RECORDED_MODEL} {when}. Any numbers below describe only that "
+        "recorded sample of 20 examples.",
+    )
+    _edit_streams(
+        folder,
+        "Provenance: synthetic. Not measured live: a pipeline check, not a Jev result.",
+        f"Provenance: recorded, model {_RECORDED_MODEL}\nCaptured: {', '.join(dates)}",
+    )
+    _edit_streams(
+        folder,
+        "Provenance: synthetic\n",
+        f"Provenance: recorded ({_RECORDED_MODEL}, {dates[0]})\n",
+    )
+    _edit_streams(folder, f" {PIPELINE_CHECK_LABEL}", "", count=None)
+    _edit_readme(
+        folder,
+        r"- \*\*Mode:\*\* synthetic \(offline replay of hand-written answers\)\. Not measured live\.",
+        f"- **Mode:** recorded (answers captured from {_RECORDED_MODEL} {when}).",
+    )
+
+
+def _violations(folder: Path) -> dict[str, list[str]]:
+    return {
+        "provenance": _provenance_violations(folder),
+        "readme": _readme_provenance_violations(folder),
+        "metric": _unlabelled_metric_output_lines(folder),
+        "quantity": _unprinted_quantities(folder),
+        "claim": _unhedged_quality_claims(folder),
+    }
+
+
+def _all_clear(folder: Path) -> bool:
+    return not any(_violations(folder).values())
+
+
+def test_the_published_set_and_the_template_are_clear_of_all_five_honesty_checks():
+    """The sweep the issue asks for, in one place: no published recipe is allowlisted for any of
+    checks 12-16, so none of them is in ``tests/recipe_guard_known_failures.py``."""
+    assert not {check for _, check in KNOWN_FAILURES} & set(HONESTY_CHECKS)
+    dirty = {
+        recipe["slug"]: {k: v for k, v in _violations(recipe_dir(recipe)).items() if v}
+        for recipe in [*PUBLISHED, {"slug": "_template"}]
+    }
+    assert not {slug: found for slug, found in dirty.items() if found}
+
+
+def test_each_detector_sees_something_across_the_published_set():
+    """A parser that finds nothing and a tree that is clean print the same output (the hazard the
+    #218 thread's own self-report names), so each detector must have examined a real number of
+    things: the lines are not empty, the metric lines exist, the prose quotes quantities, and the
+    provenance lines are found in every notebook. The floors are well below today's counts (6548
+    output lines, 1190 metric lines, 213 quoted quantities, measured when this landed)."""
+    recipes = [*PUBLISHED, {"slug": "_template"}]
+    lines = [_committed_output_lines(recipe_dir(r)) for r in recipes]
+    assert sum(len(x) for x in lines) > 3000
+    metric = [
+        line
+        for per_recipe in lines
+        for _, line in per_recipe
+        if OUTPUT_METRIC_WORD.search(line) and OUTPUT_NUMBER.search(line)
+    ]
+    assert len(metric) > 500
+    assert all(any(_PROVENANCE_LINE.match(line) for _, line in per_recipe) for per_recipe in lines)
+    assert all(any(line.startswith("Mode:") for _, line in per_recipe) for per_recipe in lines)
+    quoted = [
+        q for r in recipes for _, text in _prose_of(recipe_dir(r)) for q in _quoted_quantities(text)
+    ]
+    assert len(quoted) > 100
+
+
+def test_the_provenance_reader_agrees_with_the_replay_backend():
+    """The fixture reader looks one level deeper than the response (``answers -> name ->
+    provenance``). A reader one level too shallow finds nothing in every recipe, and "found
+    nothing" and "every recipe agrees" look identical, so the reader is held to the shared
+    backend's own answer for every published replay recipe."""
+    from jev_cookbook.backends import ReplayBackend
+
+    checked = 0
+    for recipe in [*PUBLISHED, {"slug": "_template"}]:
+        path = recipe_dir(recipe) / "fixtures" / "responses.json"
+        if not path.is_file():
+            assert _fixture_provenance(recipe_dir(recipe))[0] == "scripted", recipe["slug"]
+            continue
+        backend = ReplayBackend.from_json(path)
+        mode, models, dates, problems = _fixture_provenance(recipe_dir(recipe))
+        assert (mode, problems) == (backend.mode, []), recipe["slug"]
+        if mode == "recorded":
+            assert models == [backend.model] and tuple(dates) == backend.recorded_dates
+        checked += 1
+    assert checked >= 40
+
+
+def test_a_recorded_recipe_built_from_the_template_is_clear(tmp_path):
+    """The other side of every provenance case below: a recipe whose fixtures, committed output
+    and README all say recorded passes, and carries no pipeline-check label anywhere."""
+    folder = _copy_recipe(tmp_path, "_template")
+    _make_recorded(folder)
+    assert _fixture_provenance(folder) == ("recorded", [_RECORDED_MODEL], [_RECORDED_DATE], [])
+    assert _violations(folder) == {
+        k: [] for k in ("provenance", "readme", "metric", "quantity", "claim")
+    }
+
+
+def test_the_scripted_published_recipe_is_read_as_scripted():
+    assert _fixture_provenance(RECIPES_DIR / "36-card-game-action-selection") == (
+        "scripted",
+        [],
+        [],
+        [],
+    )
+    assert _provenance_violations(RECIPES_DIR / "36-card-game-action-selection") == []
+
+
+# Each case mutates a throwaway template copy so that the committed output or the README no
+# longer agrees with the fixtures; the check must name what is wrong. The first four are #218's
+# own worst case ("a recipe claiming measured results it never measured") in the four places a
+# reader meets it.
+_REPLAY_HEADER = "Mode: offline replay of synthetic fixtures"
+_DISCLOSURE = "Provenance: synthetic. Not measured live: a pipeline check, not a Jev result."
+_PROVENANCE_FAILS = {
+    "header-says-recorded": (
+        lambda f: _edit_streams(f, _REPLAY_HEADER, "Mode: offline replay of recorded fixtures"),
+        "the header reports 'recorded' but the fixtures carry 'synthetic'",
+    ),
+    "measured-cell-says-recorded": (
+        lambda f: _edit_streams(f, _DISCLOSURE, "Provenance: recorded. Not measured live."),
+        "reports 'recorded' but the fixtures carry 'synthetic'",
+    ),
+    "answer-provenance-line-says-recorded": (
+        lambda f: _edit_streams(
+            f, "Provenance: synthetic\n", f"Provenance: recorded ({_RECORDED_MODEL})\n"
+        ),
+        "reports 'recorded' but the fixtures carry 'synthetic'",
+    ),
+    "captured-line-and-model-added": (
+        lambda f: _edit_streams(
+            f, _DISCLOSURE, f"{_DISCLOSURE}\nCaptured: {_RECORDED_DATE}\nmodel {_RECORDED_MODEL}"
+        ),
+        "a recorded run's wording",
+    ),
+    "header-says-live": (
+        lambda f: _edit_streams(f, _REPLAY_HEADER, "Mode: live"),
+        "the header reports 'live'",
+    ),
+    "disclosure-sentence-dropped": (
+        lambda f: _edit_streams(f, _DISCLOSURE, "Provenance: synthetic."),
+        "Not measured live: a pipeline check, not a Jev result.` line",
+    ),
+    "header-removed": (
+        lambda f: _edit_streams(
+            f,
+            "Mode: offline replay of synthetic fixtures, pipeline check on a fixture sample of 20 "
+            "examples",
+            "Offline run",
+        ),
+        "no `Mode:` header line",
+    ),
+    "header-unreadable": (
+        lambda f: _edit_streams(f, _REPLAY_HEADER, "Mode: replayed offline from synthetic data"),
+        "a `Mode:` line this check cannot read",
+    ),
+    "every-provenance-line-renamed": (
+        lambda f: _edit_streams(f, "Provenance:", "Origin:", count=2),
+        "no `Provenance:` line",
+    ),
+    "all-fixtures-recorded-output-still-synthetic": (
+        lambda f: _rewrite_responses(f, _record),
+        "the header reports 'synthetic' but the fixtures carry 'recorded'",
+    ),
+    "one-fixture-answer-recorded": (
+        lambda f: _rewrite_responses(f, lambda i, a: _record(i, a) if i == 0 else None),
+        "mix synthetic and recorded provenance",
+    ),
+    "recorded-answer-without-a-model": (
+        lambda f: _rewrite_responses(
+            f, lambda i, a: a.update(provenance={"source": "recorded", "date": _RECORDED_DATE})
+        ),
+        "names no model",
+    ),
+    "recorded-answer-without-a-date": (
+        lambda f: _rewrite_responses(
+            f, lambda i, a: a.update(provenance={"source": "recorded", "model": _RECORDED_MODEL})
+        ),
+        "has no capture date",
+    ),
+    "answer-without-provenance": (
+        lambda f: _rewrite_responses(f, lambda i, a: a.pop("provenance") if i == 0 else None),
+        "has provenance None",
+    ),
+    "provenance-source-misspelt": (
+        lambda f: _rewrite_responses(
+            f, lambda i, a: a["provenance"].update(source="recordd") if i == 0 else None
+        ),
+        "has provenance 'recordd'",
+    ),
+    "fixtures-unreadable": (
+        lambda f: (f / "fixtures" / "responses.json").write_text("{", "utf-8"),
+        "cannot be read",
+    ),
+    "fixtures-empty": (
+        lambda f: (f / "fixtures" / "responses.json").write_text("{}", "utf-8"),
+        "holds no stored responses",
+    ),
+    "no-fixtures-and-no-script": (
+        lambda f: (f / "fixtures" / "responses.json").unlink(),
+        "defines no `script` and `SEED`",
+    ),
+}
+
+
+@pytest.mark.parametrize("case", sorted(_PROVENANCE_FAILS))
+def test_a_reported_provenance_that_disagrees_with_the_fixtures_fails_closed(tmp_path, case):
+    mutate, needle = _PROVENANCE_FAILS[case]
+    folder = _copy_recipe(tmp_path, "_template")
+    assert _provenance_violations(folder) == []
+    mutate(folder)
+    violations = _provenance_violations(folder)
+    assert violations, f"{case}: the mutation went unnoticed"
+    assert any(needle in v for v in violations), (needle, violations)
+
+
+_RECORDED_FAILS = {
+    "pipeline-check-disclosure-kept": (
+        lambda f: _edit_streams(
+            f, "Captured:", "Captured: (kept) a pipeline check, not a Jev result."
+        ),
+        "carries the pipeline-check disclosure",
+    ),
+    "captured-line-removed": (
+        lambda f: _edit_streams(f, f"Captured: {_RECORDED_DATE}\n", ""),
+        "no `Captured:` line",
+    ),
+    "header-names-another-model": (
+        lambda f: _edit_streams(f, f"to model {_RECORDED_MODEL}", "to model jev-9.9.9"),
+        "the header says model jev-9.9.9",
+    ),
+    "provenance-line-names-another-model": (
+        lambda f: _edit_streams(
+            f, f"Provenance: recorded, model {_RECORDED_MODEL}", "Provenance: recorded, model jev-9"
+        ),
+        "no `Provenance: recorded, model",
+    ),
+    "header-says-synthetic": (
+        lambda f: _edit_streams(f, "Mode: offline replay of recorded fixtures", _REPLAY_HEADER),
+        "the header reports 'synthetic' but the fixtures carry 'recorded'",
+    ),
+    # Two-directional: what the output states must equal what the fixtures carry, so a fabricated
+    # EXTRA date or model fails as surely as a missing one.
+    "extra-capture-date-in-the-captured-line": (
+        lambda f: _edit_streams(
+            f, f"Captured: {_RECORDED_DATE}", f"Captured: {_RECORDED_DATE}, 2026-12-25"
+        ),
+        "state capture dates",
+    ),
+    "extra-date-in-the-header": (
+        lambda f: _edit_streams(
+            f,
+            f"calls to model {_RECORDED_MODEL} on {_RECORDED_DATE}.",
+            f"calls to model {_RECORDED_MODEL} between {_RECORDED_DATE} and 2026-12-25.",
+        ),
+        "the header says",
+    ),
+    "extra-model-in-the-header": (
+        lambda f: _edit_streams(
+            f, f"to model {_RECORDED_MODEL} on", f"to model {_RECORDED_MODEL} and jev-9.9.9 on"
+        ),
+        "cannot read",
+    ),
+    "extra-model-in-the-provenance-line": (
+        lambda f: _edit_streams(
+            f,
+            f"Provenance: recorded, model {_RECORDED_MODEL}",
+            f"Provenance: recorded, model {_RECORDED_MODEL} and jev-9.9.9",
+        ),
+        "cannot read",
+    ),
+    "another-model-in-an-answer-line": (
+        lambda f: _edit_streams(f, f"recorded ({_RECORDED_MODEL},", "recorded (jev-9.9.9,"),
+        "names model 'jev-9.9.9'",
+    ),
+    "another-date-in-an-answer-line": (
+        lambda f: _edit_streams(
+            f, f"({_RECORDED_MODEL}, {_RECORDED_DATE})", f"({_RECORDED_MODEL}, 2026-12-25)"
+        ),
+        "names date '2026-12-25'",
+    ),
+    "a-model-stated-elsewhere-in-the-output": (
+        lambda f: _edit_streams(f, "N: 10 validation", "answered by jev-9.9.9; N: 10 validation"),
+        "jev-9.9.9",
+    ),
+    "captured-line-with-extra-words": (
+        lambda f: _edit_streams(
+            f, f"Captured: {_RECORDED_DATE}", f"Captured: {_RECORDED_DATE} (approximately)"
+        ),
+        "cannot read",
+    ),
+    "header-reworded": (
+        lambda f: _edit_streams(
+            f,
+            "Any numbers below describe only that recorded sample",
+            "These numbers describe Jev in general; the recorded sample",
+        ),
+        "cannot read",
+    ),
+}
+
+
+@pytest.mark.parametrize("case", sorted(_RECORDED_FAILS))
+def test_a_recorded_run_must_say_so_and_state_exactly_its_model_and_dates(tmp_path, case):
+    mutate, needle = _RECORDED_FAILS[case]
+    folder = _copy_recipe(tmp_path, "_template")
+    _make_recorded(folder)
+    assert _provenance_violations(folder) == []
+    mutate(folder)
+    violations = _provenance_violations(folder)
+    assert any(needle in v for v in violations), (case, violations)
+
+
+_README_MODE_BULLET = r"- \*\*Mode:\*\* synthetic"
+_README_FAILS = {
+    "mode-says-recorded": (
+        lambda f: _edit_readme(f, _README_MODE_BULLET, "- **Mode:** recorded"),
+        "the README states mode 'recorded' but the fixtures carry 'synthetic'",
+    ),
+    "mode-says-live": (
+        lambda f: _edit_readme(f, _README_MODE_BULLET, "- **Mode:** live"),
+        "the README states mode 'live'",
+    ),
+    "no-mode-line": (
+        lambda f: _edit_readme(f, r"\*\*Mode:\*\*", "**How:**"),
+        "no `**Mode:**` line",
+    ),
+    "never-says-not-measured-live": (
+        lambda f: _edit_readme(f, r"not\s+measured\s+live", "unmeasured", count=2),
+        "never says 'not measured live'",
+    ),
+    "no-readme": (lambda f: (f / "README.md").unlink(), "no README.md"),
+}
+
+
+@pytest.mark.parametrize("case", sorted(_README_FAILS))
+def test_a_readme_that_disagrees_with_the_fixtures_fails(tmp_path, case):
+    mutate, needle = _README_FAILS[case]
+    folder = _copy_recipe(tmp_path, "_template")
+    assert _readme_provenance_violations(folder) == []
+    mutate(folder)
+    assert any(needle in v for v in _readme_provenance_violations(folder))
+
+
+def test_a_recorded_readme_must_name_the_model_and_the_dates(tmp_path):
+    folder = _copy_recipe(tmp_path, "_template")
+    _make_recorded(folder)
+    assert _readme_provenance_violations(folder) == []
+    _edit_readme(folder, _RECORDED_MODEL, "a model", count=1)
+    _edit_readme(folder, _RECORDED_DATE, "some day", count=1)
+    violations = _readme_provenance_violations(folder)
+    assert any(_RECORDED_MODEL in v for v in violations)
+    assert any(_RECORDED_DATE in v for v in violations)
+
+
+def test_a_recorded_run_may_print_unlabelled_metrics_and_bare_vocabulary(tmp_path):
+    """The converse of the vocabulary rule #218 item 3 rejected: ``recorded`` in prose is
+    allowed anywhere (the template itself explains what a recorded recipe states), and a recorded
+    run prints no pipeline-check label, so the metric rule leaves it alone."""
+    folder = _copy_recipe(tmp_path, "_template")
+    _make_recorded(folder)
+    _append_cell(folder, "code", "accuracy of the choice: 0.80")
+    _append_cell(
+        folder,
+        "markdown",
+        "A recorded recipe states the model version the API returned, the capture date and N.",
+        cell_id="honesty-probe-md",
+    )
+    assert _all_clear(folder)
+    template = _copy_recipe(tmp_path / "again", "_template")
+    assert "recorded" in (template / "README.md").read_text("utf-8")
+    assert _all_clear(template)
+
+
+# --- metric lines in a synthetic run -----------------------------------------------------------
+
+_UNLABELLED_METRICS = {
+    "plain": "accuracy of the choice: 0.95",
+    "two-decimals": "accuracy 0.95",
+    "four-decimals": "accuracy 0.9500",
+    "percent": "accuracy 95.0%",
+    "aligned-table-row": f"{'always retry':<28} {0:>8} {0.95:>13.4f} {'accuracy':>20}  {0.9:>8.4f}",
+    "a-hoisted-format": "wrongly selected anyway: recall 0.9000",
+    "mixed-case": "Precision: 0.9167",
+    "f1": "f1 0.9474",
+    "ndcg": "ndcg@3 0.8812",
+    "label-misspelt": "accuracy 0.95 (a pipeline probe, not a Jev result)",
+    "selection-label-only": "recall 0.9000 (a selection step, not a reported result)",
+    "disclosure-prose-is-not-a-label": (
+        "accuracy 0.95. Not measured live: a pipeline check, not a Jev result."
+    ),
+}
+
+
+@pytest.mark.parametrize("case", sorted(_UNLABELLED_METRICS))
+def test_a_metric_line_without_the_pipeline_check_label_fails_whatever_printed_it(tmp_path, case):
+    folder = _copy_recipe(tmp_path, "_template")
+    assert _unlabelled_metric_output_lines(folder) == []
+    _append_cell(folder, "code", _UNLABELLED_METRICS[case])
+    violations = _unlabelled_metric_output_lines(folder)
+    assert len(violations) == 1, violations
+    assert "honesty-probe" in violations[0]
+
+
+_NOT_A_METRIC_LINE = {
+    "labelled": f"accuracy 0.95 {PIPELINE_CHECK_LABEL}",
+    "labelled-and-selection": (
+        f"accuracy 0.95 (a selection step, not a reported result) {PIPELINE_CHECK_LABEL}"
+    ),
+    "per-example-confidence": "  t09-mixed: gold account, answered billing (confidence 0.71)",
+    "a-probability-bar": "  billing  0.80  ################",
+    "fixture-composition-share": "a first among 11 comparisons: 0.727",
+    "a-count": "accuracy: 8 of 10",
+    "a-threshold": "chosen threshold, frozen from here on: 0.69",
+    "the-fixed-disclosure": "Not measured live: a pipeline check, not a Jev result.",
+    "a-version-in-a-name": "answered by jev-1.13.0, 12 of 20 right",
+}
+
+
+@pytest.mark.parametrize("case", sorted(_NOT_A_METRIC_LINE))
+def test_a_line_that_is_not_an_unlabelled_metric_does_not_fail(tmp_path, case):
+    folder = _copy_recipe(tmp_path, "_template")
+    _append_cell(folder, "code", _NOT_A_METRIC_LINE[case])
+    assert _unlabelled_metric_output_lines(folder) == []
+
+
+def test_stripping_the_label_off_one_committed_line_of_the_template_fails(tmp_path):
+    """Red-before on the real thing: the template's own test-split accuracy line, unlabelled."""
+    folder = _copy_recipe(tmp_path, "_template")
+    _edit_streams(
+        folder,
+        f"accuracy of the choice: 0.80 {PIPELINE_CHECK_LABEL}\nrouted automatically: 6 of 10",
+        "accuracy of the choice: 0.80\nrouted automatically: 6 of 10",
+    )
+    violations = _unlabelled_metric_output_lines(folder)
+    assert len(violations) == 1 and "accuracy of the choice: 0.80" in violations[0]
+    assert "evaluation-test" in violations[0]
+
+
+# --- quantities in prose ----------------------------------------------------------------------
+
+# The two reproductions #218 records, as the text each reviewer inserted. The quantified claim is
+# the one in comment 6105811015 (recipe 27's review): all three quantities section 2 names.
+_FABRICATED_TRIPLE = "Jev reaches 97.31% accuracy at a 180 ms median latency and $0.0004 a call."
+_UNPRINTED = {
+    "percentage-after-the-metric": "The accuracy was 97.4% on the test split.",
+    "percentage-before-the-metric": "That is 97.4% accuracy on the test split.",
+    "decimal-after-the-metric": "Accuracy 0.974 on the test split.",
+    "decimal-with-a-connective": "precision of about 0.9731 on the test split.",
+    "recall-and-f1": "recall: 0.92, f1: 0.91",
+    "latency-in-milliseconds": "A median latency of 180 ms per call.",
+    "latency-in-seconds": "A latency of 2.5 seconds per call.",
+    "jev-takes-seconds": "Jev takes 2.5 seconds per call.",
+    "the-api-is-slow-in-seconds": "The API is slow: 3 seconds a request.",
+    "a-live-call-takes-seconds": "In a live run each call takes under 1.5 seconds.",
+    "response-time-in-minutes": "The response time is 2 minutes.",
+    "price-per-call": "It costs $0.0004 a call.",
+    "price-per-1k-tokens": "Priced at $0.002 per 1k tokens.",
+    "price-in-a-sentence-about-the-api": "The API charges $12 for the whole run.",
+    "throughput": "It handles 300 requests per second.",
+    "the-fabricated-triple": _FABRICATED_TRIPLE,
+    "close-to-a-printed-number-but-not-it": "accuracy 0.81 on the test split",
+    "a-thousands-separator": "about 1,250 tokens per second",
+}
+
+
+@pytest.mark.parametrize("where", ["readme", "markdown"])
+@pytest.mark.parametrize("case", sorted(_UNPRINTED))
+def test_a_quantity_nothing_printed_fails_in_the_readme_and_in_a_markdown_cell(
+    tmp_path, case, where
+):
+    folder = _copy_recipe(tmp_path, "_template")
+    assert _unprinted_quantities(folder) == []
+    if where == "readme":
+        (folder / "README.md").write_text(
+            (folder / "README.md").read_text("utf-8") + "\n" + _UNPRINTED[case] + "\n", "utf-8"
+        )
+    else:
+        _append_cell(folder, "markdown", _UNPRINTED[case])
+    violations = _unprinted_quantities(folder)
+    assert violations, f"{case}: nothing was noticed in the {where}"
+    assert ("README.md" if where == "readme" else "honesty-probe") in violations[0]
+
+
+def test_the_fabricated_triple_is_caught_in_recipe_26s_measured_cell_where_it_was_planted(tmp_path):
+    """#218's first reproduction: a fabricated claim in recipe 26's ``measured-md`` cell, with
+    every guard that existed passing. The checks that existed see nothing; this one does."""
+    folder = _copy_recipe(tmp_path, "26-prompt-injection-screening")
+    cells = notebook_cells(folder)
+    measured = next(c for c in cells if c.get("id") == "measured-md")
+    _edit_markdown(folder, cell_source(measured), cell_source(measured) + " " + _FABRICATED_TRIPLE)
+    notebook_code = [cell_source(c) for c in notebook_cells(folder) if c["cell_type"] == "code"]
+    assert _recipe_citation_hits(folder) == []
+    assert not any(_metric_lines_missing_check(source) for source in notebook_code)
+    assert _provenance_violations(folder) == [] and _readme_provenance_violations(folder) == []
+    violations = _unprinted_quantities(folder)
+    assert len(violations) == 3, violations
+    assert all("measured-md" in v for v in violations)
+
+
+_PRINTED_UNDER_ANOTHER_SPELLING = {
+    "same-digits": "accuracy 0.80",
+    "trailing-zeros-dropped": "accuracy 0.8",
+    "trailing-zeros-added": "accuracy 0.8000",
+    "as-a-percentage": "accuracy 80%",
+    "as-a-percentage-with-a-decimal": "80.0% accuracy",
+    "backticked": "`accuracy` is `0.80`",
+    "bold": "**accuracy** of **0.80**",
+    "with-a-connective": "accuracy of about 0.80",
+}
+
+
+@pytest.mark.parametrize("case", sorted(_PRINTED_UNDER_ANOTHER_SPELLING))
+def test_a_printed_number_quoted_under_another_spelling_is_the_same_number(tmp_path, case):
+    """The template prints ``accuracy of the choice: 0.80``. Quoting it as 0.8, 0.8000, 80% or
+    80.0% is quoting that number (#218: changing ``:.4f`` to ``:.2f`` must not defeat the check)."""
+    folder = _copy_recipe(tmp_path, "_template")
+    _append_cell(folder, "markdown", _PRINTED_UNDER_ANOTHER_SPELLING[case])
+    assert _unprinted_quantities(folder) == []
+
+
+# (what the notebook prints, what the prose quotes, how many quotes nothing backs). A minimal
+# notebook, so no other printed number can back a quote by coincidence.
+_BACKED_AND_UNBACKED = {
+    "rounded-to-two-places": ("coverage 0.9286", "coverage 0.93", 0),
+    "as-a-percentage-to-one-place": ("coverage 0.9286", "coverage 92.9%", 0),
+    "as-a-percentage-before-the-word": ("coverage 0.9286", "92.86% coverage", 0),
+    "the-same-figures": ("coverage 0.9286", "coverage 0.9286", 0),
+    "a-different-fourth-place": ("coverage 0.9286", "coverage 0.9287", 1),
+    "a-different-percentage": ("coverage 0.9286", "coverage 92.8%", 1),
+    "truncated-rather-than-rounded": ("coverage 0.9286", "coverage 0.92", 1),
+    "risk-backed-by-a-printed-accuracy": ("accuracy 0.9474", "the risk was 0.0526", 0),
+    "accuracy-backed-by-a-printed-risk": ("risk 0.0526", "the accuracy was 0.9474", 0),
+    "risk-backed-in-percent": ("accuracy 0.9474", "a risk of 5.26%", 0),
+    "recall-is-not-a-complement": ("accuracy 0.9474", "the recall was 0.0526", 1),
+    "risk-that-is-not-the-complement": ("accuracy 0.9474", "the risk was 0.0527", 1),
+    "a-price-is-not-backed-by-a-sample-size": ("N: 180 examples", "It costs $180 a call.", 1),
+    "a-latency-is-not-backed-by-a-sample-size": ("N: 180 examples", "A latency of 180 ms.", 1),
+    "a-latency-printed-with-its-unit": ("median 180 ms per call", "A latency of 180 ms.", 0),
+    "a-price-printed-with-its-unit": ("estimated spend $0.0004", "It costs $0.0004 a call.", 0),
+}
+
+
+@pytest.mark.parametrize("case", sorted(_BACKED_AND_UNBACKED))
+def test_a_printed_number_backs_the_quotes_it_rounds_to_and_complements_only_as_documented(
+    tmp_path, case
+):
+    printed, prose, unbacked = _BACKED_AND_UNBACKED[case]
+    folder = _synthetic_recipe(tmp_path, ["print('probe')\n"])
+    _append_cell(folder, "code", printed, cell_id="printed")
+    _append_cell(folder, "markdown", prose, cell_id="prose")
+    assert len(_unprinted_quantities(folder)) == unbacked, _unprinted_quantities(folder)
+
+
+_IS_PRINTED = [
+    ("0.8", ["0.80"], True),
+    ("0.800", ["0.8"], True),
+    ("0.92", ["0.9167"], True),
+    ("0.91", ["0.9167"], False),
+    ("97.4%", ["0.9744"], True),
+    ("97.4%", ["0.9754"], False),
+    ("90%", ["0.9"], True),
+    ("90%", ["90"], True),
+    ("100%", ["1.0000"], True),
+    ("1,250.5", ["1250.5"], True),
+    ("0.87", ["0.8650"], True),
+    ("0.86", ["0.8650"], True),
+    ("0.88", ["0.8650"], False),
+    ("0.5", ["5"], False),
+]
+
+
+@pytest.mark.parametrize(("quote", "printed", "expected"), _IS_PRINTED)
+def test_is_printed_rounding_percentage_and_separator_tolerances(quote, printed, expected):
+    assert _is_printed(quote, [Decimal(p) for p in printed]) is expected
+
+
+_NOT_A_QUANTITY_CLAIM = {
+    "a-disclosure-with-no-number": (
+        "Nothing here says anything about Jev's accuracy, latency or cost: not measured live."
+    ),
+    "the-template-sentence": (
+        "A recorded recipe states the model version the API returned, the capture date and N."
+    ),
+    "a-fixture-invoice-in-a-sentence-about-the-example": 'The message says "I refunded $8.00 to your card".',
+    "a-fixture-estimate": "The plan's own estimated cost, $5200, is above the $3000 budget.",
+    "a-version-number": "TypeSafe's notes on Jev 1.13 (S07) document a real failure.",
+    "a-threshold-name": "`min_coverage=0.7` is a business choice.",
+    "a-parameter-name": "Set `target_accuracy` to a looser value.",
+    "a-count-of-requests": "This notebook makes exactly one call for each of the 22 examples.",
+    "a-budget": "The default request budget is 25 requests.",
+    "n": "N: 10 validation and 10 test examples.",
+    "a-link-target": "See [the docs](https://example.com/accuracy-0.974-benchmark).",
+    "a-shell-command": "```bash\npytest --accuracy 0.974\n```",
+    # About the notebook's own run, not about Jev: no way for a recipe pull request to answer a
+    # failure on these, so they must not fail.
+    "the-notebook-takes-minutes": "Running this notebook takes about 2 minutes on a laptop.",
+    "the-run-takes-seconds": "The whole run takes 30 seconds offline.",
+    "installing-takes-seconds": "Installing the dependencies takes about 45 seconds.",
+    "the-offline-replay-is-fast": "The offline replay is fast: 3 seconds for all 22 examples.",
+}
+
+
+@pytest.mark.parametrize("case", sorted(_NOT_A_QUANTITY_CLAIM))
+def test_prose_that_quotes_no_unprinted_quantity_about_jev_passes(tmp_path, case):
+    """Legitimately disclosed statements and numbers that are not performance claims: the check
+    must not fire on "not measured live", on a fixture's own prices, or on a parameter's name."""
+    folder = _copy_recipe(tmp_path, "_template")
+    _append_cell(folder, "markdown", _NOT_A_QUANTITY_CLAIM[case])
+    assert _unprinted_quantities(folder) == []
+
+
+def test_a_number_typed_in_the_recipes_own_tests_backs_a_quote(tmp_path):
+    """CONTRIBUTING.md section 6 lets a quoted counterfactual stand when "a test re-derives it":
+    a quoted figure a recipe test types is backed, one nothing types or prints is not."""
+    folder = _copy_recipe(tmp_path, "_template")
+    _append_cell(folder, "markdown", "At a looser target the coverage would be 0.9137.")
+    assert _unprinted_quantities(folder)
+    (folder / "tests" / "test_counterfactual.py").write_text(
+        "def test_it():\n    assert round(0.9137, 4) == 0.9137\n", "utf-8"
+    )
+    assert _unprinted_quantities(folder) == []
+
+
+# --- sentences that say Jev does well -----------------------------------------------------------
+
+_UNHEDGED_CLAIMS = {
+    "judges-correctly": "Jev judges these tickets correctly.",
+    "handles-reliably": "Jev handles ambiguous messages reliably.",
+    "performs-well": "The model performs well on the hard cases.",
+    "is-accurate": "Jev is accurate on this task.",
+    "is-fast-and-cheap": "Jev is fast and cheap enough for every message.",
+    "outperforms": "Jev outperforms the keyword baseline here.",
+    "always-right": "Jev is always right when it is confident.",
+    "reads-the-evidence-properly": "Given the whole record, the model reads the evidence properly.",
+    # A decimal point between the subject and the adverb (the span used to stop at it).
+    "a-percentage-then-reliably": "Jev handles 97.4% of these messages reliably.",
+    "a-percentage-then-well": "Jev answers 97.4% of the hard cases well.",
+    "a-fraction-then-correctly": "Jev judges 0.9 of these tickets correctly.",
+    "a-version-then-reliably": "Jev v1.2 handles these tickets reliably.",
+    # Words that name a source are not attributions: only a verb of saying hedges.
+    "typesafes-jev": "TypeSafe's Jev judges these tickets correctly.",
+    "see-the-docs": "Jev judges these tickets correctly; see the docs for the question definition.",
+    "a-link-to-the-docs": (
+        "Jev judges these tickets correctly, as [the docs](../../docs/glossary.md) define it."
+    ),
+    "a-cited-source-id": "Jev is accurate on these tickets (S07).",
+    "the-documentation-describes": "Jev is accurate, as the documentation describes it.",
+}
+
+
+@pytest.mark.parametrize("where", ["readme", "markdown"])
+@pytest.mark.parametrize("case", sorted(_UNHEDGED_CLAIMS))
+def test_a_sentence_saying_jev_does_well_fails_in_a_synthetic_recipe(tmp_path, case, where):
+    folder = _copy_recipe(tmp_path, "_template")
+    assert _unhedged_quality_claims(folder) == []
+    if where == "readme":
+        (folder / "README.md").write_text(
+            (folder / "README.md").read_text("utf-8") + "\n" + _UNHEDGED_CLAIMS[case] + "\n",
+            "utf-8",
+        )
+    else:
+        _append_cell(folder, "markdown", _UNHEDGED_CLAIMS[case])
+    violations = _unhedged_quality_claims(folder)
+    assert len(violations) == 1, (case, violations)
+    assert ("README.md" if where == "readme" else "honesty-probe") in violations[0]
+
+
+_HEDGED_OR_DESCRIPTIVE = {
+    "not-measured-live": "How well Jev does here is not measured live.",
+    "negated": "Nothing here shows that Jev judges these tickets correctly.",
+    "hypothetical": "If Jev reliably named the queue, the review rate would fall.",
+    "a-recorded-run-would-show": "A recorded run would show how accurately Jev reads them.",
+    "attributed": "TypeSafe's notes say the model judges each level on its own.",
+    "a-description-of-the-task": "Jev reads one message and picks exactly one of four options.",
+    "a-description-of-the-instruction": (
+        "Jev is asked to judge from the evidence as a whole, not from the reported status alone."
+    ),
+    "how-well": "Jev scores how well that skill's own description fits the task.",
+    "the-stored-answers": "The model's stored answers agree with each other, confidently and correctly.",
+    "a-baseline": "The lexical baseline does better than pure position.",
+    "a-compound-word": "Jev returns a well-formed answer for every question.",
+    "the-pipeline": "The pipeline checks that the catalog is read correctly.",
+    # Sentence-final periods, decimals and versions inside a sentence do not join two sentences.
+    "a-decimal-then-a-new-sentence": "Jev reads 97.4 tickets. The pipeline runs well.",
+    "a-version-then-a-new-sentence": "Jev v1.2 reads the ticket. The rule is checked correctly.",
+    "a-decimal-claim-with-its-hedge": (
+        "Jev handles 97.4% of these messages reliably, which is not measured live."
+    ),
+    "an-attribution-with-a-verb": "TypeSafe's documentation says Jev judges each level on its own.",
+}
+
+
+@pytest.mark.parametrize("case", sorted(_HEDGED_OR_DESCRIPTIVE))
+def test_a_hedged_or_descriptive_sentence_about_jev_passes(tmp_path, case):
+    """False positives on legitimately disclosed statements are avoided and tested: the rule's
+    own wording ("not measured live"), a hypothetical, an attribution, and a plain description of
+    what Jev is asked to do all pass."""
+    folder = _copy_recipe(tmp_path, "_template")
+    _append_cell(folder, "markdown", _HEDGED_OR_DESCRIPTIVE[case])
+    assert _unhedged_quality_claims(folder) == []
+
+
+def test_the_vocabulary_check_does_not_apply_to_a_recorded_recipe(tmp_path):
+    """A recorded recipe names its model, date and N, and its claims are the reviewer's: the
+    synthetic-only rule leaves it alone (#218 item 1 is conditioned on provenance)."""
+    folder = _copy_recipe(tmp_path, "_template")
+    _make_recorded(folder)
+    _append_cell(folder, "markdown", "Jev judges these tickets correctly.")
+    assert _unhedged_quality_claims(folder) == []
+
+
+# --- #218's three real instances and #221's six findings, reconstructed ---------------------------
+
+# What no mechanical check can reach, written as cases that PASS every honesty check. They are
+# pinned so the limits stay honest: a later check that starts to catch one must move it to a
+# must-fail table on purpose, and docs/offline-and-live.md says each is the reviewer's alone.
+_REVIEWER_ONLY = {
+    # PR #204: the README asserted how Jev judges, contradicted by the recipe's own fixture.
+    "a-claim-about-how-jev-judges": (
+        "Jev judges from the evidence as a whole rather than trusting the tool's own reported "
+        "status."
+    ),
+    # PR #204: a first-listed-option share, which offline measures only the fixture author, offered
+    # as a check on the model's position bias. 0.52 is a printed number about the fixtures.
+    "a-fixture-statistic-offered-as-evidence-about-the-model": (
+        "The first-listed option is chosen in 0.52 of cases, so the model shows no position bias."
+    ),
+    # PR #206: a per-label F1 of 1.0000, perfect by construction, printed with its pipeline-check
+    # label and no word that it is perfect because the fixtures are.
+    "a-construction-perfect-metric-with-its-label-and-no-caveat": (
+        "Every label reaches an F1 of 1.0000, so the rule separates the classes."
+    ),
+    "a-true-number-given-a-false-interpretation": "The accuracy of 0.80 shows the routing is sound.",
+    "a-claim-with-no-number-and-no-evaluative-word": "Jev handles these messages the way a person would.",
+    "a-claim-in-a-synonym": "Jev is flawless on the hard cases.",
+    # PR #221: the six statements about the notebook's own committed output.
+    "221-1-all-1.0000-above-a-line-printing-0.9474": "Precision, recall and F1 are all 1.0000 here.",
+    "221-2-each-misses-one-record": "Each proposition misses one record.",
+    "221-3-every-answer-on-the-correct-side-of-the-threshold": (
+        "Every stored answer lands on the correct side of its threshold."
+    ),
+    "221-4-two-confidently-wrong-records": "There are two confidently wrong records.",
+    "221-5-the-two-demo-records": "The two demo records lack a rollback description.",
+    "221-6-well-clear-of-the-gate": "The record is well clear of the gate.",
+}
+
+
+def test_what_only_a_reviewer_can_judge_passes_every_honesty_check(tmp_path):
+    folder = _copy_recipe(tmp_path, "_template")
+    _append_cell(folder, "code", f"F1 per label: 1.0000 {PIPELINE_CHECK_LABEL}", cell_id="ev-code")
+    # the numbers these statements cite are printed, as in the real notebooks
+    _append_cell(folder, "code", "first-listed share 0.52", cell_id="share-code")
+    for case, sentence in sorted(_REVIEWER_ONLY.items()):
+        _append_cell(folder, "markdown", sentence, cell_id=f"md-{case}")
+    assert _all_clear(folder), _violations(folder)
+
+
+def test_the_construction_perfect_metric_is_caught_only_when_it_is_also_unlabelled(tmp_path):
+    """PR #206's per-label F1 of 1.0000: the label is what a mechanical check can require. With
+    it the line passes (that it is perfect by construction is the reviewer's); without it, fails."""
+    folder = _copy_recipe(tmp_path, "_template")
+    _append_cell(folder, "code", f"F1 per label: 1.0000 {PIPELINE_CHECK_LABEL}", cell_id="a")
+    assert _unlabelled_metric_output_lines(folder) == []
+    _append_cell(folder, "code", "F1 per label: 1.0000", cell_id="b")
+    assert len(_unlabelled_metric_output_lines(folder)) == 1
+
+
+def test_a_fabricated_number_in_the_221_shape_is_caught_but_its_misdescriptions_are_not(tmp_path):
+    """PR #221's six statements describe the notebook's own output wrongly. What a check can
+    decide there is a quoted NUMBER the output never printed; "all 1.0000" above a line that
+    printed 1.0000 / 0.9000 / 0.9474 quotes a number the output did print, so it is not decidable
+    by this check, and the others quote no metric value at all. Of the six, none is caught as
+    worded; the nearest decidable form is a metric value the run never produced."""
+    folder = _copy_recipe(tmp_path, "_template")
+    _append_cell(
+        folder,
+        "code",
+        f"precision 1.0000 recall 0.9000 f1 0.9474 {PIPELINE_CHECK_LABEL}",
+        cell_id="ev-code",
+    )
+    _append_cell(folder, "markdown", "Precision, recall and F1 are all 1.0000.", cell_id="ev-md")
+    assert _unprinted_quantities(folder) == []
+    _append_cell(folder, "markdown", "Recall 0.9500, f1 0.9700.", cell_id="ev-md-2")
+    assert len(_unprinted_quantities(folder)) == 2
+
+
+def test_the_honesty_doc_anchor_resolves_and_the_doc_names_every_check_and_its_limits():
+    """Every failure message cites ``HONESTY_DOC``; the section must exist under that anchor,
+    name each of the five checks, and say what is the reviewer's alone."""
+    doc = (REPO / "docs" / "offline-and-live.md").read_text("utf-8")
+    path, _, anchor = HONESTY_DOC.partition("#")
+    assert path == "docs/offline-and-live.md"
+    slugs = {
+        re.sub(r"[^\w\- ]", "", heading.lower()).replace(" ", "-")
+        for heading in re.findall(r"^#+ (.+)$", doc, re.MULTILINE)
+    }
+    assert anchor in slugs
+    section = doc.split("## What the recipe guard checks about section 2")[1].split("\n## ")[0]
+    for check in HONESTY_CHECKS:
+        assert f"`{check}`" in section, check
+    assert "the reviewer's alone" in section
+    for check in ("metric_lines_carry_check", "validation_lines_carry_selection_and_check"):
+        assert f"`{check}`" in section and "Their existence is not evidence" in section
+
+
+def _strip_labels_from_outputs(folder: Path) -> None:
+    for old in (f" {PIPELINE_CHECK_LABEL}", PIPELINE_CHECK_LABEL):
+        path = folder / "notebook.ipynb"
+        notebook = json.loads(path.read_text("utf-8"))
+        for cell in notebook["cells"]:
+            for output in cell.get("outputs", []):
+                if output.get("output_type") == "stream":
+                    text = "".join(output["text"]).replace(old, "")
+                    output["text"] = text.splitlines(keepends=True)
+        path.write_text(json.dumps(notebook), "utf-8")
+
+
+@pytest.mark.parametrize(
+    "recipe", [pytest.param(r, id=r["slug"]) for r in [*PUBLISHED, {"slug": "_template"}]]
+)
+def test_every_honesty_check_fails_on_each_recipe_when_that_recipe_is_made_to_overclaim(
+    tmp_path, recipe
+):
+    """The can-speak proof across the whole set (#218: "make it produce a hit you can see"): the
+    checks pass on all 51 folders, and each one fails on every folder when that folder is made to
+    do what the check is for. A check that passes because it reads nothing in one recipe's
+    layout cannot hide here."""
+    folder = _copy_recipe(tmp_path, recipe["slug"])
+    assert _all_clear(folder), _violations(folder)
+
+    # (1) the committed output reports a mode the fixtures do not carry
+    wrong = "recorded" if _fixture_provenance(folder)[0] != "recorded" else "synthetic"
+    header = next(line for _, line in _committed_output_lines(folder) if line.startswith("Mode:"))
+    _edit_streams(folder, header, f"Mode: offline replay of {wrong} fixtures", count=None)
+    assert any("the header reports" in v for v in _provenance_violations(folder))
+    _edit_streams(folder, f"Mode: offline replay of {wrong} fixtures", header, count=None)
+    assert _provenance_violations(folder) == []
+
+    # (2) every metric line loses its pipeline-check label
+    lines = _committed_output_lines(folder)
+    metric_lines = [
+        line for _, line in lines if OUTPUT_METRIC_WORD.search(line) and OUTPUT_NUMBER.search(line)
+    ]
+    assert metric_lines
+    _strip_labels_from_outputs(folder)
+    assert len(_unlabelled_metric_output_lines(folder)) == len(metric_lines)
+
+    # (3) the README and a markdown cell quote the fabricated triple
+    triple = "Jev reaches 97.31% accuracy at a 180 ms median latency and $0.0004 a call."
+    readme = folder / "README.md"
+    readme.write_text(readme.read_text("utf-8") + "\n\n" + triple + "\n", "utf-8")
+    _append_cell(folder, "markdown", triple)
+    violations = _unprinted_quantities(folder)
+    # One failure per fabricated quote and place. A recipe that already prints one of these numbers
+    # would back it, which is why this asserts each quote rather than an exact total.
+    for quote in ("97.31%", "180 ms", "$0.0004 a call"):
+        assert any("README.md" in v and quote in v for v in violations), (quote, violations)
+        assert any("honesty-probe" in v and quote in v for v in violations), (quote, violations)
+
+    # (4) the README names another mode than the fixtures carry, and drops "not measured live"
+    mode = _fixture_provenance(folder)[0]
+    text = readme.read_text("utf-8")
+    assert _readme_provenance_violations(folder) == []
+    readme.write_text(text.replace(f"**Mode:** {mode}", "**Mode:** recorded", 1), "utf-8")
+    assert any("states mode 'recorded'" in v for v in _readme_provenance_violations(folder))
+
+    # (5) a sentence saying Jev does well, written the way a builder writes it: as a bullet with
+    # no terminator after whatever the README ends with, and as the first line under the heading
+    # of the "What was and was not measured" cell, whose heading says "not".
+    folder2 = _copy_recipe(tmp_path / "second", recipe["slug"])
+    assert _unhedged_quality_claims(folder2) == []
+    readme2 = folder2 / "README.md"
+    readme2.write_text(
+        readme2.read_text("utf-8") + "\n- Jev judges these tickets correctly\n", "utf-8"
+    )
+    violations = _unhedged_quality_claims(folder2)
+    assert len(violations) == 1 and "Jev judges these tickets correctly" in violations[0], (
+        violations
+    )
+    folder3 = _copy_recipe(tmp_path / "third", recipe["slug"])
+    heading_cell = next(
+        cell.get("id")
+        for cell in notebook_cells(folder3)
+        if cell["cell_type"] == "markdown"
+        and "## What was and was not measured\n" in cell_source(cell)
+    )
+    _edit_markdown(
+        folder3,
+        "## What was and was not measured\n",
+        "## What was and was not measured\nJev judges these tickets correctly\n",
+    )
+    violations = _unhedged_quality_claims(folder3)
+    assert len(violations) == 1 and f"cell {heading_cell}:" in violations[0], violations
+    assert "Jev judges these tickets correctly" in violations[0]
+
+
+def test_a_claim_is_caught_in_every_markdown_block_of_every_recipe_wherever_it_is_put():
+    """Reviewer 1 of PR #351 put ``Jev judges these tickets correctly`` first in each of the 955
+    markdown blocks of the 50 recipes and the template and 75 were missed, 51 of them the
+    ``measured`` cell whose heading says "not". At the top, at the bottom, as a bullet, as a
+    table row and with no terminator, none may be."""
+    placements = {
+        "first": lambda block, claim: claim + "\n\n" + block,
+        "last": lambda block, claim: block + "\n\n" + claim,
+        "first-as-a-bullet": lambda block, claim: "- " + claim + "\n\n" + block,
+        "last-as-a-bullet": lambda block, claim: block + "\n\n- " + claim,
+        "a-bullet-straight-after-text": lambda block, claim: block + "\n- " + claim,
+        "as-a-table-row": lambda block, claim: block + "\n\n| " + claim + " | x |",
+    }
+    claim = "Jev judges these tickets correctly"
+    blocks = 0
+    missed = []
+    for recipe in [*PUBLISHED, {"slug": "_template"}]:
+        for where, raw in _prose_blocks(recipe_dir(recipe)):
+            blocks += 1
+            before = len(_claims_in_markdown(raw))
+            for name, place in placements.items():
+                if len(_claims_in_markdown(place(raw, claim))) != before + 1:
+                    missed.append((recipe["slug"], where, name))
+    assert blocks > 900
+    assert not missed, missed[:10]
+
+
+_CLAIMS_IN_STRUCTURE = {
+    "a-bullet-beside-a-hedged-bullet": (
+        "- Notes: the gate is frozen on validation\n- Jev judges these tickets correctly"
+    ),
+    "a-bullet-after-a-nothing-bullet": (
+        "- Nothing else to note here.\n- Jev is accurate on these tickets"
+    ),
+    "under-a-heading-containing-not": (
+        "## What was and was not measured\nJev judges these tickets correctly."
+    ),
+    "under-a-heading-and-no-terminator": (
+        "## What was and was not measured\n\nJev judges these tickets correctly"
+    ),
+    "under-a-notes-heading": "## Notes\nJev is accurate on these tickets.",
+    "under-a-document-heading": "# Document classification\nJev judges these tickets correctly.",
+    "after-the-verb-note": "Jev is accurate on these tickets, so note the review rate falls.",
+    "a-table-row": "| a | b |\n| Jev handles ambiguous tickets reliably | x |",
+    "a-table-row-under-a-hedged-header-row": (
+        "| not measured | x |\n| Jev handles ambiguous tickets reliably | y |"
+    ),
+    "a-wrapped-bullet": "- Jev judges these tickets\n  correctly every time\n- fine",
+    "after-a-hedged-sentence-on-the-same-line": (
+        "This is not measured live. Jev judges these tickets correctly."
+    ),
+}
+
+
+@pytest.mark.parametrize("where", ["readme", "markdown"])
+@pytest.mark.parametrize("case", sorted(_CLAIMS_IN_STRUCTURE))
+def test_a_claim_in_a_list_or_under_a_heading_is_not_hedged_by_its_neighbours(
+    tmp_path, case, where
+):
+    """The unit a hedge word covers is one sentence, a heading, a list item or a table row, never
+    the block around it (PR #351, both reviews)."""
+    folder = _copy_recipe(tmp_path, "_template")
+    assert _unhedged_quality_claims(folder) == []
+    text = _CLAIMS_IN_STRUCTURE[case]
+    if where == "readme":
+        (folder / "README.md").write_text(
+            (folder / "README.md").read_text("utf-8") + "\n" + text + "\n", "utf-8"
+        )
+    else:
+        _append_cell(folder, "markdown", text)
+    violations = _unhedged_quality_claims(folder)
+    assert len(violations) == 1, (case, violations)
+    assert ("README.md" if where == "readme" else "honesty-probe") in violations[0]
+
+
+_HEDGED_WITHIN_ITS_OWN_UNIT = {
+    "same-bullet-hedge": "- Jev judges these tickets correctly, which is not measured live",
+    "wrapped-bullet-hedge": "- Jev judges these tickets\n  correctly only if the gate is frozen",
+    "hedged-sentence-then-plain-text": "Whether Jev judges these correctly is not measured live.",
+    "a-heading-that-is-only-a-hedge": "## Not measured\n- The pipeline reads the catalog correctly.",
+    "an-attribution": "According to the documentation, the model judges each level on its own.",
+    "typesafe-notes": "TypeSafe's notes say Jev judges each level on its own.",
+}
+
+
+@pytest.mark.parametrize("case", sorted(_HEDGED_WITHIN_ITS_OWN_UNIT))
+def test_a_hedge_in_the_claims_own_sentence_or_list_item_still_hedges_it(tmp_path, case):
+    folder = _copy_recipe(tmp_path, "_template")
+    _append_cell(folder, "markdown", _HEDGED_WITHIN_ITS_OWN_UNIT[case])
+    assert _unhedged_quality_claims(folder) == []
+
+
+def test_the_failure_message_prints_the_offending_sentence_not_the_start_of_its_block(tmp_path):
+    folder = _copy_recipe(tmp_path, "01-sentiment-classification")
+    readme = folder / "README.md"
+    readme.write_text(
+        readme.read_text("utf-8") + "\n- Jev outperforms atlas-compact on every ticket\n", "utf-8"
+    )
+    (message,) = _unhedged_quality_claims(folder)
+    assert "Jev outperforms atlas-compact on every ticket" in message
+    assert "README.md" in message and len(message) < 400
+
+
+def test_the_claim_planted_in_recipe_26s_measured_cell_is_caught_inside_the_cell(tmp_path):
+    """#218's first reproduction used this cell; its heading says "not" and every claim in it used
+    to be hedged by that word."""
+    folder = _copy_recipe(tmp_path, "26-prompt-injection-screening")
+    assert _unhedged_quality_claims(folder) == []
+    _edit_markdown(
+        folder,
+        "## What was and was not measured\n",
+        "## What was and was not measured\n\nJev judges these prompts correctly\n",
+    )
+    (message,) = _unhedged_quality_claims(folder)
+    assert "measured-md" in message and "Jev judges these prompts correctly" in message
+
+
+def test_an_attributed_quality_claim_is_a_known_pass_that_section_2_forbids(tmp_path):
+    """Section 2 holds even when a figure is attributed to someone else, and the claim check treats
+    an attribution as a hedge, so "TypeSafe says Jev is accurate" passes. Pinned, and listed as the
+    reviewer's alone in docs/offline-and-live.md."""
+    folder = _copy_recipe(tmp_path, "_template")
+    _append_cell(folder, "markdown", "TypeSafe says Jev is accurate on tickets like these.")
+    assert _unhedged_quality_claims(folder) == []
+
+
+# --- the rate pool: the complement of a RATE, not of every printed number -------------------------
+
+_BACKED_PLUS = {
+    "a-bare-integer-does-not-back-a-complement": ("N: 7 examples", "the accuracy was 93%", 1),
+    "a-probability-does-not-back-a-complement": ("probability 0.05", "accuracy 0.95", 1),
+    "a-threshold-does-not-back-a-complement": ("threshold 0.30", "risk 0.70", 1),
+    "a-rate-line-backs-its-complement": ("risk among the answered: 0.0526", "accuracy 0.9474", 0),
+    "a-percentage-line-backs-its-complement": ("accuracy 94.74%", "risk 5.26%", 0),
+    "a-printed-percentage-backs-the-fraction": ("accuracy 77.0%", "accuracy 0.77", 0),
+    "one-decimal-is-not-complemented": ("accuracy 0.9", "risk 0.1", 1),
+    "the-complement-needs-a-rate-word-on-its-line": ("recall 0.9474", "risk 0.0526", 1),
+}
+
+
+@pytest.mark.parametrize("case", sorted(_BACKED_PLUS))
+def test_only_a_number_printed_on_a_rate_line_has_its_complement_backed(tmp_path, case):
+    printed, prose, unbacked = _BACKED_PLUS[case]
+    folder = _synthetic_recipe(tmp_path, ["print('probe')\n"])
+    _append_cell(folder, "code", printed, cell_id="printed")
+    _append_cell(folder, "markdown", prose, cell_id="prose")
+    assert len(_unprinted_quantities(folder)) == unbacked, _unprinted_quantities(folder)
+
+
+# What each recipe's own printed numbers back by coincidence differs, so each folder is held to the
+# round quotes that were measured to be unbacked there (reviewer 2 measured the template and 01).
+_ROUND_QUOTES = {
+    "_template": [
+        "Jev reaches 97% accuracy.",
+        "accuracy 95%",
+        "accuracy 0.95",
+        "The accuracy is 93%.",
+    ],
+    "01-sentiment-classification": ["Jev reaches 97% accuracy.", "The accuracy is 93%."],
+}
+
+
+@pytest.mark.parametrize(
+    ("slug", "claim"),
+    [(slug, claim) for slug, claims in _ROUND_QUOTES.items() for claim in claims],
+)
+def test_a_round_fabricated_accuracy_is_caught_where_it_used_to_be_backed_by_a_complement(
+    tmp_path, slug, claim
+):
+    """Reviewer 2 of PR #351: with the complement of every printed number in the pool, these four
+    passed in the template and in recipe 01 (and ``97%`` in recipe 26)."""
+    folder = _copy_recipe(tmp_path, slug)
+    assert _unprinted_quantities(folder) == []
+    _append_cell(folder, "markdown", claim)
+    assert _unprinted_quantities(folder), claim
+
+
+_TWO_DATES = ("2026-03-02", "2026-03-09")
+
+
+def test_a_recording_over_several_dates_states_the_first_and_last_in_the_header_and_all_in_captured(
+    tmp_path,
+):
+    """``run_header`` says "between FIRST and LAST" and the measured cell lists every date: both
+    are exact, in both directions."""
+    folder = _copy_recipe(tmp_path, "_template")
+    _make_recorded(folder, _TWO_DATES)
+    assert _fixture_provenance(folder)[2] == list(_TWO_DATES)
+    assert _all_clear(folder), _violations(folder)
+    _edit_streams(folder, "Captured: 2026-03-02, 2026-03-09", "Captured: 2026-03-02")
+    assert any("state capture dates" in v for v in _provenance_violations(folder))
+    _edit_streams(folder, "Captured: 2026-03-02", "Captured: 2026-03-02, 2026-03-09, 2026-04-01")
+    assert any("state capture dates" in v for v in _provenance_violations(folder))
+    _edit_streams(
+        folder, "Captured: 2026-03-02, 2026-03-09, 2026-04-01", "Captured: 2026-03-02, 2026-03-09"
+    )
+    _edit_streams(folder, "between 2026-03-02 and 2026-03-09", "on 2026-03-02")
+    assert any("the header says" in v for v in _provenance_violations(folder))
+
+
+_RECORDED_README_FAILS = {
+    "an-extra-capture-date": ("a model captured on 2026-12-25 too", "2026-12-25"),
+    "an-extra-model": ("compared with jev-9.9.9 elsewhere", "jev-9.9.9"),
+}
+
+
+@pytest.mark.parametrize("case", sorted(_RECORDED_README_FAILS))
+def test_a_recorded_readme_may_not_state_a_date_or_a_model_the_fixtures_do_not_carry(
+    tmp_path, case
+):
+    sentence, needle = _RECORDED_README_FAILS[case]
+    folder = _copy_recipe(tmp_path, "_template")
+    _make_recorded(folder)
+    assert _readme_provenance_violations(folder) == []
+    readme = folder / "README.md"
+    readme.write_text(readme.read_text("utf-8") + "\nThe run was " + sentence + ".\n", "utf-8")
+    assert any(needle in v for v in _readme_provenance_violations(folder))
+
+
+def test_a_recorded_answer_with_a_malformed_date_is_a_fixture_problem(tmp_path):
+    """The date pattern is load-bearing: a recorded answer dated "yesterday" is not a capture date."""
+    folder = _copy_recipe(tmp_path, "_template")
+    for n, bad in enumerate(("yesterday", "2026-3-2", "2026-03-02T10:00:00Z", "")):
+        folder_i = _copy_recipe(tmp_path / f"case{n}", "_template")
+        _rewrite_responses(
+            folder_i,
+            lambda i, a, bad=bad: a.update(
+                provenance={"source": "recorded", "model": _RECORDED_MODEL, "date": bad}
+            ),
+        )
+        mode, _, _, problems = _fixture_provenance(folder_i)
+        assert mode is None and any("no capture date" in p for p in problems), bad
+    assert _fixture_provenance(folder)[0] == "synthetic"
