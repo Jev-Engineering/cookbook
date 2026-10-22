@@ -153,9 +153,19 @@ the README and every markdown cell for them:
   checked, N is only required to be printed.
 - A fixture-derived statistic offered as evidence about the model, such as the share of
   comparisons whose first-listed option was chosen, which offline measures only the person who wrote
-  the fixtures.
+  the fixtures. A fixed-order `Choice` prints no position statistic at all
+  ([fixtures.md](fixtures.md#per-item-option-order); [CONTRIBUTING.md](../CONTRIBUTING.md), section 2).
 - A metric that is perfect by construction, printed with its pipeline-check label and without
-  saying that the fixtures or the selection force it.
+  saying that the fixtures or the selection force it. [CONTRIBUTING.md](../CONTRIBUTING.md), section 2,
+  defines "cannot come out otherwise" and lists the three signs to look for by hand.
+- A composed coverage, accuracy or risk that a Python check dominates (a permission, a budget, an
+  interlock), reported with no split over the rows the model decided, no decision-level comparison
+  with its baselines, or a baseline figure that cannot move given without saying so
+  ([evaluation.md](evaluation.md#rules-with-a-deterministic-branch)).
+- A prose quantity about the committed structure written as a word ("nine leaves"). The prose check
+  reads digits, so the reviewer reads the number words in the README and every markdown cell and
+  checks each against the committed data or a test; a quantity claim needs a test whatever spelling
+  the number uses ([CONTRIBUTING.md](../CONTRIBUTING.md), section 6).
 - A sentence that misdescribes the notebook's own committed output ("each misses one record",
   "every answer is on the correct side of its threshold") without quoting a number the output did
   not print.
