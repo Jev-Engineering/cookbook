@@ -11,6 +11,7 @@ import binascii
 import hashlib
 import io
 import math
+import struct
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from fractions import Fraction
@@ -78,6 +79,12 @@ _EDGES = ("top", "bottom", "left", "right")
 PixelBounds = tuple[int, int, int, int]
 
 
+_ORIENTATION_MESSAGE = (
+    "rotate EXIF orientation into pixels with ImageOps.exif_transpose "
+    "and save the upright image before loading it"
+)
+
+
 def _image_format(data: bytes) -> str:
     if not data or len(data) > _MAX_IMAGE_BYTES:
         raise ValueError("image must contain 1 byte to 16 MiB of encoded PNG or JPEG data")
@@ -99,10 +106,7 @@ def _image_format(data: bytes) -> str:
         # verify() checks file integrity; load() also catches truncated pixel data.
         with Image.open(io.BytesIO(data)) as image:
             if image.getexif().get(274, 1) != 1:
-                raise ValueError(
-                    "rotate EXIF orientation into pixels with ImageOps.exif_transpose "
-                    "and save the upright image before loading it"
-                )
+                raise ValueError(_ORIENTATION_MESSAGE)
             image.load()
     except (UnidentifiedImageError, OSError, SyntaxError, Image.DecompressionBombError) as exc:
         raise ValueError("image bytes are damaged or are not a supported still image") from exc
@@ -769,8 +773,9 @@ def prepare_image(
 
     The result carries no metadata from ``image`` on any path (no ICC profile, EXIF or text in
     ``.info``), so saving it as PNG writes none of the chunks the image-file contract in
-    ``docs/fixtures.md`` forbids. Orientation is not applied: rotate the pixels first with
-    ``ImageOps.exif_transpose``.
+    ``docs/fixtures.md`` forbids. Because that drops the EXIF tag, an image whose EXIF
+    orientation is not 1 raises ``ValueError`` (as :func:`image_asset` does): rotate the pixels
+    first with ``ImageOps.exif_transpose``.
     """
     min_side, max_side = _positive_int(min_side, "min_side"), _positive_int(max_side, "max_side")
     if min_side > max_side:
@@ -781,6 +786,12 @@ def prepare_image(
             f"cannot prepare a {image.mode!r} image with transparency or an unusual pixel mode; "
             "flatten it onto an explicit background and convert it to RGB first"
         )
+    try:
+        orientation = image.getexif().get(274, 1)  # the rebuild below drops EXIF and this evidence
+    except (struct.error, SyntaxError, OSError) as exc:
+        raise ValueError("the image's EXIF data is damaged; remove it before preparing") from exc
+    if orientation != 1:
+        raise ValueError(_ORIENTATION_MESSAGE)
     width, height = image.size
     _positive_int(width, "image width")
     _positive_int(height, "image height")

@@ -2118,8 +2118,10 @@ def _png_chunk_names(data: bytes) -> list[str]:
 def test_prepared_images_carry_no_source_metadata_and_pass_the_image_file_contract(size):
     source = Image.new("RGB", size, (200, 30, 60))
     # A source that was opened from a file with an ICC profile, EXIF, a resolution and text.
+    exif = Image.Exif()
+    exif[0x010E] = "a description"  # ImageDescription: personal text a real file could carry
     source.info.update(
-        icc_profile=b"not-a-real-profile", exif=b"Exif\x00\x00II*\x00", dpi=(72, 72), Comment="x"
+        icc_profile=b"not-a-real-profile", exif=exif.tobytes(), dpi=(72, 72), Comment="x"
     )
     prepared, _ = vision.prepare_image(source)
     assert prepared.info == {}
@@ -2169,6 +2171,9 @@ def test_the_docs_say_how_to_report_a_mapped_back_answer_and_when_to_upscale():
     assert 'a `None` from `to_original` is reported as `("review", None)`' in flat
     assert "Choose `upscale` once per recipe" in flat
     assert "the content covering 0.13% of the image" in flat
+    assert "has not been measured against Jev; treat it as a design decision" in flat
+    assert "too little for Jev" not in flat
+    assert "orientation is not 1 raises `ValueError`" in flat
     assert (
         "carries none of its metadata" in flat and "`image_asset` does not check PNG chunks" in flat
     )
@@ -2185,3 +2190,39 @@ def test_the_docs_say_how_to_report_a_mapped_back_answer_and_when_to_upscale():
         Fraction(29, 56),
         Fraction(29, 56),
     )
+
+
+def _jpeg_with_orientation(orientation, size=(320, 300)):
+    exif = Image.Exif()
+    exif[274] = orientation
+    buffer = io.BytesIO()
+    Image.new("RGB", size, (10, 120, 200)).save(buffer, "JPEG", exif=exif)
+    return Image.open(io.BytesIO(buffer.getvalue()))
+
+
+@pytest.mark.parametrize("orientation", [2, 3, 6, 8])
+def test_prepare_image_refuses_a_non_identity_exif_orientation_like_image_asset(
+    orientation, tmp_path
+):
+    image = _jpeg_with_orientation(orientation)
+    assert image.getexif()[274] == orientation
+    with pytest.raises(ValueError, match="rotate EXIF orientation into pixels"):
+        vision.prepare_image(image)
+    # image_asset gives the same refusal for the same file, with the same message.
+    path = tmp_path / "rotated.jpg"
+    image.save(path, "JPEG", exif=image.getexif())
+    with pytest.raises(ValueError, match="rotate EXIF orientation into pixels"):
+        vision.image_asset(path)
+
+
+def test_prepare_image_accepts_exif_orientation_one_and_no_exif():
+    for image in (_jpeg_with_orientation(1), Image.new("RGB", (320, 300))):
+        prepared, _ = vision.prepare_image(image)
+        assert prepared.size == (320, 300) and prepared.info == {}
+
+
+def test_prepare_image_reports_damaged_exif_as_a_value_error():
+    image = Image.new("RGB", (320, 300))
+    image.info["exif"] = b"Exif\x00\x00II*\x00"  # a header and nothing else
+    with pytest.raises(ValueError, match="EXIF data is damaged"):
+        vision.prepare_image(image)

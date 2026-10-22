@@ -381,19 +381,21 @@ to use another, and keep it the same across a recipe's images. An image with tra
 `ValueError`: flatten it onto an explicit background first, since the colors under a transparent
 pixel are arbitrary. The input image is not modified, and the result carries none of its metadata
 (ICC profile, EXIF, text) on any path, so saving it as a PNG writes none of the chunks the
-[image-file contract](fixtures.md) forbids. Orientation is not applied: rotate the pixels first
-with `ImageOps.exif_transpose`.
+[image-file contract](fixtures.md) forbids. Because that drops the EXIF tag, an image whose EXIF
+orientation is not 1 raises `ValueError`, as `image_asset` does: rotate the pixels first with
+`ImageOps.exif_transpose`.
 
 `prepare_image` does not certify the result for the API: save the prepared image and load it with
 `image_asset`, which re-checks format, size and the file limit. `image_asset` does not check PNG
 chunks; the metadata rules are `tools/check_recipe_assets.py`'s (run by CI on committed assets).
 
-Choose `upscale` once per recipe. The default pads, which keeps every original pixel and is
-enough when a crop only has to clear the 280 pixel minimum. But a small crop is then almost all
-padding: a 10 × 10 crop comes back 280 × 280 with the content covering 0.13% of the image, too
-little for Jev to use. Pass `upscale=True` when the point of the crop is to show the target larger
-(a crop-and-ask-again recipe), and keep that choice, like `pad_color`, the same across the
-recipe's images.
+Choose `upscale` once per recipe. The default pads, which keeps every original pixel and clears
+the 280 pixel minimum. A small crop is then almost all padding, and padding adds no detail: a
+10 × 10 crop comes back 280 × 280 with the content covering 0.13% of the image, the target no
+larger than it was in the source. `upscale=True` instead scales the crop up so the target fills
+more of the image sent. Which of the two works better for a recipe has not been measured against
+Jev; treat it as a design decision to settle on validation examples, then keep it, like
+`pad_color`, the same across the recipe's images.
 
 ### Mapping boxes between an image and what you sent
 
