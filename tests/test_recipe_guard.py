@@ -54,8 +54,10 @@ check id                              rule -> detection
                                        ``%``/the builtin ``format()``, a line that never says
                                        "validation" in its own text or in a string literal of
                                        the float string it prints (the word reaching it through
-                                       a loop variable -- recipe 39's ``evaluation-t86`` is one
-                                       today -- or a name bound to ``"validation"``), a number
+                                       a loop variable -- 26 committed lines in 12 cells of 8
+                                       recipes, 25 labelled by their loop's own tuple and one
+                                       not, recipe 39's ``evaluation-t86``, #363 -- or a name
+                                       bound to ``"validation"``), a number
                                        that is a validation figure only by its variable name,
                                        a float hoisted by anything but a simple binding, a
                                        nested precision, and a printer that is not literally
@@ -1502,8 +1504,9 @@ def _validation_metric_lines_missing_labels(
 
     Not seen, so a reader knows what a green result does not say: a float rounded by ``round()``
     or ``%`` or the builtin ``format()``; a "validation" that reaches the line only through a
-    loop variable (recipe 39's ``evaluation-t86`` is one, today) or a name bound to
-    ``"validation"``; a float hoisted by anything but a simple binding (a tuple unpack, ``+=``, a
+    loop variable (when measured, 26 committed lines in 12 cells of 8 recipes: 25 carry both labels
+    through their loop's own tuple, one does not -- recipe 39's ``evaluation-t86``, #363) or a name
+    bound to ``"validation"``; a float hoisted by anything but a simple binding (a tuple unpack, ``+=``, a
     ``for`` target, a function's return); a nested precision (``{x:.{p}f}``); and a printer that is
     not literally ``print(`` (``pprint(``, ``obj.print(``), which the text scan this replaced did
     inspect and the published set has none of. A cell that does not parse is read the way it always
