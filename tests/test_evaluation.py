@@ -1089,24 +1089,137 @@ def test_accept_side_gate_inertness_needs_t_above_one_half():
     assert all(t <= p <= (1 + g) / 2 for p in withheld)
 
 
+def _ulps_below(value, target):
+    """How many representable doubles lie between ``value`` and ``target`` (``value < target``)."""
+    steps = 0
+    while value < target:
+        value = math.nextafter(value, math.inf)
+        steps += 1
+    return steps
+
+
+# Two-decimal thresholds t in 0.51 ... 0.99 whose confidence sits below the typed gate
+# round(2t - 1, 2), with the gap in ULPs. Hand-checked, e.g. t = 0.6: noul_confidence is
+# 0.19999999999999996, and two steps of math.nextafter reach 0.2 (0.19999999999999996 ->
+# 0.19999999999999998 -> 0.2); the double 0.6 is slightly below 0.6, and 2 * 0.6 - 1 is exact
+# for p >= 0.5 (Sterbenz), so the shortfall is the decimal's, not the arithmetic's.
+_TYPED_GATE_MISSES = {
+    0.57: 4,
+    0.58: 3,
+    0.59: 2,
+    0.60: 2,
+    0.61: 1,
+    0.69: 2,
+    0.70: 2,
+    0.71: 1,
+    0.72: 1,
+    0.73: 1,
+    0.82: 1,
+    0.83: 1,
+    0.84: 1,
+    0.94: 1,
+    0.95: 1,
+    0.96: 1,
+}
+
+
 def test_accept_side_floor_at_exactly_two_t_minus_one_holds_only_in_real_arithmetic():
     # The floor g <= 2t - 1 is exact in real arithmetic. A gate typed as the decimal 2t - 1 sits ON
-    # the edge, where binary floating point can put the admitted value p = t one ULP below it.
-    # Hand-computed: 2 * max(0.6, 0.4) - 1 = 0.19999999999999996 (< 0.2), so at t = 0.6, g = 0.2
-    # the "inert" gate withholds p = 0.6, which the threshold admits.
-    assert ev.noul_confidence([0.6])[0] == 0.19999999999999996 < 0.2
-    # Recipe 39's frozen pair (t = 0.85, g = 0.70) is the case that happens to be exact.
-    assert ev.noul_confidence([0.85])[0] == 0.7 >= 0.70
-    # Exhaustive over the two-decimal thresholds 0.51 ... 0.99 with g = round(2t - 1, 2): the gate
-    # withholds p = t for exactly these 16.
+    # the edge, where binary floating point can put the admitted value p = t a few ULPs below it.
+    c = ev.noul_confidence([0.6])[0]
+    assert c == 0.19999999999999996
+    assert c < 0.2
+    assert math.nextafter(math.nextafter(c, 1.0), 1.0) == 0.2  # two ULPs, not one
+    assert _ulps_below(c, 0.2) == 2
+    # Recipe 39's frozen pair (t = 0.85, g = 0.70): the confidence is exactly the gate.
+    assert ev.noul_confidence([0.85])[0] == 0.7
+    # Exhaustive over the two-decimal thresholds 0.51 ... 0.99 with g = round(2t - 1, 2).
     ts = [i / 100 for i in range(51, 100)]
-    on_edge = [t for t in ts if ev.noul_confidence([t])[0] < round(2 * t - 1, 2)]
-    assert len(on_edge) == 16 and 0.6 in on_edge and 0.85 not in on_edge
-    # Clear of the edge the floor holds with no exception: g = 2t - 1 - 1e-9 withholds no p >= t.
+    misses = {
+        t: _ulps_below(ev.noul_confidence([t])[0], round(2 * t - 1, 2))
+        for t in ts
+        if ev.noul_confidence([t])[0] < round(2 * t - 1, 2)
+    }
+    assert misses == _TYPED_GATE_MISSES
+    assert len(misses) == 16
+    assert 0.6 in misses
+    assert 0.85 not in misses
+    # Clear of the edge the floor holds with no exception.
     grid = [i / 400 for i in range(401)]
     for t in ts:
         g = 2 * t - 1 - 1e-9
         assert all(ev.noul_confidence([p])[0] >= g for p in grid if p >= t), t
+        # ... and so does the gate the contract mandates, frozen at an observed confidence of an
+        # item at or below t (here the item at t itself): noul_confidence is monotone on [0.5, 1].
+        g = ev.noul_confidence([t])[0]
+        assert all(ev.noul_confidence([p])[0] >= g for p in grid if p >= t), t
+
+
+def test_typed_gate_at_two_t_minus_one_withholds_the_admitted_value_at_t_in_a_composition():
+    # Compose the real helpers: an accept-only gate, applied with evaluate_selective to every
+    # admitted p (p >= t) on a 0.00025-step grid. The typed gate round(2t - 1, 2) withholds
+    # exactly the one value p = t for each of the 16 thresholds that miss by an ULP or more; the
+    # gate frozen by select_confidence_threshold on a validation pool containing that item (the
+    # contract's construction) withholds nothing.
+    grid = [i / 4000 for i in range(4001)]
+    for t in _TYPED_GATE_MISSES:
+        admitted = [p for p in grid if p >= t]
+        assert t in admitted  # i / 4000 and t = j / 100 are the same correctly rounded double
+        conf = ev.noul_confidence(admitted)
+        everything_right = [1] * len(admitted)
+        typed = ev.evaluate_selective(everything_right, conf, round(2 * t - 1, 2))
+        assert typed.n_answered == len(admitted) - 1, t
+        withheld = [p for p, c in zip(admitted, conf, strict=True) if c < round(2 * t - 1, 2)]
+        assert withheld == [t], t
+        clear = ev.evaluate_selective(everything_right, conf, 2 * t - 1 - 1e-9)
+        assert clear.n_answered == len(admitted), t
+    # The frozen construction at t = 0.6: a validation pool whose lowest-confidence item is 0.6.
+    val = [0.6, 0.62, 0.7, 0.95, 0.05]
+    frozen = ev.select_confidence_threshold([1] * 5, ev.noul_confidence(val), min_coverage=0.5)
+    assert frozen == ev.noul_confidence([0.6])[0] == 0.19999999999999996
+    admitted = [p for p in grid if p >= 0.6]
+    conf = ev.noul_confidence(admitted)
+    assert ev.evaluate_selective([1] * len(admitted), conf, frozen).n_answered == len(admitted)
+    assert ev.evaluate_selective([1] * len(admitted), conf, 0.2).n_answered == len(admitted) - 1
+
+
+def test_reject_side_band_edge_disagrees_with_the_real_comparison_for_a_frozen_gate():
+    # A gate frozen by select_confidence_threshold is an observed confidence g = |2p_i - 1|, so
+    # p_i sits exactly on its own band edge in real arithmetic. Below 0.5 the computed edge
+    # (1 - g)/2 can land above p_i. Hand-computed: p = 0.1, g = 2 * (1 - 0.1) - 1 = 0.8, and
+    # (1 - 0.8)/2 = 0.09999999999999998 (< 0.1), so the band statement puts p = 0.1 in review.
+    g = ev.noul_confidence([0.1])[0]
+    assert g == 0.8
+    assert (1 - g) / 2 == 0.09999999999999998 < 0.1
+    # The real comparison passes it, and so does evaluate_selective on a pool frozen at it.
+    val = [0.1, 0.02, 0.97]
+    frozen = ev.select_confidence_threshold([1] * 3, ev.noul_confidence(val), min_coverage=1.0)
+    assert frozen == g
+    assert ev.evaluate_selective([1], ev.noul_confidence([0.1]), frozen).n_answered == 1
+    assert (1 - frozen) / 2 < 0.1 < (1 + frozen) / 2  # band statement: review
+    # Exhaustive over the 50 two-decimal p in 0.00 ... 0.49: the band disagrees for exactly 16.
+    below = [i / 100 for i in range(0, 50)]
+    disagree = [
+        p
+        for p in below
+        if (1 - ev.noul_confidence([p])[0]) / 2 < p < (1 + ev.noul_confidence([p])[0]) / 2
+    ]
+    assert disagree == [
+        0.08, 0.09, 0.10, 0.11,
+        0.18, 0.19, 0.20, 0.21, 0.22, 0.23,
+        0.41, 0.42, 0.43, 0.44, 0.45, 0.46,
+    ]  # fmt: skip
+    assert len(disagree) == 16
+    # ... and for none of the two-decimal p above 0.5 (0.5 itself has g = 0 and an empty band).
+    above = [i / 100 for i in range(51, 101)]
+    assert [
+        p
+        for p in above
+        if (1 - ev.noul_confidence([p])[0]) / 2 < p < (1 + ev.noul_confidence([p])[0]) / 2
+    ] == []
+    # The accept side stays clean on a fine grid too: p >= (1 + g)/2 whenever g = |2p - 1|.
+    fine = [0.5 + i / 200000 for i in range(1, 100001)]
+    assert all(p >= (1 + ev.noul_confidence([p])[0]) / 2 for p in fine)
 
 
 def test_select_confidence_threshold_errors():
