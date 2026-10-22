@@ -15,7 +15,7 @@ helpers = load_helpers(RECIPE)
 # The gate recipe 16's notebook chooses over all of validation and freezes before test (see
 # notebook.ipynb, "Python's part"): the lowest confidence whose answered subset -- every
 # category, allowed included -- is perfectly accurate. It happens to be the same value as the
-# recipe's first fix round (0.7600 printed; "v03-trigger-word" and "v13-violating-harass" both
+# gate over only the two flagged categories (0.7600 printed; "v03-trigger-word" and "v13-violating-harass" both
 # carry it exactly), not by coincidence but because validation's "allowed" examples were raised
 # above it precisely so that re-selecting the gate over every category, not just the two flagged
 # ones, would not quietly lower it. Written here as a literal, to the precision
@@ -97,7 +97,7 @@ def test_the_gate_is_inclusive():
 
 
 def test_the_gate_applies_to_allowed_too():
-    # The central claim this recipe makes after its first review round: allowed is not exempt.
+    # The central claim this recipe makes: allowed is not exempt.
     # A confident allowed answer is accepted; the identical answer, gated at a threshold just
     # above its own confidence, is escalated rather than ignored outright.
     a = _confident(helpers.ALLOWED)
