@@ -1399,6 +1399,15 @@ def top_k_query_accuracy(queries: Iterable[tuple[Any, Any]], k: int = 1) -> floa
     * **A query with no relevant item** has no defined hit rate and is left out of the
       mean (not counted as a miss, not counted in the denominator).
     * **Empty input** raises: no queries, a query with no items, or ``k < 1``.
+    * **No ``eligible`` argument.** Unlike :func:`recall_at_budget`, this ranks every item it
+      is given, so it cannot score a rule that excludes candidates before ranking (a
+      confidence gate, a type or permission filter; the #231 trap in binary form): a
+      relevant item the rule excluded would count as a hit the rule's own pick never
+      produces, and dropping excluded items beforehand turns a query whose only relevant
+      item was excluded into an undefined one that silently leaves the denominator. With
+      exactly one relevant item per query, ``mean_recall_at_budget(queries, k)`` with each
+      query's ``eligible`` mask is this metric for a gated rule; otherwise compute it from
+      the rule's own pick.
 
     Args:
         queries: Pairs ``(gold_relevant, scores)``, one per query, exactly as
@@ -1427,7 +1436,7 @@ def top_k_query_accuracy(queries: Iterable[tuple[Any, Any]], k: int = 1) -> floa
         _same_length(relevant, scores, "gold_relevant and scores")
         per_query.append(_hit_probability(relevant, scores, k))
     defined = [v for v in per_query if not math.isnan(v)]
-    return math.fsum(defined) / len(defined) if defined else float("nan")
+    return _mean(defined)
 
 
 # --------------------------------------------------------------------------- Selective prediction

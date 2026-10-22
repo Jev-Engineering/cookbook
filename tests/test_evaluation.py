@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 import math
 import subprocess
 import sys
@@ -917,8 +918,6 @@ def test_top_k_query_accuracy_equals_brute_force_enumeration_of_tie_orders():
     # consistent with the scores (ties in any order), of "a relevant item is in the first k".
     # Every tie order is equally frequent among the consistent orderings, so the plain mean
     # over them is the expectation over tie orders. Small integer scores force many ties.
-    import itertools
-
     rng = np.random.default_rng(20240607)
     checked = 0
     for _ in range(60):
@@ -951,6 +950,37 @@ def test_top_k_query_accuracy_mean_is_over_queries_with_a_relevant_item_only():
     assert ev.top_k_query_accuracy([q_tie, q_hit]) == 0.75
     # a query that is a clear miss is NOT left out: (0 + 1) / 2
     assert ev.top_k_query_accuracy([([1, 0], [0.1, 0.9]), q_hit]) == 0.5
+
+
+def test_top_k_query_accuracy_duplicate_gold_is_two_relevant_items():
+    # Two items identical but for position, both marked relevant, are two relevant items:
+    # relevance is a mask, so there is no gold id to repeat. Tied at 0.5 with a third,
+    # irrelevant, item: k=1 -> 2/3; k=2 -> 1 - C(1,2)/C(3,2) = 1.
+    q = ([1, 1, 0], [0.5, 0.5, 0.5])
+    assert ev.top_k_query_accuracy([q], k=1) == 2 / 3
+    assert ev.top_k_query_accuracy([q], k=2) == 1.0
+
+
+def test_top_k_query_accuracy_cannot_score_a_gated_rule_and_prefiltering_changes_the_denominator():
+    # The #231 trap in binary form. Query 1: the relevant item (index 0, score 0.9) is
+    # excluded by a gate, so the rule's own pick is index 1 (score 0.5), which is not
+    # relevant: the rule scores 0.0. Query 2 is an ordinary hit: 1.0.
+    gated = ([1, 0, 0], [0.9, 0.5, 0.1], [0, 1, 1])  # eligible mask: item 0 excluded
+    plain = ([0, 1], [0.1, 0.9], [1, 1])
+    rule_own = (0.0 + 1.0) / 2  # hand-computed from the rule's own picks = 0.5
+    # a) the helper on the full lists sees the excluded relevant item as the top hit:
+    #    (1.0 + 1.0) / 2 = 1.0, a number the rule's pick never produces.
+    full = [(g[0], g[1]) for g in (gated, plain)]
+    assert ev.top_k_query_accuracy(full, k=1) == 1.0
+    # b) dropping the excluded item beforehand leaves query 1 with no relevant item: it is
+    #    undefined and leaves the denominator, so the mean is over ONE query and is also 1.0.
+    pre_filtered = [([0, 0], [0.5, 0.1]), ([0, 1], [0.1, 0.9])]
+    assert ev.top_k_query_accuracy(pre_filtered, k=1) == 1.0
+    # the gated query alone is undefined (NaN), which is how it silently left the mean:
+    assert nan(ev.top_k_query_accuracy(pre_filtered[:1], k=1))
+    # c) with one relevant item per query, recall_at_budget's eligible mask is the metric:
+    assert ev.mean_recall_at_budget([gated, plain], 1) == rule_own == 0.5
+    assert ev.recall_at_budget(gated[0], gated[1], 1, eligible=gated[2]) == 0.0
 
 
 def test_top_k_query_accuracy_accepts_booleans_and_rejects_non_binary_relevance():
