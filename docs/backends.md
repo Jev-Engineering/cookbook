@@ -87,6 +87,17 @@ prints byte for byte the line it printed before, and its committed output stays 
 accepts exactly the registered names, recomputes every total, and compares it with the recipe's
 declared `profile`. Only a change to a core field bumps `schema`.
 
+The cookbook registers two such quantities itself, when `jev_cookbook` is imported, for requests
+that carry `assets`: `images`, the image copies a request expands to (every place a reference is
+replaced by its image; an image in the instructions counts once per question that has it), and
+`distinct_images`, the assets it uploads. Both are counts: no bytes, content or references reach
+the line. A text-only call has neither, so its line is byte for byte unchanged and a text-only
+notebook never loads the image code. Each total is a sum over calls, so `distinct_images` is the
+uploads across the run, not the number of different files in it. A recipe declares them like any
+profile, `"profile": {"images": 12, "distinct_images": 4}`, and the guard also refuses a call
+that states images without distinct images or fewer copies than distinct images, whatever the
+totals say. See [copies and the 32 MiB caps](vision.md#image-copies-and-the-32-mib-caps).
+
 ### The declared count: `request_budget.json`
 
 A recipe states its live request count once, in `request_budget.json` beside the notebook:
@@ -495,6 +506,13 @@ They can occur inside longer strings and nested values in state, instructions or
 Object keys, including question IDs and Choice option names, remain text. Every supplied
 asset must appear in a value; key-only and unused references fail validation. Use distinctive
 references to avoid accidental substring matches. See the official [image contract](https://docs.typesafe.ai/images).
+
+A reference repeated in state, criteria or several questions' instructions adds a copy of the
+image each time, and the live backend refuses a request whose distinct images or expanded copies
+exceed 32 MiB before spending anything (`ImageRequestTooLarge`, `requests_made == 0`). Put a
+shared image in the state once. [Copies and the 32 MiB caps](vision.md#image-copies-and-the-32-mib-caps)
+has the counting rules; image tokens are observable only in a recorded response's
+`usage.input_tokens`, beside which `live.record` writes the `images` and `distinct_images` counts.
 
 Asset dictionaries, base64, image format and image bounds are checked before replay or live
 inference. A Box request needs at least one image. An arbitrary string without an asset entry

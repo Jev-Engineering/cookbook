@@ -440,3 +440,111 @@ def test_a_declaration_file_with_a_repeated_key_is_rejected(tmp_path):
     )
     with pytest.raises(ValueError, match="appears twice"):
         load_budget(tmp_path)
+
+
+# --------------------------------------------------------------------------------------------
+# #313: image copies and distinct images in the audit
+# --------------------------------------------------------------------------------------------
+
+# Captured by running this exact notebook with origin/main's source before the image profile
+# existed (5d80508), so a change to a text-only line, however small, fails here.
+TEXT_ONLY_LINE = (
+    'JEV_REQUEST_AUDIT {"schema":2,"backends":[{"label":"main","decide_calls":3,'
+    '"distinct_requests":2,"calls":['
+    '{"replay_key":"5721b4bb09dbb0bf5c24119d996669750419c9adb3d31b36b058a18f0761f9cd",'
+    '"returned":true},'
+    '{"replay_key":"5721b4bb09dbb0bf5c24119d996669750419c9adb3d31b36b058a18f0761f9cd",'
+    '"returned":true},'
+    '{"replay_key":"99d76eb7f2982a2498a9c9e9c0e4b5da35ae55ee4a50616cb2fe767ecc52d454",'
+    '"returned":true}]}]}'
+)
+
+
+def _png(color):
+    data = io.BytesIO()
+    Image.new("RGB", (280, 280), color).save(data, format="PNG")
+    return {
+        "type": "image",
+        "format": "png",
+        "data_base64": base64.b64encode(data.getvalue()).decode("ascii"),
+    }
+
+
+def test_a_text_only_audit_line_is_byte_identical_to_the_one_before_image_accounting():
+    backend = _scripted()
+    for state in ("a", "a", "b"):
+        backend.decide(state, QUESTIONS)
+    assert backend.audit_json() == TEXT_ONLY_LINE
+    # Even a state that looks like an image reference is text when no assets are supplied.
+    other = _scripted()
+    other.decide("<photo> <photo>", QUESTIONS)
+    assert "profile" not in other.audit_json()
+
+
+def test_the_image_quantities_are_registered_by_importing_the_package_alone():
+    import subprocess
+    import sys
+
+    probe = (
+        "import sys, jev_cookbook\n"
+        "from jev_cookbook.accounting import PROFILE_COUNTERS\n"
+        "print(sorted(PROFILE_COUNTERS))\n"
+        "b = jev_cookbook.AuditedBackend(jev_cookbook.ScriptedBackend(lambda s, q, r: {'p': 0.5}))\n"
+        "b.decide('x', {'p': jev_cookbook.Noul()})\n"
+        "print('PIL' in sys.modules, 'jev_cookbook.vision' in sys.modules)\n"
+    )
+    out = subprocess.run(
+        [sys.executable, "-c", probe], capture_output=True, text=True, check=True, timeout=120
+    ).stdout.splitlines()
+    assert out[0] == "['distinct_images', 'images']"
+    # A text-only request never loads the image code, so importing and auditing stay light.
+    assert out[1] == "False False"
+
+
+def test_image_copies_and_distinct_images_are_audited_as_counts_only():
+    pink, blue = _png("pink"), _png("blue")
+    assets = {"<pink>": pink, "<blue>": blue}
+    # Hand-computed. <pink> sits in the instructions of three questions (three copies); <blue> is
+    # in the state once and <pink> once more there; the second call has no image at all.
+    questions = {name: Noul(instructions=f"Is {name} like <pink>?") for name in ("a", "b", "c")}
+    backend = AuditedBackend(
+        ScriptedBackend(lambda state, qs, rng: {name: 0.5 for name in qs}), label="refs"
+    )
+    backend.decide({"x": "<blue>", "y": "<pink>"}, questions, assets=assets)
+    backend.decide({"x": "no image"}, QUESTIONS_ABC)
+    audit = backend.audit()
+    first, second = audit["calls"]
+    assert first["profile"] == {"images": 5, "distinct_images": 2}
+    assert "profile" not in second
+    assert audit["profile_totals"] == {"images": 5, "distinct_images": 2}
+    line = backend.audit_json()
+    # No bytes, no content, no references, no sizes: only the two counts.
+    assert "data_base64" not in line and "<pink>" not in line and "bytes" not in line
+    assert json.loads(line.removeprefix(AUDIT_PREFIX))["backends"][0] == audit
+
+
+QUESTIONS_ABC = {name: Noul(instructions=f"Is {name} present?") for name in ("a", "b", "c")}
+
+
+def test_a_shared_image_in_the_state_audits_as_fewer_copies_than_in_the_instructions():
+    assets = {"<chart>": _png("green")}
+    scripted = ScriptedBackend(lambda state, qs, rng: {name: 0.5 for name in qs})
+    in_instructions = AuditedBackend(scripted)
+    in_instructions.decide(
+        "text", {n: Noul(instructions="Read <chart>.") for n in ("a", "b", "c")}, assets=assets
+    )
+    in_state = AuditedBackend(scripted)
+    in_state.decide(
+        {"chart": "<chart>"},
+        {n: Noul(instructions="Read `chart`.") for n in ("a", "b", "c")},
+        assets=assets,
+    )
+    assert in_instructions.audit()["profile_totals"] == {"images": 3, "distinct_images": 1}
+    assert in_state.audit()["profile_totals"] == {"images": 1, "distinct_images": 1}
+
+
+def test_the_image_profile_is_declared_in_the_budget_and_parsed():
+    (backend,) = parse_budget(_with(profile={"images": 12, "distinct_images": 4})).backends
+    assert backend.profile == (("distinct_images", 4), ("images", 12))
+    with pytest.raises(ValueError):
+        parse_budget(_with(profile={"image_bytes": 3}))
