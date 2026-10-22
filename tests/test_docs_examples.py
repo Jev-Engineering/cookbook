@@ -73,6 +73,7 @@ import signal
 import subprocess
 import sys
 import threading
+import types
 from pathlib import Path
 
 import pytest
@@ -302,8 +303,62 @@ def test_windows_time_limit_leaves_a_real_ctrl_c_alone():
                 pass
 
 
+def _sigbreak_of(signal_module):
+    """The signal the Windows timer branch uses, or a stand-in where the platform has none: only
+    the attribute that exists is looked up, since ``getattr``'s default is evaluated eagerly and
+    ``SIGUSR1`` does not exist on Windows."""
+    return signal_module.SIGBREAK if hasattr(signal_module, "SIGBREAK") else signal_module.SIGUSR1
+
+
+def test_the_sigbreak_shim_never_looks_up_a_signal_the_platform_lacks():
+    """The shim of the test below ran ``getattr(signal, "SIGBREAK", signal.SIGUSR1)``, which raises
+    ``AttributeError`` on Windows (no ``SIGUSR1``) before it looks at ``SIGBREAK``. Stand-ins for
+    both platforms' ``signal`` modules, each lacking the other's signal."""
+    windows = types.SimpleNamespace(SIGBREAK=21)
+    posix = types.SimpleNamespace(SIGUSR1=10)
+    assert _sigbreak_of(windows) == 21
+    assert _sigbreak_of(posix) == 10
+    assert _sigbreak_of(types.SimpleNamespace(SIGBREAK=21, SIGUSR1=10)) == 21
+
+
+def test_windows_time_limit_ignores_a_trip_that_lands_while_its_handler_is_still_installed(
+    monkeypatch,
+):
+    """The case the ``armed`` flag exists for (#325 review): the body is done, the timer's trip
+    arrives before the handler is restored. A fake ``Timer`` whose ``join()`` fires the trip makes
+    that deterministic. The Windows branch is driven on any platform: where there is no
+    ``SIGBREAK`` the shim uses ``SIGUSR1``, and ``_HAS_SIGALRM`` is switched off. Without the flag
+    the handler raises ``_Timeout`` out of a block that finished in time."""
+    sigbreak = _sigbreak_of(signal)
+    monkeypatch.setattr(signal, "SIGBREAK", sigbreak, raising=False)
+    monkeypatch.setitem(globals(), "_HAS_SIGALRM", False)
+
+    class LateTimer:
+        def __init__(self, _seconds, function, args=()):
+            self.function, self.args = function, args
+
+        def start(self):
+            pass
+
+        def cancel(self):
+            pass
+
+        def join(self):
+            self.function(*self.args)  # the trip, after the body and before the restore
+
+    monkeypatch.setattr(threading, "Timer", LateTimer)
+    previous = signal.getsignal(sigbreak)
+    with _time_limit(10):
+        pass  # must not raise _Timeout, here or when the block exits
+    for _ in range(10**5):
+        pass  # a trip still pending would surface here
+    assert signal.getsignal(sigbreak) == previous
+
+
 @pytest.mark.skipif(_HAS_SIGALRM, reason="exercises the Windows-only SIGBREAK timer path")
-def test_windows_time_limit_ignores_a_trip_after_the_block():
+def test_windows_time_limit_ignores_a_trip_after_the_handler_is_restored():
+    """Only what happens once the handler is gone (``interrupt_main`` then does nothing); the
+    ``armed`` flag itself is pinned by the test above."""
     with _time_limit(10):
         pass
     _thread.interrupt_main(signal.SIGBREAK)  # a timer that fired just as the block ended

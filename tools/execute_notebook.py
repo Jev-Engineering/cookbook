@@ -39,12 +39,14 @@ These things are fixed so that running it twice gives the same file:
 * matplotlib's font cache is built before the kernel starts, in a separate process with the
   kernel's own environment (``warm_font_cache``), so a cell never builds it: on a slow runner that
   build logs a "building the font cache" notice to stderr, which used to fail the first code cell
-  of a recipe now and then (#287).
+  of a recipe now and then (#287). A warm-up that fails or times out does not fail the run, but
+  prints one line to this process's stderr saying so (#316).
 
 A run in which any cell wrote to stderr also fails: stderr carries warnings and absolute paths,
 which must not be committed. The failure message shows what was written, redacted (absolute
-paths and long unbroken runs replaced) and bounded (``stderr_excerpt``), so a log is enough to
-diagnose it.
+POSIX, Windows and UNC paths and long unbroken runs replaced), bounded and with every line
+prefixed so none can be read as a GitHub Actions ``::`` command (``stderr_excerpt``), so a log is
+enough to diagnose it.
 
 Exit status is 0 when the notebook ran to the end, 1 when a cell failed, a cell ran longer than
 the timeout (``--timeout``, default 300 seconds, at least 1), the kernel died or never started, a
@@ -143,12 +145,37 @@ class StderrOutput(Exception):
 
 STDERR_EXCERPT_LINES = 8
 STDERR_EXCERPT_CHARS = 600
+# Every excerpt line starts with this. Indentation alone is not enough: the Actions runner trims
+# leading whitespace before it looks for a workflow command, so "   ::warning::x" is still one. A
+# line that starts with "  | " cannot be read as ``::command::`` however the text continues (#316).
+STDERR_LINE_PREFIX = "  | "
+STDERR_TRUNCATED = "[... truncated]"
 _ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
-# An absolute path (POSIX, or a drive letter either slash), a home-directory ``~`` path and a long
-# unbroken run that could be a key or a token. Order matters: paths first, so a token inside a path
-# goes with it.
-_PATH_IN_TEXT = re.compile(r"""(?:[A-Za-z]:[\\/]|~/|/)[^\s"'<>()\[\]{},;`]+""")
+# A Windows path: a drive letter (after a non-alphanumeric, so not the end of a word like
+# ``NOTE:/``) with either slash, or a UNC path (``\\server\share``, ``\\?\C:\``). Windows names may hold spaces,
+# commas and brackets, so after the prefix everything up to a character Windows forbids in a name
+# (a quote, ``<>|*?`` or a colon) or the end of the line belongs to the path: that can swallow the
+# words after an unquoted path, which is the safe direction, and never leaves the tail of a
+# folder name such as ``Program Files`` or ``Jane Doe`` behind.
+_WINDOWS_PATH = (
+    r"(?:\\\\(?:[?.]\\(?:[A-Za-z]:\\)?)?|(?<![A-Za-z0-9])[A-Za-z]:[\\/])"
+    r"""[^"'<>|*?:\r\n]*"""
+)
+# A POSIX absolute path, or a home-directory ``~`` path.
+_POSIX_PATH = r"""(?:~/|/)[^\s"'<>()\[\]{},;`]+"""
+# And a long unbroken run that could be a key or a token. Order matters: paths first, so a token
+# inside a path goes with it.
+_PATH_IN_TEXT = re.compile(f"{_WINDOWS_PATH}|{_POSIX_PATH}")
 _TOKEN_IN_TEXT = re.compile(r"[A-Za-z0-9_+=/-]{24,}")
+
+
+def _redact(text: str) -> str:
+    """``text`` with control characters and ANSI escapes dropped, every absolute path replaced by
+    ``<path>`` and every long unbroken run by ``<redacted>``."""
+    text = _ANSI_ESCAPE.sub("", text)
+    text = "".join(ch for ch in text if ch in "\n\t" or ch.isprintable())
+    text = _PATH_IN_TEXT.sub("<path>", text)
+    return _TOKEN_IN_TEXT.sub("<redacted>", text)
 
 
 def stderr_excerpt(text: str) -> str:
@@ -156,20 +183,17 @@ def stderr_excerpt(text: str) -> str:
 
     The text is what diagnoses a flaky or unexpected stderr write, but it can also carry absolute
     paths and credentials (that is why stderr is rejected at all), so it is shown only after
-    redaction and bounded: control characters and ANSI escapes are dropped, every absolute path is
-    replaced by ``<path>``, every long unbroken run by ``<redacted>``, and what is left is cut to
-    ``STDERR_EXCERPT_LINES`` lines and ``STDERR_EXCERPT_CHARS`` characters.
+    redaction (``_redact``: POSIX, Windows and UNC paths, long unbroken runs) and bounded: cut to
+    ``STDERR_EXCERPT_LINES`` lines and ``STDERR_EXCERPT_CHARS`` characters. The text is written
+    by a cell and goes into a log the Actions runner scans for ``::`` workflow commands, so every
+    line starts with ``STDERR_LINE_PREFIX``, which no command can survive.
     """
-    text = _ANSI_ESCAPE.sub("", text)
-    text = "".join(ch for ch in text if ch in "\n\t" or ch.isprintable())
-    text = _PATH_IN_TEXT.sub("<path>", text)
-    text = _TOKEN_IN_TEXT.sub("<redacted>", text)
-    lines = [line.rstrip() for line in text.splitlines() if line.strip()]
+    lines = [line.rstrip() for line in _redact(text).splitlines() if line.strip()]
     cut = len(lines) > STDERR_EXCERPT_LINES
-    out = "\n".join(lines[:STDERR_EXCERPT_LINES])
+    out = "\n".join(STDERR_LINE_PREFIX + line for line in lines[:STDERR_EXCERPT_LINES])
     if len(out) > STDERR_EXCERPT_CHARS:
         out, cut = out[:STDERR_EXCERPT_CHARS], True
-    return out + ("\n[... truncated]" if cut else "")
+    return out + (f"\n{STDERR_LINE_PREFIX}{STDERR_TRUNCATED}" if cut else "")
 
 
 def check_no_stderr(nb: nbformat.NotebookNode) -> None:
@@ -191,6 +215,7 @@ def check_no_stderr(nb: nbformat.NotebookNode) -> None:
 
 
 WARM_TIMEOUT = 300
+WARM_NOTE_CHARS = 200
 # Matplotlib's one-off, slow-machine-only notice (font_manager.FontManager.__init__): a timer that
 # fires only when building the font cache takes more than 5 seconds.
 FONT_CACHE_WARMUP = "import matplotlib.font_manager"
@@ -213,19 +238,38 @@ def warm_font_cache(environment: dict[str, str]) -> None:
     in a pipe this function discards, not in a cell's output. The stderr rule is untouched.
 
     Best effort by design: if matplotlib is not installed, or the warm-up fails or times out,
-    nothing is hidden, since the cell that needs the cache will still build it (and report) as before.
+    nothing is hidden, since the cell that needs the cache will still build it (and report) as
+    before. It does not fail the run, but it is not silent either: one line on this process's own
+    stderr says what happened (``font_cache_warmup_note``), so a cache that did not get built is
+    visible the next time a stderr flake appears (#316). The interpreter runs with ``-s``, like
+    the CI sandbox's own (``python -s tools/execute_notebook.py``): no per-user site directory.
     """
     try:
-        subprocess.run(
-            [sys.executable, "-c", FONT_CACHE_WARMUP],
+        done = subprocess.run(
+            [sys.executable, "-s", "-c", FONT_CACHE_WARMUP],
             env=environment,
             stdin=subprocess.DEVNULL,
             capture_output=True,
             timeout=WARM_TIMEOUT,
             check=False,
         )
-    except (OSError, subprocess.SubprocessError):
-        pass
+    except subprocess.TimeoutExpired:
+        note = f"timed out after {WARM_TIMEOUT} s"
+    except (OSError, subprocess.SubprocessError) as error:
+        note = f"could not run ({type(error).__name__})"
+    else:
+        if done.returncode == 0:
+            return
+        note = f"exited with status {done.returncode}"
+        written = _redact(done.stderr.decode("utf-8", "replace")).strip().splitlines()
+        if written:
+            note += f": {written[-1].strip()[:WARM_NOTE_CHARS]}"
+    print(font_cache_warmup_note(note), file=sys.stderr)
+
+
+def font_cache_warmup_note(reason: str) -> str:
+    """The one line ``warm_font_cache`` prints when the warm-up did not finish cleanly."""
+    return f"font-cache warm-up {reason} (continuing: a cell that needs the cache builds it)"
 
 
 def run_in_fresh_kernel(nb: nbformat.NotebookNode, recipe_dir: Path, timeout: int) -> None:
