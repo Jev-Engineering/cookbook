@@ -4,9 +4,11 @@
     python tools/new_recipe.py 36 --mode scripted # a scripted or simulator recipe
 
 The folder gets a skeleton that follows ``recipes/_template/``: the notebook sections in
-order, a README, ``helpers.py``, ``build_fixtures.py``, ``tests/test_helpers.py`` and, for a
-replay recipe, ``tests/test_build_fixtures.py`` (the refusal, inputs/labels-separation and
-writer-byte-identical guard tests; a scripted recipe has no responses.json for them to guard).
+order, a README, ``helpers.py``, ``build_fixtures.py``, ``side_effects.json`` (the recipe's
+statement of its simulated side effects: a ``none`` placeholder to replace),
+``tests/test_helpers.py`` and, for a replay recipe, ``tests/test_build_fixtures.py`` (the
+refusal, inputs/labels-separation and writer-byte-identical guard tests; a scripted recipe has
+no responses.json for them to guard).
 The title, level, difficulty, decision types, use case and sources come from the catalog.
 Everything the builder must write is marked ``TODO``, so ``grep -rn TODO recipes/NN-slug`` lists
 what is left.
@@ -595,6 +597,22 @@ if __name__ == "__main__":
 '''
 
 
+def side_effects_text() -> str:
+    """The ``side_effects.json`` every scaffold starts with: a ``none`` declaration whose reason is
+    a ``TODO`` placeholder. The recipe guard (``simulated_side_effect_invoked`` in
+    ``tests/test_recipe_guard.py``) rejects a reason that still carries the marker, so the file
+    cannot be forgotten, and rejects ``none`` outright for a recipe that has a simulated side
+    effect or needs a simulator, so the placeholder cannot stand in for a real declaration
+    either. Schema and keys: docs/simulation.md."""
+    reason = (
+        f"{TODO_MARK}: say why this recipe has no simulated side effect (nothing is queued, "
+        "logged or stored), or replace the whole file with a sites declaration: the exact "
+        "number of places the notebook calls each side-effect function (docs/simulation.md, "
+        "Declaring the side effect)"
+    )
+    return json.dumps({"schema": 1, "none": reason}, indent=2) + "\n"
+
+
 def build_scripted_fixtures_text(recipe: dict) -> str:
     """A scripted recipe has nothing to replay: ``replay_keys`` are empty and there is no
     ``responses.json`` (docs/fixtures.md, "Replay and scripted recipes")."""
@@ -865,6 +883,7 @@ def files_for(catalog: dict, recipe: dict, mode: str = "replay") -> dict[str, st
         "README.md": readme_text(catalog, recipe, mode),
         "helpers.py": helpers_text(recipe, mode),
         "build_fixtures.py": build_fixtures_text(recipe, mode),
+        "side_effects.json": side_effects_text(),
         "tests/test_helpers.py": tests_text(recipe, mode),
     }
     if mode == "replay":
