@@ -311,8 +311,9 @@ Scope decisions (see the pull request body for the full reasoning):
     ``metric_output_lines_carry_pipeline_check`` and ``prose_quantities_are_printed``. Measured
     over the 50 published recipes and the template when they landed: 0 violations, so none is in
     ``tests/recipe_guard_known_failures.py``. Each examined real input (6548 committed output
-    lines, 1190 metric lines, 199 quoted quantities), and ``test_each_detector_sees_something_...``
-    pins floors so a parser that finds nothing cannot pass for a clean tree.
+    lines, 1190 metric lines, 213 quoted quantities, none of them a price or a latency), and
+    ``test_each_detector_sees_something_...`` pins floors so a parser that finds nothing cannot
+    pass for a clean tree.
   - REJECTED, item 3 as worded ("a notebook that says ``recorded`` must have a non-synthetic
     response"): every one of the 51 recipe folders says ``recorded`` in its prose (214 times in
     READMEs and markdown cells), in the contract's own counterfactual and for a logged action,
@@ -321,7 +322,7 @@ Scope decisions (see the pull request body for the full reasoning):
   - IMPLEMENTED NARROWLY, item 1 (claim vocabulary): ``no_unhedged_quality_claim_about_jev``
     flags only a sentence in which Jev or the model (not a possessive: "the model's stored
     answers") is the subject of an evaluative adverb or adjective, with no negation, hypothetical
-    or attribution in it. Measured over 5712 sentences of the published READMEs and markdown
+    or attribution in it. Measured over about 5700 sentences of the published READMEs and markdown
     cells: 2 sentences match, both hedged ("not", "not a finding about Jev"), so it lands with 0
     violations. REJECTED, the wide form (any evaluative word near a mention of Jev): 644
     sentences match an ordinary lexicon, nearly all of them disclosures that name accuracy,
@@ -9014,7 +9015,7 @@ def test_each_detector_sees_something_across_the_published_set():
     #218 thread's own self-report names), so each detector must have examined a real number of
     things: the lines are not empty, the metric lines exist, the prose quotes quantities, and the
     provenance lines are found in every notebook. The floors are well below today's counts (6548
-    output lines, 1190 metric lines, 199 quoted quantities, measured when this landed)."""
+    output lines, 1190 metric lines, 213 quoted quantities, measured when this landed)."""
     recipes = [*PUBLISHED, {"slug": "_template"}]
     lines = [_committed_output_lines(recipe_dir(r)) for r in recipes]
     assert sum(len(x) for x in lines) > 3000
