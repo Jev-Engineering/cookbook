@@ -1329,7 +1329,13 @@ def mean_recall_at_budget(queries: Iterable[tuple[Any, ...]], budget: int) -> fl
 
 def _hit_probability(relevant: np.ndarray, scores: np.ndarray, k: int) -> float:
     """P(at least one relevant item lands in the top ``k`` under a uniformly random tie-break
-    among items sharing a score), or NaN when ``relevant`` has no True at all."""
+    among items sharing a score), or NaN when ``relevant`` has no True at all.
+
+    Items are taken in descending score order, one group of equal scores at a time. A group
+    that fits entirely inside the cut-off either contains a relevant item (certain hit) or
+    uses up part of ``k``. The group that straddles the cut-off contributes the hypergeometric
+    probability of drawing at least one relevant item in the ``remaining`` open slots; the
+    probability is one exact integer ratio, so a hand-computed fraction compares equal."""
     if not bool(relevant.any()):
         return float("nan")
     order = np.argsort(-scores, kind="stable")
@@ -1355,10 +1361,8 @@ def _hit_probability(relevant: np.ndarray, scores: np.ndarray, k: int) -> float:
         if group_relevant == 0:
             return 0.0
         # Hypergeometric "at least one relevant among `remaining` drawn without replacement".
-        p_none = math.comb(group_size - group_relevant, remaining) / math.comb(
-            group_size, remaining
-        )
-        return 1.0 - p_none
+        draws = math.comb(group_size, remaining)
+        return (draws - math.comb(group_size - group_relevant, remaining)) / draws
     return 0.0  # unreachable while relevant.any() is True: some group above must have scored
 
 
@@ -1371,27 +1375,57 @@ def top_k_query_accuracy(queries: Iterable[tuple[Any, Any]], k: int = 1) -> floa
     whenever a query has more than one relevant item: with two relevant items among three and
     the top-scored item one of them, this is 1.0 (the top item *is* relevant) while
     ``recall_at_budget(..., budget=k)`` at ``k=1`` is 0.5 (only one of the two relevant items
-    was found). A tie at the cut-off is credited by the probability that a uniformly random
-    tie-break among the tied items lands at least one relevant item in the top ``k`` (the same
-    expectation-over-tie-orders convention as :func:`recall_at_budget` and :func:`ndcg`, here a
-    hit probability rather than an expected share). At ``k=1`` with no tie this is simply "is
-    the top-scored item relevant".
+    was found). At ``k=1`` with no tie this is simply "is the top-scored item relevant".
+
+    Rules, each pinned by a test:
+
+    * **Ties.** Items are ranked by score, descending, and the result never depends on the
+      order the items are listed in. A tie that lies wholly inside the top ``k`` costs
+      nothing. A tie that straddles the cut-off is credited by the probability that a
+      uniformly random tie-break among the tied items puts at least one relevant item in the
+      slots left open (the expectation over tie orders, the same convention as
+      :func:`recall_at_budget` and :func:`ndcg`, but a hit probability rather than an
+      expected share). With ``g`` tied items of which ``r`` are relevant and ``s`` open
+      slots, that is ``1 - C(g - r, s) / C(g, s)``; at ``k=1`` it is ``r / g``.
+    * **k larger than a query's list** is the same as the whole list: a query with any
+      relevant item then scores 1.0.
+    * **Several relevant items (multi-gold)** are interchangeable: the query is a hit if any
+      one of them is in the top ``k``, and a hit is worth 1 however many relevant items
+      are there (three relevant items in the top ``k`` score 1.0, not 3 and not 1/3).
+      Unlike :func:`recall_at_budget`, relevant items outside the top ``k`` are not a
+      penalty. A relevant item is a ``1`` in ``gold_relevant``, so there is no separate
+      notion of a duplicate gold answer: two items that both carry ``1`` are two relevant
+      items, each its own entry in the list.
+    * **A query with no relevant item** has no defined hit rate and is left out of the
+      mean (not counted as a miss, not counted in the denominator).
+    * **Empty input** raises: no queries, a query with no items, or ``k < 1``.
+    * **No ``eligible`` argument.** Unlike :func:`recall_at_budget`, this ranks every item it
+      is given, so it cannot score a rule that excludes candidates before ranking (a
+      confidence gate, a type or permission filter; the #231 trap in binary form): a
+      relevant item the rule excluded would count as a hit the rule's own pick never
+      produces, and dropping excluded items beforehand turns a query whose only relevant
+      item was excluded into an undefined one that silently leaves the denominator. With
+      exactly one relevant item per query, ``mean_recall_at_budget(queries, k)`` with each
+      query's ``eligible`` mask is this metric for a gated rule; otherwise compute it from
+      the rule's own pick.
 
     Args:
         queries: Pairs ``(gold_relevant, scores)``, one per query, exactly as
-            :func:`recall_at_budget` takes them: ``gold_relevant`` is binary per item and
-            ``scores`` is each item's ranking score (higher ranks first) -- a number, or a
-            Noul/Score answer (``.noul`` or ``.score``) -- the same length. (:func:`ndcg` takes
-            ``scores`` as Score answers or numbers only, not Noul; that is a pre-existing
-            inconsistency in this module, not one this function repeats.)
-        k: Cut-off, at least 1. Larger than a query's list is the same as the whole list.
+            :func:`recall_at_budget` takes them: ``gold_relevant`` is binary per item
+            (booleans or 0/1; anything else raises) and ``scores`` is each item's ranking
+            score (higher ranks first) -- a finite number, or a Noul/Score answer (``.noul``
+            or ``.score``) -- the same length. (:func:`ndcg` takes ``scores`` as Score
+            answers or numbers only, not Noul; that is a pre-existing inconsistency in this
+            module, not one this function repeats.)
+        k: Cut-off, at least 1.
 
     Returns:
         The mean, over queries with at least one relevant item, of that query's hit
-        probability. NaN when no query has a relevant item (the same undefined-is-NaN
-        convention as :func:`mean_ndcg` and :func:`mean_recall_at_budget`, not a raise). Empty
-        ``queries``, a query whose ``gold_relevant`` and ``scores`` lengths differ, or ``k < 1``
-        raise ``ValueError``.
+        probability, in [0, 1]. NaN when no query has a relevant item (the same
+        undefined-is-NaN convention as :func:`mean_ndcg` and :func:`mean_recall_at_budget`,
+        not a raise). Empty ``queries``, an empty query, a query whose ``gold_relevant`` and
+        ``scores`` lengths differ, a non-binary ``gold_relevant``, a non-finite score or
+        ``k < 1`` raise ``ValueError``.
     """
     if k < 1:
         raise ValueError("k must be at least 1")
@@ -1402,7 +1436,7 @@ def top_k_query_accuracy(queries: Iterable[tuple[Any, Any]], k: int = 1) -> floa
         _same_length(relevant, scores, "gold_relevant and scores")
         per_query.append(_hit_probability(relevant, scores, k))
     defined = [v for v in per_query if not math.isnan(v)]
-    return float(np.mean(defined)) if defined else float("nan")
+    return _mean(defined)
 
 
 # --------------------------------------------------------------------------- Selective prediction
