@@ -135,8 +135,13 @@ Rejected, because each is a backend the ledger cannot see: protected-name rebind
 summary strings; importing `get_backend`, `ReplayBackend`, `ScriptedBackend`, `LiveBackend` or
 `AuditedBackend` under another name; any other use of those names or of `.get_backend` and the like
 as an attribute (so `ReplayBackend.from_json(...)` is rejected as well as `ReplayBackend(...)`);
-a string equal to one of them; and `getattr`, `globals`, `eval`, `exec`, `__import__`, `importlib`
-and `__dict__`, which can reach one without naming it. This is deliberate: a backend of any kind
+a string equal to one of them; a `getattr` whose attribute is not written out as a string literal
+(`getattr(backend, "recorded_dates", ())`, the measured cell's own line, is allowed; `getattr(m, name)`
+and `getattr(m, "get_" + "backend")` are not); and `globals`, `eval`, `exec`, `__import__`,
+`importlib`, `vars`, `__builtins__`, `operator.attrgetter`/`methodcaller`, `.getattr`,
+`__getattr__`, `__getattribute__` and `__dict__`, which can reach one without naming it. That list
+is not exhaustive: a lookup primitive outside it, fed a name assembled at run time, is not seen,
+and nothing here proves otherwise. This is deliberate: a backend of any kind
 that is not wrapped is not counted, so an audited notebook has no unaudited lane yet, including a
 never-live `ReplayBackend` comparison lane (how such a lane is declared is open and belongs to the
 first recipe that needs it). `one_backend_per_budget` separately fails a recipe with more

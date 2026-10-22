@@ -272,6 +272,76 @@ HIDDEN_BACKENDS = [
 ]
 
 
+# The line every published notebook and the scaffolder's measured cell carry. It must pass.
+RECORDED_DATES_LINE = (
+    'dates = ", ".join(getattr(backend, "recorded_dates", ()) or ()) or "this run"'
+)
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        RECORDED_DATES_LINE,
+        'dates = getattr(backend, "recorded_dates", ())',
+        'dates = getattr(backend, "recorded_dates")',
+        "value = getattr(questions, 'present', None)",
+    ],
+)
+def test_a_getattr_with_a_written_out_attribute_is_allowed(cells, line):
+    """``getattr(obj, "literal"[, default])`` cannot be a constructor lookup (a literal constructor
+    name is rejected by the string rule), and the measured cell of every recipe uses it."""
+    cells[1]["source"] += "\n" + line
+    (evidence,) = audit_guard.audited_evidence(cells)
+    assert evidence.label == "main"
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "import jev_cookbook\nraw = getattr(jev_cookbook, name)",
+        "import jev_cookbook\nraw = getattr(jev_cookbook, 'get_' + 'backend')",
+        "import jev_cookbook\nraw = getattr(jev_cookbook, f'get_{kind}')",
+        "raw = getattr(backend)",
+        "raw = getattr(*args)",
+        "raw = getattr(backend, *names)",
+        "raw = getattr(backend, name=1)",
+        "raw = getattr(backend, 'a', 'b', 'c')",
+        "g = getattr\nraw = g(backend, 'recorded_dates')",
+        "raw = list(map(getattr, [backend], ['recorded_dates']))",
+    ],
+)
+def test_a_getattr_with_a_computed_attribute_fails_and_names_the_cause(cells, line):
+    cells[1]["source"] += "\n" + line
+    with pytest.raises(AssertionError, match="getattr with a computed attribute name"):
+        audit_guard.audited_evidence(cells)
+
+
+def test_a_getattr_of_a_literal_constructor_name_is_still_rejected(cells):
+    cells[1]["source"] += "\nimport jev_cookbook\nraw = getattr(jev_cookbook, 'get_backend')"
+    with pytest.raises(AssertionError, match="names a backend constructor"):
+        audit_guard.audited_evidence(cells)
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "import operator\nraw = operator.attrgetter('get_back' + 'end')(operator)",
+        "from operator import attrgetter\nraw = attrgetter('get_back' + 'end')",
+        "from operator import attrgetter as ag",
+        "import operator\nraw = operator.methodcaller('get_back' + 'end')",
+        "import builtins\nraw = builtins.getattr(builtins, 'get_back' + 'end')",
+        "from builtins import getattr as g",
+        "raw = __builtins__.getattr(backend, 'get_back' + 'end')",
+        "import jev_cookbook\nraw = jev_cookbook.__getattr__('get_back' + 'end')",
+        "import inspect\nraw = inspect.getattr_static(backend, 'get_back' + 'end')",
+    ],
+)
+def test_other_computed_lookup_primitives_are_rejected_too(cells, line):
+    cells[1]["source"] += "\n" + line
+    with pytest.raises(AssertionError):
+        audit_guard.audited_evidence(cells)
+
+
 @pytest.mark.parametrize("extra", HIDDEN_BACKENDS)
 def test_a_backend_the_ledger_cannot_see_is_rejected_in_every_spelling(cells, extra):
     cells[1]["source"] += "\n" + extra
@@ -622,6 +692,30 @@ def test_a_count_or_cap_in_other_words_outside_the_paragraph_fails(prose):
     section = README_HEAD + render_budget_note(DECLARED) + "\n" + prose + "\n" + README_TAIL
     with pytest.raises(AssertionError, match="outside the rendered block"):
         audit_guard.check_readme_note(section, DECLARED)
+
+
+# Sentences that carry a digit only a precision device of the scan exempts. Each is red when its
+# device is removed (see the pull request body); the install sentence is the real one every
+# published README carries.
+LINK_STRIP_PROSE = "See [the request budget guard](../../docs/live-2.md#budget-guard) for retries."
+VERSION_STRIP_PROSE = "Tested on Python 3.14 with jev-1.13.0, one request at a time."
+CLAIM_WORD_PROSE = (
+    'Install the SDK (`pip install -e ".[live]"`) and set `TYPESAFE_API_KEY`, `JEV_COOKBOOK_LIVE=1`'
+    " and `JEV_COOKBOOK_LIVE_MODEL`; then open `notebook.ipynb` from this folder in Jupyter (not a"
+    " dependency of this repository), or record answers with the recorder described in"
+    " [docs/live.md](../../docs/live.md)."
+)
+
+
+@pytest.mark.parametrize(
+    "prose",
+    [LINK_STRIP_PROSE, VERSION_STRIP_PROSE, CLAIM_WORD_PROSE],
+    ids=["link-target-digit", "version-digit", "install-line-without-claim-word"],
+)
+def test_digits_that_only_a_precision_device_exempts_are_not_counts(prose):
+    readme = README_HEAD + render_budget_note(DECLARED) + "\n" + prose + "\n" + README_TAIL
+    audit_guard.check_readme_note(readme, DECLARED)
+    assert audit_guard.stray_count_sentences(prose) == []
 
 
 @pytest.mark.parametrize(

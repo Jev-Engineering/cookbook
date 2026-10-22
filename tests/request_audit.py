@@ -66,10 +66,51 @@ CONSTRUCTORS = frozenset(
     }
 )
 # Ways to reach a name without writing it: the audit fails closed on these rather than guess.
+# The list is not exhaustive and cannot be: a lookup primitive outside it, fed a name assembled at
+# run time, is not seen (docs/backends.md says so). ``getattr`` is the one exception, below.
 DYNAMIC_NAMES = frozenset(
-    {"getattr", "__import__", "eval", "exec", "compile", "globals", "locals", "vars", "importlib"}
+    {
+        "__import__",
+        "eval",
+        "exec",
+        "compile",
+        "globals",
+        "locals",
+        "vars",
+        "importlib",
+        "__builtins__",
+        "attrgetter",
+        "methodcaller",
+    }
 )
-DYNAMIC_ATTRS = frozenset({"__dict__", "__getattribute__", "__builtins__", "__globals__"})
+DYNAMIC_ATTRS = frozenset(
+    {
+        "__dict__",
+        "__getattribute__",
+        "__getattr__",
+        "__builtins__",
+        "__globals__",
+        "getattr",
+        "getattr_static",
+        "attrgetter",
+        "methodcaller",
+    }
+)
+
+
+def _literal_getattr(call: ast.Call) -> bool:
+    """``getattr(obj, "name")`` / ``getattr(obj, "name", default)``: the attribute is written down,
+    so the string rule sees a constructor name and the run-time lookup cannot be one. A computed
+    attribute (a variable, ``"get_" + "backend"``), starred arguments or a keyword are not."""
+    return (
+        isinstance(call.func, ast.Name)
+        and call.func.id == "getattr"
+        and 2 <= len(call.args) <= 3
+        and not call.keywords
+        and not any(isinstance(arg, ast.Starred) for arg in call.args)
+        and isinstance(call.args[1], ast.Constant)
+        and isinstance(call.args[1].value, str)
+    )
 
 
 class BackendEvidence(NamedTuple):
@@ -213,9 +254,16 @@ def audited_evidence(cells: list[dict]) -> list[BackendEvidence] | None:
     approved_names = {wrapper.func for wrapper in wrappers} | {
         factory.func for factory in factories
     }
+    literal_getattrs = {
+        node.func for node in nodes if isinstance(node, ast.Call) and _literal_getattr(node)
+    }
     for node in nodes:
         if isinstance(node, ast.ImportFrom):
             for name in node.names:
+                assert name.name not in DYNAMIC_NAMES | DYNAMIC_ATTRS, (
+                    f"request audit: importing {name.name} can reach a backend constructor "
+                    "the audit cannot see"
+                )
                 assert name.name not in CONSTRUCTORS or name.asname in (None, name.name), (
                     f"request audit: import {name.name} under its own name, not as "
                     f"{name.asname!r}: an alias hides a backend constructor from the audit"
@@ -225,6 +273,12 @@ def audited_evidence(cells: list[dict]) -> list[BackendEvidence] | None:
                 assert name.name.split(".")[0] != "importlib", (
                     "request audit: importlib can reach a backend constructor the audit cannot see"
                 )
+        if isinstance(node, ast.Name) and node.id == "getattr":
+            assert node in literal_getattrs, (
+                "request audit: getattr with a computed attribute name (or used other than as "
+                "getattr(obj, 'literal'[, default])) can reach a backend constructor the audit "
+                "cannot see; write the attribute out, e.g. getattr(backend, 'recorded_dates', ())"
+            )
         if isinstance(node, ast.Name):
             assert node.id not in DYNAMIC_NAMES, (
                 f"request audit: {node.id} can reach a backend constructor the audit cannot see"
