@@ -1212,7 +1212,7 @@ def test_other_bytes_under_the_canonical_pillow_are_a_mismatch_not_a_rewrite(tmp
     foreign = other_encoding(c)
     target.write_bytes(foreign)
     monkeypatch.setattr(si, "CANONICAL_PILLOW", PIL.__version__)
-    monkeypatch.setattr(si, "CANONICAL_ZLIB", features.version("zlib"))
+    monkeypatch.setattr(si.features, "version", lambda name: "1.3")
     assert si.bytes_are_canonical()
     with pytest.raises(si.RegenerationMismatch, match="canonical") as raised:
         c.write(tmp_path, "assets/a.png")
@@ -1232,14 +1232,23 @@ def test_different_pixels_blame_the_generator_not_the_encoder(tmp_path):
     assert "Pillow" not in str(raised.value)
 
 
-def test_the_byte_gate_needs_both_the_pillow_and_the_zlib_of_the_canonical_wheel(monkeypatch):
+@pytest.mark.parametrize(
+    ("zlib", "canonical"),
+    [
+        ("1.2.13", True),  # the PyPI wheels of Pillow 12.3.0 and 13.0.0
+        ("1.3", True),  # Pillow 12.3.0 on the GitHub Actions runner: same bytes, measured
+        ("1.3.1", True),
+        ("1.3.1.zlib-ng", False),  # zlib-ng deflates differently
+        ("2.2.4", False),
+        ("", False),
+        (None, False),  # no zlib reported
+    ],
+)
+def test_the_byte_gate_needs_the_pinned_pillow_and_a_classic_zlib(monkeypatch, zlib, canonical):
     monkeypatch.setattr(si, "CANONICAL_PILLOW", PIL.__version__)
-    monkeypatch.setattr(si, "CANONICAL_ZLIB", features.version("zlib"))
-    assert si.bytes_are_canonical()
-    monkeypatch.setattr(si, "CANONICAL_ZLIB", "0.0.0")  # the same Pillow linked to another zlib
-    assert not si.bytes_are_canonical()
-    monkeypatch.setattr(si, "CANONICAL_ZLIB", features.version("zlib"))
-    monkeypatch.setattr(si, "CANONICAL_PILLOW", "0.0.0")  # another Pillow, the same zlib
+    monkeypatch.setattr(si.features, "version", lambda name: zlib)
+    assert si.bytes_are_canonical() is canonical
+    monkeypatch.setattr(si, "CANONICAL_PILLOW", "0.0.0")  # another Pillow, whatever the zlib
     assert not si.bytes_are_canonical()
 
 
@@ -1438,9 +1447,10 @@ def test_canonical_pillow_is_the_version_pinned_for_the_notebooks():
     pinned = re.search(r"(?mi)^pillow==(\S+)$", pins).group(1)
     assert pinned == si.CANONICAL_PILLOW, (
         f"the notebook constraints now pin Pillow {pinned} but CANONICAL_PILLOW is "
-        f"{si.CANONICAL_PILLOW}. After a pin bump: (1) set CANONICAL_PILLOW and CANONICAL_ZLIB "
-        "in src/jev_cookbook/synthetic_images.py (CANONICAL_ZLIB is "
-        'PIL.features.version("zlib") of the pinned wheel); (2) re-record the PNG byte digests '
+        f"{si.CANONICAL_PILLOW}. After a pin bump: (1) set CANONICAL_PILLOW in "
+        "src/jev_cookbook/synthetic_images.py and check that the new wheel's zlib "
+        '(PIL.features.version("zlib")) is still a classic zlib 1.x, not zlib-ng; '
+        "(2) re-record the PNG byte digests "
         "(the second element of each GOLDEN entry in this file); (3) run "
         "`python docs/assets/synthetic-images/build_gallery.py --overwrite` and commit the "
         "gallery if its bytes moved; (4) rebuild every recipe's committed assets, manifest "
@@ -1449,14 +1459,14 @@ def test_canonical_pillow_is_the_version_pinned_for_the_notebooks():
     )
 
 
-def test_canonical_zlib_is_what_the_pinned_wheel_bundles():
+def test_the_pinned_pillow_is_linked_to_a_classic_zlib():
     if PIL.__version__ != si.CANONICAL_PILLOW:
-        pytest.skip(f"only the pinned Pillow {si.CANONICAL_PILLOW} bundles the canonical zlib")
-    assert features.version("zlib") == si.CANONICAL_ZLIB, (
-        f"Pillow {PIL.__version__} reports zlib {features.version('zlib')}, not the canonical "
-        f"{si.CANONICAL_ZLIB}. Either this Pillow is linked to a system zlib (install the PyPI "
-        "wheel with the notebook constraints pin; the byte pins are skipped meanwhile) or "
-        "CANONICAL_ZLIB is stale after a pin bump: re-record it and the byte digests."
+        pytest.skip(f"only the pinned Pillow {si.CANONICAL_PILLOW} is the canonical encoder")
+    assert si.bytes_are_canonical(), (
+        f"Pillow {PIL.__version__} reports zlib {features.version('zlib')}, which is not a classic "
+        "zlib 1.x. If a Pillow pin bump moved the wheel to zlib-ng, the committed PNG bytes and "
+        "the GOLDEN byte digests must be re-recorded and the gate in bytes_are_canonical "
+        "reconsidered (docs/synthetic-images.md, 'Bumping the Pillow pin')."
     )
 
 
@@ -1556,8 +1566,8 @@ def test_example_scene_bytes_are_pinned_under_the_canonical_encoder(name):
     #   pip install -e ".[dev]" -c .github/constraints-notebooks.txt
     if not si.bytes_are_canonical():
         pytest.skip(
-            f"PNG bytes are canonical only under Pillow {si.CANONICAL_PILLOW} with zlib "
-            f"{si.CANONICAL_ZLIB}; this is Pillow {PIL.__version__}, zlib {features.version('zlib')}"
+            f"PNG bytes are canonical only under Pillow {si.CANONICAL_PILLOW} with a classic "
+            f"zlib; this is Pillow {PIL.__version__}, zlib {features.version('zlib')}"
         )
     assert hashlib.sha256(example_canvases()[name].png()).hexdigest() == GOLDEN[name][1]
 

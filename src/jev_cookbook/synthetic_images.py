@@ -42,7 +42,6 @@ from .vision import IMAGE_LIMITS, resolve_asset_path, validate_image_asset
 
 __all__ = [
     "CANONICAL_PILLOW",
-    "CANONICAL_ZLIB",
     "GLYPH_HEIGHT",
     "GLYPH_PITCH",
     "GLYPH_WIDTH",
@@ -81,16 +80,16 @@ __all__ = [
 ]
 
 # The environment whose PNG encoder produced the committed bytes. The bytes of a PNG come from
-# Pillow's encoder (filter choice, written chunks) and from the zlib it is linked to, so both are
-# recorded. CANONICAL_PILLOW is the Pillow pinned in .github/constraints-notebooks.txt (a test
-# keeps the two equal); CANONICAL_ZLIB is the zlib that pinned PyPI wheel bundles, as reported by
-# PIL.features.version("zlib") (the 12.3.0 and 13.0.0 wheels both bundle 1.2.13, which is why
-# their bytes agree today). Only when BOTH match are the bytes the contract; under any other
-# environment, including a Pillow 12.3.0 linked against a system zlib, the decoded pixels are
-# (see write_asset and bytes_are_canonical). After a Pillow pin bump re-record both constants,
+# Pillow's encoder (filter choice, written chunks) and from the zlib it is linked to. CANONICAL_PILLOW
+# is the Pillow pinned in .github/constraints-notebooks.txt (a test keeps the two equal). The zlib
+# is required to be a classic zlib 1.x, not zlib-ng or another implementation, whose deflate output
+# differs. Measured, not assumed: Pillow 12.3.0 reports zlib 1.2.13 from a local PyPI wheel and
+# zlib 1.3 on the GitHub Actions runner, Pillow 13.0.0 reports 1.2.13, and all three wrote
+# identical bytes for every example scene and gallery sheet. Only when the Pillow matches AND the
+# zlib is classic are the bytes the contract; under any other environment the decoded pixels are
+# (see write_asset and bytes_are_canonical). After a Pillow pin bump re-record CANONICAL_PILLOW,
 # the byte digests in tests/test_synthetic_images.py and the gallery (docs/synthetic-images.md).
 CANONICAL_PILLOW = "12.3.0"
-CANONICAL_ZLIB = "1.2.13"
 # This repository's per-file cap (tools/check_recipe_assets.py MAX_FILE_BYTES; a test compares).
 MAX_ASSET_BYTES = 1024 * 1024
 # The only PNG chunks the encoder may emit; tools/check_recipe_assets.py allows more, this is
@@ -1703,13 +1702,19 @@ def pixels_sha256(source: Image.Image | bytes) -> str:
 _ASSET_PATH = re.compile(r"^assets/([A-Za-z0-9][A-Za-z0-9_.-]*/)*[A-Za-z0-9][A-Za-z0-9_.-]*[.]png$")
 
 
+def _classic_zlib() -> bool:
+    """Is Pillow linked to a classic zlib 1.x (not zlib-ng, whose output differs)?"""
+    version = (features.version("zlib") or "").lower()
+    return version.startswith("1.") and "ng" not in version
+
+
 def bytes_are_canonical() -> bool:
     """Are the PNG bytes this environment produces the repository's canonical bytes?
 
-    True only for the pinned Pillow (``CANONICAL_PILLOW``) linked to the zlib its wheel bundles
-    (``CANONICAL_ZLIB``). Elsewhere equal decoded pixels are what counts.
+    True only for the pinned Pillow (``CANONICAL_PILLOW``) linked to a classic zlib 1.x (see the
+    note at ``CANONICAL_PILLOW``). Elsewhere equal decoded pixels are what counts.
     """
-    return PIL.__version__ == CANONICAL_PILLOW and features.version("zlib") == CANONICAL_ZLIB
+    return PIL.__version__ == CANONICAL_PILLOW and _classic_zlib()
 
 
 def _compare(existing: bytes, regenerated: bytes, label: str) -> str:
@@ -1731,7 +1736,7 @@ def _compare(existing: bytes, regenerated: bytes, label: str) -> str:
         # The generator is not at fault.
         raise RegenerationMismatch(
             f"{label}: same pixels, but the committed bytes are not what the canonical encoder "
-            f"(Pillow {CANONICAL_PILLOW}, zlib {CANONICAL_ZLIB}) writes for them, so the file "
+            f"(Pillow {CANONICAL_PILLOW}, classic zlib) writes for them, so the file "
             "was created under another Pillow or zlib, re-saved by another tool, or written with "
             "other encoder settings. Recreate it under the notebook constraints pin "
             "(docs/synthetic-images.md) with overwrite=True; nothing written"

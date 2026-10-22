@@ -324,11 +324,13 @@ every example scene.
 **The bytes are canonical only in the pinned environment.** A PNG's bytes come from Pillow's
 encoder and from the zlib it is linked to, so the gate is both: `CANONICAL_PILLOW` (the Pillow in
 [`.github/constraints-notebooks.txt`](../.github/constraints-notebooks.txt), kept equal by a
-test) **and** `CANONICAL_ZLIB` (the zlib that pinned PyPI wheel bundles, `PIL.features.version("zlib")`),
-and `bytes_are_canonical()` is true only when both match. The evidence so far: the 12.3.0 and
-13.0.0 wheels both bundle zlib 1.2.13 and wrote identical bytes for every example scene and every
-gallery sheet. A Pillow 12.3.0 built against a system zlib (a distribution package, conda) is
-therefore not canonical, however its version reads.
+test) **and** a classic zlib 1.x (not zlib-ng, whose deflate output differs), and
+`bytes_are_canonical()` is true only when both hold. The evidence, measured rather than assumed:
+Pillow 12.3.0 reports zlib 1.2.13 from a PyPI wheel and zlib 1.3 on the GitHub Actions runner,
+Pillow 13.0.0 reports 1.2.13, and all three wrote identical bytes for every example scene and every
+gallery sheet. So the zlib version is deliberately not pinned exactly (that would switch the byte
+pins off in CI for no gain), while a zlib-ng or other build is outside the contract however its
+Pillow version reads: there the decoded pixels decide.
 
 1. **Committed asset bytes are canonical.** What is in the repository is the truth; its SHA-256 is
    in the manifest. **Create them under the notebook constraints pin**
@@ -355,7 +357,8 @@ therefore not canonical, however its version reads.
 
 **Bumping the Pillow pin** in `.github/constraints-notebooks.txt` is a foundation change with
 consequences here, and `test_canonical_pillow_is_the_version_pinned_for_the_notebooks` fails with
-these steps: set `CANONICAL_PILLOW` and `CANONICAL_ZLIB` in `synthetic_images.py`; re-record the
+these steps: set `CANONICAL_PILLOW` in `synthetic_images.py` and check that the new wheel's zlib
+is still a classic 1.x; re-record the
 PNG byte digests in `tests/test_synthetic_images.py` (the second element of each `GOLDEN` entry);
 run `python docs/assets/synthetic-images/build_gallery.py --overwrite` and commit the gallery if
 its bytes moved; and rebuild the committed assets, manifest hashes and `replay_keys` of every recipe
