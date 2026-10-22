@@ -113,7 +113,9 @@ check id                              rule -> detection
                                        live-mode call count equals backend-derived audit evidence,
                                        with strict ``len(responses.json)`` legacy fallback.
 ``readme_no_dev_ml_install``          docs/recipe-template.md step 6: reproducing committed
-                                       outputs installs ``.[ml]``, never ``.[dev,ml]``.
+                                       outputs installs ``.[ml]``, never ``.[dev,ml]`` (a paragraph
+                                       about reproducing outputs; the tests' install line may say
+                                       ``.[dev,ml]``, #238).
 ``measured_cell_prints_n_offline``    CONTRIBUTING.md section 2 (#215): the "measured" cell's
                                        offline branch prints N, not only its live/recorded
                                        branch.
@@ -3064,15 +3066,81 @@ def test_the_live_budget_note_matches_the_stored_answer_count(recipe):
 # --------------------------------------------------------------------------------------------
 
 
+def _load_readme_install() -> ModuleType:
+    """``tests/readme_install.py``, loaded by file path like ``_load_known_failures`` above: the
+    rule about ``.[dev,ml]`` in a README is shared with ``tests/test_new_recipe.py``'s check on
+    the scaffold's output, so what the rule forbids is written, and proved, once."""
+    spec = importlib.util.spec_from_file_location(
+        "readme_install_for_recipe_guard",
+        Path(__file__).resolve().parent / "readme_install.py",
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_readme_install = _load_readme_install()
+
+
 @pytest.mark.parametrize("recipe", guarded_with_template("readme_no_dev_ml_install")())
 def test_the_readme_never_installs_dev_and_ml_combined(recipe):
     """docs/recipe-template.md step 6: reproducing committed outputs installs ``.[ml]`` alone
     (``nbclient``/``ipykernel`` are core dependencies, so ``.[ml]`` is already enough to execute
     the notebook; ``.[dev]`` is for ``ruff``/``pytest``, which that job does not run). The
-    pre-#162 README paragraph combined them into one ``.[dev,ml]`` install line (R15); this
-    checks the literal substring is gone."""
+    pre-#162 README paragraph combined them into one ``.[dev,ml]`` install line (R15).
+
+    Until #238 this was ``".[dev,ml]" not in readme``, which also forbade the string where it is
+    right: the install for running the recipe's tests, which both ``Tests`` jobs now run with the
+    ``ml`` extra. It now refuses ``.[dev,ml]`` in a paragraph that is about reproducing committed
+    outputs (see ``tests/readme_install.py``) and nowhere else."""
     readme = (recipe_dir(recipe) / "README.md").read_text("utf-8")
-    assert ".[dev,ml]" not in readme
+    assert _readme_install.combined_reproduction_installs(readme) == []
+
+
+def _readme_install_subjects() -> list:
+    """The template and the first published README that has both lines the proofs below edit (a
+    test-install line and the reproduction install): the two shapes the rule is proved against."""
+    both = (_readme_install.TEST_INSTALL, _readme_install.REPRODUCTION_INSTALL)
+    published = [
+        p / "README.md"
+        for p in sorted(RECIPES_DIR.iterdir())
+        if p.name != "_template"
+        and (p / "README.md").is_file()
+        and all(line in (p / "README.md").read_text("utf-8") for line in both)
+    ]
+    assert published, "no published README has both install lines"
+    return [
+        pytest.param(RECIPES_DIR / "_template" / "README.md", id="_template"),
+        pytest.param(published[0], id=published[0].parent.name),
+    ]
+
+
+@pytest.mark.parametrize("path", _readme_install_subjects())
+def test_a_readme_may_document_dev_and_ml_for_the_tests_install(path):
+    """#238: the install that runs a scikit-learn recipe's tests is ``.[dev,ml]``; a README may say
+    so (it fails the pre-#238 literal check and passes this one), as long as its reproduction
+    paragraph still says ``.[ml]``."""
+    readme = _readme_install.with_documented_test_install(path.read_text("utf-8"))
+    assert ".[dev,ml]" in readme
+    assert _readme_install.combined_reproduction_installs(readme) == []
+
+
+@pytest.mark.parametrize("path", _readme_install_subjects())
+def test_a_readme_may_not_reproduce_outputs_with_dev_and_ml(path):
+    """The wording the check was written against stays refused: the pre-#162 reproduction line
+    (``.[dev,ml]`` with the constraints file), however the line is wrapped, and ``.[dev,ml]`` in
+    any paragraph that says it reproduces the outputs, with or without the constraints file."""
+    readme = path.read_text("utf-8")
+    assert _readme_install.combined_reproduction_installs(readme) == []
+    old = _readme_install.with_pre_162_reproduction_install(readme)
+    assert len(_readme_install.combined_reproduction_installs(old)) == 1
+    wrapped = old.replace('".[dev,ml]" -c', '".[dev,ml]"\n-c')
+    assert len(_readme_install.combined_reproduction_installs(wrapped)) == 1
+    no_constraints = (
+        readme.rstrip() + "\n\nTo reproduce the committed outputs byte for byte run"
+        ' `pip install -e ".[dev,ml]"`.\n'
+    )
+    assert len(_readme_install.combined_reproduction_installs(no_constraints)) == 1
 
 
 # --------------------------------------------------------------------------------------------

@@ -71,9 +71,19 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: pyproject.toml
+      # Both legs install the `ml` extra (scikit-learn), because every recipe's helpers.py and
+      # tests/ are imported here and docs/notebook-ci.md tells an author the extra is available to
+      # them (#238). The notebook constraints are NOT applied, and no single pin could serve both
+      # legs: numpy==2.5.3 and scipy==1.18.1 need Python >= 3.12 and scikit-learn==1.9.1 needs
+      # >= 3.11, so none of them installs on the 3.10 floor. Both legs take the newest release
+      # that supports their interpreter. Today 3.14 gets scikit-learn 1.9.1, the same release the
+      # notebook job pins, but nothing holds it there, so it moves when a newer one is published
+      # (numpy already differs: 2.5.4 against the pin 2.5.3); 3.10 gets 1.7.2, an older release
+      # than the other leg and always will. So a helpers test must assert properties of a trained
+      # model and never numbers that depend on the scikit-learn version.
       # py3.14 also installs the optional SDK so tests/test_live_sdk.py runs; py3.10 does not,
       # proving the package and all offline tests work with the SDK absent.
       - name: Install
-        run: pip install -e ".[dev${{ matrix.python-version == '3.14' && ',live' || '' }}]"
+        run: pip install -e ".[dev,ml${{ matrix.python-version == '3.14' && ',live' || '' }}]"
       - name: pytest
         run: pytest

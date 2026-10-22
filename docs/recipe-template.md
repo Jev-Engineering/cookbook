@@ -414,6 +414,12 @@ catalog is insufficient; the scope guard reads assignments from the base.
 2. `python tools/new_recipe.py NN`.
 3. Write `helpers.py`: the state, the questions (options built by Python), and the rules Python
    enforces. Write a test for each rule in `tests/test_helpers.py`; run `pytest recipes/NN-slug`.
+   If `helpers.py` trains a baseline with scikit-learn (the `ml` extra), install the extra too
+   (`pip install -e ".[dev,ml]"`): the `Tests` jobs install it, so it is available in `helpers.py`,
+   `build_fixtures.py` and `tests/`, as well as in notebook cells. Those jobs do not use the
+   notebook constraints (Python 3.10 cannot install them), so a test asserts properties of the
+   trained model, never numbers that depend on the scikit-learn version
+   ([development.md](development.md#continuous-integration)).
 4. Fill `ROWS` and `answers_for` in `build_fixtures.py`, run
    `python recipes/NN-slug/build_fixtures.py`, then
    `python -m jev_cookbook.fixtures validate recipes/NN-slug`. Generating `inputs.jsonl` and
