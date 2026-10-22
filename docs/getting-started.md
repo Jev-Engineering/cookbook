@@ -89,8 +89,9 @@ pytest recipes/_template
 
 This runs the recipe's own tests (11 for the template): that the rule Python enforces in
 `helpers.py` holds whatever the model answers, and that the stored answers still match the current
-question. `pytest` with no argument runs every test in the repository, which is what CI runs; the
-other checks are in [development.md](development.md).
+question. `pytest` with no argument runs every test in the repository, which is what CI runs (CI also
+installs the `ml` extra, so a recipe whose `helpers.py` uses scikit-learn needs
+`pip install -e ".[dev,ml]"` here); the other checks are in [development.md](development.md).
 
 ## 5. Make your own recipe
 

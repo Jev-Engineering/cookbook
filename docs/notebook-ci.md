@@ -158,9 +158,13 @@ Each job installs the package with the `ml` extra (core dependencies plus scikit
 recipes that train a baseline; Python 3.14) under `.github/constraints-notebooks.txt`, and then runs
 `tools/execute_notebook.py` on a copy of the recipe folder, so the committed file is never
 rewritten. Installation is the last step that may use the network, so installing an extra does not
-weaken the sandbox. The `live` extra is never installed: a recipe runs offline. A recipe whose README
-names any other extra needs a foundation change to the install line first, because a recipe pull
-request cannot touch `.github/`. Three layers keep the run offline, and the third is the one that
+weaken the sandbox. The `Tests (py3.10)` and `Tests (py3.14)` jobs install the same `ml` extra
+(without the constraints, which the 3.10 floor cannot install), so a recipe's `helpers.py` and
+`tests/` may import scikit-learn too; [development.md](development.md#continuous-integration)
+says what the test jobs install and what that means for a test's assertions. The `live` extra is
+never installed in a notebook job: a recipe runs offline. A recipe whose README names any other
+extra needs a foundation change to the install line first, because a recipe pull request cannot
+touch `.github/`. Three layers keep the run offline, and the third is the one that
 enforces it:
 
 1. **No key, no live switch.** The executor strips every `JEV_COOKBOOK_*` and `TYPESAFE_*` variable
