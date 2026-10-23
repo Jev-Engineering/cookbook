@@ -3530,6 +3530,7 @@ def _load_request_audit() -> ModuleType:
 
 _request_audit = _load_request_audit()
 LIVE_CALL_COUNT = _request_audit.LIVE_CALL_COUNT
+AUDIT_PREFIX = _request_audit.AUDIT_PREFIX
 
 
 @pytest.mark.parametrize("recipe", guarded("readme_budget_note_matches_request_audit")())
@@ -3569,6 +3570,90 @@ def test_the_live_budget_note_matches_the_request_audit(recipe):
     assert stated == actual, (
         f"{recipe['slug']}: README states {stated}, legacy fixture count is {actual}"
     )
+
+
+def _audited_mini_recipe(tmp_path: Path, n: int = 3) -> tuple[Path, str]:
+    """A throwaway recipe genuinely on the audited route (#213): one real ``AuditedBackend``
+    over ``n`` distinct synthetic requests, a ``request_budget.json`` that matches it, and a
+    README whose rendered budget paragraph matches too -- everything ``audit_recipe``
+    (``tests/request_audit.py``) checks, built from the real shared objects rather than typed
+    out by hand. Returns the folder and the one genuine, committed audit line."""
+    from jev_cookbook import AuditedBackend, Noul, get_backend
+    from jev_cookbook.accounting import load_budget, render_budget_note
+
+    def script(state, questions, rng):
+        return {"q": 0.9}
+
+    backend = AuditedBackend(get_backend(script=script))
+    for i in range(n):
+        backend.decide({"i": i}, {"q": Noul()})
+    line = backend.audit_json()
+
+    folder = tmp_path / "mini-audited"
+    folder.mkdir()
+    setup = (
+        "from jev_cookbook import AuditedBackend, Noul, get_backend\n\n\n"
+        "def script(state, questions, rng):\n"
+        "    return {'q': 0.9}\n\n\n"
+        "backend = AuditedBackend(get_backend(script=script))\n"
+        f"for i in range({n}):\n"
+        "    backend.decide({'i': i}, {'q': Noul()})\n"
+    )
+    notebook = {
+        "cells": [
+            {
+                "cell_type": "code",
+                "id": "setup",
+                "metadata": {},
+                "execution_count": 1,
+                "outputs": [],
+                "source": setup.splitlines(True),
+            },
+            {
+                "cell_type": "code",
+                "id": "audit",
+                "metadata": {},
+                "execution_count": 2,
+                "outputs": [{"name": "stdout", "output_type": "stream", "text": [line + "\n"]}],
+                "source": ["print(backend.audit_json())\n"],
+            },
+        ]
+    }
+    (folder / "notebook.ipynb").write_text(json.dumps(notebook), "utf-8")
+    (folder / "request_budget.json").write_text(
+        json.dumps({"schema": 1, "backends": {"main": {"requests": n, "fixtures": None}}}),
+        "utf-8",
+    )
+    note = render_budget_note(load_budget(folder))
+    (folder / "README.md").write_text(
+        f"# Mini audited recipe\n\n## Switch to live\n\n{note}", "utf-8"
+    )
+    return folder, line
+
+
+def test_a_wrong_decide_count_in_the_audit_line_is_still_caught_after_the_exclusion(tmp_path):
+    """#376: excluding the committed audit line from the honesty guard's quantity pool
+    (``_printed_numbers``) must not also blind ``readme_budget_note_matches_request_audit``
+    (#213) to a wrong ledger -- the two checks are independent, and this pins that they stay
+    that way. A real audited mini recipe passes; a mutated line that lies about the call
+    count (``decide_calls`` left inconsistent with the still-genuine, still-64-hex ``calls``
+    list) still fails, exactly as before this fix, because the fix never touches
+    ``tests/request_audit.py``."""
+    from jev_cookbook._canonical import canonical_json
+
+    folder, line = _audited_mini_recipe(tmp_path, n=3)
+    assert line.startswith(AUDIT_PREFIX)
+    assert _request_audit.audit_recipe(folder, notebook_cells(folder)) == 3
+
+    payload = json.loads(line[len(AUDIT_PREFIX) :])
+    payload["backends"][0]["decide_calls"] = 4  # claims a 4th call that never happened
+    wrong_line = AUDIT_PREFIX + canonical_json(payload)
+    notebook = json.loads((folder / "notebook.ipynb").read_text("utf-8"))
+    notebook["cells"][-1]["outputs"][0]["text"] = [wrong_line + "\n"]
+    (folder / "notebook.ipynb").write_text(json.dumps(notebook), "utf-8")
+
+    with pytest.raises(AssertionError, match="stated call count differs"):
+        _request_audit.audit_recipe(folder, notebook_cells(folder))
 
 
 # --------------------------------------------------------------------------------------------
@@ -9631,9 +9716,21 @@ def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     printed on a line that names accuracy, risk or error rate (a decimal in [0, 1] with two or more
     places, or a printed percentage). A printed percentage also backs its fraction. A ``price``
     or ``speed`` quote: only a price, a latency or a throughput the output prints with its unit,
-    so a printed sample size of 180 does not back "180 ms"."""
+    so a printed sample size of 180 does not back "180 ms".
+
+    The audited route's one committed ``AUDIT_PREFIX`` line (#213, #376) is a machine-readable
+    ledger, not a printed quantity: its 64-character hex replay keys are excluded here, per
+    line, before any digit scan sees them, so they cannot back a fabricated prose figure. A
+    cell that prints the audit line alongside a genuine metric line still has the metric line
+    counted -- only the audit line itself is dropped. The ledger's own integrity is checked
+    separately, and far more strictly, by ``readme_budget_note_matches_request_audit`` against
+    ``request_budget.json``; this exclusion removes nothing that check relies on."""
     output = "\n".join(
-        _output_text(cell) for cell in notebook_cells(recipe_dir_) if cell["cell_type"] == "code"
+        line
+        for cell in notebook_cells(recipe_dir_)
+        if cell["cell_type"] == "code"
+        for line in _output_text(cell).splitlines()
+        if not line.startswith(AUDIT_PREFIX)
     )
     metric = _decimals(output)
     tests_dir = recipe_dir_ / "tests"
@@ -11004,6 +11101,46 @@ def test_a_round_fabricated_accuracy_is_caught_where_it_used_to_be_backed_by_a_c
     assert _unprinted_quantities(folder) == []
     _append_cell(folder, "markdown", claim)
     assert _unprinted_quantities(folder), claim
+
+
+def _real_audit_line(n: int = 22) -> str:
+    """A genuine committed ``AUDIT_PREFIX`` line (#213, #376): a real ``AuditedBackend`` over
+    ``n`` distinct synthetic requests, not a hand-typed stand-in, so its hex ``replay_key``
+    runs are the real defect's shape (measured at 22 requests in PR #375's migrated template:
+    a 2,267-character line, 342 spurious numbers -- this function reproduces that exactly)."""
+    from jev_cookbook import AuditedBackend, Noul, get_backend
+
+    def script(state, questions, rng):
+        return {"q": 0.9}
+
+    backend = AuditedBackend(get_backend(script=script))
+    for i in range(n):
+        backend.decide({"i": i}, {"q": Noul()})
+    return backend.audit_json()
+
+
+def test_the_audit_line_is_excluded_from_the_quantity_pool_per_line_not_per_cell(tmp_path):
+    """#376: the committed ``AUDIT_PREFIX`` line's 64-character hex ``replay_key`` runs must not
+    back a fabricated prose quantity (the defect: ``69d093c844a71f...`` contains ``093``, so
+    "The accuracy is 93%." used to pass). Excluding it must not cost a cell's other, genuine
+    output line its own numbers -- one code cell carries both lines here, as a real audited
+    recipe's final cell does once migrated (#213, #375): a validation metric line, then the
+    ledger. The genuine figure stays backed; the round number the ledger's hex alone used to
+    supply is caught."""
+    audit_line = _real_audit_line()
+    assert audit_line.startswith(AUDIT_PREFIX)
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
+    _append_cell(
+        folder,
+        "code",
+        "validation accuracy: 0.9500 (a pipeline check, not a Jev result)\n" + audit_line,
+        cell_id="ledger-and-metric",
+    )
+    _append_cell(folder, "markdown", "The accuracy is 95%.", cell_id="genuine")
+    assert _unprinted_quantities(folder) == []
+    _append_cell(folder, "markdown", "The accuracy is 93%.", cell_id="fabricated")
+    unbacked = _unprinted_quantities(folder)
+    assert any("93" in message for message in unbacked), unbacked
 
 
 _TWO_DATES = ("2026-03-02", "2026-03-09")

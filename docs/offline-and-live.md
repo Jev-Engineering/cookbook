@@ -127,6 +127,19 @@ published recipe and the template, and its failure message points here.
 A fabricated "97.4% accuracy, 180 ms median latency, $0.0004 a call" fails
 `prose_quantities_are_printed` in the README and in a notebook cell alike.
 
+`prose_quantities_are_printed` excludes the audited route's one committed line (the
+`JEV_REQUEST_AUDIT ` ledger a recipe's final cell prints,
+[backends.md](backends.md#actual-calls-and-distinct-requests), #213) from the pool of numbers a
+quote may be backed by, dropped whole line by line before the digit scan sees it, not per cell: a
+cell that prints the ledger alongside a genuine metric line still has that line's own numbers
+counted. A `replay_key` is 64 hex characters, and a notebook's hex digit runs are not printed
+quantities; left in the pool, one such line supplies hundreds of two- and three-digit runs that
+happen to back almost any round percentage a recipe cared to fabricate (#376). The exclusion costs
+no other check: the ledger's own content is verified far more strictly, byte for byte against
+`request_budget.json`, by `readme_budget_note_matches_request_audit`
+(see [backends.md](backends.md#actual-calls-and-distinct-requests)), and that check sees every
+line the prose check skips.
+
 ### What none of this covers: the reviewer's alone
 
 These parts of section 2 have no mechanical check. The reviewer is the only enforcement, and reads
