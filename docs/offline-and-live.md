@@ -130,18 +130,20 @@ A fabricated "97.4% accuracy, 180 ms median latency, $0.0004 a call" fails
 `prose_quantities_are_printed` excludes exactly one thing from the pool of numbers a quote may be
 backed by: any committed output line starting with the `JEV_REQUEST_AUDIT ` prefix (the audited
 route's ledger line, #213, [backends.md](backends.md#actual-calls-and-distinct-requests)). The
-matched line's content is blanked to its own bare line terminator, line by line, before the digit
-scan sees it, not per cell: a cell that prints a prefixed line alongside another, genuine output
-line still has that other line's own numbers counted. Blanking rather than deleting the line is
-what makes this safe: deleting the line would also remove its own terminator, splicing the text
-immediately before it to the text immediately after -- exactly the defect an earlier version of
-this exclusion had. That is defensive scope for any cell of any recipe that prints the prefix, not a
+matched line's content is replaced by a literal `"\n"`, line by line, before the digit scan sees
+it, not per cell: a cell that prints a prefixed line alongside another, genuine output line still
+has that other line's own numbers counted. The line itself is kept, with only its content
+replaced -- that is what makes this safe: the text before the matched line and the text after it
+stay separated rather than becoming adjacent, which deleting the line outright would not
+guarantee. That is defensive scope for any cell of any recipe that prints the prefix, not a
 description of a real audited recipe's final cell specifically -- `tests/request_audit.py`'s
 `audited_evidence` requires that final cell to hold exactly one statement, printing either
 `backend.audit_json()` (only when exactly one backend is audited) or `audit_json(<every audited
 backend, in creation order>)` (the only accepted form for a multi-backend recipe), and requires
-that cell's entire stdout to equal the one shared audit line -- so on the audited route itself the
-ledger never actually shares a cell with another printed line. A `replay_key` is 64 hex
+that cell's entire **stdout** to equal the one shared audit line -- stdout specifically, not
+every stream the cell might commit: a stream committed as stderr in that same final cell is a
+different channel this particular check does not look at, and is still just another printed line
+as far as this exclusion's own digit scan is concerned. A `replay_key` is 64 hex
 characters; left in the pool, one such line supplies many spurious digit runs. Measured on
 `tests/test_recipe_guard.py`'s own synthetic `_real_audit_line(22)` (2,267 characters): 346 digit
 runs at all lengths, 133 of them two or three digits (73 two-digit, 60 three-digit), backing 56 of
@@ -159,10 +161,13 @@ The exclusion costs no other check: the ledger's own content is verified far mor
 the ordered ledger and checked against `request_budget.json`, the key set against the declared
 fixture inventory, and the line itself against the shared canonical form -- though a `replay_key`'s
 own value is pinned only when the backend declares a fixture inventory; a backend with none
-declared does not have its keys checked (#379). That check also reads stdout only, but every code
-cell's, not just the final one's: it requires the shared audit line to be the final cell's entire
-stdout and fails closed if a prefixed line turns up anywhere else, in any earlier cell. That is
-still narrower than the channels this exclusion reads (stream output under either name, plus
+declared does not have its keys checked (#379). That check also reads stdout only, and not every
+code cell's: it builds its scan from code cells whose source is non-blank, so a prefixed line
+parked in the committed output of a blank-source code cell is invisible to it, while this
+exclusion still finds and blanks that same line regardless of what the cell's source contains.
+Among the cells it does scan, it requires the shared audit line to be the final one's entire
+stdout and fails closed if a prefixed line turns up anywhere else among them. That is still
+narrower than the channels this exclusion reads (stream output under either name, plus
 `text/plain` and `text/html`), so a prefixed line delivered through one of those other channels has
 its numbers excluded from the prose pool without the audited-route check ever seeing it at all.
 Either way the direction is harmless: excluding a line can only shrink the prose pool, never grow

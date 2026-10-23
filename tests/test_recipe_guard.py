@@ -3635,14 +3635,18 @@ def test_a_wrong_decide_count_in_the_audit_line_is_still_caught_after_the_exclus
     """#376: excluding the committed audit line from the honesty guard's quantity pool
     (``_printed_numbers``) must not also blind ``readme_budget_note_matches_request_audit``
     (#213) to a wrong ledger -- the two checks are independent, and this pins that they stay
-    that way. A real audited mini recipe passes; a mutated line that lies about the call
-    count (``decide_calls`` left inconsistent with the still-genuine, still-64-hex ``calls``
-    list) still fails, exactly as before this fix, because the fix never touches
-    ``tests/request_audit.py``."""
+    that way. Both directions, on the one real mini recipe: the pool side first (the exclusion
+    costs this recipe's own README prose nothing -- ``_unprinted_quantities`` is empty with the
+    real audit line committed, so blanking it did not also blank a genuine figure), then the
+    ledger side (a real audited mini recipe's genuine line passes; a mutated line that lies
+    about the call count -- ``decide_calls`` left inconsistent with the still-genuine, still-
+    64-hex ``calls`` list -- still fails, exactly as before this fix, because the fix never
+    touches ``tests/request_audit.py``)."""
     from jev_cookbook._canonical import canonical_json
 
     folder, line = _audited_mini_recipe(tmp_path, n=3)
     assert line.startswith(AUDIT_PREFIX)
+    assert _unprinted_quantities(folder) == []
     assert _request_audit.audit_recipe(folder, notebook_cells(folder)) == 3
 
     payload = json.loads(line[len(AUDIT_PREFIX) :])
@@ -9708,6 +9712,22 @@ def _quoted_quantities(text: str) -> list[tuple[str, str]]:
     return found
 
 
+def _without_audit_lines(text: str) -> str:
+    """``text`` with every line starting with ``AUDIT_PREFIX`` replaced by a literal ``"\\n"``,
+    line by line: the line stays (so a line before it and a line after it are never spliced
+    together), only its content is gone. The replacement is a literal ``"\\n"``, not necessarily
+    that line's own original terminator: a ``\\r\\n``-terminated matched line is replaced by a
+    one-character ``"\\n"`` instead of its own two-character terminator, and an unterminated final
+    matched line (one with no terminator at all) is replaced by a ``"\\n"`` it never had. Neither
+    case can fuse the text on either side: the line before the match, when there is one, keeps its
+    own terminator untouched, so the two line boundaries together are still at least two
+    characters; an unterminated final line gains a terminator rather than losing one, adding
+    separation instead of removing any."""
+    return "".join(
+        "\n" if line.startswith(AUDIT_PREFIX) else line for line in text.splitlines(keepends=True)
+    )
+
+
 def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     """The numbers a quote of each kind can be backed by. A ``metric`` quote: any number a code
     cell's committed output prints, or the recipe's own ``tests/`` type (CONTRIBUTING.md section
@@ -9719,19 +9739,19 @@ def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     so a printed sample size of 180 does not back "180 ms".
 
     The audited route's one committed ``AUDIT_PREFIX`` line (#213, #376) is a machine-readable
-    ledger, not a printed quantity: its 64-character hex replay keys are excluded here, per
-    line, before any digit scan sees them, so they cannot back a fabricated prose figure. A
-    cell that prints the audit line alongside a genuine metric line still has the metric line
-    counted -- the audit line's own content is blanked to its bare line terminator, not deleted,
-    so the line (and the gap it leaves between its neighbours) stays intact and no two lines either
-    side of it ever become adjacent. The ledger's own integrity is checked
-    separately, and far more strictly, by ``readme_budget_note_matches_request_audit`` against
-    ``request_budget.json``; this exclusion removes nothing that check relies on."""
+    ledger, not a printed quantity: its 64-character hex replay keys are excluded here, per line,
+    before any digit scan sees them, so they cannot back a fabricated prose figure --
+    ``_without_audit_lines`` blanks a matched line's content rather than deleting it, so the line
+    stays and the text on either side of it is never spliced together. This is symmetric across
+    both sources of the ``metric`` pool: the same blanking is applied to the committed output and
+    to the recipe's own ``tests/*.py`` text, so an audited recipe cannot reopen the door by
+    printing the line, or pinning it as an expected value, from the test side instead. A cell that
+    prints the audit line alongside a genuine metric line still has the metric line counted. The
+    ledger's own integrity is checked separately, and far more strictly, by
+    ``readme_budget_note_matches_request_audit`` against ``request_budget.json``; this exclusion
+    removes nothing that check relies on."""
     output = "\n".join(
-        "".join(
-            "\n" if line.startswith(AUDIT_PREFIX) else line
-            for line in _output_text(cell).splitlines(keepends=True)
-        )
+        _without_audit_lines(_output_text(cell))
         for cell in notebook_cells(recipe_dir_)
         if cell["cell_type"] == "code"
     )
@@ -9739,7 +9759,7 @@ def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     tests_dir = recipe_dir_ / "tests"
     if tests_dir.is_dir():
         for path in sorted(tests_dir.glob("*.py")):
-            metric += _decimals(path.read_text("utf-8"))
+            metric += _decimals(_without_audit_lines(path.read_text("utf-8")))
     price = [
         n for m in re.finditer(_PRICE_AMOUNT, output, re.IGNORECASE) for n in _decimals(m.group(0))
     ]
@@ -11191,17 +11211,21 @@ def test_a_number_and_its_unit_split_by_the_ledger_inside_one_cell_still_catches
 
 
 def test_a_number_and_its_unit_split_across_two_cells_still_catches_a_fabrication(tmp_path):
-    """#376 round 1's defect, pinned: joining cells as a sequence of *lines* rather than as a
-    sequence of *cell texts* collapses the two-newline gap ``origin/main`` leaves between a cell's
-    own trailing newline and the outer join's separator down to one, which is exactly the one
-    optional whitespace character ``_LATENCY_MS`` (and ``_PERCENT``, ``_SECONDS``,
-    ``_THROUGHPUT``, ``_PRICE_AMOUNT``) allow between a number and its unit -- no audit line is
-    even needed to exercise this shape. One cell's output ends ``median latency 180``; the next
-    cell's output begins ``ms over the sample``. Round 2 repaired the join itself (cell texts, not
-    lines), but nothing before this test pinned that repair as a regression test: a mutant that
-    keeps this round's per-line blanking exactly as shipped and only collapses the inter-cell gap
-    (``.rstrip("\\n")`` on each filtered cell's text before the outer join) passes the rest of this
-    module's suite untouched."""
+    """#376 round 1's defect, pinned for the *terminated* shape: joining cells as a sequence of
+    *lines* rather than as a sequence of *cell texts* collapses the two-newline gap
+    ``origin/main`` leaves between a cell's own trailing newline and the outer join's separator
+    down to one, which is exactly the one optional whitespace character ``_LATENCY_MS`` (and
+    ``_PERCENT``, ``_SECONDS``, ``_THROUGHPUT``, ``_PRICE_AMOUNT``) allow between a number and its
+    unit -- no audit line is even needed to exercise this shape. One cell's output ends ``median
+    latency 180``, terminated by its own trailing newline (as every cell built by ``_append_cell``
+    is); the next cell's output begins ``ms over the sample``. Round 2 repaired the join itself
+    (cell texts, not lines) for exactly this, terminated, shape, but nothing before this test
+    pinned that repair as a regression test: a mutant that keeps this round's per-line blanking
+    exactly as shipped and only collapses the inter-cell gap (``.rstrip("\\n")`` on each filtered
+    cell's text before the outer join) passes the rest of this module's suite untouched. This
+    does not pin the *unterminated* shape (a cell whose committed stdout carries no trailing
+    newline at all, e.g. ``print(..., end="")``): that one is pre-existing on ``origin/main``
+    itself, not introduced or worsened here, and is filed as #380."""
     folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
     _append_cell(folder, "code", "median latency 180", cell_id="ends-with-number")
     _append_cell(folder, "code", "ms over the sample", cell_id="begins-with-unit")
@@ -11213,6 +11237,31 @@ def test_a_number_and_its_unit_split_across_two_cells_still_catches_a_fabricatio
     )
     unbacked = _unprinted_quantities(folder)
     assert any("180" in message for message in unbacked), unbacked
+
+
+def test_the_audit_line_pinned_in_the_recipes_own_tests_does_not_back_a_fabrication(tmp_path):
+    """#376's second door: ``_printed_numbers`` also pools ``_decimals()`` over the recipe's own
+    ``tests/*.py`` text (CONTRIBUTING.md section 6's "a test re-derives it" route), and that arm
+    must be exempted from the audit line's hex the same way the committed-output arm is. An
+    audited recipe pinning the ledger a notebook cell prints as its own expected value, in a
+    triple-quoted ``EXPECTED`` assignment with the audit line reproduced verbatim on its own
+    physical line (exactly as a cell's committed stdout carries it) in ``tests/test_ledger.py``,
+    must not reopen the door the committed-output exclusion closes. (A one-line assignment whose
+    quote character precedes the prefix on the same physical line is a different shape, where the
+    prefix never starts the line a per-line filter inspects, on either arm.)"""
+    audit_line = _real_audit_line()
+    assert Decimal(93) in _decimals(audit_line), (
+        "the synthetic audit line no longer contains the literal '93' this test pins -- "
+        "its states must be changed so the defect it guards against is still exercised"
+    )
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
+    (folder / "tests").mkdir(exist_ok=True)
+    (folder / "tests" / "test_ledger.py").write_text(
+        'EXPECTED = """\n' + audit_line + '\n"""\n', "utf-8"
+    )
+    _append_cell(folder, "markdown", "The accuracy is 93%.", cell_id="fabricated")
+    unbacked = _unprinted_quantities(folder)
+    assert any("93" in message for message in unbacked), unbacked
 
 
 _TWO_DATES = ("2026-03-02", "2026-03-09")
