@@ -130,9 +130,12 @@ A fabricated "97.4% accuracy, 180 ms median latency, $0.0004 a call" fails
 `prose_quantities_are_printed` excludes exactly one thing from the pool of numbers a quote may be
 backed by: any committed output line starting with the `JEV_REQUEST_AUDIT ` prefix (the audited
 route's ledger line, #213, [backends.md](backends.md#actual-calls-and-distinct-requests)). The
-exclusion is dropped whole, line by line, before the digit scan sees it, not per cell: a cell that
-prints a prefixed line alongside another, genuine output line still has that other line's own
-numbers counted. That is defensive scope for any cell of any recipe that prints the prefix, not a
+matched line's content is blanked to its own bare line terminator, line by line, before the digit
+scan sees it, not per cell: a cell that prints a prefixed line alongside another, genuine output
+line still has that other line's own numbers counted. Blanking rather than deleting the line is
+what makes this safe: deleting the line would also remove its own terminator, splicing the text
+immediately before it to the text immediately after -- exactly the defect an earlier version of
+this exclusion had. That is defensive scope for any cell of any recipe that prints the prefix, not a
 description of a real audited recipe's final cell specifically -- `tests/request_audit.py`'s
 `audited_evidence` requires that final cell to hold exactly one statement, printing either
 `backend.audit_json()` (only when exactly one backend is audited) or `audit_json(<every audited
@@ -142,7 +145,7 @@ ledger never actually shares a cell with another printed line. A `replay_key` is
 characters; left in the pool, one such line supplies many spurious digit runs. Measured on
 `tests/test_recipe_guard.py`'s own synthetic `_real_audit_line(22)` (2,267 characters): 346 digit
 runs at all lengths, 133 of them two or three digits (73 two-digit, 60 three-digit), backing 56 of
-the integers 0-100 and 11 of their 19 multiples of five. A different, real line of the same
+the integers 0-100 and 12 of their 21 multiples of five. A different, real line of the same
 length -- #375's migrated template, which is what #376 itself measured -- supplied a different
 count: 342 digit runs and 71 of 0-100 backed; the hex depends on the requests behind it, so the two
 lines' figures do not match and neither should be read as the other's. Nothing else a notebook
@@ -160,9 +163,10 @@ declared does not have its keys checked (#379). That check also reads stdout onl
 cell's, not just the final one's: it requires the shared audit line to be the final cell's entire
 stdout and fails closed if a prefixed line turns up anywhere else, in any earlier cell. That is
 still narrower than the channels this exclusion reads (stream output under either name, plus
-`text/plain` and `text/html`), so a prefixed line delivered through one of those other channels is
-dropped from the prose pool without the audited-route check ever seeing it at all. Either way the
-direction is harmless: excluding a line can only shrink the prose pool, never grow it.
+`text/plain` and `text/html`), so a prefixed line delivered through one of those other channels has
+its numbers excluded from the prose pool without the audited-route check ever seeing it at all.
+Either way the direction is harmless: excluding a line can only shrink the prose pool, never grow
+it.
 
 ### What none of this covers: the reviewer's alone
 

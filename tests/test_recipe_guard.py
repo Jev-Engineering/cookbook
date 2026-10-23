@@ -9722,7 +9722,9 @@ def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     ledger, not a printed quantity: its 64-character hex replay keys are excluded here, per
     line, before any digit scan sees them, so they cannot back a fabricated prose figure. A
     cell that prints the audit line alongside a genuine metric line still has the metric line
-    counted -- only the audit line itself is dropped. The ledger's own integrity is checked
+    counted -- the audit line's own content is blanked to its bare line terminator, not deleted,
+    so the line (and the gap it leaves between its neighbours) stays intact and no two lines either
+    side of it ever become adjacent. The ledger's own integrity is checked
     separately, and far more strictly, by ``readme_budget_note_matches_request_audit`` against
     ``request_budget.json``; this exclusion removes nothing that check relies on."""
     output = "\n".join(
@@ -11128,9 +11130,11 @@ def test_the_audit_line_is_excluded_from_the_quantity_pool_per_line_not_per_cell
     "The accuracy is 93%." used to pass). Excluding it must not cost a cell's other, genuine
     output line its own numbers -- one code cell carries both lines here. This is defensive scope
     for any cell of any recipe that prints the prefix, not a claim about a real audited recipe's
-    final cell: ``tests/request_audit.py``'s ``audited_evidence`` requires that final cell to be
-    exactly ``print(backend.audit_json())``, so on the audited route itself the ledger never
-    actually shares a cell with another line. The genuine figure stays backed; the round number
+    final cell: ``tests/request_audit.py``'s ``audited_evidence`` requires that final cell to hold
+    exactly one statement, printing either ``backend.audit_json()`` (only when exactly one backend
+    is audited) or ``audit_json(<every audited backend, in creation order>)`` (the only accepted
+    form for a multi-backend recipe), so on the audited route itself the ledger never actually
+    shares a cell with another line. The genuine figure stays backed; the round number
     the ledger's hex alone used to supply is caught.
 
     The precondition below pins the defect to the hex rather than to an accident of it: the
@@ -11176,6 +11180,31 @@ def test_a_number_and_its_unit_split_by_the_ledger_inside_one_cell_still_catches
         "median latency 180\n" + audit_line + "\nms over the sample\n",
         cell_id="number-ledger-unit",
     )
+    _append_cell(
+        folder,
+        "markdown",
+        "Jev answers with a median latency of 180 ms.",
+        cell_id="fabricated-speed",
+    )
+    unbacked = _unprinted_quantities(folder)
+    assert any("180" in message for message in unbacked), unbacked
+
+
+def test_a_number_and_its_unit_split_across_two_cells_still_catches_a_fabrication(tmp_path):
+    """#376 round 1's defect, pinned: joining cells as a sequence of *lines* rather than as a
+    sequence of *cell texts* collapses the two-newline gap ``origin/main`` leaves between a cell's
+    own trailing newline and the outer join's separator down to one, which is exactly the one
+    optional whitespace character ``_LATENCY_MS`` (and ``_PERCENT``, ``_SECONDS``,
+    ``_THROUGHPUT``, ``_PRICE_AMOUNT``) allow between a number and its unit -- no audit line is
+    even needed to exercise this shape. One cell's output ends ``median latency 180``; the next
+    cell's output begins ``ms over the sample``. Round 2 repaired the join itself (cell texts, not
+    lines), but nothing before this test pinned that repair as a regression test: a mutant that
+    keeps this round's per-line blanking exactly as shipped and only collapses the inter-cell gap
+    (``.rstrip("\\n")`` on each filtered cell's text before the outer join) passes the rest of this
+    module's suite untouched."""
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
+    _append_cell(folder, "code", "median latency 180", cell_id="ends-with-number")
+    _append_cell(folder, "code", "ms over the sample", cell_id="begins-with-unit")
     _append_cell(
         folder,
         "markdown",
