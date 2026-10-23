@@ -134,13 +134,21 @@ exclusion is dropped whole, line by line, before the digit scan sees it, not per
 prints a prefixed line alongside another, genuine output line still has that other line's own
 numbers counted. That is defensive scope for any cell of any recipe that prints the prefix, not a
 description of a real audited recipe's final cell specifically -- `tests/request_audit.py`'s
-`audited_evidence` requires that final cell to be exactly `print(backend.audit_json())`, so on the
-audited route itself the ledger never actually shares a cell with another printed line. A
-`replay_key` is 64 hex characters; left in the pool, that one line alone supplies hundreds of
-two- and three-digit runs that happen to back almost any round percentage a recipe cared to
-fabricate (#376). Nothing else a notebook prints is excluded by this rule: a hash, a UUID or any
-other hex token committed outside that one prefixed line still enters the pool as numbers (see the
-limits list below; #378 tracks excluding hash-like tokens generally).
+`audited_evidence` requires that final cell to hold exactly one statement, printing either
+`backend.audit_json()` (only when exactly one backend is audited) or `audit_json(<every audited
+backend, in creation order>)` (the only accepted form for a multi-backend recipe), and requires
+that cell's entire stdout to equal the one shared audit line -- so on the audited route itself the
+ledger never actually shares a cell with another printed line. A `replay_key` is 64 hex
+characters; left in the pool, one such line supplies many spurious digit runs. Measured on
+`tests/test_recipe_guard.py`'s own synthetic `_real_audit_line(22)` (2,267 characters): 346 digit
+runs at all lengths, 133 of them two or three digits (73 two-digit, 60 three-digit), backing 56 of
+the integers 0-100 and 11 of their 19 multiples of five. A different, real line of the same
+length -- #375's migrated template, which is what #376 itself measured -- supplied a different
+count: 342 digit runs and 71 of 0-100 backed; the hex depends on the requests behind it, so the two
+lines' figures do not match and neither should be read as the other's. Nothing else a notebook
+prints is excluded by this rule: a hash, a UUID or any other hex token committed outside that one
+prefixed line still enters the pool as numbers (see the limits list below; #378 tracks excluding
+hash-like tokens generally).
 
 The exclusion costs no other check: the ledger's own content is verified far more strictly by
 `readme_budget_note_matches_request_audit`
@@ -148,10 +156,13 @@ The exclusion costs no other check: the ledger's own content is verified far mor
 the ordered ledger and checked against `request_budget.json`, the key set against the declared
 fixture inventory, and the line itself against the shared canonical form -- though a `replay_key`'s
 own value is pinned only when the backend declares a fixture inventory; a backend with none
-declared does not have its keys checked (#379). That check also reads only the final cell's
-stdout, narrower than the channels this exclusion reads (stream output under either name, plus
-`text/plain` and `text/html`), so it does not see every line the prose check skips; the direction
-is harmless, because excluding a line can only shrink the prose pool, never grow it.
+declared does not have its keys checked (#379). That check also reads stdout only, but every code
+cell's, not just the final one's: it requires the shared audit line to be the final cell's entire
+stdout and fails closed if a prefixed line turns up anywhere else, in any earlier cell. That is
+still narrower than the channels this exclusion reads (stream output under either name, plus
+`text/plain` and `text/html`), so a prefixed line delivered through one of those other channels is
+dropped from the prose pool without the audited-route check ever seeing it at all. Either way the
+direction is harmless: excluding a line can only shrink the prose pool, never grow it.
 
 ### What none of this covers: the reviewer's alone
 

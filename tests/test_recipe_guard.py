@@ -3578,13 +3578,13 @@ def _audited_mini_recipe(tmp_path: Path, n: int = 3) -> tuple[Path, str]:
     README whose rendered budget paragraph matches too -- everything ``audit_recipe``
     (``tests/request_audit.py``) checks, built from the real shared objects rather than typed
     out by hand. Returns the folder and the one genuine, committed audit line."""
-    from jev_cookbook import AuditedBackend, Noul, get_backend
+    from jev_cookbook import AuditedBackend, Noul, ScriptedBackend
     from jev_cookbook.accounting import load_budget, render_budget_note
 
     def script(state, questions, rng):
         return {"q": 0.9}
 
-    backend = AuditedBackend(get_backend(script=script))
+    backend = AuditedBackend(ScriptedBackend(script, 0))
     for i in range(n):
         backend.decide({"i": i}, {"q": Noul()})
     line = backend.audit_json()
@@ -9727,9 +9727,8 @@ def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     ``request_budget.json``; this exclusion removes nothing that check relies on."""
     output = "\n".join(
         "".join(
-            line
+            "\n" if line.startswith(AUDIT_PREFIX) else line
             for line in _output_text(cell).splitlines(keepends=True)
-            if not line.startswith(AUDIT_PREFIX)
         )
         for cell in notebook_cells(recipe_dir_)
         if cell["cell_type"] == "code"
@@ -11112,12 +11111,12 @@ def _real_audit_line(n: int = 22) -> str:
     measured at 22 requests in PR #375's migrated template (342 spurious numbers there, 346
     here: the hex depends on the requests, so this function's synthetic states cannot and do
     not reproduce that digit count exactly)."""
-    from jev_cookbook import AuditedBackend, Noul, get_backend
+    from jev_cookbook import AuditedBackend, Noul, ScriptedBackend
 
     def script(state, questions, rng):
         return {"q": 0.9}
 
-    backend = AuditedBackend(get_backend(script=script))
+    backend = AuditedBackend(ScriptedBackend(script, 0))
     for i in range(n):
         backend.decide({"i": i}, {"q": Noul()})
     return backend.audit_json()
@@ -11156,6 +11155,35 @@ def test_the_audit_line_is_excluded_from_the_quantity_pool_per_line_not_per_cell
     _append_cell(folder, "markdown", "The accuracy is 93%.", cell_id="fabricated")
     unbacked = _unprinted_quantities(folder)
     assert any("93" in message for message in unbacked), unbacked
+
+
+def test_a_number_and_its_unit_split_by_the_ledger_inside_one_cell_still_catches_a_fabrication(
+    tmp_path,
+):
+    """#376 round 2: excluding the audit line must not fuse the text either side of it. A cell
+    whose stdout holds a number, then the ledger, then that very number's unit -- a shape
+    ``_append_cell`` never otherwise exercises, since every other test here puts the ledger last
+    in its cell rather than between two lines. Dropping the whole line (rather than blanking its
+    content) used to splice "180" and "ms" together across the one optional whitespace
+    character ``_LATENCY_MS`` (and ``_PERCENT``, ``_SECONDS``, ``_THROUGHPUT``, ``_PRICE_AMOUNT``)
+    allow, backing a latency the recipe never printed. This is the same adjacency defect the
+    cell-boundary fix repaired, one layer in."""
+    audit_line = _real_audit_line()
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
+    _append_cell(
+        folder,
+        "code",
+        "median latency 180\n" + audit_line + "\nms over the sample\n",
+        cell_id="number-ledger-unit",
+    )
+    _append_cell(
+        folder,
+        "markdown",
+        "Jev answers with a median latency of 180 ms.",
+        cell_id="fabricated-speed",
+    )
+    unbacked = _unprinted_quantities(folder)
+    assert any("180" in message for message in unbacked), unbacked
 
 
 _TWO_DATES = ("2026-03-02", "2026-03-09")
