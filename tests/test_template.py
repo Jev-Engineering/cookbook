@@ -50,6 +50,7 @@ def test_the_template_has_the_documented_files():
         "README.md",
         "helpers.py",
         "build_fixtures.py",
+        "request_budget.json",
         "fixtures/inputs.jsonl",
         "fixtures/labels.jsonl",
         "fixtures/responses.json",

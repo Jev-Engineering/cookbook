@@ -14,6 +14,14 @@ Everything the builder must write is marked ``TODO``, so ``grep -rn TODO recipes
 what is left.
 The command never overwrites: if the folder exists it stops with a message and exit status 1.
 
+The scaffold is born on the audited request-count route (#213, #368): the notebook's one
+``get_backend(...)`` is wrapped in ``AuditedBackend(..., label="main")``, a final standalone cell
+prints ``backend.audit_json()``, and ``request_budget.json`` declares the one ``decide()`` call the
+skeleton's own ``answer`` cell makes -- matching, out of the box, with no hand-edit. The README's
+``## Switch to live`` paragraph is rendered from that declaration, never hand-typed; as the builder
+adds more ``decide()`` calls while writing Evaluation, ``request_budget.json`` and the rendered
+paragraph are updated together (the README TODO there says how).
+
 Standard library only. See docs/recipe-template.md for the walkthrough.
 """
 
@@ -56,6 +64,52 @@ RUN_MODE_PARAGRAPH = (
     "names."
 )
 MODES = ("replay", "scripted")  # --mode; replay is the default and the one most recipes use
+
+# The audited request-count route (#213, #368): a recipe declares its live request count once, in
+# request_budget.json, and the README's budget paragraph is rendered from it by
+# jev_cookbook.accounting.render_budget_note -- never hand-typed. This tool stays standard-library
+# only (see the module docstring), so request_budget_note below reproduces that renderer's exact
+# output for the one shape a fresh scaffold ever declares (a single backend, no declared repeats,
+# no at_most beyond requests) rather than importing jev_cookbook; tests/test_new_recipe.py proves
+# the two agree, byte for byte, so this cannot silently drift from the shared renderer.
+BUDGET_FILE = "request_budget.json"
+NOTE_BEGIN = "<!-- request-budget:begin -->"
+NOTE_END = "<!-- request-budget:end -->"
+# jev_cookbook.live.DEFAULT_MAX_REQUESTS; tests/test_new_recipe.py pins this against the installed
+# package so a change there cannot silently leave this copy stale.
+DEFAULT_MAX_REQUESTS = 25
+
+
+def request_budget_text(mode: str = "replay") -> str:
+    """The scaffold's own ``request_budget.json``: the live request count declared once, matching
+    exactly the one ``decide()`` call the skeleton notebook's ``answer`` cell makes (see
+    ``notebook_cells``) -- so a fresh scaffold's declaration, audited notebook and rendered README
+    paragraph already agree, with no hand-edit. ``fixtures`` is ``null`` for a scripted recipe
+    (nothing to replay) and the recipe-relative replay file otherwise. As the builder adds
+    ``decide()`` calls while writing Evaluation, this file's declared count (and ``distinct`` or
+    ``at_most`` where they apply) must grow to match, and the README paragraph is regenerated from
+    it -- the ``## Switch to live`` TODO in ``readme_text`` says how."""
+    fixtures = None if mode == "scripted" else "fixtures/responses.json"
+    body = {"requests": 1, "fixtures": fixtures}
+    return json.dumps({"schema": 1, "backends": {"main": body}}, indent=2) + "\n"
+
+
+def request_budget_note(requests: int) -> str:
+    """The rendered ``## Switch to live`` paragraph, markers included, for a declaration of
+    exactly ``requests`` on a single backend with no declared repeats and no ``at_most`` beyond
+    ``requests`` -- the one shape ``request_budget_text`` ever declares at scaffold time. Byte for
+    byte what ``jev_cookbook.accounting.render_budget_note`` returns for that shape (pinned by
+    ``tests/test_new_recipe.py``); kept here rather than imported, so this standard-library-only
+    tool does not need the installed package to generate a recipe skeleton."""
+    return (
+        f"{NOTE_BEGIN}\n"
+        f"In live mode this notebook makes exactly **{requests}** requests, each decided once. "
+        f"Set `JEV_COOKBOOK_LIVE_MAX_REQUESTS={requests}` or higher before running it live (the "
+        f"default cap is {DEFAULT_MAX_REQUESTS}): the cap is inclusive and every attempt counts "
+        "against it, retries included, so a lower cap stops the run partway through with "
+        "`BudgetExceeded` and a run that retries needs more.\n"
+        f"{NOTE_END}\n"
+    )
 
 
 class ScaffoldError(Exception):
@@ -126,14 +180,16 @@ def notebook_cells(catalog: dict, recipe: dict, mode: str = "replay") -> list[di
     if scripted:
         fixture_import = "from jev_cookbook.fixtures import load_inputs, load_labels"
         backend_line = (
-            "backend = get_backend(script=helpers.script, seed=helpers.SEED)  "
-            "# the seeded script in helpers.py"
+            "backend = AuditedBackend(get_backend(script=helpers.script, seed=helpers.SEED), "
+            'label="main")  # the seeded script in helpers.py'
         )
     else:
         fixture_import = (
             "from jev_cookbook.fixtures import load_inputs, load_labels, responses_path"
         )
-        backend_line = "backend = get_backend(fixtures=responses_path())"
+        backend_line = (
+            'backend = AuditedBackend(get_backend(fixtures=responses_path()), label="main")'
+        )
     answers_how = (
         "computes its answers with a seeded script" if scripted else "replays synthetic answers"
     )
@@ -162,7 +218,7 @@ def notebook_cells(catalog: dict, recipe: dict, mode: str = "replay") -> list[di
         code(
             "setup",
             f"""
-from jev_cookbook import get_backend, load_helpers
+from jev_cookbook import AuditedBackend, get_backend, load_helpers
 {fixture_import}
 from jev_cookbook.style import apply_style, run_header, show_answer
 
@@ -274,6 +330,18 @@ else:
 """,
         ),
         md(
+            "audit-md",
+            "### Live request audit\n\n"
+            "The cell below is this notebook's final code cell, on purpose: "
+            "`backend.audit_json()` prints an ordered ledger of every `decide()` call the "
+            "backend above made. [`request_budget.json`](request_budget.json) declares this "
+            "notebook's live request count once, and the recipe guard checks the ledger, the "
+            "declaration and the README's rendered paragraph against each other "
+            "([docs/backends.md](../../docs/backends.md#actual-calls-and-distinct-requests)). "
+            "It holds no response content and says nothing about Jev's quality, speed or cost.",
+        ),
+        code("audit", "print(backend.audit_json())"),
+        md(
             "next-md",
             f"## {SECTIONS[8]}\n\n"
             f"{TODO_MARK}: what to try next, and links to neighbouring recipes that already "
@@ -360,14 +428,18 @@ Live calls are opt-in and change nothing but the backend. Install the SDK
 `JEV_COOKBOOK_LIVE_MODEL`; then open `notebook.ipynb` from this folder in Jupyter (not a dependency
 of this repository), or record answers with the recorder described in
 [docs/live.md](../../docs/live.md). `tools/execute_notebook.py` removes those variables on purpose
-and always runs offline. The live backend's default request budget is 25
-(`JEV_COOKBOOK_LIVE_MAX_REQUESTS`, [docs/live.md](../../docs/live.md)); every attempt counts
-against that budget, including each retry.
-{TODO_MARK}: state how many calls this notebook makes in live mode (one per example it decides,
-each example decided once, never twice); if that count is more than 25, or close to it once
-retries are counted, tell the reader here to raise `JEV_COOKBOOK_LIVE_MAX_REQUESTS` to at least
-it before running this notebook live, or it stops partway through with `BudgetExceeded`. Never
-put a key in a notebook or a fixture.
+and always runs offline.
+
+{request_budget_note(1).rstrip()}
+
+{TODO_MARK}: this paragraph is generated from `request_budget.json`, next to this notebook, by
+`jev_cookbook.accounting.render_recipe_note`; never edit it by hand. As you add `decide()` calls
+while you write Evaluation, update `request_budget.json`'s declared count to match (and its
+`distinct` or `at_most` if some requests repeat on purpose or the count depends on an answer),
+then regenerate this block with `python -c "from jev_cookbook.accounting import
+render_recipe_note as r; print(r('recipes/NN-slug'), end='')"` and paste its output here before
+you finish: the recipe guard compares the declaration, the notebook's audited execution and this
+paragraph against each other. Never put a key in a notebook or a fixture.
 
 ## What was and was not measured
 
@@ -884,6 +956,7 @@ def files_for(catalog: dict, recipe: dict, mode: str = "replay") -> dict[str, st
         "helpers.py": helpers_text(recipe, mode),
         "build_fixtures.py": build_fixtures_text(recipe, mode),
         "side_effects.json": side_effects_text(),
+        "request_budget.json": request_budget_text(mode),
         "tests/test_helpers.py": tests_text(recipe, mode),
     }
     if mode == "replay":

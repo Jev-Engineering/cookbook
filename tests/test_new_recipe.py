@@ -17,7 +17,8 @@ import nbformat
 import pytest
 from nbclient.exceptions import DeadKernelError
 
-from jev_cookbook import load_helpers
+from jev_cookbook import DecisionResult, Provenance, dump_responses, load_helpers, replay_key
+from jev_cookbook.answers import ChoiceAnswer
 from jev_cookbook.fixtures import validate_recipe
 
 REPO = Path(__file__).resolve().parent.parent
@@ -95,6 +96,7 @@ def test_it_creates_the_folder_named_by_the_catalog(catalog, recipes):
         "helpers.py",
         "build_fixtures.py",
         "side_effects.json",
+        "request_budget.json",
         "tests/test_helpers.py",
         "tests/test_build_fixtures.py",
     }
@@ -166,8 +168,13 @@ def test_the_example_wording_is_replaced_by_marked_placeholders(catalog, recipes
             text = path.read_text("utf-8")
             # tests/test_build_fixtures.py is emitted complete: it already works against a
             # correct build_fixtures.py, with nothing left for the builder to fill in, so unlike
-            # every other scaffolded file it carries no TODO.
-            if path.name != "test_build_fixtures.py":
+            # every other scaffolded file it carries no TODO. request_budget.json is also
+            # complete at scaffold time: it declares exactly the one decide() call the
+            # skeleton's own `answer` cell makes, already self-consistent with the notebook and
+            # the rendered README paragraph (see test_a_fresh_scaffold_passes_the_request_audit_
+            # with_no_hand_edit below); the builder's own follow-up as the notebook grows is
+            # marked TODO in the README instead, where grep -rn TODO already finds it.
+            if path.name not in ("test_build_fixtures.py", "request_budget.json"):
                 assert "TODO" in text, path.name
             for example_word in ("support message", "billing-team", "human_review", "T-1001"):
                 assert example_word not in text, (path.name, example_word)
@@ -306,6 +313,146 @@ def test_a_scaffold_runs_once_the_helpers_and_fixtures_exist(catalog, recipes):
     )
     assert "Recipe 01:" in streams and "offline replay of synthetic fixtures" in streams
     assert "Not measured live" in streams
+
+
+def _load_request_audit():
+    """``tests/request_audit.py``, loaded by file path like ``tests/test_recipe_guard.py``'s own
+    ``_load_request_audit``: the module the recipe guard's budget-note check calls, so this test
+    proves the scaffold passes the real check, not a reimplementation of it."""
+    spec = importlib.util.spec_from_file_location(
+        "request_audit_for_new_recipe_test", Path(__file__).with_name("request_audit.py")
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_request_audit = _load_request_audit()
+
+_MINIMAL_HELPERS = (
+    "from jev_cookbook import Choice\n\n\n"
+    "def build_state(fields):\n"
+    '    return {"text": fields["text"]}\n\n\n'
+    "def build_questions():\n"
+    '    return {"pick": Choice(instructions="Which one?", criteria={"a": "first", "b": "second"})}\n'
+)
+
+
+def _fill_minimal_scaffold(folder):
+    """The smallest ``helpers.py`` and ``fixtures/`` the bare scaffold's own skeleton notebook
+    needs to execute: one ``demo`` example (decided once, by the ``answer`` cell -- the
+    ``python-rule`` and ``evaluation`` cells are still ``# TODO`` comments, so nothing else is
+    decided) and one ``validation`` example that is never decided, only so ``scored`` (which
+    excludes ``train``/``demo``) is non-empty for ``run_header``'s ``n_examples`` check. The one
+    key the scaffold's own skeleton actually requests is the only key written to
+    ``fixtures/responses.json``, so the exact-inventory check in ``check_against_declaration``
+    has something real to agree with (unlike copying in the template's full 22-example
+    fixtures, which the bare skeleton does not come close to exhausting)."""
+    (folder / "helpers.py").write_text(_MINIMAL_HELPERS, encoding="utf-8", newline="\n")
+    helpers = load_helpers(folder)
+    questions = helpers.build_questions()
+
+    demo_fields = {"text": "hello"}
+    demo_key = replay_key(helpers.build_state(demo_fields), questions)
+    val_fields = {"text": "world"}
+    val_key = replay_key(helpers.build_state(val_fields), questions)
+
+    (folder / "fixtures").mkdir(exist_ok=True)
+    inputs = [
+        {"id": "d1", "split": "demo", "fields": demo_fields, "replay_keys": [demo_key]},
+        {"id": "v1", "split": "validation", "fields": val_fields, "replay_keys": [val_key]},
+    ]
+    (folder / "fixtures" / "inputs.jsonl").write_text(
+        "".join(json.dumps(row) + "\n" for row in inputs), encoding="utf-8", newline="\n"
+    )
+    (folder / "fixtures" / "labels.jsonl").write_text(
+        json.dumps({"id": "v1", "label": "a"}) + "\n", encoding="utf-8", newline="\n"
+    )
+    answers = {
+        "pick": ChoiceAnswer.from_probabilities({"a": 0.9, "b": 0.1}, Provenance.synthetic())
+    }
+    responses = {demo_key: DecisionResult(answers, "synthetic").to_dict()}
+    (folder / "fixtures" / "responses.json").write_text(
+        dump_responses(responses), encoding="utf-8", newline="\n"
+    )
+
+
+def test_a_fresh_scaffold_passes_the_request_audit_with_no_hand_edit(catalog, recipes):
+    """Issue #368 acceptance criterion 1: a freshly scaffolded recipe passes the audited
+    request-count route with no hand-edit to the plumbing ``tools/new_recipe.py`` writes --
+    ``request_budget.json``, the ``AuditedBackend`` wrapping in the setup cell, the final
+    standalone ``print(backend.audit_json())`` cell, and the README's rendered
+    ``## Switch to live`` paragraph. Only ``helpers.py`` and ``fixtures/`` are filled in -- the
+    same two files every scaffold needs before it can execute at all -- and the executed
+    notebook's audit still agrees with the untouched declaration and the untouched README,
+    because the scaffold declares exactly the one ``decide()`` call its own ``answer`` cell
+    makes. This calls ``tests/request_audit.py``'s real ``audit_recipe``, the same function the
+    recipe guard's ``readme_budget_note_matches_request_audit`` check loads, not a
+    reimplementation of its rules."""
+    _, recipe = entry(catalog, 1)
+    run(1, catalog, recipes)
+    folder = recipes / recipe["slug"]
+    _fill_minimal_scaffold(folder)
+    assert execute_notebook.main([str(folder)]) == 0
+
+    cells = json.loads((folder / "notebook.ipynb").read_text("utf-8"))["cells"]
+    result = _request_audit.audit_recipe(folder, cells)
+    assert result == 1, "a fresh scaffold's own declared, audited and rendered count should agree"
+
+    # Negative control (asked for explicitly in the issue): the same executed notebook, with
+    # only request_budget.json removed, must fail instead of silently falling back to the old
+    # len(responses.json) proxy -- audit_recipe's declaration, audited notebook and rendered
+    # README paragraph come together or not at all.
+    budget_path = folder / "request_budget.json"
+    saved = budget_path.read_text("utf-8")
+    budget_path.unlink()
+    with pytest.raises(AssertionError, match="request_budget.json"):
+        _request_audit.audit_recipe(folder, cells)
+    budget_path.write_text(saved, encoding="utf-8", newline="\n")
+
+
+def test_a_fresh_scaffold_also_passes_the_one_backend_per_budget_guard(catalog, recipes):
+    """The companion #213 guard check (``one_backend_per_budget`` in
+    ``tests/test_recipe_guard.py``): a scaffold builds no more ``get_backend`` call sites, in the
+    notebook plus ``helpers.py``, than it has audited backends. The scaffold's one
+    ``AuditedBackend(get_backend(...), label="main")`` in the setup cell is the only site either
+    way, so this is already satisfied with no hand-edit, counted the same way the guard counts
+    it (every ``get_backend``/``AuditedBackend`` name, attribute, alias or string literal)."""
+    _, recipe = entry(catalog, 7)
+    run(7, catalog, recipes)
+    folder = recipes / recipe["slug"]
+    notebook = json.loads((folder / "notebook.ipynb").read_text("utf-8"))
+    sources = [
+        "".join(c["source"]) if isinstance(c["source"], list) else c["source"]
+        for c in notebook["cells"]
+        if c["cell_type"] == "code"
+    ]
+
+    def sites(name):
+        import ast
+
+        names = {name}
+        trees = [ast.parse(s) for s in sources]
+        for tree in trees:
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ImportFrom):
+                    names.update(a.asname for a in node.names if a.name == name and a.asname)
+        count = 0
+        for tree in trees:
+            for node in ast.walk(tree):
+                count += isinstance(node, ast.Name) and node.id in names
+                count += isinstance(node, ast.Attribute) and node.attr == name
+                count += isinstance(node, ast.Constant) and node.value == name
+        return count
+
+    audited = sites("AuditedBackend")
+    get_backend_sites = sites("get_backend")
+    assert audited == 1, "the scaffold's setup cell should wrap exactly one AuditedBackend"
+    assert get_backend_sites <= (audited or 1), (
+        get_backend_sites,
+        audited,
+        "a scaffold with more get_backend sites than audited backends would fail the guard",
+    )
 
 
 SCRIPTED_HELPERS = """
