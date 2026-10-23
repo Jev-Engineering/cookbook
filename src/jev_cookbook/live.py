@@ -148,6 +148,8 @@ class CallRecord:
     request_id: str | None
     usage: Usage
     date: str
+    images: int = 0
+    distinct_images: int = 0
 
 
 def _secret_variants(*raw: str | None) -> tuple[str, ...]:
@@ -641,7 +643,7 @@ class LiveBackend:
 
     def ledger(self) -> dict[str, Any]:
         """Plain-data summary for an orchestrator's ledger (no key, state or answers)."""
-        return {
+        out: dict[str, Any] = {
             "requested_model": self.requested_model,
             "model": self.model,
             "max_requests": self.max_requests,
@@ -653,6 +655,14 @@ class LiveBackend:
             "calls_without_usage": self._calls_without_usage,
             "request_ids": [r.request_id for r in self._records],
         }
+        # Image counts are added only when a request carried images, so a text-only ledger is
+        # byte-for-byte what it was. Counts come from the request; the tokens they cost appear
+        # only inside ``input_tokens`` (the API reports no separate image figure).
+        images = sum(r.images for r in self._records)
+        if images:
+            out["images"] = images
+            out["distinct_images"] = sum(r.distinct_images for r in self._records)
+        return out
 
     def _spend(self) -> None:
         with self._lock:
@@ -694,7 +704,15 @@ class LiveBackend:
                 f"got {self.requested_model!r}"
             )
         asset_kwargs = {}
+        images = distinct_images = 0
         if checked_assets:
+            from .vision import image_request_profile, preflight_image_request
+
+            # Before the SDK is imported and before anything is spent: an over-cap request is
+            # otherwise found out only as a paid 413.
+            profile = image_request_profile(plain_state, checked, checked_assets)
+            preflight_image_request(profile)
+            images, distinct_images = profile.copies, profile.distinct_assets
             sdk = _import_sdk()
             if not hasattr(sdk, "Image"):
                 raise LiveConfigError("image assets require typesafe-sdk>=0.7.5,<0.8")
@@ -770,7 +788,9 @@ class LiveBackend:
                 response=_redact_data(problem[1], self._secrets),
                 request_id=_redact(rid, self._secrets) if rid else None,
             )
-        self._note_success(CallRecord(key, result.model, rid, result.usage, date))
+        self._note_success(
+            CallRecord(key, result.model, rid, result.usage, date, images, distinct_images)
+        )
         return result
 
     @staticmethod
@@ -1020,6 +1040,10 @@ def record(
                 "attempts": backend.requests_made - attempts_before,
                 "retried": list(backend.last_retried),
             }
+            if rec.images:
+                # Beside the token fields; omitted for a text-only call so its line is unchanged.
+                line["images"] = rec.images
+                line["distinct_images"] = rec.distinct_images
             previous = old.get(key)
             if isinstance(previous, dict):
                 # A paid call is never forgotten: an earlier entry for this key moves to history.
