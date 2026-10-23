@@ -15,12 +15,13 @@ helpers = load_helpers(RECIPE)
 # The gate recipe 16's notebook chooses over all of validation and freezes before test (see
 # notebook.ipynb, "Python's part"): the lowest confidence whose answered subset -- every
 # category, allowed included -- is perfectly accurate. It happens to be the same value as the
-# recipe's first fix round (0.7600 printed; "v03-trigger-word" and "v13-violating-harass" both
-# carry it exactly), not by coincidence but because validation's "allowed" examples were raised
-# above it precisely so that re-selecting the gate over every category, not just the two flagged
-# ones, would not quietly lower it. Written here as a literal, to the precision
-# select_confidence_threshold actually returns it, so a change to this rule's behaviour, not
-# merely to the fixtures, is what the frozen-gate tests below are pinned against.
+# gate chosen over only the two flagged categories would be (both land on the 0.7600 the
+# notebook prints, carried exactly by "v13-violating-harass"), not by coincidence but because
+# validation's "allowed" examples were raised above it precisely so that re-selecting the gate
+# over every category, not just the two flagged ones, would not quietly lower it. Written here
+# as a literal, to the precision select_confidence_threshold actually returns it, so a change
+# to this rule's behaviour, not merely to the fixtures, is what the frozen-gate tests below are
+# pinned against.
 FROZEN_GATE = 0.7599999999999998
 
 ALL_CATEGORIES = [helpers.ALLOWED, helpers.REVIEW_NEEDED, helpers.POTENTIALLY_VIOLATING]
@@ -97,7 +98,7 @@ def test_the_gate_is_inclusive():
 
 
 def test_the_gate_applies_to_allowed_too():
-    # The central claim this recipe makes after its first review round: allowed is not exempt.
+    # The central claim this recipe makes: allowed is not exempt.
     # A confident allowed answer is accepted; the identical answer, gated at a threshold just
     # above its own confidence, is escalated rather than ignored outright.
     a = _confident(helpers.ALLOWED)
