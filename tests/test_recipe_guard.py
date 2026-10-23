@@ -3635,17 +3635,43 @@ def test_a_wrong_decide_count_in_the_audit_line_is_still_caught_after_the_exclus
     """#376: excluding the committed audit line from the honesty guard's quantity pool
     (``_printed_numbers``) must not also blind ``readme_budget_note_matches_request_audit``
     (#213) to a wrong ledger -- the two checks are independent, and this pins that they stay
-    that way. Both directions, on the one real mini recipe: the pool side first (the exclusion
-    costs this recipe's own README prose nothing -- ``_unprinted_quantities`` is empty with the
-    real audit line committed, so blanking it did not also blank a genuine figure), then the
-    ledger side (a real audited mini recipe's genuine line passes; a mutated line that lies
-    about the call count -- ``decide_calls`` left inconsistent with the still-genuine, still-
-    64-hex ``calls`` list -- still fails, exactly as before this fix, because the fix never
-    touches ``tests/request_audit.py``)."""
+    that way. Both directions, on the one real mini recipe, which is given a genuine printed
+    metric and a markdown cell quoting it, so the pool-side assertion below has something it
+    could plausibly lose: the pool side first (a committed, non-audit cell genuinely prints
+    ``validation accuracy: 0.9500``, a markdown cell quotes "The accuracy is 95%.", and
+    ``_unprinted_quantities`` is empty with the real audit line committed alongside it in a
+    different cell -- the exclusion costs this recipe's own genuine figure nothing; an exclusion
+    that blanked more than the matched line, e.g. the whole recipe's output once any cell
+    carries the audit line, would lose this backing and fail here), then the ledger side (a real
+    audited mini recipe's genuine line passes; a mutated line that lies about the call count --
+    ``decide_calls`` left inconsistent with the still-genuine, still-64-hex ``calls`` list --
+    still fails, exactly as before this fix, because the fix never touches
+    ``tests/request_audit.py``)."""
     from jev_cookbook._canonical import canonical_json
 
     folder, line = _audited_mini_recipe(tmp_path, n=3)
     assert line.startswith(AUDIT_PREFIX)
+
+    notebook = json.loads((folder / "notebook.ipynb").read_text("utf-8"))
+    genuine_metric_cell = {
+        "cell_type": "code",
+        "id": "genuine-metric",
+        "metadata": {},
+        "execution_count": 2,
+        "outputs": [
+            {
+                "name": "stdout",
+                "output_type": "stream",
+                "text": ["validation accuracy: 0.9500\n"],
+            }
+        ],
+        "source": ["print('validation accuracy: 0.9500')\n"],
+    }
+    notebook["cells"][-1]["execution_count"] = 3  # the audit cell, now third rather than second
+    notebook["cells"].insert(len(notebook["cells"]) - 1, genuine_metric_cell)
+    (folder / "notebook.ipynb").write_text(json.dumps(notebook), "utf-8")
+    _append_cell(folder, "markdown", "The accuracy is 95%.", cell_id="genuine-quote")
+
     assert _unprinted_quantities(folder) == []
     assert _request_audit.audit_recipe(folder, notebook_cells(folder)) == 3
 
@@ -3653,7 +3679,8 @@ def test_a_wrong_decide_count_in_the_audit_line_is_still_caught_after_the_exclus
     payload["backends"][0]["decide_calls"] = 4  # claims a 4th call that never happened
     wrong_line = AUDIT_PREFIX + canonical_json(payload)
     notebook = json.loads((folder / "notebook.ipynb").read_text("utf-8"))
-    notebook["cells"][-1]["outputs"][0]["text"] = [wrong_line + "\n"]
+    audit_cell = next(cell for cell in notebook["cells"] if cell.get("id") == "audit")
+    audit_cell["outputs"][0]["text"] = [wrong_line + "\n"]
     (folder / "notebook.ipynb").write_text(json.dumps(notebook), "utf-8")
 
     with pytest.raises(AssertionError, match="stated call count differs"):
@@ -9744,9 +9771,13 @@ def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     ``_without_audit_lines`` blanks a matched line's content rather than deleting it, so the line
     stays and the text on either side of it is never spliced together. This is symmetric across
     both sources of the ``metric`` pool: the same blanking is applied to the committed output and
-    to the recipe's own ``tests/*.py`` text, so an audited recipe cannot reopen the door by
-    printing the line, or pinning it as an expected value, from the test side instead. A cell that
-    prints the audit line alongside a genuine metric line still has the metric line counted. The
+    to the recipe's own ``tests/*.py`` text, matching ``line.startswith(AUDIT_PREFIX)`` on each
+    physical line of either source. That match requires the prefix at the very first character of
+    the line, so it only reaches the ledger reproduced alone on its own line (e.g. a triple-quoted
+    ``EXPECTED`` assignment); an indented occurrence or a one-line assignment where a quote
+    character precedes the prefix is a different shape this match does not reach on either arm
+    (#378 measures this). A cell that prints the audit line alongside a genuine metric line still
+    has the metric line counted. The
     ledger's own integrity is checked separately, and far more strictly, by
     ``readme_budget_note_matches_request_audit`` against ``request_budget.json``; this exclusion
     removes nothing that check relies on."""
@@ -11246,9 +11277,12 @@ def test_the_audit_line_pinned_in_the_recipes_own_tests_does_not_back_a_fabricat
     audited recipe pinning the ledger a notebook cell prints as its own expected value, in a
     triple-quoted ``EXPECTED`` assignment with the audit line reproduced verbatim on its own
     physical line (exactly as a cell's committed stdout carries it) in ``tests/test_ledger.py``,
-    must not reopen the door the committed-output exclusion closes. (A one-line assignment whose
-    quote character precedes the prefix on the same physical line is a different shape, where the
-    prefix never starts the line a per-line filter inspects, on either arm.)"""
+    must not reopen the door the committed-output exclusion closes. The rule the match follows is
+    ``line.startswith(AUDIT_PREFIX)``: only a line whose very first character begins the prefix is
+    excluded, on either arm, so a one-line assignment whose quote character precedes the prefix
+    (``EXPECTED = "<ledger line>"``) or an indented occurrence (``    assert "<ledger line>" in
+    out``) is a different shape this test does not exercise and this match does not reach (#378
+    measures both)."""
     audit_line = _real_audit_line()
     assert Decimal(93) in _decimals(audit_line), (
         "the synthetic audit line no longer contains the literal '93' this test pins -- "

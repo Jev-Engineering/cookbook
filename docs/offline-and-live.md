@@ -128,11 +128,16 @@ A fabricated "97.4% accuracy, 180 ms median latency, $0.0004 a call" fails
 `prose_quantities_are_printed` in the README and in a notebook cell alike.
 
 `prose_quantities_are_printed` excludes exactly one thing from the pool of numbers a quote may be
-backed by: any committed output line starting with the `JEV_REQUEST_AUDIT ` prefix (the audited
-route's ledger line, #213, [backends.md](backends.md#actual-calls-and-distinct-requests)). The
-matched line's content is replaced by a literal `"\n"`, line by line, before the digit scan sees
-it, not per cell: a cell that prints a prefixed line alongside another, genuine output line still
-has that other line's own numbers counted. The line itself is kept, with only its content
+backed by: a line starting with the `JEV_REQUEST_AUDIT ` prefix (the audited route's ledger line,
+#213, [backends.md](backends.md#actual-calls-and-distinct-requests)) -- from **both** of the
+pool's sources, not only the one. The direct source is committed output: any line a code cell
+prints starting with the prefix. The second is the recipe's own `tests/*.py` text (CONTRIBUTING.md
+section 6's "a test re-derives it" route is a second way a quoted figure enters the pool), where
+an audited recipe pinning the ledger line as an expected value would otherwise put its hex back in
+play; both sources are filtered by the one shared helper, `_without_audit_lines`. In either source,
+the matched line's content is replaced by a literal `"\n"`, line by line, before the digit scan
+sees it, not per cell: a cell that prints a prefixed line alongside another, genuine output line
+still has that other line's own numbers counted. The line itself is kept, with only its content
 replaced -- that is what makes this safe: the text before the matched line and the text after it
 stay separated rather than becoming adjacent, which deleting the line outright would not
 guarantee. That is defensive scope for any cell of any recipe that prints the prefix, not a
@@ -198,7 +203,16 @@ the README and every markdown cell for them:
   only that one line's digit runs are excluded (above), so another high-entropy token a recipe
   commits to output -- a replay-key table, a cache id column -- still enters the pool and can
   coincidentally back a fabricated round figure, the same way the audit line itself did before
-  #376. Excluding hash-like tokens generally is #378.
+  #376. Excluding hash-like tokens generally is #378. The match itself is also narrower than "the
+  line contains the prefix": `line.startswith(AUDIT_PREFIX)` requires the prefix at the line's
+  very first character, on both arms, so an indented occurrence (`    assert "<ledger line>" in
+  out`, the idiomatic Python shape) or a one-line assignment where a quote character precedes the
+  prefix (`EXPECTED = "<ledger line>"`) is unreached by either filter -- only the ledger
+  reproduced alone on its own physical line is caught. #378 now carries the measured table for
+  this and the design question of whether to widen the match (and, if so, on which arm: a
+  substring match is safe for `tests/*.py`, where the ledger is only ever a quoted string value,
+  but not obviously safe for committed output, where a notebook could legitimately print prose
+  that happens to mention the prefix).
 - A stale or inflated N ("20 examples" printed where the fixtures hold 22), and a header line that
   claims real measurement while the mode word is unchanged: the mode and the disclosure are
   checked, N is only required to be printed.
