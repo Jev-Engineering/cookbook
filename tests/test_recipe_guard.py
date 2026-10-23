@@ -9726,11 +9726,13 @@ def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     separately, and far more strictly, by ``readme_budget_note_matches_request_audit`` against
     ``request_budget.json``; this exclusion removes nothing that check relies on."""
     output = "\n".join(
-        line
+        "".join(
+            line
+            for line in _output_text(cell).splitlines(keepends=True)
+            if not line.startswith(AUDIT_PREFIX)
+        )
         for cell in notebook_cells(recipe_dir_)
         if cell["cell_type"] == "code"
-        for line in _output_text(cell).splitlines()
-        if not line.startswith(AUDIT_PREFIX)
     )
     metric = _decimals(output)
     tests_dir = recipe_dir_ / "tests"
@@ -11106,8 +11108,10 @@ def test_a_round_fabricated_accuracy_is_caught_where_it_used_to_be_backed_by_a_c
 def _real_audit_line(n: int = 22) -> str:
     """A genuine committed ``AUDIT_PREFIX`` line (#213, #376): a real ``AuditedBackend`` over
     ``n`` distinct synthetic requests, not a hand-typed stand-in, so its hex ``replay_key``
-    runs are the real defect's shape (measured at 22 requests in PR #375's migrated template:
-    a 2,267-character line, 342 spurious numbers -- this function reproduces that exactly)."""
+    runs are the real defect's shape -- the same shape and length as the 2,267-character line
+    measured at 22 requests in PR #375's migrated template (342 spurious numbers there, 346
+    here: the hex depends on the requests, so this function's synthetic states cannot and do
+    not reproduce that digit count exactly)."""
     from jev_cookbook import AuditedBackend, Noul, get_backend
 
     def script(state, questions, rng):
@@ -11121,14 +11125,25 @@ def _real_audit_line(n: int = 22) -> str:
 
 def test_the_audit_line_is_excluded_from_the_quantity_pool_per_line_not_per_cell(tmp_path):
     """#376: the committed ``AUDIT_PREFIX`` line's 64-character hex ``replay_key`` runs must not
-    back a fabricated prose quantity (the defect: ``69d093c844a71f...`` contains ``093``, so
+    back a fabricated prose quantity (the defect: a hex run containing ``093``, so
     "The accuracy is 93%." used to pass). Excluding it must not cost a cell's other, genuine
-    output line its own numbers -- one code cell carries both lines here, as a real audited
-    recipe's final cell does once migrated (#213, #375): a validation metric line, then the
-    ledger. The genuine figure stays backed; the round number the ledger's hex alone used to
-    supply is caught."""
+    output line its own numbers -- one code cell carries both lines here. This is defensive scope
+    for any cell of any recipe that prints the prefix, not a claim about a real audited recipe's
+    final cell: ``tests/request_audit.py``'s ``audited_evidence`` requires that final cell to be
+    exactly ``print(backend.audit_json())``, so on the audited route itself the ledger never
+    actually shares a cell with another line. The genuine figure stays backed; the round number
+    the ledger's hex alone used to supply is caught.
+
+    The precondition below pins the defect to the hex rather than to an accident of it: the
+    states this builds the line from must actually produce a literal ``93`` somewhere in the
+    line's own digits, or this test could silently stop being a regression test for #376 (a
+    schema bump or a different request count can change which digits a hash produces)."""
     audit_line = _real_audit_line()
     assert audit_line.startswith(AUDIT_PREFIX)
+    assert Decimal(93) in _decimals(audit_line), (
+        "the synthetic audit line no longer contains the literal '93' this test pins -- "
+        "its states must be changed so the defect it guards against is still exercised"
+    )
     folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
     _append_cell(
         folder,

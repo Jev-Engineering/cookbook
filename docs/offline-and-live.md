@@ -127,18 +127,31 @@ published recipe and the template, and its failure message points here.
 A fabricated "97.4% accuracy, 180 ms median latency, $0.0004 a call" fails
 `prose_quantities_are_printed` in the README and in a notebook cell alike.
 
-`prose_quantities_are_printed` excludes the audited route's one committed line (the
-`JEV_REQUEST_AUDIT ` ledger a recipe's final cell prints,
-[backends.md](backends.md#actual-calls-and-distinct-requests), #213) from the pool of numbers a
-quote may be backed by, dropped whole line by line before the digit scan sees it, not per cell: a
-cell that prints the ledger alongside a genuine metric line still has that line's own numbers
-counted. A `replay_key` is 64 hex characters, and a notebook's hex digit runs are not printed
-quantities; left in the pool, one such line supplies hundreds of two- and three-digit runs that
-happen to back almost any round percentage a recipe cared to fabricate (#376). The exclusion costs
-no other check: the ledger's own content is verified far more strictly, byte for byte against
-`request_budget.json`, by `readme_budget_note_matches_request_audit`
-(see [backends.md](backends.md#actual-calls-and-distinct-requests)), and that check sees every
-line the prose check skips.
+`prose_quantities_are_printed` excludes exactly one thing from the pool of numbers a quote may be
+backed by: any committed output line starting with the `JEV_REQUEST_AUDIT ` prefix (the audited
+route's ledger line, #213, [backends.md](backends.md#actual-calls-and-distinct-requests)). The
+exclusion is dropped whole, line by line, before the digit scan sees it, not per cell: a cell that
+prints a prefixed line alongside another, genuine output line still has that other line's own
+numbers counted. That is defensive scope for any cell of any recipe that prints the prefix, not a
+description of a real audited recipe's final cell specifically -- `tests/request_audit.py`'s
+`audited_evidence` requires that final cell to be exactly `print(backend.audit_json())`, so on the
+audited route itself the ledger never actually shares a cell with another printed line. A
+`replay_key` is 64 hex characters; left in the pool, that one line alone supplies hundreds of
+two- and three-digit runs that happen to back almost any round percentage a recipe cared to
+fabricate (#376). Nothing else a notebook prints is excluded by this rule: a hash, a UUID or any
+other hex token committed outside that one prefixed line still enters the pool as numbers (see the
+limits list below; #378 tracks excluding hash-like tokens generally).
+
+The exclusion costs no other check: the ledger's own content is verified far more strictly by
+`readme_budget_note_matches_request_audit`
+(see [backends.md](backends.md#actual-calls-and-distinct-requests)) -- every count recomputed from
+the ordered ledger and checked against `request_budget.json`, the key set against the declared
+fixture inventory, and the line itself against the shared canonical form -- though a `replay_key`'s
+own value is pinned only when the backend declares a fixture inventory; a backend with none
+declared does not have its keys checked (#379). That check also reads only the final cell's
+stdout, narrower than the channels this exclusion reads (stream output under either name, plus
+`text/plain` and `text/html`), so it does not see every line the prose check skips; the direction
+is harmless, because excluding a line can only shrink the prose pool, never grow it.
 
 ### What none of this covers: the reviewer's alone
 
@@ -161,6 +174,11 @@ the README and every markdown cell for them:
   cost word nor a unit of work ("Jev at $0.0004 is affordable"), and no number spelled in words.
   A quoted parameter or target ("coverage stays at 0.70 by construction") is read as a quote, so
   it must be printed.
+- A hash, UUID or other hex token committed anywhere other than the one `JEV_REQUEST_AUDIT ` line:
+  only that one line's digit runs are excluded (above), so another high-entropy token a recipe
+  commits to output -- a replay-key table, a cache id column -- still enters the pool and can
+  coincidentally back a fabricated round figure, the same way the audit line itself did before
+  #376. Excluding hash-like tokens generally is #378.
 - A stale or inflated N ("20 examples" printed where the fixtures hold 22), and a header line that
   claims real measurement while the mode word is unchanged: the mode and the disclosure are
   checked, N is only required to be printed.
