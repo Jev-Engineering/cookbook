@@ -36,7 +36,9 @@ Reproduce committed outputs using Python 3.14 and
 `pip install -e ".[ml]" -c .github/constraints-notebooks.txt`;
 see [development](../../docs/development.md) and the [notebook contract](../../docs/recipe-template.md).
 `build_fixtures.py` regenerates images and readable gold labels, and requires `--force` before
-replacing a recorded response file. Drawing parameters and labels never enter requests. Assets are
+replacing a recorded, unreadable or malformed response file. Existing bytes are preserved unless the
+file validates as a wholly synthetic replay or replacement is explicitly forced.
+Drawing parameters and labels never enter requests. Assets are
 opaque content-addressed PNGs outside the strictly validated `fixtures/` directory.
 
 ## Switch to live
