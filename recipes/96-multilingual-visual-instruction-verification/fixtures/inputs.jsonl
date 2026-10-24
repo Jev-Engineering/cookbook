@@ -1,0 +1,26 @@
+{"id": "v01", "split": "validation", "fields": {"image": "assets/sign-00.png", "instruction": "Sortie \u00e0 gauche."}, "replay_keys": ["dcbf8074d567eaffe86544133460bd981cbfc4f3838d642c602cd9c8ca618064"]}
+{"id": "v02", "split": "validation", "fields": {"image": "assets/sign-01.png", "instruction": "Exit left."}, "replay_keys": ["dd6474456e0f58938cb633f5528801ced2282237a2bfe8253d6b4428d190effe"]}
+{"id": "v03", "split": "validation", "fields": {"image": "assets/sign-02.png", "instruction": "Entrada permitida."}, "replay_keys": ["b5b91de0ec7e0027981d28d6f69e3710e1abfe55ded4d42bd8cf192d02ccc209"]}
+{"id": "v04", "split": "validation", "fields": {"image": "assets/sign-03.png", "instruction": "Push."}, "replay_keys": ["a4015e992021b057ffb7210558b3152e543bf19926745d5a962413e37df4997d"]}
+{"id": "v05", "split": "validation", "fields": {"image": "assets/sign-04.png", "instruction": "Maximum 3 personnes."}, "replay_keys": ["dd9611ae560c4ff0b33716850bac500ce3a0be864105154047663b29c5b008d8"]}
+{"id": "v06", "split": "validation", "fields": {"image": "assets/sign-05.png", "instruction": "Empuje."}, "replay_keys": ["2a3a3e29012cdf87df7c047f05d3c21c8263bee7f40d0471bfb4a032438dc200"]}
+{"id": "v07", "split": "validation", "fields": {"image": "assets/sign-06.png", "instruction": "Exit left."}, "replay_keys": ["2d54b60cb851721b7bcf6dfc9532dbc0e34a771cba648190e0164a08e21aadc4"]}
+{"id": "v08", "split": "validation", "fields": {"image": "assets/sign-07.png", "instruction": "Maximum 2 people."}, "replay_keys": ["b0bf553aeddec58c7e508845dbe42926c6d0675295c94be459790f993e460748"]}
+{"id": "v09", "split": "validation", "fields": {"image": "assets/sign-08.png", "instruction": "Entrada permitida."}, "replay_keys": ["e16ed626f8589c3b47186351450acf246fcd6f43a8c237f87eb6c7cc8ea300b0"]}
+{"id": "v10", "split": "validation", "fields": {"image": "assets/sign-09.png", "instruction": "Entry allowed."}, "replay_keys": ["16ab93080228c5f697f68e77ebf36f810641c333565c4d6f104d75e7e423c72f"]}
+{"id": "v11", "split": "validation", "fields": {"image": "assets/sign-10.png", "instruction": "Salida a la derecha."}, "replay_keys": ["f0e61dccd9e7c6a2189b186271aac7726a8382e9ec8dc7c544b02ac3a80e535c"]}
+{"id": "v12", "split": "validation", "fields": {"image": "assets/sign-11.png", "instruction": "Maximum 3 people."}, "replay_keys": ["a3c627027bbe10874594e39dca43e7b8b9ee94e39936ae932b4f868cc833f054"]}
+{"id": "t01", "split": "test", "fields": {"image": "assets/sign-12.png", "instruction": "Salida a la izquierda."}, "replay_keys": ["aed27f825615c1f24c1eb9d449ed11ff0c30dd97af235028c187a62c22297c05"]}
+{"id": "t02", "split": "test", "fields": {"image": "assets/sign-13.png", "instruction": "Sortie \u00e0 gauche."}, "replay_keys": ["c6d143bc2f36cf5d53f8aaf0a44a8cc2605afb92be7654fe27c363a3ba74d60b"]}
+{"id": "t03", "split": "test", "fields": {"image": "assets/sign-14.png", "instruction": "Entrada permitida."}, "replay_keys": ["2961c521b041c6549c3a3fa2afe4985d5ee132c9067787c28d4e3837db7dbe1f"]}
+{"id": "t04", "split": "test", "fields": {"image": "assets/sign-15.png", "instruction": "Tirez."}, "replay_keys": ["e9bfb0203475ea398ed75b1272f5d44f124538d206bdb53f8dba01859e436bfe"]}
+{"id": "t05", "split": "test", "fields": {"image": "assets/sign-16.png", "instruction": "Maximum 3 people."}, "replay_keys": ["748ffb02fbdcc7af6846e8d3c633b589c82271e52837053bfe91ec09e8b87d72"]}
+{"id": "t06", "split": "test", "fields": {"image": "assets/sign-17.png", "instruction": "Tirez."}, "replay_keys": ["ad8d1b69d95948b7b5308ed194f976326c46f2d27248e0fde79653e889f68304"]}
+{"id": "t07", "split": "test", "fields": {"image": "assets/sign-18.png", "instruction": "Salida a la izquierda."}, "replay_keys": ["cccb023c611a83f988dbb579e141d282b9158fc0c84b362d6d0e73b86dd4a9bd"]}
+{"id": "t08", "split": "test", "fields": {"image": "assets/sign-19.png", "instruction": "Entr\u00e9e autoris\u00e9e."}, "replay_keys": ["3bdd263e15425bdca808c6e121c35151a13de6cf9a50afd812e5ca2035a8ea09"]}
+{"id": "t09", "split": "test", "fields": {"image": "assets/sign-20.png", "instruction": "Poussez."}, "replay_keys": ["6623177694b7e4832acfe7e34ed3e1dc197ce33b23a677eeedce02c569ec7c6b"]}
+{"id": "t10", "split": "test", "fields": {"image": "assets/sign-21.png", "instruction": "M\u00e1ximo 2 personas."}, "replay_keys": ["a0a292943bd4485e03eb542478f663f7a3765f2205d13a4f318fee4c12e7b9b0"]}
+{"id": "t11", "split": "test", "fields": {"image": "assets/sign-22.png", "instruction": "Exit left."}, "replay_keys": ["dd5d90266c2b554e8159ac7c84fa1375b327398144144eed59f834ef459182e3"]}
+{"id": "t12", "split": "test", "fields": {"image": "assets/sign-23.png", "instruction": "Do not enter."}, "replay_keys": ["8519b856ee95be715b77fb8f18eb96b6aa58ce9738ece447f0b3db565e06ccf3"]}
+{"id": "d01", "split": "demo", "fields": {"image": "assets/sign-24.png", "instruction": "Salida a la derecha."}, "replay_keys": ["940234e1a035eed0805ecc9ddd2a9c5749992b1eb9fe25ab633f8affca84547e"]}
+{"id": "d02", "split": "demo", "fields": {"image": "assets/sign-25.png", "instruction": "Sortie \u00e0 gauche."}, "replay_keys": ["1a3051e2a754c47a97240fbf10be361dc5a7dda2fa3dec5acdae3b0d47b8c4f0"]}
