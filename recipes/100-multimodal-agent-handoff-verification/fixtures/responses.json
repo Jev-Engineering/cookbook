@@ -1,0 +1,1354 @@
+{
+  "06c3ef9ca67276e7c82b55da851aa44008febe18b8928f4a4fd39f1c9cc273bc": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "reported": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "uncertain": 0.013333333333333345,
+          "failed": 0.013333333333333345,
+          "partial": 0.013333333333333345,
+          "complete": 0.96
+        },
+        "confidence": 0.9466666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "screen_complete": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "tool_complete": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "same_artifact": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "08cfad44e930e2a8f6dcdfbdf13e52d373fc1c1e2b78a7a1fb01fe797caf7af7": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "reported": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "uncertain": 0.006666666666666672,
+          "failed": 0.006666666666666672,
+          "partial": 0.006666666666666672,
+          "complete": 0.98
+        },
+        "confidence": 0.9733333333333333,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "screen_complete": {
+        "type": "noul",
+        "noul": 0.99,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "tool_complete": {
+        "type": "noul",
+        "noul": 0.99,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "same_artifact": {
+        "type": "noul",
+        "noul": 0.99,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0bf38b3948283d2e2ca9a5bda33353d0eab398d9609bfd629e45396811aafc19": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "reported": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "uncertain": 0.010000000000000009,
+          "failed": 0.010000000000000009,
+          "partial": 0.010000000000000009,
+          "complete": 0.97
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "screen_complete": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "tool_complete": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "same_artifact": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1756bcd19c4316dbbb46c01d3cf61181fc0a36bdc1a637abc8094f8d4dc30e13": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "reported": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "uncertain": 0.006666666666666672,
+          "failed": 0.006666666666666672,
+          "partial": 0.006666666666666672,
+          "complete": 0.98
+        },
+        "confidence": 0.9733333333333333,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "screen_complete": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "tool_complete": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "same_artifact": {
+        "type": "noul",
+        "noul": 0.99,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4c907558538ca1f3292dff7925dc1cead621512d66b9142bf14c5194d4ab2fb1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "reported": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "uncertain": 0.013333333333333345,
+          "failed": 0.013333333333333345,
+          "partial": 0.013333333333333345,
+          "complete": 0.96
+        },
+        "confidence": 0.9466666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "screen_complete": {
+        "type": "noul",
+        "noul": 0.07,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "tool_complete": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "same_artifact": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5bfbe3c132d4efb64321edf94593407c6b497523bcbe8d6466284b6e0b492738": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "reported": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "uncertain": 0.006666666666666672,
+          "failed": 0.006666666666666672,
+          "partial": 0.006666666666666672,
+          "complete": 0.98
+        },
+        "confidence": 0.9733333333333333,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "screen_complete": {
+        "type": "noul",
+        "noul": 0.99,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "tool_complete": {
+        "type": "noul",
+        "noul": 0.99,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "same_artifact": {
+        "type": "noul",
+        "noul": 0.99,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "622f3efc98890488f3c82c3cab258d743a89db7ffec8ead9cd3dfca95a512c29": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "reported": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "uncertain": 0.026666666666666655,
+          "failed": 0.026666666666666655,
+          "partial": 0.026666666666666655,
+          "complete": 0.92
+        },
+        "confidence": 0.8933333333333334,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "screen_complete": {
+        "type": "noul",
+        "noul": 0.65,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "tool_complete": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "same_artifact": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6479996efee5192db4157baea90188bd82dfcf4824de9b65e94191b228bd5b7e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "reported": {
+        "type": "choice",
+        "choice": "uncertain",
+        "probabilities": {
+          "uncertain": 0.7,
+          "failed": 0.10000000000000002,
+          "partial": 0.10000000000000002,
+          "complete": 0.10000000000000002
+        },
+        "confidence": 0.6,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "screen_complete": {
+        "type": "noul",
+        "noul": 0.53,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "tool_complete": {
+        "type": "noul",
+        "noul": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "same_artifact": {
+        "type": "noul",
+        "noul": 0.55,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "682ffbdb18c160f44a46b6e40344b1f4fad25267894d675b659d0a4ba8ebe327": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "reported": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "uncertain": 0.020000000000000018,
+          "failed": 0.020000000000000018,
+          "partial": 0.020000000000000018,
+          "complete": 0.94
+        },
+        "confidence": 0.9199999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "screen_complete": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "tool_complete": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "same_artifact": {
+        "type": "noul",
+        "noul": 0.78,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6ecedc28960dbb45007c61aa3ab18aa8317a7684350671013ed0b96d6fbfd690": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "reported": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "uncertain": 0.01666666666666668,
+          "failed": 0.01666666666666668,
+          "partial": 0.01666666666666668,
+          "complete": 0.95
+        },
+        "confidence": 0.9333333333333332,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "screen_complete": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "tool_complete": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "same_artifact": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "882625064e3ddf18a1ea87b331df232c61b5ff7049841f57a5b6528b20cc2cec": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "reported": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "uncertain": 0.013333333333333345,
+          "failed": 0.013333333333333345,
+          "partial": 0.013333333333333345,
+          "complete": 0.96
+        },
+        "confidence": 0.9466666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "screen_complete": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "tool_complete": {
+        "type": "noul",
+        "noul": 0.07,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "same_artifact": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8d79cabf460325fd7f107d89c31d9b58fcfbaabfae4361b82df018a2911c9cd9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "reported": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "uncertain": 0.010000000000000009,
+          "failed": 0.010000000000000009,
+          "partial": 0.010000000000000009,
+          "complete": 0.97
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "screen_complete": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "tool_complete": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "same_artifact": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "907567edeeab551bfb962fb294b048168973d2660b190dcf461b75940f4ae6c7": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "reported": {
+        "type": "choice",
+        "choice": "uncertain",
+        "probabilities": {
+          "uncertain": 0.64,
+          "failed": 0.12,
+          "partial": 0.12,
+          "complete": 0.12
+        },
+        "confidence": 0.52,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "screen_complete": {
+        "type": "noul",
+        "noul": 0.52,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "tool_complete": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "same_artifact": {
+        "type": "noul",
+        "noul": 0.58,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "98d617d2745e35a7f9619512376e92a0ecb9e33fb738799bc81f722372d4eb12": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "reported": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "uncertain": 0.01666666666666668,
+          "failed": 0.01666666666666668,
+          "partial": 0.01666666666666668,
+          "complete": 0.95
+        },
+        "confidence": 0.9333333333333332,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "screen_complete": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "tool_complete": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "same_artifact": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "99ef6e182765dbc672ab7b5cf0ea921bb45d33814a9f0cb922934ac03de6cd50": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "reported": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "uncertain": 0.05000000000000001,
+          "failed": 0.05000000000000001,
+          "partial": 0.05000000000000001,
+          "complete": 0.85
+        },
+        "confidence": 0.7999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "screen_complete": {
+        "type": "noul",
+        "noul": 0.87,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "tool_complete": {
+        "type": "noul",
+        "noul": 0.93,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "same_artifact": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9a480d3be83d843598fa1295befccaedbdaa484e38c5eb22aec31d9043f8f5be": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "reported": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "uncertain": 0.020000000000000018,
+          "failed": 0.020000000000000018,
+          "partial": 0.020000000000000018,
+          "complete": 0.94
+        },
+        "confidence": 0.9199999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "screen_complete": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "tool_complete": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "same_artifact": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9d0abf20aa243d44a390b34ab7276d6bf4c23245402e5e3634383c087c131651": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "reported": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "uncertain": 0.013333333333333345,
+          "failed": 0.013333333333333345,
+          "partial": 0.013333333333333345,
+          "complete": 0.96
+        },
+        "confidence": 0.9466666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "screen_complete": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "tool_complete": {
+        "type": "noul",
+        "noul": 0.09,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "same_artifact": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a2b4c41529f6694fd78521314729a53c15177b663d2462e67779556a6ed3daa3": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "reported": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "uncertain": 0.013333333333333345,
+          "failed": 0.013333333333333345,
+          "partial": 0.013333333333333345,
+          "complete": 0.96
+        },
+        "confidence": 0.9466666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "screen_complete": {
+        "type": "noul",
+        "noul": 0.05,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "tool_complete": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "same_artifact": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b779e5b933c33f645fe4aad02a46f1228b9c637ea347f0cb24f75580b36e6e64": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "reported": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "uncertain": 0.006666666666666672,
+          "failed": 0.006666666666666672,
+          "partial": 0.006666666666666672,
+          "complete": 0.98
+        },
+        "confidence": 0.9733333333333333,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "screen_complete": {
+        "type": "noul",
+        "noul": 0.99,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "tool_complete": {
+        "type": "noul",
+        "noul": 0.99,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "same_artifact": {
+        "type": "noul",
+        "noul": 0.99,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b93d7fb1bb9835a3e7f4b59c59cf40782d33c06a58e0e3645f63a99a630ce712": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "reported": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "uncertain": 0.013333333333333345,
+          "failed": 0.013333333333333345,
+          "partial": 0.013333333333333345,
+          "complete": 0.96
+        },
+        "confidence": 0.9466666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "screen_complete": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "tool_complete": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "same_artifact": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "db10108de3c51d946c43c635fac79d2b309c6951eb7cc60ae422c1728bb67ead": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "reported": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "uncertain": 0.01666666666666668,
+          "failed": 0.01666666666666668,
+          "partial": 0.01666666666666668,
+          "complete": 0.95
+        },
+        "confidence": 0.9333333333333332,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "screen_complete": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "tool_complete": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "same_artifact": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "db6ced4f3c3233b3b80c7ddbf09ee98b422e85a5cf7f1f4e43e29e836f67dcb0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "reported": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "uncertain": 0.010000000000000009,
+          "failed": 0.010000000000000009,
+          "partial": 0.010000000000000009,
+          "complete": 0.97
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "screen_complete": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "tool_complete": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "same_artifact": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e215d5732f349537bddf8900f624c24cd7d27f1d6dc97541eb2e1ca5f9ac3f55": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "reported": {
+        "type": "choice",
+        "choice": "failed",
+        "probabilities": {
+          "uncertain": 0.013333333333333345,
+          "failed": 0.96,
+          "partial": 0.013333333333333345,
+          "complete": 0.013333333333333345
+        },
+        "confidence": 0.9466666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "screen_complete": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "tool_complete": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "same_artifact": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ef2cced37e469410da9575e7f9fc16c055a03353e48cd2e8e61c7b46330e13c4": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "reported": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "uncertain": 0.010000000000000009,
+          "failed": 0.010000000000000009,
+          "partial": 0.010000000000000009,
+          "complete": 0.97
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "screen_complete": {
+        "type": "noul",
+        "noul": 0.06,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "tool_complete": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "same_artifact": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f1acd94d21644876410a40d07170a84a5c84b7ad2549b91f18b360cf723e0f77": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "reported": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "uncertain": 0.04666666666666667,
+          "failed": 0.04666666666666667,
+          "partial": 0.04666666666666667,
+          "complete": 0.86
+        },
+        "confidence": 0.8133333333333334,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "screen_complete": {
+        "type": "noul",
+        "noul": 0.87,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "tool_complete": {
+        "type": "noul",
+        "noul": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "same_artifact": {
+        "type": "noul",
+        "noul": 0.93,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f4a15d01a4f909668b2dfb064f70f61167ac27ee446116f48de90cbdc11eed37": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "reported": {
+        "type": "choice",
+        "choice": "complete",
+        "probabilities": {
+          "uncertain": 0.010000000000000009,
+          "failed": 0.010000000000000009,
+          "partial": 0.010000000000000009,
+          "complete": 0.97
+        },
+        "confidence": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "screen_complete": {
+        "type": "noul",
+        "noul": 0.96,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "tool_complete": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "same_artifact": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
