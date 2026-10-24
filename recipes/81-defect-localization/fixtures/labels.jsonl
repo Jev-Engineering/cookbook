@@ -1,0 +1,28 @@
+{"id": "v01", "label": {"outcome": "located", "box": {"top": 0.36944444444444446, "bottom": 0.44722222222222224, "left": 0.28125, "right": 0.47708333333333336}, "note": "Visible scratch with full extent inside the window."}}
+{"id": "v02", "label": {"outcome": "located", "box": {"top": 0.48055555555555557, "bottom": 0.6194444444444445, "left": 0.5395833333333333, "right": 0.68125}, "note": "Visible dent with full extent inside the window."}}
+{"id": "v03", "label": {"outcome": "located", "box": {"top": 0.3972222222222222, "bottom": 0.5638888888888889, "left": 0.38125, "right": 0.5229166666666667}, "note": "Visible broken component with full extent inside the window."}}
+{"id": "v04", "label": {"outcome": "located", "box": {"top": 0.33055555555555555, "bottom": 0.40555555555555556, "left": 0.5666666666666667, "right": 0.7479166666666667}, "note": "Visible scratch with full extent inside the window."}}
+{"id": "v05", "label": {"outcome": "located", "box": {"top": 0.5666666666666667, "bottom": 0.6944444444444444, "left": 0.29791666666666666, "right": 0.44166666666666665}, "note": "Visible dent with full extent inside the window."}}
+{"id": "v06", "label": {"outcome": "absent", "box": null, "note": "Clean brushed surface; screw slots are outside the window."}}
+{"id": "v07", "label": {"outcome": "absent", "box": null, "note": "Straight dashed registration mark is printed, not a scratch."}}
+{"id": "v08", "label": {"outcome": "absent", "box": null, "note": "A scratch exists, but the requested dent is absent."}}
+{"id": "v09", "label": {"outcome": "review", "box": null, "note": "Two independent scratches; no unique rectangle is defined."}}
+{"id": "v10", "label": {"outcome": "review", "box": null, "note": "A blue tool cover hides the lower extent of the dent."}}
+{"id": "v11", "label": {"outcome": "located", "box": {"top": 0.6055555555555555, "bottom": 0.675, "left": 0.5291666666666667, "right": 0.7145833333333333}, "note": "Faint but authored visible scratch; weak presence evidence causes review."}}
+{"id": "v12", "label": {"outcome": "located", "box": {"top": 0.2833333333333333, "bottom": 0.4166666666666667, "left": 0.38958333333333334, "right": 0.5291666666666667}, "note": "Box has no confidence and must not be accepted."}}
+{"id": "v13", "label": {"outcome": "located", "box": {"top": 0.5138888888888888, "bottom": 0.5972222222222222, "left": 0.27708333333333335, "right": 0.48333333333333334}, "note": "A misplaced low-confidence rectangle."}}
+{"id": "v14", "label": {"outcome": "absent", "box": null, "note": "Dark printed trace mistaken for a scratch."}}
+{"id": "t01", "label": {"outcome": "located", "box": {"top": 0.3138888888888889, "bottom": 0.4, "left": 0.34791666666666665, "right": 0.55625}, "note": "Visible scratch with full extent inside the window."}}
+{"id": "t02", "label": {"outcome": "located", "box": {"top": 0.46111111111111114, "bottom": 0.6138888888888889, "left": 0.275, "right": 0.4375}, "note": "Visible dent with full extent inside the window."}}
+{"id": "t03", "label": {"outcome": "located", "box": {"top": 0.5194444444444445, "bottom": 0.6861111111111111, "left": 0.5770833333333333, "right": 0.7229166666666667}, "note": "Visible broken component with full extent inside the window."}}
+{"id": "t04", "label": {"outcome": "located", "box": {"top": 0.4305555555555556, "bottom": 0.5361111111111111, "left": 0.4666666666666667, "right": 0.7479166666666667}, "note": "Visible scratch with full extent inside the window."}}
+{"id": "t05", "label": {"outcome": "located", "box": {"top": 0.2833333333333333, "bottom": 0.4166666666666667, "left": 0.5666666666666667, "right": 0.7125}, "note": "Correct rectangle rejected by frozen box confidence."}}
+{"id": "t06", "label": {"outcome": "absent", "box": null, "note": "No visible scratch in the window."}}
+{"id": "t07", "label": {"outcome": "absent", "box": null, "note": "No visible scratch in the window."}}
+{"id": "t08", "label": {"outcome": "absent", "box": null, "note": "Bright foil reflection confidently mistaken for a gouge."}}
+{"id": "t09", "label": {"outcome": "review", "box": null, "note": "Two separate scratches require a human to choose a target."}}
+{"id": "t10", "label": {"outcome": "review", "box": null, "note": "Tool cover hides part of the requested dent."}}
+{"id": "t11", "label": {"outcome": "located", "box": {"top": 0.6194444444444445, "bottom": 0.6916666666666667, "left": 0.26666666666666666, "right": 0.46041666666666664}, "note": "Acquisition screen passes, frozen presence gate defers."}}
+{"id": "t12", "label": {"outcome": "located", "box": {"top": 0.5611111111111111, "bottom": 0.6972222222222222, "left": 0.46875, "right": 0.6208333333333333}, "note": "Confident misplaced rectangle survives every gate."}}
+{"id": "t13", "label": {"outcome": "located", "box": {"top": 0.4, "bottom": 0.5666666666666667, "left": 0.32916666666666666, "right": 0.475}, "note": "Confident absence misses a visible fractured terminal."}}
+{"id": "t14", "label": {"outcome": "located", "box": {"top": 0.3527777777777778, "bottom": 0.4305555555555556, "left": 0.5354166666666667, "right": 0.71875}, "note": "Missing box confidence always defers."}}
