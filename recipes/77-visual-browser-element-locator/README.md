@@ -19,6 +19,8 @@ All 24 screenshots are original Pillow drawings committed in `assets/`. Their go
 labels and normalized rectangles stay in `fixtures/labels.jsonl`, outside inference state.
 `build_fixtures.py` reproduces the PNGs, input rows and synthetic responses, including deliberately
 wrong answers. Image references derive from file content and reveal no gold coordinates.
+Fixture IDs and split names stay outside the pixels; fictional workspace names provide ordinary
+application content without revealing fixture bookkeeping.
 
 **Not measured live.** All committed results are synthetic pipeline checks, not Jev results.
 Latency, tokens and cost are unmeasured (`null`); no inference call was made. A high Box confidence

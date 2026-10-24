@@ -15,6 +15,33 @@ HERE = Path(__file__).resolve().parent
 helpers = load_helpers(HERE)
 SIZE = (512, 384)
 TARGETS = {"button": "Save changes", "input": "Search projects", "menu": "Export CSV"}
+# Fictional application content, authored independently of split and response correctness.
+WORKSPACES = {
+    "v01": "Cedar",
+    "v02": "Lumen",
+    "v03": "Harbor",
+    "v04": "Quartz",
+    "v05": "Finch",
+    "v06": "Nimbus",
+    "v07": "Maple",
+    "v08": "Pebble",
+    "v09": "Willow",
+    "v10": "Atlas",
+    "t01": "Clover",
+    "t02": "Saffron",
+    "t03": "Linden",
+    "t04": "Marble",
+    "t05": "River",
+    "t06": "Hazel",
+    "t07": "Meadow",
+    "t08": "Amber",
+    "t09": "Aspen",
+    "t10": "Fern",
+    "t11": "Laurel",
+    "t12": "Solstice",
+    "d01": "Orchard",
+    "d02": "Breeze",
+}
 
 # id, split, kind, layout, situation, presence probability, box confidence, box error
 ROWS = [
@@ -65,9 +92,8 @@ def normalized(rect):
     }
 
 
-def render(row):
+def render(kind, layout, situation, workspace):
     """Return PNG-ready pixels and separately authored gold geometry."""
-    ident, _split, kind, layout, situation, *_ = row
     image = Image.new("RGB", SIZE, "#FEFEFE")
     draw = ImageDraw.Draw(image)
     font = ImageFont.load_default(size=16)
@@ -81,13 +107,11 @@ def render(row):
     draw.text((62, 194), "Keep your project details up to date.", font=small, fill="#666666")
     draw.text(
         (62, 214 if layout == "standard" else 156),
-        "Changes stay in this demo.",
+        "Changes are saved locally.",
         font=small,
         fill="#666666",
     )
-    draw.text(
-        (18, 360), f"Sample screen {ident}  |  local demonstration", font=small, fill="#666666"
-    )
+    draw.text((18, 360), f"Workspace: {workspace}", font=small, fill="#666666")
     rect = rectangle(kind, layout)
     if kind == "menu":
         left, top, right, bottom = rect
@@ -134,7 +158,7 @@ def render(row):
 
 def fixture_parts(row, root):
     ident, _split, kind, layout, situation, probability, confidence, error = row
-    image, gold = render(row)
+    image, gold = render(kind, layout, situation, WORKSPACES[ident])
     # Filenames and request references reveal no layout or gold coordinates.
     import io
 

@@ -2,11 +2,13 @@
 
 import importlib.util
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+from PIL import ImageDraw
 
 from jev_cookbook.live import _dump
 
@@ -92,3 +94,42 @@ def test_structurally_malformed_response_is_protected(tmp_path, data):
     path = target / "responses.json"
     path.write_text(json.dumps(data), encoding="utf-8")
     assert module.protected(path)
+
+
+def test_rendered_text_contains_application_content_without_fixture_metadata(monkeypatch):
+    module = generator(RECIPE / "build_fixtures.py")
+    text_drawn = []
+    original_text = ImageDraw.ImageDraw.text
+
+    def capture_text(draw, xy, text, *args, **kwargs):
+        text_drawn.append(text)
+        return original_text(draw, xy, text, *args, **kwargs)
+
+    monkeypatch.setattr(ImageDraw.ImageDraw, "text", capture_text)
+    for ident, _split, kind, layout, situation, *_ in module.ROWS:
+        module.render(kind, layout, situation, module.WORKSPACES[ident])
+    visible_text = "\n".join(text_drawn)
+    for row in module.ROWS:
+        assert not re.search(rf"\b{re.escape(row[0])}\b", visible_text)
+    assert not re.search(
+        r"\b(?:validation|test|demo|sample|demonstration|fixture|split|"
+        r"standard|reflow|normal|absent|duplicate)\b",
+        visible_text,
+        re.IGNORECASE,
+    )
+    assert {f"Workspace: {name}" for name in module.WORKSPACES.values()} <= set(text_drawn)
+
+
+@pytest.mark.parametrize(("new_id", "new_split"), [("t73", "test"), ("d73", "demo")])
+def test_changing_id_and_split_preserves_pixels_when_visual_content_is_fixed(
+    tmp_path, monkeypatch, new_id, new_split
+):
+    module = generator(RECIPE / "build_fixtures.py")
+    row = module.ROWS[0]
+    monkeypatch.setitem(module.WORKSPACES, new_id, module.WORKSPACES[row[0]])
+    before, gold_before, _ = module.fixture_parts(row, tmp_path)
+    renamed = (new_id, new_split, *row[2:])
+    after, gold_after, _ = module.fixture_parts(renamed, tmp_path)
+    assert before == after
+    assert gold_before == gold_after
+    assert len(list((tmp_path / "assets").iterdir())) == 1
