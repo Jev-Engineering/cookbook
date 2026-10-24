@@ -2,7 +2,8 @@
 
 Only this offline generator knows rendering descriptions and gold labels. Inference gets
 opaque image references, pixels, and fixed task context. All drawings are original recipe
-assets; none is a photograph or an API result. --force is required over recorded answers.
+assets; none is a photograph or an API result. --force is required over recorded answers
+or an existing response file that cannot be validated as synthetic.
 """
 
 import argparse
@@ -13,7 +14,14 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-from jev_cookbook import DecisionResult, NoulAnswer, Provenance, load_helpers, replay_key
+from jev_cookbook import (
+    DecisionResult,
+    NoulAnswer,
+    Provenance,
+    ReplayBackend,
+    load_helpers,
+    replay_key,
+)
 
 HERE = Path(__file__).resolve().parent
 helpers = load_helpers(HERE)
@@ -178,23 +186,24 @@ def build_responses(rows):
 
 
 def _is_recorded(path: Path) -> bool:
-    """True if ``path`` exists and holds at least one response whose model is not
-    ``"synthetic"`` (a recorded, or otherwise real, answer). A file that fails to parse, or
-    whose top level is not a JSON object, cannot hold a valid synthetic response either, so it
-    is treated as not recorded rather than raising; inside an object, an entry that is itself
-    not an object is treated as if it were recorded, so it blocks an overwrite instead of being
-    silently skipped."""
-    if not path.exists():
-        return False
+    """Protect any existing file unless it is provably a valid synthetic replay.
+
+    A damaged recording must not become overwriteable merely because its model field can
+    no longer be read. Validate the complete replay format, including duplicate keys,
+    answer structure and provenance. Only an absent file or a valid synthetic replay is
+    safe to replace without --force. lstat also protects an existing dangling symlink.
+    """
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
+        path.lstat()
+    except FileNotFoundError:
         return False
-    if not isinstance(data, dict):
-        return False
-    return any(
-        not isinstance(entry, dict) or entry.get("model") != "synthetic" for entry in data.values()
-    )
+    except OSError:
+        return True
+    try:
+        backend = ReplayBackend.from_json(path)
+    except (OSError, ValueError, TypeError, RecursionError):
+        return True
+    return backend.mode != "synthetic"
 
 
 def _unresolved_keys(inputs, responses_file: Path) -> list[str]:
@@ -204,7 +213,7 @@ def _unresolved_keys(inputs, responses_file: Path) -> list[str]:
         return []
     try:
         data = json.loads(responses_file.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
+    except (OSError, ValueError, RecursionError):
         return []
     if not isinstance(data, dict):
         return []
@@ -216,7 +225,7 @@ def main() -> None:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="overwrite responses.json even if it holds a recorded (non-synthetic) answer",
+        help="overwrite responses.json even if recorded, unreadable, or invalid",
     )
     args = parser.parse_args()
     if not ROWS:
@@ -228,9 +237,9 @@ def main() -> None:
         text = "".join(json.dumps(row) + "\n" for row in rows)
         (folder / name).write_text(text, encoding="utf-8", newline="\n")
     responses_file = folder / "responses.json"
-    if _is_recorded(responses_file) and not args.force:
+    if not args.force and _is_recorded(responses_file):
         message = (
-            f"refusing to overwrite {responses_file}: it holds a recorded response "
+            f"refusing to overwrite {responses_file}: it is recorded, unreadable, or invalid "
             "(pass --force to overwrite it anyway)"
         )
         if _unresolved_keys(inputs, responses_file):

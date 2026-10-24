@@ -34,7 +34,7 @@ pytest recipes/65-retail-shelf-compliance
 
 The notebook runs from this folder without a key or network. Reproducing committed outputs uses
 Python 3.14 and `pip install -e ".[ml]" -c .github/constraints-notebooks.txt`. The generator is
-reproducible and refuses to overwrite recorded responses without `--force`.
+reproducible and refuses to overwrite recorded, unreadable, or invalid responses without `--force`.
 
 ## Switch to live
 
