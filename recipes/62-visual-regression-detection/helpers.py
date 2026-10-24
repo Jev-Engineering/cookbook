@@ -38,10 +38,14 @@ def build_state(fields):
 def build_assets(fields, recipe_dir=None):
     """Read local image bytes separately from the JSON fixture rows."""
     root = Path.cwd() if recipe_dir is None else Path(recipe_dir)
-    return {
-        fields[f"{side}_ref"]: image_asset(root / fields[f"{side}_path"])
-        for side in ("before", "after")
-    }
+    assets = {}
+    for side in ("before", "after"):
+        reference = fields[f"{side}_ref"]
+        asset = image_asset(root / fields[f"{side}_path"])
+        if reference in assets and assets[reference] != asset:
+            raise ValueError("one image reference cannot identify different before/after content")
+        assets[reference] = asset
+    return assets
 
 
 def build_questions():

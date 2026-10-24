@@ -65,8 +65,10 @@ export JEV_COOKBOOK_LIVE_MAX_REQUESTS=26
 ```
 
 Run interactively from this folder. The notebook requests `images=True` and `model="jev-1.14.0"`;
-the backend supplies the experimental image header. It makes exactly **26** requests, one per pair, caching
-answers for later displays. Increase the budget if you want to allow retry attempts.
+the backend supplies the experimental image header. It makes exactly **26** requests for the
+committed pairs. Cache keys include current image bytes, state and questions, so unchanged requests
+reuse their answers; changed evidence under the same example ID makes a new request and requires
+extra budget. Measurement records use those same keys. Increase the budget to allow retry attempts.
 `tools/execute_notebook.py` deliberately removes live settings and always runs offline.
 See [live recording](../../docs/live.md) for preserving genuine returned answers; unrecorded live
 previews are not reportable results.
