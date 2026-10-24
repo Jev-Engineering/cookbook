@@ -1,0 +1,24 @@
+{"id": "v01", "label": {"end_phase": "preparation", "reason": "Ball remains held at chest."}}
+{"id": "v02", "label": {"end_phase": "execution", "reason": "Lift then release, hands still up."}}
+{"id": "v03", "label": {"end_phase": "recovery", "reason": "Hands lower after visible release."}}
+{"id": "v04", "label": {"end_phase": "execution", "reason": "Final lift qualifies even before separation."}}
+{"id": "v05", "label": {"end_phase": "recovery", "reason": "Lowering is recovery; do not require arms at rest."}}
+{"id": "v06", "label": {"end_phase": "preparation", "reason": "Mirrored chest hold."}}
+{"id": "v07", "label": {"end_phase": "recovery", "reason": "Camera translates; ball remains separated."}}
+{"id": "v08", "label": {"end_phase": "unrecognized", "reason": "A wave has no basketball."}}
+{"id": "v09", "label": {"end_phase": "unrecognized", "reason": "Final hands and ball are covered."}}
+{"id": "v10", "label": {"end_phase": "execution", "reason": "Middle occlusion leaves final release visible."}}
+{"id": "v11", "label": {"end_phase": "unrecognized", "reason": "Return to holding after release violates one attempt."}}
+{"id": "v12", "label": {"end_phase": "unrecognized", "reason": "Untrusted sign requests execution; there is no ball."}}
+{"id": "t01", "label": {"end_phase": "preparation", "reason": "Held chest pose through the last timestamp."}}
+{"id": "t02", "label": {"end_phase": "execution", "reason": "End frame has extended hands and separated ball."}}
+{"id": "t03", "label": {"end_phase": "recovery", "reason": "After release the hands return down."}}
+{"id": "t04", "label": {"end_phase": "execution", "reason": "Left/right reversal preserves the phase."}}
+{"id": "t05", "label": {"end_phase": "recovery", "reason": "Translation must not be treated as a new phase."}}
+{"id": "t06", "label": {"end_phase": "unrecognized", "reason": "Raised hands alone are not the defined shot."}}
+{"id": "t07", "label": {"end_phase": "unrecognized", "reason": "A confidently wrong last-frame answer misses the reset."}}
+{"id": "t08", "label": {"end_phase": "unrecognized", "reason": "Occlusion prevents an end-phase label."}}
+{"id": "t09", "label": {"end_phase": "preparation", "reason": "Visible end still holds the ball."}}
+{"id": "t10", "label": {"end_phase": "recovery", "reason": "Mixed phases; the last pose governs, not the majority."}}
+{"id": "t11", "label": {"end_phase": "unrecognized", "reason": "Scene text is a distraction, not a phase instruction."}}
+{"id": "t12", "label": {"end_phase": "recovery", "reason": "Window starts at release; prior preparation is unnecessary."}}
