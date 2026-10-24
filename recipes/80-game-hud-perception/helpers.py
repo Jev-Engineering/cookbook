@@ -314,10 +314,13 @@ def summarize(observations, labels):
         for obs, label in zip(observations, gold, strict=True)
         if obs.raw_box is not None and label["box"] is not None
     ]
-    required = [
-        0.0 if obs.box is None else box_iou(obs.box, label["box"])
+    required_pairs = [
+        (obs, label)
         for obs, label in zip(observations, gold, strict=True)
         if label["event"] in EVENTS.values()
+    ]
+    required = [
+        0.0 if obs.box is None else box_iou(obs.box, label["box"]) for obs, label in required_pairs
     ]
     return {
         "N": len(observations),
@@ -331,7 +334,9 @@ def summarize(observations, labels):
         "raw_box_pairs": len(pairs),
         "raw_box_mean_iou": sum(pairs) / len(pairs) if pairs else None,
         "required_targets": len(required),
+        "missed_required": sum(obs.box is None for obs, _ in required_pairs),
         "required_target_mean_iou": sum(required) / len(required) if required else None,
+        "absent_targets": sum(label["presence"] == "absent" for label in gold),
         "false_localizations_on_absent": sum(
             o.box is not None and g["presence"] == "absent"
             for o, g in zip(observations, gold, strict=True)

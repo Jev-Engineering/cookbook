@@ -16,6 +16,7 @@ from jev_cookbook import (
     load_helpers,
     replay_key,
 )
+from jev_cookbook.evaluation import confusion_matrix
 from jev_cookbook.fixtures import load_inputs, load_labels, select_split, validate_recipe
 from jev_cookbook.vision import normalized_to_pixels
 
@@ -265,6 +266,81 @@ def test_validation_selection_is_frozen_and_confident_test_mistakes_remain():
     assert helpers.summarize(observations, labels)["wrong_simulated_intents"] == 2
     with pytest.raises(ValueError, match="validation split"):
         helpers.select_policy(test, labels, backend, RECIPE)
+
+
+def test_summary_exposes_missed_required_and_absent_denominators():
+    examples, labels = load_inputs(RECIPE), load_labels(RECIPE)
+    backend = ReplayBackend.from_json(RECIPE / "fixtures" / "responses.json")
+    test = select_split(examples, "test")
+    required_ids = {"t01", "t02", "t03", "t04", "t10", "t12"}
+    assert {ident for ident in required_ids if labels[ident]["box"] is None} == set()
+    perception = [helpers.perceive(item, backend, helpers.Policy(0.75), RECIPE) for item in test]
+    baseline = [helpers.fixed_layout(item, RECIPE) for item in test]
+    for observations, missing_ids in ((perception, {"t10"}), (baseline, {"t01", "t03"})):
+        assert {
+            obs.ident for obs in observations if obs.ident in required_ids and obs.box is None
+        } == missing_ids
+        metrics = helpers.summarize(observations, labels)
+        assert metrics["required_targets"] == 6
+        assert metrics["missed_required"] == len(missing_ids)
+        assert metrics["absent_targets"] == 1
+        assert metrics["false_localizations_on_absent"] == 0
+    rejected = next(obs for obs in perception if obs.ident == "t10")
+    assert rejected.raw_box is not None and rejected.box is None
+    wrong_box = next(obs for obs in perception if obs.ident == "t04")
+    assert wrong_box.box is not None and not helpers.event_correct(wrong_box, labels["t04"])
+    assert {item.id for item in test if labels[item.id]["presence"] == "absent"} == {"t05"}
+
+
+def test_notebook_live_metrics_and_chart_are_adjacent_unrecorded_diagnostics(capsys, monkeypatch):
+    """Exercise production reporting with replay answers; never construct a live backend."""
+    notebook = json.loads((RECIPE / "notebook.ipynb").read_text())
+    cells = {cell["id"]: "".join(cell["source"]) for cell in notebook["cells"]}
+    assignments = [
+        node
+        for node in ast.parse(cells["setup"]).body
+        if isinstance(node, ast.Assign)
+        and any(
+            isinstance(target, ast.Name) and target.id in {"check", "selection"}
+            for target in node.targets
+        )
+    ]
+    namespace = {"backend": SimpleNamespace(mode="live")}
+    exec(
+        compile(ast.Module(body=assignments, type_ignores=[]), "reporting-labels", "exec"),
+        namespace,
+    )
+    notice = " (unrecorded live diagnostic; not reportable)"
+    assert namespace["check"] == notice
+    titles = []
+    namespace.update(
+        helpers=helpers,
+        examples=load_inputs(RECIPE),
+        labels=load_labels(RECIPE),
+        backend=ReplayBackend.from_json(RECIPE / "fixtures" / "responses.json"),
+        select_split=select_split,
+        confusion_matrix=confusion_matrix,
+        plot_confusion_matrix=lambda matrix, *, title: titles.append(title),
+    )
+    monkeypatch.chdir(RECIPE)
+    for ident in (
+        "evaluation-validation",
+        "evaluation-test",
+        "evaluation-matrix",
+        "evaluation-wrong",
+    ):
+        exec(cells[ident], namespace)
+    metric_lines = [
+        line
+        for line in capsys.readouterr().out.splitlines()
+        if line.startswith(("Validation", "Frozen policy", "Test"))
+    ]
+    assert any(line.startswith("Test perception") for line in metric_lines)
+    assert any(line.startswith("Test fixed-layout baseline") for line in metric_lines)
+    assert any(line.startswith("Test phase matrix") for line in metric_lines)
+    assert any(line.startswith("Validation") for line in metric_lines)
+    assert all(line.endswith(notice) for line in metric_lines)
+    assert titles and all(title.endswith(notice) for title in titles)
 
 
 def test_selection_objective_and_minimum_coverage_are_pinned_in_executed_sources():

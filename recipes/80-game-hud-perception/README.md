@@ -49,6 +49,9 @@ check, not evidence about Jev or a real game.
 
 The notebook reports phase/presence accuracy, end-to-end event accuracy, abstention, raw-box IoU,
 IoU across required targets including zero for missed targets, and decision-call counts.
+`missed_required` counts required targets with no accepted box; `required_targets` gives its
+denominator. `absent_targets` gives the denominator for false localizations on absent targets.
+An accepted wrong rectangle counts as a wrong intent rather than a missing rectangle.
 An event is correct only when its disposition agrees and, for a simulated intent, its rectangle
 has IoU ≥ 0.5 and its energy value agrees where applicable. The evaluation retains a confident
 wrong rectangle and a confidently misclassified reward screen: confidence gates enforce supplied
@@ -56,8 +59,10 @@ judgments and cannot certify the real screen's phase.
 
 ## Switch to live
 
-The backend pins `jev-1.14.0` with `images=True`. Install the optional live dependencies and use
-the explicit opt-in described in [live.md](../../docs/live.md); never put a key in a notebook or
+The backend pins `jev-1.14.0` with `images=True`. Live metric lines and chart titles carry
+`(unrecorded live diagnostic; not reportable)` until responses are deliberately recorded.
+Install the optional live dependencies and use the explicit opt-in described in
+[live.md](../../docs/live.md); never put a key in a notebook or
 fixture. `tools/execute_notebook.py` always runs offline. Image and Box support are experimental.
 
 Each capture uses at most two **decision calls**, including a conditional localization call.
