@@ -294,6 +294,12 @@ Keep small synthetic PNG/JPEG files in the recipe's `assets/` directory, beside 
 The fixture directory continues to contain only its documented JSON/JSONL files; image bytes
 and base64 do not belong in those files.
 
+Generate the images with `jev_cookbook.synthetic_images` from the recipe's `build_fixtures.py`
+([synthetic-images.md](synthetic-images.md)): it returns each gold box with the pixels it drew,
+writes files that pass the contract below by construction, and never replaces a committed asset
+(committed bytes are canonical, because an image's bytes are part of the replay key). No fixture
+may contain a real photograph, brand, person or third-party image.
+
 #### The image-file contract
 
 `python tools/check_recipe_assets.py` enforces these rules on every tracked file under
