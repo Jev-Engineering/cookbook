@@ -112,8 +112,9 @@ Other fractional edges retain the outward rounding rule.
 
 `expand_box(box, fraction)` adds that fraction of the original box's width or height
 to **each** side and clips to the image boundary. `crop_box(..., expand=fraction)`
-uses the same operation. Geometry does not resize crops to API limits; save and
-validate a prepared crop with `image_asset` before using it as a request asset.
+uses the same operation. Geometry does not resize crops to API limits; pass `min_side=` to refuse a small crop,
+or `prepare_image` to scale or pad it, then save and validate it with `image_asset`
+before using it as a request asset.
 `draw_boxes` returns a separate RGB image with named pink rectangles, paper label
 backgrounds and ink text from the cookbook palette.
 
@@ -203,7 +204,130 @@ configuration above the cap raises `ValueError`. Each tile is usually one API ca
 `tile_to_image` applies an affine transform using the actual pixel bounds, so a
 rectangle found inside a tile maps back to the whole image. It also handles an
 entire tile resized before inference, provided coordinates still describe that
-tile's full extent. Padding or further cropping requires its own transform.
+tile's full extent. Padding or further cropping has its own transform, below.
+
+Both `generate_tiles(..., min_side=)` and `crop_box(..., min_side=)` accept a minimum
+and raise `ValueError` for a tile or crop with a side below it, before anything is
+copied. Pass `min_side=IMAGE_LIMITS["min_side"]` (280) for tiles that will be sent to
+the API; the default `None` keeps the geometry-only behavior. Alternatively leave the
+check off and pad or scale each tile with `prepare_image`. A tile size of `(320, 280)`
+is valid; `(320, 279)` is refused.
+
+### Preparing an image for the API
+
+```python
+from jev_cookbook.vision import prepare_image
+
+prepared, transform = prepare_image(crop)  # both sides 280-1568
+box_on_crop = transform.to_original(box_on_prepared)  # None if the box is only padding
+```
+
+`prepare_image(image, *, min_side=280, max_side=1568, pad_color=(255, 255, 255),
+upscale=True)` returns the prepared image and an `ImageTransform`. The rules are fixed:
+scale down uniformly if the longest side is over `max_side`; otherwise scale up
+uniformly until the shortest side reaches `min_side`, but never past the longest side
+reaching `max_side`; then pad any side still under `min_side`, centered, with
+`pad_color`. So 100 × 100 becomes 280 × 280 by scaling, while 100 × 1568 is padded to
+280 × 1568 because scaling up would exceed 1568, and 5000 × 100 is scaled to
+1568 × 31 and padded to 1568 × 280 (the content is a thin strip: such an image is valid
+but may not be useful). `upscale=False` pads a small image rather than enlarging it. An
+image already inside the limits comes back as an identical copy with an identity
+transform. Output is RGB, or RGBA when the input has transparency; the input is never
+changed, and Lanczos resampling is deterministic for a given Pillow version, not across
+versions. Apply `ImageOps.exif_transpose` first if orientation metadata matters.
+
+`transform.to_original(box)` maps a normalized box on the prepared image back to the
+original; `to_prepared(box)` maps the other way (to draw or label a gold box on the
+prepared image). A box overlapping padding is clipped to the original image; a box that
+lies wholly in the padding returns `None`, which is an answer to handle, not an
+error. `point_to_original` and `point_to_prepared` do the same for a point
+`{"x": ..., "y": ...}` and return `None` for a point in padding. The fields
+`original_size`, `prepared_size`, `content_size` and `offset` record exactly what was
+produced.
+
+### From the full image into a tile, and across levels
+
+`image_to_tile(box, tile_bounds, width, height)` is the inverse of `tile_to_image`: it
+returns the box as seen inside one tile, clipped to the tile, or `None` when the box does
+not overlap the tile with positive area (touching only along an edge is not overlap).
+Run it over every tile to label a gold box per tile when evaluating tile selection.
+
+For progressive search, describe each level with a `TileStep(bounds, parent_size)` (the
+crop cut from an image of `parent_size`) or the `ImageTransform` from `prepare_image`,
+outermost first, and map through the whole chain:
+
+```python
+from jev_cookbook.vision import TileStep, box_from_original, box_to_original
+
+steps = [TileStep(tile.bounds, full.size), TileStep(crop_bounds, tile.image.size), transform]
+whole = box_to_original(box_on_prepared, steps)  # deepest image -> full image
+local = box_from_original(gold_box, steps)  # full image -> deepest image
+```
+
+`box_to_original` and `box_from_original` (and the point versions `point_to_original`
+and `point_from_original`) compute with exact fractions and round to a float once, so
+mapping a pixel-aligned box through any number of levels returns exactly the float
+for the pixel position divided by the image size (`416 / 1568`, not a neighbor of it);
+no error accumulates per level. Each step's `parent_size` is the size of the image *that
+level was cut from*: the full image for the first, the previous level's image for the
+next. A level resized uniformly needs no step, because normalized coordinates survive it;
+only if you cut the next level in the resized pixels do you pass the resized size as that
+step's `parent_size`. Round trips (forward then inverse) agree to well within `1e-12`
+in normalized units, the tolerance the tests use. Inverses clip: a box partly outside a
+level comes back as only its visible part, and a box fully outside as `None`.
+
+## Worked example: tile, choose, crop, prepare, Box, map back
+
+The example runs offline on a synthetic image. The lines that stand in for a model
+answer compute the box a perfect answer would return; a recipe uses `answer.box` there.
+
+```python
+from PIL import Image, ImageDraw
+
+from jev_cookbook.vision import (
+    IMAGE_LIMITS,
+    TileStep,
+    box_from_original,
+    box_to_original,
+    expand_box,
+    generate_tiles,
+    normalized_to_pixels,
+    prepare_image,
+)
+
+full = Image.new("RGB", (1400, 900), "white")
+ImageDraw.Draw(full).rectangle((1010, 430, 1049, 469), fill="red")  # a 40 x 40 target
+target = {"left": 1010 / 1400, "right": 1050 / 1400, "top": 430 / 900, "bottom": 470 / 900}
+
+# 1. Tile. min_side refuses any tile the API would reject (here every tile is 640 x 480).
+tiles = generate_tiles(full, tile_size=(640, 480), overlap=64, min_side=IMAGE_LIMITS["min_side"])
+
+# 2. Choose. A Choice question over the tiles returns one index (stand-in: tiles[5]).
+chosen = tiles[5]
+tile_step = TileStep(chosen.bounds, full.size)
+
+# 3. Box on the tile (stand-in for answer.box), then 4. crop around it, with margin.
+on_tile = box_from_original(target, tile_step)
+crop_bounds = normalized_to_pixels(expand_box(on_tile, 0.5), *chosen.image.size)
+crop = chosen.image.crop(crop_bounds)
+crop_step = TileStep(crop_bounds, chosen.image.size)
+
+# 5. Prepare. The 80 x 80 crop is under 280 px, so it is scaled up to 280 x 280.
+prepared, transform = prepare_image(crop)
+steps = [tile_step, crop_step, transform]
+
+# 6. Box on the prepared image (stand-in for answer.box), then 7. map back to the full image.
+on_prepared = box_from_original(target, steps)
+mapped = box_to_original(on_prepared, steps)
+
+assert prepared.size == (280, 280)
+assert all(abs(mapped[edge] - target[edge]) < 1e-12 for edge in target)
+```
+
+Save the prepared image and load it with `image_asset` to send it; the loader accepts it
+because both sides are in range. A recipe keeps the `steps` list with the case so the
+same rectangle can be re-mapped, and uses `box_from_original(gold, steps)` to label the
+gold box at any level.
 
 ## Explicitly timestamped still frames
 
