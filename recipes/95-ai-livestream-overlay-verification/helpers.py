@@ -224,7 +224,11 @@ def select_gate(examples, answers, gold):
 
 
 def evaluate(examples, answers, gold, gate):
-    """Actual three-way outcomes, including abstention, and event precision with counts."""
+    """Three-way claims and event accuracy over every supplied scored episode.
+
+    Unresolved-only episodes mean no mismatch established, not agreement. They and all
+    temporal reviews remain in the event denominator; claim abstention is reported separately.
+    """
     actions, queue = ActionLog(), ReviewQueue()
     outcomes = {
         example["id"]: route(
@@ -272,11 +276,15 @@ def evaluate(examples, answers, gold, gate):
             expected_events, predicted_events, labels=("no_established_mismatch", "mismatch")
         )
         event = counts["mismatch"]
+        true_negatives = counts["no_established_mismatch"].tp
         reports[method] = {
             "claims": claim_report,
             "event": {
                 "N": len(examples),
+                "correct": event.tp + true_negatives,
+                "accuracy": accuracy(expected_events, predicted_events),
                 "tp": event.tp,
+                "tn": true_negatives,
                 "fp": event.fp,
                 "fn": event.fn,
                 "precision": event.precision,

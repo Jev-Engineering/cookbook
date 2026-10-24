@@ -349,6 +349,100 @@ def test_frozen_validation_gate_retains_wrong_acceptance_and_false_mismatch(repl
     assert event["fn"] >= 1
 
 
+@pytest.mark.parametrize("review_case", [None, "unresolved", "stream_stale", "invalid_timestamps"])
+def test_event_accuracy_counts_all_episodes_including_review_cases(fields, review_case):
+    # One of each confusion-matrix outcome; the optional reviewed negative makes
+    # accuracy differ from precision and recall without changing positive counts.
+    cases = [
+        ("false_positive", False, True),
+        ("false_negative", True, False),
+        ("true_negative", False, False),
+        ("true_positive", True, True),
+    ]
+    if review_case is not None:
+        cases.append(("review_negative", False, False))
+    examples, answers, gold = [], {}, {}
+    for ident, expected_mismatch, predicted_mismatch in cases:
+        episode = copy.deepcopy(fields)
+        evidence = supported_answers()
+        if predicted_mismatch:
+            evidence["action_supported"] = noul(0.01)
+            episode["game_telemetry"]["action"] = "block"
+        expected_claims = dict.fromkeys(("phase", "action", "status"), "supported")
+        if expected_mismatch:
+            expected_claims["action"] = "unsupported"
+        if ident == "review_negative":
+            if review_case == "unresolved":
+                evidence["action_resolvable"] = noul(0.01)
+                evidence["action_supported"] = noul(0.01)
+                episode["game_telemetry"]["action"] = "unavailable"
+                expected_claims["action"] = "unresolved"
+            elif review_case == "stream_stale":
+                episode["observed_ms"] = 14000
+            else:
+                episode["frames"][0]["captured_ms"] = episode["frames"][1]["captured_ms"]
+                expected_claims = dict.fromkeys(expected_claims, "unresolved")
+        examples.append({"id": ident, "fields": episode})
+        answers[ident] = evidence
+        gold[ident] = {"claims": expected_claims, "semantic_mismatch": expected_mismatch}
+
+    reports, outcomes, _, _ = helpers.evaluate(examples, answers, gold, 0.5)
+    assert {
+        ident: (gold[ident]["semantic_mismatch"], outcome.semantic_mismatch)
+        for ident, outcome in outcomes.items()
+    } == {ident: (expected, predicted) for ident, expected, predicted in cases}
+    if review_case is not None:
+        reviewed = outcomes["review_negative"]
+        assert reviewed.review
+        assert not reviewed.semantic_mismatch
+        if review_case == "unresolved":
+            assert reviewed.claims["action"] == "unresolved"
+        else:
+            assert reviewed.time_flags == (review_case,)
+    expected_n, expected_correct = (4, 2) if review_case is None else (5, 3)
+    for method in ("visual", "exact_baseline"):
+        event = reports[method]["event"]
+        assert event["N"] == expected_n
+        assert type(event["correct"]) is int
+        assert event["correct"] == expected_correct
+        assert event["accuracy"] == pytest.approx(expected_correct / expected_n)
+        assert (event["tp"], event["fp"], event["fn"]) == (1, 1, 1)
+        assert event["precision"] == event["recall"] == 0.5
+        if review_case is not None:
+            assert event["accuracy"] != event["precision"]
+            assert event["accuracy"] != event["recall"]
+
+
+def test_frozen_validation_gate_reports_held_out_event_accuracy(replayed):
+    examples, answers, gold = replayed
+    validation = [row for row in examples if row["split"] == "validation"]
+    held_out = [row for row in examples if row["split"] == "test"]
+    gate, _ = helpers.select_gate(validation, answers, gold)
+    assert gate == 0.5
+    assert len(held_out) == 12
+    reports, outcomes, _, _ = helpers.evaluate(held_out, answers, gold, gate)
+    for method, expected_correct, expected_errors in (
+        ("visual", 10, {"t05", "t11"}),
+        ("exact_baseline", 11, {"t02"}),
+    ):
+        errors = set()
+        for example in held_out:
+            ident = example["id"]
+            predicted_mismatch = (
+                outcomes[ident].semantic_mismatch
+                if method == "visual"
+                else "unsupported" in helpers.exact_baseline(example["fields"]).values()
+            )
+            if predicted_mismatch != gold[ident]["semantic_mismatch"]:
+                errors.add(ident)
+        assert errors == expected_errors
+        event = reports[method]["event"]
+        assert event["N"] == 12
+        assert type(event["correct"]) is int
+        assert event["correct"] == expected_correct == len(held_out) - len(errors)
+        assert event["accuracy"] == pytest.approx(expected_correct / 12)
+
+
 def test_claim_abstention_and_frame_review_use_distinct_denominators(replayed):
     examples, answers, gold = replayed
     subset = [row for row in examples if row["id"] in {"t06", "t12"}]

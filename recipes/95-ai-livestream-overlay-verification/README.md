@@ -48,6 +48,14 @@ a confident missed mismatch and a confident false alarm. Numbers are pipeline ch
 Jev accuracy, latency, token usage or cost. `vision.run_record` leaves all synthetic resource
 measurements and model names null.
 
+Event accuracy measures agreement on **visually established mismatch** versus **no mismatch
+established** across all 12 test episodes. The committed synthetic pipeline gives 10/12
+(0.833) for the visual method and 11/12 (0.917) for the telemetry baseline; both are pipeline
+checks, not Jev results. The denominator includes unresolved claims, invalid frame order and
+stale captures. Under this policy, an unresolved-only episode has no established mismatch;
+this does not establish agreement. Per-claim abstention and episode review remain explicit
+alongside event accuracy, precision and recall.
+
 The exact baseline receives the same raw claims, telemetry cache, images and timestamps,
 then compares the claim strings with the telemetry strings. It does not interpret pixels.
 The fixtures include a stale cache that agrees with an incorrect overlay, and a case where
