@@ -1,0 +1,24 @@
+{"id": "v01", "label": {"box": {"left": 0.23333333333333334, "top": 0.22777777777777777, "right": 0.48541666666666666, "bottom": 0.675}, "ambiguous": false, "case": "pink scene; initial bottom; authored honest response"}}
+{"id": "v02", "label": {"box": {"left": 0.3958333333333333, "top": 0.25, "right": 0.6479166666666667, "bottom": 0.6972222222222222}, "ambiguous": false, "case": "pink scene; initial left; authored honest response"}}
+{"id": "v03", "label": {"box": {"left": 0.17916666666666667, "top": 0.2833333333333333, "right": 0.43125, "bottom": 0.7305555555555555}, "ambiguous": false, "case": "steel scene; initial top; authored honest response"}}
+{"id": "v04", "label": {"box": {"left": 0.4666666666666667, "top": 0.20555555555555555, "right": 0.71875, "bottom": 0.6527777777777778}, "ambiguous": false, "case": "pink scene; initial right; authored honest response"}}
+{"id": "v05", "label": {"box": {"left": 0.2916666666666667, "top": 0.3416666666666667, "right": 0.54375, "bottom": 0.7888888888888889}, "ambiguous": false, "case": "pink scene; initial both; authored honest response"}}
+{"id": "v06", "label": {"box": null, "ambiguous": false, "case": "absent scene; initial wrong; authored absent response"}}
+{"id": "v07", "label": {"box": null, "ambiguous": false, "case": "case scene; initial wrong; authored absent response"}}
+{"id": "v08", "label": {"box": {"left": 0.2520833333333333, "top": 0.2638888888888889, "right": 0.5041666666666667, "bottom": 0.7111111111111111}, "ambiguous": false, "case": "pink scene; initial wrong; authored false_agreement response"}}
+{"id": "v09", "label": {"box": null, "ambiguous": true, "case": "double scene; initial full; authored ambiguous response"}}
+{"id": "v10", "label": {"box": {"left": 0.3729166666666667, "top": 0.225, "right": 0.625, "bottom": 0.6722222222222223}, "ambiguous": false, "case": "pink scene; initial full; authored missing response"}}
+{"id": "v11", "label": {"box": {"left": 0.22083333333333333, "top": 0.30833333333333335, "right": 0.47291666666666665, "bottom": 0.7555555555555555}, "ambiguous": false, "case": "pink scene; initial bottom; authored uncertain_edge response"}}
+{"id": "v12", "label": {"box": {"left": 0.4395833333333333, "top": 0.3388888888888889, "right": 0.6916666666666667, "bottom": 0.7861111111111111}, "ambiguous": false, "case": "pink scene; initial full; authored reject_crop response"}}
+{"id": "t01", "label": {"box": {"left": 0.24583333333333332, "top": 0.25277777777777777, "right": 0.4979166666666667, "bottom": 0.7}, "ambiguous": false, "case": "pink scene; initial bottom; authored honest response"}}
+{"id": "t02", "label": {"box": {"left": 0.41041666666666665, "top": 0.2861111111111111, "right": 0.6625, "bottom": 0.7333333333333333}, "ambiguous": false, "case": "pink scene; initial left; authored honest response"}}
+{"id": "t03", "label": {"box": {"left": 0.16875, "top": 0.25555555555555554, "right": 0.42083333333333334, "bottom": 0.7027777777777777}, "ambiguous": false, "case": "steel scene; initial top; authored honest response"}}
+{"id": "t04", "label": {"box": {"left": 0.4791666666666667, "top": 0.23055555555555557, "right": 0.73125, "bottom": 0.6777777777777778}, "ambiguous": false, "case": "pink scene; initial right; authored honest response"}}
+{"id": "t05", "label": {"box": {"left": 0.275, "top": 0.35555555555555557, "right": 0.5270833333333333, "bottom": 0.8027777777777778}, "ambiguous": false, "case": "pink scene; initial both; authored honest response"}}
+{"id": "t06", "label": {"box": null, "ambiguous": false, "case": "absent scene; initial wrong; authored absent response"}}
+{"id": "t07", "label": {"box": null, "ambiguous": false, "case": "case scene; initial wrong; authored false_agreement response"}}
+{"id": "t08", "label": {"box": {"left": 0.2625, "top": 0.24722222222222223, "right": 0.5145833333333333, "bottom": 0.6944444444444444}, "ambiguous": false, "case": "pink scene; initial bottom; authored false_agreement response"}}
+{"id": "t09", "label": {"box": null, "ambiguous": true, "case": "double scene; initial full; authored ambiguous response"}}
+{"id": "t10", "label": {"box": {"left": 0.3541666666666667, "top": 0.26666666666666666, "right": 0.60625, "bottom": 0.7138888888888889}, "ambiguous": false, "case": "pink scene; initial full; authored missing response"}}
+{"id": "t11", "label": {"box": {"left": 0.22916666666666666, "top": 0.2833333333333333, "right": 0.48125, "bottom": 0.7305555555555555}, "ambiguous": false, "case": "pink scene; initial full; authored always_clip response"}}
+{"id": "t12", "label": {"box": {"left": 0.42291666666666666, "top": 0.3194444444444444, "right": 0.675, "bottom": 0.7666666666666667}, "ambiguous": false, "case": "pink scene; initial full; authored missed_presence response"}}
