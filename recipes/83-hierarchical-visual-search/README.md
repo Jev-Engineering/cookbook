@@ -10,10 +10,20 @@ Every drawing action is simulated.
 
 The notebook shows the whole image, the four candidate tiles, each typed answer, the final
 crop, and its returned rectangle before reporting any aggregate. It compares two overlap
-policies on validation, then evaluates the frozen policy and a full-image baseline on the
-same held-out scenes. The baseline uses a presence `Choice` before its own `Box`.
+policies on validation, then evaluates the frozen policy, a full-image semantic comparator,
+and a deterministic pixel baseline on the same held-out scenes. The semantic comparator
+uses a presence `Choice` before its own `Box`.
 `Box` always produces coordinates even for absent objects; it is never an absence detector.
 Root `none` can yield absence; `none` in a selected subcrop requires review.
+
+The pixel baseline detects pink connected components, then scores white interior pixels
+against a plus template. Color tolerance, component dimensions, and the two-pixel outline
+come from the authored drawing specification. Only its minimum shape score is selected on
+validation, from 0.65, 0.8, and 0.95. The objective rewards end-to-end hits and penalizes wrong
+accepted outcomes twice; ties choose the higher threshold. All three thresholds tie on this
+exact-palette validation sample, selecting 0.95. No matching component means absent, and
+multiple matches mean review. This narrow detector assumes the authored palette, orientation,
+and border width; it is not validated on photographs, lighting changes, or compression.
 
 ## Run offline
 
@@ -44,8 +54,10 @@ Set `JEV_COOKBOOK_LIVE_MAX_REQUESTS=160` for this notebook: the conservative upp
 is 80 unique validation calls, 50 test calls, and 6 demo calls before retries. The default
 25-request backend budget is insufficient. Actual request counts depend on responses;
 cached requests are reused across validation gates. The hierarchy allows at most three
-logical requests per scene and policy; the baseline allows two. SDK retries additionally
+logical requests per scene and policy; the direct semantic comparator allows two. SDK retries additionally
 consume the global live attempt budget. No call is retried by the recipe.
+The committed adaptive run uses 112 distinct backend requests. The pixel detector adds no
+model requests; its local computation is not timed or priced.
 The complete fixture inventory has 151 distinct request triples. Recording that fixed
 inventory makes exactly 151 calls before retries; the adaptive notebook uses the smaller
 bound above and can follow different branches when live answers differ.
@@ -74,10 +86,20 @@ They include seam and edge targets, absence, duplicate matches, clutter, missing
 low confidence, confidently wrong tiles, and confidently wrong rectangles.
 
 End-to-end hits include presence localization at IoU ≥ 0.5, correct absence, and appropriate
-review for ambiguous scenes. Mean IoU includes every uniquely present target and assigns
-zero when no rectangle is delivered. An incorrect delivered rectangle retains its measured IoU. Coverage, accepted risk, explicit review counts, and logical
-request counts describe the actual policy. Validation chooses overlap and gates; test is
-used once with the frozen settings. All numbers are pipeline checks. Model, capture date,
+review for ambiguous scenes. Each split contains **8 present, 1 absent, and 1 ambiguous**
+scene. End-to-end hit rate has denominator 10; mean IoU and present localization hit rate
+have denominator 8; absent false-positive rate has denominator 1. Every report prints these
+denominators. Undefined rates are `null`.
+
+Present cases split into localization hits, wrong returned rectangles, and misses with no
+rectangle. Failed localizations include both wrong rectangles and misses. Mean IoU assigns
+zero only when no rectangle is delivered; an incorrect delivered rectangle retains its
+measured IoU. Absent cases split into false-positive rectangles, correct absence, and review.
+Thus a false positive on an absent scene is counted separately from a wrong rectangle on a
+present target. Coverage, accepted risk, explicit review counts, and logical model-request
+counts describe each policy. Validation chooses overlap, confidence gates, and the pixel
+shape threshold; test is used once with frozen settings. All numbers are pipeline checks.
+Zero pixel-arm model calls does not establish zero computation or cost. Model, capture date,
 input/output tokens, latency, and cost are `null` in the committed run.
 
 Continue with [40 · Hierarchical classification](../40-hierarchical-classification/notebook.ipynb)

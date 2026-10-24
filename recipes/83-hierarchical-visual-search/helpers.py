@@ -6,6 +6,7 @@ import math
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
 from PIL import Image
 
 from jev_cookbook import Box, Choice, ReplayBackend, record, replay_key
@@ -31,6 +32,8 @@ MAX_DEPTH = 2
 MAX_CALLS = 3
 REVIEW = "review"
 CONFIDENCE_REASON = "confidence below the threshold"
+PIXEL_THRESHOLDS = (0.65, 0.8, 0.95)
+PIXEL_OBJECTIVE = "hits - 2 * wrong_accepted; ties: higher_shape_threshold"
 
 
 @dataclass(frozen=True)
@@ -307,6 +310,7 @@ def hit(outcome, label):
 
 
 def summarize(outcomes, labels):
+    """Partition present/absent gold explicitly; a miss means no delivered rectangle."""
     correct = [hit(outcome, label) for outcome, label in zip(outcomes, labels, strict=True)]
     accepted = [outcome.status != "review" for outcome in outcomes]
     selective = evaluate_outcomes(accepted, correct)
@@ -319,18 +323,134 @@ def summarize(outcomes, labels):
         box_iou(outcome.box, label["box"]) if outcome.box is not None else 0.0
         for outcome, label in present
     ]
+    present_hits = sum(hit(outcome, label) for outcome, label in present)
+    present_misses = sum(outcome.box is None for outcome, _ in present)
+    present_wrong = len(present) - present_hits - present_misses
+    absent = [
+        outcome
+        for outcome, label in zip(outcomes, labels, strict=True)
+        if label["status"] == "absent"
+    ]
+    absent_false_positives = sum(outcome.status == "localized" for outcome in absent)
+    ambiguous = [
+        outcome
+        for outcome, label in zip(outcomes, labels, strict=True)
+        if label["status"] == "review"
+    ]
     return {
         "n": len(outcomes),
+        "gold_present": len(present),
+        "gold_absent": len(absent),
+        "gold_ambiguous": len(ambiguous),
         "hits": sum(correct),
         "end_to_end_hit": sum(correct) / len(outcomes),
         "mean_iou_all_present": sum(ious) / len(ious) if ious else None,
+        "iou_denominator": len(present),
+        "present_localization_hits": present_hits,
+        "present_wrong_rectangles": present_wrong,
+        "present_misses": present_misses,
+        "present_failed_localizations": len(present) - present_hits,
+        "present_localization_hit_rate": present_hits / len(present) if present else None,
+        "absent_false_positives": absent_false_positives,
+        "absent_false_positive_rate": absent_false_positives / len(absent) if absent else None,
+        "absent_correct": sum(outcome.status == "absent" for outcome in absent),
+        "absent_reviews": sum(outcome.status == "review" for outcome in absent),
         "coverage": selective.coverage,
-        "risk": selective.risk,
+        "risk": selective.risk if any(accepted) else None,
         "review": sum(not value for value in accepted),
         "absent": sum(outcome.status == "absent" for outcome in outcomes),
         "wrong_accepted": sum(a and not c for a, c in zip(accepted, correct, strict=True)),
         "calls": sum(outcome.calls for outcome in outcomes),
     }
+
+
+def pixel_candidates(root):
+    """Find pink components and score their interior white pixels against a plus template.
+
+    Color tolerance, component geometry, and two-pixel outline are fixed from the
+    authored drawing specification. The score is template IoU, not model confidence.
+    """
+    rgb = np.asarray(root.image.convert("RGB"), dtype=np.int16)
+    pink = np.max(np.abs(rgb - np.array([243, 134, 161])), axis=2) <= 30
+    remaining = {tuple(point) for point in np.argwhere(pink)}
+    candidates = []
+    while remaining:
+        start = min(remaining)
+        remaining.remove(start)
+        pending, component = [start], []
+        while pending:
+            y, x = pending.pop()
+            component.append((y, x))
+            for neighbor in ((y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1)):
+                if neighbor in remaining:
+                    remaining.remove(neighbor)
+                    pending.append(neighbor)
+        ys, xs = zip(*component, strict=True)
+        left, top, right, bottom = map(int, (min(xs), min(ys), max(xs) + 1, max(ys) + 1))
+        width, height = right - left, bottom - top
+        if not (12 <= width <= 48 and 12 <= height <= 48 and 0.8 <= width / height <= 1.25):
+            continue
+        observed = np.min(rgb[top:bottom, left:right], axis=2) >= 245
+        grid_y, grid_x = np.indices(observed.shape)
+        vertical = (np.abs(grid_x - width // 2) <= max(1, round(width * 0.05))) & (
+            (grid_y >= round(height * 0.15)) & (grid_y < round(height * 0.85))
+        )
+        horizontal = (np.abs(grid_y - height // 2) <= max(1, round(height * 0.05))) & (
+            (grid_x >= round(width * 0.15)) & (grid_x < round(width * 0.85))
+        )
+        expected = vertical | horizontal
+        score = float(np.count_nonzero(observed & expected) / np.count_nonzero(observed | expected))
+        image_width, image_height = root.image.size
+        # Pink bounds exclude the authored two-pixel dark outline.
+        box = {
+            "left": max(0, left - 2) / image_width,
+            "top": max(0, top - 2) / image_height,
+            "right": min(image_width, right + 2) / image_width,
+            "bottom": min(image_height, bottom + 2) / image_height,
+        }
+        candidates.append({"box": box, "shape_score": score})
+    return candidates
+
+
+def pixel_baseline(root, *, shape_threshold):
+    """Deterministic image-only baseline: no matches -> absent, several -> review."""
+    if (
+        isinstance(shape_threshold, bool)
+        or not math.isfinite(shape_threshold)
+        or not 0 < shape_threshold <= 1
+    ):
+        raise ValueError("shape_threshold must be finite in (0,1]")
+    matching = [
+        candidate
+        for candidate in pixel_candidates(root)
+        if candidate["shape_score"] >= shape_threshold
+    ]
+    if not matching:
+        return Outcome("absent", "pixel_no_match", None, 0, ())
+    if len(matching) > 1:
+        return Outcome(REVIEW, "pixel_multiple_matches", None, 0, ())
+    return Outcome("localized", "pixel_color_and_plus_shape", matching[0]["box"], 0, ())
+
+
+def select_pixel_threshold(examples, labels, recipe_dir=None, *, objective):
+    """Tune only the plus-template score threshold, using validation scenes."""
+    if objective != PIXEL_OBJECTIVE:
+        raise ValueError("unknown pixel selection objective")
+    if any(example.split != "validation" for example in examples):
+        raise ValueError("pixel threshold selection accepts only validation examples")
+    rows = []
+    for threshold in PIXEL_THRESHOLDS:
+        outcomes = [
+            pixel_baseline(load_view(example.fields, recipe_dir), shape_threshold=threshold)
+            for example in examples
+        ]
+        metrics = summarize(outcomes, [labels[example.id] for example in examples])
+        rows.append({"shape_threshold": threshold, **metrics})
+    selected = max(
+        rows,
+        key=lambda row: (row["hits"] - 2 * row["wrong_accepted"], row["shape_threshold"]),
+    )
+    return selected["shape_threshold"], rows
 
 
 def select_policy(backend, examples, labels, recipe_dir=None, *, objective):
