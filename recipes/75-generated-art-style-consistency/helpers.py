@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from jev_cookbook import Score, ScoreAnswer
+from jev_cookbook import Score, ScoreAnswer, replay_key
 from jev_cookbook.evaluation import evaluate_outcomes
 from jev_cookbook.vision import image_asset, image_reference
 
@@ -144,7 +144,7 @@ def dispatch(ident, answers, threshold, actions, reviews):
 
 
 class RequestCache:
-    """One batched request per illustration, with a Python-enforced hard request cap."""
+    """Cache complete requests, including current image bytes, within a hard request cap."""
 
     def __init__(self, backend, root=Path("."), max_requests=26):
         if type(max_requests) is not int or max_requests < 0:
@@ -154,13 +154,14 @@ class RequestCache:
         self.requests_made = 0
 
     def decide(self, example):
-        if example.id not in self.results:
+        state, questions, assets = build_request(example.fields, self.root)
+        key = replay_key(state, questions, assets=assets)
+        if key not in self.results:
             if self.requests_made >= self.max_requests:
                 raise RuntimeError("recipe request budget exhausted")
-            state, questions, assets = build_request(example.fields, self.root)
             self.requests_made += 1
-            self.results[example.id] = self.backend.decide(state, questions, assets=assets)
-        return self.results[example.id]
+            self.results[key] = self.backend.decide(state, questions, assets=assets)
+        return self.results[key]
 
 
 def pixel_features(path):

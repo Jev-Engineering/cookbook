@@ -3,6 +3,7 @@
 import ast
 import hashlib
 import json
+import shutil
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -10,6 +11,7 @@ import pytest
 from PIL import Image
 
 from jev_cookbook import Provenance, ReplayBackend, ScoreAnswer, load_helpers, replay_key
+from jev_cookbook.backends import ReplayMiss
 from jev_cookbook.evaluation import select_confidence_threshold
 from jev_cookbook.fixtures import load_inputs, load_labels, select_split
 from jev_cookbook.simulation import ActionLog, ReviewQueue
@@ -214,9 +216,60 @@ def test_cache_and_budget_bound_requests():
     cache = helpers.RequestCache(backend, RECIPE, max_requests=1)
     assert cache.decide(examples[0]) == "sentinel"
     assert cache.decide(examples[0]) == "sentinel"
+    renamed = SimpleNamespace(id="another-id", fields=examples[0].fields)
+    assert cache.decide(renamed) == "sentinel"
     with pytest.raises(RuntimeError, match="budget"):
         cache.decide(examples[1])
     assert backend.calls == 1
+
+
+@pytest.mark.parametrize("changed_evidence", ["candidate", "reference", "context"])
+def test_cache_rebuilds_same_id_request_before_reusing_accepted_answer(
+    tmp_path, monkeypatch, changed_evidence
+):
+    examples, _, _ = replay()
+    example = examples[0]
+    shutil.copytree(RECIPE / "assets", tmp_path / "assets")
+    replay_backend = ReplayBackend.from_json(RECIPE / "fixtures" / "responses.json")
+
+    class CountingReplay:
+        def __init__(self):
+            self.keys = []
+
+        def decide(self, state, questions, *, assets):
+            self.keys.append(replay_key(state, questions, assets=assets))
+            return replay_backend.decide(state, questions, assets=assets)
+
+    backend = CountingReplay()
+    cache = helpers.RequestCache(backend, tmp_path, max_requests=2)
+    original = cache.decide(example)
+    assert helpers.report_scores(original.answers, 0.5).outcome == "reported"
+    assert cache.decide(example) is original
+    assert len(backend.keys) == 1
+
+    if changed_evidence == "context":
+        monkeypatch.setattr(helpers, "BRIEF", helpers.BRIEF + " Use a monochrome palette.")
+    else:
+        relative = (
+            example.fields["image"]
+            if changed_evidence == "candidate"
+            else example.fields["moodboard"][0]
+        )
+        path = tmp_path / relative
+        with Image.open(path) as image:
+            changed = image.copy()
+        changed.putpixel((0, 0), (1, 2, 3))
+        changed.save(path)
+
+    # The id and paths are unchanged. Current evidence has no stored response, so a
+    # real replay miss must reach the caller instead of the formerly accepted answer.
+    with pytest.raises(ReplayMiss):
+        cache.decide(example)
+    assert len(backend.keys) == 2 and backend.keys[0] != backend.keys[1]
+    assert cache.requests_made == 2
+    with pytest.raises(RuntimeError, match="budget"):
+        cache.decide(example)
+    assert len(backend.keys) == 2
 
 
 def test_failed_request_consumes_recipe_budget():

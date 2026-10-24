@@ -49,7 +49,9 @@ This notebook makes exactly **26** calls in live mode: one batched request per e
 Scores per request. Each request supplies four distinct images; repeating the three moodboard
 references in the Score criteria makes ten expanded image occurrences. Set
 `JEV_COOKBOOK_LIVE_MAX_REQUESTS=32` to allow a few retries beyond the 26 required attempts (every
-retry consumes budget). The recipe also enforces a 26-request cap and caches already seen examples.
+retry consumes budget). The recipe also enforces a 26-request cap and caches complete requests,
+including current candidate pixels, reference pixels, questions and art-direction context.
+Changing evidence under the same example identifier requires a new request.
 Install `pip install -e ".[live]"`, configure `TYPESAFE_API_KEY` in your environment and opt in with
 `JEV_COOKBOOK_LIVE=1`. Requests pin `jev-1.14.0` and use `images=True` for the experimental image
 header. The standard executor always runs offline.
