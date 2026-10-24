@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from jev_cookbook import Choice
+from jev_cookbook import Choice, replay_key
 from jev_cookbook.evaluation import accuracy, evaluate_outcomes
 from jev_cookbook.simulation import ReviewQueue
 from jev_cookbook.vision import image_asset, image_reference
@@ -59,9 +59,16 @@ def build_request(fields, recipe_dir=Path(".")):
     return state, questions, assets
 
 
-def decide(backend, example, recipe_dir=Path(".")):
+def decide(backend, example, recipe_dir=Path("."), *, cache=None):
+    """Rebuild current evidence before consulting an optional request-content cache."""
     state, questions, assets = build_request(example.fields, recipe_dir)
-    return backend.decide(state, questions, assets=assets)
+    key = replay_key(state, questions, assets=assets)
+    if cache is not None and key in cache:
+        return cache[key]
+    result = backend.decide(state, questions, assets=assets)
+    if cache is not None:
+        cache[key] = result
+    return result
 
 
 @dataclass(frozen=True)

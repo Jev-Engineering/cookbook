@@ -48,7 +48,9 @@ The notebook explicitly pins `jev-1.14.0` and enables `images=True`; the questio
 is identical in both modes. It makes exactly **26** requests, one per query, with six images
 each and no dependent stages. The default request budget of 25 is insufficient; retries also
 consume the configured budget, so 26 permits a complete run only without retries. Results
-are cached within the notebook. An unrecorded live run is exploration, not a reported result.
+are cached by the replay key of freshly rebuilt state, questions and image assets. Unchanged
+evidence reuses a result; changed pixels or context require a new request even under the same
+example identifier. An unrecorded live run is exploration, not a reported result.
 
 To capture the same requests, run this deliberately from the recipe folder after configuring
 your key. Use a fresh output file so synthetic and recorded responses never mix:
