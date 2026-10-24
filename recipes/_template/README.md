@@ -43,14 +43,19 @@ SDK (`pip install -e ".[live]"`) and three environment variables: `TYPESAFE_API_
 install Jupyter (`pip install jupyterlab`, which is not a dependency of this repository) and open
 `notebook.ipynb` from this folder. `tools/execute_notebook.py` always removes `JEV_COOKBOOK_*` and
 `TYPESAFE_*` from the kernel's environment, so it never runs live and never writes a live outcome into
-a committed notebook; the recorder captures answers into `fixtures/` instead. In live mode this
-notebook makes exactly one call for each of the 22 examples it uses, and no other (each demo example
-is decided once and the stored answer is reused wherever it is shown again). That is below the live
-backend's default request budget of 25 (`JEV_COOKBOOK_LIVE_MAX_REQUESTS`); every attempt counts
-against that budget, including each retry, so a recipe this close to the default should mention
-that too. A recipe whose fixtures need more calls than the default budget should say so here and
-tell the reader to raise it before running live. The setup, the budget limit and the recorder are
-in [docs/live.md](../../docs/live.md). Never put a key in a notebook, fixture or committed file.
+a committed notebook; the recorder captures answers into `fixtures/` instead.
+
+<!-- request-budget:begin -->
+In live mode this notebook makes exactly **22** requests, each decided once. Set `JEV_COOKBOOK_LIVE_MAX_REQUESTS=22` or higher before running it live (the default cap is 25): the cap is inclusive and every attempt counts against it, retries included, so a lower cap stops the run partway through with `BudgetExceeded` and a run that retries needs more.
+<!-- request-budget:end -->
+
+The count above is declared once, in [`request_budget.json`](request_budget.json), and rendered
+here by `jev_cookbook.accounting.render_recipe_note`, never typed by hand. The recipe guard's
+`readme_budget_note_matches_request_audit` check compares the declaration, the notebook's own
+audited execution and this rendered paragraph against each other for every published recipe; it
+does not yet run against this template itself, whose three were verified to agree when this
+page was last committed. The setup, the budget limit and the recorder are in
+[docs/live.md](../../docs/live.md). Never put a key in a notebook, fixture or committed file.
 
 ## What was and was not measured
 
@@ -74,6 +79,7 @@ _template/
 ├── helpers.py            the state, the question, and the rule Python enforces
 ├── build_fixtures.py     writes fixtures/ (the keys come from helpers.py, so they cannot drift;
 │                         --force is needed to overwrite a recorded responses.json)
+├── request_budget.json   the declared live request count, rendered into the README below
 ├── fixtures/
 │   ├── inputs.jsonl      22 examples: 10 validation, 10 test, 2 demo
 │   ├── labels.jsonl      gold labels for the 20 scored examples
@@ -175,6 +181,8 @@ What changes, and nothing else does:
   (id, split, fields, label).
 - The notebook's setup cell uses `get_backend(script=helpers.script, seed=helpers.SEED)`, and
   `run_header(..., backend=backend, ...)` states `scripted`. The "measured" cell follows `backend.mode`.
+- `request_budget.json` declares `"fixtures": null` instead of `"fixtures": "fixtures/responses.json"`
+  (nothing to replay); the declared `requests` count is the same either way at scaffold time.
 - The validator reports `fixtures valid (mode scripted)`.
 - `tests/test_helpers.py` asserts the keys are empty and that a fresh `ScriptedBackend(helpers.script,
   helpers.SEED)` answers the same request identically twice; the scaffolder writes the one test file

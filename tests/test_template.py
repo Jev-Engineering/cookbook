@@ -44,24 +44,62 @@ def test_the_template_fixtures_validate():
     assert report.mode == "replay"
 
 
+# Shared with test_the_readme_folder_tree_names_the_same_files below, so the documented set and
+# the README's prose tree are checked against one literal, not two that could silently disagree.
+_TEMPLATE_FILES = {
+    "notebook.ipynb",
+    "README.md",
+    "helpers.py",
+    "build_fixtures.py",
+    "request_budget.json",
+    "fixtures/inputs.jsonl",
+    "fixtures/labels.jsonl",
+    "fixtures/responses.json",
+    "tests/test_helpers.py",
+    "tests/test_build_fixtures.py",
+}
+
+
 def test_the_template_has_the_documented_files():
-    expected = {
-        "notebook.ipynb",
-        "README.md",
-        "helpers.py",
-        "build_fixtures.py",
-        "fixtures/inputs.jsonl",
-        "fixtures/labels.jsonl",
-        "fixtures/responses.json",
-        "tests/test_helpers.py",
-        "tests/test_build_fixtures.py",
-    }
     found = {
         p.relative_to(TEMPLATE).as_posix()
         for p in TEMPLATE.rglob("*")
         if p.is_file() and "__pycache__" not in p.parts
     }
-    assert found == expected
+    assert found == _TEMPLATE_FILES
+
+
+def _readme_tree_entries(block: str) -> set[str]:
+    """The leaf file paths named by a fenced ASCII tree shaped like the README's "What is in
+    this folder" block: a `├──`/`└──` line's first token is a name, under the last top-level
+    directory (ending `/`) seen when the line itself is nested (prefixed `│   ` or four spaces).
+    A line with no `──` is a wrapped continuation of the previous entry's description, not a new
+    entry, and is skipped."""
+    names: set[str] = set()
+    current_dir = ""
+    for line in block.splitlines():
+        if "──" not in line:
+            continue
+        nested = line.startswith("│   ") or line.startswith("    ")
+        after = line.split("── ", 1)[1] if "── " in line else line.split("──", 1)[1]
+        token = after.split()[0]
+        if token.endswith("/"):
+            if not nested:
+                current_dir = token
+            continue
+        names.add((current_dir if nested else "") + token)
+    return names
+
+
+def test_the_readme_folder_tree_names_the_same_files_as_the_documented_set():
+    """#375 fix round, item 2: the tree once omitted request_budget.json and nothing compared it
+    against test_the_template_has_the_documented_files's own list, so the two could silently
+    disagree. Parse the fenced tree in "What is in this folder" and require it to name exactly
+    the same files."""
+    readme = (TEMPLATE / "README.md").read_text("utf-8")
+    block = readme.split("## What is in this folder", 1)[1].split("```text\n", 1)[1]
+    block = block.split("```", 1)[0]
+    assert _readme_tree_entries(block) == _TEMPLATE_FILES
 
 
 def test_the_notebook_sections_are_the_scaffolders_sections():
