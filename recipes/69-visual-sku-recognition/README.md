@@ -36,8 +36,10 @@ PNG assets are used in both modes. `tools/execute_notebook.py` deliberately stri
 
 The notebook makes exactly **34** calls in live mode when every first attempt succeeds: 16
 validation queries, 16 test queries, and two demos. Set `JEV_COOKBOOK_LIVE_MAX_REQUESTS` to at
-least 34; retries consume additional attempts. Results are cached per example, so repeated
-visualization does not send a second request. Never store a key in this folder.
+least 34; retries consume additional attempts. Results are cached by the complete request key,
+including current image bytes and question context. Repeated identical requests reuse an answer;
+changed evidence needs another request even under the same example id and consumes the live request
+budget accordingly. Never store a key in this folder.
 
 For reproducible measurements, use [the recorder](../../docs/live.md), passing each
 `helpers.build_request(example.fields)` triple `(state, questions, assets)`. Save the recorded
