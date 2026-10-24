@@ -1,0 +1,502 @@
+{
+  "08816c29cba761b169bd694d7201a98dc380c68d58bb6bd41f7ada120c22bc7f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "event": {
+        "type": "choice",
+        "choice": "uncertain",
+        "probabilities": {
+          "arrival": 0.020000000000000018,
+          "departure": 0.020000000000000018,
+          "unchanged": 0.020000000000000018,
+          "uncertain": 0.94
+        },
+        "confidence": 0.9199999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "08a3539a50a1a17b9cca2b3f39198340faab05eb86dfbcde79bccf438d6caed7": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "event": {
+        "type": "choice",
+        "choice": "uncertain",
+        "probabilities": {
+          "arrival": 0.01666666666666668,
+          "departure": 0.01666666666666668,
+          "unchanged": 0.01666666666666668,
+          "uncertain": 0.95
+        },
+        "confidence": 0.9333333333333332,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2dd3330d4701207daf3da7d539f9e415804cef79747cf2d4438019212cf13cbc": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "event": {
+        "type": "choice",
+        "choice": "arrival",
+        "probabilities": {
+          "arrival": 0.93,
+          "departure": 0.023333333333333317,
+          "unchanged": 0.023333333333333317,
+          "uncertain": 0.023333333333333317
+        },
+        "confidence": 0.9066666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "328b12cc349f5889b5d168ff47951f1ac3577093470e225ad53ba056363808f8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "event": {
+        "type": "choice",
+        "choice": "uncertain",
+        "probabilities": {
+          "arrival": 0.013333333333333345,
+          "departure": 0.013333333333333345,
+          "unchanged": 0.013333333333333345,
+          "uncertain": 0.96
+        },
+        "confidence": 0.9466666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "43b7dcd7f22a9afdb3047aee6551b8cc0e8804046ff1c50d7e0a19fa0695340a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "event": {
+        "type": "choice",
+        "choice": "unchanged",
+        "probabilities": {
+          "arrival": 0.02999999999999999,
+          "departure": 0.02999999999999999,
+          "unchanged": 0.91,
+          "uncertain": 0.02999999999999999
+        },
+        "confidence": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "45e2015e14a16510026ab929aa7993ed1f0cf710435c3771679af08d4578b1c5": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "event": {
+        "type": "choice",
+        "choice": "unchanged",
+        "probabilities": {
+          "arrival": 0.03666666666666666,
+          "departure": 0.03666666666666666,
+          "unchanged": 0.89,
+          "uncertain": 0.03666666666666666
+        },
+        "confidence": 0.8533333333333334,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "45ee9ce2f0a5871cd53caecb524ff840acd1805bc4f0da77c824d662af2c3e8a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "event": {
+        "type": "choice",
+        "choice": "arrival",
+        "probabilities": {
+          "arrival": 0.72,
+          "departure": 0.09333333333333334,
+          "unchanged": 0.09333333333333334,
+          "uncertain": 0.09333333333333334
+        },
+        "confidence": 0.6266666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5f606de5bf0861fbcd40c32662cf8a667982dc961df260e40970a38323dd91d1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "event": {
+        "type": "choice",
+        "choice": "unchanged",
+        "probabilities": {
+          "arrival": 0.033333333333333326,
+          "departure": 0.033333333333333326,
+          "unchanged": 0.9,
+          "uncertain": 0.033333333333333326
+        },
+        "confidence": 0.8666666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7db051746cc536bac939f274cfb72904c0427030b9f23965d6aa807af54b5488": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "event": {
+        "type": "choice",
+        "choice": "unchanged",
+        "probabilities": {
+          "arrival": 0.13333333333333333,
+          "departure": 0.13333333333333333,
+          "unchanged": 0.6,
+          "uncertain": 0.13333333333333333
+        },
+        "confidence": 0.4666666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8188517a6a186b524aaf9318bc77a3ed1d0679953cba38ec3342ed716c53f912": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "event": {
+        "type": "choice",
+        "choice": "uncertain",
+        "probabilities": {
+          "arrival": 0.026666666666666655,
+          "departure": 0.026666666666666655,
+          "unchanged": 0.026666666666666655,
+          "uncertain": 0.92
+        },
+        "confidence": 0.8933333333333334,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8dfd0aa520bb4f83dc01bd26fdcba97b6fb9c4386482d17900a323127af9c10c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "event": {
+        "type": "choice",
+        "choice": "arrival",
+        "probabilities": {
+          "arrival": 0.92,
+          "departure": 0.026666666666666655,
+          "unchanged": 0.026666666666666655,
+          "uncertain": 0.026666666666666655
+        },
+        "confidence": 0.8933333333333334,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9821ca1ee168c5b8fc3a5bc951cf04eddd5deec49e6e3b72b9477f11297d720a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "event": {
+        "type": "choice",
+        "choice": "arrival",
+        "probabilities": {
+          "arrival": 0.94,
+          "departure": 0.020000000000000018,
+          "unchanged": 0.020000000000000018,
+          "uncertain": 0.020000000000000018
+        },
+        "confidence": 0.9199999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b7cbf347327f139e7368382f167b88a55e5fe03ae172a56b39c3042e335db465": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "event": {
+        "type": "choice",
+        "choice": "unchanged",
+        "probabilities": {
+          "arrival": 0.033333333333333326,
+          "departure": 0.033333333333333326,
+          "unchanged": 0.9,
+          "uncertain": 0.033333333333333326
+        },
+        "confidence": 0.8666666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bb5ab93b339aeb043d5c6a0c977274203aeb2d89394641426c91abb4697bc26f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "event": {
+        "type": "choice",
+        "choice": "uncertain",
+        "probabilities": {
+          "arrival": 0.01666666666666668,
+          "departure": 0.01666666666666668,
+          "unchanged": 0.01666666666666668,
+          "uncertain": 0.95
+        },
+        "confidence": 0.9333333333333332,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c4abf9f17367aa2663ed1f512388fb1e0dd01a31a2ed75cde0a417520e1df0e3": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "event": {
+        "type": "choice",
+        "choice": "departure",
+        "probabilities": {
+          "arrival": 0.020000000000000018,
+          "departure": 0.94,
+          "unchanged": 0.020000000000000018,
+          "uncertain": 0.020000000000000018
+        },
+        "confidence": 0.9199999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "db66d82c7d4deb286a21c18acf79d44283ed5ff06d0885803a93bc4663d8f214": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "event": {
+        "type": "choice",
+        "choice": "arrival",
+        "probabilities": {
+          "arrival": 0.55,
+          "departure": 0.15,
+          "unchanged": 0.15,
+          "uncertain": 0.15
+        },
+        "confidence": 0.4000000000000001,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "dcdeeb95ff855eaa9437cf95bf00c883fdf72b15486a65ba28a1648d45a3886e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "event": {
+        "type": "choice",
+        "choice": "departure",
+        "probabilities": {
+          "arrival": 0.02999999999999999,
+          "departure": 0.91,
+          "unchanged": 0.02999999999999999,
+          "uncertain": 0.02999999999999999
+        },
+        "confidence": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e964592a036ed8391bea7fa2033361641fdb2c3bd17a87f2cfe6b6da8ca62d1c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "event": {
+        "type": "choice",
+        "choice": "departure",
+        "probabilities": {
+          "arrival": 0.023333333333333317,
+          "departure": 0.93,
+          "unchanged": 0.023333333333333317,
+          "uncertain": 0.023333333333333317
+        },
+        "confidence": 0.9066666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f267a6f4dbcc0c61b673953e26269467ac95d608640a60b218f6f6a8718c3882": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "event": {
+        "type": "choice",
+        "choice": "unchanged",
+        "probabilities": {
+          "arrival": 0.043333333333333335,
+          "departure": 0.043333333333333335,
+          "unchanged": 0.87,
+          "uncertain": 0.043333333333333335
+        },
+        "confidence": 0.8266666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "fb73966d9c6f1460ac93d31928355bed515affcff25a88151534bfe85f248ab1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "event": {
+        "type": "choice",
+        "choice": "uncertain",
+        "probabilities": {
+          "arrival": 0.020000000000000018,
+          "departure": 0.020000000000000018,
+          "unchanged": 0.020000000000000018,
+          "uncertain": 0.94
+        },
+        "confidence": 0.9199999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
