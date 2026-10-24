@@ -1,0 +1,28 @@
+{"id": "v01", "label": {"phases": ["combat", "combat", "rewards"], "event": "combat>rewards", "capture_issue": null}}
+{"id": "v02", "label": {"phases": ["rewards", "rewards", "map"], "event": "rewards>map", "capture_issue": null}}
+{"id": "v03", "label": {"phases": ["map", "combat", "combat"], "event": "map>combat", "capture_issue": null}}
+{"id": "v04", "label": {"phases": ["menu", "menu", "map"], "event": "menu>map", "capture_issue": null}}
+{"id": "v05", "label": {"phases": ["combat", "menu", "combat"], "event": "combat>menu>combat", "capture_issue": null}}
+{"id": "v06", "label": {"phases": ["combat", "combat", "combat"], "event": "steady:combat", "capture_issue": null}}
+{"id": "v07", "label": {"phases": ["map", "map", "map"], "event": "steady:map", "capture_issue": null}}
+{"id": "v08", "label": {"phases": ["combat", "uncertain", "rewards"], "event": "combat>uncertain>rewards", "capture_issue": null}}
+{"id": "v09", "label": {"phases": ["combat", "rewards", "rewards"], "event": "combat>rewards", "capture_issue": null}}
+{"id": "v10", "label": {"phases": ["combat", "other", "other"], "event": "combat>other", "capture_issue": null}}
+{"id": "v11", "label": {"phases": ["rewards", "combat", "combat"], "event": "rewards>combat", "capture_issue": null}}
+{"id": "v12", "label": {"phases": ["combat", "rewards", "rewards"], "event": "unobservable", "capture_issue": "latest capture is stale or in the future"}}
+{"id": "v13", "label": {"phases": ["map", "combat", "combat"], "event": "unobservable", "capture_issue": "capture order is not strictly increasing"}}
+{"id": "v14", "label": {"phases": ["menu", "map", "combat"], "event": "unobservable", "capture_issue": "sample spacing is outside the observation window"}}
+{"id": "t01", "label": {"phases": ["combat", "rewards", "rewards"], "event": "combat>rewards", "capture_issue": null}}
+{"id": "t02", "label": {"phases": ["rewards", "map", "map"], "event": "rewards>map", "capture_issue": null}}
+{"id": "t03", "label": {"phases": ["map", "map", "combat"], "event": "map>combat", "capture_issue": null}}
+{"id": "t04", "label": {"phases": ["menu", "map", "combat"], "event": "menu>map>combat", "capture_issue": null}}
+{"id": "t05", "label": {"phases": ["map", "menu", "map"], "event": "map>menu>map", "capture_issue": null}}
+{"id": "t06", "label": {"phases": ["combat", "combat", "combat"], "event": "steady:combat", "capture_issue": null}}
+{"id": "t07", "label": {"phases": ["rewards", "rewards", "map"], "event": "rewards>map", "capture_issue": null}}
+{"id": "t08", "label": {"phases": ["combat", "uncertain", "rewards"], "event": "combat>uncertain>rewards", "capture_issue": null}}
+{"id": "t09", "label": {"phases": ["combat", "combat", "rewards"], "event": "combat>rewards", "capture_issue": null}}
+{"id": "t10", "label": {"phases": ["map", "other", "other"], "event": "map>other", "capture_issue": null}}
+{"id": "t11", "label": {"phases": ["menu", "rewards", "rewards"], "event": "menu>rewards", "capture_issue": null}}
+{"id": "t12", "label": {"phases": ["rewards", "rewards", "map"], "event": "unobservable", "capture_issue": "latest capture is stale or in the future"}}
+{"id": "t13", "label": {"phases": ["combat", "menu", "combat"], "event": "unobservable", "capture_issue": "capture order is not strictly increasing"}}
+{"id": "t14", "label": {"phases": ["map", "combat", "rewards"], "event": "unobservable", "capture_issue": "sample spacing is outside the observation window"}}

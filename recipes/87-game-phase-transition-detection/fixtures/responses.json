@@ -1,0 +1,1514 @@
+{
+  "00ed2e6d32f2d0dbd135c2dda96f4f42c21020b21c239265677e754b72910397": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase_0": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.88,
+          "menu": 0.024,
+          "map": 0.024,
+          "rewards": 0.024,
+          "other": 0.024,
+          "uncertain": 0.024
+        },
+        "confidence": 0.856,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_1": {
+        "type": "choice",
+        "choice": "menu",
+        "probabilities": {
+          "combat": 0.024,
+          "menu": 0.88,
+          "map": 0.024,
+          "rewards": 0.024,
+          "other": 0.024,
+          "uncertain": 0.024
+        },
+        "confidence": 0.856,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_2": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.88,
+          "menu": 0.024,
+          "map": 0.024,
+          "rewards": 0.024,
+          "other": 0.024,
+          "uncertain": 0.024
+        },
+        "confidence": 0.856,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "02813a42ccfa235356897ab335b3064f53112378e0e8893e6c6bf0ca1f3717f8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase_0": {
+        "type": "choice",
+        "choice": "menu",
+        "probabilities": {
+          "combat": 0.015999999999999993,
+          "menu": 0.92,
+          "map": 0.015999999999999993,
+          "rewards": 0.015999999999999993,
+          "other": 0.015999999999999993,
+          "uncertain": 0.015999999999999993
+        },
+        "confidence": 0.904,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_1": {
+        "type": "choice",
+        "choice": "rewards",
+        "probabilities": {
+          "combat": 0.015999999999999993,
+          "menu": 0.015999999999999993,
+          "map": 0.015999999999999993,
+          "rewards": 0.92,
+          "other": 0.015999999999999993,
+          "uncertain": 0.015999999999999993
+        },
+        "confidence": 0.904,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_2": {
+        "type": "choice",
+        "choice": "rewards",
+        "probabilities": {
+          "combat": 0.015999999999999993,
+          "menu": 0.015999999999999993,
+          "map": 0.015999999999999993,
+          "rewards": 0.92,
+          "other": 0.015999999999999993,
+          "uncertain": 0.015999999999999993
+        },
+        "confidence": 0.904,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0530b8e1adbfde9e40ccd40e5e477a075065a8bbac9af2353070223b7048053e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase_0": {
+        "type": "choice",
+        "choice": "map",
+        "probabilities": {
+          "combat": 0.015999999999999993,
+          "menu": 0.015999999999999993,
+          "map": 0.92,
+          "rewards": 0.015999999999999993,
+          "other": 0.015999999999999993,
+          "uncertain": 0.015999999999999993
+        },
+        "confidence": 0.904,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_1": {
+        "type": "choice",
+        "choice": "menu",
+        "probabilities": {
+          "combat": 0.015999999999999993,
+          "menu": 0.92,
+          "map": 0.015999999999999993,
+          "rewards": 0.015999999999999993,
+          "other": 0.015999999999999993,
+          "uncertain": 0.015999999999999993
+        },
+        "confidence": 0.904,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_2": {
+        "type": "choice",
+        "choice": "map",
+        "probabilities": {
+          "combat": 0.015999999999999993,
+          "menu": 0.015999999999999993,
+          "map": 0.92,
+          "rewards": 0.015999999999999993,
+          "other": 0.015999999999999993,
+          "uncertain": 0.015999999999999993
+        },
+        "confidence": 0.904,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "06885d967bb29ae483f27ae0424588c4591726ebd86055026b7c01d4b05b4244": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase_0": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.93,
+          "menu": 0.01399999999999999,
+          "map": 0.01399999999999999,
+          "rewards": 0.01399999999999999,
+          "other": 0.01399999999999999,
+          "uncertain": 0.01399999999999999
+        },
+        "confidence": 0.916,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_1": {
+        "type": "choice",
+        "choice": "rewards",
+        "probabilities": {
+          "combat": 0.01399999999999999,
+          "menu": 0.01399999999999999,
+          "map": 0.01399999999999999,
+          "rewards": 0.93,
+          "other": 0.01399999999999999,
+          "uncertain": 0.01399999999999999
+        },
+        "confidence": 0.916,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_2": {
+        "type": "choice",
+        "choice": "rewards",
+        "probabilities": {
+          "combat": 0.01399999999999999,
+          "menu": 0.01399999999999999,
+          "map": 0.01399999999999999,
+          "rewards": 0.93,
+          "other": 0.01399999999999999,
+          "uncertain": 0.01399999999999999
+        },
+        "confidence": 0.916,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0cbab0676ad35650c8b1f7e45cb78a90a71067c469b152194ab8f240d2c35d7b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase_0": {
+        "type": "choice",
+        "choice": "rewards",
+        "probabilities": {
+          "combat": 0.022,
+          "menu": 0.022,
+          "map": 0.022,
+          "rewards": 0.89,
+          "other": 0.022,
+          "uncertain": 0.022
+        },
+        "confidence": 0.868,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_1": {
+        "type": "choice",
+        "choice": "map",
+        "probabilities": {
+          "combat": 0.022,
+          "menu": 0.022,
+          "map": 0.89,
+          "rewards": 0.022,
+          "other": 0.022,
+          "uncertain": 0.022
+        },
+        "confidence": 0.868,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_2": {
+        "type": "choice",
+        "choice": "map",
+        "probabilities": {
+          "combat": 0.022,
+          "menu": 0.022,
+          "map": 0.89,
+          "rewards": 0.022,
+          "other": 0.022,
+          "uncertain": 0.022
+        },
+        "confidence": 0.868,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "16dd9d212d93dfbf82ae16e52e1c7382ea02ea849df9a77427dca902828c27eb": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase_0": {
+        "type": "choice",
+        "choice": "rewards",
+        "probabilities": {
+          "combat": 0.01200000000000001,
+          "menu": 0.01200000000000001,
+          "map": 0.01200000000000001,
+          "rewards": 0.94,
+          "other": 0.01200000000000001,
+          "uncertain": 0.01200000000000001
+        },
+        "confidence": 0.9279999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_1": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.94,
+          "menu": 0.01200000000000001,
+          "map": 0.01200000000000001,
+          "rewards": 0.01200000000000001,
+          "other": 0.01200000000000001,
+          "uncertain": 0.01200000000000001
+        },
+        "confidence": 0.9279999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_2": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.94,
+          "menu": 0.01200000000000001,
+          "map": 0.01200000000000001,
+          "rewards": 0.01200000000000001,
+          "other": 0.01200000000000001,
+          "uncertain": 0.01200000000000001
+        },
+        "confidence": 0.9279999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1b75fd15e91037a479cbf14cb44ae982e986404ab2e52311df258e6e82c0d79a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase_0": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.92,
+          "menu": 0.015999999999999993,
+          "map": 0.015999999999999993,
+          "rewards": 0.015999999999999993,
+          "other": 0.015999999999999993,
+          "uncertain": 0.015999999999999993
+        },
+        "confidence": 0.904,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_1": {
+        "type": "choice",
+        "choice": "other",
+        "probabilities": {
+          "combat": 0.015999999999999993,
+          "menu": 0.015999999999999993,
+          "map": 0.015999999999999993,
+          "rewards": 0.015999999999999993,
+          "other": 0.92,
+          "uncertain": 0.015999999999999993
+        },
+        "confidence": 0.904,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_2": {
+        "type": "choice",
+        "choice": "other",
+        "probabilities": {
+          "combat": 0.015999999999999993,
+          "menu": 0.015999999999999993,
+          "map": 0.015999999999999993,
+          "rewards": 0.015999999999999993,
+          "other": 0.92,
+          "uncertain": 0.015999999999999993
+        },
+        "confidence": 0.904,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "1fb6607422fbb882aefe4c5fa834f803bc2161d629cdcbd5546ba345cd78e007": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase_0": {
+        "type": "choice",
+        "choice": "map",
+        "probabilities": {
+          "combat": 0.017999999999999995,
+          "menu": 0.017999999999999995,
+          "map": 0.91,
+          "rewards": 0.017999999999999995,
+          "other": 0.017999999999999995,
+          "uncertain": 0.017999999999999995
+        },
+        "confidence": 0.892,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_1": {
+        "type": "choice",
+        "choice": "map",
+        "probabilities": {
+          "combat": 0.017999999999999995,
+          "menu": 0.017999999999999995,
+          "map": 0.91,
+          "rewards": 0.017999999999999995,
+          "other": 0.017999999999999995,
+          "uncertain": 0.017999999999999995
+        },
+        "confidence": 0.892,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_2": {
+        "type": "choice",
+        "choice": "map",
+        "probabilities": {
+          "combat": 0.017999999999999995,
+          "menu": 0.017999999999999995,
+          "map": 0.91,
+          "rewards": 0.017999999999999995,
+          "other": 0.017999999999999995,
+          "uncertain": 0.017999999999999995
+        },
+        "confidence": 0.892,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3f78329e866a2b9e3a90e4b18ecaadc4646a5b587d97df878aa9bdf208562a79": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase_0": {
+        "type": "choice",
+        "choice": "rewards",
+        "probabilities": {
+          "combat": 0.017999999999999995,
+          "menu": 0.017999999999999995,
+          "map": 0.017999999999999995,
+          "rewards": 0.91,
+          "other": 0.017999999999999995,
+          "uncertain": 0.017999999999999995
+        },
+        "confidence": 0.892,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_1": {
+        "type": "choice",
+        "choice": "rewards",
+        "probabilities": {
+          "combat": 0.017999999999999995,
+          "menu": 0.017999999999999995,
+          "map": 0.017999999999999995,
+          "rewards": 0.91,
+          "other": 0.017999999999999995,
+          "uncertain": 0.017999999999999995
+        },
+        "confidence": 0.892,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_2": {
+        "type": "choice",
+        "choice": "map",
+        "probabilities": {
+          "combat": 0.017999999999999995,
+          "menu": 0.017999999999999995,
+          "map": 0.91,
+          "rewards": 0.017999999999999995,
+          "other": 0.017999999999999995,
+          "uncertain": 0.017999999999999995
+        },
+        "confidence": 0.892,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4392be4536ccce21cf68e2703b63c1a32ce8e3cf1581802c53db3dfdef6299ad": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase_0": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.94,
+          "menu": 0.01200000000000001,
+          "map": 0.01200000000000001,
+          "rewards": 0.01200000000000001,
+          "other": 0.01200000000000001,
+          "uncertain": 0.01200000000000001
+        },
+        "confidence": 0.9279999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_1": {
+        "type": "choice",
+        "choice": "rewards",
+        "probabilities": {
+          "combat": 0.01200000000000001,
+          "menu": 0.01200000000000001,
+          "map": 0.01200000000000001,
+          "rewards": 0.94,
+          "other": 0.01200000000000001,
+          "uncertain": 0.01200000000000001
+        },
+        "confidence": 0.9279999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_2": {
+        "type": "choice",
+        "choice": "map",
+        "probabilities": {
+          "combat": 0.01200000000000001,
+          "menu": 0.01200000000000001,
+          "map": 0.94,
+          "rewards": 0.01200000000000001,
+          "other": 0.01200000000000001,
+          "uncertain": 0.01200000000000001
+        },
+        "confidence": 0.9279999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "581a16e13e689056ff8966cdc8264fd4222bd822a6c78a439ec2bfcf8d78d226": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase_0": {
+        "type": "choice",
+        "choice": "map",
+        "probabilities": {
+          "combat": 0.010000000000000009,
+          "menu": 0.010000000000000009,
+          "map": 0.95,
+          "rewards": 0.010000000000000009,
+          "other": 0.010000000000000009,
+          "uncertain": 0.010000000000000009
+        },
+        "confidence": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_1": {
+        "type": "choice",
+        "choice": "other",
+        "probabilities": {
+          "combat": 0.010000000000000009,
+          "menu": 0.010000000000000009,
+          "map": 0.010000000000000009,
+          "rewards": 0.010000000000000009,
+          "other": 0.95,
+          "uncertain": 0.010000000000000009
+        },
+        "confidence": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_2": {
+        "type": "choice",
+        "choice": "other",
+        "probabilities": {
+          "combat": 0.010000000000000009,
+          "menu": 0.010000000000000009,
+          "map": 0.010000000000000009,
+          "rewards": 0.010000000000000009,
+          "other": 0.95,
+          "uncertain": 0.010000000000000009
+        },
+        "confidence": 0.94,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6d6f21e595d8e036f9e647fdfa0f8b7bea29f90a1b28417b3f34cc55dd0dc940": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase_0": {
+        "type": "choice",
+        "choice": "map",
+        "probabilities": {
+          "combat": 0.017999999999999995,
+          "menu": 0.017999999999999995,
+          "map": 0.91,
+          "rewards": 0.017999999999999995,
+          "other": 0.017999999999999995,
+          "uncertain": 0.017999999999999995
+        },
+        "confidence": 0.892,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_1": {
+        "type": "choice",
+        "choice": "map",
+        "probabilities": {
+          "combat": 0.017999999999999995,
+          "menu": 0.017999999999999995,
+          "map": 0.91,
+          "rewards": 0.017999999999999995,
+          "other": 0.017999999999999995,
+          "uncertain": 0.017999999999999995
+        },
+        "confidence": 0.892,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_2": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.91,
+          "menu": 0.017999999999999995,
+          "map": 0.017999999999999995,
+          "rewards": 0.017999999999999995,
+          "other": 0.017999999999999995,
+          "uncertain": 0.017999999999999995
+        },
+        "confidence": 0.892,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "83b6eb74c268c6bb0c7c62c4fe26a297feb39b776a9c5b1534ef32939cfae642": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase_0": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.9,
+          "menu": 0.019999999999999997,
+          "map": 0.019999999999999997,
+          "rewards": 0.019999999999999997,
+          "other": 0.019999999999999997,
+          "uncertain": 0.019999999999999997
+        },
+        "confidence": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_1": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.9,
+          "menu": 0.019999999999999997,
+          "map": 0.019999999999999997,
+          "rewards": 0.019999999999999997,
+          "other": 0.019999999999999997,
+          "uncertain": 0.019999999999999997
+        },
+        "confidence": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_2": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.9,
+          "menu": 0.019999999999999997,
+          "map": 0.019999999999999997,
+          "rewards": 0.019999999999999997,
+          "other": 0.019999999999999997,
+          "uncertain": 0.019999999999999997
+        },
+        "confidence": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9365f08efbddac9a4d00eeb98382ddba79faada5f68964b858424c3d66cdbf40": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase_0": {
+        "type": "choice",
+        "choice": "menu",
+        "probabilities": {
+          "combat": 0.01200000000000001,
+          "menu": 0.94,
+          "map": 0.01200000000000001,
+          "rewards": 0.01200000000000001,
+          "other": 0.01200000000000001,
+          "uncertain": 0.01200000000000001
+        },
+        "confidence": 0.9279999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_1": {
+        "type": "choice",
+        "choice": "map",
+        "probabilities": {
+          "combat": 0.01200000000000001,
+          "menu": 0.01200000000000001,
+          "map": 0.94,
+          "rewards": 0.01200000000000001,
+          "other": 0.01200000000000001,
+          "uncertain": 0.01200000000000001
+        },
+        "confidence": 0.9279999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_2": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.94,
+          "menu": 0.01200000000000001,
+          "map": 0.01200000000000001,
+          "rewards": 0.01200000000000001,
+          "other": 0.01200000000000001,
+          "uncertain": 0.01200000000000001
+        },
+        "confidence": 0.9279999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b458525b4a8d9d5ca3ae7b31305cb0e5ec061092c524463c8207d700acd3ae32": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase_0": {
+        "type": "choice",
+        "choice": "rewards",
+        "probabilities": {
+          "combat": 0.01200000000000001,
+          "menu": 0.01200000000000001,
+          "map": 0.01200000000000001,
+          "rewards": 0.94,
+          "other": 0.01200000000000001,
+          "uncertain": 0.01200000000000001
+        },
+        "confidence": 0.9279999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_1": {
+        "type": "choice",
+        "choice": "rewards",
+        "probabilities": {
+          "combat": 0.01200000000000001,
+          "menu": 0.01200000000000001,
+          "map": 0.01200000000000001,
+          "rewards": 0.94,
+          "other": 0.01200000000000001,
+          "uncertain": 0.01200000000000001
+        },
+        "confidence": 0.9279999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_2": {
+        "type": "choice",
+        "choice": "map",
+        "probabilities": {
+          "combat": 0.01200000000000001,
+          "menu": 0.01200000000000001,
+          "map": 0.94,
+          "rewards": 0.01200000000000001,
+          "other": 0.01200000000000001,
+          "uncertain": 0.01200000000000001
+        },
+        "confidence": 0.9279999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b4e7c8defa80e4e2a69cc6322fb883d3c2953ed32cc8bc6fc3fa046016d39736": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase_0": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.42,
+          "menu": 0.11600000000000002,
+          "map": 0.11600000000000002,
+          "rewards": 0.11600000000000002,
+          "other": 0.11600000000000002,
+          "uncertain": 0.11600000000000002
+        },
+        "confidence": 0.30399999999999994,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_1": {
+        "type": "choice",
+        "choice": "uncertain",
+        "probabilities": {
+          "combat": 0.11600000000000002,
+          "menu": 0.11600000000000002,
+          "map": 0.11600000000000002,
+          "rewards": 0.11600000000000002,
+          "other": 0.11600000000000002,
+          "uncertain": 0.42
+        },
+        "confidence": 0.30399999999999994,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_2": {
+        "type": "choice",
+        "choice": "rewards",
+        "probabilities": {
+          "combat": 0.11600000000000002,
+          "menu": 0.11600000000000002,
+          "map": 0.11600000000000002,
+          "rewards": 0.42,
+          "other": 0.11600000000000002,
+          "uncertain": 0.11600000000000002
+        },
+        "confidence": 0.30399999999999994,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c6e46fc6c99d6346402ed8b0143a3441ec7ae6cf2410d35bb6deb0cbea5edef7": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase_0": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.58,
+          "menu": 0.084,
+          "map": 0.084,
+          "rewards": 0.084,
+          "other": 0.084,
+          "uncertain": 0.084
+        },
+        "confidence": 0.496,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_1": {
+        "type": "choice",
+        "choice": "menu",
+        "probabilities": {
+          "combat": 0.084,
+          "menu": 0.58,
+          "map": 0.084,
+          "rewards": 0.084,
+          "other": 0.084,
+          "uncertain": 0.084
+        },
+        "confidence": 0.496,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_2": {
+        "type": "choice",
+        "choice": "menu",
+        "probabilities": {
+          "combat": 0.084,
+          "menu": 0.58,
+          "map": 0.084,
+          "rewards": 0.084,
+          "other": 0.084,
+          "uncertain": 0.084
+        },
+        "confidence": 0.496,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "d269233b246b23675e62f77aaf80c5947792399a6f3e944dafe75bca502b06fc": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase_0": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.48,
+          "menu": 0.10400000000000001,
+          "map": 0.10400000000000001,
+          "rewards": 0.10400000000000001,
+          "other": 0.10400000000000001,
+          "uncertain": 0.10400000000000001
+        },
+        "confidence": 0.376,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_1": {
+        "type": "choice",
+        "choice": "uncertain",
+        "probabilities": {
+          "combat": 0.10400000000000001,
+          "menu": 0.10400000000000001,
+          "map": 0.10400000000000001,
+          "rewards": 0.10400000000000001,
+          "other": 0.10400000000000001,
+          "uncertain": 0.48
+        },
+        "confidence": 0.376,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_2": {
+        "type": "choice",
+        "choice": "rewards",
+        "probabilities": {
+          "combat": 0.10400000000000001,
+          "menu": 0.10400000000000001,
+          "map": 0.10400000000000001,
+          "rewards": 0.48,
+          "other": 0.10400000000000001,
+          "uncertain": 0.10400000000000001
+        },
+        "confidence": 0.376,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "dc21c67aebe017f21b3b845312af1a544d4258dfc3650f06e107beaf07acda19": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase_0": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.9,
+          "menu": 0.019999999999999997,
+          "map": 0.019999999999999997,
+          "rewards": 0.019999999999999997,
+          "other": 0.019999999999999997,
+          "uncertain": 0.019999999999999997
+        },
+        "confidence": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_1": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.9,
+          "menu": 0.019999999999999997,
+          "map": 0.019999999999999997,
+          "rewards": 0.019999999999999997,
+          "other": 0.019999999999999997,
+          "uncertain": 0.019999999999999997
+        },
+        "confidence": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_2": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.9,
+          "menu": 0.019999999999999997,
+          "map": 0.019999999999999997,
+          "rewards": 0.019999999999999997,
+          "other": 0.019999999999999997,
+          "uncertain": 0.019999999999999997
+        },
+        "confidence": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e1036e2f56adfb6ee11975b11d4d4c38967f83e491063c42096ce237d08ec28d": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase_0": {
+        "type": "choice",
+        "choice": "menu",
+        "probabilities": {
+          "combat": 0.019999999999999997,
+          "menu": 0.9,
+          "map": 0.019999999999999997,
+          "rewards": 0.019999999999999997,
+          "other": 0.019999999999999997,
+          "uncertain": 0.019999999999999997
+        },
+        "confidence": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_1": {
+        "type": "choice",
+        "choice": "menu",
+        "probabilities": {
+          "combat": 0.019999999999999997,
+          "menu": 0.9,
+          "map": 0.019999999999999997,
+          "rewards": 0.019999999999999997,
+          "other": 0.019999999999999997,
+          "uncertain": 0.019999999999999997
+        },
+        "confidence": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_2": {
+        "type": "choice",
+        "choice": "map",
+        "probabilities": {
+          "combat": 0.019999999999999997,
+          "menu": 0.019999999999999997,
+          "map": 0.9,
+          "rewards": 0.019999999999999997,
+          "other": 0.019999999999999997,
+          "uncertain": 0.019999999999999997
+        },
+        "confidence": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f680f7808f073fb2b2b1a5a7026bc836efb276425be9120ce34f3408ea9835de": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase_0": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.6,
+          "menu": 0.08,
+          "map": 0.08,
+          "rewards": 0.08,
+          "other": 0.08,
+          "uncertain": 0.08
+        },
+        "confidence": 0.52,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_1": {
+        "type": "choice",
+        "choice": "uncertain",
+        "probabilities": {
+          "combat": 0.08,
+          "menu": 0.08,
+          "map": 0.08,
+          "rewards": 0.08,
+          "other": 0.08,
+          "uncertain": 0.6
+        },
+        "confidence": 0.52,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_2": {
+        "type": "choice",
+        "choice": "rewards",
+        "probabilities": {
+          "combat": 0.08,
+          "menu": 0.08,
+          "map": 0.08,
+          "rewards": 0.6,
+          "other": 0.08,
+          "uncertain": 0.08
+        },
+        "confidence": 0.52,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f9d981b42211fe739b9e7aeb3cd27dd1bd2ab7005c2e42bea2901891b5944e37": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase_0": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.96,
+          "menu": 0.008000000000000007,
+          "map": 0.008000000000000007,
+          "rewards": 0.008000000000000007,
+          "other": 0.008000000000000007,
+          "uncertain": 0.008000000000000007
+        },
+        "confidence": 0.952,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_1": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.96,
+          "menu": 0.008000000000000007,
+          "map": 0.008000000000000007,
+          "rewards": 0.008000000000000007,
+          "other": 0.008000000000000007,
+          "uncertain": 0.008000000000000007
+        },
+        "confidence": 0.952,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_2": {
+        "type": "choice",
+        "choice": "rewards",
+        "probabilities": {
+          "combat": 0.008000000000000007,
+          "menu": 0.008000000000000007,
+          "map": 0.008000000000000007,
+          "rewards": 0.96,
+          "other": 0.008000000000000007,
+          "uncertain": 0.008000000000000007
+        },
+        "confidence": 0.952,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "faea81cd8f8525295dfac296b8dff0f1cd9c54f4becd64992f68f89f5dd6627a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase_0": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.97,
+          "menu": 0.006000000000000005,
+          "map": 0.006000000000000005,
+          "rewards": 0.006000000000000005,
+          "other": 0.006000000000000005,
+          "uncertain": 0.006000000000000005
+        },
+        "confidence": 0.964,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_1": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.97,
+          "menu": 0.006000000000000005,
+          "map": 0.006000000000000005,
+          "rewards": 0.006000000000000005,
+          "other": 0.006000000000000005,
+          "uncertain": 0.006000000000000005
+        },
+        "confidence": 0.964,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_2": {
+        "type": "choice",
+        "choice": "menu",
+        "probabilities": {
+          "combat": 0.006000000000000005,
+          "menu": 0.97,
+          "map": 0.006000000000000005,
+          "rewards": 0.006000000000000005,
+          "other": 0.006000000000000005,
+          "uncertain": 0.006000000000000005
+        },
+        "confidence": 0.964,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ff23258558215e4dc8b485112234a213e17ca8c405cc39dc5654a94b869e5bd5": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "phase_0": {
+        "type": "choice",
+        "choice": "map",
+        "probabilities": {
+          "combat": 0.015999999999999993,
+          "menu": 0.015999999999999993,
+          "map": 0.92,
+          "rewards": 0.015999999999999993,
+          "other": 0.015999999999999993,
+          "uncertain": 0.015999999999999993
+        },
+        "confidence": 0.904,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_1": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.92,
+          "menu": 0.015999999999999993,
+          "map": 0.015999999999999993,
+          "rewards": 0.015999999999999993,
+          "other": 0.015999999999999993,
+          "uncertain": 0.015999999999999993
+        },
+        "confidence": 0.904,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "phase_2": {
+        "type": "choice",
+        "choice": "combat",
+        "probabilities": {
+          "combat": 0.92,
+          "menu": 0.015999999999999993,
+          "map": 0.015999999999999993,
+          "rewards": 0.015999999999999993,
+          "other": 0.015999999999999993,
+          "uncertain": 0.015999999999999993
+        },
+        "confidence": 0.904,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
