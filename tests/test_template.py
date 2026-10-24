@@ -34,8 +34,36 @@ def load_tool(name):
     return module
 
 
+def _load_request_audit():
+    """``tests/request_audit.py``, loaded by file path like ``tests/test_recipe_guard.py``'s own
+    ``_load_request_audit``: the module the recipe guard's budget-note check calls, so the test
+    below runs the guard's real rules rather than a reimplementation of them."""
+    spec = importlib.util.spec_from_file_location(
+        "request_audit_for_template_test", Path(__file__).with_name("request_audit.py")
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_request_audit = _load_request_audit()
+
+
 def source(cell):
     return "".join(cell["source"])
+
+
+def test_the_template_declaration_audit_and_readme_agree():
+    """Issue #368: the template carries the live request count in three places -- the declaration
+    in ``request_budget.json``, the audited ledger the notebook's final code cell committed, and
+    the paragraph rendered into the README's ``## Switch to live`` section -- and they must agree.
+    ``audit_recipe`` is the function the recipe guard's ``readme_budget_note_matches_request_audit``
+    check loads for every published recipe; ``recipes/_template`` is not a catalog slug, so the
+    guard does not reach it and this test is where the template's own three are compared. It
+    returns the declared total, 22, which pins the count as well as the agreement: a declaration
+    that no longer matches the ledger, or a README paragraph edited by hand instead of rendered,
+    fails here."""
+    assert _request_audit.audit_recipe(TEMPLATE, NOTEBOOK["cells"]) == 22
 
 
 def test_the_template_fixtures_validate():

@@ -403,7 +403,8 @@ def _fill_minimal_scaffold(folder):
     )
 
 
-def test_a_fresh_scaffold_passes_the_request_audit_with_no_hand_edit(catalog, recipes):
+@pytest.mark.parametrize("mode", new_recipe.MODES)
+def test_a_fresh_scaffold_passes_the_request_audit_with_no_hand_edit(catalog, recipes, mode):
     """Issue #368 acceptance criterion 1: a freshly scaffolded recipe passes the audited
     request-count route with no hand-edit to the plumbing ``tools/new_recipe.py`` writes --
     ``request_budget.json``, the ``AuditedBackend`` wrapping in the setup cell, the final
@@ -415,10 +416,14 @@ def test_a_fresh_scaffold_passes_the_request_audit_with_no_hand_edit(catalog, re
     makes. This calls ``tests/request_audit.py``'s real ``audit_recipe``, the same function the
     recipe guard's ``readme_budget_note_matches_request_audit`` check loads, not a
     reimplementation of its rules."""
-    _, recipe = entry(catalog, 1)
-    run(1, catalog, recipes)
-    folder = recipes / recipe["slug"]
-    _fill_minimal_scaffold(folder)
+    if mode == "scripted":
+        folder = scaffold_scripted(catalog, recipes, number=1)
+        subprocess.run([sys.executable, str(folder / "build_fixtures.py")], check=True)
+    else:
+        _, recipe = entry(catalog, 1)
+        run(1, catalog, recipes, mode=mode)
+        folder = recipes / recipe["slug"]
+        _fill_minimal_scaffold(folder)
     assert execute_notebook.main([str(folder)]) == 0
 
     cells = json.loads((folder / "notebook.ipynb").read_text("utf-8"))["cells"]

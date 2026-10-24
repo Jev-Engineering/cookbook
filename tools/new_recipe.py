@@ -186,8 +186,7 @@ def notebook_cells(catalog: dict, recipe: dict, mode: str = "replay") -> list[di
         # Wrapped to fit pyproject.toml's line-length = 100: unwrapped, this line is 128
         # characters and `ruff format --check` (which also lints notebooks, extend-include =
         # ["*.ipynb"]) would reformat it on a freshly scaffolded recipe, failing both the
-        # documented local check and the required Lint (ruff) CI job with no hand-edit (#375
-        # fix round, item 1).
+        # documented local check and the required Lint (ruff) CI job with no hand-edit.
         backend_line = (
             "backend = AuditedBackend(\n"
             '    get_backend(script=helpers.script, seed=helpers.SEED), label="main"\n'
@@ -440,16 +439,18 @@ of this repository), or record answers with the recorder described in
 [docs/live.md](../../docs/live.md). `tools/execute_notebook.py` removes those variables on purpose
 and always runs offline.
 
-{request_budget_note(1).rstrip()}
+{request_budget_note(json.loads(request_budget_text(mode))["backends"]["main"]["requests"]).rstrip()}
 
 {TODO_MARK}: this paragraph is generated from `request_budget.json`, next to this notebook, by
 `jev_cookbook.accounting.render_recipe_note`; never edit it by hand. As you add `decide()` calls
 while you write Evaluation, update `request_budget.json`'s declared count to match (and its
 `distinct` or `at_most` if some requests repeat on purpose or the count depends on an answer).
 Then regenerate this block with `python -c "from jev_cookbook.accounting import
-render_recipe_note as r; print(r('recipes/{slug}'), end='')"` and paste its output here before
-you finish. The recipe guard compares the declaration, the notebook's audited execution and this
-paragraph against each other. Never put a key in a notebook or a fixture.
+render_recipe_note as r; print(r('recipes/{slug}'), end='')"`.
+Its output already carries both marker comments, so replace the whole block, those two lines
+included, with it before you finish. The recipe guard compares the declaration, the notebook's
+audited execution and this paragraph against each other. Never put a key in a notebook or a
+fixture.
 
 ## What was and was not measured
 
