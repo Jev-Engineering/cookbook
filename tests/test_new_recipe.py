@@ -17,7 +17,9 @@ import nbformat
 import pytest
 from nbclient.exceptions import DeadKernelError
 
+import jev_cookbook
 from jev_cookbook import DecisionResult, Provenance, dump_responses, load_helpers, replay_key
+from jev_cookbook.accounting import parse_budget, render_budget_note
 from jev_cookbook.answers import ChoiceAnswer
 from jev_cookbook.fixtures import validate_recipe
 
@@ -53,6 +55,12 @@ port_collisions = load_module_at(
 
 executor_budget = load_module_at(
     Path(__file__).with_name("executor_budget.py"), "executor_budget_for_test"
+)
+# tests/test_recipe_guard.py's own _backend_budget_verdict, loaded by file path (an import, not an
+# edit) so test_a_fresh_scaffold_also_passes_the_one_backend_per_budget_guard below calls the real
+# guard rather than a local reimplementation of its rules.
+recipe_guard = load_module_at(
+    Path(__file__).with_name("test_recipe_guard.py"), "test_recipe_guard_for_test"
 )
 
 # The timeout of the subprocess tests below, so that a hang is a failure rather than a stalled
@@ -413,46 +421,17 @@ def test_a_fresh_scaffold_passes_the_request_audit_with_no_hand_edit(catalog, re
 
 def test_a_fresh_scaffold_also_passes_the_one_backend_per_budget_guard(catalog, recipes):
     """The companion #213 guard check (``one_backend_per_budget`` in
-    ``tests/test_recipe_guard.py``): a scaffold builds no more ``get_backend`` call sites, in the
-    notebook plus ``helpers.py``, than it has audited backends. The scaffold's one
-    ``AuditedBackend(get_backend(...), label="main")`` in the setup cell is the only site either
-    way, so this is already satisfied with no hand-edit, counted the same way the guard counts
-    it (every ``get_backend``/``AuditedBackend`` name, attribute, alias or string literal)."""
+    ``tests/test_recipe_guard.py``): a scaffold builds no more ``get_backend`` call sites, across
+    the notebook and ``helpers.py``, than it has audited backends, and does not build any backend
+    in ``helpers.py`` at all. This calls the guard's own real ``_backend_budget_verdict`` (``import
+    load_module_at(...) from tests/test_recipe_guard.py`` above, not a local reimplementation of
+    its rules), so it sees both of the guard's rules -- the site-count ceiling and "an audited
+    recipe builds its backends in the notebook, not in helpers.py" -- not only the first."""
     _, recipe = entry(catalog, 7)
     run(7, catalog, recipes)
     folder = recipes / recipe["slug"]
-    notebook = json.loads((folder / "notebook.ipynb").read_text("utf-8"))
-    sources = [
-        "".join(c["source"]) if isinstance(c["source"], list) else c["source"]
-        for c in notebook["cells"]
-        if c["cell_type"] == "code"
-    ]
-
-    def sites(name):
-        import ast
-
-        names = {name}
-        trees = [ast.parse(s) for s in sources]
-        for tree in trees:
-            for node in ast.walk(tree):
-                if isinstance(node, ast.ImportFrom):
-                    names.update(a.asname for a in node.names if a.name == name and a.asname)
-        count = 0
-        for tree in trees:
-            for node in ast.walk(tree):
-                count += isinstance(node, ast.Name) and node.id in names
-                count += isinstance(node, ast.Attribute) and node.attr == name
-                count += isinstance(node, ast.Constant) and node.value == name
-        return count
-
-    audited = sites("AuditedBackend")
-    get_backend_sites = sites("get_backend")
-    assert audited == 1, "the scaffold's setup cell should wrap exactly one AuditedBackend"
-    assert get_backend_sites <= (audited or 1), (
-        get_backend_sites,
-        audited,
-        "a scaffold with more get_backend sites than audited backends would fail the guard",
-    )
+    status, message = recipe_guard._backend_budget_verdict(folder)
+    assert (status, message) == ("pass", ""), (status, message)
 
 
 SCRIPTED_HELPERS = """
@@ -1552,8 +1531,28 @@ def test_the_scaffold_readme_live_section_states_the_budget_and_env_var(catalog,
     readme = (recipes / recipe["slug"] / "README.md").read_text("utf-8")
     section = readme.split("## Switch to live")[1].split("## What was and was not measured")[0]
     assert "JEV_COOKBOOK_LIVE_MAX_REQUESTS" in section
-    assert "25" in section
+    # Pinned against the installed package's constant (F1), not a third hand-written "25": see
+    # test_the_local_budget_renderer_and_default_cap_agree_byte_for_byte_with_the_shared_package.
+    assert str(jev_cookbook.live.DEFAULT_MAX_REQUESTS) in section
     assert "TODO" in section
+
+
+@pytest.mark.parametrize("mode", new_recipe.MODES)
+def test_the_local_budget_renderer_and_default_cap_agree_byte_for_byte_with_the_shared_package(
+    mode,
+):
+    """F1 (#375 fix round): the direct pin the three ``tools/new_recipe.py`` comments (above
+    ``request_budget_text``, above ``DEFAULT_MAX_REQUESTS`` and in ``request_budget_note``'s own
+    docstring) claim exists. Before this test, the agreement was only indirect, via
+    ``test_a_fresh_scaffold_passes_the_request_audit_with_no_hand_edit`` executing a scaffold and
+    running the real ``audit_recipe``, whose ``check_readme_note`` happens to re-render the same
+    paragraph; that test can still fail for reasons unrelated to the two comparisons below (a
+    kernel problem, a fixtures mismatch). This test calls the shared package's own
+    ``parse_budget``/``render_budget_note`` and ``DEFAULT_MAX_REQUESTS`` directly, so a drift in
+    either copy fails here with nothing else involved."""
+    declared = json.loads(new_recipe.request_budget_text(mode))
+    assert new_recipe.request_budget_note(1) == render_budget_note(parse_budget(declared))
+    assert new_recipe.DEFAULT_MAX_REQUESTS == jev_cookbook.live.DEFAULT_MAX_REQUESTS
 
 
 MINIMAL_REPLAY_HELPERS = """

@@ -70,13 +70,15 @@ MODES = ("replay", "scripted")  # --mode; replay is the default and the one most
 # jev_cookbook.accounting.render_budget_note -- never hand-typed. This tool stays standard-library
 # only (see the module docstring), so request_budget_note below reproduces that renderer's exact
 # output for the one shape a fresh scaffold ever declares (a single backend, no declared repeats,
-# no at_most beyond requests) rather than importing jev_cookbook; tests/test_new_recipe.py proves
-# the two agree, byte for byte, so this cannot silently drift from the shared renderer.
+# no at_most beyond requests) rather than importing jev_cookbook;
+# tests/test_new_recipe.py::test_the_local_budget_renderer_and_default_cap_agree_byte_for_byte_with_the_shared_package
+# calls the real jev_cookbook.accounting.render_budget_note directly and proves the two agree,
+# byte for byte, so this cannot silently drift from the shared renderer.
 BUDGET_FILE = "request_budget.json"
 NOTE_BEGIN = "<!-- request-budget:begin -->"
 NOTE_END = "<!-- request-budget:end -->"
-# jev_cookbook.live.DEFAULT_MAX_REQUESTS; tests/test_new_recipe.py pins this against the installed
-# package so a change there cannot silently leave this copy stale.
+# jev_cookbook.live.DEFAULT_MAX_REQUESTS; the same test named above pins this against the
+# installed package so a change there cannot silently leave this copy stale.
 DEFAULT_MAX_REQUESTS = 25
 
 
@@ -98,9 +100,11 @@ def request_budget_note(requests: int) -> str:
     """The rendered ``## Switch to live`` paragraph, markers included, for a declaration of
     exactly ``requests`` on a single backend with no declared repeats and no ``at_most`` beyond
     ``requests`` -- the one shape ``request_budget_text`` ever declares at scaffold time. Byte for
-    byte what ``jev_cookbook.accounting.render_budget_note`` returns for that shape (pinned by
-    ``tests/test_new_recipe.py``); kept here rather than imported, so this standard-library-only
-    tool does not need the installed package to generate a recipe skeleton."""
+    byte what ``jev_cookbook.accounting.render_budget_note`` returns for that shape (pinned, by a
+    direct call to the real renderer, in
+    ``tests/test_new_recipe.py::test_the_local_budget_renderer_and_default_cap_agree_byte_for_byte_with_the_shared_package``);
+    kept here rather than imported, so this standard-library-only tool does not need the
+    installed package to generate a recipe skeleton."""
     return (
         f"{NOTE_BEGIN}\n"
         f"In live mode this notebook makes exactly **{requests}** requests, each decided once. "
