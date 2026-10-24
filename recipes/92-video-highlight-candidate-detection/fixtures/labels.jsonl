@@ -1,0 +1,24 @@
+{"id": "v01", "label": {"event": "candidate", "signal": "reaction", "event_interval": [0.95, 2.05], "annotation": "Both hands move above shoulders and stay there."}}
+{"id": "v02", "label": {"event": "candidate", "signal": "victory", "event_interval": [4.95, 6.05], "annotation": "A trophy and VICTORY card persist over the game."}}
+{"id": "v03", "label": {"event": "candidate", "signal": "scene_change", "event_interval": [8.95, 10.05], "annotation": "The desk room is replaced by an outdoor stage."}}
+{"id": "v04", "label": {"event": "none_suitable", "signal": null, "event_interval": null, "annotation": "The seated person stays at the desk with arms down."}}
+{"id": "v05", "label": {"event": "none_suitable", "signal": null, "event_interval": null, "annotation": "Both arms are already raised throughout; no new transition occurs."}}
+{"id": "v06", "label": {"event": "none_suitable", "signal": null, "event_interval": null, "annotation": "A reverse angle retains the same person, desk and room."}}
+{"id": "v07", "label": {"event": "none_suitable", "signal": null, "event_interval": null, "annotation": "One exposure flash returns to the original room."}}
+{"id": "v08", "label": {"event": "none_suitable", "signal": null, "event_interval": null, "annotation": "A foreground panel prevents verifying a sustained posture."}}
+{"id": "v09", "label": {"event": "none_suitable", "signal": null, "event_interval": null, "annotation": "Both arms rise in the middle sample only, then drop."}}
+{"id": "v10", "label": {"event": "none_suitable", "signal": null, "event_interval": null, "annotation": "The trophy advert says SHOP; it is not a victory result."}}
+{"id": "v11", "label": {"event": "candidate", "signal": "reaction", "event_interval": [40.95, 42.05], "annotation": "Both raised arms persist with a lower seated posture."}}
+{"id": "v12", "label": {"event": "none_suitable", "signal": null, "event_interval": null, "annotation": "The victory card is already visible at the start; no new result appears."}}
+{"id": "t01", "label": {"event": "candidate", "signal": "reaction", "event_interval": [48.95, 50.05], "annotation": "Both hands stay above shoulder height after rising."}}
+{"id": "t02", "label": {"event": "candidate", "signal": "victory", "event_interval": [52.95, 54.05], "annotation": "A new trophy and VICTORY card persist."}}
+{"id": "t03", "label": {"event": "candidate", "signal": "scene_change", "event_interval": [56.95, 58.05], "annotation": "A persistent outdoor stage replaces the room."}}
+{"id": "t04", "label": {"event": "none_suitable", "signal": null, "event_interval": null, "annotation": "Arms and desk display remain unchanged."}}
+{"id": "t05", "label": {"event": "none_suitable", "signal": null, "event_interval": null, "annotation": "A camera cut shows the same room and desk from the other side."}}
+{"id": "t06", "label": {"event": "none_suitable", "signal": null, "event_interval": null, "annotation": "A bright middle frame is a flash, not a persistent reveal."}}
+{"id": "t07", "label": {"event": "none_suitable", "signal": null, "event_interval": null, "annotation": "A passing panel hides the arms; the signal cannot be established."}}
+{"id": "t08", "label": {"event": "none_suitable", "signal": null, "event_interval": null, "annotation": "The result card appears in one sample only."}}
+{"id": "t09", "label": {"event": "none_suitable", "signal": null, "event_interval": null, "annotation": "A trophy SHOP advertisement is not a game result."}}
+{"id": "t10", "label": {"event": "none_suitable", "signal": null, "event_interval": null, "annotation": "Only one hand rises; the two-arm transition is absent."}}
+{"id": "t11", "label": {"event": "candidate", "signal": "reaction", "event_interval": [88.95, 90.05], "annotation": "Both arms remain raised in the final two sampled frames."}}
+{"id": "t12", "label": {"event": "none_suitable", "signal": null, "event_interval": null, "annotation": "PAUSED is an ordinary game overlay, without a trophy."}}
