@@ -991,7 +991,9 @@ def test_report_mixed_outcomes_by_hand():
         "hit_rate": 5,
         "false_positive_rate": 4,
         "correct_absent_rate": 4,
+        "review_rate": 9,
     }
+    assert (report.n_review, report.review_rate) == (2, pytest.approx(2 / 9))
 
 
 def test_report_all_absent_has_no_iou_and_no_invented_zero():
@@ -1039,6 +1041,7 @@ def test_report_all_review_keeps_every_example_in_the_denominator():
     assert (report.correct_absents, report.false_positives, report.present_missed) == (0, 0, 0)
     assert report.correct_absent_rate == 0.0
     assert report.false_positive_rate == 0.0
+    assert (report.n_review, report.review_rate) == (3, 1.0)
 
 
 def test_a_reviewed_present_target_changes_the_denominator_instead_of_vanishing():
@@ -1138,6 +1141,8 @@ def test_report_prints_every_denominator_for_the_documented_example():
         "sent to review 1",
         "  false positive rate: 1/3 = 0.3333 (denominator 3: all absent targets)",
         "  correct absent rate: 1/3 = 0.3333 (denominator 3: all absent targets)",
+        "Sent to review (present and absent targets together): "
+        "2/7 = 0.2857 (denominator 7: all examples)",
     ]
 
 

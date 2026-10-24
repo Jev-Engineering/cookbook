@@ -126,10 +126,24 @@ recipes do not invent ten formats. An object with a boolean `present`:
 The validator treats a label that is an object with a `present` key as a Box label: that is
 how a recipe declares the format, so `present` is reserved at the top level of a label object.
 Every such label must pass `gold_box`, and once any label in the file is a Box label, a label
-that is not (a bare box, a string) is an error. A recipe whose label holds a Box label among
-other values nests it under its own key (for example `{"tile": "b3", "target": {"present":
-false}}`) and calls `gold_box(label["target"])` in its own test; the validator does not look
-inside other labels.
+that is not (a bare box, a string) is an error. A failing label says that `present` is
+reserved for Box labels; a non-Box recipe whose label needs a `present` field renames it.
+
+The validator recognises a Box label only by that top-level `present` key. It does not look
+inside other labels, and a Box recipe that never uses `present` is not checked by the
+validator at all: the format is then enforced when `gold_box` or `localization_report` runs
+(each raises with the example index). A recipe whose label holds a Box label among other
+values nests it under its own key, for example `{"target": {"present": true, "box": {...}},
+"rubric": 3}`, and must have its own test that runs `gold_box(label["target"])` on **every**
+split of its labels, including splits the report never scores such as `train`, since nothing
+else checks them.
+
+A tiled recipe (rank 83) stores only the full-image Box label of the target, `{"present":
+false}` when the target is not in the image. It never stores a tile label next to the box,
+which could disagree with it and cannot be one value when overlapping tiles both contain the
+target. Python derives which tiles are correct from the box and the tile bounds, and maps the
+final rectangle back with `tile_to_image`; see [vision](vision.md#the-localization-report) for
+the headline and diagnostic reports of a tiled recipe, and for ambiguous targets.
 
 ## Nesting limit
 

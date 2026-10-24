@@ -191,7 +191,9 @@ false positive, never an IoU. A review is never an absent prediction. The report
 - `hit_rate`: located present targets with IoU at or above `iou_threshold` (default 0.5),
   over `n_present`;
 - `false_positives` and `false_positive_rate` (over `n_absent`), `correct_absents` and
-  `correct_absent_rate` (over `n_absent`), `absent_review`.
+  `correct_absent_rate` (over `n_absent`), `absent_review`;
+- `n_review` and `review_rate`: reviews on both sides over `n_total`. Quote this one number for
+  "how often did it go to review", so the denominator is the same in every Box README.
 
 A mean or rate whose denominator is zero is NaN (and prints `n/a`), never 0. `str(report)`
 names every denominator, and `report.denominators` returns them by metric name.
@@ -233,6 +235,7 @@ Present targets (n = 4): box returned 2, said absent (missed) 1, sent to review 
 Absent targets (n = 3): box returned (false positive) 1, correct absent 1, sent to review 1
   false positive rate: 1/3 = 0.3333 (denominator 3: all absent targets)
   correct absent rate: 1/3 = 0.3333 (denominator 3: all absent targets)
+Sent to review (present and absent targets together): 2/7 = 0.2857 (denominator 7: all examples)
 ```
 
 `tests/test_vision.py` runs this example and compares the printed text. Malformed gold,
@@ -240,6 +243,28 @@ an unknown outcome kind, a `located` outcome without a valid box, a box attached
 or `review`, empty or unequal-length inputs and an `iou_threshold` outside (0, 1] raise
 `ValueError` naming the example index. Choose `iou_threshold` and the presence policy on
 validation examples and freeze them before scoring the test split.
+
+**Tiled and hierarchical recipes.** The headline report is per image: one example is one
+full image, gold is that image's full-image Box label, and the outcome's rectangle is the
+final one after `tile_to_image` has mapped it back to the full image. A stage-1 "no match"
+(or any tile search that ends without a rectangle) is `("absent", None)`: on present gold it
+is a miss. An uncertain tile choice is `("review", None)`. A per-tile report, whose gold is
+derived tile by tile, is a stage diagnostic only: label it as counting tiles, because its
+`n_total` is tiles and its correct-absent rate mostly measures empty tiles, which would
+flatter the result if quoted as the recipe's number. A per-tile report must state its rule
+for a target cut by a tile edge, for example: a tile's gold is present when at least a stated
+fraction (say 0.5) of the full-image box's area lies inside the tile, with the clipped box
+renormalized to the tile, and absent otherwise. Several overlapping tiles can therefore be
+correct for one target, so the set of correct tiles is derived in Python from the full-image
+label and the tile bounds, never stored as a label.
+
+**Ambiguous targets.** The question's criteria must pick out one rectangle, and the label is
+that rectangle. When a screenshot has two identical "Delete" buttons, either narrow the
+question until one matches, or label the example so that the target is absent for that
+question. The format has no gold meaning "review is the right answer": a correct review on
+an ambiguous example counts as 0 in `mean_iou_present` and as a miss in `hit_rate`, which is
+the honest cost of abstaining. Report the abstention view with `evaluate_outcomes` on the
+presence question, and `review_rate` from the report.
 
 ### The older `localization_metrics`
 

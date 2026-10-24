@@ -577,7 +577,10 @@ def _check_box_labels(
                 gold_box(label)
                 continue
             except ValueError as exc:
-                msg = f"malformed Box label: {exc}"
+                msg = (
+                    f"malformed Box label: {exc} (a top-level 'present' key is reserved for "
+                    "Box labels; rename it if this label is not one)"
+                )
         problems.append(Problem(name, msg, label_lines[ident], ident))
     return problems
 

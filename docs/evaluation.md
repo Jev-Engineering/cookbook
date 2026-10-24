@@ -751,6 +751,7 @@ dropped from the report.
 | mean IoU over located present targets | present targets with a returned box |
 | mean IoU over all present targets (missed and reviewed count 0) | all present targets |
 | hit rate at the IoU threshold | all present targets |
+| review rate (present and absent targets sent to review) | all examples |
 | false positive rate (a box for an absent target) | all absent targets |
 | correct absent rate | all absent targets |
 
@@ -761,6 +762,8 @@ located boxes on present targets contribute an IoU; a box returned for an absent
 false positive, because a rectangle never proves the target exists. The worked example, and
 the test that runs it, are in [vision](vision.md#the-localization-report).
 Use `evaluate_outcomes` above for the review rate of the presence question alone.
+A tiled recipe's headline report is per image, against the full-image label; a per-tile
+report is a diagnostic that counts tiles (see vision).
 
 ### Calibration
 

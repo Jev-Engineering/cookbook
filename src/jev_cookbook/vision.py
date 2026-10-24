@@ -584,7 +584,8 @@ class LocalizationReport:
     ``mean_iou_located`` averages IoU over the ``present_located`` targets only (denominator
     ``present_located``). ``mean_iou_present`` averages over all ``n_present`` with missed and
     reviewed targets counted as 0 (denominator ``n_present``). ``hit_rate`` is ``hits`` (located
-    present targets with IoU >= ``iou_threshold``) over ``n_present``. A mean or rate with an
+    present targets with IoU >= ``iou_threshold``) over ``n_present``. ``review_rate`` is
+    ``n_review`` (reviews on both sides) over ``n_total``. A mean or rate with an
     empty denominator is NaN. ``ious`` has one entry per example: the IoU of a located present
     target, otherwise ``None``. Absent gold never contributes an IoU, and a review is never
     counted as an absent prediction. ``str(report)`` names every denominator.
@@ -635,6 +636,16 @@ class LocalizationReport:
         return _rate(self.correct_absents, self.n_absent)
 
     @property
+    def n_review(self) -> int:
+        """Reviews on both sides: ``present_review + absent_review``."""
+        return self.present_review + self.absent_review
+
+    @property
+    def review_rate(self) -> float:
+        """``n_review / n_total``: every example sent to review, over all examples."""
+        return _rate(self.n_review, self.n_total)
+
+    @property
     def denominators(self) -> dict[str, int]:
         """The denominator of every mean and rate in the report, by name."""
         return {
@@ -643,6 +654,7 @@ class LocalizationReport:
             "hit_rate": self.n_present,
             "false_positive_rate": self.n_absent,
             "correct_absent_rate": self.n_absent,
+            "review_rate": self.n_total,
         }
 
     def __str__(self) -> str:
@@ -665,6 +677,8 @@ class LocalizationReport:
                 + _share(self.false_positives, self.n_absent, "all absent targets"),
                 "  correct absent rate: "
                 + _share(self.correct_absents, self.n_absent, "all absent targets"),
+                "Sent to review (present and absent targets together): "
+                + _share(self.n_review, self.n_total, "all examples"),
             ]
         )
 
