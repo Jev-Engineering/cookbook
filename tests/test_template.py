@@ -44,6 +44,38 @@ def test_the_template_fixtures_validate():
     assert report.mode == "replay"
 
 
+def _load_request_audit():
+    """``tests/request_audit.py``, loaded by file path like ``tests/test_new_recipe.py``'s own
+    ``_load_request_audit`` and ``tests/test_recipe_guard.py``'s own: the module the recipe
+    guard's budget-note check calls, so this test runs the real check against the template
+    rather than a reimplementation of its rules."""
+    spec = importlib.util.spec_from_file_location(
+        "request_audit_for_template_test", Path(__file__).with_name("request_audit.py")
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_request_audit = _load_request_audit()
+
+
+def test_the_templates_declaration_ledger_and_readme_agree():
+    """#375 fix round, item 4. recipes/_template carries the full audited triple --
+    request_budget.json's declaration, the notebook's own audited ledger (the final
+    `print(backend.audit_json())` cell) and the README's rendered `## Switch to live`
+    paragraph -- but nothing ran the real check against the template itself: the recipe
+    guard's `readme_budget_note_matches_request_audit` only ever runs for a published
+    recipe (`guarded(...)`, not `guarded_with_template(...)`), so the template's own three
+    could drift and nothing would fail. This closes that gap directly, with the same
+    `audit_recipe` function the guard's own check loads (not a reimplementation of its
+    rules), so a future drift -- the template's fixture set changes, or a `decide()` call is
+    added and the notebook re-executed -- fails here even though notebook CI stays green (the
+    ledger would still be internally consistent) and even though request_budget.json and the
+    README would still (wrongly) agree with each other at the old count."""
+    assert _request_audit.audit_recipe(TEMPLATE, NOTEBOOK["cells"]) == 22
+
+
 # Shared with test_the_readme_folder_tree_names_the_same_files below, so the documented set and
 # the README's prose tree are checked against one literal, not two that could silently disagree.
 _TEMPLATE_FILES = {

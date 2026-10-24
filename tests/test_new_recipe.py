@@ -361,49 +361,84 @@ def build_questions():
     return {"pick": Choice(instructions="Which one?", criteria={"a": "first", "b": "second"})}
 """
 
+# The scripted-mode counterpart of MINIMAL_REPLAY_HELPERS, used by the same
+# _fill_minimal_scaffold below (#375 fix round, item 6): no responses.json exists for a
+# scripted recipe, so the backend answers from this script instead of a replay fixture.
+MINIMAL_SCRIPTED_HELPERS = """
+from jev_cookbook import Choice
 
-def _fill_minimal_scaffold(folder):
+SEED = 0
+
+
+def build_state(fields):
+    return {"text": fields["text"]}
+
+
+def build_questions():
+    return {"pick": Choice(instructions="Which one?", criteria={"a": "first", "b": "second"})}
+
+
+def script(state, questions, rng):
+    return {"pick": {"a": 0.9, "b": 0.1}}
+"""
+
+
+def _fill_minimal_scaffold(folder, mode="replay"):
     """The smallest ``helpers.py`` and ``fixtures/`` the bare scaffold's own skeleton notebook
-    needs to execute: one ``demo`` example (decided once, by the ``answer`` cell -- the
-    ``python-rule`` and ``evaluation`` cells are still ``# TODO`` comments, so nothing else is
-    decided) and one ``validation`` example that is never decided, only so ``scored`` (which
-    excludes ``train``/``demo``) is non-empty for ``run_header``'s ``n_examples`` check. The one
-    key the scaffold's own skeleton actually requests is the only key written to
-    ``fixtures/responses.json``, so the exact-inventory check in ``check_against_declaration``
-    has something real to agree with (unlike copying in the template's full 22-example
-    fixtures, which the bare skeleton does not come close to exhausting)."""
+    needs to execute, in either mode: one ``demo`` example (decided once, by the ``answer``
+    cell -- the ``python-rule`` and ``evaluation`` cells are still ``# TODO`` comments, so
+    nothing else is decided) and one ``validation`` example that is never decided, only so
+    ``scored`` (which excludes ``train``/``demo``) is non-empty for ``run_header``'s
+    ``n_examples`` check. For ``--mode replay`` the one key the scaffold's own skeleton
+    actually requests is the only key written to ``fixtures/responses.json``, so the
+    exact-inventory check in ``check_against_declaration`` has something real to agree with
+    (unlike copying in the template's full 22-example fixtures, which the bare skeleton does
+    not come close to exhausting). For ``--mode scripted`` ``request_budget.json`` declares
+    ``fixtures: null``, so that inventory check does not apply, there is no
+    ``responses.json``, and the ``helpers.py`` written carries ``SEED``/``script`` instead."""
+    scripted = mode == "scripted"
     (folder / "helpers.py").write_text(
-        MINIMAL_REPLAY_HELPERS.lstrip(), encoding="utf-8", newline="\n"
+        (MINIMAL_SCRIPTED_HELPERS if scripted else MINIMAL_REPLAY_HELPERS).lstrip(),
+        encoding="utf-8",
+        newline="\n",
     )
     helpers = load_helpers(folder)
     questions = helpers.build_questions()
 
     demo_fields = {"text": "hello"}
-    demo_key = replay_key(helpers.build_state(demo_fields), questions)
     val_fields = {"text": "world"}
-    val_key = replay_key(helpers.build_state(val_fields), questions)
 
     (folder / "fixtures").mkdir(exist_ok=True)
-    inputs = [
-        {"id": "d1", "split": "demo", "fields": demo_fields, "replay_keys": [demo_key]},
-        {"id": "v1", "split": "validation", "fields": val_fields, "replay_keys": [val_key]},
-    ]
+    if scripted:
+        inputs = [
+            {"id": "d1", "split": "demo", "fields": demo_fields, "replay_keys": []},
+            {"id": "v1", "split": "validation", "fields": val_fields, "replay_keys": []},
+        ]
+    else:
+        demo_key = replay_key(helpers.build_state(demo_fields), questions)
+        val_key = replay_key(helpers.build_state(val_fields), questions)
+        inputs = [
+            {"id": "d1", "split": "demo", "fields": demo_fields, "replay_keys": [demo_key]},
+            {"id": "v1", "split": "validation", "fields": val_fields, "replay_keys": [val_key]},
+        ]
     (folder / "fixtures" / "inputs.jsonl").write_text(
         "".join(json.dumps(row) + "\n" for row in inputs), encoding="utf-8", newline="\n"
     )
     (folder / "fixtures" / "labels.jsonl").write_text(
         json.dumps({"id": "v1", "label": "a"}) + "\n", encoding="utf-8", newline="\n"
     )
-    answers = {
-        "pick": ChoiceAnswer.from_probabilities({"a": 0.9, "b": 0.1}, Provenance.synthetic())
-    }
-    responses = {demo_key: DecisionResult(answers, "synthetic").to_dict()}
-    (folder / "fixtures" / "responses.json").write_text(
-        dump_responses(responses), encoding="utf-8", newline="\n"
-    )
+    if not scripted:
+        answers = {
+            "pick": ChoiceAnswer.from_probabilities({"a": 0.9, "b": 0.1}, Provenance.synthetic())
+        }
+        responses = {demo_key: DecisionResult(answers, "synthetic").to_dict()}
+        (folder / "fixtures" / "responses.json").write_text(
+            dump_responses(responses), encoding="utf-8", newline="\n"
+        )
 
 
-def test_a_fresh_scaffold_passes_the_request_audit_with_no_hand_edit(catalog, recipes):
+@pytest.mark.parametrize("mode", new_recipe.MODES)
+def test_a_fresh_scaffold_passes_the_request_audit_with_no_hand_edit(catalog, recipes, mode):
     """Issue #368 acceptance criterion 1: a freshly scaffolded recipe passes the audited
     request-count route with no hand-edit to the plumbing ``tools/new_recipe.py`` writes --
     ``request_budget.json``, the ``AuditedBackend`` wrapping in the setup cell, the final
@@ -414,11 +449,20 @@ def test_a_fresh_scaffold_passes_the_request_audit_with_no_hand_edit(catalog, re
     because the scaffold declares exactly the one ``decide()`` call its own ``answer`` cell
     makes. This calls ``tests/request_audit.py``'s real ``audit_recipe``, the same function the
     recipe guard's ``readme_budget_note_matches_request_audit`` check loads, not a
-    reimplementation of its rules."""
+    reimplementation of its rules.
+
+    Parametrized over ``new_recipe.MODES`` (#375 fix round, item 6): before this, only
+    ``--mode replay`` ran here, so the scripted lane's audit route -- the multi-line
+    ``AuditedBackend(get_backend(script=..., seed=...), label="main")`` setup cell
+    ``audited_evidence`` must anchor on, and ``fixtures: null`` taking
+    ``check_against_declaration``'s no-inventory branch -- was unpinned. The same blind spot
+    (a test helper with no way to ask for ``--mode scripted`` at all) is what let the 128-char
+    scripted setup line ship unnoticed in #375's first head; this closes the identical gap in
+    this test."""
     _, recipe = entry(catalog, 1)
-    run(1, catalog, recipes)
+    run(1, catalog, recipes, mode)
     folder = recipes / recipe["slug"]
-    _fill_minimal_scaffold(folder)
+    _fill_minimal_scaffold(folder, mode)
     assert execute_notebook.main([str(folder)]) == 0
 
     cells = json.loads((folder / "notebook.ipynb").read_text("utf-8"))["cells"]
@@ -1572,6 +1616,26 @@ def test_the_local_budget_renderer_and_default_cap_agree_byte_for_byte_with_the_
     requests = declared["backends"]["main"]["requests"]
     assert new_recipe.request_budget_note(requests) == render_budget_note(parse_budget(declared))
     assert new_recipe.DEFAULT_MAX_REQUESTS == jev_cookbook.live.DEFAULT_MAX_REQUESTS
+
+
+@pytest.mark.parametrize("mode", new_recipe.MODES)
+def test_the_scaffolded_readme_renders_the_count_request_budget_text_itself_declares(
+    catalog, mode
+):
+    """#375 fix round, item 5: ``readme_text`` used to call ``request_budget_note(1)`` with a
+    literal independent of ``request_budget_text``'s own ``{"requests": 1}`` -- two hardcoded
+    literals that could silently disagree, with nothing fast comparing ``readme_text``'s actual
+    output against the declaration (the byte-for-byte pin above only compares the shared
+    *renderer* in isolation; it never calls ``readme_text`` at all, so it could not see this).
+    ``readme_text`` now reads the count back out of ``request_budget_text(mode)`` instead of a
+    second hardcoded literal, so the two cannot independently drift. Proved directly, with no
+    scaffold or notebook execution needed: call both functions and require the rendered block
+    to be the one the declaration itself names."""
+    data, recipe = entry(catalog, 1)
+    declared = json.loads(new_recipe.request_budget_text(mode))
+    requests = declared["backends"]["main"]["requests"]
+    readme = new_recipe.readme_text(data, recipe, mode)
+    assert new_recipe.request_budget_note(requests).rstrip() in readme
 
 
 MINIMAL_REPLAY_ROWS = (

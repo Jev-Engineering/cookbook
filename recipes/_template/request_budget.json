@@ -1,6 +1,9 @@
 {
   "schema": 1,
   "backends": {
-    "main": { "requests": 22, "fixtures": "fixtures/responses.json" }
+    "main": {
+      "requests": 23,
+      "fixtures": "fixtures/responses.json"
+    }
   }
 }

@@ -52,9 +52,10 @@ In live mode this notebook makes exactly **22** requests, each decided once. Set
 The count above is declared once, in [`request_budget.json`](request_budget.json), and rendered
 here by `jev_cookbook.accounting.render_recipe_note`, never typed by hand. The recipe guard's
 `readme_budget_note_matches_request_audit` check compares the declaration, the notebook's own
-audited execution and this rendered paragraph against each other for every published recipe; it
-does not yet run against this template itself, whose three were verified to agree when this
-page was last committed. The setup, the budget limit and the recorder are in
+audited execution and this rendered paragraph against each other for every published recipe;
+`tests/test_template.py` runs that same check, by calling the real `audit_recipe` function
+directly, against this template's own three as well, so they cannot silently drift apart
+either. The setup, the budget limit and the recorder are in
 [docs/live.md](../../docs/live.md). Never put a key in a notebook, fixture or committed file.
 
 ## What was and was not measured
@@ -79,7 +80,8 @@ _template/
 ├── helpers.py            the state, the question, and the rule Python enforces
 ├── build_fixtures.py     writes fixtures/ (the keys come from helpers.py, so they cannot drift;
 │                         --force is needed to overwrite a recorded responses.json)
-├── request_budget.json   the declared live request count, rendered into the README below
+├── request_budget.json   the declared live request count, rendered into the `## Switch to
+│                         live` paragraph above
 ├── fixtures/
 │   ├── inputs.jsonl      22 examples: 10 validation, 10 test, 2 demo
 │   ├── labels.jsonl      gold labels for the 20 scored examples
@@ -179,8 +181,9 @@ What changes, and nothing else does:
 - `build_fixtures.py` writes `inputs.jsonl` and `labels.jsonl` only: every example has empty
   `replay_keys`, there is no `responses.json` and no `answers_for`. `ROWS` has four fields per row
   (id, split, fields, label).
-- The notebook's setup cell uses `get_backend(script=helpers.script, seed=helpers.SEED)`, and
-  `run_header(..., backend=backend, ...)` states `scripted`. The "measured" cell follows `backend.mode`.
+- The notebook's setup cell wraps `get_backend(script=helpers.script, seed=helpers.SEED)` in
+  `AuditedBackend(..., label="main")`, and `run_header(..., backend=backend, ...)` states `scripted`.
+  The "measured" cell follows `backend.mode`.
 - `request_budget.json` declares `"fixtures": null` instead of `"fixtures": "fixtures/responses.json"`
   (nothing to replay); the declared `requests` count is the same either way at scaffold time.
 - The validator reports `fixtures valid (mode scripted)`.

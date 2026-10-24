@@ -403,6 +403,12 @@ def readme_text(catalog: dict, recipe: dict, mode: str = "replay") -> str:
         "check that the pipeline works."
     )
     types = " + ".join(f"`{t}`" for t in recipe["decision_types"])
+    # Read the declared count back out of request_budget_text(mode) rather than a second
+    # hardcoded literal (#375 fix round, item 5): that was the one place a fresh scaffold could
+    # disagree with itself (declare a different count than the README renders) with nothing
+    # fast enough to catch it. One literal, in request_budget_text, read here instead of
+    # duplicated.
+    requests = json.loads(request_budget_text(mode))["backends"]["main"]["requests"]
     return f"""# {recipe["title"]}
 
 **Recipe {recipe["rank"]:02d}** · Level {recipe["level"]} ({recipe["difficulty"]}) · Decision type: {types}
@@ -440,16 +446,19 @@ of this repository), or record answers with the recorder described in
 [docs/live.md](../../docs/live.md). `tools/execute_notebook.py` removes those variables on purpose
 and always runs offline.
 
-{request_budget_note(1).rstrip()}
+{request_budget_note(requests).rstrip()}
 
 {TODO_MARK}: this paragraph is generated from `request_budget.json`, next to this notebook, by
 `jev_cookbook.accounting.render_recipe_note`; never edit it by hand. As you add `decide()` calls
 while you write Evaluation, update `request_budget.json`'s declared count to match (and its
 `distinct` or `at_most` if some requests repeat on purpose or the count depends on an answer).
 Then regenerate this block with `python -c "from jev_cookbook.accounting import
-render_recipe_note as r; print(r('recipes/{slug}'), end='')"` and paste its output here before
-you finish. The recipe guard compares the declaration, the notebook's audited execution and this
-paragraph against each other. Never put a key in a notebook or a fixture.
+render_recipe_note as r; print(r('recipes/{slug}'), end='')"` and replace this whole block,
+markers included, with its output before you finish -- the renderer's output already carries
+both markers, so pasting it inside the existing ones leaves two marker pairs and the guard fails
+with "README needs exactly one ... block". The recipe guard compares the declaration, the
+notebook's audited execution and this paragraph against each other. Never put a key in a
+notebook or a fixture.
 
 ## What was and was not measured
 
