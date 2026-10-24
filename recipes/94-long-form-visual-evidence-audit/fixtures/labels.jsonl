@@ -1,0 +1,24 @@
+{"id": "v01", "label": {"category": "image_supported", "rationale": "Current view directly supports the bounded external claim; old fault is superseded."}}
+{"id": "v02", "label": {"category": "contradicted", "rationale": "Current eligible pixels or the audit-date addendum directly contradict the claim."}}
+{"id": "v03", "label": {"category": "report_only", "rationale": "Current signed report supports the claim; the operation or component is not visible."}}
+{"id": "v04", "label": {"category": "unknown", "rationale": "Evidence is absent, mutually conflicting, or fails the source/date policy."}}
+{"id": "v05", "label": {"category": "image_supported", "rationale": "Current view directly supports the bounded external claim; old fault is superseded."}}
+{"id": "v06", "label": {"category": "contradicted", "rationale": "Current eligible pixels or the audit-date addendum directly contradict the claim."}}
+{"id": "v07", "label": {"category": "unknown", "rationale": "Evidence is absent, mutually conflicting, or fails the source/date policy."}}
+{"id": "v08", "label": {"category": "unknown", "rationale": "Evidence is absent, mutually conflicting, or fails the source/date policy."}}
+{"id": "v09", "label": {"category": "report_only", "rationale": "Current signed report supports the claim; the operation or component is not visible."}}
+{"id": "v10", "label": {"category": "unknown", "rationale": "Evidence is absent, mutually conflicting, or fails the source/date policy."}}
+{"id": "v11", "label": {"category": "contradicted", "rationale": "Current eligible pixels or the audit-date addendum directly contradict the claim."}}
+{"id": "v12", "label": {"category": "image_supported", "rationale": "Current view directly supports the bounded external claim; old fault is superseded."}}
+{"id": "t01", "label": {"category": "image_supported", "rationale": "Current view directly supports the bounded external claim; old fault is superseded."}}
+{"id": "t02", "label": {"category": "contradicted", "rationale": "Current eligible pixels or the audit-date addendum directly contradict the claim."}}
+{"id": "t03", "label": {"category": "report_only", "rationale": "Current signed report supports the claim; the operation or component is not visible."}}
+{"id": "t04", "label": {"category": "unknown", "rationale": "Evidence is absent, mutually conflicting, or fails the source/date policy."}}
+{"id": "t05", "label": {"category": "contradicted", "rationale": "Current eligible pixels or the audit-date addendum directly contradict the claim."}}
+{"id": "t06", "label": {"category": "image_supported", "rationale": "Current view directly supports the bounded external claim; old fault is superseded."}}
+{"id": "t07", "label": {"category": "unknown", "rationale": "Evidence is absent, mutually conflicting, or fails the source/date policy."}}
+{"id": "t08", "label": {"category": "unknown", "rationale": "Evidence is absent, mutually conflicting, or fails the source/date policy."}}
+{"id": "t09", "label": {"category": "report_only", "rationale": "Current signed report supports the claim; the operation or component is not visible."}}
+{"id": "t10", "label": {"category": "contradicted", "rationale": "Current eligible pixels or the audit-date addendum directly contradict the claim."}}
+{"id": "t11", "label": {"category": "contradicted", "rationale": "Current eligible pixels or the audit-date addendum directly contradict the claim."}}
+{"id": "t12", "label": {"category": "unknown", "rationale": "Evidence is absent, mutually conflicting, or fails the source/date policy."}}

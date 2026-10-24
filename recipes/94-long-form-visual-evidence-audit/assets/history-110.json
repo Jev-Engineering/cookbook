@@ -1,0 +1,354 @@
+[
+  {
+    "source_id": "REG-110-P01",
+    "asset_id": "PUMP-110",
+    "observed_at": "2019-06-16",
+    "published_at": "2019-06-16",
+    "title": "Spare parts receipt",
+    "body": "The warehouse delivered two seal kits with similar carton labels. Only the kit matching the pump revision was placed in the cabinet. The second kit was returned to its storage bin. Receipt of a component is not installation; the mechanic must sign a separate completion record after fitting and checking it. This entry covers work package 110-01 for PUMP-110. The local register was checked on 2019-06-16 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P02",
+    "asset_id": "PUMP-110",
+    "observed_at": "2019-08-07",
+    "published_at": "2019-08-07",
+    "title": "Motor terminal inspection",
+    "body": "The electrician checked cable strain relief and photographed the closed terminal enclosure. The inspection covered the outside cable path, enclosure fasteners and protective bonding. Internal mechanical parts were outside this work order. The job coordinator asked that the photograph keep the equipment plate in frame. This entry covers work package 110-02 for PUMP-110. The local register was checked on 2019-08-07 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P03",
+    "asset_id": "PUMP-110",
+    "observed_at": "2019-09-28",
+    "published_at": "2019-09-28",
+    "title": "Archived condition sign-off",
+    "body": "The internal bearing was not greased today. The planned service was postponed; the sealed cartridge remains in stores. This is an archived observation, not a current certification. This entry covers work package 110-03 for PUMP-110. The local register was checked on 2019-09-28 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P04",
+    "asset_id": "PUMP-110",
+    "observed_at": "2019-11-19",
+    "published_at": "2019-11-19",
+    "title": "Lighting change",
+    "body": "An overhead lamp was replaced after its diffuser yellowed. The new lamp makes painted parts look warmer in close views. The inspector noted that color alone should not identify a missing component, staining or fluid. Shadows from the access rail can obscure the rear edge of the coupling assembly in photographs. This entry covers work package 110-04 for PUMP-110. The local register was checked on 2019-11-19 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P05",
+    "asset_id": "PUMP-110",
+    "observed_at": "2020-01-10",
+    "published_at": "2020-01-10",
+    "title": "Inspection scope",
+    "body": "The routine walk-around covered external surfaces from the marked aisle. No casing was opened and no hidden lubrication passage was observed. A photograph from this visit can establish visible configuration only. Completion of internal work must be supported by a dated maintenance record with an identified equipment number. This entry covers work package 110-05 for PUMP-110. The local register was checked on 2020-01-10 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P06",
+    "asset_id": "PUMP-110",
+    "observed_at": "2020-03-02",
+    "published_at": "2020-03-02",
+    "title": "Contractor access",
+    "body": "A contractor requested access to the shared service bay to inspect another pump. The bay supervisor marked the adjacent asset and supplied its separate work order. Both units have similar paint and mounting rails. The equipment number, not proximity on the same page of the log, determines which unit an entry describes. This entry covers work package 110-06 for PUMP-110. The local register was checked on 2020-03-02 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P07",
+    "asset_id": "PUMP-110",
+    "observed_at": "2020-04-23",
+    "published_at": "2020-04-23",
+    "title": "Inventory review",
+    "body": "A stock count found a sealed grease cartridge and an unopened spare guard in the cabinet. The count does not demonstrate that either was used. The storekeeper reconciled the issue slips and asked the technician to correct one unsigned return. The maintenance planner kept this inventory note separate from completed service. This entry covers work package 110-07 for PUMP-110. The local register was checked on 2020-04-23 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P08",
+    "asset_id": "PUMP-110",
+    "observed_at": "2020-06-14",
+    "published_at": "2020-06-14",
+    "title": "Washdown observation",
+    "body": "Cleaning staff photographed the bay after removing debris from the floor channel. The collection tray was not the subject of that image. A blue hand tool was left on the cart and later returned to its holder. Reflections and nearby objects are possible color matches but do not themselves establish a wet tray. This entry covers work package 110-08 for PUMP-110. The local register was checked on 2020-06-14 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P09",
+    "asset_id": "PUMP-110",
+    "observed_at": "2020-08-05",
+    "published_at": "2020-08-05",
+    "title": "Records correction",
+    "body": "The document controller found that a template carried forward an old sign-off sentence. The inspection team was instructed to preserve the original and append a dated correction rather than silently edit the archive. A later publication date does not change the observation date. The snapshot audit must use both timestamps. This entry covers work package 110-09 for PUMP-110. The local register was checked on 2020-08-05 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P10",
+    "asset_id": "PUMP-110",
+    "observed_at": "2020-09-26",
+    "published_at": "2020-09-26",
+    "title": "Commissioning alignment",
+    "body": "The coupling was aligned with a dial indicator after the base anchors settled. The technician recorded a small horizontal offset, loosened the motor feet, inserted a shim at the rear foot, and repeated the measurement. A second mechanic checked the reference marks before the temporary access barrier was removed. This entry covers work package 110-10 for PUMP-110. The local register was checked on 2020-09-26 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P11",
+    "asset_id": "PUMP-110",
+    "observed_at": "2020-11-17",
+    "published_at": "2020-11-17",
+    "title": "Drain routing",
+    "body": "A hose from the washdown station had been routed over the drain return. The hose was moved onto a wall hook and the return line was inspected for kinks. Water from cleaning can collect beneath the pump without originating at its seal. The work order distinguishes housekeeping water from a process-fluid leak. This entry covers work package 110-11 for PUMP-110. The local register was checked on 2020-11-17 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P12",
+    "asset_id": "PUMP-110",
+    "observed_at": "2021-01-08",
+    "published_at": "2021-01-08",
+    "title": "Pressure instrument",
+    "body": "The pressure gauge oscillated during startup. The instrument team isolated the gauge, checked its damping insert, and compared it with a portable reference. The process line remained isolated for the comparison. No measurement in this entry establishes the condition of the coupling cover or the bearing lubrication. This entry covers work package 110-12 for PUMP-110. The local register was checked on 2021-01-08 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P13",
+    "asset_id": "PUMP-110",
+    "observed_at": "2021-03-01",
+    "published_at": "2021-03-01",
+    "title": "Spare parts receipt",
+    "body": "The warehouse delivered two seal kits with similar carton labels. Only the kit matching the pump revision was placed in the cabinet. The second kit was returned to its storage bin. Receipt of a component is not installation; the mechanic must sign a separate completion record after fitting and checking it. This entry covers work package 110-13 for PUMP-110. The local register was checked on 2021-03-01 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P14",
+    "asset_id": "PUMP-110",
+    "observed_at": "2021-04-22",
+    "published_at": "2021-04-22",
+    "title": "Motor terminal inspection",
+    "body": "The electrician checked cable strain relief and photographed the closed terminal enclosure. The inspection covered the outside cable path, enclosure fasteners and protective bonding. Internal mechanical parts were outside this work order. The job coordinator asked that the photograph keep the equipment plate in frame. This entry covers work package 110-14 for PUMP-110. The local register was checked on 2021-04-22 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P15",
+    "asset_id": "PUMP-110",
+    "observed_at": "2021-06-13",
+    "published_at": "2021-06-13",
+    "title": "Shift handover",
+    "body": "The outgoing shift reported a brief vibration during a valve movement. The incoming shift observed the next startup and found no sustained movement at the base. The two accounts describe different operating moments and must not be combined into a single observation. The shift lead retained both signed entries in the history. This entry covers work package 110-15 for PUMP-110. The local register was checked on 2021-06-13 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P16",
+    "asset_id": "PUMP-110",
+    "observed_at": "2021-08-04",
+    "published_at": "2021-08-04",
+    "title": "Lighting change",
+    "body": "An overhead lamp was replaced after its diffuser yellowed. The new lamp makes painted parts look warmer in close views. The inspector noted that color alone should not identify a missing component, staining or fluid. Shadows from the access rail can obscure the rear edge of the coupling assembly in photographs. This entry covers work package 110-16 for PUMP-110. The local register was checked on 2021-08-04 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P17",
+    "asset_id": "PUMP-110",
+    "observed_at": "2021-09-25",
+    "published_at": "2021-09-25",
+    "title": "Inspection scope",
+    "body": "The routine walk-around covered external surfaces from the marked aisle. No casing was opened and no hidden lubrication passage was observed. A photograph from this visit can establish visible configuration only. Completion of internal work must be supported by a dated maintenance record with an identified equipment number. This entry covers work package 110-17 for PUMP-110. The local register was checked on 2021-09-25 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P18",
+    "asset_id": "PUMP-110",
+    "observed_at": "2021-11-16",
+    "published_at": "2021-11-16",
+    "title": "Contractor access",
+    "body": "A contractor requested access to the shared service bay to inspect another pump. The bay supervisor marked the adjacent asset and supplied its separate work order. Both units have similar paint and mounting rails. The equipment number, not proximity on the same page of the log, determines which unit an entry describes. This entry covers work package 110-18 for PUMP-110. The local register was checked on 2021-11-16 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P19",
+    "asset_id": "PUMP-110",
+    "observed_at": "2022-01-07",
+    "published_at": "2022-01-07",
+    "title": "Inventory review",
+    "body": "A stock count found a sealed grease cartridge and an unopened spare guard in the cabinet. The count does not demonstrate that either was used. The storekeeper reconciled the issue slips and asked the technician to correct one unsigned return. The maintenance planner kept this inventory note separate from completed service. This entry covers work package 110-19 for PUMP-110. The local register was checked on 2022-01-07 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P20",
+    "asset_id": "PUMP-110",
+    "observed_at": "2022-02-28",
+    "published_at": "2022-02-28",
+    "title": "Washdown observation",
+    "body": "Cleaning staff photographed the bay after removing debris from the floor channel. The collection tray was not the subject of that image. A blue hand tool was left on the cart and later returned to its holder. Reflections and nearby objects are possible color matches but do not themselves establish a wet tray. This entry covers work package 110-20 for PUMP-110. The local register was checked on 2022-02-28 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P21",
+    "asset_id": "PUMP-110",
+    "observed_at": "2022-04-21",
+    "published_at": "2022-04-21",
+    "title": "Records correction",
+    "body": "The document controller found that a template carried forward an old sign-off sentence. The inspection team was instructed to preserve the original and append a dated correction rather than silently edit the archive. A later publication date does not change the observation date. The snapshot audit must use both timestamps. This entry covers work package 110-21 for PUMP-110. The local register was checked on 2022-04-21 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P22",
+    "asset_id": "PUMP-110",
+    "observed_at": "2022-06-12",
+    "published_at": "2022-06-12",
+    "title": "Commissioning alignment",
+    "body": "The coupling was aligned with a dial indicator after the base anchors settled. The technician recorded a small horizontal offset, loosened the motor feet, inserted a shim at the rear foot, and repeated the measurement. A second mechanic checked the reference marks before the temporary access barrier was removed. This entry covers work package 110-22 for PUMP-110. The local register was checked on 2022-06-12 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P23",
+    "asset_id": "PUMP-110",
+    "observed_at": "2022-08-03",
+    "published_at": "2022-08-03",
+    "title": "Drain routing",
+    "body": "A hose from the washdown station had been routed over the drain return. The hose was moved onto a wall hook and the return line was inspected for kinks. Water from cleaning can collect beneath the pump without originating at its seal. The work order distinguishes housekeeping water from a process-fluid leak. This entry covers work package 110-23 for PUMP-110. The local register was checked on 2022-08-03 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P24",
+    "asset_id": "PUMP-110",
+    "observed_at": "2022-09-24",
+    "published_at": "2022-09-24",
+    "title": "Pressure instrument",
+    "body": "The pressure gauge oscillated during startup. The instrument team isolated the gauge, checked its damping insert, and compared it with a portable reference. The process line remained isolated for the comparison. No measurement in this entry establishes the condition of the coupling cover or the bearing lubrication. This entry covers work package 110-24 for PUMP-110. The local register was checked on 2022-09-24 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P25",
+    "asset_id": "PUMP-710",
+    "observed_at": "2026-08-19",
+    "published_at": "2026-08-19",
+    "title": "Adjacent equipment handover",
+    "body": "The internal bearing was greased today. The technician completed the service and signed the job card. This observation is for the neighboring unit only."
+  },
+  {
+    "source_id": "REG-110-P26",
+    "asset_id": "PUMP-110",
+    "observed_at": "2023-01-06",
+    "published_at": "2023-01-06",
+    "title": "Motor terminal inspection",
+    "body": "The electrician checked cable strain relief and photographed the closed terminal enclosure. The inspection covered the outside cable path, enclosure fasteners and protective bonding. Internal mechanical parts were outside this work order. The job coordinator asked that the photograph keep the equipment plate in frame. This entry covers work package 110-26 for PUMP-110. The local register was checked on 2023-01-06 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P27",
+    "asset_id": "PUMP-110",
+    "observed_at": "2023-02-27",
+    "published_at": "2023-02-27",
+    "title": "Shift handover",
+    "body": "The outgoing shift reported a brief vibration during a valve movement. The incoming shift observed the next startup and found no sustained movement at the base. The two accounts describe different operating moments and must not be combined into a single observation. The shift lead retained both signed entries in the history. This entry covers work package 110-27 for PUMP-110. The local register was checked on 2023-02-27 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P28",
+    "asset_id": "PUMP-110",
+    "observed_at": "2023-04-20",
+    "published_at": "2023-04-20",
+    "title": "Lighting change",
+    "body": "An overhead lamp was replaced after its diffuser yellowed. The new lamp makes painted parts look warmer in close views. The inspector noted that color alone should not identify a missing component, staining or fluid. Shadows from the access rail can obscure the rear edge of the coupling assembly in photographs. This entry covers work package 110-28 for PUMP-110. The local register was checked on 2023-04-20 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P29",
+    "asset_id": "PUMP-110",
+    "observed_at": "2023-06-11",
+    "published_at": "2023-06-11",
+    "title": "Inspection scope",
+    "body": "The routine walk-around covered external surfaces from the marked aisle. No casing was opened and no hidden lubrication passage was observed. A photograph from this visit can establish visible configuration only. Completion of internal work must be supported by a dated maintenance record with an identified equipment number. This entry covers work package 110-29 for PUMP-110. The local register was checked on 2023-06-11 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P30",
+    "asset_id": "PUMP-110",
+    "observed_at": "2023-08-02",
+    "published_at": "2023-08-02",
+    "title": "Contractor access",
+    "body": "A contractor requested access to the shared service bay to inspect another pump. The bay supervisor marked the adjacent asset and supplied its separate work order. Both units have similar paint and mounting rails. The equipment number, not proximity on the same page of the log, determines which unit an entry describes. This entry covers work package 110-30 for PUMP-110. The local register was checked on 2023-08-02 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P31",
+    "asset_id": "PUMP-110",
+    "observed_at": "2023-09-23",
+    "published_at": "2023-09-23",
+    "title": "Inventory review",
+    "body": "A stock count found a sealed grease cartridge and an unopened spare guard in the cabinet. The count does not demonstrate that either was used. The storekeeper reconciled the issue slips and asked the technician to correct one unsigned return. The maintenance planner kept this inventory note separate from completed service. This entry covers work package 110-31 for PUMP-110. The local register was checked on 2023-09-23 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P32",
+    "asset_id": "PUMP-110",
+    "observed_at": "2023-11-14",
+    "published_at": "2023-11-14",
+    "title": "Washdown observation",
+    "body": "Cleaning staff photographed the bay after removing debris from the floor channel. The collection tray was not the subject of that image. A blue hand tool was left on the cart and later returned to its holder. Reflections and nearby objects are possible color matches but do not themselves establish a wet tray. This entry covers work package 110-32 for PUMP-110. The local register was checked on 2023-11-14 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P33",
+    "asset_id": "PUMP-110",
+    "observed_at": "2024-01-05",
+    "published_at": "2024-01-05",
+    "title": "Records correction",
+    "body": "The document controller found that a template carried forward an old sign-off sentence. The inspection team was instructed to preserve the original and append a dated correction rather than silently edit the archive. A later publication date does not change the observation date. The snapshot audit must use both timestamps. This entry covers work package 110-33 for PUMP-110. The local register was checked on 2024-01-05 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P34",
+    "asset_id": "PUMP-110",
+    "observed_at": "2024-02-26",
+    "published_at": "2024-02-26",
+    "title": "Commissioning alignment",
+    "body": "The coupling was aligned with a dial indicator after the base anchors settled. The technician recorded a small horizontal offset, loosened the motor feet, inserted a shim at the rear foot, and repeated the measurement. A second mechanic checked the reference marks before the temporary access barrier was removed. This entry covers work package 110-34 for PUMP-110. The local register was checked on 2024-02-26 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P35",
+    "asset_id": "PUMP-110",
+    "observed_at": "2024-04-18",
+    "published_at": "2024-04-18",
+    "title": "Drain routing",
+    "body": "A hose from the washdown station had been routed over the drain return. The hose was moved onto a wall hook and the return line was inspected for kinks. Water from cleaning can collect beneath the pump without originating at its seal. The work order distinguishes housekeeping water from a process-fluid leak. This entry covers work package 110-35 for PUMP-110. The local register was checked on 2024-04-18 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P36",
+    "asset_id": "PUMP-110",
+    "observed_at": "2024-06-09",
+    "published_at": "2024-06-09",
+    "title": "Pressure instrument",
+    "body": "The pressure gauge oscillated during startup. The instrument team isolated the gauge, checked its damping insert, and compared it with a portable reference. The process line remained isolated for the comparison. No measurement in this entry establishes the condition of the coupling cover or the bearing lubrication. This entry covers work package 110-36 for PUMP-110. The local register was checked on 2024-06-09 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P37",
+    "asset_id": "PUMP-110",
+    "observed_at": "2024-07-31",
+    "published_at": "2024-07-31",
+    "title": "Spare parts receipt",
+    "body": "The warehouse delivered two seal kits with similar carton labels. Only the kit matching the pump revision was placed in the cabinet. The second kit was returned to its storage bin. Receipt of a component is not installation; the mechanic must sign a separate completion record after fitting and checking it. This entry covers work package 110-37 for PUMP-110. The local register was checked on 2024-07-31 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P38",
+    "asset_id": "PUMP-110",
+    "observed_at": "2024-09-21",
+    "published_at": "2024-09-21",
+    "title": "Motor terminal inspection",
+    "body": "The electrician checked cable strain relief and photographed the closed terminal enclosure. The inspection covered the outside cable path, enclosure fasteners and protective bonding. Internal mechanical parts were outside this work order. The job coordinator asked that the photograph keep the equipment plate in frame. This entry covers work package 110-38 for PUMP-110. The local register was checked on 2024-09-21 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P39",
+    "asset_id": "PUMP-110",
+    "observed_at": "2024-11-12",
+    "published_at": "2024-11-12",
+    "title": "Shift handover",
+    "body": "The outgoing shift reported a brief vibration during a valve movement. The incoming shift observed the next startup and found no sustained movement at the base. The two accounts describe different operating moments and must not be combined into a single observation. The shift lead retained both signed entries in the history. This entry covers work package 110-39 for PUMP-110. The local register was checked on 2024-11-12 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P40",
+    "asset_id": "PUMP-110",
+    "observed_at": "2025-01-03",
+    "published_at": "2025-01-03",
+    "title": "Lighting change",
+    "body": "An overhead lamp was replaced after its diffuser yellowed. The new lamp makes painted parts look warmer in close views. The inspector noted that color alone should not identify a missing component, staining or fluid. Shadows from the access rail can obscure the rear edge of the coupling assembly in photographs. This entry covers work package 110-40 for PUMP-110. The local register was checked on 2025-01-03 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P41",
+    "asset_id": "PUMP-110",
+    "observed_at": "2026-08-19",
+    "published_at": "2026-08-19",
+    "title": "Morning completed service",
+    "body": "The internal bearing was greased today. The technician completed the service and signed the job card."
+  },
+  {
+    "source_id": "REG-110-P42",
+    "asset_id": "PUMP-110",
+    "observed_at": "2025-04-17",
+    "published_at": "2025-04-17",
+    "title": "Contractor access",
+    "body": "A contractor requested access to the shared service bay to inspect another pump. The bay supervisor marked the adjacent asset and supplied its separate work order. Both units have similar paint and mounting rails. The equipment number, not proximity on the same page of the log, determines which unit an entry describes. This entry covers work package 110-42 for PUMP-110. The local register was checked on 2025-04-17 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P43",
+    "asset_id": "PUMP-110",
+    "observed_at": "2025-06-08",
+    "published_at": "2025-06-08",
+    "title": "Inventory review",
+    "body": "A stock count found a sealed grease cartridge and an unopened spare guard in the cabinet. The count does not demonstrate that either was used. The storekeeper reconciled the issue slips and asked the technician to correct one unsigned return. The maintenance planner kept this inventory note separate from completed service. This entry covers work package 110-43 for PUMP-110. The local register was checked on 2025-06-08 before the technician closed the visit. Subsequent service may alter the equipment condition; retain this entry for chronology and compare it with the latest dated observation. The reviewer should distinguish equipment condition from administrative completion."
+  },
+  {
+    "source_id": "REG-110-P44",
+    "asset_id": "PUMP-110",
+    "observed_at": "2026-08-19",
+    "published_at": "2026-08-19",
+    "title": "Audit-date signed addendum",
+    "body": "The internal bearing was not greased today. The planned service was postponed; the sealed cartridge remains in stores."
+  }
+]
