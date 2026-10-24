@@ -50,7 +50,9 @@ Not measured live. The committed metrics are synthetic pipeline checks, not Jev 
 Inference latency, tokens, and cost are unknown (`None`). Image functionality is experimental.
 The same questions can run with `images=True` and pinned `jev-1.14.0`; see
 [the live workflow](../../docs/live.md). The notebook makes exactly 26 calls, one per example,
-caches answers, and submits five images in each call. Set
+caches by the current request and image bytes, and submits five images in each call.
+Changing evidence under an existing example ID requires a fresh answer; unchanged requests
+reuse their answer without spending another call. Set
 `JEV_COOKBOOK_LIVE_MAX_REQUESTS=26` or higher for a live notebook run; retry attempts also
 consume the budget. The executor always runs offline. Unrecorded live exploration suppresses
 held-out aggregate reporting.
