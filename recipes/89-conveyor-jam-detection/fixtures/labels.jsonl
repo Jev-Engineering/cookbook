@@ -1,0 +1,24 @@
+{"id": "v01", "label": {"event": "movement_observed", "reason": "Parcels change position; exit is clear."}}
+{"id": "v02", "label": {"event": "jam_indication", "reason": "Three contacting parcels remain pressed against the red exit barrier."}}
+{"id": "v03", "label": {"event": "stopped_as_commanded", "reason": "Parcels remain still; the changing independent indicator excludes an exact frozen image. No visible obstruction establishes a cause. The command is stopped; do not infer an active jam from stillness."}}
+{"id": "v04", "label": {"event": "halted_cause_unobserved", "reason": "Parcels remain still; the changing independent indicator excludes an exact frozen image. No visible obstruction establishes a cause."}}
+{"id": "v05", "label": {"event": "empty_lane", "reason": "No parcels appear anywhere in the lane."}}
+{"id": "v06", "label": {"event": "review", "reason": "All sampled image bytes repeat. A frozen camera and a completely static scene cannot be distinguished."}}
+{"id": "v07", "label": {"event": "review", "reason": "Parcels change position; exit is clear. Operating metadata is stale."}}
+{"id": "v08", "label": {"event": "review", "reason": "A cover hides the parcel lane in the middle frame; the event is unobservable."}}
+{"id": "v09", "label": {"event": "movement_observed", "reason": "Parcels move four pixels per sample, visible at full resolution."}}
+{"id": "v10", "label": {"event": "review", "reason": "Three contacting parcels remain pressed against the red exit barrier. The command is stopped; do not infer an active jam from stillness."}}
+{"id": "v11", "label": {"event": "halted_cause_unobserved", "reason": "The red guard is above the lane with a visible gap; stationary parcels do not contact it."}}
+{"id": "v12", "label": {"event": "review", "reason": "An object intrudes into the exit but does not contact the stationary parcel; active blockage is unresolved."}}
+{"id": "t01", "label": {"event": "movement_observed", "reason": "Parcels change position; exit is clear."}}
+{"id": "t02", "label": {"event": "jam_indication", "reason": "Three contacting parcels remain pressed against the red exit barrier."}}
+{"id": "t03", "label": {"event": "stopped_as_commanded", "reason": "Parcels remain still; the changing independent indicator excludes an exact frozen image. No visible obstruction establishes a cause. The command is stopped; do not infer an active jam from stillness."}}
+{"id": "t04", "label": {"event": "halted_cause_unobserved", "reason": "Parcels remain still; the changing independent indicator excludes an exact frozen image. No visible obstruction establishes a cause."}}
+{"id": "t05", "label": {"event": "empty_lane", "reason": "No parcels appear anywhere in the lane."}}
+{"id": "t06", "label": {"event": "review", "reason": "All sampled image bytes repeat. A frozen camera and a completely static scene cannot be distinguished."}}
+{"id": "t07", "label": {"event": "review", "reason": "Parcels remain still; the changing independent indicator excludes an exact frozen image. No visible obstruction establishes a cause. Operating command is unavailable."}}
+{"id": "t08", "label": {"event": "review", "reason": "A cover hides the parcel lane in the middle frame; the event is unobservable."}}
+{"id": "t09", "label": {"event": "halted_cause_unobserved", "reason": "The red guard is above the lane with a visible gap; stationary parcels do not contact it."}}
+{"id": "t10", "label": {"event": "movement_observed", "reason": "Dark blue parcels visibly move; the orange-only pixel baseline misses them."}}
+{"id": "t11", "label": {"event": "movement_observed", "reason": "Parcels move four pixels per sample, visible at full resolution."}}
+{"id": "t12", "label": {"event": "review", "reason": "An object intrudes into the exit but does not contact the stationary parcel; active blockage is unresolved."}}

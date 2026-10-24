@@ -1,0 +1,1278 @@
+{
+  "019e03da88def2040d0b071f4234dd7313195dea0acbddb4c7fab4edd4558f37": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "visible": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "movement": {
+        "type": "noul",
+        "noul": 0.02,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 2.9299999999999997,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.01,
+          "2": 0.02,
+          "3": 0.96
+        },
+        "confidence": 0.9299999999999999,
+        "legend": {
+          "0": "No object visibly obstructs the parcel travel lane or exit.",
+          "1": "A nearby object or overlap could be an obstruction, but lane clearance is unclear.",
+          "2": "An object visibly intrudes into the lane, but parcels are not visibly pinned against it.",
+          "3": "An obstruction spans the exit and parcels visibly contact or pile against it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "16ec9b26701fa1a79ea686961b3510cb2d8a44d56d613ca2af00fa0b328e384b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "visible": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "movement": {
+        "type": "noul",
+        "noul": 0.02,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 2.9299999999999997,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.01,
+          "2": 0.02,
+          "3": 0.96
+        },
+        "confidence": 0.9299999999999999,
+        "legend": {
+          "0": "No object visibly obstructs the parcel travel lane or exit.",
+          "1": "A nearby object or overlap could be an obstruction, but lane clearance is unclear.",
+          "2": "An object visibly intrudes into the lane, but parcels are not visibly pinned against it.",
+          "3": "An obstruction spans the exit and parcels visibly contact or pile against it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "220636d35659cd10535e4d455ec6cdada0730fdc52a694b25ebe8d27f2fa16b8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "visible": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "movement": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.94,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.05,
+          "2": 0.9,
+          "3": 0.03
+        },
+        "confidence": 0.88,
+        "legend": {
+          "0": "No object visibly obstructs the parcel travel lane or exit.",
+          "1": "A nearby object or overlap could be an obstruction, but lane clearance is unclear.",
+          "2": "An object visibly intrudes into the lane, but parcels are not visibly pinned against it.",
+          "3": "An obstruction spans the exit and parcels visibly contact or pile against it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "233adce1703a40d27bcb169821e0cb0e3517a296eae78c93b8f78b4fdf8efbae": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "visible": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "movement": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 1.94,
+        "probabilities": {
+          "0": 0.02,
+          "1": 0.05,
+          "2": 0.9,
+          "3": 0.03
+        },
+        "confidence": 0.88,
+        "legend": {
+          "0": "No object visibly obstructs the parcel travel lane or exit.",
+          "1": "A nearby object or overlap could be an obstruction, but lane clearance is unclear.",
+          "2": "An object visibly intrudes into the lane, but parcels are not visibly pinned against it.",
+          "3": "An obstruction spans the exit and parcels visibly contact or pile against it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2554a84e23a1932f85a18114393a026f652e9f978cdd3c99fe627d9b445fb6b6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "visible": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "movement": {
+        "type": "noul",
+        "noul": 0.63,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 0.08,
+        "probabilities": {
+          "0": 0.95,
+          "1": 0.03,
+          "2": 0.01,
+          "3": 0.01
+        },
+        "confidence": 0.92,
+        "legend": {
+          "0": "No object visibly obstructs the parcel travel lane or exit.",
+          "1": "A nearby object or overlap could be an obstruction, but lane clearance is unclear.",
+          "2": "An object visibly intrudes into the lane, but parcels are not visibly pinned against it.",
+          "3": "An obstruction spans the exit and parcels visibly contact or pile against it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "28d9b5170244215b6c0651c7476856e0578caa8574a742345269146f08f9a44b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "visible": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "movement": {
+        "type": "noul",
+        "noul": 0.21,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 2.9299999999999997,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.01,
+          "2": 0.02,
+          "3": 0.96
+        },
+        "confidence": 0.9299999999999999,
+        "legend": {
+          "0": "No object visibly obstructs the parcel travel lane or exit.",
+          "1": "A nearby object or overlap could be an obstruction, but lane clearance is unclear.",
+          "2": "An object visibly intrudes into the lane, but parcels are not visibly pinned against it.",
+          "3": "An obstruction spans the exit and parcels visibly contact or pile against it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3460ee579a7931460228e7ec694cbecd04e62fc5c870b3c16991353e69e002a2": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "visible": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.8,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "movement": {
+        "type": "noul",
+        "noul": 0.5,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 0.8500000000000001,
+        "probabilities": {
+          "0": 0.4,
+          "1": 0.4,
+          "2": 0.15,
+          "3": 0.05
+        },
+        "confidence": 0.1499999999999999,
+        "legend": {
+          "0": "No object visibly obstructs the parcel travel lane or exit.",
+          "1": "A nearby object or overlap could be an obstruction, but lane clearance is unclear.",
+          "2": "An object visibly intrudes into the lane, but parcels are not visibly pinned against it.",
+          "3": "An obstruction spans the exit and parcels visibly contact or pile against it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4390ecc53a964fa174cff512cb13bd6136d70fbb029021c12387b1be2f2ed2c2": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "visible": {
+        "type": "noul",
+        "noul": 0.99,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.99,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "movement": {
+        "type": "noul",
+        "noul": 0.01,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 2.965,
+        "probabilities": {
+          "0": 0.005,
+          "1": 0.005,
+          "2": 0.01,
+          "3": 0.98
+        },
+        "confidence": 0.965,
+        "legend": {
+          "0": "No object visibly obstructs the parcel travel lane or exit.",
+          "1": "A nearby object or overlap could be an obstruction, but lane clearance is unclear.",
+          "2": "An object visibly intrudes into the lane, but parcels are not visibly pinned against it.",
+          "3": "An obstruction spans the exit and parcels visibly contact or pile against it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "468d4e096e28f466620a730c8a367d46e4e781de0f73a13c0fa3aa733034eada": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "visible": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.02,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "movement": {
+        "type": "noul",
+        "noul": 0.02,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 0.07,
+        "probabilities": {
+          "0": 0.96,
+          "1": 0.02,
+          "2": 0.01,
+          "3": 0.01
+        },
+        "confidence": 0.9299999999999999,
+        "legend": {
+          "0": "No object visibly obstructs the parcel travel lane or exit.",
+          "1": "A nearby object or overlap could be an obstruction, but lane clearance is unclear.",
+          "2": "An object visibly intrudes into the lane, but parcels are not visibly pinned against it.",
+          "3": "An obstruction spans the exit and parcels visibly contact or pile against it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4975f225ec9cbab987eb3c2c3787dc68301b2e31be0272ccbe09278e74cbd5f9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "visible": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.8,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "movement": {
+        "type": "noul",
+        "noul": 0.5,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 0.8500000000000001,
+        "probabilities": {
+          "0": 0.4,
+          "1": 0.4,
+          "2": 0.15,
+          "3": 0.05
+        },
+        "confidence": 0.1499999999999999,
+        "legend": {
+          "0": "No object visibly obstructs the parcel travel lane or exit.",
+          "1": "A nearby object or overlap could be an obstruction, but lane clearance is unclear.",
+          "2": "An object visibly intrudes into the lane, but parcels are not visibly pinned against it.",
+          "3": "An obstruction spans the exit and parcels visibly contact or pile against it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "51d14e91a195291f7b5945d13a9da99d46fb2358bad37c4e5a8aa72ee3a60d88": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "visible": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "movement": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 0.07,
+        "probabilities": {
+          "0": 0.96,
+          "1": 0.02,
+          "2": 0.01,
+          "3": 0.01
+        },
+        "confidence": 0.9299999999999999,
+        "legend": {
+          "0": "No object visibly obstructs the parcel travel lane or exit.",
+          "1": "A nearby object or overlap could be an obstruction, but lane clearance is unclear.",
+          "2": "An object visibly intrudes into the lane, but parcels are not visibly pinned against it.",
+          "3": "An obstruction spans the exit and parcels visibly contact or pile against it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "61f941be9a346a011bdff1d2d98405fffcf70e3b706012254ba80f1b27dc1792": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "visible": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.02,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "movement": {
+        "type": "noul",
+        "noul": 0.02,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 0.07,
+        "probabilities": {
+          "0": 0.96,
+          "1": 0.02,
+          "2": 0.01,
+          "3": 0.01
+        },
+        "confidence": 0.9299999999999999,
+        "legend": {
+          "0": "No object visibly obstructs the parcel travel lane or exit.",
+          "1": "A nearby object or overlap could be an obstruction, but lane clearance is unclear.",
+          "2": "An object visibly intrudes into the lane, but parcels are not visibly pinned against it.",
+          "3": "An obstruction spans the exit and parcels visibly contact or pile against it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "66b8e5cca0425f38bfc98a2133991ad4ee08cd96fa700d8377c7069dfca132f7": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "visible": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "movement": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 0.07,
+        "probabilities": {
+          "0": 0.96,
+          "1": 0.02,
+          "2": 0.01,
+          "3": 0.01
+        },
+        "confidence": 0.9299999999999999,
+        "legend": {
+          "0": "No object visibly obstructs the parcel travel lane or exit.",
+          "1": "A nearby object or overlap could be an obstruction, but lane clearance is unclear.",
+          "2": "An object visibly intrudes into the lane, but parcels are not visibly pinned against it.",
+          "3": "An obstruction spans the exit and parcels visibly contact or pile against it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7eb1ad2d59c6c69e32e9e40fa63a1960ea91d41d935f306f31d46ee8e0442759": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "visible": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "movement": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 0.08,
+        "probabilities": {
+          "0": 0.95,
+          "1": 0.03,
+          "2": 0.01,
+          "3": 0.01
+        },
+        "confidence": 0.92,
+        "legend": {
+          "0": "No object visibly obstructs the parcel travel lane or exit.",
+          "1": "A nearby object or overlap could be an obstruction, but lane clearance is unclear.",
+          "2": "An object visibly intrudes into the lane, but parcels are not visibly pinned against it.",
+          "3": "An obstruction spans the exit and parcels visibly contact or pile against it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "85008ec7b1cf3fceed2d2b6d51217673e9701bb31c0b4fa61a29621bf8166fc3": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "visible": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "movement": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 0.08,
+        "probabilities": {
+          "0": 0.95,
+          "1": 0.03,
+          "2": 0.01,
+          "3": 0.01
+        },
+        "confidence": 0.92,
+        "legend": {
+          "0": "No object visibly obstructs the parcel travel lane or exit.",
+          "1": "A nearby object or overlap could be an obstruction, but lane clearance is unclear.",
+          "2": "An object visibly intrudes into the lane, but parcels are not visibly pinned against it.",
+          "3": "An obstruction spans the exit and parcels visibly contact or pile against it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "866aec5bc35e17c24e0ff9aa0a185beefeb9fa4ae45f2a605043ee48d26a75c2": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "visible": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "movement": {
+        "type": "noul",
+        "noul": 0.02,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 2.9299999999999997,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.01,
+          "2": 0.02,
+          "3": 0.96
+        },
+        "confidence": 0.9299999999999999,
+        "legend": {
+          "0": "No object visibly obstructs the parcel travel lane or exit.",
+          "1": "A nearby object or overlap could be an obstruction, but lane clearance is unclear.",
+          "2": "An object visibly intrudes into the lane, but parcels are not visibly pinned against it.",
+          "3": "An obstruction spans the exit and parcels visibly contact or pile against it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8d5ed98191fb78014831b75af1bcb481dba60b710a33e5f89deec48e0823ef7c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "visible": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.95,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "movement": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 0.1,
+        "probabilities": {
+          "0": 0.94,
+          "1": 0.03,
+          "2": 0.02,
+          "3": 0.01
+        },
+        "confidence": 0.9,
+        "legend": {
+          "0": "No object visibly obstructs the parcel travel lane or exit.",
+          "1": "A nearby object or overlap could be an obstruction, but lane clearance is unclear.",
+          "2": "An object visibly intrudes into the lane, but parcels are not visibly pinned against it.",
+          "3": "An obstruction spans the exit and parcels visibly contact or pile against it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a8a03ba0408b6502c8faf955d5bd4791ea64304ad934d20c758efed9cc2c9e6e": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "visible": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "movement": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 0.07,
+        "probabilities": {
+          "0": 0.96,
+          "1": 0.02,
+          "2": 0.01,
+          "3": 0.01
+        },
+        "confidence": 0.9299999999999999,
+        "legend": {
+          "0": "No object visibly obstructs the parcel travel lane or exit.",
+          "1": "A nearby object or overlap could be an obstruction, but lane clearance is unclear.",
+          "2": "An object visibly intrudes into the lane, but parcels are not visibly pinned against it.",
+          "3": "An obstruction spans the exit and parcels visibly contact or pile against it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "cb1f80e438a652a0fc3c3dd726157a6ca72090a163d29a2c98f27e6e0f158311": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "visible": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "movement": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 0.08,
+        "probabilities": {
+          "0": 0.95,
+          "1": 0.03,
+          "2": 0.01,
+          "3": 0.01
+        },
+        "confidence": 0.92,
+        "legend": {
+          "0": "No object visibly obstructs the parcel travel lane or exit.",
+          "1": "A nearby object or overlap could be an obstruction, but lane clearance is unclear.",
+          "2": "An object visibly intrudes into the lane, but parcels are not visibly pinned against it.",
+          "3": "An obstruction spans the exit and parcels visibly contact or pile against it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "db83d06514f5bae7d12b0ff8fecdc53b78638bd74c7745293340096a70fdb010": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "visible": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "movement": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 0.08,
+        "probabilities": {
+          "0": 0.95,
+          "1": 0.03,
+          "2": 0.01,
+          "3": 0.01
+        },
+        "confidence": 0.92,
+        "legend": {
+          "0": "No object visibly obstructs the parcel travel lane or exit.",
+          "1": "A nearby object or overlap could be an obstruction, but lane clearance is unclear.",
+          "2": "An object visibly intrudes into the lane, but parcels are not visibly pinned against it.",
+          "3": "An obstruction spans the exit and parcels visibly contact or pile against it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "dd598a27cc9404bea52bb71401ac121f66a0e5f0dda5d8cbf810fc20a0094ac2": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "visible": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.98,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "movement": {
+        "type": "noul",
+        "noul": 0.02,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 2.9299999999999997,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.01,
+          "2": 0.02,
+          "3": 0.96
+        },
+        "confidence": 0.9299999999999999,
+        "legend": {
+          "0": "No object visibly obstructs the parcel travel lane or exit.",
+          "1": "A nearby object or overlap could be an obstruction, but lane clearance is unclear.",
+          "2": "An object visibly intrudes into the lane, but parcels are not visibly pinned against it.",
+          "3": "An obstruction spans the exit and parcels visibly contact or pile against it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f94218b088f8c5f7bf7a299ee4271d121df31edfa330b10c9830cee4cc9d548c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "visible": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "present": {
+        "type": "noul",
+        "noul": 0.97,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "movement": {
+        "type": "noul",
+        "noul": 0.03,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "obstruction": {
+        "type": "score",
+        "score": 0.08,
+        "probabilities": {
+          "0": 0.95,
+          "1": 0.03,
+          "2": 0.01,
+          "3": 0.01
+        },
+        "confidence": 0.92,
+        "legend": {
+          "0": "No object visibly obstructs the parcel travel lane or exit.",
+          "1": "A nearby object or overlap could be an obstruction, but lane clearance is unclear.",
+          "2": "An object visibly intrudes into the lane, but parcels are not visibly pinned against it.",
+          "3": "An obstruction spans the exit and parcels visibly contact or pile against it."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
