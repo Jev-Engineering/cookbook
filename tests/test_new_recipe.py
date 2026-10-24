@@ -84,8 +84,11 @@ def recipes(tmp_path):
     return tmp_path / "recipes"
 
 
-def run(number, catalog, recipes):
-    return new_recipe.main([str(number), "--catalog", str(catalog), "--recipes-dir", str(recipes)])
+def run(number, catalog, recipes, mode="replay"):
+    args = [str(number), "--catalog", str(catalog), "--recipes-dir", str(recipes)]
+    if mode != "replay":
+        args += ["--mode", mode]
+    return new_recipe.main(args)
 
 
 def entry(catalog, number):
@@ -279,10 +282,17 @@ def test_the_command_line_works_and_exit_status_is_visible(catalog, recipes):
     assert "refusing to overwrite" in second.stderr
 
 
-def test_every_catalog_recipe_scaffolds_to_lint_clean_files(catalog, recipes):
+@pytest.mark.parametrize("mode", new_recipe.MODES)
+def test_every_catalog_recipe_scaffolds_to_lint_clean_files(catalog, recipes, mode):
+    """Every catalog recipe, scaffolded in this mode, must already pass `ruff format --check`
+    and `ruff check` with no hand-edit. Before #375's fix round, this ran only the default
+    `--mode replay` -- `run()` had no way to ask for `--mode scripted` at all -- so the 128
+    character setup line `--mode scripted` emits (#375 fix round, item 1) scaffolded a hundred
+    recipes, every one of them already failing `ruff format --check`, with nothing here to catch
+    it. Parametrizing over `new_recipe.MODES` closes that gap for both modes that exist."""
     data, _ = entry(catalog, 1)
     for recipe in data["recipes"]:
-        assert run(recipe["rank"], catalog, recipes) == 0
+        assert run(recipe["rank"], catalog, recipes, mode) == 0
     assert len(list(recipes.iterdir())) == 100
     ruff = [sys.executable, "-m", "ruff"]
     config = ["--config", str(REPO / "pyproject.toml"), "--no-cache"]
@@ -337,13 +347,19 @@ def _load_request_audit():
 
 _request_audit = _load_request_audit()
 
-_MINIMAL_HELPERS = (
-    "from jev_cookbook import Choice\n\n\n"
-    "def build_state(fields):\n"
-    '    return {"text": fields["text"]}\n\n\n'
-    "def build_questions():\n"
-    '    return {"pick": Choice(instructions="Which one?", criteria={"a": "first", "b": "second"})}\n'
-)
+# Shared with scaffold_replay_with_build_script below (which strips the leading newline this
+# triple-quoted form carries): one fixture helper, not two copies that could drift apart.
+MINIMAL_REPLAY_HELPERS = """
+from jev_cookbook import Choice
+
+
+def build_state(fields):
+    return {"text": fields["text"]}
+
+
+def build_questions():
+    return {"pick": Choice(instructions="Which one?", criteria={"a": "first", "b": "second"})}
+"""
 
 
 def _fill_minimal_scaffold(folder):
@@ -356,7 +372,9 @@ def _fill_minimal_scaffold(folder):
     ``fixtures/responses.json``, so the exact-inventory check in ``check_against_declaration``
     has something real to agree with (unlike copying in the template's full 22-example
     fixtures, which the bare skeleton does not come close to exhausting)."""
-    (folder / "helpers.py").write_text(_MINIMAL_HELPERS, encoding="utf-8", newline="\n")
+    (folder / "helpers.py").write_text(
+        MINIMAL_REPLAY_HELPERS.lstrip(), encoding="utf-8", newline="\n"
+    )
     helpers = load_helpers(folder)
     questions = helpers.build_questions()
 
@@ -1551,21 +1569,10 @@ def test_the_local_budget_renderer_and_default_cap_agree_byte_for_byte_with_the_
     ``parse_budget``/``render_budget_note`` and ``DEFAULT_MAX_REQUESTS`` directly, so a drift in
     either copy fails here with nothing else involved."""
     declared = json.loads(new_recipe.request_budget_text(mode))
-    assert new_recipe.request_budget_note(1) == render_budget_note(parse_budget(declared))
+    requests = declared["backends"]["main"]["requests"]
+    assert new_recipe.request_budget_note(requests) == render_budget_note(parse_budget(declared))
     assert new_recipe.DEFAULT_MAX_REQUESTS == jev_cookbook.live.DEFAULT_MAX_REQUESTS
 
-
-MINIMAL_REPLAY_HELPERS = """
-from jev_cookbook import Choice
-
-
-def build_state(fields):
-    return {"text": fields["text"]}
-
-
-def build_questions():
-    return {"pick": Choice(instructions="Which one?", criteria={"a": "first", "b": "second"})}
-"""
 
 MINIMAL_REPLAY_ROWS = (
     'ROWS = [("v1", "validation", {"text": "x"}, "a", 0.9), '

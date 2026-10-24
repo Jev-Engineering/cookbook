@@ -183,9 +183,15 @@ def notebook_cells(catalog: dict, recipe: dict, mode: str = "replay") -> list[di
 
     if scripted:
         fixture_import = "from jev_cookbook.fixtures import load_inputs, load_labels"
+        # Wrapped to fit pyproject.toml's line-length = 100: unwrapped, this line is 128
+        # characters and `ruff format --check` (which also lints notebooks, extend-include =
+        # ["*.ipynb"]) would reformat it on a freshly scaffolded recipe, failing both the
+        # documented local check and the required Lint (ruff) CI job with no hand-edit (#375
+        # fix round, item 1).
         backend_line = (
-            "backend = AuditedBackend(get_backend(script=helpers.script, seed=helpers.SEED), "
-            'label="main")  # the seeded script in helpers.py'
+            "backend = AuditedBackend(\n"
+            '    get_backend(script=helpers.script, seed=helpers.SEED), label="main"\n'
+            ")  # the seeded script in helpers.py"
         )
     else:
         fixture_import = (
@@ -439,10 +445,10 @@ and always runs offline.
 {TODO_MARK}: this paragraph is generated from `request_budget.json`, next to this notebook, by
 `jev_cookbook.accounting.render_recipe_note`; never edit it by hand. As you add `decide()` calls
 while you write Evaluation, update `request_budget.json`'s declared count to match (and its
-`distinct` or `at_most` if some requests repeat on purpose or the count depends on an answer),
-then regenerate this block with `python -c "from jev_cookbook.accounting import
-render_recipe_note as r; print(r('recipes/NN-slug'), end='')"` and paste its output here before
-you finish: the recipe guard compares the declaration, the notebook's audited execution and this
+`distinct` or `at_most` if some requests repeat on purpose or the count depends on an answer).
+Then regenerate this block with `python -c "from jev_cookbook.accounting import
+render_recipe_note as r; print(r('recipes/{slug}'), end='')"` and paste its output here before
+you finish. The recipe guard compares the declaration, the notebook's audited execution and this
 paragraph against each other. Never put a key in a notebook or a fixture.
 
 ## What was and was not measured
@@ -960,7 +966,7 @@ def files_for(catalog: dict, recipe: dict, mode: str = "replay") -> dict[str, st
         "helpers.py": helpers_text(recipe, mode),
         "build_fixtures.py": build_fixtures_text(recipe, mode),
         "side_effects.json": side_effects_text(),
-        "request_budget.json": request_budget_text(mode),
+        BUDGET_FILE: request_budget_text(mode),
         "tests/test_helpers.py": tests_text(recipe, mode),
     }
     if mode == "replay":
