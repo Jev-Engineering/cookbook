@@ -5,8 +5,9 @@ the original recipes, slugs, issue assignments and contribution rules. The full 
 their ranks, slugs, decision types, difficulty and references live in
 [`catalog/recipes.json`](../catalog/recipes.json). The generated [recipe catalog](../README.md)
 shows which notebooks are available: a planned entry becomes published there only when its
-`notebook.ipynb` exists. Catalog inclusion alone does not provide a working example or establish
-that the shared package implements the required API support.
+`notebook.ipynb` exists. Catalog inclusion alone does not provide a working example. The shared
+[image and Box APIs](backends.md#images-and-box) and [local vision helpers](vision.md) are
+documented separately; notebook availability, live evidence and merge approval remain distinct.
 
 This plan preserves the user-provided proposal **“New Jev Cookbook Use Cases — Vision &
 Multimodal Expansion”**, including its October 14, 2026 release context and eight suggested first
@@ -59,12 +60,18 @@ request must use that assigned issue as its sole closing reference. The
 [scope guard](notebook-ci.md#the-scope-check) fails closed for an unknown or unassigned slug, and
 an issue assignment made only in the pull request's head catalog cannot authorize it.
 
-Shared implementation work must establish image-asset handling, image references in state and
-question criteria, opt-in experimental headers, `Box` parsing, model-version pinning and faithful
-recording/replay before a recipe can depend on those features. Coordinate conversion, annotation,
-crop/tile transforms and ordered-frame handling need deterministic Python helpers and appropriate
-tests. Shared code and workflow changes belong in foundation work under the
-[contribution contract](../CONTRIBUTING.md).
+The shared backends accept image assets and references in state, instructions and criteria,
+parse `Box` answers, support explicit model selection and opt-in experimental headers, and
+replay stored responses keyed by state, questions and image identity. A `Box` answer contains
+one normalized rectangle with optional confidence. Coordinates do not establish presence, and
+missing required confidence must lead to review. See [Images and Box](backends.md#images-and-box).
+
+The [local vision helpers](vision.md) provide image validation and references, coordinate
+conversion, annotation, crop/tile transforms, IoU and ordered-frame handling. Resource
+accounting retains missing measurements rather than inventing latency, token use or cost.
+Each recipe still needs its own Python policy, gates and evaluation; shared support does not
+make every planned recipe complete or measured live. Shared code and workflow changes belong
+in foundation work under the [contribution contract](../CONTRIBUTING.md).
 
 The generic template supplies nine notebook sections and an offline workflow. Each visual recipe
 still needs its own bounded questions, labeled visual inputs, Python policy, baseline and

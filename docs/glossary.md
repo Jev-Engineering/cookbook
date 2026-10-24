@@ -1,18 +1,19 @@
 # Glossary
 
 The words this cookbook uses, in the order a reader meets them. Statements about Jev link to a page
-in the README [sources table](../README.md#sources) (S01 to S08); the root of those pages is the
+in the README [sources table](../README.md#sources) (S01 to S12); the root of those pages is the
 TypeSafe documentation index, <https://docs.typesafe.ai/llms.txt>. Words that belong to this
 cookbook and not to Jev link to the page in this repository that defines them. Nothing here says
 how well Jev performs, how fast it is, or what it costs.
 
 | Term | Where it comes from |
 | --- | --- |
-| [state](#state), [question](#question), [Choice](#choice), [Noul](#noul), [Score](#score), [criteria](#criteria), [probabilities](#probabilities), [confidence](#confidence) | Jev, as documented by TypeSafe |
+| [state](#state), [image asset](#image-asset), [question](#question), [Choice](#choice), [Noul](#noul), [Score](#score), [Box](#box), [criteria](#criteria), [probabilities](#probabilities), [confidence](#confidence) | Jev, as documented by TypeSafe, with local asset and answer handling in this cookbook |
 | [gold label](#gold-label) | This cookbook's fixtures |
 | [business threshold](#business-threshold), [confidence gate](#confidence-gate) | TypeSafe's guidance, and this cookbook's rule for choosing them |
 | [review](#review) | This cookbook |
 | [accuracy](#accuracy), [precision](#precision), [recall](#recall), [F1](#f1), [support](#support) | This cookbook, `jev_cookbook.evaluation` |
+| [intersection-over-union](#intersection-over-union) | This cookbook, `jev_cookbook.vision` |
 | [coverage](#coverage), [risk](#risk), [selective prediction](#selective-prediction) | This cookbook, `jev_cookbook.evaluation` |
 | [replay key](#replay-key), [fixture](#fixture), [provenance](#provenance), [run mode](#run-mode) | This cookbook |
 
@@ -20,19 +21,36 @@ Each term is defined the first time a recipe's own prose uses it, and that first
 
 ## state
 
-What Jev is asked about: the text or JSON object you supply with a request, such as a customer
-review or a record with several parts. Jev judges a state; it does not write text
+What Jev is asked about: the text, JSON object or array of strings you supply with a request,
+such as a customer review or a record with several parts. String values can contain image
+references; a JSON object can hold an ordered sequence of frame records
+([S09](https://docs.typesafe.ai/images)). Jev judges a state; it does not write text
 ([S01](https://docs.typesafe.ai/introduction)). In a recipe, Python builds the state, and
 identifiers the judgment does not need stay out of it
 ([template README](../recipes/_template/README.md#what-it-teaches)).
 
+## image asset
+
+A PNG or JPEG supplied separately from the text of a request. The `assets` mapping associates
+each reference string with a descriptor containing its type, format and base64-encoded data.
+That reference must appear inside a string value in the state, instructions or criteria. Object
+keys, question identifiers and option names stay text and do not count as uses of an asset
+([S09](https://docs.typesafe.ai/images), [backends.md](backends.md#images-and-box)).
+
+The local [vision helpers](vision.md#image-assets-and-reproducible-references) validate image
+bytes, build descriptors in memory and derive stable references from the image bytes. Recipes
+keep image files in `assets/` beside their JSON fixtures. Ordered frames are extracted still
+images with explicit timestamps; the helpers do not decode a video
+([vision.md](vision.md#explicitly-timestamped-still-frames)).
+
 ## question
 
-One typed, narrow thing to ask about a state, defined by its type (`Choice`, `Noul` or `Score`),
-its `instructions` and, for `Choice` and `Score`, its criteria. Several independent questions go
-in one request and are evaluated independently; a question that depends on an earlier answer goes in a
-later request ([S02](https://docs.typesafe.ai/primitives)). The cookbook's rule is one specific
-thing per question, with the answers combined in Python ([S01](https://docs.typesafe.ai/introduction),
+One typed, narrow thing to ask about a state, defined by its type (`Choice`, `Noul`, `Score` or
+`Box`), its `instructions` and any criteria that type accepts. `Box` has no criteria. Several
+independent questions go in one request and are evaluated independently; a question that depends
+on an earlier answer goes in a later request ([S02](https://docs.typesafe.ai/primitives)). The
+cookbook's rule is one specific thing per question, with the answers combined in Python
+([S01](https://docs.typesafe.ai/introduction),
 [CONTRIBUTING.md](../CONTRIBUTING.md), section 3). The classes are in
 [backends.md](backends.md#questions).
 
@@ -63,6 +81,23 @@ holds `score`, a position along your levels that can fall between two of them, a
 `probabilities` over the levels, and a `confidence`
 ([S02](https://docs.typesafe.ai/primitives)).
 
+## Box
+
+The question type that locates one target rectangle in an image. A `Box` answer has exactly four
+edges: `top`, `bottom`, `left` and `right`, expressed as finite values in `[0, 1]` with the origin
+at the image's top left. The rectangle must have positive area: `left < right` and
+`top < bottom`. It is one rectangle, not a mask or a collection of objects
+([S10](https://docs.typesafe.ai/primitives/box),
+[vision.md](vision.md#rectangle-coordinates)).
+
+The answer's `confidence` is the supplied number in `[0, 1]`, or `None` when missing. There is no
+probability distribution from which to recompute it
+([backends.md](backends.md#images-and-box)). A rectangle alone does not establish that the target
+exists. A recipe asks a separate presence question and combines the answers in Python. Unknown
+presence or missing required confidence goes to [review](#review); review is not an absence
+prediction. [Intersection-over-union](#intersection-over-union) measures the geometry separately
+from that presence decision.
+
 ## criteria
 
 What you tell Jev about the answer space. For a `Choice`, the options, each with an optional
@@ -73,12 +108,16 @@ builds option lists and rubrics, and carries them through to the output unchange
 ([CONTRIBUTING.md](../CONTRIBUTING.md), section 3). In this repository the shapes are in
 [backends.md](backends.md#questions).
 
+Image references can appear in instruction or criterion string values, for example to supply
+visual examples for fixed `Choice` options. Option names remain Python's labels. `Box` accepts
+instructions but no criteria ([backends.md](backends.md#images-and-box)).
+
 ## probabilities
 
 The distribution an answer carries across your options (`Choice`) or levels (`Score`). Its shape
 is what the answer says about certainty: concentrated on one outcome, or spread out
 ([S03](https://docs.typesafe.ai/confidence)). A `Noul` carries a single probability instead of a
-distribution.
+distribution. A `Box` carries rectangle edges and optional confidence, not a distribution.
 
 ## confidence
 
@@ -100,6 +139,10 @@ the cookbook checks stored answers against these formulas.
   (`n = 2`, `p_max = max(p, 1 - p)`), which reduces to `|2p - 1|` for a Noul's probability `p`:
   0 at `p = 0.5`, 1 at `p = 0` or `p = 1`. It is on the *same* 0-1 scale as Choice confidence, not
   a separate convention. [evaluation.md](evaluation.md) provides this as `noul_confidence(noul)`.
+- **Box** carries the supplied confidence or `None` when it is missing. There is no distribution
+  to recompute and geometry is not a substitute for confidence. Missing confidence cannot pass
+  a required numeric gate, even one set to zero
+  ([backends.md](backends.md#images-and-box), [vision.md](vision.md#rectangle-coordinates)).
 
 ## gold label
 
@@ -136,6 +179,9 @@ outcomes, yes, no, or review — chooses the two independently, both on `validat
 selective-prediction functions reject a confidence outside `[0, 1]`, so a sentinel value cannot be
 chosen as a gate ([CONTRIBUTING.md](../CONTRIBUTING.md), section 4).
 
+For `Box`, check for missing confidence before applying a numeric gate. A missing value takes
+the review path and is not a numeric sample for threshold selection.
+
 ## review
 
 The outcome a recipe gives an answer it does not act on automatically: an unconfident or
@@ -163,6 +209,18 @@ and `select_confidence_threshold` chooses a [confidence gate](#confidence-gate) 
 and `min_coverage` are both accuracy-based), so a `validation` accuracy prints under the selection
 label alongside any other `validation` number. Accuracy on `test`, with every setting already
 frozen, is the reported result, and is never itself used to choose anything.
+
+## intersection-over-union
+
+The area shared by two rectangles divided by the area covered by either rectangle, usually
+abbreviated **IoU**. It is 0 for disjoint rectangles and 1 for identical ones. The local vision
+helpers compute it in continuous normalized coordinates, before rounding to pixels
+([vision.md](vision.md#presence-confidence-and-evaluation)).
+
+In the cookbook's localization metrics, a missed present target contributes 0 IoU. Absent gold
+targets are excluded from mean IoU and predicted boxes on those targets are counted separately
+as false positives. Mean IoU is undefined (`NaN`) when no gold target is present. Report review
+outcomes separately so abstentions and absent targets cannot disappear into a geometry score.
 
 ## precision
 
@@ -219,10 +277,15 @@ The pattern of answering automatically only when an answer clears a
 
 ## replay key
 
-The lowercase hex SHA-256 of a request's state and questions (`replay_key(state, questions)`).
+The lowercase hex SHA-256 of a request's state, questions and optional image-asset identity
+(`replay_key(state, questions, assets=assets)`).
 An offline run looks a request up by its key in the stored responses. A request with no stored
 answer is an error (`ReplayMiss`), never an invented answer. Changing the state, a question name,
-type, instructions or criteria changes the key. Defined in [backends.md](backends.md#replay-key).
+type, instructions or criteria changes the key. For images, the identity includes each
+reference, its type and format, and a digest of its encoded data. Changing an image or its
+reference changes the key; reordering the asset mapping does not. Omitting assets or passing an
+empty mapping preserves the text-only key. Defined in [backends.md](backends.md#replay-key) and
+[Images and Box](backends.md#images-and-box).
 
 ## fixture
 
@@ -230,6 +293,11 @@ The data a recipe ships in its `fixtures/` folder: `inputs.jsonl` (the examples 
 `labels.jsonl` (gold labels) and `responses.json` (stored answers keyed by replay key). A recipe
 with a scripted backend has no stored answers. Written for the recipe, small, and validated by
 `python -m jev_cookbook.fixtures validate`. Defined in [fixtures.md](fixtures.md).
+
+Visual recipes keep image files in the sibling `assets/` folder, with relative paths and frame
+timestamps in the input records' `fields`. Gold labels remain separate from model inputs.
+Base64 descriptors are built in memory, not committed inside response fixtures
+([vision.md](vision.md#image-assets-and-reproducible-references)).
 
 ## provenance
 

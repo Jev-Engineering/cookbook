@@ -21,13 +21,18 @@
 
 Jev is TypeSafe AI's System One model. It does not write text. You send it a **state** and a set of **typed questions**, and it returns structured answers your code can branch on, sort by, and route with. This cookbook is a curriculum of Jupyter notebooks that teach that way of building, one bounded decision at a time.
 
+The state can combine text and structured records with PNG or JPEG image references. References
+can also appear in question instructions and criteria. The shared backends support `Choice`,
+`Noul`, `Score` and `Box` answers through offline replay or opt-in live calls.
+
 > [!NOTE]
 > **The generated badge and recipes table show what has shipped.** The catalog lists the planned use cases, categories, and difficulty levels, and it can be revised as recipes are built. A recipe counts as published once its `notebook.ipynb` is in the repository, and its row then links to the notebook. Every other row is marked coming soon, with an issue link only when a real recipe issue has been assigned. Recipe ranks are not issue numbers; the new multimodal entries start unassigned. Each published recipe states in its notebook and README which mode it ran in (synthetic fixtures or recorded responses), and for recorded responses the model version the API returned and the date. Metrics from synthetic runs check that the pipeline behaves as designed. They are not Jev results. Any number reported as a Jev result states the number of examples it was measured on and the model version, comes from recorded inference on a held-out set, and makes no general claim about Jev's quality, latency, or cost. Where a recipe has no such run, its README says "not measured live".
 
 The [multimodal track guide](docs/multimodal-track.md) describes the planned image, spatial,
 ordered-frame and long-context work, its evaluation requirements, and eight suggested first
-additions. Catalog entries describe the intended lessons; they do not imply a notebook or shared
-backend capability has shipped.
+additions. [Images and Box](docs/backends.md#images-and-box) documents the shared request and
+answer APIs, and [local vision helpers](docs/vision.md) covers image assets, rectangles and
+ordered frames. Notebook availability is separate from the catalog's plans.
 
 ## Quick start
 
@@ -48,20 +53,20 @@ take it from here:
 
 - [Getting started](docs/getting-started.md): install, open a notebook, run it offline, run a recipe's tests, switch to live.
 - [Offline and live](docs/offline-and-live.md): what each mode is, what provenance says, why synthetic metrics are pipeline checks, and what "not measured live" means.
-- [Glossary](docs/glossary.md): state, question, `Choice`, `Noul`, `Score`, criteria, probabilities, confidence, threshold, replay key, fixture, provenance, and run mode, each linked to its source.
+- [Glossary](docs/glossary.md): state, image asset, question, `Choice`, `Noul`, `Score`, `Box`, confidence, thresholds, intersection-over-union, replay and provenance, each linked to its source.
 
 ## How a recipe works
 
-Each notebook keeps the same division of labour. Jev supplies a narrow semantic judgment. Python does everything exact: arithmetic, retrieval, policy, permissions, and execution.
+Each notebook keeps the same division of labour. Jev supplies a narrow semantic judgment. Python does everything exact: arithmetic, retrieval, image preparation, coordinate conversion, policy, permissions, and simulated execution.
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': {'lineColor': '#E551BA'}}}%%
 flowchart LR
-    F["Prepared fixtures<br/>text or JSON"]:::panel --> Q["Typed questions<br/>Choice · Noul · Score"]:::pink
-    Q --> J["Jev<br/>one focused judgment each"]:::ink
-    J --> A["Typed answers<br/>with probabilities"]:::pink
-    A --> P["Your Python<br/>policy, arithmetic, execution"]:::panel
-    P --> E["Evaluation<br/>labels, baselines, held-out sets"]:::ink
+    F["Prepared inputs<br/>text · JSON · image assets"]:::panel --> Q["Typed questions<br/>Choice · Noul · Score · Box"]:::pink
+    Q --> J["Backend<br/>offline replay or opt-in Jev"]:::ink
+    J --> A["Typed answers<br/>decisions or a rectangle"]:::pink
+    A --> P["Your Python<br/>policy · geometry · simulated actions"]:::panel
+    P --> E["Evaluation<br/>labels · boxes · held-out sets"]:::ink
     classDef ink fill:#1E1E1E,stroke:#F386A1,color:#FEFEFE
     classDef pink fill:#F386A1,stroke:#1E1E1E,color:#1E1E1E
     classDef panel fill:#DEDEDE,stroke:#1E1E1E,color:#1E1E1E
@@ -91,7 +96,7 @@ What every recipe assumes:
 | | |
 | --- | --- |
 | **You** | Know basic Python. No machine learning background is needed for levels 1 to 3. |
-| **Data** | Prepared text or JSON fixtures that ship with the recipe. The inputs are written for the recipe, never real data. Stored answers are synthetic unless the recipe says they were recorded from real calls, with the model and the date. |
+| **Data** | Prepared text, JSON records and synthetic PNG or JPEG images that ship with the recipe. Images live in `assets/` beside the JSON fixtures; input records carry relative paths and, for frames, timestamps. The inputs are written for the recipe, never real data. Stored answers are synthetic unless the recipe says they were recorded from real calls, with the model and the date. See [image assets](docs/vision.md#image-assets-and-reproducible-references). |
 | **Actions** | Simulated. No recipe sends a message, moves a file, or touches a real system. |
 | **Model calls** | Offline by default, replaying fixtures. Live Jev calls are opt-in with your own key. |
 | **Claims** | Runs on synthetic or scripted answers show that the pipeline works. Statements about quality, latency, or cost need recorded inference on a held-out set, with the model version, the capture date and the number of examples (N), and a recipe says which one you are looking at. |
@@ -105,7 +110,7 @@ The catalog uses Jev's own vocabulary. Every recipe is tagged with the primitive
 | `Choice` | Select one option | Select one item from supplied alternatives, including none, other, or uncertain outcomes when the task needs them. Returns the choice, a probability per option, and a confidence. |
 | `Noul` | Judge a proposition | Return the probability that a stated proposition holds. Tasks that allow several labels ask one independent question per label. There is no separate confidence field. |
 | `Score` | Evaluate a rubric | Return a position and a distribution over ordered rubric levels you define. Exact measurements and arithmetic stay in code. |
-| `Box` | Locate an object in an image | Return one bounding rectangle and confidence. Planned spatial recipes pair localization with explicit presence and review gates; a rectangle alone does not prove the target exists. See [Box documentation](https://docs.typesafe.ai/primitives/box). |
+| `Box` | Locate an object in an image | Return one normalized rectangle with optional confidence. A rectangle alone does not establish presence; Python applies separate presence and review gates, including review when required confidence is missing. See [Box](docs/glossary.md#box) and [rectangle coordinates](docs/vision.md#rectangle-coordinates). |
 | Combination | Compose judgments | Combine independent questions in Python, and make a later request when one judgment depends on an earlier answer. |
 
 A single label can stand for several independent questions of that type. Thresholds are a property of the task, so each recipe that uses one chooses it from examples and evaluates it.
