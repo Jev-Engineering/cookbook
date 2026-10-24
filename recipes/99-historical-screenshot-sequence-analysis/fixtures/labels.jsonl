@@ -1,0 +1,24 @@
+{"id": "v01", "label": {"event": 7200, "rationale": "Chart becomes a flat strip; a fresh chart-layout failure accompanies that sample."}}
+{"id": "v02", "label": {"event": 3600, "rationale": "Chart becomes a flat strip; a fresh chart-layout failure accompanies that sample."}}
+{"id": "v03", "label": {"event": "none", "rationale": "All chart panels stay tall; an unrelated cache error is not the target symptom."}}
+{"id": "v04", "label": {"event": "none", "rationale": "Large color change, same tall chart; cache log text includes an adversarial directive."}}
+{"id": "v05", "label": {"event": "review", "rationale": "Visible collapse but failure belongs to a previous session and an old event."}}
+{"id": "v06", "label": {"event": "review", "rationale": "Visible collapse; the same operation has contradictory success and failure logs."}}
+{"id": "v07", "label": {"event": "review", "rationale": "A scheduled earlier screenshot is missing, so earliest retained evidence is incomplete."}}
+{"id": "v08", "label": {"event": "review", "rationale": "An earlier panel is covered; absence before the later collapse cannot be resolved."}}
+{"id": "v09", "label": {"event": 3600, "rationale": "Collapse at the early checkpoint, recovery later, then recurrence; earliest is early."}}
+{"id": "v10", "label": {"event": "none", "rationale": "The tall loading placeholder is not a collapse, despite a low-certainty false positive."}}
+{"id": "v11", "label": {"event": 9000, "rationale": "Collapse first appears at the final-but-two sample with moderate certainty."}}
+{"id": "v12", "label": {"event": "review", "rationale": "The first screenshot is already collapsed; this session lacks a before state."}}
+{"id": "t01", "label": {"event": 9000, "rationale": "Chart becomes a flat strip; a fresh chart-layout failure accompanies that sample."}}
+{"id": "t02", "label": {"event": 3600, "rationale": "Chart becomes a flat strip; a fresh chart-layout failure accompanies that sample."}}
+{"id": "t03", "label": {"event": "none", "rationale": "All chart panels stay tall; an unrelated cache error is not the target symptom."}}
+{"id": "t04", "label": {"event": "none", "rationale": "Large color change, same tall chart; cache log text includes an adversarial directive."}}
+{"id": "t05", "label": {"event": "review", "rationale": "Visible collapse but failure belongs to a previous session and an old event."}}
+{"id": "t06", "label": {"event": "review", "rationale": "Visible collapse; the same operation has contradictory success and failure logs."}}
+{"id": "t07", "label": {"event": "review", "rationale": "A scheduled earlier screenshot is missing, so earliest retained evidence is incomplete."}}
+{"id": "t08", "label": {"event": "review", "rationale": "An earlier panel is covered; absence before the later collapse cannot be resolved."}}
+{"id": "t09", "label": {"event": 3600, "rationale": "Collapse at the early checkpoint, recovery later, then recurrence; earliest is early."}}
+{"id": "t10", "label": {"event": 5400, "rationale": "Collapse starts at 5400; replay deliberately misses it and confidently selects 9000."}}
+{"id": "t11", "label": {"event": "review", "rationale": "Visible collapse has no failure log to associate with the symptom."}}
+{"id": "t12", "label": {"event": "review", "rationale": "The first screenshot is already collapsed; this session lacks a before state."}}
