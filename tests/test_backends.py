@@ -718,6 +718,39 @@ def test_decision_result_membership_and_iteration_by_question_name():
         result[0]
 
 
+def test_decision_result_keys_let_dict_and_unpacking_read_name_to_answer():
+    result = recorded_result()
+    names = list(result.answers)
+    assert names  # the checks below must not be vacuous
+    assert list(result.keys()) == names
+    assert dict(result) == dict(result.answers)
+    assert list(dict(result)) == names
+    assert {**result} == dict(result.answers)
+    # Names of 1, 2 and 3 characters (and mixed lengths) all read as names: dict(result) must
+    # never split a name into characters or raise for a name that is not two characters long.
+    for question_names in (
+        ["a"],
+        ["a", "b"],
+        ["ok"],
+        ["ok", "id"],
+        ["ok", "abc"],
+        ["faq"],
+        ["faq", "tag"],
+    ):
+        short = DecisionResult(
+            {name: NoulAnswer(0.5, PROV) for name in question_names}, SYNTHETIC_MODEL
+        )
+        assert list(short.keys()) == question_names
+        assert dict(short) == {name: short[name] for name in question_names}
+        assert {**short} == dict(short)
+    # A decided limit: keys() is the only mapping method added. The rest of the mapping surface
+    # stays on result.answers.
+    for missing in ("items", "values", "get"):
+        assert not hasattr(result, missing)
+    with pytest.raises(TypeError):
+        len(result)
+
+
 def test_provenance_is_required_and_recorded_needs_a_date():
     base = recorded_result().to_dict()
     for name in ("billing", "tone", "urgency"):
