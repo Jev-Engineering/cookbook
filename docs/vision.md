@@ -83,7 +83,74 @@ Reuse these names in state, instructions or criterion **values**. Every supplied
 asset must be referenced. References also substitute inside sentences, so choose
 distinctive names. Repetition adds another image to the expanded request even when
 one asset is reused. Local file validation does not certify the API's aggregate
-request limits. See [image references and limits](https://docs.typesafe.ai/images).
+request limits; [copies and the 32 MiB caps](#image-copies-and-the-32-mib-caps) below counts
+what can be counted offline. See [image references and limits](https://docs.typesafe.ai/images).
+
+## Image copies and the 32 MiB caps
+
+Two numbers describe a request's images, and they differ whenever a reference repeats. A
+**distinct image** is an asset uploaded once. A **copy** is a place its reference is replaced by
+the image: "every place its reference appears adds another copy of the image to what the model
+reads, and every copy counts toward the expanded request limit." The page's Limits table sets
+three separate 32 MiB caps: one on the request body (the JSON, base64 text and multipart framing;
+HTTP headers do not count), one on all distinct images in the request (measured after the API
+processes them), and one on the expanded request (the text, questions and structure plus every
+copy). The last two can be counted in part from the request alone, as below; the request-body cap
+is not modelled.
+
+`image_request_profile(state, questions, assets)` counts both from the request alone. It reads no
+file, decodes nothing and keeps no bytes: sizes come from the length of each `data_base64`.
+
+```python
+from jev_cookbook.vision import image_request_profile
+
+profile = image_request_profile(state, questions, assets)
+profile.distinct_assets, profile.distinct_bytes  # the uploads
+profile.copies, profile.expanded_bytes  # every replacement
+profile.state_copies, dict(profile.per_question)  # where the copies are
+```
+
+The rules follow the upstream page. A string that is exactly a reference is one copy; in longer
+strings references are replaced left to right and matches never overlap, so a reference used twice
+in one string is two copies. Where two references start at the same character the longer wins
+(the page does not say; this keeps a reference from being shadowed by its own prefix). Copies are
+counted in state string values, in `Noul`, `Choice` and `Score` criteria values, and in each
+question's `instructions`. An image in the instructions of three questions is three copies. Object
+keys, question names and `Choice` option names are text. `per_question` holds the copies in each
+question's own instructions and criteria, so `copies == state_copies + sum(per_question.values())`.
+
+**Put a shared image in the `state` once and refer to it by path from each question's
+instructions**, as upstream recommends. A 2 MiB chart named in the instructions of twenty questions
+is twenty copies, 40 MiB, over the expanded cap; in the state it is one copy, 2 MiB, and the
+instructions say "the `chart` image" in words. Repeating a reference in a criterion or in several
+state fields is a deliberate choice that costs a copy each time.
+
+`LiveBackend.decide` calls `preflight_image_request(profile)` after validating the request and
+before importing the SDK or spending anything. If the distinct bytes or the expanded bytes exceed
+32 MiB it raises `ImageRequestTooLarge` (a `ValueError`) that names the counts and the cure;
+`requests_made` is unchanged. The check uses no network and covers only the distinct-image and
+expanded caps, and only in part. It is necessary, not sufficient, and a request that passes can
+still be refused:
+
+- the sizes are encoded file bytes, and the API measures after processing;
+- the expanded cap also counts text and structure, which the preflight does not add;
+- the request-body cap is not modelled at all. The page says base64 makes each image about a
+  third larger than the file, so on a base64 JSON request the body cap can bind before the image
+  caps do. `LiveBackend` hands the bytes to the SDK as `Image` values, which the SDK uploads as
+  multipart (see [live](live.md)); that is how this cookbook sends them, not something the
+  preflight checks;
+- a reference that is a complete prefix of a longer one can be shadowed. The page does not say how
+  references that start at the same character resolve; this helper takes the longest, so an asset
+  whose reference occurs only inside longer matches counts no copy and no distinct bytes, although
+  it is still supplied. The page says every asset must be referenced and answers `400` otherwise,
+  and the preflight does not refuse it.
+
+Image tokens are not separable. They appear only inside the `usage.input_tokens` of a recorded
+response, there is no estimator, and the cookbook does not guess one. What it records is the
+count: `AuditedBackend` entries carry `images` (copies) and `distinct_images` per call (see
+[backends](backends.md#actual-calls-and-distinct-requests)), and the `live.record` sidecar line
+and `LiveBackend.ledger()` carry the same two counts beside `input_tokens`, so a recorded cost can
+be read against how many images produced it. A text-only request carries neither field.
 
 ## Rectangle coordinates
 
