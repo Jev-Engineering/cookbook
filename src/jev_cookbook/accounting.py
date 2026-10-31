@@ -106,8 +106,9 @@ def _image_counter(field: str) -> ProfileCounter:
 
 
 # ``images``: the image copies a request expands to (every place a reference is replaced, an
-# image in the instructions once per question); ``distinct_images``: the assets it uploads.
-# Counts only, never bytes or content. Both are zero, hence omitted, for a text-only request.
+# image in the instructions once per question); ``distinct_images``: the distinct assets whose
+# reference is replaced at least once. Counts only, never bytes or content. Both are zero, hence
+# omitted, for a text-only request.
 register_profile("images", _image_counter("copies"))
 register_profile("distinct_images", _image_counter("distinct_assets"))
 

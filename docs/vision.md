@@ -91,9 +91,12 @@ what can be counted offline. See [image references and limits](https://docs.type
 Two numbers describe a request's images, and they differ whenever a reference repeats. A
 **distinct image** is an asset uploaded once. A **copy** is a place its reference is replaced by
 the image: "every place its reference appears adds another copy of the image to what the model
-reads, and every copy counts toward the expanded request limit." Upstream sets two separate
-32 MiB caps: one on all distinct images in the request (measured after the API processes them)
-and one on the expanded request (the text, questions and structure plus every copy).
+reads, and every copy counts toward the expanded request limit." The page's Limits table sets
+three separate 32 MiB caps: one on the request body (the JSON, base64 text and multipart framing;
+HTTP headers do not count), one on all distinct images in the request (measured after the API
+processes them), and one on the expanded request (the text, questions and structure plus every
+copy). The last two can be counted in part from the request alone, as below; the request-body cap
+is not modelled.
 
 `image_request_profile(state, questions, assets)` counts both from the request alone. It reads no
 file, decodes nothing and keeps no bytes: sizes come from the length of each `data_base64`.
@@ -118,16 +121,29 @@ question's own instructions and criteria, so `copies == state_copies + sum(per_q
 
 **Put a shared image in the `state` once and refer to it by path from each question's
 instructions**, as upstream recommends. A 2 MiB chart named in the instructions of twenty questions
-is forty copies, 40 MiB, over the expanded cap; in the state it is one copy, 2 MiB, and the
+is twenty copies, 40 MiB, over the expanded cap; in the state it is one copy, 2 MiB, and the
 instructions say "the `chart` image" in words. Repeating a reference in a criterion or in several
 state fields is a deliberate choice that costs a copy each time.
 
 `LiveBackend.decide` calls `preflight_image_request(profile)` after validating the request and
 before importing the SDK or spending anything. If the distinct bytes or the expanded bytes exceed
 32 MiB it raises `ImageRequestTooLarge` (a `ValueError`) that names the counts and the cure;
-`requests_made` stays 0. The check uses no network. It is necessary, not sufficient: the sizes are
-encoded file bytes, the API measures after processing, and the expanded cap also counts text and
-structure, which the preflight does not add. A request that passes can still be refused.
+`requests_made` stays 0. The check uses no network and covers only the distinct-image and
+expanded caps, and only in part. It is necessary, not sufficient, and a request that passes can
+still be refused:
+
+- the sizes are encoded file bytes, and the API measures after processing;
+- the expanded cap also counts text and structure, which the preflight does not add;
+- the request-body cap is not modelled at all. The page says base64 makes each image about a
+  third larger than the file, so on a base64 JSON request the body cap can bind before the image
+  caps do. `LiveBackend` hands the bytes to the SDK as `Image` values, which the SDK uploads as
+  multipart (see [live](live.md)); that is how this cookbook sends them, not something the
+  preflight checks;
+- a reference that is a complete prefix of a longer one can be shadowed. The page does not say how
+  references that start at the same character resolve; this helper takes the longest, so an asset
+  whose reference occurs only inside longer matches counts no copy and no distinct bytes, although
+  it is still supplied. The page says every asset must be referenced and answers `400` otherwise,
+  and the preflight does not refuse it.
 
 Image tokens are not separable. They appear only inside the `usage.input_tokens` of a recorded
 response, there is no estimator, and the cookbook does not guess one. What it records is the

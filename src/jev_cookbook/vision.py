@@ -82,11 +82,12 @@ _MIN_AREA = IMAGE_LIMITS["min_area"]
 _MAX_AREA = IMAGE_LIMITS["max_area"]
 _MAX_IMAGE_BYTES = IMAGE_LIMITS["max_bytes"]
 DEFAULT_MAX_TILES = 256
-# The two aggregate caps of the same page: "All images in the request: 32 MiB, shared by every
+# The aggregate caps of the same page, which lists three: "Request body: 32 MiB, including the
+# JSON, base64 text, and multipart framing", "All images in the request: 32 MiB, shared by every
 # distinct image after the API processes it" and "Expanded request: 32 MiB for the text,
 # questions, structure, and images after every reference is replaced by its image". Local file
-# validation cannot see either (see ``validate_image_asset``); ``preflight_image_request`` checks
-# the part of them that is knowable offline.
+# validation cannot see any of them (see ``validate_image_asset``); ``preflight_image_request``
+# checks the part of the last two that is knowable offline. The request-body cap is not modelled.
 REQUEST_IMAGE_LIMITS = {
     "distinct_bytes": 32 * 1024 * 1024,
     "expanded_bytes": 32 * 1024 * 1024,
@@ -304,7 +305,11 @@ def image_request_profile(
       in the instructions of three questions is three copies, while the same image in the state
       once is one copy ("put it in the ``state`` once and refer to it by path");
     - where two references start at the same place the longer one is replaced (the page does not
-      say; this is the reading that keeps a longer reference from being shadowed by its prefix).
+      say; this is the reading that keeps a longer reference from being shadowed by its prefix);
+    - an asset whose reference occurs only inside matches of longer references is never replaced,
+      so it counts no copy and no distinct bytes here, although it is still supplied (the page
+      says every asset must be referenced and answers ``400`` otherwise; this helper does not
+      refuse it).
 
     ``assets`` maps reference to a raw asset dictionary, as for ``decide``; sizes come from the
     length of ``data_base64`` (the file bytes), so the asset is not decoded or validated here.
@@ -343,8 +348,11 @@ def image_request_profile(
 def preflight_image_request(profile: ImageRequestProfile) -> None:
     """Raise :class:`ImageRequestTooLarge` when the images alone exceed an aggregate cap.
 
-    Uses no network and spends nothing. Passing is necessary, not sufficient: the API measures
-    after processing and counts the text and structure of the expanded request as well.
+    Uses no network and spends nothing. It checks two of the page's three 32 MiB caps, and only
+    the part of them knowable from encoded file sizes. Passing is necessary, not sufficient: the
+    API measures images after processing, the expanded request counts text and structure that is
+    not added here, and the request-body cap (JSON, base64 text and multipart framing) is not
+    modelled at all.
     """
     mib = 1024 * 1024
     if profile.distinct_bytes > REQUEST_IMAGE_LIMITS["distinct_bytes"]:
