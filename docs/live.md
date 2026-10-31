@@ -65,8 +65,14 @@ sent). The returned string is what goes on `DecisionResult.model` and into every
 
 Pass `images=True` and/or `long_context=True` to `LiveBackend` or `get_backend`.
 These booleans add exactly `TypeSafe-Danger-Zone-Images: true` and
-`TypeSafe-Danger-Zone-Long-Context: true`, respectively, to each request.
-Their defaults are false and ordinary text calls add neither header.
+`TypeSafe-Danger-Zone-Long-Context: true`, respectively. The header belongs to the backend, not to
+the call: a backend built with `images=True` sends the images header on every call it makes,
+including a call with no image or Box question, and a backend built with `long_context=True`
+does the same with the long-context header. Upstream asks for the images header "with each
+request that contains an image or a Box question" ([images](https://docs.typesafe.ai/images)).
+Both defaults are false: a backend built without a flag sends no header for it, and refuses image
+assets and Box questions (below), so a text-only call that should carry no experimental header
+goes through a backend built without the flags.
 The existing restriction on arbitrary `request_kwargs["extra_headers"]` still holds.
 
 Pass raw image dictionaries using `decide(state, questions, assets=assets)` as described in
@@ -94,6 +100,16 @@ latency or cost. See [images](https://docs.typesafe.ai/images),
   ordinary answer classes, so it gets the same consistency checks as any stored fixture.
 - Usage: the API's `input_tokens`/`output_tokens` become `Usage`; each may be `null`. A count that
   is not a non-negative integer or null is a `LiveResponseError`, not a guess.
+- Compression: the backend builds its own client without a `compression=` argument, so the SDK's
+  default applies. SDK 0.7.5 made it zstd
+  ([changelog](https://docs.typesafe.ai/sdk/python/changelog): "enable request body compression
+  with zstd by default (non-official APIs may not support this immediately)"). The clients
+  compress request bodies of 1 KiB or more with zstd when zstd is available: the standard library
+  provides it from Python 3.14, and `typesafe-sdk[zstd]` provides it on earlier versions
+  ([SDK advanced usage](https://docs.typesafe.ai/sdk/python/usage/advanced)). Without zstd the SDK
+  sends bodies uncompressed, and `jev_cookbook[live]` does not install that extra. A client you
+  pass with `client=` keeps the compression you built it with. Compression does not raise the
+  32 MiB request-body limit ([images](https://docs.typesafe.ai/images)).
 - The `request_id` (the `x-typesafe-request-id` header, when present) is not part of the stored
   response format, and `DecisionResult` rejects unknown fields, so it is kept beside the result:
   `backend.last_request_id`, `backend.request_ids`, `backend.records` (one `CallRecord` per

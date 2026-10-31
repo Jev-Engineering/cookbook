@@ -481,6 +481,12 @@ with `mode="live"`.
 
 ## Images and Box
 
+**Experimental.** Upstream labels images and Box "Dreamer-ready": "Images and Box questions aren’t
+yet up to our standards to call ready for production" and "The request format, the answers, and
+the limits on this page can change between releases, and accuracy will change as we update the
+models" (the [images](https://docs.typesafe.ai/images) and [Box](https://docs.typesafe.ai/primitives/box)
+pages, read on 2026-10-31). This section describes what this repository does today. The local helpers are in [vision.md](vision.md).
+
 `assets` maps a stable reference string to the official raw image dictionary:
 `{"type": "image", "format": "png", "data_base64": ...}` (`jpg` and any letter case also work;
 the format is canonicalized to `png`/`jpeg` before the replay key is computed, so the same bytes
