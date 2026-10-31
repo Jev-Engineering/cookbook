@@ -11,24 +11,30 @@ import binascii
 import hashlib
 import io
 import math
+import re
 import struct
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from fractions import Fraction
 from numbers import Integral, Real
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 from PIL import Image, ImageDraw, UnidentifiedImageError
 
 from ._canonical import canonical_image_format
+from .backends import _string_values
 from .evaluation import sum_usage
 from .style import INK, PAPER, PINK
 
 __all__ = [
     "DEFAULT_MAX_TILES",
     "IMAGE_LIMITS",
+    "REQUEST_IMAGE_LIMITS",
     "AssetPathError",
+    "ImageRequestProfile",
+    "ImageRequestTooLarge",
     "ImageTile",
     "ImageTransform",
     "LocalizationMetrics",
@@ -44,12 +50,14 @@ __all__ = [
     "image_asset",
     "image_assets",
     "image_reference",
+    "image_request_profile",
     "image_to_tile",
     "load_frames",
     "localization_metrics",
     "localization_report",
     "normalized_box",
     "normalized_to_pixels",
+    "preflight_image_request",
     "prepare_image",
     "resolve_asset_path",
     "run_record",
@@ -74,6 +82,16 @@ _MIN_AREA = IMAGE_LIMITS["min_area"]
 _MAX_AREA = IMAGE_LIMITS["max_area"]
 _MAX_IMAGE_BYTES = IMAGE_LIMITS["max_bytes"]
 DEFAULT_MAX_TILES = 256
+# The aggregate caps of the same page, which lists three: "Request body: 32 MiB, including the
+# JSON, base64 text, and multipart framing", "All images in the request: 32 MiB, shared by every
+# distinct image after the API processes it" and "Expanded request: 32 MiB for the text,
+# questions, structure, and images after every reference is replaced by its image". Local file
+# validation cannot see any of them (see ``validate_image_asset``); ``preflight_image_request``
+# checks the part of the last two that is knowable offline. The request-body cap is not modelled.
+REQUEST_IMAGE_LIMITS = {
+    "distinct_bytes": 32 * 1024 * 1024,
+    "expanded_bytes": 32 * 1024 * 1024,
+}
 _FORMATS = {"PNG": "png", "JPEG": "jpeg"}
 _EDGES = ("top", "bottom", "left", "right")
 PixelBounds = tuple[int, int, int, int]
@@ -231,6 +249,126 @@ def image_assets(
     if size > 65_536:
         raise ValueError("image references together must be at most 65,536 UTF-8 bytes")
     return {reference: image_asset(path, root=root) for reference, path in paths.items()}
+
+
+@dataclass(frozen=True)
+class ImageRequestProfile:
+    """What a request's image references expand to, counted from the request alone.
+
+    ``distinct_assets`` / ``distinct_bytes``: the assets whose reference appears at least once,
+    and the encoded file bytes of those assets, each counted once (the upload). ``copies`` /
+    ``expanded_bytes``: every place a reference is replaced by its image, and the bytes of all of
+    those copies. ``state_copies`` are the copies in the state (sent once per request);
+    ``per_question`` maps each question name to the copies in that question's own instructions and
+    criteria values, so ``copies == state_copies + sum(per_question.values())``. Bytes are the
+    encoded file sizes, not what the API holds after processing, and no content is kept.
+    """
+
+    distinct_assets: int
+    distinct_bytes: int
+    copies: int
+    expanded_bytes: int
+    state_copies: int
+    per_question: Mapping[str, int]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "per_question", MappingProxyType(dict(self.per_question)))
+
+
+class ImageRequestTooLarge(ValueError):
+    """A request's images exceed an aggregate cap; raised before anything is sent."""
+
+
+def _encoded_size(asset: Mapping[str, Any]) -> int:
+    """Decoded byte length of ``asset["data_base64"]`` from its length alone (no decoding)."""
+    try:
+        encoded = asset["data_base64"]
+    except (KeyError, TypeError):
+        raise ValueError("image asset needs data_base64") from None
+    if not isinstance(encoded, str) or len(encoded) % 4:
+        raise ValueError("data_base64 must be a padded base64 string")
+    return len(encoded) // 4 * 3 - (len(encoded) - len(encoded.rstrip("=")))
+
+
+def image_request_profile(
+    state: Any, questions: Mapping[str, Any], assets: Mapping[str, Mapping[str, Any]] | None
+) -> ImageRequestProfile:
+    """Count the image copies and bytes a request expands to. Pure: no file is read, no bytes kept.
+
+    Follows https://docs.typesafe.ai/images (fetched 2026-10-22): "A string that is exactly a
+    reference becomes that image. In longer strings, references are replaced from left to right,
+    and matches never overlap", and "every place its reference appears adds another copy". So:
+
+    - every occurrence of a reference in a state string value or a criteria value is one copy
+      (``Choice`` option names and object keys are text, never a place for a reference);
+    - an occurrence in a question's ``instructions`` is one copy for that question, so an image
+      in the instructions of three questions is three copies, while the same image in the state
+      once is one copy ("put it in the ``state`` once and refer to it by path");
+    - where two references start at the same place the longer one is replaced (the page does not
+      say; this is the reading that keeps a longer reference from being shadowed by its prefix);
+    - an asset whose reference occurs only inside matches of longer references is never replaced,
+      so it counts no copy and no distinct bytes here, although it is still supplied (the page
+      says every asset must be referenced and answers ``400`` otherwise; this helper does not
+      refuse it).
+
+    ``assets`` maps reference to a raw asset dictionary, as for ``decide``; sizes come from the
+    length of ``data_base64`` (the file bytes), so the asset is not decoded or validated here.
+    """
+    sizes = {ref: _encoded_size(asset) for ref, asset in (assets or {}).items()}
+    if not sizes:
+        return ImageRequestProfile(0, 0, 0, 0, 0, {name: 0 for name in questions})
+    # Longest first, so at one position the alternation takes the longest reference.
+    pattern = re.compile("|".join(re.escape(ref) for ref in sorted(sizes, key=len, reverse=True)))
+    seen: dict[str, int] = {}
+
+    def count(values: Iterable[str]) -> int:
+        total = 0
+        for value in values:
+            for ref in pattern.findall(value):
+                seen[ref] = seen.get(ref, 0) + 1
+                total += 1
+        return total
+
+    state_copies = count(_string_values(state))
+    per_question = {}
+    for name, question in questions.items():
+        per_question[name] = count(_string_values(question.instructions)) + count(
+            _string_values(getattr(question, "criteria", None))
+        )
+    return ImageRequestProfile(
+        distinct_assets=len(seen),
+        distinct_bytes=sum(sizes[ref] for ref in seen),
+        copies=sum(seen.values()),
+        expanded_bytes=sum(sizes[ref] * times for ref, times in seen.items()),
+        state_copies=state_copies,
+        per_question=per_question,
+    )
+
+
+def preflight_image_request(profile: ImageRequestProfile) -> None:
+    """Raise :class:`ImageRequestTooLarge` when the images alone exceed an aggregate cap.
+
+    Uses no network and spends nothing. It checks two of the page's three 32 MiB caps, and only
+    the part of them knowable from encoded file sizes. Passing is necessary, not sufficient: the
+    API measures images after processing, the expanded request counts text and structure that is
+    not added here, and the request-body cap (JSON, base64 text and multipart framing) is not
+    modelled at all.
+    """
+    mib = 1024 * 1024
+    if profile.distinct_bytes > REQUEST_IMAGE_LIMITS["distinct_bytes"]:
+        raise ImageRequestTooLarge(
+            f"the request's {profile.distinct_assets} distinct image(s) are "
+            f"{profile.distinct_bytes / mib:.1f} MiB, over the 32 MiB cap on all images in a "
+            "request; use fewer or smaller images. Nothing was sent."
+        )
+    if profile.expanded_bytes > REQUEST_IMAGE_LIMITS["expanded_bytes"]:
+        raise ImageRequestTooLarge(
+            f"the request expands to {profile.copies} image copies of "
+            f"{profile.expanded_bytes / mib:.1f} MiB, over the 32 MiB cap on the expanded request "
+            f"(each use of a reference adds the image again; {profile.state_copies} in the state, "
+            f"per question {dict(profile.per_question)}). Put a shared image in the state once "
+            "and refer to it by path, or use fewer references. Nothing was sent."
+        )
 
 
 def _number(value: Any, name: str, *, unit: bool = False) -> float:

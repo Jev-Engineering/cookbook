@@ -19,7 +19,9 @@ Extension point (how a later change adds a counted quantity without breaking a n
     quantity existed, and its committed output stays valid. Core fields never change meaning; a
     change to one of those is the only thing that bumps :data:`AUDIT_SCHEMA`. The verifier in
     ``tests/request_audit.py`` accepts exactly the registered names, recomputes every total from
-    the calls, and compares the totals with the recipe's declared ``profile``.
+    the calls, and compares the totals with the recipe's declared ``profile``. This module
+    registers two itself for requests that carry images: ``images`` (copies, every place a
+    reference is replaced by its image) and ``distinct_images`` (assets uploaded); counts only.
 
 The declaration
     ``request_budget.json`` beside the notebook is the one place a recipe states its live request
@@ -55,8 +57,9 @@ PROFILE_NAME = re.compile(r"[a-z][a-z0-9_]{0,31}")
 
 ProfileCounter = Callable[[Any, Mapping[str, Question], "Assets | None"], int]
 
-# The extension registry (see the module docstring). Empty today: the text-only audit has no
-# per-request quantity beyond the call itself.
+# The extension registry (see the module docstring). A text-only request has no per-request
+# quantity beyond the call itself; the image quantities below are registered when this module is
+# imported, so ``import jev_cookbook`` is all a notebook or the guard needs.
 PROFILE_COUNTERS: dict[str, ProfileCounter] = {}
 
 
@@ -87,6 +90,27 @@ __all__ = [
     "render_recipe_note",
     "repeated_keys",
 ]
+
+
+def _image_counter(field: str) -> ProfileCounter:
+    """A counter for one count of ``vision.image_request_profile`` (copies or distinct assets)."""
+
+    def count(state: Any, questions: Mapping[str, Question], assets: Assets | None) -> int:
+        if not assets:
+            return 0  # a text-only request never imports the image code
+        from .vision import image_request_profile
+
+        return getattr(image_request_profile(state, questions, assets), field)
+
+    return count
+
+
+# ``images``: the image copies a request expands to (every place a reference is replaced, an
+# image in the instructions once per question); ``distinct_images``: the distinct assets whose
+# reference is replaced at least once. Counts only, never bytes or content. Both are zero, hence
+# omitted, for a text-only request.
+register_profile("images", _image_counter("copies"))
+register_profile("distinct_images", _image_counter("distinct_assets"))
 
 
 class AuditedBackend:

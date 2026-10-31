@@ -936,3 +936,80 @@ def test_a_second_get_backend_in_a_helper_is_not_a_separate_budget_the_audit_can
     evidence = evidence_of(cells)
     with pytest.raises(AssertionError, match="declares backends"):
         audit_guard.check_against_declaration(evidence, budget(2, label="arm-a"), Path("unused"))
+
+
+# --------------------------------------------------------------------------------------------
+# #313: the image profile through the guard
+# --------------------------------------------------------------------------------------------
+
+IMAGE_SETUP = """import base64, io
+from PIL import Image
+from jev_cookbook import AuditedBackend, get_backend, Noul
+backend = AuditedBackend(get_backend(script=lambda state, qs, rng: {n: 0.9 for n in qs}))
+data = io.BytesIO()
+Image.new("RGB", (280, 280), "pink").save(data, format="PNG")
+assets = {"<ruler>": {"type": "image", "format": "png",
+                       "data_base64": base64.b64encode(data.getvalue()).decode("ascii")}}
+questions = {n: Noul(instructions="Does it fit <ruler>?") for n in ("a", "b", "c")}
+"""
+IMAGE_CALLS = (
+    'backend.decide({"photo": "<ruler>"}, questions, assets=assets)\n'
+    'backend.decide({"photo": "no image"}, {"a": Noul(instructions="Plain text?")})'
+)
+
+
+def test_image_counts_in_a_committed_audit_are_verified_and_compared_with_the_declaration(
+    monkeypatch,
+):
+    cells = execute((IMAGE_SETUP, IMAGE_CALLS, FINAL), monkeypatch)
+    (evidence,) = audit_guard.audited_evidence(cells)
+    # Hand-computed: one reference in the state and one in each of three instructions = 4 copies of
+    # one image on the first call; the second call carries no image and states nothing.
+    assert evidence.profile_totals == {"images": 4, "distinct_images": 1}
+    declared = budget(2, profile={"images": 4, "distinct_images": 1})
+    audit_guard.check_against_declaration([evidence], declared, Path("unused"))
+    for wrong in ({"images": 3, "distinct_images": 1}, {"images": 4}, {}):
+        with pytest.raises(AssertionError, match="profile"):
+            audit_guard.check_against_declaration(
+                [evidence], budget(2, profile=wrong), Path("unused")
+            )
+    # A declaration of images for a text-only notebook is also a mismatch.
+    text_only = audit_guard.audited_evidence(execute((SETUP, CALLS, FINAL), monkeypatch))[0]
+    with pytest.raises(AssertionError, match="profile"):
+        audit_guard.check_against_declaration(
+            [text_only], budget(3, 2, profile={"images": 1, "distinct_images": 1}), Path("unused")
+        )
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        # fewer copies than distinct images cannot happen: every asset is placed at least once
+        lambda call, p: call.update(profile={"images": 1, "distinct_images": 2}) or p,
+        lambda call, p: call.update(profile={"images": 4}) or p,
+        lambda call, p: call.update(profile={"distinct_images": 1}) or p,
+    ],
+)
+def test_a_hand_edited_image_profile_fails_even_when_the_totals_are_rewritten_to_match(
+    monkeypatch, change
+):
+    cells = execute((IMAGE_SETUP, IMAGE_CALLS, FINAL), monkeypatch)
+
+    def alter(payload):
+        entry = payload["backends"][0]
+        change(entry["calls"][0], payload)
+        totals = {}
+        for call in entry["calls"]:
+            for name, amount in call.get("profile", {}).items():
+                totals[name] = totals.get(name, 0) + int(amount)
+        entry["profile_totals"] = totals
+
+    alter_payload(cells, alter)
+    with pytest.raises(AssertionError, match="request audit"):
+        audit_guard.audited_evidence(cells)
+
+
+def test_an_unedited_image_profile_passes_the_same_rewrite(monkeypatch):
+    cells = execute((IMAGE_SETUP, IMAGE_CALLS, FINAL), monkeypatch)
+    alter_payload(cells, lambda payload: None)
+    audit_guard.audited_evidence(cells)
