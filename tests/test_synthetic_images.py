@@ -252,6 +252,26 @@ def test_text_block_lines_are_ten_rows_apart_at_leading_three():
     assert set(c.objects) == {"note", "note.line0", "note.line1"}
 
 
+def test_text_block_skips_a_blank_line_but_keeps_its_pitch():
+    c = blank()
+    block = c.text_block(10, 10, ["A", " ", "B"], "ink", 2, name="b")
+    # the pitch is (7 + 3) * 2 = 20, and the blank line still uses up its row, so "B" starts at 50
+    assert block.parts[0].top == 10
+    assert block.parts[1].top == 10 + 2 * 20
+    assert [p.name for p in block.parts] == ["b.line0", "b.line2"]
+    assert block.attrs["lines"] == 3  # the blank line is counted in the input
+    rows = c.image.crop((0, 30, c.width, 50))  # the rows of the blank line
+    assert changed(Image.new("RGB", rows.size, c.background), rows) is None
+    assert block.top == min(p.top for p in block.parts)
+    assert block.bottom == max(p.bottom for p in block.parts)
+    # a blank first or last line is skipped too, and the surviving line keeps its input index
+    lone = blank().text_block(10, 10, ["  ", "A", " "], name="b")
+    assert [p.name for p in lone.parts] == ["b.line1"]
+    assert lone.parts[0].top == 10 + 20
+    with pytest.raises(ValueError):
+        blank().text_block(10, 10, ["A", ""])  # an empty string is not a blank line
+
+
 # -- the canvas and the shapes ----------------------------------------------------------------
 
 
@@ -1891,8 +1911,10 @@ def test_a_run_of_spaces_has_no_visible_ink_and_is_refused():
     for text in ("   ", " "):
         with pytest.raises(ValueError, match="no visible"):
             blank().text(10, 10, text)
+    block = blank().text_block(10, 10, ["A", "  "])  # a blank line is skipped, not refused
+    assert len(block.parts) == 1
     with pytest.raises(ValueError, match="no visible"):
-        blank().text_block(10, 10, ["A", "  "])
+        blank().text_block(10, 10, ["  ", " "])
     with pytest.raises(ValueError, match="no visible"):
         blank().text_input(10, 10, 200, 34, placeholder="  ")
     with pytest.raises(ValueError, match="no visible"):
@@ -2230,8 +2252,22 @@ def test_the_hand_drawn_non_ascii_shapes_are_pinned_by_digest():
     assert len(entries) == 56
     text = "\n".join(f"{ord(c):04X} {src}" for c, src in sorted(entries.items()))
     digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
-    assert digest == "b4bc98128fe59c55e6a7bdf20fdf3187264bffc51b8eaf083493634ab175c4e2"
+    assert digest == "b6d3441d5f9e2754d18adf79474f719217f8a2f9726d9b860a88fd8fc438f21a"
     assert set(entries) == set(si.SUPPORTED_SCRIPTS["Cyrillic"] + si.SUPPORTED_SCRIPTS["Greek"])
+
+
+def test_cyrillic_de_has_a_flat_top_and_feet():
+    shape = si._GLYPH_SOURCE["\N{CYRILLIC CAPITAL LETTER DE}"]  # CYRILLIC CAPITAL DE
+    assert shape == ".###./.#.#./.#.#./.#.#./#####/#...#/#...#"
+    assert shape.split("/")[0] == ".###."  # the flat top bar, not the old ..##.
+    assert [char for char, src in si._GLYPH_SOURCE.items() if src == shape] == [
+        "\N{CYRILLIC CAPITAL LETTER DE}"
+    ]
+    c = blank()
+    c.text(10, 10, "\N{CYRILLIC CAPITAL LETTER DE}", (0, 0, 0), 1)
+    px = c.image.load()
+    assert px[11, 10] == (0, 0, 0)  # column 1 of row 0 is ink
+    assert px[10, 10] == BLANK  # column 0 of row 0 is not
 
 
 def test_the_shape_sharing_is_exactly_the_documented_set():
@@ -2319,6 +2355,42 @@ def test_a_letter_outside_latin_cyrillic_and_greek_is_refused_with_no_glyph(char
 def test_a_word_with_an_accent_is_refused_in_either_spelling(text):
     with pytest.raises(ValueError, match="no glyph"):
         blank().text(0, 0, text)
+
+
+# MICRO SIGN upper-cases to GREEK CAPITAL MU, which draws as a Latin M, so "5 us" would read "5 MS".
+# Every entry point that folds refuses it by name instead.
+@pytest.mark.parametrize(
+    "entry",
+    [
+        pytest.param(lambda: blank().text(10, 10, "5 \N{MICRO SIGN}s"), id="text"),  # MICRO SIGN
+        pytest.param(lambda: si.text_width("5 \N{MICRO SIGN}s"), id="text_width"),  # MICRO SIGN
+        pytest.param(lambda: si.text_scripts("\N{MICRO SIGN}"), id="text_scripts"),  # MICRO SIGN
+        pytest.param(lambda: si.looks_like_latin("\N{MICRO SIGN}"), id="looks_like_latin"),
+    ],
+)
+def test_the_micro_sign_is_refused_by_name_not_drawn_as_a_latin_m(entry):
+    with pytest.raises(ValueError, match="MICRO SIGN") as info:
+        entry()
+    assert "U+00B5" in str(info.value)
+
+
+def test_the_ohm_and_kelvin_signs_keep_their_canonical_folds():
+    ohm = blank()
+    ohm_box = ohm.text(10, 10, "\N{OHM SIGN}")  # OHM SIGN, which NFC folds to GREEK CAPITAL OMEGA
+    assert ohm_box.attrs["text"] == "\N{GREEK CAPITAL LETTER OMEGA}"  # GREEK CAPITAL OMEGA
+    assert changed(Image.new("RGB", ohm.size, ohm.background), ohm.image) is not None
+    omega = blank()
+    omega.text(10, 10, "\N{GREEK CAPITAL LETTER OMEGA}")
+    assert ohm.image.tobytes() == omega.image.tobytes()
+    kelvin = blank()
+    kelvin_box = kelvin.text(10, 10, "\N{KELVIN SIGN}")  # KELVIN SIGN, which NFC folds to LATIN K
+    assert kelvin_box.attrs["text"] == "K"
+    latin_k = blank()
+    latin_k.text(10, 10, "K")
+    assert kelvin.image.tobytes() == latin_k.image.tobytes()
+    # GREEK SMALL LETTER MU still upper-cases to GREEK CAPITAL MU; only MICRO SIGN is refused
+    small_mu = blank().text(10, 10, "\N{GREEK SMALL LETTER MU}")
+    assert small_mu.attrs["text"] == "\N{GREEK CAPITAL LETTER MU}"  # small MU folds up to capital
 
 
 def test_the_docs_list_both_alphabets_and_say_a_synthetic_test_does_not_prove_quality():

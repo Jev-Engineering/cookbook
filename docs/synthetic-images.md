@@ -175,7 +175,7 @@ typed as a base letter and a combining mark is one letter (Cyrillic Й, typed as
 breve, is the single letter Й). Lower case is then folded to upper case, and the folded text is what
 `attrs["text"]` reports. Any other character raises `ValueError` ("no glyph") instead of drawing a
 blank, and text with no visible character (only spaces) raises `ValueError` too ("no visible
-character"). There is no system font and no FreeType involved, which is what makes the pixels the
+character"). In `text_block`, a line that is only spaces is not drawn but still takes its row, so it works as a blank separator line (`["TOTAL", " ", "42"]`), and the line after it keeps its pitch and its index in the part name (`name.line2`). `parts` holds one entry per visible line, `attrs["lines"]` counts every input line, and the block's box is the extent of the visible lines. A block with no visible character at all raises `ValueError` ("no visible character"), like a single text of only spaces; an empty string is still an error. There is no system font and no FreeType involved, which is what makes the pixels the
 same everywhere.
 
 **Randomness** comes from `Rng`, splitmix64 written in integer arithmetic (`Rng(0).u64()` is
@@ -202,7 +202,8 @@ download. This is the foundation decision that rank 96 was waiting for.
 
 **Limits.** Capitals only. There is no Ё, and no Ukrainian, Serbian, Belarusian or other Cyrillic
 extension letters. There are no accented Latin letters: é, ñ and ü raise `ValueError`, and ß folds
-to SS. So Spanish, French and German signage must be drawn without accents or not at all. There are
+to SS. So Spanish, French and German signage must be drawn without accents or not at all.
+The MICRO SIGN (U+00B5) is refused with a `ValueError` that names it, because it would upper-case to Greek capital Mu and draw as a Latin M, so "5 µs" would read "5 MS"; spell the unit out or write "US". There are
 no Arabic, Hebrew, Indic, Thai, Chinese, Japanese or Korean glyphs: those scripts need joining,
 shaping or thousands of glyphs, not a 5 by 7 cell, and any such character raises `ValueError`. The
 glyphs are blocky capitals designed here and were not reviewed by native readers, so a reviewer
@@ -215,7 +216,7 @@ those letters, such as МАМА, is pixel-identical to its Latin look-alike, MAM
 reading a non-Latin script. `attrs["text"]` keeps the real code points. Never transliterate a Latin
 word into Cyrillic or Greek letters and call it a non-Latin test. Use `text_scripts(text)`, which
 reports the scripts the letters belong to, in the order Latin, Cyrillic, Greek, and require
-`looks_like_latin(text)` to be False for any text that is meant to be non-Latin.
+`looks_like_latin(text)` to be False for any text that is meant to be non-Latin. `looks_like_latin(text) is False` is necessary but not sufficient, so also require `text_scripts(text)` to be exactly the intended script (for example `("Cyrillic",)`); near look-alikes exist (Д is close to a Latin A with feet, Б to a 6), and because Cyrillic and Greek share some shapes (Г/Γ, П/Π, Ф/Φ) a word made of such letters can be pixel-identical in either script.
 
 **What it does not prove.** A synthetic image of blocky capitals in these alphabets tests a pipeline:
 a typed question, the presence rule and the evaluation. It does not prove anything about how a model

@@ -207,7 +207,7 @@ _GLYPH_SOURCE = {
 _SHAPES_NON_ASCII = {
     "\u0411": "#####/#..../#..../####./#...#/#...#/####.",  # CYRILLIC CAPITAL BE
     "\u0413": "#####/#..../#..../#..../#..../#..../#....",  # CYRILLIC CAPITAL GHE
-    "\u0414": "..##./.#.#./.#.#./.#.#./#####/#...#/#...#",  # CYRILLIC CAPITAL DE
+    "\u0414": ".###./.#.#./.#.#./.#.#./#####/#...#/#...#",  # CYRILLIC CAPITAL DE
     "\u0416": "#.#.#/#.#.#/.###./..#../.###./#.#.#/#.#.#",  # CYRILLIC CAPITAL ZHE
     "\u0417": ".###./#...#/....#/..##./....#/#...#/.###.",  # CYRILLIC CAPITAL ZE
     "\u0418": "#...#/#...#/#..##/#.#.#/##..#/#...#/#...#",  # CYRILLIC CAPITAL I
@@ -315,6 +315,13 @@ _ASCII_SHAPES = frozenset(shape for char, shape in _GLYPH_SOURCE.items() if char
 def _fold(text: str) -> str:
     if not isinstance(text, str) or not text:
         raise ValueError("text must be a non-empty string")
+    # MICRO SIGN is refused rather than folded: its upper case is GREEK CAPITAL MU, which draws as
+    # a Latin M, so a unit such as "5 us" would read "5 MS". Spell the unit out or write "US".
+    if "\N{MICRO SIGN}" in text:
+        raise ValueError(
+            "the text has U+00B5 MICRO SIGN, which would upper-case to GREEK CAPITAL MU and draw "
+            "as a Latin M (5 us would read 5 MS); spell the unit out or write US"
+        )
     # NFC first, so a letter typed as a base letter plus a combining mark is one code point
     folded = unicodedata.normalize("NFC", text).upper()
     bad = sorted({c for c in folded if c not in _GLYPHS})
@@ -970,15 +977,25 @@ class Canvas:
         leading: int = 3,
         name: str | None = None,
     ) -> Drawn:
-        """Lines of text, ``7 + leading`` glyph rows apart. ``parts`` are the lines."""
+        """Lines of text, ``7 + leading`` glyph rows apart.
+
+        A blank line (only spaces) is not drawn but keeps its row. ``parts`` has one entry per
+        visible line, named by its input index (``name.line2`` is the third input line), and
+        ``attrs["lines"]`` counts every input line. A block with no visible character is refused
+        (ValueError) before anything is drawn; an empty or non-string line is refused too.
+        """
         if isinstance(lines, str) or not lines:
             raise ValueError("lines must be a non-empty sequence of strings")
         pitch = (GLYPH_HEIGHT + _int(leading, "leading", minimum=0)) * _scale(scale)
+        folded = [_fold(line) for line in lines]
+        visible = [i for i, f in enumerate(folded) if any(_GLYPHS[c] for c in f)]
+        if not visible:
+            raise ValueError("the text block has no visible character (only spaces)")
         parts = tuple(
-            self.text(x, y + i * pitch, line, colour, scale, name=_sub(name, f"line{i}"))
-            for i, line in enumerate(lines)
+            self.text(x, y + i * pitch, lines[i], colour, scale, name=_sub(name, f"line{i}"))
+            for i in visible
         )
-        return self._record(name, "text-block", self._union(parts), parts, lines=len(parts))
+        return self._record(name, "text-block", self._union(parts), parts, lines=len(lines))
 
     # -- labelled objects, stamps, signatures, symbols --
 
