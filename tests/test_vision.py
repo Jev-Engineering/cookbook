@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import contextlib
+import datetime
 import hashlib
 import importlib.util
 import io
@@ -20,7 +21,7 @@ from types import SimpleNamespace
 import pytest
 from PIL import Image
 
-from jev_cookbook import vision
+from jev_cookbook import Choice, Noul, Score, live, vision
 from jev_cookbook._canonical import canonical_image_format
 from jev_cookbook.fixtures._scan import scan_text
 
@@ -810,6 +811,246 @@ def test_run_record_rejects_invalid_explicit_measurements(value, field):
 def test_run_record_rejects_unknown_mode():
     with pytest.raises(ValueError):
         vision.run_record(SimpleNamespace(), mode="unknown")
+
+
+# -- capture date and N on a run record; context size; the comparison table --------------------
+
+RECORDED = SimpleNamespace(
+    source="recorded",
+    model="jev-1.13.0",
+    usage=SimpleNamespace(input_tokens=50, output_tokens=8),
+)
+SIX_KEYS = {"mode", "model", "input_tokens", "output_tokens", "latency_seconds", "cost_usd"}
+
+
+@pytest.mark.parametrize("mode", ["recorded", "live"])
+def test_run_record_has_no_capture_date_or_n_keys_unless_they_are_given(mode):
+    assert set(vision.run_record(RECORDED, mode=mode)) == SIX_KEYS
+    assert set(vision.run_record(RECORDED, mode=mode, measured_latency_seconds=0.5)) == SIX_KEYS
+
+
+@pytest.mark.parametrize("mode", ["recorded", "live"])
+def test_run_record_adds_capture_date_and_n_when_given(mode):
+    base = vision.run_record(RECORDED, mode=mode)
+    both = vision.run_record(RECORDED, mode=mode, capture_date="2026-10-31", n=12)
+    assert both == {**base, "capture_date": "2026-10-31", "n": 12}
+    only_date = vision.run_record(RECORDED, mode=mode, capture_date="2026-10-31")
+    assert only_date == {**base, "capture_date": "2026-10-31"}
+    assert vision.run_record(RECORDED, mode=mode, n=1) == {**base, "n": 1}
+
+
+@pytest.mark.parametrize("mode", ["synthetic", "scripted"])
+def test_synthetic_and_scripted_rows_accept_n_but_refuse_a_capture_date(mode):
+    synthetic = SimpleNamespace(source="synthetic")
+    row = vision.run_record(synthetic, mode=mode, n=3)
+    assert row == {
+        "mode": mode,
+        "model": None,
+        "input_tokens": None,
+        "output_tokens": None,
+        "latency_seconds": None,
+        "cost_usd": None,
+        "n": 3,
+    }
+    with pytest.raises(ValueError, match="capture_date"):
+        vision.run_record(synthetic, mode=mode, capture_date="2026-10-31")
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "2026-02-30",
+        "20261031",
+        "2026-1-5",
+        "2026-10-31\n",
+        " 2026-10-31",
+        "",
+        "٢٠٢٦-١٠-٣١",
+        20261031,
+        datetime.date(2026, 10, 31),
+    ],
+)
+def test_run_record_rejects_a_capture_date_that_is_not_a_real_yyyy_mm_dd_string(bad):
+    with pytest.raises(ValueError, match="capture_date"):
+        vision.run_record(RECORDED, mode="recorded", capture_date=bad)
+
+
+@pytest.mark.parametrize("bad", [True, 0, -1, 2.0, "3"])
+def test_run_record_rejects_an_n_that_is_not_a_positive_integer(bad):
+    with pytest.raises(ValueError, match="n must"):
+        vision.run_record(RECORDED, mode="recorded", n=bad)
+    with pytest.raises(ValueError, match="n must"):
+        vision.run_record(SimpleNamespace(source="synthetic"), mode="synthetic", n=bad)
+
+
+def test_measured_latency_flows_from_the_ledger_into_a_recorded_row(tmp_path):
+    ledger = tmp_path / "ledger.json"
+    ledger.write_text(
+        json.dumps(
+            {
+                "key-with-latency": {
+                    "status": "recorded",
+                    "model": "jev-1.13.0",
+                    "date": "2026-10-31",
+                    "latency_seconds": 0.75,
+                },
+                "key-without-latency": {
+                    "status": "recorded",
+                    "model": "jev-1.13.0",
+                    "date": "2026-10-31",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    found = live.load_ledger_latency(ledger, "key-with-latency")
+    row = vision.run_record(
+        RECORDED,
+        mode="recorded",
+        measured_latency_seconds=found.latency_seconds,
+        capture_date=found.date,
+        n=1,
+    )
+    assert row["latency_seconds"] == 0.75 and row["capture_date"] == "2026-10-31"
+    # A call with no captured latency stays unmeasured; nothing is taken from replay timing.
+    assert live.load_ledger_latency(ledger, "key-without-latency") is None
+    assert vision.run_record(RECORDED, mode="recorded")["latency_seconds"] is None
+
+
+CONTEXT_CASES = [
+    # (state, questions, characters, utf8_bytes), each counted by hand in the comment beside it
+    ("abc", {"q": Noul(instructions="Is it?")}, 10, 10),  # 3 + name 1 + instructions 6
+    (["ab", "cd"], {"q": Noul(instructions="Is it?")}, 11, 11),  # 2 + 2 + 1 + 6
+    ({"k": "vv"}, {"q": Noul(instructions="Is it?")}, 10, 10),  # key 1 + value 2 + 1 + 6
+    ({"a": {"bb": ["c", "dd"]}}, {"q": Noul(instructions="Is it?")}, 13, 13),  # 1+2+1+2 + 7
+    ({"n": 1, "b": True, "z": None}, {"q": Noul(instructions="Is it?")}, 10, 10),  # keys 3 + 7
+    (
+        "",
+        {"c": Choice(criteria={"yes": "y d", "no": None}, instructions="i")},
+        10,
+        10,
+    ),  # name 1 + option names 3 + 2 + description 3 + instructions 1
+    ("", {"s": Score(criteria=["lo", "high"])}, 7, 7),  # name 1 + levels 2 + 4
+    ("", {"q": Noul(instructions={"rule": "r1"})}, 7, 7),  # name 1 + key 4 + value 2
+    ("", {"a": Noul(instructions="xx"), "b": Noul(instructions="xx")}, 6, 6),  # shared text twice
+    ("é€\U0001f600", {}, 3, 9),  # 3 characters, 2 + 3 + 4 UTF-8 bytes
+]
+
+
+@pytest.mark.parametrize("state, questions, characters, utf8_bytes", CONTEXT_CASES)
+def test_context_size_counts_characters_and_utf8_bytes_by_hand(
+    state, questions, characters, utf8_bytes
+):
+    assert vision.context_size(state, questions) == {
+        "characters": characters,
+        "utf8_bytes": utf8_bytes,
+    }
+
+
+def test_context_size_has_exactly_two_keys_and_none_names_tokens():
+    size = vision.context_size({"d": "x" * 100}, {"q": Noul(instructions="Is it?")})
+    assert set(size) == {"characters", "utf8_bytes"}
+    assert not any("token" in key.lower() for key in size)
+    assert all(type(value) is int for value in size.values())
+
+
+def test_context_size_of_one_question_plus_the_state_is_the_per_question_count():
+    state = "abc"
+    both = {"a": Noul(instructions="xx"), "b": Noul(instructions="yyyy")}
+    whole = vision.context_size(state, both)["characters"]
+    only_a = vision.context_size(state, {"a": both["a"]})["characters"]
+    only_b = vision.context_size(state, {"b": both["b"]})["characters"]
+    assert (only_a, only_b, whole) == (3 + 1 + 2, 3 + 1 + 4, 3 + 1 + 2 + 1 + 4)
+    assert whole == only_a + only_b - vision.context_size(state, {})["characters"]
+
+
+def test_context_size_rejects_a_lone_surrogate_and_a_non_mapping_of_questions():
+    with pytest.raises(ValueError, match="UTF-8"):
+        vision.context_size("\ud800", {"q": Noul(instructions="Is it?")})
+    with pytest.raises(TypeError):
+        vision.context_size("abc", [Noul(instructions="Is it?")])
+
+
+def _row(result, label, **kwargs):
+    return {**vision.run_record(result, **kwargs), "label": label}
+
+
+def test_comparison_table_prints_not_measured_wherever_a_value_is_none():
+    unreported = SimpleNamespace(source="recorded", model="jev-1.13.0", usage=None)
+    rows = [
+        {
+            **_row(SimpleNamespace(source="synthetic"), "full", mode="synthetic", n=4),
+            "characters": 120,
+            "utf8_bytes": 130,
+        },
+        _row(
+            RECORDED,
+            "retrieved",
+            mode="recorded",
+            capture_date="2026-10-31",
+            n=4,
+            measured_latency_seconds=0.25,
+        ),
+        _row(unreported, "no usage", mode="recorded"),
+    ]
+    assert vision.comparison_table(rows) == "\n".join(
+        [
+            "label      mode       model         characters  utf8_bytes  input_tokens  "
+            "output_tokens  latency_seconds  cost_usd      capture_date  n",
+            "---------  ---------  ------------  ----------  ----------  ------------  "
+            "-------------  ---------------  ------------  ------------  -",
+            "full       synthetic  not measured  120         130         not measured  "
+            "not measured   not measured     not measured  -             4",
+            "retrieved  recorded   jev-1.13.0    -           -           50            "
+            "8              0.25             not measured  2026-10-31    4",
+            "no usage   recorded   jev-1.13.0    -           -           not measured  "
+            "not measured   not measured     not measured  -             -",
+        ]
+    )
+
+
+@pytest.mark.parametrize(
+    "column", ["model", "input_tokens", "output_tokens", "latency_seconds", "cost_usd"]
+)
+def test_comparison_table_reads_not_measured_for_a_none_in_each_measured_column(column):
+    table = vision.comparison_table([{"mode": "recorded", column: None}])
+    assert table.splitlines()[-1].split("  ")[-1].strip() == "not measured"
+    assert vision.comparison_table([{"mode": "recorded", column: 5}]).splitlines()[-1].endswith("5")
+
+
+def test_comparison_table_shows_a_missing_key_as_a_dash_and_accepts_any_iterable():
+    assert vision.comparison_table([{"mode": "synthetic"}]) == "mode\n---------\nsynthetic"
+    assert vision.comparison_table(iter([{"mode": "recorded", "n": 2}, {"mode": "live"}])) == (
+        "mode      n\n--------  -\nrecorded  2\nlive      -"
+    )
+
+
+def test_comparison_table_does_not_change_its_rows():
+    rows = [{"mode": "recorded", "input_tokens": None}]
+    vision.comparison_table(rows)
+    assert rows == [{"mode": "recorded", "input_tokens": None}]
+
+
+@pytest.mark.parametrize(
+    "rows",
+    [
+        [],
+        [{"input_token": 1}],
+        [{"mode": "synthetic", "model": "jev-1.13.0"}],
+        [{"mode": "synthetic", "input_tokens": 5}],
+        [{"mode": "scripted", "output_tokens": 0}],
+        [{"mode": "scripted", "latency_seconds": 0.0}],
+        [{"mode": "synthetic", "cost_usd": 0.0}],
+    ],
+)
+def test_comparison_table_refuses_unknown_columns_and_measurements_on_fixture_rows(rows):
+    with pytest.raises(ValueError):
+        vision.comparison_table(rows)
+
+
+def test_comparison_table_needs_mapping_rows():
+    with pytest.raises(TypeError):
+        vision.comparison_table([5])
 
 
 TINY = {"top": 0.0, "bottom": 1e-200, "left": 0.0, "right": 1e-200}

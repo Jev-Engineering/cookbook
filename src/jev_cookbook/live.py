@@ -17,6 +17,7 @@ import datetime
 import inspect
 import json
 import logging
+import math
 import os
 import re
 import tempfile
@@ -46,6 +47,7 @@ __all__ = [
     "API_KEY_ENV",
     "BudgetExceeded",
     "CallRecord",
+    "LedgerLatency",
     "LiveBackend",
     "LiveCallError",
     "LiveConfigError",
@@ -54,6 +56,7 @@ __all__ = [
     "RecordReport",
     "dump_responses",
     "live_backend_from_env",
+    "load_ledger_latency",
     "merge_responses",
     "record",
 ]
@@ -141,7 +144,13 @@ class RecordConflict(ValueError):
 
 @dataclass(frozen=True)
 class CallRecord:
-    """Ledger line for one successful call (no key, no state, no answers)."""
+    """Ledger line for one successful call (no key, no state, no answers).
+
+    ``latency_seconds`` is the wall-clock time of the HTTP attempt that produced the response,
+    measured by the backend's clock around the ``client.system_one`` call (see ``LiveBackend``),
+    or ``None`` when the clock gave no usable reading. It is never part of a stored response or
+    a replay key.
+    """
 
     replay_key: str
     model: str
@@ -150,6 +159,7 @@ class CallRecord:
     date: str
     images: int = 0
     distinct_images: int = 0
+    latency_seconds: float | None = None
 
 
 def _secret_variants(*raw: str | None) -> tuple[str, ...]:
@@ -256,6 +266,21 @@ def _release_sdk_logger(variants: Iterable[str]) -> None:
 
 def _today_utc() -> str:
     return datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+
+
+def _elapsed_seconds(start: Any, end: Any) -> float | None:
+    """Seconds from one clock reading to the next, or ``None`` when that is not a measurement.
+
+    A difference that is not a finite number, or is negative, is reported as missing and never
+    clamped or guessed, so a broken or injected clock cannot put an invented latency on disk.
+    A valid difference is rounded to nine decimal places (a nanosecond), which removes
+    floating-point subtraction noise such as ``0.20000000000000018``.
+    """
+    try:
+        seconds = float(end - start)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return round(seconds, 9) if math.isfinite(seconds) and seconds >= 0 else None
 
 
 def _import_sdk() -> Any:
@@ -501,6 +526,18 @@ class LiveBackend:
     spent). A request over the budget raises ``BudgetExceeded`` before anything is sent.
     ``max_retries`` retries (default 2) apply to HTTP 408/429/5xx, connection errors and
     timeouts, with exponential backoff (``sleep`` is injectable).
+
+    Latency: every HTTP attempt is timed with ``clock`` (default ``time.perf_counter``, a
+    monotonic clock; injectable for tests). The clock is read once immediately before
+    ``client.system_one`` is called and once immediately after it returns or raises, so the
+    window holds what the client does inside that one call. It starts after the budget check
+    and the request has been built, and it ends before the cookbook validates the response,
+    before the backoff sleep and before any ledger write. The answering attempt's seconds are on
+    its ``CallRecord`` and in ``last_latency_seconds``; each failed attempt that was retried
+    carries its own in ``last_retried``. Seconds are rounded to a nanosecond. A reading that is
+    not a finite, non-negative number of seconds is stored as ``None``, and so is the latency of
+    an attempt when the clock raises.
+    Latency is never part of a stored response or a replay key.
     """
 
     mode = "live"
@@ -517,9 +554,12 @@ class LiveBackend:
         long_context: bool = False,
         sleep: Callable[[float], None] = time.sleep,
         today: Callable[[], str] = _today_utc,
+        clock: Callable[[], float] = time.perf_counter,
     ) -> None:
         if type(model) is not str or not model.strip():
             raise ValueError("model must be a non-empty string such as 'jev-latest'")
+        if not callable(clock):
+            raise TypeError("clock must be a callable returning seconds")
         for name, value in (("images", images), ("long_context", long_context)):
             if type(value) is not bool:
                 raise TypeError(f"{name} must be a bool")
@@ -545,6 +585,8 @@ class LiveBackend:
         self._request_kwargs = dict(request_kwargs or {})
         self._sleep = sleep
         self._today = today
+        self._clock = clock
+        self._last_latency: float | None = None
         self._lock = threading.Lock()
         self._made = 0
         self._failed = 0
@@ -632,14 +674,26 @@ class LiveBackend:
     def last_retried(self) -> tuple[dict[str, Any], ...]:
         """The failed attempts the latest ``decide`` call retried past, oldest first.
 
-        Each is ``{error_type, http_status, request_id}`` (scrubbed). Reset at the start of every
-        call, so it describes that call whether it then succeeded or raised.
+        Each is ``{error_type, http_status, request_id, latency_seconds}`` (scrubbed;
+        ``latency_seconds`` is that attempt's wall-clock time, or ``None``). Reset at the start of
+        every call, so it describes that call whether it then succeeded or raised.
         """
         return tuple(dict(r) for r in self._retried)
 
     @property
     def last_request_id(self) -> str | None:
         return self._records[-1].request_id if self._records else None
+
+    @property
+    def last_latency_seconds(self) -> float | None:
+        """Wall-clock seconds of the latest HTTP attempt of the latest ``decide`` call.
+
+        That is the answering attempt when the call succeeded, and otherwise the attempt that
+        ended it. ``None`` when that call sent nothing (it was refused, or the budget was spent)
+        or when the clock gave no usable reading. Reset at the start of every ``decide`` call and
+        again before each attempt.
+        """
+        return self._last_latency
 
     def ledger(self) -> dict[str, Any]:
         """Plain-data summary for an orchestrator's ledger (no key, state or answers)."""
@@ -663,6 +717,13 @@ class LiveBackend:
             out["images"] = images
             out["distinct_images"] = sum(r.distinct_images for r in self._records)
         return out
+
+    def _read_clock(self) -> Any:
+        """One reading of the clock, or ``None`` if it raises: a paid response must not be lost."""
+        try:
+            return self._clock()
+        except Exception:
+            return None
 
     def _spend(self) -> None:
         with self._lock:
@@ -696,6 +757,7 @@ class LiveBackend:
         # attempts on a refused request's ledger line (see ``last_retried``).
         with self._lock:
             self._retried = []
+            self._last_latency = None
         plain_state, checked = _check_request(state, questions)
         key = replay_key(plain_state, checked, assets=assets)
         checked_assets = _check_assets(plain_state, checked, assets)
@@ -731,21 +793,30 @@ class LiveBackend:
         # Errors are raised after their `except` block has ended, so neither `__cause__` nor
         # `__context__` carries the SDK exception (its message may echo the key).
         while True:
+            with self._lock:
+                self._last_latency = None
             self._spend()
             failure: Exception | None = None
             delay = 0.0
+            started: Any = None
             try:
-                response = self._client.system_one(
-                    state=plain_json(plain_state, "state"),
-                    questions=payload,
-                    model=self.requested_model,
+                call_kwargs = {
+                    "state": plain_json(plain_state, "state"),
+                    "questions": payload,
+                    "model": self.requested_model,
                     **asset_kwargs,
                     **self._request_kwargs,
                     **self._call_extra,
-                )
+                }
+                started = self._read_clock()
+                response = self._client.system_one(**call_kwargs)
             except Exception as exc:
+                latency = None
+                if started is not None:
+                    latency = _elapsed_seconds(started, self._read_clock())
                 with self._lock:
                     self._failed += 1
+                    self._last_latency = latency
                 if _is_retryable(exc) and attempt < self.max_retries:
                     attempt += 1
                     delay = self._delay(exc, attempt)
@@ -756,6 +827,7 @@ class LiveBackend:
                                 "error_type": note.error_type,
                                 "http_status": note.status,
                                 "request_id": note.request_id,
+                                "latency_seconds": latency,
                             }
                         )
                 elif _is_validation_error(exc):
@@ -763,6 +835,9 @@ class LiveBackend:
                 else:
                     failure = _describe_failure(exc, self._secrets)
             else:
+                latency = _elapsed_seconds(started, self._read_clock())
+                with self._lock:
+                    self._last_latency = latency
                 break
             if failure is not None:
                 raise failure
@@ -791,7 +866,7 @@ class LiveBackend:
                 request_id=_redact(rid, self._secrets) if rid else None,
             )
         self._note_success(
-            CallRecord(key, result.model, rid, result.usage, date, images, distinct_images)
+            CallRecord(key, result.model, rid, result.usage, date, images, distinct_images, latency)
         )
         return result
 
@@ -978,16 +1053,21 @@ def record(
     format, so it lives there). A request that fails validation never becomes a ``decide`` call:
     ``record`` raises before any call and writes no line for it. A success is
     ``{replay_key: {status: "recorded", request_id, model, date, input_tokens, output_tokens,
-    attempts, retried}}``, plus ``images`` and ``distinct_images`` (counts only) when the call
-    carried image assets. A call that produced nothing to record (``invalid_response``, ``error``,
-    ``timeout``, ``budget_stopped``) is ``{replay_key + "!failed-N": {status, error_type,
-    http_status, request_id, model, date, attempts, retried}}`` with no image counts, written
+    latency_seconds, attempts, retried}}``, plus ``images`` and ``distinct_images`` (counts only)
+    when the call carried image assets. A call that produced nothing to record
+    (``invalid_response``, ``error``, ``timeout``, ``budget_stopped``) is
+    ``{replay_key + "!failed-N": {status, error_type, http_status, request_id, model, date,
+    latency_seconds, attempts, retried}}`` with no image counts, written
     before the error is re-raised. A ``decide`` call refused before anything was sent
     (``ImageRequestTooLarge``, ``LiveConfigError``) is ``status: "error"`` with ``error_type``
     the exception's class name and ``attempts`` 0.
     ``attempts`` is the HTTP attempts that call spent (0 when nothing was sent) and ``retried``
-    lists ``{error_type, http_status, request_id}`` for each failed attempt it retried past, on
-    both kinds of line. Re-recording a key with ``overwrite=True`` keeps the earlier
+    lists ``{error_type, http_status, request_id, latency_seconds}`` for each failed attempt it
+    retried past, on both kinds of line. ``latency_seconds`` is the wall-clock time of one HTTP
+    attempt (see ``LiveBackend``): on a ``recorded`` line the attempt that produced the response,
+    on a failed line the attempt that ended the call (null when that call sent nothing), and
+    null wherever the clock gave no usable reading. It lives only in this ledger, never in the
+    responses file or a replay key. Re-recording a key with ``overwrite=True`` keeps the earlier
     ``recorded`` entry under ``superseded``. A ``ledger_path`` inside a ``fixtures/`` directory,
     or the same file as ``responses_path``, is refused with ``ValueError`` before any call.
     """
@@ -1047,6 +1127,7 @@ def record(
                 "date": rec.date,
                 "input_tokens": rec.usage.input_tokens,
                 "output_tokens": rec.usage.output_tokens,
+                "latency_seconds": rec.latency_seconds,
                 "attempts": backend.requests_made - attempts_before,
                 "retried": list(backend.last_retried),
             }
@@ -1130,10 +1211,60 @@ def _ledger_failure(
         "request_id": getattr(exc, "request_id", None),
         "model": backend.requested_model,
         "date": backend._today(),
+        "latency_seconds": backend.last_latency_seconds,
         "attempts": attempts,
         "retried": list(backend.last_retried),
     }
     _write_atomic(ledger, dump_responses(old))
+
+
+@dataclass(frozen=True)
+class LedgerLatency:
+    """The measured latency a ``record`` ledger holds for one replay key.
+
+    ``latency_seconds`` is the wall-clock time of the HTTP attempt that produced the recorded
+    response, ``date`` is the UTC date of that call (the capture date) and ``model`` is the
+    model string the API returned.
+    """
+
+    latency_seconds: float
+    date: str
+    model: str
+
+
+def load_ledger_latency(
+    ledger_path: str | os.PathLike[str], replay_key: str
+) -> LedgerLatency | None:
+    """Read the measured latency of one recorded call from a ``record`` sidecar ledger.
+
+    Returns ``None``, meaning "not measured", when the ledger has no ``recorded`` line under
+    ``replay_key`` or that line has no ``latency_seconds`` (null, or missing as in a ledger
+    written before latency was captured). Only the line stored under the key itself is read: a
+    ``!failed-N`` line, a ``superseded`` entry and the elapsed time of a replay are never used.
+    Raises ``FileNotFoundError`` when ``ledger_path`` does not exist, and ``ValueError`` when a
+    ``recorded`` line holds a latency that is not a finite, non-negative number or lacks a text
+    ``date`` or ``model``. Pass the result to ``vision.run_record`` as ``measured_latency_seconds``
+    with ``capture_date=result.date``.
+    """
+    if type(replay_key) is not str:
+        raise TypeError("replay_key must be a str")
+    path = Path(ledger_path)
+    if not path.exists():
+        raise FileNotFoundError(f"no ledger file at {path}")
+    line = _load_responses(path).get(replay_key)
+    if not isinstance(line, dict) or line.get("status") != "recorded":
+        return None
+    seconds = line.get("latency_seconds")
+    if seconds is None:
+        return None
+    if type(seconds) not in (int, float) or not math.isfinite(seconds) or seconds < 0:
+        raise ValueError(
+            f"{path}: latency_seconds for {replay_key} must be a finite, non-negative number"
+        )
+    date, model = line.get("date"), line.get("model")
+    if not (isinstance(date, str) and date and isinstance(model, str) and model):
+        raise ValueError(f"{path}: the recorded line for {replay_key} needs a text date and model")
+    return LedgerLatency(float(seconds), date, model)
 
 
 def live_backend_from_env(
