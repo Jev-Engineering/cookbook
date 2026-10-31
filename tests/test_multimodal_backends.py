@@ -802,6 +802,54 @@ def test_a_refused_request_does_not_inherit_the_previous_calls_retried_list(
     assert backend.last_retried == ()
 
 
+def test_a_backend_config_refusal_before_sending_writes_the_documented_error_line(
+    monkeypatch, no_sdk, tmp_path
+):
+    accepting_any_bytes(monkeypatch)
+    # images=False: the backend refuses image assets inside ``decide``, before the SDK or a spend.
+    backend = LiveBackend("jev-1.14.0", client=Client())
+    request = (
+        {"photo": "<small>"},
+        {"q": Noul(instructions="Fine?")},
+        {"<small>": sized(1000)},
+    )
+    ledger = tmp_path / "ledger.json"
+    with pytest.raises(LiveConfigError, match="images=True"):
+        record(backend, [request], tmp_path / "r.json", ledger_path=ledger)
+    assert backend.requests_made == 0
+    ((key, line),) = json.loads(ledger.read_text("utf-8")).items()
+    assert key.endswith("!failed-1")
+    assert line["status"] == "error" and line["error_type"] == "LiveConfigError"
+    assert line["http_status"] is None and line["request_id"] is None
+    assert line["attempts"] == 0 and line["retried"] == []
+
+
+def test_a_request_that_fails_validation_raises_from_record_and_gets_no_sidecar_line(
+    monkeypatch, fake_sdk, tmp_path
+):
+    accepting_any_bytes(monkeypatch)
+    backend = LiveBackend("jev-1.14.0", client=Client(), images=True)
+    sent = (
+        {"photo": "<small>"},
+        {"target": Box(instructions="Find the target.")},
+        {"<small>": sized(1000)},
+    )
+    # No value names ``<unused>``, so validation refuses the request inside ``replay_key``, which
+    # ``record`` calls before it makes any ``decide`` call: nothing can be written for it.
+    unused = (
+        {"photo": "no reference here"},
+        {"q": Noul(instructions="Fine?")},
+        {"<unused>": sized(1000)},
+    )
+    ledger = tmp_path / "ledger.json"
+    with pytest.raises(ValueError, match="not referenced"):
+        record(backend, [sent, unused], tmp_path / "r.json", ledger_path=ledger)
+    assert backend.requests_made == 1  # the first request's single attempt; the second added none
+    lines = json.loads(ledger.read_text("utf-8"))
+    assert [entry["status"] for entry in lines.values()] == ["recorded"]
+    assert not any("!failed-" in key for key in lines)
+
+
 def test_the_live_ledger_carries_image_counts_beside_the_token_fields(fake_sdk, tmp_path):
     backend = LiveBackend("jev-1.14.0", client=Client(), images=True)
     questions = {"target": Box(instructions=f"The pink rectangle in `photo`; ignore {REF}.")}

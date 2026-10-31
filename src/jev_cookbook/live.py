@@ -972,17 +972,19 @@ def record(
     answer validation raises ``LiveResponseError`` naming the question and field; nothing
     is loosened.
 
-    ``ledger_path`` optionally writes a sidecar with one line per ``decide`` call made here: each
-    paid call, and each call refused before anything was sent, which spends nothing
-    (``request_id`` is not part of the stored-response format, so it lives there). A success is
+    ``ledger_path`` optionally writes a sidecar with one line per call made to ``decide`` here:
+    a call that produced a response, and a call that raised, including one refused before
+    anything was sent, which spends nothing (``request_id`` is not part of the stored-response
+    format, so it lives there). A request that fails validation never becomes a ``decide`` call:
+    ``record`` raises before any call and writes no line for it. A success is
     ``{replay_key: {status: "recorded", request_id, model, date, input_tokens, output_tokens,
     attempts, retried}}``, plus ``images`` and ``distinct_images`` (counts only) when the call
     carried image assets. A call that produced nothing to record (``invalid_response``, ``error``,
     ``timeout``, ``budget_stopped``) is ``{replay_key + "!failed-N": {status, error_type,
     http_status, request_id, model, date, attempts, retried}}`` with no image counts, written
-    before the error is re-raised. A request refused before anything was sent
-    (``ImageRequestTooLarge``, ``LiveConfigError``, a request that fails validation) is
-    ``status: "error"`` with ``error_type`` the exception's class name and ``attempts`` 0.
+    before the error is re-raised. A ``decide`` call refused before anything was sent
+    (``ImageRequestTooLarge``, ``LiveConfigError``) is ``status: "error"`` with ``error_type``
+    the exception's class name and ``attempts`` 0.
     ``attempts`` is the HTTP attempts that call spent (0 when nothing was sent) and ``retried``
     lists ``{error_type, http_status, request_id}`` for each failed attempt it retried past, on
     both kinds of line. Re-recording a key with ``overwrite=True`` keeps the earlier
@@ -1026,7 +1028,8 @@ def record(
                 else backend.decide(state, questions, assets=assets)
             )
         except Exception as exc:
-            # Every paid attempt gets a ledger line, even when it produced nothing to record.
+            # Any Exception from decide gets a ledger line (when ledger_path is set), even when it
+            # produced nothing to record and even when nothing was sent.
             if out_ledger is not None:
                 _ledger_failure(
                     out_ledger, key, exc, backend, backend.requests_made - attempts_before

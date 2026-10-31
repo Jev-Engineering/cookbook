@@ -222,8 +222,11 @@ report = record(
   race.
 - `RecordReport` lists `written`, `skipped` and `unchanged` keys, the number of attempts the
   backend made, and the returned model.
-- `ledger_path`: a JSON sidecar with one line for every call made in this run: each paid call, and
-  each call refused before anything was sent, which spends nothing. It is separate
+- `ledger_path`: a JSON sidecar with one line for each call `record` makes to `decide` in this
+  run: a call that produced a response, and a call that raised, including one refused before
+  anything was sent, which spends nothing. A request that fails validation (for example an asset
+  that no state, instruction or criteria value names) never becomes a `decide` call: `record`
+  raises before any call and writes no line for it. The sidecar is separate
   from the responses file because the stored-response format has no field for the request id. It
   is optional, and **it must live outside `fixtures/`**: `record` refuses (`ValueError`, before any
   call) a path inside a `fixtures/` directory, because the fixture validator rejects stray files
@@ -246,11 +249,13 @@ report = record(
     exception that ended the call, including a request refused before anything was sent),
     `timeout` or `budget_stopped`. `error_type`, `http_status` and `request_id` describe the last
     attempt (the one that ended the call; a timeout has no request id; for `budget_stopped`
-    `error_type` is `BudgetExceeded` and the other two are null). A request refused before
-    anything was sent (`ImageRequestTooLarge` for an image request over a 32 MiB cap,
-    `LiveConfigError`, or a request that fails validation) is `status: "error"` with `error_type`
-    the exception's class name, `http_status` and `request_id` null, `attempts: 0` and
-    `retried: []`; it is not a paid call. `attempts` is the HTTP attempts this call spent: 0 when
+    `error_type` is `BudgetExceeded` and the other two are null). A `decide` call refused before
+    anything was sent (`ImageRequestTooLarge` for an image request over a 32 MiB cap, or
+    `LiveConfigError` for a request the backend is not set up for, such as image assets without
+    `images=True`) is `status: "error"` with `error_type` the exception's class name,
+    `http_status` and `request_id` null, `attempts: 0` and `retried: []`; it is not a paid call.
+    A request that fails validation is not one of these: it raises from `record` before `decide`
+    is called and gets no line. `attempts` is the HTTP attempts this call spent: 0 when
     nothing was sent (a budget already spent, or a refusal as above), and otherwise includes any
     attempts made before the call failed or the budget stopped it. `retried` is as above. A failed
     line carries no `images` or `distinct_images`. The same last-attempt id is on the exception
