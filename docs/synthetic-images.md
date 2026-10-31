@@ -175,7 +175,7 @@ typed as a base letter and a combining mark is one letter (Cyrillic Й, typed as
 breve, is the single letter Й). Lower case is then folded to upper case, and the folded text is what
 `attrs["text"]` reports. Any other character raises `ValueError` ("no glyph") instead of drawing a
 blank, and text with no visible character (only spaces) raises `ValueError` too ("no visible
-character"). In `text_block`, a line that is only spaces is not drawn but still takes its row, so it works as a blank separator line (`["TOTAL", " ", "42"]`), and the line after it keeps its pitch and its index in the part name (`name.line2`). `parts` holds one entry per visible line, `attrs["lines"]` counts every input line, and the block's box is the extent of the visible lines. A block with no visible character at all raises `ValueError` ("no visible character"), like a single text of only spaces; an empty string is still an error. `lines` must be a sequence, not a one-shot iterator. There is no system font and no FreeType involved, which is what makes the pixels the
+character"). In `text_block`, a line that is only spaces is not drawn but still takes its row, so it works as a blank separator line (`["TOTAL", " ", "42"]`), and the line after it keeps its pitch and its index in the part name (`name.line2`). `parts` holds one entry per visible line, `attrs["lines"]` counts every input line, and the block's box is the extent of the visible lines. A block with no visible character at all raises `ValueError` ("no visible character"), like a single text of only spaces; an empty string is still an error. `lines` must be a sequence, not a one-shot iterator: an iterator that yields a visible line raises `TypeError` before anything is drawn. There is no system font and no FreeType involved, which is what makes the pixels the
 same everywhere.
 
 **Randomness** comes from `Rng`, splitmix64 written in integer arithmetic (`Rng(0).u64()` is
@@ -309,7 +309,7 @@ with tempfile.TemporaryDirectory() as folder:
 assert [row["timestamp_seconds"] for row in state] == [0.0, 1.0, 2.5, 4.0]
 ```
 
-`save_frames` names each file from the name given (`belt` above) and the frame's index. The index is zero-padded to the width of the largest index (at least two digits, `-00` to `-99`, then `-000` for 101 frames or more), so the names sort in time order. `frames` must be a sequence, not a one-shot iterator.
+`save_frames` names each file from the name given (`belt` above) and the frame's index. The index is zero-padded to the width of the largest index (at least two digits, `-00` to `-99`, then `-000` for 101 frames or more), so the names sort in time order. `frames` must be a sequence, not a one-shot iterator: a generator raises `TypeError` before any file is written.
 
 For a sequence of your own, `build_frames(times, draw)` calls `draw(t)` for each time and returns
 `Frame(timestamp_seconds, canvas)` objects; give the canvas a `provenance(...)` for the manifest.
@@ -329,7 +329,7 @@ link that leaves the recipe is refused), the exact bytes against the API's limit
 (`vision.validate_image_asset`: each side 280 to 1568 pixels, the area range), the chunk set and
 the 1 MiB cap. An image that fails raises `ValueError` and leaves nothing on disk (not the file,
 not an empty `assets/`, not a temporary file), and a file is written to a temporary name and
-renamed, so a failure part-way leaves none either. The committed file gets the mode the process's umask gives any new file (normally 0644). `Canvas` cannot make an undersized image, but
+renamed, so a failure part-way leaves none either. A file that is written gets the mode the process's umask gives any new file (normally 0644); a file left unchanged keeps its existing mode. `Canvas` cannot make an undersized image, but
 `write_asset` and `write_png` also take a raw Pillow image, which is where this matters. The
 image-file contract, with the 280 pixel minimum, is in
 [fixtures.md](fixtures.md#the-image-file-contract) and is enforced by
@@ -363,7 +363,7 @@ for entry in manifest["assets"]:
         assert si.check_reproducible(RECIPE_DIR, entry) in ("unchanged", "kept-committed-bytes")
 ```
 
-`reproduce` and `check_reproducible` raise `ValueError` for parameters that do not fit the scene, and for a manifest entry missing `generator`, `parameters` or `path`.
+`reproduce` and `check_reproducible` raise `ValueError` for a generator string that names none of the scenes, for parameters that are not a mapping, for a missing or unexpected keyword, for a value the scene rejects, for a value of the wrong type that makes the scene raise a `TypeError` (an integer `object_size`, say), and for a manifest entry that is not a mapping or lacks `generator`, `parameters` or `path`. A value the scene does not validate can still raise another exception: an empty or one-element `start` raises `IndexError` and a dict `start` raises `KeyError`. A non-string `generator` raises `AttributeError`, a non-string `path` raises `TypeError`, and a missing committed file raises `FileNotFoundError`.
 
 ## Byte stability and regeneration
 

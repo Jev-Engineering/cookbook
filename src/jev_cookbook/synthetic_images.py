@@ -983,7 +983,8 @@ class Canvas:
         visible line, named by its input index (``name.line2`` is the third input line), and
         ``attrs["lines"]`` counts every input line. A block with no visible character is refused
         (ValueError) before anything is drawn; an empty or non-string line is refused too.
-        ``lines`` must be a sequence, not a one-shot iterator.
+        ``lines`` must be a sequence, not a one-shot iterator: an iterator that yields a visible
+        line raises TypeError before anything is drawn.
         """
         if isinstance(lines, str) or not lines:
             raise ValueError("lines must be a non-empty sequence of strings")
@@ -2116,7 +2117,8 @@ def save_frames(
     :func:`write_asset`, and return ``(timestamp_seconds, path)`` pairs, which is exactly what
     ``vision.load_frames(pairs, root=recipe_dir)`` takes. The index has two digits, or more once
     there are more than 100 frames, so every name has the same width and sorts in frame order.
-    ``frames`` must be a sequence, not a one-shot iterator."""
+    ``frames`` must be a sequence, not a one-shot iterator: a generator raises TypeError
+    before any file is written."""
     pairs = []
     width = max(2, len(str(len(frames) - 1)))
     for index, frame in enumerate(frames):
