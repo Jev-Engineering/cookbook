@@ -175,7 +175,7 @@ typed as a base letter and a combining mark is one letter (Cyrillic Й, typed as
 breve, is the single letter Й). Lower case is then folded to upper case, and the folded text is what
 `attrs["text"]` reports. Any other character raises `ValueError` ("no glyph") instead of drawing a
 blank, and text with no visible character (only spaces) raises `ValueError` too ("no visible
-character"). In `text_block`, a line that is only spaces is not drawn but still takes its row, so it works as a blank separator line (`["TOTAL", " ", "42"]`), and the line after it keeps its pitch and its index in the part name (`name.line2`). `parts` holds one entry per visible line, `attrs["lines"]` counts every input line, and the block's box is the extent of the visible lines. A block with no visible character at all raises `ValueError` ("no visible character"), like a single text of only spaces; an empty string is still an error. There is no system font and no FreeType involved, which is what makes the pixels the
+character"). In `text_block`, a line that is only spaces is not drawn but still takes its row, so it works as a blank separator line (`["TOTAL", " ", "42"]`), and the line after it keeps its pitch and its index in the part name (`name.line2`). `parts` holds one entry per visible line, `attrs["lines"]` counts every input line, and the block's box is the extent of the visible lines. A block with no visible character at all raises `ValueError` ("no visible character"), like a single text of only spaces; an empty string is still an error. `lines` must be a sequence, not a one-shot iterator. There is no system font and no FreeType involved, which is what makes the pixels the
 same everywhere.
 
 **Randomness** comes from `Rng`, splitmix64 written in integer arithmetic (`Rng(0).u64()` is
@@ -203,7 +203,7 @@ download. This is the foundation decision that rank 96 was waiting for.
 **Limits.** Capitals only. There is no Ё, and no Ukrainian, Serbian, Belarusian or other Cyrillic
 extension letters. There are no accented Latin letters: é, ñ and ü raise `ValueError`, and ß folds
 to SS. So Spanish, French and German signage must be drawn without accents or not at all.
-The MICRO SIGN (U+00B5) is refused with a `ValueError` that names it, because it would upper-case to Greek capital Mu and draw as a Latin M, so "5 µs" would read "5 MS"; spell the unit out or write "US". There are
+The MICRO SIGN (U+00B5) is refused with a `ValueError` that names it, because it would upper-case to Greek capital Mu and draw as a Latin M, so "5 µs" would read "5 MS"; spell the unit out or write "US". Greek small letter mu (U+03BC) is an ordinary letter that folds to capital Mu and draws as the Latin M, so it must not be used for the micro prefix either; the refusal covers only U+00B5. There are
 no Arabic, Hebrew, Indic, Thai, Chinese, Japanese or Korean glyphs: those scripts need joining,
 shaping or thousands of glyphs, not a 5 by 7 cell, and any such character raises `ValueError`. The
 glyphs are blocky capitals designed here and were not reviewed by native readers, so a reviewer
@@ -309,7 +309,7 @@ with tempfile.TemporaryDirectory() as folder:
 assert [row["timestamp_seconds"] for row in state] == [0.0, 1.0, 2.5, 4.0]
 ```
 
-`save_frames` names each file from the name given (`belt` above) and the frame's index. The index is zero-padded to the width of the largest index (at least two digits, `-00` to `-99`, then `-000` for 101 frames or more), so the names sort in time order.
+`save_frames` names each file from the name given (`belt` above) and the frame's index. The index is zero-padded to the width of the largest index (at least two digits, `-00` to `-99`, then `-000` for 101 frames or more), so the names sort in time order. `frames` must be a sequence, not a one-shot iterator.
 
 For a sequence of your own, `build_frames(times, draw)` calls `draw(t)` for each time and returns
 `Frame(timestamp_seconds, canvas)` objects; give the canvas a `provenance(...)` for the manifest.
@@ -329,7 +329,7 @@ link that leaves the recipe is refused), the exact bytes against the API's limit
 (`vision.validate_image_asset`: each side 280 to 1568 pixels, the area range), the chunk set and
 the 1 MiB cap. An image that fails raises `ValueError` and leaves nothing on disk (not the file,
 not an empty `assets/`, not a temporary file), and a file is written to a temporary name and
-renamed, so a failure part-way leaves none either. The committed file keeps the mode that the process's umask gives a new file (normally 0644), not the private 0600 of the temporary file. `Canvas` cannot make an undersized image, but
+renamed, so a failure part-way leaves none either. The committed file gets the mode the process's umask gives any new file (normally 0644). `Canvas` cannot make an undersized image, but
 `write_asset` and `write_png` also take a raw Pillow image, which is where this matters. The
 image-file contract, with the 280 pixel minimum, is in
 [fixtures.md](fixtures.md#the-image-file-contract) and is enforced by
@@ -363,7 +363,7 @@ for entry in manifest["assets"]:
         assert si.check_reproducible(RECIPE_DIR, entry) in ("unchanged", "kept-committed-bytes")
 ```
 
-`reproduce` and `check_reproducible` raise `ValueError` for parameters that do not fit the scene, and for a manifest entry missing `generator`, `parameters` or `path`; they never raise a bare `TypeError` or `KeyError`.
+`reproduce` and `check_reproducible` raise `ValueError` for parameters that do not fit the scene, and for a manifest entry missing `generator`, `parameters` or `path`.
 
 ## Byte stability and regeneration
 
