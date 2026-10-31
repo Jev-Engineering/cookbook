@@ -409,6 +409,7 @@ def _verified_entry(label: str, entry: object) -> tuple[BackendEvidence, dict]:
                 assert name in PROFILE_COUNTERS, f"request audit: unknown profile quantity {name!r}"
                 assert type(amount) is int and amount > 0, "request audit: invalid profile amount"
                 totals[name] = totals.get(name, 0) + amount
+            _check_image_profile(profile)
             canonical_call["profile"] = dict(profile)
         canonical_calls.append(canonical_call)
     assert type(entry["decide_calls"]) is int and entry["decide_calls"] == len(keys), (
@@ -429,6 +430,20 @@ def _verified_entry(label: str, entry: object) -> tuple[BackendEvidence, dict]:
     if totals:
         canonical["profile_totals"] = totals
     return BackendEvidence(label, tuple(keys), totals), canonical
+
+
+def _check_image_profile(profile: dict) -> None:
+    """Image counts must be possible whatever the payload says, so a hand-edited ledger cannot
+    state a shape no request has: ``images`` (copies) and ``distinct_images`` (assets) come
+    together, every asset is placed at least once, so there are at least as many copies."""
+    assert ("images" in profile) == ("distinct_images" in profile), (
+        "request audit: a call states image copies without distinct images (or the reverse)"
+    )
+    if "images" in profile:
+        assert profile["images"] >= profile["distinct_images"], (
+            f"request audit: a call states {profile['images']} image copies of "
+            f"{profile['distinct_images']} distinct images; every distinct image is at least one copy"
+        )
 
 
 def check_against_declaration(
