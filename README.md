@@ -38,12 +38,14 @@ python tools/execute_notebook.py recipes/_template   # run the template notebook
 ```
 
 The template in `recipes/_template/` is a small, complete recipe, and every recipe works the same
-way; recipe 01 is the start of the curriculum once its row below links to a notebook. Three pages
+way; recipe 01 is the start of the curriculum once its row below links to a notebook. These pages
 take it from here:
 
 - [Getting started](docs/getting-started.md): install, open a notebook, run it offline, run a recipe's tests, switch to live.
 - [Offline and live](docs/offline-and-live.md): what each mode is, what provenance says, why synthetic metrics are pipeline checks, and what "not measured live" means.
 - [Glossary](docs/glossary.md): state, question, `Choice`, `Noul`, `Score`, criteria, probabilities, confidence, threshold, replay key, fixture, provenance, and run mode, each linked to its source.
+- [Images, boxes and ordered frames](docs/vision.md): the local helpers in `jev_cookbook.vision` for image assets, Box coordinates, tiles and timestamped frames.
+- [Multimodal track](docs/multimodal-track.md): the forty planned recipes 61–100, what must hold before one is ready, and what its evaluation must show.
 
 ## How a recipe works
 
