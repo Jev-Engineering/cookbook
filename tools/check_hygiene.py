@@ -28,9 +28,14 @@ prefix. Short or low-entropy secrets, secrets split across lines or encoded, ima
 output payloads (base64 data is deliberately not scanned), and git history are out of scope.
 A bare ``name=VALUE`` assignment (runs joined by ``_``, the value also by ``.``, where a run
 is letters of one case optionally followed by digits, as in ``STAGE1`` or ``SHA256``, or digits
-alone; no quotes) is code and is not scored by the entropy rule, so a long all-lowercase
-or all-uppercase secret assigned, unquoted, to a name that contains none of api key, secret,
-token, password, access key or credential is not caught by it.
+alone; no quotes) is code and is not scored by the entropy rule. So a long unquoted secret
+assigned to a name that contains none of api key, secret, token, password, access key or
+credential is not caught by it when the value has that shape: all-lowercase, all-uppercase, or
+a chain of letters-then-digits runs (``ABCD1234_EFGH5678_`` and so on, 32 characters or more).
+A name that does contain one of those words is always scored, with one known gap: a digit directly
+before the ``_`` of a two-word name (``api1_key``, ``access1_key``) hides the name from the
+check, so a one-case secret assigned to such a name is not caught either (a decided limit, see
+issue #339: the packaged copy in src/jev_cookbook/fixtures/_scan.py must change with the rule).
 No hex token of any length is caught by the entropy rule (hex cannot reach the threshold); a
 hex-format key is caught only by the header, bearer and assignment rules. ANSI colour codes
 are stripped before scanning. UTF-8 and UTF-16/32 text is decoded; a notebook of any size is
