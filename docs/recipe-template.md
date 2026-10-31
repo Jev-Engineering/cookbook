@@ -8,6 +8,7 @@ folder for it. This page is the reference and the walkthrough; the template's ow
 ```bash
 python tools/new_recipe.py NN                 # create recipes/NN-slug/ from the catalog (NN is 1 to 100)
 python tools/new_recipe.py NN --mode scripted # the same for a scripted or simulator recipe
+python tools/new_recipe.py NN --mode replay-images # the same for a recipe whose requests carry images
 python tools/execute_notebook.py recipes/X    # run X/notebook.ipynb offline, write the outputs back
 ```
 
@@ -38,13 +39,13 @@ live inference explicitly opt-in under the [contract](../CONTRIBUTING.md).
 | `README.md` | The one-page recipe README, plus the builder's walkthrough (a real recipe's README has only the first part). |
 | `helpers.py` | `build_state`, `build_questions`, and the rule Python enforces (`route`). |
 | `build_fixtures.py` | Writes `fixtures/`; the replay keys come from `helpers.py`, so they cannot drift from the questions. It lives next to the notebook, outside `fixtures/` ([fixtures.md](fixtures.md)). Generating inputs and labels is separate from generating responses: `--force` is needed to overwrite a `responses.json` that already holds a `recorded` answer. |
-| `assets/` | Multimodal recipes only (absent from the template): the image files the recipe sends to Jev, PNG or baseline JPEG, each at most 1 MiB, 8 MiB in all, with no metadata, and nowhere else in the recipe. The contract and the check that enforces it are in [fixtures.md](fixtures.md#image-fixtures); how a recipe loads them is in [vision.md](vision.md). |
-| `assets-manifest.json` | Multimodal recipes only, beside `assets/`: one entry per image with its hash, size, generator and parameters, licence and the attestations that it is synthetic and holds no real photograph, brand, person or third-party content. Required exactly when `assets/` exists; `build_fixtures.py` should write it with the images. Format, worked example and rules: [fixtures.md](fixtures.md#image-provenance-manifest). |
+| `assets/` | Multimodal recipes only (absent from the template): the image files the recipe sends to Jev, PNG or baseline JPEG, each at most 1 MiB, 8 MiB in all, with no metadata, and nowhere else in the recipe. The contract and the check that enforces it are in [fixtures.md](fixtures.md#image-fixtures); how a recipe loads them is in [vision.md](vision.md). `python tools/new_recipe.py NN --mode replay-images` creates it with generated example images ([Image recipes](#image-recipes)). |
+| `assets-manifest.json` | Multimodal recipes only, beside `assets/`: one entry per image with its hash, size, generator and parameters, licence and the attestations that it is synthetic and holds no real photograph, brand, person or third-party content. Required exactly when `assets/` exists; `build_fixtures.py` should write it with the images. Format, worked example and rules: [fixtures.md](fixtures.md#image-provenance-manifest). `--mode replay-images` writes it through the scaffolded `build_fixtures.py`. |
 | `fixtures/` | `inputs.jsonl`, `labels.jsonl`, `responses.json`: 22 examples (10 `validation`, 10 `test`, 2 `demo`), synthetic and deliberately imperfect. |
 | `request_budget.json` | The recipe's declared live request count (#213, #368), the one place it is stated: one audited backend, `main`, declaring `requests: 22` and `fixtures: "fixtures/responses.json"`. The setup cell's one `get_backend(...)` is wrapped in `AuditedBackend(..., label="main")`, and a final standalone cell (nested under "What was and was not measured" as a `###` subsection, never a new `##` heading) prints `backend.audit_json()`. The README's `## Switch to live` paragraph is *rendered* from this file by `jev_cookbook.accounting.render_recipe_note`, never typed by hand, and the recipe guard's `readme_budget_note_matches_request_audit` check (#213) compares the declaration, the audited execution and the rendered paragraph against each other for every published recipe. The template's own agreement is checked by `tests/test_template.py` using the same audit. [backends.md](backends.md#the-declared-count-request_budgetjson) is the full contract; this is the one route a recipe's live request count is stated through. |
 | `tests/test_helpers.py` | Tests for the rule, a check that the stored keys match the current question, `test_stored_answers_are_not_all_right` (replay recipes only): re-derives the frozen threshold from `validation` (the `select_confidence_threshold` call written out, or `gate = helpers.<fn>(...)` through a function of the recipe's own `helpers.py` that calls it; the guard finds the test by its name, so keep `test_stored_answers_are_not_all_right` as the prefix) and requires a wrong `test` answer at or above it, so a fixture set that is merely "not all correct" (but has every mistake caught by the gate) still fails, and a test that pins the threshold-selection call's own **objective** keyword against the committed cell source (see "Pin the threshold's OBJECTIVE" above) — a value-only re-derivation does not pin which objective ran. `tools/new_recipe.py` scaffolds a working copy of the stored-answers test, so no recipe has to hand-write it from scratch; the objective pin is adapted per recipe from the template's own worked example. |
 | `side_effects.json` | The recipe's statement of its simulated side effects (a `ReviewQueue`, `ActionLog`, `Store`, `Transactor` or `Simulator` write): `{"schema": 1, "sites": {"helpers.submit_reviews": 2}}`, the exact number of places the notebook calls each side-effect function or method, or `{"schema": 1, "none": "why"}`. `tools/new_recipe.py` scaffolds it as a `none` declaration whose reason is a `TODO` placeholder (the template recipe has no simulated side effect, so `none` is what it would declare): rewrite the reason, or replace the file with `sites`, before the recipe is done. The recipe guard rejects a reason that still carries the `TODO`, rejects `none` for a recipe that has a side effect or needs a simulator, and fails a notebook that calls fewer, more or none of what it declares. Schema, keys, `not_side_effects` (bookkeeping only, with a reason per entry), factory-built simulators, the guard's known limits and the two function shapes (a batch fill, a decide-and-apply function) with their test rules: [simulation.md](simulation.md). |
-| `tests/test_build_fixtures.py` | Guards `build_fixtures.py` (replay recipes only): refusal without `--force`, `inputs.jsonl`/`labels.jsonl` regenerated from `ROWS` even on a refused run, and the committed `responses.json` byte-identical to what `jev_cookbook.dump_responses` returns (the public form of the serialization the recorder writes with; `jev_cookbook.live._dump` is kept only as a transitional alias, and recipes do not import it). A scripted recipe has no `responses.json` and nothing for these tests to guard, so the scaffolder does not emit this file for `--mode scripted`. |
+| `tests/test_build_fixtures.py` | Guards `build_fixtures.py` (replay recipes only): refusal without `--force`, `inputs.jsonl`/`labels.jsonl` regenerated from `ROWS` even on a refused run, and the committed `responses.json` byte-identical to what `jev_cookbook.dump_responses` returns (the public form of the serialization the recorder writes with; `jev_cookbook.live._dump` is kept only as a transitional alias, and recipes do not import it). A scripted recipe has no `responses.json` and nothing for these tests to guard, so the scaffolder does not emit this file for `--mode scripted`. `--mode replay-images` emits a variant of it that also copies `assets/` into the temporary folder it rebuilds in ([Image recipes](#image-recipes)). |
 
 The notebook sections, in order: **What you will build**, **Setup and run mode**, **The state**,
 **The questions**, **One answer up close**, **Python's part**, **Evaluation**, **What was and was not
@@ -523,6 +524,80 @@ next request depends on the previous action) is built the way [simulation.md](si
 describes, with the simulator owning the state and the script standing in for the model. The run is
 a pipeline check, not a Jev result; the README and notebook say so under their `TODO`s. A scripted
 recipe that later records real answers becomes a replay recipe: add the keys and `responses.json`.
+
+## Image recipes
+
+A recipe whose requests carry images (the multimodal track, ranks 61–100:
+[multimodal-track.md](multimodal-track.md)) is a replay recipe with an `assets/` folder. Scaffold it
+with:
+
+```bash
+python tools/new_recipe.py NN --mode replay-images
+```
+
+`--mode` is the option that already chooses a variant of the scaffold, so the image variant is one
+more value of it (read it as "replay, with images") rather than a separate flag; a flag could be
+combined with `--mode scripted`, and no value of `--mode` can ask for an image recipe that is not a
+replay recipe. Everything in [vision.md](vision.md) applies to what it writes.
+
+**It writes a working example, not a skeleton.** The text scaffold raises `NotImplementedError`
+until you write `helpers.py` and `ROWS`; the image scaffold ships a small recipe that runs end to
+end, so that the image plumbing (the files, the references, the budget) is correct before you change
+anything, and `TODO` markers say what to replace. The example asks of fourteen drawings of an
+invented sign-in window (`jev_cookbook.synthetic_images.login_screen`; 6 `validation`, 7 `test` and
+1 `demo` example) whether an error banner is shown (a `Noul`) and where (a `Box`).
+
+The command writes the files of the replay scaffold, then runs the new folder's own
+`build_fixtures.py` once. That script draws the images, saves them under the byte policy of
+[synthetic-images.md](synthetic-images.md#byte-stability-and-regeneration), and writes
+`assets-manifest.json` and `fixtures/`. `tools/new_recipe.py` itself needs only the standard
+library; that one step needs the installed package and Pillow, which the scaffolded
+`build_fixtures.py` imports (`pip install -e ".[dev]"`). If it fails, the folder is removed and the
+command exits with status 1.
+
+| File | What the image scaffold adds to the replay scaffold |
+| - | - |
+| `assets/`, `assets-manifest.json` | Fourteen PNG files, `assets/screen-<id>.png`, and their manifest ([fixtures.md](fixtures.md#image-provenance-manifest)): `origin: generated`, the generator `jev_cookbook.synthetic_images:login_screen` with the arguments that redraw each file, licence `CC0-1.0` and the five attestations. |
+| `fixtures/` | Complete. A fixture row's `fields` hold a `capture` identifier (Python keeps it) and the image's path, `assets/screen-<id>.png`, as [fixtures.md](fixtures.md#image-fixtures) requires. Gold labels are Box labels ([fixtures.md](fixtures.md#box-labels)) derived from what was drawn: the banner's `Drawn.label()` where the screen has one, `{"present": false}` where not. The stored answers are synthetic and deliberately imperfect (one rectangle that misses the banner, two wrong yes answers and one wrong no, one rectangle without a confidence). |
+| `helpers.py` | `build_request(fields)` returns `(state, assets)`: it loads the image with `image_asset(path, root=ROOT)` because the path comes from fixture data, derives `image_reference`, and puts the reference in the state once (every place a reference appears adds a copy of the image to the request: [vision.md](vision.md#image-copies-and-the-32-mib-caps)). `build_questions()` asks `present` (a `Noul`) and `location` (a `Box`). `locate(...)` is the rule that holds whatever the model answers: a presence answer below the threshold is a review, not an absence; a probability of yes above one half means the target is there; a rectangle with no confidence, or below its threshold, is a review. `open_image` and `png_bytes` serve the notebook's drawing cell. |
+| `build_fixtures.py` | `ROWS`, then `draw`, `write_images`, `build_inputs_and_labels`, `answers_for` and `build_responses`. Images are written first, then the keys are computed with `replay_key(state, questions, assets=assets)` from the files on disk. `--force` behaves as in the text scaffold; `--overwrite-assets` accepts a picture that differs from the committed file, which changes its replay keys. Without it, a changed picture stops the script before anything else is written. |
+| notebook | The cells of the replay notebook, with `get_backend(fixtures=responses_path(), images=True)` in the audited setup cell, and: `state` (builds the request for the demo example and shows its image), `answer` and `answer-boxes` (one answer up close, and `draw_boxes` on the image with the returned rectangle), `python-rule` (freezes the presence and rectangle-confidence thresholds on `validation` with `select_confidence_threshold`, then applies `locate` to the demo answer), `evaluation` (every `test` example once through `localization_report`, printed with `check` beside each line) and `evaluation-review` (what was not located, and why). Every `decide()` passes `assets=assets`. The setup cell defines `selection`, because these cells print `validation` numbers. |
+| `request_budget.json` | `requests: 14`, `fixtures: "fixtures/responses.json"`, and `profile: {"images": 14, "distinct_images": 14}` ([backends.md](backends.md#actual-calls-and-distinct-requests)): the notebook decides each of the 14 examples once, and the reference sits once in each state, so each request is one copy of one distinct image. A recipe that repeats a reference or sends more than one image per request changes these two numbers with the count. The README's paragraph is rendered from this file, as for every scaffold. |
+| `tests/test_helpers.py` | Tests of `locate` (each outcome and each reason, and a grid of probabilities and thresholds), the replay-key test with `assets=`, a test that redraws every shared-scene image from its manifest entry (`check_reproducible`), and `test_stored_answers_are_not_all_right`, which re-derives the presence threshold and requires a wrong `test` answer at or above it. |
+| `tests/test_build_fixtures.py` | The text scaffold's three guards, run in a temporary folder that also holds a copy of `assets/` (the third also checks that the images and `assets-manifest.json` come back unchanged), and a fourth: a picture that differs from the committed file is refused, not rewritten. |
+
+**Why `tests/test_build_fixtures.py` differs.** A PNG's bytes depend on the Pillow and zlib that
+wrote them, and the bytes are part of the replay key of each request that carries a picture. The
+text scaffold's test copies only
+`helpers.py` and `build_fixtures.py` into a temporary folder and runs the script there; for an
+image recipe that would draw every picture afresh with the encoder of whatever environment runs the
+test, and the regenerated fixtures could disagree with the committed ones although the pixels are
+the same. The image variant copies the committed `assets/` too, so the script compares each picture
+it draws with the committed file under that byte policy. That file must stay byte-identical to the
+scaffold's, so the choice cannot be left to the builder:
+`build_fixtures_test_text(recipe)` returns the text variant and
+`build_fixtures_test_text(recipe, "replay-images")` the image one, which is the file an image
+recipe commits.
+
+**What the scaffold passes offline.** `python -m jev_cookbook.fixtures validate`,
+`python tools/check_recipe_assets.py`, `python tools/check_hygiene.py`, `ruff check`,
+`ruff format --check`, and its own tests (`pytest recipes/NN-slug`), with no network, no key and no
+hand-edit. `tests/test_new_recipe.py` checks that its declaration, with the two image quantities, agrees with
+the request audit of the calls its notebook makes. The notebook has no outputs when it is
+scaffolded: execute it with `tools/execute_notebook.py` (step 6 above) before the freshness check
+can compare anything.
+
+**From scaffold to your recipe.** Replace the sign-in windows, the two questions and the answers
+with your own, keeping the pattern: draw with `jev_cookbook.synthetic_images` (a scene of your own
+calls `canvas.provenance("build_fixtures.py:your_function", {...})`, so the manifest names a
+generator that exists), derive every gold Box label from a `Drawn`, put the image path in `fields`,
+and keep the reference out of the questions. Grow `ROWS` to the size your level needs
+([fixtures.md](fixtures.md)), update `request_budget.json` and its README paragraph together as
+Evaluation adds `decide()` calls, and recreate the images under the notebook constraints pin
+(`pip install -e ".[ml]" -c .github/constraints-notebooks.txt`) before you commit them, so that the
+committed bytes are the pin's. The checklist in
+[synthetic-images.md](synthetic-images.md#a-checklist-for-a-recipe) is the same list from the
+drawing side. A frame sequence (ranks 85–92) has no scaffold of its own yet.
 
 ## Executing a notebook
 
