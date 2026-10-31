@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import datetime
 import math
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterator, KeysView, Mapping, Sequence
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any, ClassVar
@@ -551,6 +551,15 @@ class DecisionResult:
     def __iter__(self) -> Iterator[str]:
         """Iterate the question names in answer order (as ``result.answers`` does)."""
         return iter(self.answers)
+
+    def keys(self) -> KeysView[str]:
+        """Return the question names, in answer order.
+
+        With ``result[name]`` this lets ``dict(result)`` and ``{**result}`` give
+        ``{name: answer}``. ``items()``, ``values()``, ``get()`` and ``len()`` are not
+        provided; use ``result.answers`` for those.
+        """
+        return self.answers.keys()
 
     @property
     def nouls(self) -> dict[str, NoulAnswer]:
