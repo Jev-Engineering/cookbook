@@ -469,9 +469,9 @@ catalog is insufficient; the scope guard reads assignments from the base.
    answer cells already run once steps 3 and 4 are done; replace each `TODO` and fill the
    `# TODO` code cells. Copy the template's evaluation cells as a starting point. As Evaluation
    adds more `decide()` calls, update `request_budget.json`'s declared `requests` (and `distinct`
-   or `at_most` where they apply) to match, then regenerate the README's rendered paragraph:
-   `python -c "from jev_cookbook.accounting import render_recipe_note as r;
-   print(r('recipes/NN-slug'), end='')"` and replace the whole README block,
+   or `at_most` where they apply) to match, then regenerate the README's rendered paragraph with
+   `python -c "from jev_cookbook.accounting import render_recipe_note as r; print(r('recipes/NN-slug'), end='')"`
+   and replace the whole README block,
    including the `<!-- request-budget:begin -->` / `<!-- request-budget:end -->` markers,
    with its output
    ([backends.md](backends.md#the-declared-count-request_budgetjson)). Leave the final

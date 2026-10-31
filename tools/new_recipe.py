@@ -6,6 +6,7 @@
 The folder gets a skeleton that follows ``recipes/_template/``: the notebook sections in
 order, a README, ``helpers.py``, ``build_fixtures.py``, ``side_effects.json`` (the recipe's
 statement of its simulated side effects: a ``none`` placeholder to replace),
+``request_budget.json`` (the declared live request count, one audited backend),
 ``tests/test_helpers.py`` and, for a replay recipe, ``tests/test_build_fixtures.py`` (the
 refusal, inputs/labels-separation and writer-byte-identical guard tests; a scripted recipe has
 no responses.json for them to guard).
@@ -445,8 +446,8 @@ and always runs offline.
 `jev_cookbook.accounting.render_recipe_note`; never edit it by hand. As you add `decide()` calls
 while you write Evaluation, update `request_budget.json`'s declared count to match (and its
 `distinct` or `at_most` if some requests repeat on purpose or the count depends on an answer).
-Then regenerate this block with `python -c "from jev_cookbook.accounting import
-render_recipe_note as r; print(r('recipes/{slug}'), end='')"`.
+Then regenerate this block with the one-line command below, copied exactly:
+`python -c "from jev_cookbook.accounting import render_recipe_note as r; print(r('recipes/{slug}'), end='')"`
 Its output already carries both marker comments, so replace the whole block, those two lines
 included, with it before you finish. The recipe guard compares the declaration, the notebook's
 audited execution and this paragraph against each other. Never put a key in a notebook or a

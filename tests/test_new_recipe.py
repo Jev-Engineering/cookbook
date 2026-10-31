@@ -442,19 +442,32 @@ def test_a_fresh_scaffold_passes_the_request_audit_with_no_hand_edit(catalog, re
     budget_path.write_text(saved, encoding="utf-8", newline="\n")
 
 
-def test_a_fresh_scaffold_also_passes_the_one_backend_per_budget_guard(catalog, recipes):
+@pytest.mark.parametrize("mode", new_recipe.MODES)
+def test_a_fresh_scaffold_also_passes_the_one_backend_per_budget_guard(catalog, recipes, mode):
     """The companion #213 guard check (``one_backend_per_budget`` in
     ``tests/test_recipe_guard.py``): a scaffold builds no more ``get_backend`` call sites, across
     the notebook and ``helpers.py``, than it has audited backends, and does not build any backend
     in ``helpers.py`` at all. This calls the guard's own real ``_backend_budget_verdict`` (``import
     load_module_at(...) from tests/test_recipe_guard.py`` above, not a local reimplementation of
     its rules), so it sees both of the guard's rules -- the site-count ceiling and "an audited
-    recipe builds its backends in the notebook, not in helpers.py" -- not only the first."""
+    recipe builds its backends in the notebook, not in helpers.py" -- not only the first.
+
+    That verdict alone cannot tell the migrated scaffold from the old one: the guard allows
+    ``audited or 1`` sites, so an unaudited scaffold with a single ``get_backend`` passes it too.
+    The last assertion therefore counts the guard's own ``_backend_sites`` for ``AuditedBackend``
+    over the notebook's code cells and requires exactly one, which is what fails when the setup
+    cell's ``AuditedBackend`` wrapping is missing."""
     _, recipe = entry(catalog, 7)
-    run(7, catalog, recipes)
+    run(7, catalog, recipes, mode=mode)
     folder = recipes / recipe["slug"]
     status, message = recipe_guard._backend_budget_verdict(folder)
     assert (status, message) == ("pass", ""), (status, message)
+    code_sources = [
+        recipe_guard.cell_source(cell)
+        for cell in recipe_guard.notebook_cells(folder)
+        if cell["cell_type"] == "code"
+    ]
+    assert recipe_guard._backend_sites(code_sources, "AuditedBackend") == 1
 
 
 SCRIPTED_HELPERS = """
