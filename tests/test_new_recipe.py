@@ -4,6 +4,7 @@ Nothing here writes into the real recipes/ folder: every call names a temporary 
 directory and a temporary copy of the catalog.
 """
 
+import ast
 import importlib.util
 import json
 import os
@@ -16,12 +17,22 @@ from pathlib import Path
 import nbformat
 import pytest
 from nbclient.exceptions import DeadKernelError
+from PIL import Image
 
 import jev_cookbook
-from jev_cookbook import DecisionResult, Provenance, dump_responses, load_helpers, replay_key
+from jev_cookbook import (
+    DecisionResult,
+    Provenance,
+    dump_responses,
+    get_backend,
+    load_helpers,
+    replay_key,
+)
 from jev_cookbook.accounting import parse_budget, render_budget_note
 from jev_cookbook.answers import ChoiceAnswer
-from jev_cookbook.fixtures import validate_recipe
+from jev_cookbook.evaluation import noul_confidence, select_confidence_threshold
+from jev_cookbook.fixtures import load_inputs, load_labels, select_split, validate_recipe
+from jev_cookbook.vision import box_confidence, box_iou, gold_box, localization_report
 
 REPO = Path(__file__).resolve().parent.parent
 TEMPLATE = REPO / "recipes" / "_template"
@@ -113,7 +124,7 @@ def test_it_creates_the_folder_named_by_the_catalog(catalog, recipes):
     }
 
 
-@pytest.mark.parametrize("mode", new_recipe.MODES)
+@pytest.mark.parametrize("mode", new_recipe.ALL_MODES)
 def test_the_scaffold_writes_a_side_effects_declaration_with_a_placeholder_reason(
     catalog, recipes, mode
 ):
@@ -1573,7 +1584,7 @@ def test_the_scaffold_readme_live_section_states_the_budget_and_env_var(catalog,
     assert "TODO" in section
 
 
-@pytest.mark.parametrize("mode", new_recipe.MODES)
+@pytest.mark.parametrize("mode", new_recipe.ALL_MODES)
 def test_the_local_budget_renderer_and_default_cap_agree_byte_for_byte_with_the_shared_package(
     mode,
 ):
@@ -1841,3 +1852,692 @@ def test_the_scaffolded_build_fixtures_test_file_passes_against_a_filled_in_reci
     result = run_generated_tests(folder)
     assert result.returncode == 0, result.stdout + result.stderr
     assert "passed" in result.stdout and "failed" not in result.stdout
+
+
+# --------------------------------------------------------------------------------------------
+# --mode replay-images (#315): the multimodal scaffold
+# --------------------------------------------------------------------------------------------
+#
+# Nothing below executes a notebook except test_a_fresh_image_scaffold_passes_the_request_audit_
+# with_no_hand_edit, which needs a kernel exactly like its text counterpart above. Everything else
+# builds and checks the scaffold in plain Python and subprocesses. The scaffold draws its own
+# images, by running the new folder's build_fixtures.py once.
+
+IMAGE = new_recipe.IMAGE_MODE
+IMAGE_IDS = [
+    "v01",
+    "v02",
+    "v03",
+    "v04",
+    "v05",
+    "v06",
+    "t01",
+    "t02",
+    "t03",
+    "t04",
+    "t05",
+    "t06",
+    "t07",
+    "d01",
+]
+# The drawn error banner of login_screen is the pixel rectangle (80, 66, 560, 98) of a 640 x 400
+# image, so its gold box is 66/400, 98/400, 80/640 and 560/640, computed by hand.
+GOLD_BANNER = {"top": 0.165, "bottom": 0.245, "left": 0.125, "right": 0.875}
+IMAGE_FILES = {
+    "notebook.ipynb",
+    "README.md",
+    "helpers.py",
+    "build_fixtures.py",
+    "side_effects.json",
+    "request_budget.json",
+    "assets-manifest.json",
+    "fixtures/inputs.jsonl",
+    "fixtures/labels.jsonl",
+    "fixtures/responses.json",
+    "tests/test_helpers.py",
+    "tests/test_build_fixtures.py",
+    *(f"assets/screen-{ident}.png" for ident in IMAGE_IDS),
+}
+
+
+def scaffold_images(catalog, recipes, number=77):
+    """Scaffold ``--mode replay-images`` into ``recipes`` and return the new recipe folder."""
+    _, recipe = entry(catalog, number)
+    assert run(number, catalog, recipes, mode=IMAGE) == 0
+    return recipes / recipe["slug"]
+
+
+@pytest.fixture(scope="module")
+def image_scaffold(tmp_path_factory):
+    """One image scaffold shared by the tests that only read it; a test that changes anything
+    works on ``copy_of`` it instead."""
+    base = tmp_path_factory.mktemp("image-scaffold")
+    catalog = base / "recipes.json"
+    shutil.copy(REPO / "catalog" / "recipes.json", catalog)
+    return scaffold_images(catalog, base / "recipes")
+
+
+def entry_for_folder(folder):
+    data = json.loads((REPO / "catalog" / "recipes.json").read_text("utf-8"))
+    return data, next(r for r in data["recipes"] if r["slug"] == folder.name)
+
+
+def copy_of(folder, tmp_path):
+    target = tmp_path / folder.name
+    shutil.copytree(folder, target, ignore=shutil.ignore_patterns("__pycache__"))
+    return target
+
+
+def files_of(folder):
+    return {
+        p.relative_to(folder).as_posix()
+        for p in folder.rglob("*")
+        if p.is_file() and "__pycache__" not in p.parts
+    }
+
+
+def run_generated(folder, *targets):
+    """pytest over some of a scaffold's own tests (``tests/test_helpers.py``, or a node id),
+    where ``run_generated_tests`` runs them all."""
+    return subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "--rootdir", str(folder)]
+        + [str(folder / target) for target in targets],
+        cwd=folder,
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+
+
+def test_the_modes_the_text_scaffolds_walk_are_unchanged_and_the_image_mode_is_one_more():
+    """MODES is what the tests and the recipe guard iterate over to walk the text scaffolds; the
+    image mode is a further value of --mode that they do not walk."""
+    assert new_recipe.MODES == ("replay", "scripted")
+    assert new_recipe.IMAGE_MODE == "replay-images"
+    assert new_recipe.ALL_MODES == ("replay", "scripted", "replay-images")
+
+
+def test_the_image_scaffold_writes_the_text_files_the_assets_the_manifest_and_the_fixtures(
+    image_scaffold,
+):
+    assert files_of(image_scaffold) == IMAGE_FILES
+    assert not list(image_scaffold.rglob("*.part")), "no temporary file is left in assets/"
+
+
+def test_the_image_scaffold_passes_the_fixture_validator_offline(image_scaffold):
+    report = validate_recipe(image_scaffold)
+    assert list(report) == [] and report.mode == "replay"
+    done = subprocess.run(
+        [sys.executable, "-m", "jev_cookbook.fixtures", "validate", str(image_scaffold)],
+        capture_output=True,
+        text=True,
+    )
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert "fixtures valid (mode replay)" in done.stdout
+
+
+def test_the_image_scaffold_passes_the_asset_checker_and_the_hygiene_check(
+    image_scaffold, monkeypatch
+):
+    spec = importlib.util.spec_from_file_location(
+        "check_recipe_assets_for_image_test", REPO / "tools" / "check_recipe_assets.py"
+    )
+    checker = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, spec.name, checker)  # a dataclass looks its module up here
+    spec.loader.exec_module(checker)
+    entries = [
+        checker.Entry(
+            f"recipes/{image_scaffold.name}/{name}", "100644", (image_scaffold / name).read_bytes()
+        )
+        for name in sorted(files_of(image_scaffold))
+    ]
+    assert checker.check_entries(entries) == []
+    done = subprocess.run(
+        [sys.executable, "tools/check_hygiene.py"]
+        + [str(image_scaffold / name) for name in sorted(files_of(image_scaffold))],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+    )
+    assert done.returncode == 0, done.stdout + done.stderr
+
+
+def test_the_image_scaffold_manifest_describes_drawn_images_with_a_shared_generator(
+    image_scaffold,
+):
+    manifest = json.loads((image_scaffold / "assets-manifest.json").read_text("utf-8"))
+    assert manifest["schema"] == 1
+    assert [e["path"] for e in manifest["assets"]] == sorted(
+        f"assets/screen-{ident}.png" for ident in IMAGE_IDS
+    )
+    states = {"v01": "error", "v03": "normal", "v04": "loading", "v06": "crash", "d01": "error"}
+    for item in manifest["assets"]:
+        ident = item["path"].split("screen-")[1].split(".")[0]
+        assert item["origin"] == "generated" and item["licence"] == "CC0-1.0"
+        assert item["generator"] == "jev_cookbook.synthetic_images:login_screen"
+        assert item["attestations"] == {
+            "synthetic": True,
+            "real_photo": False,
+            "real_brand": False,
+            "real_person": False,
+            "third_party_content": False,
+        }
+        assert (item["width"], item["height"]) == (640, 400) and item["format"] == "PNG"
+        if ident in states:
+            assert item["parameters"]["state"] == states[ident]
+
+
+def test_the_image_scaffold_labels_are_the_drawn_geometry_not_typed_numbers(image_scaffold):
+    labels = {
+        row["id"]: row["label"]
+        for row in map(
+            json.loads,
+            (image_scaffold / "fixtures" / "labels.jsonl").read_text("utf-8").splitlines(),
+        )
+    }
+    assert "d01" not in labels, "the demo example carries no label"
+    banner = {"present": True, "box": GOLD_BANNER}
+    absent = {"present": False}
+    assert labels == {
+        "v01": banner,
+        "v02": banner,
+        "v03": absent,
+        "v04": absent,
+        "v05": banner,
+        "v06": absent,
+        "t01": banner,
+        "t02": banner,
+        "t03": banner,
+        "t04": absent,
+        "t05": absent,
+        "t06": absent,
+        "t07": banner,
+    }
+
+
+def test_the_image_scaffold_inputs_keep_the_identifier_and_the_path_in_fields(image_scaffold):
+    rows = [
+        json.loads(line)
+        for line in (image_scaffold / "fixtures" / "inputs.jsonl").read_text("utf-8").splitlines()
+    ]
+    assert [row["id"] for row in rows] == IMAGE_IDS
+    for row in rows:
+        assert set(row["fields"]) == {"capture", "image"}
+        assert row["fields"]["image"] == f"assets/screen-{row['id']}.png"
+        assert len(row["replay_keys"]) == 1
+    assert [row["split"] for row in rows].count("demo") == 1
+
+
+def test_the_image_scaffold_declares_one_image_per_request_and_the_readme_renders_it(
+    image_scaffold,
+):
+    declared = json.loads((image_scaffold / "request_budget.json").read_text("utf-8"))
+    count = len(IMAGE_IDS)
+    assert declared == {
+        "schema": 1,
+        "backends": {
+            "main": {
+                "requests": count,
+                "fixtures": "fixtures/responses.json",
+                "profile": {"images": count, "distinct_images": count},
+            }
+        },
+    }
+    budget = parse_budget(declared)
+    readme = (image_scaffold / "README.md").read_text("utf-8")
+    assert render_budget_note(budget) in readme
+    assert f"**{count}** requests" in readme and f"JEV_COOKBOOK_LIVE_MAX_REQUESTS={count}" in readme
+    responses = json.loads((image_scaffold / "fixtures" / "responses.json").read_text("utf-8"))
+    assert len(responses) == count, "every request has exactly one stored response"
+
+
+def test_the_image_scaffold_notebook_has_the_nine_sections_the_image_cells_and_no_outputs(
+    image_scaffold,
+):
+    nb = nbformat.read(image_scaffold / "notebook.ipynb", as_version=4)
+    nbformat.validate(nb)
+    headings = [
+        line[3:]
+        for c in nb.cells
+        if c.cell_type == "markdown"
+        for line in c.source.splitlines()
+        if line.startswith("## ")
+    ]
+    assert headings == new_recipe.SECTIONS
+    assert all(
+        not c.outputs and c.execution_count is None for c in nb.cells if c.cell_type == "code"
+    )
+    ids = [c.id for c in nb.cells]
+    assert ids == [
+        "intro",
+        "setup-md",
+        "setup",
+        "state-md",
+        "state",
+        "questions-md",
+        "questions",
+        "answer-md",
+        "answer",
+        "answer-boxes",
+        "python-md",
+        "python-rule",
+        "evaluation-md",
+        "evaluation",
+        "evaluation-review",
+        "measured-md",
+        "measured",
+        "audit-md",
+        "audit",
+        "next-md",
+    ]
+    source = {c.id: c.source for c in nb.cells}
+    assert (
+        source["setup"].count("get_backend(") == 1 and source["setup"].count("AuditedBackend(") == 1
+    )
+    assert 'get_backend(fixtures=responses_path(), images=True), label="main"' in source["setup"]
+    assert "draw_boxes(picture," in source["answer-boxes"]
+    assert "localization_report(test_gold," in source["evaluation"]
+    assert "select_confidence_threshold(" in source["python-rule"]
+    assert [c.source for c in nb.cells if c.cell_type == "code"][
+        -1
+    ] == "print(backend.audit_json())"
+
+
+def test_every_decide_call_in_the_image_notebook_passes_the_assets():
+    """A decide() without assets= would send the references as plain text and find no stored
+    answer. Every cell that decides is checked from its parsed source, not by a text search."""
+    catalog_data = json.loads((REPO / "catalog" / "recipes.json").read_text("utf-8"))
+    recipe = next(r for r in catalog_data["recipes"] if r["rank"] == 77)
+    sites = {}
+    for cell in new_recipe.notebook_cells(catalog_data, recipe, IMAGE):
+        if cell["cell_type"] != "code":
+            continue
+        for node in ast.walk(ast.parse(cell["source"])):
+            if isinstance(node, ast.Call) and getattr(node.func, "attr", None) == "decide":
+                sites[cell["id"]] = [k.arg for k in node.keywords]
+    assert sites == {
+        "answer": ["assets"],
+        "python-rule": ["assets"],
+        "evaluation": ["assets"],
+    }
+
+
+def test_the_image_example_numbers_are_the_ones_the_notebook_will_print(image_scaffold):
+    """The notebook's python-rule and evaluation cells, written out in plain Python against the
+    scaffold's own fixtures (no kernel), and compared with values worked out by hand: the
+    thresholds are the lowest confidences at which every call above them is right, and the
+    report counts each of the seven test examples once."""
+    helpers = load_helpers(image_scaffold)
+    questions = helpers.build_questions()
+    backend = get_backend(fixtures=image_scaffold / "fixtures" / "responses.json", images=True)
+    examples = load_inputs(image_scaffold)
+    labels = load_labels(image_scaffold)
+
+    def decide(example):
+        state, assets = helpers.build_request(example.fields)
+        return backend.decide(state, questions, assets=assets)
+
+    validation = select_split(examples, "validation")
+    results = [decide(e) for e in validation]
+    gold = [labels[e.id] for e in validation]
+    right = [
+        (r["present"].noul > 0.5) == (gold_box(g) is not None)
+        for r, g in zip(results, gold, strict=True)
+    ]
+    # v06 says yes (0.58) about a screen with no banner, the only wrong call: its confidence 0.16
+    # is the lowest, and the next lowest is v05's 2 * 0.64 - 1 = 0.28.
+    assert right == [True, True, True, True, True, False]
+    presence_threshold = select_confidence_threshold(
+        right, noul_confidence([r["present"].noul for r in results]), target_accuracy=1.0
+    )
+    assert presence_threshold == pytest.approx(0.28)
+    # Rectangles of the three present validation targets: v01 and v02 overlap the gold box by 1.0
+    # and 0.872 (a hit each, at confidences 0.90 and 0.86), v05 by 0.374 (a miss, at 0.55).
+    sized = [
+        (box_iou(gold_box(g), r["location"]) >= 0.5, box_confidence(r["location"]))
+        for r, g in zip(results, gold, strict=True)
+        if gold_box(g) is not None and box_confidence(r["location"]) is not None
+    ]
+    assert [ok for ok, _ in sized] == [True, True, False]
+    box_threshold = select_confidence_threshold(
+        [ok for ok, _ in sized], [c for _, c in sized], target_accuracy=1.0
+    )
+    assert box_threshold == pytest.approx(0.86)
+
+    test = select_split(examples, "test")
+    outcomes = [
+        helpers.locate(
+            e.fields["capture"], r["present"], r["location"], presence_threshold, box_threshold
+        )
+        for e, r in zip(test, (decide(e) for e in test), strict=True)
+    ]
+    assert [(o.kind, o.reason) for o in outcomes] == [
+        ("located", "confident rectangle"),  # t01
+        ("located", "confident rectangle"),  # t02
+        ("review", "the rectangle has no confidence"),  # t03: a present target in review
+        ("absent", "no error banner"),  # t04
+        ("located", "confident rectangle"),  # t05: a box on a screen with no banner
+        ("review", "presence confidence below the threshold"),  # t06
+        ("absent", "no error banner"),  # t07: a present target said to be absent
+    ]
+    report = localization_report([labels[e.id] for e in test], [o.outcome for o in outcomes])
+    assert (report.n_total, report.n_present, report.n_absent) == (7, 4, 3)
+    assert report.present_table == {"located": 2, "absent": 1, "review": 1}
+    assert report.absent_table == {"located": 1, "absent": 1, "review": 1}
+    # t01 overlaps by 1.0 and t02 by 12366 / 15360 = 0.805078125 (a 458 x 27 rectangle inside the
+    # 480 x 32 banner), so the mean over the 2 located targets is 0.9025390625 and over all 4
+    # present targets half of that, 0.45126953125. Both located targets are hits.
+    assert report.mean_iou_located == pytest.approx(0.9025390625)
+    assert report.mean_iou_present == pytest.approx(0.45126953125)
+    assert report.hit_rate == 0.5 and report.hits == 2
+    assert (
+        report.denominators["mean_iou_present"] == 4
+        and report.denominators["mean_iou_located"] == 2
+    )
+
+
+def test_the_text_scaffolds_mention_neither_images_nor_assets(catalog, recipes):
+    """The text scaffolds mention neither images nor assets, in any file (their bytes are also
+    compared before and after this change in the pull request)."""
+    for mode in new_recipe.MODES:
+        folder = recipes / mode
+        new_recipe.scaffold(1, catalog, folder, mode)
+        for path in folder.rglob("*"):
+            if path.is_file():
+                text = path.read_text("utf-8").lower()
+                assert "assets" not in text and "images" not in text, (mode, path.name)
+
+
+def test_the_image_scaffold_emits_no_private_shared_name(image_scaffold):
+    detector = load_module_at(
+        Path(__file__).with_name("test_no_private_shared_names.py"), "private_names_for_image_test"
+    )
+    emitted = list(detector.python_sources(image_scaffold))
+    assert {p.name for p, _ in emitted} >= {
+        "helpers.py",
+        "build_fixtures.py",
+        "notebook.ipynb",
+        "test_helpers.py",
+        "test_build_fixtures.py",
+    }
+    for path, source in emitted:
+        assert detector.private_shared_uses(source) == [], path
+
+
+def test_the_image_scaffold_is_lint_clean_at_several_ranks(catalog, recipes):
+    """ruff check and ruff format --check pass on the files and the notebook with no hand-edit.
+    Run from the repository root, as the CI job does: the import order depends on jev_cookbook
+    being found under src/ as first-party code."""
+    for number in (61, 77, 100):
+        scaffold_images(catalog, recipes, number)
+    ruff = [sys.executable, "-m", "ruff"]
+    config = ["--config", str(REPO / "pyproject.toml"), "--no-cache"]
+    subprocess.run([*ruff, "check", *config, str(recipes)], check=True, cwd=REPO)
+    subprocess.run([*ruff, "format", "--check", *config, str(recipes)], check=True, cwd=REPO)
+
+
+def test_the_image_scaffold_runs_its_own_tests_offline(image_scaffold, tmp_path):
+    folder = copy_of(image_scaffold, tmp_path)
+    result = run_generated_tests(folder)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "passed" in result.stdout and "failed" not in result.stdout
+
+
+def test_a_fresh_image_scaffold_passes_the_request_audit_with_no_hand_edit(catalog, recipes):
+    """The image counterpart of ``test_a_fresh_scaffold_passes_the_request_audit_with_no_hand_edit``:
+    the scaffold is executed as it is written (its helpers and fixtures are already complete),
+    and the real ``audit_recipe`` agrees with the untouched declaration, including the two image
+    quantities of docs/backends.md, and with the untouched README. This is the one test here that
+    executes the notebook, so it needs a kernel."""
+    folder = scaffold_images(catalog, recipes, 1)
+    assert execute_notebook.main([str(folder)]) == 0
+    cells = json.loads((folder / "notebook.ipynb").read_text("utf-8"))["cells"]
+    assert _request_audit.audit_recipe(folder, cells) == len(IMAGE_IDS)
+
+
+def emulated_cells(folder):
+    """The scaffold's cells with the committed-execution evidence the audit reads: execution
+    counts in order, and the audit line a backend produces for the ``decide()`` calls the
+    notebook makes (the demo example, then ``validation``, then ``test``), made here in plain
+    Python rather than by a kernel."""
+    helpers = load_helpers(folder)
+    questions = helpers.build_questions()
+    backend = jev_cookbook.AuditedBackend(
+        get_backend(fixtures=folder / "fixtures" / "responses.json", images=True), label="main"
+    )
+    examples = load_inputs(folder)
+    for split in ("demo", "validation", "test"):
+        for example in select_split(examples, split):
+            state, assets = helpers.build_request(example.fields)
+            backend.decide(state, questions, assets=assets)
+    cells = json.loads((folder / "notebook.ipynb").read_text("utf-8"))["cells"]
+    count = 0
+    for cell in cells:
+        if cell["cell_type"] == "code":
+            count += 1
+            cell["execution_count"] = count
+        if cell["id"] == "audit":
+            cell["outputs"] = [
+                {"output_type": "stream", "name": "stdout", "text": backend.audit_json() + "\n"}
+            ]
+    return cells
+
+
+def test_the_declared_image_budget_agrees_with_the_audit_of_the_calls_the_notebook_makes(
+    image_scaffold, tmp_path
+):
+    """The same audit as above without a kernel (so it runs where a kernel does not), plus the
+    mutations that show each part of the declaration is read: a wrong request count, a missing
+    profile, a wrong profile and a README paragraph that is not the rendered one all fail."""
+    folder = copy_of(image_scaffold, tmp_path)
+    cells = emulated_cells(folder)
+    assert _request_audit.audit_recipe(folder, cells) == len(IMAGE_IDS)
+
+    budget_path = folder / "request_budget.json"
+    declared = json.loads(budget_path.read_text("utf-8"))
+    main = declared["backends"]["main"]
+    readme_path = folder / "README.md"
+    readme = readme_path.read_text("utf-8")
+
+    def mutated(change, match):
+        data = json.loads(json.dumps(declared))
+        change(data["backends"]["main"])
+        budget_path.write_text(json.dumps(data), encoding="utf-8")
+        with pytest.raises(AssertionError, match=match):
+            _request_audit.audit_recipe(folder, cells)
+        budget_path.write_text(json.dumps(declared), encoding="utf-8")
+
+    mutated(lambda body: body.update(requests=main["requests"] - 1), "request")
+    mutated(lambda body: body.pop("profile"), "profile")
+    mutated(lambda body: body["profile"].update(images=main["requests"] + 1), "profile")
+    mutated(lambda body: body["profile"].update(distinct_images=main["requests"] - 1), "profile")
+    readme_path.write_text(readme.replace(f"**{main['requests']}**", "**1**"), encoding="utf-8")
+    with pytest.raises(AssertionError):
+        _request_audit.audit_recipe(folder, cells)
+    readme_path.write_text(readme, encoding="utf-8")
+    assert _request_audit.audit_recipe(folder, cells) == len(IMAGE_IDS)
+
+
+def test_the_image_build_fixtures_tests_are_the_ones_the_recipe_guard_can_compare(
+    catalog, recipes, image_scaffold
+):
+    """``build_fixtures_test_text(recipe)`` keeps returning the text variant, so the recipe guard's
+    byte comparison for a text recipe is unchanged; ``mode='replay-images'`` returns the variant
+    the image scaffold writes, which a recipe with ``assets/`` is compared with."""
+    _, recipe = entry(catalog, 77)
+    text_variant = new_recipe.build_fixtures_test_text(recipe)
+    image_variant = new_recipe.build_fixtures_test_text(recipe, IMAGE)
+    assert (image_scaffold / "tests" / "test_build_fixtures.py").read_text("utf-8") == image_variant
+    assert text_variant != image_variant
+    assert "copytree" in image_variant and "copytree" not in text_variant
+    folder = scaffold_replay_with_build_script(catalog, recipes, number=11)
+    written = (folder / "tests" / "test_build_fixtures.py").read_text("utf-8")
+    assert written == new_recipe.build_fixtures_test_text(entry(catalog, 11)[1])
+
+
+def test_the_image_scaffold_fails_cleanly_and_leaves_no_folder_when_the_drawing_step_fails(
+    catalog, recipes, monkeypatch, capsys
+):
+    """If the new folder's build_fixtures.py cannot run (the package or Pillow is missing, say),
+    the folder is removed and the command exits 1 with the reason, never a half-written recipe."""
+    _, recipe = entry(catalog, 77)
+
+    def failing(*args, **kwargs):
+        return subprocess.CompletedProcess(args, 1, stdout="", stderr="ImportError: no Pillow\n")
+
+    monkeypatch.setattr(new_recipe.subprocess, "run", failing)
+    assert run(77, catalog, recipes, mode=IMAGE) == 1
+    error = capsys.readouterr().err
+    assert "ImportError: no Pillow" in error and "nothing was created" in error
+    assert not (recipes / recipe["slug"]).exists()
+
+    def missing(*args, **kwargs):
+        raise FileNotFoundError("python")
+
+    monkeypatch.setattr(new_recipe.subprocess, "run", missing)
+    assert run(77, catalog, recipes, mode=IMAGE) == 1
+    assert not (recipes / recipe["slug"]).exists()
+
+    def silent(*args, **kwargs):
+        return subprocess.CompletedProcess(args, 3, stdout="", stderr="")
+
+    monkeypatch.setattr(new_recipe.subprocess, "run", silent)
+    assert run(77, catalog, recipes, mode=IMAGE) == 1
+    assert "exit status 3" in capsys.readouterr().err
+    assert not (recipes / recipe["slug"]).exists()
+
+
+def test_the_image_scaffold_never_overwrites_either(catalog, recipes, capsys):
+    folder = scaffold_images(catalog, recipes, 62)
+    before = {p: p.read_bytes() for p in folder.rglob("*") if p.is_file()}
+    assert run(62, catalog, recipes, mode=IMAGE) == 1
+    assert "already exists" in capsys.readouterr().err
+    assert {p: p.read_bytes() for p in folder.rglob("*") if p.is_file()} == before
+
+
+def test_the_generated_test_catches_a_review_that_becomes_an_absence(image_scaffold, tmp_path):
+    """Mutation check: an unconfident presence answer must be a review, never an absence. Change
+    the rule so that it answers absent, and the generated tests fail on exactly that."""
+    folder = copy_of(image_scaffold, tmp_path)
+    helpers_path = folder / "helpers.py"
+    text = helpers_path.read_text("utf-8")
+    mutated = text.replace(
+        'return Localized(capture, REVIEW, None, "presence confidence below the threshold")',
+        'return Localized(capture, ABSENT, None, "presence confidence below the threshold")',
+    )
+    assert mutated != text
+    helpers_path.write_text(mutated, encoding="utf-8", newline="\n")
+    failed = run_generated(folder, "tests/test_helpers.py")
+    assert failed.returncode != 0
+    assert "test_an_unconfident_presence_answer_is_a_review_never_an_absence" in failed.stdout
+    assert "test_a_review_is_never_an_absence_over_a_grid" in failed.stdout
+
+
+def test_the_generated_test_catches_a_rectangle_gate_that_lets_a_missing_confidence_through(
+    image_scaffold, tmp_path
+):
+    folder = copy_of(image_scaffold, tmp_path)
+    helpers_path = folder / "helpers.py"
+    text = helpers_path.read_text("utf-8")
+    mutated = text.replace("    if confidence is None:\n", "    if confidence is None and False:\n")
+    assert mutated != text
+    helpers_path.write_text(mutated, encoding="utf-8", newline="\n")
+    failed = run_generated(folder, "tests/test_helpers.py")
+    assert failed.returncode != 0
+    assert "test_a_rectangle_without_enough_confidence_is_a_review" in failed.stdout
+
+
+def test_the_generated_stored_answers_test_fails_when_no_wrong_answer_is_confident(
+    image_scaffold, tmp_path
+):
+    """The guard must discriminate, as the text scaffold's does: make the two wrong test answers
+    (t05 and t07) unconfident and the generated test fails instead of passing vacuously."""
+    folder = copy_of(image_scaffold, tmp_path)
+    script = folder / "build_fixtures.py"
+    text = script.read_text("utf-8")
+    weakened = text.replace('"loading", 25, 0.81,', '"loading", 25, 0.51,').replace(
+        '"error", 27, 0.18,', '"error", 27, 0.49,'
+    )
+    assert weakened.count("0.51") == 1 and weakened.count("0.49") == 1
+    script.write_text(weakened, encoding="utf-8", newline="\n")
+    subprocess.run([sys.executable, str(script)], check=True, cwd=tmp_path, capture_output=True)
+    failed = run_generated(folder, "tests/test_helpers.py")
+    assert failed.returncode != 0
+    assert "test_stored_answers_are_not_all_right" in failed.stdout
+
+
+def test_a_changed_picture_fails_the_generated_replay_key_test(image_scaffold, tmp_path):
+    """Mutation check: the bytes of a picture are part of its replay key, so a different picture
+    under the same name is caught by the generated test (and by the validator's hash)."""
+    folder = copy_of(image_scaffold, tmp_path)
+    picture = folder / "assets" / "screen-t01.png"
+    Image.new("RGB", (640, 400), "white").save(picture)
+    failed = run_generated(folder, "tests/test_helpers.py")
+    assert failed.returncode != 0
+    assert "test_every_replay_key_in_the_fixtures_matches_the_current_question" in failed.stdout
+    assert any("hash-mismatch" in str(problem) for problem in validate_recipe(folder))
+
+
+def test_the_image_build_fixtures_tests_pass_under_a_different_png_encoder_and_the_text_ones_do_not(
+    image_scaffold, tmp_path
+):
+    """Why the image variant copies ``assets/``. Pillow and zlib versions decide the bytes of a
+    PNG, and the bytes are part of every replay key, so a rerun that draws the pictures afresh can
+    disagree with the committed fixtures although every pixel is the same. ``sitecustomize`` below
+    makes this environment another encoder: the same pixels, different bytes, and not canonical.
+    The image variant, whose copy holds the committed pictures, still passes (the script keeps
+    the committed bytes); the text variant, which copies only the two scripts, fails on exactly
+    the comparison of the regenerated fixtures with the committed ones. In the encoder that wrote
+    the committed files, the text variant passes too, which is why this needs the second encoder."""
+    folder = copy_of(image_scaffold, tmp_path)
+    shim = tmp_path / "shim"
+    shim.mkdir()
+    (shim / "sitecustomize.py").write_text(
+        "import io\n"
+        "from PIL import Image\n"
+        "import jev_cookbook.synthetic_images as si\n"
+        "_original = si.encode_png\n"
+        "def encode_png(image):\n"
+        "    out = io.BytesIO()\n"
+        "    with Image.open(io.BytesIO(_original(image))) as decoded:\n"
+        "        decoded.save(out, format='PNG', compress_level=1)\n"
+        "    return out.getvalue()\n"
+        "si.encode_png = encode_png\n"
+        "si.bytes_are_canonical = lambda: False\n",
+        encoding="utf-8",
+    )
+    paths = [str(shim)] + [p for p in [os.environ.get("PYTHONPATH")] if p]
+    environment = {**os.environ, "PYTHONPATH": os.pathsep.join(paths)}
+    target = folder / "tests" / "test_build_fixtures.py"
+
+    def run_it():
+        return subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "-q",
+                "-p",
+                "no:cacheprovider",
+                "--rootdir",
+                str(folder),
+                str(target),
+                "-k",
+                "reproduces",
+            ],
+            cwd=folder,
+            capture_output=True,
+            text=True,
+            timeout=180,
+            env=environment,
+        )
+
+    image_variant = run_it()
+    assert image_variant.returncode == 0, image_variant.stdout + image_variant.stderr
+
+    _, recipe = entry_for_folder(folder)
+    target.write_text(new_recipe.build_fixtures_test_text(recipe), encoding="utf-8", newline="\n")
+    text_variant = run_it()
+    assert text_variant.returncode != 0
+    assert "FAILED" in text_variant.stdout
+    assert "test_the_generator_reproduces_the_committed_fixtures" in text_variant.stdout

@@ -40,6 +40,14 @@ the comparison. See ``test_the_setup_comparison_catches_a_dropped_statement`` fo
 that direction and ``test_the_setup_comparison_catches_a_changed_offline_definition`` for a
 reword.
 
+The image scaffold (``--mode replay-images``) is compared the same way, with one difference that
+makes the comparison stricter, not looser: its ``setup`` cell defines ``selection`` (the cells
+below it print ``validation`` numbers), so it needs no allowance and is compared with the
+template's whole ``setup`` cell, ``selection`` included. Its ``backend = ...`` assignment is masked
+like the other modes' (``images=True`` is a different call shape), so the arguments of that call
+are asserted separately, in ``test_the_image_scaffold_asks_for_the_images_header_and_the_text_
+scaffolds_do_not``.
+
 This is one assertion per cell, not a list of remembered rules, and it is blind to the specific
 property #215 found: deleting the offline ``N`` print (or any other statement, from either side)
 changes that side's statement sequence, which the comparison catches without this module's code
@@ -161,14 +169,19 @@ def mode_neutral_statements(source: str) -> list[str]:
 TEMPLATE_ONLY_SETUP_STATEMENTS = ("selection = ' (a selection step, not a reported result)'",)
 
 
-def _setup_template_stmts(source: str) -> list[str]:
+def _setup_template_stmts(source: str, mode: str = "replay") -> list[str]:
     """The template's ``setup`` cell, normalised, with the one named template-only statement in
-    ``TEMPLATE_ONLY_SETUP_STATEMENTS`` filtered out -- what the scaffold's ``setup`` cell must
-    equal."""
-    return [s for s in mode_neutral_statements(source) if s not in TEMPLATE_ONLY_SETUP_STATEMENTS]
+    ``TEMPLATE_ONLY_SETUP_STATEMENTS`` filtered out of the template's side -- what the scaffold's
+    ``setup`` cell must equal. The image scaffold defines ``selection`` itself, so for
+    ``replay-images`` nothing is filtered out and its ``setup`` cell must equal the template's
+    whole one."""
+    statements = mode_neutral_statements(source)
+    if mode == "replay-images":
+        return statements
+    return [s for s in statements if s not in TEMPLATE_ONLY_SETUP_STATEMENTS]
 
 
-@pytest.mark.parametrize("mode", ["replay", "scripted"])
+@pytest.mark.parametrize("mode", ["replay", "scripted", "replay-images"])
 def test_the_scaffolded_setup_cell_matches_the_template_modulo_the_named_allowance(mode):
     """Every mode-neutral statement the scaffold's ``setup`` cell emits -- ``scored``,
     ``offline``, ``check``, and the ``run_header(...)`` call with its ``n_examples=len(scored)``
@@ -184,7 +197,7 @@ def test_the_scaffolded_setup_cell_matches_the_template_modulo_the_named_allowan
     generated = _cell(new_recipe.notebook_cells(CATALOG, RECIPE, mode=mode), "setup")
     template = _cell(TEMPLATE_NOTEBOOK["cells"], "setup")
     generated_stmts = mode_neutral_statements(_source(generated))
-    template_stmts = _setup_template_stmts(_source(template))
+    template_stmts = _setup_template_stmts(_source(template), mode)
     assert generated_stmts == template_stmts, (
         f"scaffolded setup cell ({mode}) does not match the template's after normalisation "
         f"(modulo {TEMPLATE_ONLY_SETUP_STATEMENTS}):\ngenerated: {generated_stmts}\n"
@@ -192,7 +205,7 @@ def test_the_scaffolded_setup_cell_matches_the_template_modulo_the_named_allowan
     )
 
 
-@pytest.mark.parametrize("mode", ["replay", "scripted"])
+@pytest.mark.parametrize("mode", ["replay", "scripted", "replay-images"])
 def test_the_scaffolded_measured_cell_matches_the_template(mode):
     """The scaffold's ``measured`` cell, normalised, must equal the template's ``measured`` cell,
     normalised -- both branches, not only the offline one: this is the structural check that
@@ -211,13 +224,14 @@ def test_the_scaffolded_measured_cell_matches_the_template(mode):
     )
 
 
-def test_the_measured_comparison_is_blind_to_n_and_still_catches_215():
+@pytest.mark.parametrize("mode", ["replay", "replay-images"])
+def test_the_measured_comparison_is_blind_to_n_and_still_catches_215(mode):
     """Reproduces the historical #215 defect directly against the real generated cell -- delete
     the offline branch's own ``N:`` print -- and shows the comparison disagrees, without this
     module or ``mode_neutral_statements`` ever naming "N": the two sides simply no longer have
     the same number of statements in the offline branch. This is the "blind to any rule about N"
     standard both #219 reviewers asked for criterion 2 to meet."""
-    generated = _cell(new_recipe.notebook_cells(CATALOG, RECIPE, mode="replay"), "measured")
+    generated = _cell(new_recipe.notebook_cells(CATALOG, RECIPE, mode=mode), "measured")
     template_stmts = mode_neutral_statements(_source(_cell(TEMPLATE_NOTEBOOK["cells"], "measured")))
     source = _source(generated)
     broken = re.sub(
@@ -227,12 +241,13 @@ def test_the_measured_comparison_is_blind_to_n_and_still_catches_215():
     assert mode_neutral_statements(broken) != template_stmts
 
 
-def test_the_measured_comparison_catches_a_dropped_live_branch_print_too():
+@pytest.mark.parametrize("mode", ["replay", "replay-images"])
+def test_the_measured_comparison_catches_a_dropped_live_branch_print_too(mode):
     """The same mutation on the *live* (``else``) branch's ``N:`` print, which #219 left
     uncovered by any assertion on the scaffolder side (issue #215 comment 6107125765, "Restore
     the live-branch coverage"): this comparison fails on it too, by construction, with no
     branch-specific code anywhere in this module."""
-    generated = _cell(new_recipe.notebook_cells(CATALOG, RECIPE, mode="replay"), "measured")
+    generated = _cell(new_recipe.notebook_cells(CATALOG, RECIPE, mode=mode), "measured")
     template_stmts = mode_neutral_statements(_source(_cell(TEMPLATE_NOTEBOOK["cells"], "measured")))
     source = _source(generated)
     broken = source.replace(
@@ -243,12 +258,15 @@ def test_the_measured_comparison_catches_a_dropped_live_branch_print_too():
     assert mode_neutral_statements(broken) != template_stmts
 
 
-def test_the_setup_comparison_catches_a_changed_offline_definition():
+@pytest.mark.parametrize("mode", ["replay", "replay-images"])
+def test_the_setup_comparison_catches_a_changed_offline_definition(mode):
     """A ``setup``-cell regression unrelated to ``N`` -- rewording ``offline``'s definition --
     is also caught, proving the structural comparison is not special-cased to the measured
     cell's own property."""
-    generated = _cell(new_recipe.notebook_cells(CATALOG, RECIPE, mode="replay"), "setup")
-    template_stmts = _setup_template_stmts(_source(_cell(TEMPLATE_NOTEBOOK["cells"], "setup")))
+    generated = _cell(new_recipe.notebook_cells(CATALOG, RECIPE, mode=mode), "setup")
+    template_stmts = _setup_template_stmts(
+        _source(_cell(TEMPLATE_NOTEBOOK["cells"], "setup")), mode
+    )
     source = _source(generated)
     broken = source.replace(
         'offline = backend.mode in ("synthetic", "scripted")',
@@ -258,6 +276,7 @@ def test_the_setup_comparison_catches_a_changed_offline_definition():
     assert mode_neutral_statements(broken) != template_stmts
 
 
+@pytest.mark.parametrize("mode", ["replay", "replay-images"])
 @pytest.mark.parametrize(
     "removed_line",
     [
@@ -272,7 +291,7 @@ def test_the_setup_comparison_catches_a_changed_offline_definition():
         ),
     ],
 )
-def test_the_setup_comparison_catches_a_dropped_statement(removed_line):
+def test_the_setup_comparison_catches_a_dropped_statement(removed_line, mode):
     """Issue #215 was the scaffolder silently *dropping* a statement the template has -- not
     adding or rewording one. This reproduces that direction directly against the real generated
     ``setup`` cell: delete one of its own statements and show the comparison disagrees. A
@@ -280,9 +299,37 @@ def test_the_setup_comparison_catches_a_dropped_statement(removed_line):
     would not catch any of these three; equality modulo ``TEMPLATE_ONLY_SETUP_STATEMENTS`` catches
     all three, because dropping a statement changes the length, and the two normalised lists are
     no longer the same list."""
-    generated = _cell(new_recipe.notebook_cells(CATALOG, RECIPE, mode="replay"), "setup")
-    template_stmts = _setup_template_stmts(_source(_cell(TEMPLATE_NOTEBOOK["cells"], "setup")))
+    generated = _cell(new_recipe.notebook_cells(CATALOG, RECIPE, mode=mode), "setup")
+    template_stmts = _setup_template_stmts(
+        _source(_cell(TEMPLATE_NOTEBOOK["cells"], "setup")), mode
+    )
     source = _source(generated)
     broken = source.replace(removed_line, "", 1)
     assert broken != source, "the mutation did not change anything -- the line was not found"
     assert mode_neutral_statements(broken) != template_stmts
+
+
+def test_the_image_scaffold_setup_comparison_catches_a_dropped_selection():
+    """The image scaffold's ``setup`` cell is compared with the template's whole cell, so it is
+    the one cell where dropping ``selection`` (which the text scaffolds are allowed to omit) is a
+    difference: the cells below it print ``validation`` numbers with ``{selection}{check}``."""
+    generated = _cell(new_recipe.notebook_cells(CATALOG, RECIPE, mode="replay-images"), "setup")
+    template_stmts = _setup_template_stmts(
+        _source(_cell(TEMPLATE_NOTEBOOK["cells"], "setup")), "replay-images"
+    )
+    assert TEMPLATE_ONLY_SETUP_STATEMENTS[0] in template_stmts
+    source = _source(generated)
+    dropped = re.sub(r"\nselection = .*", "", source, count=1)
+    assert dropped != source, "the mutation did not change anything -- the regex did not match"
+    assert mode_neutral_statements(dropped) != template_stmts
+
+
+def test_the_image_scaffold_asks_for_the_images_header_and_the_text_scaffolds_do_not():
+    """``backend = ...`` is masked by the comparison above, so what the image scaffold changes in
+    that one call is asserted here: ``images=True``, the option that enables the experimental
+    images request header in a live run (docs/backends.md) and is ignored offline."""
+    wanted = 'AuditedBackend(get_backend(fixtures=responses_path(), images=True), label="main")'
+    for mode in ("replay", "scripted", "replay-images"):
+        source = _source(_cell(new_recipe.notebook_cells(CATALOG, RECIPE, mode=mode), "setup"))
+        assert ("images=True" in source) == (mode == "replay-images"), mode
+        assert (wanted in source) == (mode == "replay-images"), mode
