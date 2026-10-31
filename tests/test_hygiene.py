@@ -1422,9 +1422,48 @@ def test_this_file_scans_clean_without_the_exemption(monkeypatch):
     that tests it.
     """
     monkeypatch.setattr(hygiene, "_IDENT_ASSIGNMENT", re.compile(r"(?!)"))
-    # the switch really turns the exemption off: these lines are findings without it
-    assert all(hygiene.scan_text(line) for line in DIGIT_RUN_KEYWORDS)
+    # the switch really turns the exemption off: these lines are findings without it; the
+    # leading `DIGIT_RUN_KEYWORDS and` stops this guard passing vacuously if the list is ever
+    # emptied (all([]) is True)
+    assert DIGIT_RUN_KEYWORDS and all(hygiene.scan_text(line) for line in DIGIT_RUN_KEYWORDS)
     assert hygiene.scan_text(Path(__file__).read_text(encoding="utf-8")) == []
+
+
+def test_the_module_docstring_names_every_shape_the_entropy_rule_does_not_catch():
+    # this shape really is uncovered: neither scanner reports it, so the docstring must name it
+    chain = "ABCD1234" + "_EFGH5678" + "_IJKL9012" + "_MNOP3456"
+    line = f"license_id={chain}"
+    assert hygiene.scan_text(line) == []
+    assert packaged_scan.scan_text(line) == []
+
+    doc = " ".join(hygiene.__doc__.split())
+    needles = (
+        "all-lowercase, all-uppercase, or a chain of letters-then-digits runs",
+        "(``ABCD1234_EFGH5678_`` and so on, 32 characters or more)",
+        "api1_key",
+        "access1_key",
+        "issue #339",
+    )
+    for needle in needles:
+        assert needle in doc, needle
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "decided limit (issue #339): the secret-name rule (api[_-]?key, access[_-]?key)"
+        " does not match a digit before the underscore, and fixing it means changing"
+        " the packaged copy src/jev_cookbook/fixtures/_scan.py in step"
+        " (tests/test_fixtures.py compares the two), which was out of scope;"
+        " when that is fixed this test XPASSes and strict=True makes the suite fail,"
+        " so remove the marker then."
+    ),
+)
+@pytest.mark.parametrize("name", ["api1_key", "access1_key"])
+def test_a_digit_before_the_underscore_of_a_two_word_secret_name_escapes_the_name_check(name):
+    line = f"{name}={LOWER_36}"
+    assert hygiene.scan_text(line), line
+    assert packaged_scan.scan_text(line), line
 
 
 def test_the_exemption_regex_does_not_backtrack_catastrophically():
