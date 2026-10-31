@@ -9,11 +9,14 @@ unintended change to an example scene fail, and they say nothing about whether a
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import importlib.util
 import io
 import json
+import os
 import re
+import stat
 import sys
 from pathlib import Path
 
@@ -138,8 +141,13 @@ def first_draw(seed: int) -> str:
 
 def test_the_names_reviewers_found_are_gone_and_every_other_name_is_unchanged():
     # Seeds 1996, 395 and 159 were found by reviewers: their first draws spell offensive words.
-    # Each of those words is caught by one entry of the deny-list, so removing any of the three
-    # entries makes fictional_name return the first draw again and this test fail.
+    # Seeds 1996 (BONER) and 159 (FAGIPON) are each caught by one entry of the deny-list. Seed 395
+    # (NIGANUS) is caught by two, ANUS and NIG, so removing either one alone still rejects it. Each
+    # entry is pinned on its own by the single-catch tests at the end of this file.
+    caught = {
+        seed: {word for word in si._DENY if word in first_draw(seed)} for seed in (1996, 395, 159)
+    }
+    assert caught == {1996: {"BONER"}, 395: {"ANUS", "NIG"}, 159: {"FAG"}}
     for seed in (1996, 395, 159):
         assert not si._is_clean(first_draw(seed)), seed
         assert si.fictional_name(seed) != first_draw(seed), seed
@@ -206,19 +214,21 @@ def test_scale_multiplies_pixels_and_the_line_box_is_the_cell_box():
 def test_text_ink_stays_inside_the_returned_box_for_every_character():
     for char in si.SUPPORTED_CHARACTERS:
         c = blank()
+        if char == " ":
+            # three spaces have no ink at all, so they are refused rather than drawn as an empty box
+            with pytest.raises(ValueError, match="no visible"):
+                c.text(30, 40, char * 3, "ink", 3)
+            continue
         box = c.text(30, 40, char * 3, "ink", 3)
         ink = changed(Image.new("RGB", c.size, c.background), c.image)
-        if char != " ":
-            assert ink is not None
-            assert box.left <= ink[0] and ink[2] <= box.right
-            assert box.top <= ink[1] and ink[3] <= box.bottom
-        else:
-            assert ink is None
+        assert ink is not None
+        assert box.left <= ink[0] and ink[2] <= box.right
+        assert box.top <= ink[1] and ink[3] <= box.bottom
 
 
 def test_a_character_without_a_glyph_is_refused_not_drawn_blank():
     with pytest.raises(ValueError, match="no glyph"):
-        blank().text(0, 0, "café")
+        blank().text(0, 0, "caf\u00e9")  # LATIN SMALL LETTER E WITH ACUTE
     with pytest.raises(ValueError):
         blank().text(0, 0, "")
     with pytest.raises(ValueError):
@@ -1278,6 +1288,15 @@ def test_different_pixels_blame_the_generator_not_the_encoder(tmp_path):
         ("2.2.4", False),
         ("", False),
         (None, False),  # no zlib reported
+        # Forks that report a plain upstream number cannot be told apart; the GOLDEN digests are
+        # what catch them.
+        ("1.2.11-ipp", False),
+        ("1.3.1-cf", False),
+        ("1.3.0.cloudflare", False),
+        ("1.2.11.1", False),
+        ("1.3.1 custom", False),
+        ("1", False),
+        ("zlib 1.3", False),
     ],
 )
 def test_the_byte_gate_needs_the_pinned_pillow_and_a_classic_zlib(monkeypatch, zlib, canonical):
@@ -1777,3 +1796,531 @@ def test_the_package_does_not_import_the_drawing_kit_on_import():
     code = "import sys, jev_cookbook; print('jev_cookbook.synthetic_images' in sys.modules)"
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
     assert out.stdout.strip() == "False"
+
+
+# -- energy_max is a plain integer ----------------------------------------------------------------
+
+
+@pytest.mark.parametrize("bad", ["3", 3.0, True, None])
+def test_deck_hud_refuses_an_energy_max_that_is_not_a_plain_integer(bad):
+    with pytest.raises(ValueError, match="energy_max"):
+        si.deck_hud(energy=1, energy_max=bad)
+
+
+def test_deck_hud_accepts_every_energy_max_from_0_to_9():
+    for energy_max in range(10):
+        assert si.deck_hud(energy=energy_max, energy_max=energy_max).size == (800, 450)
+
+
+def test_deck_hud_refuses_energy_above_energy_max_and_energy_max_above_9():
+    with pytest.raises(ValueError):
+        si.deck_hud(energy=4, energy_max=3)
+    with pytest.raises(ValueError):
+        si.deck_hud(energy=1, energy_max=10)
+
+
+# -- reproduce and check_reproducible report bad input as ValueError ------------------------------
+
+
+def test_reproduce_names_a_bad_parameter_and_keeps_the_type_error_as_its_cause():
+    with pytest.raises(ValueError, match="login_screen") as raised:
+        si.reproduce("jev_cookbook.synthetic_images:login_screen", {"nope": 1})
+    assert isinstance(raised.value.__cause__, TypeError)
+
+
+@pytest.mark.parametrize(
+    ("generator", "parameters"),
+    [
+        ("jev_cookbook.synthetic_images:login_screen", [1]),  # not a mapping
+        ("jev_cookbook.synthetic_images:moving_object_frame", {}),  # t is required
+        ("jev_cookbook.synthetic_images:moving_object_frame", {"t": 1.0, "start": 5}),
+    ],
+)
+def test_reproduce_turns_unusable_parameters_into_value_errors(generator, parameters):
+    with pytest.raises(ValueError):
+        si.reproduce(generator, parameters)
+
+
+@pytest.mark.parametrize("key", ["generator", "parameters", "path"])
+def test_check_reproducible_names_a_missing_manifest_key(tmp_path, key):
+    c = si.login_screen(seed=2)
+    c.write(tmp_path, "assets/a.png")
+    entry = c.manifest_entry(tmp_path, "assets/a.png", "A screen.")
+    del entry[key]
+    with pytest.raises(ValueError, match=key):
+        si.check_reproducible(tmp_path, entry)
+
+
+# -- Canvas.line bounds ----------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("position", ["x0", "y0", "x1", "y1"])
+@pytest.mark.parametrize("value", [8193, -8193])
+def test_a_line_endpoint_beyond_8192_pixels_is_refused_before_anything_is_drawn(position, value):
+    ends = {"x0": 0, "y0": 0, "x1": 0, "y1": 0, position: value}
+    c = si.Canvas(640, 400)
+    before = c.image.copy()
+    with pytest.raises(ValueError, match="coordinate"):
+        c.line(ends["x0"], ends["y0"], ends["x1"], ends["y1"], "ink")
+    assert changed(before, c.image) is None
+
+
+def test_a_line_far_past_the_canvas_is_refused_instead_of_walked_pixel_by_pixel():
+    # the old code took one step per pixel of the 100000 and returned a Drawn for the visible part
+    with pytest.raises(ValueError, match="coordinate"):
+        si.Canvas(640, 400).line(0, 0, 100_000, 0, "ink")
+
+
+def test_a_line_endpoint_at_8192_pixels_is_accepted_and_clipped():
+    assert si.Canvas(640, 400).line(0, 0, 8192, 0, "ink").pixels == (0, 0, 640, 1)
+    assert si.Canvas(640, 400).line(-8192, 5, 5, 5, "ink").pixels == (0, 5, 6, 6)
+
+
+def test_a_line_brush_wider_than_1568_pixels_is_refused_and_1568_is_accepted():
+    with pytest.raises(ValueError, match="width"):
+        si.Canvas(640, 400).line(10, 10, 11, 10, "ink", 1569)
+    # a 1568 brush centred on (10, 10) and (11, 10) covers the whole 640 x 400 canvas
+    assert si.Canvas(640, 400).line(10, 10, 11, 10, "ink", 1568).pixels == (0, 0, 640, 400)
+
+
+# -- all-blank text is refused ----------------------------------------------------------------------
+
+
+def test_a_run_of_spaces_has_no_visible_ink_and_is_refused():
+    for text in ("   ", " "):
+        with pytest.raises(ValueError, match="no visible"):
+            blank().text(10, 10, text)
+    with pytest.raises(ValueError, match="no visible"):
+        blank().text_block(10, 10, ["A", "  "])
+    with pytest.raises(ValueError, match="no visible"):
+        blank().text_input(10, 10, 200, 34, placeholder="  ")
+    with pytest.raises(ValueError, match="no visible"):
+        blank().centered_text((10, 10, 200, 60), "  ")
+
+
+def test_text_with_a_letter_still_draws_and_a_space_still_measures():
+    assert blank().text(10, 10, "A B").attrs["text"] == "A B"
+    assert blank().text(10, 10, " A").attrs["text"] == " A"
+    assert si.text_width(" ", 1) == 5  # layout code measures spaces at scale 1
+
+
+# -- save_frames pads each index to the width of the largest one ------------------------------------
+
+
+@pytest.mark.parametrize("count", [1, 2, 100, 101, 1000, 1001])
+def test_save_frames_pads_each_index_to_the_width_of_the_largest(monkeypatch, tmp_path, count):
+    written = []
+
+    def record(canvas, recipe_dir, path, *, overwrite=False):
+        written.append(path)
+        return "created"
+
+    monkeypatch.setattr(si, "write_asset", record)
+    canvas = si.Canvas(280, 280)
+    frames = [si.Frame(float(i), canvas) for i in range(count)]
+    pairs = si.save_frames(frames, tmp_path, "belt")
+    width = max(2, len(str(count - 1)))
+    expected = [f"assets/belt-{i:0{width}d}.png" for i in range(count)]
+    assert written == expected
+    assert [path for _, path in pairs] == expected
+    assert written == sorted(written)  # index order is sort order, so a listing reads in order
+
+
+# -- which deny-list entry catches which seed -----------------------------------------------------
+
+# Each seed's first draw spells a word that exactly one entry of _DENY catches. Removing that
+# entry, and only that entry, makes fictional_name return the first draw again.
+SINGLE_CATCH = [
+    ("FAG", 159, "FAGIPON"),
+    ("RAPE", 280, "SARAPEM"),
+    ("SEX", 343, "REGASEX"),
+    ("TIT", 753, "TITIR"),
+    ("NAZI", 1275, "NAZIR"),
+    ("BONER", 1996, "BONER"),
+    ("NIG", 2862, "NIGEDUR"),
+    ("ANUS", 5025, "BANUS"),
+]
+
+
+@pytest.mark.parametrize(("entry", "seed", "word"), SINGLE_CATCH)
+def test_a_single_catch_seed_is_rejected_by_exactly_its_entry(entry, seed, word):
+    assert first_draw(seed) == word
+    assert {w for w in si._DENY if w in word} == {entry}
+    name = si.fictional_name(seed)
+    assert name != word
+    assert not any(w in name for w in si._DENY)
+
+
+@pytest.mark.parametrize(("entry", "seed", "word"), SINGLE_CATCH)
+def test_removing_one_entry_lets_its_single_catch_seed_return_its_first_draw(
+    monkeypatch, entry, seed, word
+):
+    monkeypatch.setattr(si, "_DENY", tuple(w for w in si._DENY if w != entry))
+    assert si.fictional_name(seed) == first_draw(seed) == word
+
+
+@functools.cache
+def reachable_deny_entries() -> frozenset[str]:
+    """Which _DENY entries some raw name contains, from one pass over every raw name."""
+    pattern = re.compile("|".join(si._DENY))
+    found: set[str] = set()
+    for name in raw_names():
+        if pattern.search(name):
+            found.update(word for word in si._DENY if word in name)
+    return frozenset(found)
+
+
+def test_exactly_eight_deny_entries_are_reachable_from_the_syllable_table():
+    # COCK, CUNT, DICK, FUCK, PISS and SHIT cannot be spelled: the syllable table has no C and no
+    # H, and two S in a row never occur. They are kept as defence in depth. If a future edit to
+    # the syllable table makes one of them reachable, this test fails, and that entry then needs
+    # a seed pin in SINGLE_CATCH: a seed whose first draw spells it and no other entry.
+    assert reachable_deny_entries() == frozenset(
+        {"ANUS", "BONER", "FAG", "NAZI", "NIG", "RAPE", "SEX", "TIT"}
+    )
+
+
+# -- file modes of written assets (POSIX) ----------------------------------------------------------
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX file modes; Windows has no umask")
+@pytest.mark.parametrize(("umask", "mode"), [(0o022, 0o644), (0o002, 0o664)])
+def test_written_assets_follow_the_umask_not_the_private_mode_of_a_temporary_file(
+    tmp_path, umask, mode
+):
+    recipe = tmp_path / "recipe"
+    recipe.mkdir()
+    target = recipe / "assets" / "a.png"
+    previous = os.umask(umask)
+    try:
+        assert si.login_screen(state="normal").write(recipe, "assets/a.png") == "created"
+        assert stat.S_IMODE(target.stat().st_mode) == mode
+        assert si.login_screen(state="error").write(recipe, "assets/a.png", overwrite=True) == (
+            "rewritten"
+        )
+        assert stat.S_IMODE(target.stat().st_mode) == mode
+    finally:
+        os.umask(previous)
+    assert sorted(p.name for p in (recipe / "assets").iterdir()) == ["a.png"]  # no temporary left
+
+
+# -- a committed file that cannot be decoded is unreadable, not a changed picture ------------------
+
+
+def truncated_copy() -> bytes:
+    data = si.login_screen().png()
+    return data[: len(data) // 2]
+
+
+UNREADABLE = {
+    "text": lambda: b"not a png at all",
+    "empty": lambda: b"",
+    "truncated": truncated_copy,
+}
+
+
+@pytest.mark.parametrize("kind", sorted(UNREADABLE))
+def test_an_undecodable_committed_file_is_unreadable_and_is_kept_unless_overwritten(tmp_path, kind):
+    c = si.login_screen()
+    target = tmp_path / "assets" / "a.png"
+    target.parent.mkdir()
+    damaged = UNREADABLE[kind]()
+    target.write_bytes(damaged)
+    with pytest.raises(si.RegenerationMismatch, match="cannot be read as an image") as raised:
+        c.write(tmp_path, "assets/a.png")
+    assert "generator, its parameters or the seed changed the picture" not in str(raised.value)
+    assert target.read_bytes() == damaged
+    assert c.write(tmp_path, "assets/a.png", overwrite=True) == "rewritten"
+    assert target.read_bytes() == c.png()
+
+
+@pytest.mark.parametrize("kind", sorted(UNREADABLE))
+def test_check_reproducible_reports_an_undecodable_committed_file_as_unreadable(tmp_path, kind):
+    c = si.login_screen()
+    c.write(tmp_path, "assets/a.png")
+    entry = c.manifest_entry(tmp_path, "assets/a.png", "A screen.")
+    target = tmp_path / "assets" / "a.png"
+    damaged = UNREADABLE[kind]()
+    target.write_bytes(damaged)
+    with pytest.raises(si.RegenerationMismatch, match="cannot be read as an image") as raised:
+        si.check_reproducible(tmp_path, entry)
+    assert "generator, its parameters or the seed changed the picture" not in str(raised.value)
+    assert target.read_bytes() == damaged
+
+
+# -- the CI leg that runs the byte pins -------------------------------------------------------------
+
+
+def python_floor() -> tuple[int, int]:
+    """The requires-python floor of pyproject.toml, read with a regular expression."""
+    text = (REPO / "pyproject.toml").read_text("utf-8")
+    match = re.search(r'requires-python\s*=\s*"\s*>=\s*(\d+)\.(\d+)\s*"', text)
+    assert match, 'pyproject.toml has no requires-python = ">=X.Y" line'
+    return int(match.group(1)), int(match.group(2))
+
+
+def byte_pins_skipped_on_ci_floor_leg(environ, version_info, canonical, floor):
+    """Why the byte pins skip on this run, or None.
+
+    They skip only on a GitHub Actions run of the floor interpreter without the canonical Pillow.
+    The unpinned floor leg is the one CI job that resolves the canonical Pillow and runs them.
+    """
+    on_floor = tuple(version_info[:2]) == tuple(floor)
+    if environ.get("GITHUB_ACTIONS") == "true" and on_floor and not canonical:
+        return f"CI runs Python {floor[0]}.{floor[1]} without the canonical Pillow"
+    return None
+
+
+@pytest.mark.parametrize(
+    ("environ", "version", "canonical", "skipped"),
+    [
+        ({"GITHUB_ACTIONS": "true"}, (3, 10, 12), False, True),  # floor leg, newer Pillow
+        ({"GITHUB_ACTIONS": "true"}, (3, 10, 12), True, False),  # floor leg, canonical Pillow
+        ({"GITHUB_ACTIONS": "true"}, (3, 14, 0), False, False),  # newest leg: expected to skip
+        ({}, (3, 10, 12), False, False),  # a local run is never a CI leg
+    ],
+)
+def test_the_floor_leg_guard_reports_a_skip_only_where_ci_lacks_the_canonical_pillow(
+    environ, version, canonical, skipped
+):
+    reason = byte_pins_skipped_on_ci_floor_leg(environ, version, canonical, (3, 10))
+    assert (reason is not None) is skipped
+
+
+def test_the_ci_leg_that_runs_the_byte_pins_still_runs_them():
+    reason = byte_pins_skipped_on_ci_floor_leg(
+        os.environ, sys.version_info, si.bytes_are_canonical(), python_floor()
+    )
+    assert reason is None, (
+        f"{reason}. The unpinned floor-Python CI leg (Tests (py3.10)) is the only one that checks "
+        "the PNG byte pins. A Pillow release that this leg now resolves, or a zlib change, turns "
+        "them off silently. Either pin that leg to the canonical Pillow, or re-record "
+        "CANONICAL_PILLOW and the GOLDEN digests per docs/synthetic-images.md."
+    )
+
+
+def test_the_floor_is_python_3_10():
+    assert python_floor() == (3, 10)
+
+
+def test_the_ci_matrix_keeps_the_job_name_template_and_the_floor_entry():
+    text = (REPO / ".github" / "workflows" / "ci.yml").read_text("utf-8")
+    assert "Tests (py${{ matrix.python-version }})" in text
+    assert re.search(r'python-version:\s*\[[^\]]*"3\.10"', text)
+
+
+# -- the docs name the job that runs the byte pins ----------------------------------------------------
+
+
+def byte_pin_ci_section() -> str:
+    text = DOC.read_text("utf-8")
+    start = text.index("Which CI job runs the byte pins")
+    return text[start : text.index("\n## ", start)]
+
+
+def test_the_docs_name_the_job_that_runs_the_byte_pins_and_point_at_the_guard_test():
+    section = byte_pin_ci_section()
+    assert "Tests (py3.10)" in section
+    assert "Tests (py3.14)" in section
+    assert "the guard test" in section
+
+
+# -- Cyrillic and Greek letters ---------------------------------------------------------------------
+# Every non-ASCII character in this section is written as a \u escape with its Unicode name in a
+# comment, so a look-alike letter (a Cyrillic A that looks like a Latin A) is unambiguous in review.
+
+ORIGINAL = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,:;-_+=/()!?%#*'\"><[]"
+PRIVET_LOWER = "\u043f\u0440\u0438\u0432\u0435\u0442"  # small PE ER I VE IE TE: "privet", hello
+PRIVET = "\u041f\u0420\u0418\u0412\u0415\u0422"  # capital PE ER I VE IE TE
+VNIMANIE = "\u0412\u041d\u0418\u041c\u0410\u041d\u0418\u0415"  # capital VE EN I EM A EN I IE
+MAMA_CYRILLIC = "\u041c\u0410\u041c\u0410"  # capital EM A EM A: every letter looks Latin
+LOGOS = "\u039b\u039f\u0393\u039f\u03a3"  # capital LAMDA OMICRON GAMMA OMICRON SIGMA (Greek)
+UNSUPPORTED = (
+    "\u0401",  # CAPITAL IO
+    "\u0386",  # GREEK CAPITAL ALPHA WITH TONOS
+    "\u00e9",  # LATIN SMALL E WITH ACUTE
+    "\u4e2d",  # CJK ideograph (middle)
+    "\u0627",  # ARABIC LETTER ALEF
+    "\u05d0",  # HEBREW LETTER ALEF
+)
+
+CYRILLIC_TO_LATIN = {
+    "\u0410": "A",  # CAPITAL A (looks like Latin A)
+    "\u0412": "B",  # CAPITAL VE
+    "\u0415": "E",  # CAPITAL IE
+    "\u041a": "K",  # CAPITAL KA
+    "\u041c": "M",  # CAPITAL EM
+    "\u041d": "H",  # CAPITAL EN
+    "\u041e": "O",  # CAPITAL O
+    "\u0420": "P",  # CAPITAL ER
+    "\u0421": "C",  # CAPITAL ES
+    "\u0422": "T",  # CAPITAL TE
+    "\u0425": "X",  # CAPITAL HA
+}
+GREEK_TO_LATIN = {
+    "\u0391": "A",  # CAPITAL ALPHA
+    "\u0392": "B",  # CAPITAL BETA
+    "\u0395": "E",  # CAPITAL EPSILON
+    "\u0396": "Z",  # CAPITAL ZETA
+    "\u0397": "H",  # CAPITAL ETA
+    "\u0399": "I",  # CAPITAL IOTA
+    "\u039a": "K",  # CAPITAL KAPPA
+    "\u039c": "M",  # CAPITAL MU
+    "\u039d": "N",  # CAPITAL NU
+    "\u039f": "O",  # CAPITAL OMICRON
+    "\u03a1": "P",  # CAPITAL RHO
+    "\u03a4": "T",  # CAPITAL TAU
+    "\u03a5": "Y",  # CAPITAL UPSILON
+    "\u03a7": "X",  # CAPITAL CHI
+}
+CYRILLIC_GREEK = [
+    ("\u0413", "\u0393"),  # CAPITAL GHE and CAPITAL GAMMA
+    ("\u041f", "\u03a0"),  # CAPITAL PE and CAPITAL PI
+    ("\u0424", "\u03a6"),  # CAPITAL EF and CAPITAL PHI
+]
+
+
+def shape_classes() -> set[frozenset[str]]:
+    """Groups of supported characters with one identical 5 x 7 shape (single characters dropped)."""
+    groups: dict[str, set[str]] = {}
+    for char in si.SUPPORTED_CHARACTERS:
+        groups.setdefault(si._GLYPH_SOURCE[char], set()).add(char)
+    return {frozenset(group) for group in groups.values() if len(group) > 1}
+
+
+def linked_classes(pairs) -> set[frozenset[str]]:
+    """The classes of the graph whose edges are ``pairs`` (union-find without path compression)."""
+    parent: dict[str, str] = {}
+
+    def find(x: str) -> str:
+        parent.setdefault(x, x)
+        while parent[x] != x:
+            x = parent[x]
+        return x
+
+    for a, b in pairs:
+        parent[find(a)] = find(b)
+    groups: dict[str, set[str]] = {}
+    for x in list(parent):
+        groups.setdefault(find(x), set()).add(x)
+    return {frozenset(group) for group in groups.values() if len(group) > 1}
+
+
+def test_the_supported_characters_are_the_original_set_then_cyrillic_then_greek():
+    cyrillic, greek = si.SUPPORTED_SCRIPTS["Cyrillic"], si.SUPPORTED_SCRIPTS["Greek"]
+    assert si.SUPPORTED_CHARACTERS == ORIGINAL + cyrillic + greek
+    assert si.SUPPORTED_SCRIPTS["Latin"] == "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    assert cyrillic == "".join(chr(c) for c in range(0x410, 0x430))  # U+0410..U+042F, no YO
+    assert greek == "".join(chr(c) for c in range(0x391, 0x3AA) if c != 0x3A2)  # no U+03A2
+    assert (len(si.SUPPORTED_SCRIPTS["Latin"]), len(cyrillic), len(greek)) == (26, 32, 24)
+
+
+def test_the_script_helpers_are_public():
+    assert {"SUPPORTED_SCRIPTS", "text_scripts", "looks_like_latin"} <= set(si.__all__)
+
+
+def test_the_hand_drawn_non_ascii_shapes_are_pinned_by_digest():
+    # The 56 Cyrillic and Greek shapes are a deliberate pin. To re-record one after a deliberate
+    # change, run the same expression on si._GLYPH_SOURCE, look at the shapes, and paste the new
+    # hexdigest here.
+    entries = {c: src for c, src in si._GLYPH_SOURCE.items() if not c.isascii()}
+    assert len(entries) == 56
+    text = "\n".join(f"{ord(c):04X} {src}" for c, src in sorted(entries.items()))
+    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    assert digest == "b4bc98128fe59c55e6a7bdf20fdf3187264bffc51b8eaf083493634ab175c4e2"
+    assert set(entries) == set(si.SUPPORTED_SCRIPTS["Cyrillic"] + si.SUPPORTED_SCRIPTS["Greek"])
+
+
+def test_the_shape_sharing_is_exactly_the_documented_set():
+    expected = linked_classes(
+        [*CYRILLIC_TO_LATIN.items(), *GREEK_TO_LATIN.items(), *CYRILLIC_GREEK]
+    )
+    assert shape_classes() == expected
+    assert si._GLYPH_SOURCE["\u0417"] != si._GLYPH_SOURCE["3"]  # CAPITAL ZE differs from digit 3
+    assert si._GLYPH_SOURCE["\u0423"] != si._GLYPH_SOURCE["Y"]  # CAPITAL U differs from Latin Y
+
+
+def test_lower_case_cyrillic_and_greek_fold_to_capitals():
+    assert blank().text(10, 10, PRIVET_LOWER).attrs["text"] == PRIVET
+    assert blank().text(10, 10, "\u03c2").attrs["text"] == "\u03a3"  # final sigma folds to sigma
+
+
+def test_decomposed_input_is_normalised_to_one_letter_and_text_width_counts_letters():
+    box = blank().text(10, 10, "\u0438\u0306", "ink", 1)  # small I then combining breve
+    assert box.attrs["text"] == "\u0419"  # CAPITAL SHORT I
+    assert box.width == 5
+    assert si.text_width("\u0438\u0306", 1) == 5
+    assert si.text_width(PRIVET, 1) == (6 * 6 - 1) * 1  # six letters, not twelve code units
+
+
+@pytest.mark.parametrize("word", [PRIVET, LOGOS])
+def test_text_ink_stays_inside_the_box_for_a_cyrillic_and_a_greek_word(word):
+    c = blank()
+    box = c.text(30, 40, word, "ink", 3)
+    ink = changed(Image.new("RGB", c.size, c.background), c.image)
+    assert ink is not None
+    assert box.left <= ink[0] and ink[2] <= box.right
+    assert box.top <= ink[1] and ink[3] <= box.bottom
+
+
+def test_drawing_a_cyrillic_word_is_deterministic():
+    first, second = blank(), blank()
+    first.text(10, 10, VNIMANIE, "ink", 2)
+    second.text(10, 10, VNIMANIE, "ink", 2)
+    assert first.image.tobytes() == second.image.tobytes()
+
+
+def test_cyrillic_vnimanie_draws_differently_from_latin_bhnmahne():
+    # Latin N stands where the Cyrillic I (CAPITAL I, a shape of its own) stands, so the pictures
+    # differ even though the two strings have the same length
+    latin, cyrillic = blank(), blank()
+    latin.text(10, 10, "BHNMAHNE", "ink", 2)
+    cyrillic.text(10, 10, VNIMANIE, "ink", 2)
+    assert latin.image.tobytes() != cyrillic.image.tobytes()
+
+
+def test_text_scripts_names_the_scripts_used_in_fixed_order():
+    assert si.text_scripts("ABC 123") == ("Latin",)
+    assert si.text_scripts(PRIVET) == ("Cyrillic",)
+    assert si.text_scripts("A\u0411\u0393") == ("Latin", "Cyrillic", "Greek")  # BE, GAMMA
+    assert si.text_scripts("123 .,!") == ()
+    assert si.text_scripts(PRIVET_LOWER) == ("Cyrillic",)  # lower case is folded first
+    assert si.text_scripts("abc") == ("Latin",)
+    with pytest.raises(ValueError):
+        si.text_scripts("caf\u00e9")
+
+
+def test_looks_like_latin_compares_shapes_so_a_homoglyph_word_passes_and_proves_nothing():
+    assert si.looks_like_latin("HELLO") is True
+    assert si.looks_like_latin(MAMA_CYRILLIC) is True
+    assert si.looks_like_latin(PRIVET) is False
+    assert si.looks_like_latin("\u0391\u0392\u0393") is False  # CAPITAL ALPHA, BETA, GAMMA
+
+
+def test_a_homoglyph_word_draws_the_same_pixels_as_latin_but_reports_its_own_text():
+    latin, cyrillic = blank(), blank()
+    latin_box = latin.text(10, 10, "MAMA", "ink", 2)
+    cyrillic_box = cyrillic.text(10, 10, MAMA_CYRILLIC, "ink", 2)
+    assert latin.image.tobytes() == cyrillic.image.tobytes()
+    assert latin_box.attrs["text"] == "MAMA"
+    assert cyrillic_box.attrs["text"] == MAMA_CYRILLIC
+
+
+@pytest.mark.parametrize("char", UNSUPPORTED)
+def test_a_letter_outside_latin_cyrillic_and_greek_is_refused_with_no_glyph(char):
+    with pytest.raises(ValueError, match="no glyph"):
+        blank().text(0, 0, char)
+
+
+@pytest.mark.parametrize("text", ["caf\u00e9", "cafe\u0301"])  # precomposed and decomposed
+def test_a_word_with_an_accent_is_refused_in_either_spelling(text):
+    with pytest.raises(ValueError, match="no glyph"):
+        blank().text(0, 0, text)
+
+
+def test_the_docs_list_both_alphabets_and_say_a_synthetic_test_does_not_prove_quality():
+    text = DOC.read_text("utf-8")
+    for letter in si.SUPPORTED_SCRIPTS["Cyrillic"] + si.SUPPORTED_SCRIPTS["Greek"]:
+        assert letter in text, f"U+{ord(letter):04X} is not listed in {DOC.name}"
+    assert "Cyrillic" in text and "Greek" in text
+    assert "does not prove" in text
