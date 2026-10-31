@@ -501,3 +501,367 @@ def test_image_replay_key_is_pinned_to_the_published_envelope(monkeypatch):
     assert replay_key(STATE, QUESTIONS, assets={REF: asset}) == (
         "00c4d3b2fcb92ce23200e54bed0dcc9c91a7bc134b7862838a1facaddf9acba8"
     )
+
+
+# -- image request accounting (#313): copies versus distinct images, and the aggregate caps ------
+
+MIB = 1024 * 1024
+
+
+def sized(n):
+    """An asset descriptor of ``n`` file bytes. The profile reads only the length of the base64
+    text, so these need not be images; tests that go through ``decide`` patch the validator."""
+    return {
+        "type": "image",
+        "format": "png",
+        "data_base64": base64.b64encode(b"\x00" * n).decode("ascii"),
+    }
+
+
+def accepting_any_bytes(monkeypatch):
+    from jev_cookbook import vision
+
+    monkeypatch.setattr(
+        vision, "validate_image_asset", lambda asset: base64.b64decode(asset["data_base64"])
+    )
+
+
+def test_a_reference_used_twice_in_one_string_is_two_copies_of_one_image():
+    from jev_cookbook.vision import image_request_profile
+
+    # Hand-computed: <ruler> is 3000 bytes and is placed twice in one sentence, so 2 copies,
+    # 1 distinct asset, 3000 distinct bytes and 6000 expanded bytes.
+    profile = image_request_profile(
+        {"note": "compare <ruler> against <ruler> now"},
+        {"fits": Noul(instructions="Does it fit?")},
+        {"<ruler>": sized(3000)},
+    )
+    assert (profile.distinct_assets, profile.distinct_bytes) == (1, 3000)
+    assert (profile.copies, profile.expanded_bytes) == (2, 6000)
+    assert profile.state_copies == 2 and dict(profile.per_question) == {"fits": 0}
+
+
+def test_an_instruction_image_shared_by_three_questions_is_three_copies():
+    from jev_cookbook.vision import image_request_profile
+
+    # Hand-computed: <chart> (2000 bytes, a padded base64 length) is in the instructions of three
+    # questions, so it is sent three times; <photo> (300 bytes) is in the state once. 4 copies of 2
+    # distinct assets: 2300 distinct bytes, 3 * 2000 + 300 = 6300 expanded bytes.
+    questions = {
+        name: Noul(instructions=f"Read <chart> and decide: {name}.") for name in ("a", "b", "c")
+    }
+    profile = image_request_profile(
+        {"photo": "<photo>"}, questions, {"<chart>": sized(2000), "<photo>": sized(300)}
+    )
+    assert (profile.distinct_assets, profile.distinct_bytes) == (2, 2300)
+    assert (profile.copies, profile.expanded_bytes) == (4, 6300)
+    assert profile.state_copies == 1
+    assert dict(profile.per_question) == {"a": 1, "b": 1, "c": 1}
+    # The advice upstream gives: the shared image in the state once is one copy, not three.
+    shared_once = image_request_profile(
+        {"photo": "<photo>", "chart": "<chart>"},
+        {name: Noul(instructions=f"Read `chart`: {name}.") for name in ("a", "b", "c")},
+        {"<chart>": sized(2000), "<photo>": sized(300)},
+    )
+    assert (shared_once.copies, shared_once.expanded_bytes) == (2, 2300)
+    assert shared_once.distinct_bytes == 2300
+
+
+def test_references_count_only_where_a_reference_can_be_replaced():
+    from jev_cookbook import Choice, Score
+    from jev_cookbook.vision import image_request_profile
+
+    assets = {"<a>": sized(10), "<b>": sized(20), "<unused>": sized(30)}
+    questions = {
+        "pick": Choice(criteria={"<a>": "like <b>", "other": "<a><a>"}, instructions="Pick <b>."),
+        "level": Score(criteria=["low <a>", "high"], instructions=None),
+    }
+    profile = image_request_profile(["<a>", "no image"], questions, assets)
+    # state: <a> 1.  pick: instructions <b> 1, criteria values <b> 1 + <a> 2 (the option NAME
+    # "<a>" is text, not a place for an image).  level: criteria <a> 1.  <unused> is never placed.
+    assert profile.state_copies == 1
+    assert dict(profile.per_question) == {"pick": 4, "level": 1}
+    assert profile.copies == 6
+    assert profile.distinct_assets == 2 and profile.distinct_bytes == 30
+    assert profile.expanded_bytes == 4 * 10 + 2 * 20
+    keys_only = image_request_profile({"<a>": "text"}, {"q": Noul()}, assets)
+    assert keys_only.copies == 0 and keys_only.distinct_assets == 0
+
+
+def test_matches_never_overlap_and_the_longer_reference_wins_where_both_start():
+    from jev_cookbook.vision import image_request_profile
+
+    assets = {"img-1": sized(10), "img-10": sized(100)}
+    profile = image_request_profile("img-10 then img-1 then img-100", {"q": Noul()}, assets)
+    # "img-10" once, "img-1" once, then "img-100" is "img-10" followed by a plain "0": the longer
+    # reference is taken where both start, and no character is replaced twice.
+    assert profile.copies == 3 and profile.distinct_assets == 2
+    assert profile.expanded_bytes == 100 + 10 + 100
+
+
+def test_no_assets_is_a_zero_profile_and_bytes_come_from_the_length_alone():
+    from jev_cookbook.vision import image_request_profile
+
+    for assets in (None, {}):
+        zero = image_request_profile("<a>", {"q": Noul()}, assets)
+        assert (zero.distinct_assets, zero.distinct_bytes, zero.copies, zero.expanded_bytes) == (
+            0,
+            0,
+            0,
+            0,
+        )
+    for n in range(12):  # every padding shape
+        profile = image_request_profile("<a>", {"q": Noul()}, {"<a>": sized(n)})
+        assert profile.distinct_bytes == profile.expanded_bytes == n
+
+
+def test_the_profile_is_pure_it_neither_reads_files_nor_decodes_nor_stores_bytes(monkeypatch):
+    import builtins
+    import pathlib
+
+    from jev_cookbook import vision
+
+    asset = sized(500)
+    before = dict(asset)
+
+    def refuse(*args, **kwargs):
+        raise AssertionError("the profile must not read, decode or validate")
+
+    monkeypatch.setattr(builtins, "open", refuse)
+    monkeypatch.setattr(pathlib.Path, "open", refuse)
+    monkeypatch.setattr(pathlib.Path, "read_bytes", refuse)
+    monkeypatch.setattr(base64, "b64decode", refuse)
+    monkeypatch.setattr(vision, "validate_image_asset", refuse)
+    monkeypatch.setattr(vision, "image_asset", refuse)
+    profile = vision.image_request_profile("<a>", {"q": Noul()}, {"<a>": asset})
+    assert asset == before and profile.copies == 1
+    # No bytes or content are kept on the result.
+    assert set(vars(profile)) == {
+        "distinct_assets",
+        "distinct_bytes",
+        "copies",
+        "expanded_bytes",
+        "state_copies",
+        "per_question",
+    }
+    with pytest.raises(AttributeError):
+        profile.copies = 9
+    with pytest.raises(TypeError):
+        profile.per_question["q"] = 9
+
+
+def test_the_profile_agrees_with_the_decoded_size_of_real_images():
+    from jev_cookbook.vision import image_request_profile
+
+    assets = image_assets()
+    size = len(base64.b64decode(assets[REF]["data_base64"]))
+    profile = image_request_profile({"a": REF, "b": f"{REF} {REF}"}, QUESTIONS, assets)
+    assert profile.distinct_bytes == size and profile.expanded_bytes == 3 * size
+
+
+def test_a_request_at_the_cap_is_allowed_and_one_byte_over_is_refused():
+    from jev_cookbook.vision import (
+        ImageRequestProfile,
+        ImageRequestTooLarge,
+        preflight_image_request,
+    )
+
+    cap = 32 * MIB
+    preflight_image_request(ImageRequestProfile(1, cap, 1, cap, 1, {}))
+    with pytest.raises(ImageRequestTooLarge, match="distinct image"):
+        preflight_image_request(ImageRequestProfile(1, cap + 1, 1, cap + 1, 1, {}))
+    with pytest.raises(ImageRequestTooLarge, match="expanded request"):
+        preflight_image_request(ImageRequestProfile(1, cap, 2, cap + 1, 2, {}))
+    assert issubclass(ImageRequestTooLarge, ValueError)
+
+
+@pytest.fixture
+def no_sdk(monkeypatch):
+    """The preflight must come before the SDK is even imported, let alone called."""
+
+    def refuse():
+        raise AssertionError("the SDK was reached before the preflight refused the request")
+
+    monkeypatch.setattr(live_module, "_import_sdk", refuse)
+
+
+def test_expanded_copies_over_32_mib_are_refused_before_anything_is_spent(monkeypatch, no_sdk):
+    from jev_cookbook.vision import ImageRequestTooLarge
+
+    accepting_any_bytes(monkeypatch)
+    client = Client()
+    backend = LiveBackend("jev-1.14.0", client=client, images=True)
+    # One 7 MiB image (well under 16 MiB and 32 MiB) used five times expands to 35 MiB.
+    assets = {"<big>": sized(7 * MIB)}
+    state = {"photo": "<big> <big> <big> <big> <big>"}
+    questions = {"q": Noul(instructions="Fine?")}
+    with pytest.raises(ImageRequestTooLarge, match="expanded request"):
+        backend.decide(state, questions, assets=assets)
+    assert backend.requests_made == 0 and client.calls == []
+    assert backend.records == () and backend.requests_remaining == backend.max_requests
+    # The message names the cure the page gives.
+    with pytest.raises(ImageRequestTooLarge, match="state once"):
+        backend.decide(state, questions, assets=assets)
+    assert backend.requests_made == 0
+
+
+def test_an_instruction_image_repeated_per_question_is_refused(monkeypatch, no_sdk):
+    from jev_cookbook.vision import ImageRequestTooLarge
+
+    accepting_any_bytes(monkeypatch)
+    client = Client()
+    backend = LiveBackend("jev-1.14.0", client=client, images=True)
+    assets = {"<big>": sized(9 * MIB)}
+    in_instructions = {name: Noul(instructions="Use <big>.") for name in "abcd"}  # 4 * 9 = 36 MiB
+    with pytest.raises(ImageRequestTooLarge, match="'a': 1, 'b': 1, 'c': 1, 'd': 1"):
+        backend.decide("x", in_instructions, assets=assets)
+    assert backend.requests_made == 0 and client.calls == []
+
+
+def test_distinct_images_over_32_mib_are_refused_before_anything_is_spent(monkeypatch, no_sdk):
+    from jev_cookbook.vision import ImageRequestTooLarge
+
+    accepting_any_bytes(monkeypatch)
+    client = Client()
+    backend = LiveBackend("jev-1.14.0", client=client, images=True)
+    assets = {f"<img-{n}>": sized(7 * MIB) for n in range(5)}  # five distinct, 35 MiB, once each
+    state = {f"slot{n}": f"<img-{n}>" for n in range(5)}
+    with pytest.raises(ImageRequestTooLarge, match="5 distinct image.*all images in a request"):
+        backend.decide(state, {"q": Noul(instructions="Fine?")}, assets=assets)
+    assert backend.requests_made == 0 and client.calls == []
+
+
+def test_requests_under_both_caps_are_still_sent(monkeypatch, fake_sdk):
+    accepting_any_bytes(monkeypatch)
+    client = Client()
+    backend = LiveBackend("jev-1.14.0", client=client, images=True)
+    assets = {f"<img-{n}>": sized(7 * MIB) for n in range(4)}  # 28 MiB distinct and expanded
+    state = {f"slot{n}": f"<img-{n}>" for n in range(4)}
+    backend.decide(state, {"target": Box(instructions="Find the target.")}, assets=assets)
+    assert backend.requests_made == 1 and len(client.calls) == 1
+
+
+def test_the_recorder_refuses_an_over_cap_request_without_spending(monkeypatch, no_sdk, tmp_path):
+    from jev_cookbook.vision import ImageRequestTooLarge
+
+    accepting_any_bytes(monkeypatch)
+    backend = LiveBackend("jev-1.14.0", client=Client(), images=True)
+    assets = {"<big>": sized(7 * MIB)}
+    request = ({"photo": "<big> " * 5}, {"q": Noul(instructions="Fine?")}, assets)
+    with pytest.raises(ImageRequestTooLarge):
+        record(backend, [request], tmp_path / "r.json", ledger_path=tmp_path / "ledger.json")
+    assert backend.requests_made == 0
+    (line,) = json.loads((tmp_path / "ledger.json").read_text("utf-8")).values()
+    assert line["status"] == "error" and line["attempts"] == 0
+
+
+class RetryOnceClient(Client):
+    """Fails its first call with a retryable 503 (request id ``req-retried-1``), then answers."""
+
+    def system_one(self, **kwargs):
+        self.calls.append(kwargs)
+        if len(self.calls) == 1:
+            error = RuntimeError("temporarily unavailable")
+            error.status = 503
+            error.request_id = "req-retried-1"
+            raise error
+        return self.body
+
+
+def test_a_refused_request_does_not_inherit_the_previous_calls_retried_list(
+    monkeypatch, fake_sdk, tmp_path
+):
+    from jev_cookbook.vision import ImageRequestTooLarge
+
+    accepting_any_bytes(monkeypatch)
+    backend = LiveBackend(
+        "jev-1.14.0", client=RetryOnceClient(), images=True, sleep=lambda seconds: None
+    )
+    sent = (
+        {"photo": "<small>"},
+        {"target": Box(instructions="Find the target.")},
+        {"<small>": sized(1000)},
+    )
+    refused = (
+        {"photo": "<big> " * 5},
+        {"q": Noul(instructions="Fine?")},
+        {"<big>": sized(7 * MIB)},
+    )
+    ledger = tmp_path / "ledger.json"
+    with pytest.raises(ImageRequestTooLarge):
+        record(backend, [sent, refused], tmp_path / "r.json", ledger_path=ledger)
+    lines = json.loads(ledger.read_text("utf-8"))
+    (recorded,) = [entry for key, entry in lines.items() if "!failed-" not in key]
+    (failed,) = [entry for key, entry in lines.items() if key.endswith("!failed-1")]
+    # The first call retried once past a 503 and then succeeded.
+    assert recorded["status"] == "recorded" and recorded["attempts"] == 2
+    assert [attempt["request_id"] for attempt in recorded["retried"]] == ["req-retried-1"]
+    # The refusal sent nothing, so it retried past nothing: its line must not repeat the 503.
+    assert failed["status"] == "error" and failed["error_type"] == "ImageRequestTooLarge"
+    assert failed["attempts"] == 0 and failed["retried"] == []
+    assert backend.last_retried == ()
+
+
+def test_a_backend_config_refusal_before_sending_writes_the_documented_error_line(
+    monkeypatch, no_sdk, tmp_path
+):
+    accepting_any_bytes(monkeypatch)
+    # images=False: the backend refuses image assets inside ``decide``, before the SDK or a spend.
+    backend = LiveBackend("jev-1.14.0", client=Client())
+    request = (
+        {"photo": "<small>"},
+        {"q": Noul(instructions="Fine?")},
+        {"<small>": sized(1000)},
+    )
+    ledger = tmp_path / "ledger.json"
+    with pytest.raises(LiveConfigError, match="images=True"):
+        record(backend, [request], tmp_path / "r.json", ledger_path=ledger)
+    assert backend.requests_made == 0
+    ((key, line),) = json.loads(ledger.read_text("utf-8")).items()
+    assert key.endswith("!failed-1")
+    assert line["status"] == "error" and line["error_type"] == "LiveConfigError"
+    assert line["http_status"] is None and line["request_id"] is None
+    assert line["attempts"] == 0 and line["retried"] == []
+
+
+def test_a_request_that_fails_validation_raises_from_record_and_gets_no_sidecar_line(
+    monkeypatch, fake_sdk, tmp_path
+):
+    accepting_any_bytes(monkeypatch)
+    backend = LiveBackend("jev-1.14.0", client=Client(), images=True)
+    sent = (
+        {"photo": "<small>"},
+        {"target": Box(instructions="Find the target.")},
+        {"<small>": sized(1000)},
+    )
+    # No value names ``<unused>``, so validation refuses the request inside ``replay_key``, which
+    # ``record`` calls before it makes any ``decide`` call: nothing can be written for it.
+    unused = (
+        {"photo": "no reference here"},
+        {"q": Noul(instructions="Fine?")},
+        {"<unused>": sized(1000)},
+    )
+    ledger = tmp_path / "ledger.json"
+    with pytest.raises(ValueError, match="not referenced"):
+        record(backend, [sent, unused], tmp_path / "r.json", ledger_path=ledger)
+    assert backend.requests_made == 1  # the first request's single attempt; the second added none
+    lines = json.loads(ledger.read_text("utf-8"))
+    assert [entry["status"] for entry in lines.values()] == ["recorded"]
+    assert not any("!failed-" in key for key in lines)
+
+
+def test_the_live_ledger_carries_image_counts_beside_the_token_fields(fake_sdk, tmp_path):
+    backend = LiveBackend("jev-1.14.0", client=Client(), images=True)
+    questions = {"target": Box(instructions=f"The pink rectangle in `photo`; ignore {REF}.")}
+    state = {"photo": REF, "again": f"{REF} / {REF}"}
+    path, ledger = tmp_path / "responses.json", tmp_path / "ledger.json"
+    record(backend, [(state, questions, image_assets())], path, ledger_path=ledger)
+    # Hand-computed: 1 + 2 in the state and 1 in the instructions = 4 copies of 1 asset.
+    (line,) = json.loads(ledger.read_text("utf-8")).values()
+    assert (line["images"], line["distinct_images"]) == (4, 1)
+    assert line["input_tokens"] == 10 and line["output_tokens"] == 5
+    assert backend.records[0].images == 4
+    summary = backend.ledger()
+    assert (summary["images"], summary["distinct_images"]) == (4, 1)
+    # The counts say nothing about bytes, content or references.
+    assert "data_base64" not in json.dumps([line, summary]) and REF not in json.dumps(line)
