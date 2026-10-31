@@ -17,7 +17,10 @@ import nbformat
 import pytest
 from nbclient.exceptions import DeadKernelError
 
-from jev_cookbook import load_helpers
+import jev_cookbook
+from jev_cookbook import DecisionResult, Provenance, dump_responses, load_helpers, replay_key
+from jev_cookbook.accounting import parse_budget, render_budget_note
+from jev_cookbook.answers import ChoiceAnswer
 from jev_cookbook.fixtures import validate_recipe
 
 REPO = Path(__file__).resolve().parent.parent
@@ -53,6 +56,12 @@ port_collisions = load_module_at(
 executor_budget = load_module_at(
     Path(__file__).with_name("executor_budget.py"), "executor_budget_for_test"
 )
+# tests/test_recipe_guard.py's own _backend_budget_verdict, loaded by file path (an import, not an
+# edit) so test_a_fresh_scaffold_also_passes_the_one_backend_per_budget_guard below calls the real
+# guard rather than a local reimplementation of its rules.
+recipe_guard = load_module_at(
+    Path(__file__).with_name("test_recipe_guard.py"), "test_recipe_guard_for_test"
+)
 
 # The timeout of the subprocess tests below, so that a hang is a failure rather than a stalled
 # suite. tests/executor_budget.py has the arithmetic: the tool's own permitted waits (a silent
@@ -75,8 +84,11 @@ def recipes(tmp_path):
     return tmp_path / "recipes"
 
 
-def run(number, catalog, recipes):
-    return new_recipe.main([str(number), "--catalog", str(catalog), "--recipes-dir", str(recipes)])
+def run(number, catalog, recipes, mode="replay"):
+    args = [str(number), "--catalog", str(catalog), "--recipes-dir", str(recipes)]
+    if mode != "replay":
+        args += ["--mode", mode]
+    return new_recipe.main(args)
 
 
 def entry(catalog, number):
@@ -95,6 +107,7 @@ def test_it_creates_the_folder_named_by_the_catalog(catalog, recipes):
         "helpers.py",
         "build_fixtures.py",
         "side_effects.json",
+        "request_budget.json",
         "tests/test_helpers.py",
         "tests/test_build_fixtures.py",
     }
@@ -166,8 +179,13 @@ def test_the_example_wording_is_replaced_by_marked_placeholders(catalog, recipes
             text = path.read_text("utf-8")
             # tests/test_build_fixtures.py is emitted complete: it already works against a
             # correct build_fixtures.py, with nothing left for the builder to fill in, so unlike
-            # every other scaffolded file it carries no TODO.
-            if path.name != "test_build_fixtures.py":
+            # every other scaffolded file it carries no TODO. request_budget.json is also
+            # complete at scaffold time: it declares exactly the one decide() call the
+            # skeleton's own `answer` cell makes, already self-consistent with the notebook and
+            # the rendered README paragraph (see test_a_fresh_scaffold_passes_the_request_audit_
+            # with_no_hand_edit below); the builder's own follow-up as the notebook grows is
+            # marked TODO in the README instead, where grep -rn TODO already finds it.
+            if path.name not in ("test_build_fixtures.py", "request_budget.json"):
                 assert "TODO" in text, path.name
             for example_word in ("support message", "billing-team", "human_review", "T-1001"):
                 assert example_word not in text, (path.name, example_word)
@@ -264,10 +282,17 @@ def test_the_command_line_works_and_exit_status_is_visible(catalog, recipes):
     assert "refusing to overwrite" in second.stderr
 
 
-def test_every_catalog_recipe_scaffolds_to_lint_clean_files(catalog, recipes):
+@pytest.mark.parametrize("mode", new_recipe.MODES)
+def test_every_catalog_recipe_scaffolds_to_lint_clean_files(catalog, recipes, mode):
+    """Every catalog recipe, scaffolded in this mode, must already pass `ruff format --check`
+    and `ruff check` with no hand-edit. Before #375's fix round, this ran only the default
+    `--mode replay` -- `run()` had no way to ask for `--mode scripted` at all -- so the 128
+    character setup line `--mode scripted` emits (#375 fix round, item 1) scaffolded a hundred
+    recipes, every one of them already failing `ruff format --check`, with nothing here to catch
+    it. Parametrizing over `new_recipe.MODES` closes that gap for both modes that exist."""
     data, _ = entry(catalog, 1)
     for recipe in data["recipes"]:
-        assert run(recipe["rank"], catalog, recipes) == 0
+        assert run(recipe["rank"], catalog, recipes, mode) == 0
     assert len(list(recipes.iterdir())) == 100
     ruff = [sys.executable, "-m", "ruff"]
     config = ["--config", str(REPO / "pyproject.toml"), "--no-cache"]
@@ -306,6 +331,130 @@ def test_a_scaffold_runs_once_the_helpers_and_fixtures_exist(catalog, recipes):
     )
     assert "Recipe 01:" in streams and "offline replay of synthetic fixtures" in streams
     assert "Not measured live" in streams
+
+
+def _load_request_audit():
+    """``tests/request_audit.py``, loaded by file path like ``tests/test_recipe_guard.py``'s own
+    ``_load_request_audit``: the module the recipe guard's budget-note check calls, so this test
+    proves the scaffold passes the real check, not a reimplementation of it."""
+    spec = importlib.util.spec_from_file_location(
+        "request_audit_for_new_recipe_test", Path(__file__).with_name("request_audit.py")
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_request_audit = _load_request_audit()
+
+# Shared with scaffold_replay_with_build_script below (which strips the leading newline this
+# triple-quoted form carries): one fixture helper, not two copies that could drift apart.
+MINIMAL_REPLAY_HELPERS = """
+from jev_cookbook import Choice
+
+
+def build_state(fields):
+    return {"text": fields["text"]}
+
+
+def build_questions():
+    return {"pick": Choice(instructions="Which one?", criteria={"a": "first", "b": "second"})}
+"""
+
+
+def _fill_minimal_scaffold(folder):
+    """The smallest ``helpers.py`` and ``fixtures/`` the bare scaffold's own skeleton notebook
+    needs to execute: one ``demo`` example (decided once, by the ``answer`` cell -- the
+    ``python-rule`` and ``evaluation`` cells are still ``# TODO`` comments, so nothing else is
+    decided) and one ``validation`` example that is never decided, only so ``scored`` (which
+    excludes ``train``/``demo``) is non-empty for ``run_header``'s ``n_examples`` check. The one
+    key the scaffold's own skeleton actually requests is the only key written to
+    ``fixtures/responses.json``, so the exact-inventory check in ``check_against_declaration``
+    has something real to agree with (unlike copying in the template's full 22-example
+    fixtures, which the bare skeleton does not come close to exhausting)."""
+    (folder / "helpers.py").write_text(
+        MINIMAL_REPLAY_HELPERS.lstrip(), encoding="utf-8", newline="\n"
+    )
+    helpers = load_helpers(folder)
+    questions = helpers.build_questions()
+
+    demo_fields = {"text": "hello"}
+    demo_key = replay_key(helpers.build_state(demo_fields), questions)
+    val_fields = {"text": "world"}
+    val_key = replay_key(helpers.build_state(val_fields), questions)
+
+    (folder / "fixtures").mkdir(exist_ok=True)
+    inputs = [
+        {"id": "d1", "split": "demo", "fields": demo_fields, "replay_keys": [demo_key]},
+        {"id": "v1", "split": "validation", "fields": val_fields, "replay_keys": [val_key]},
+    ]
+    (folder / "fixtures" / "inputs.jsonl").write_text(
+        "".join(json.dumps(row) + "\n" for row in inputs), encoding="utf-8", newline="\n"
+    )
+    (folder / "fixtures" / "labels.jsonl").write_text(
+        json.dumps({"id": "v1", "label": "a"}) + "\n", encoding="utf-8", newline="\n"
+    )
+    answers = {
+        "pick": ChoiceAnswer.from_probabilities({"a": 0.9, "b": 0.1}, Provenance.synthetic())
+    }
+    responses = {demo_key: DecisionResult(answers, "synthetic").to_dict()}
+    (folder / "fixtures" / "responses.json").write_text(
+        dump_responses(responses), encoding="utf-8", newline="\n"
+    )
+
+
+@pytest.mark.parametrize("mode", new_recipe.MODES)
+def test_a_fresh_scaffold_passes_the_request_audit_with_no_hand_edit(catalog, recipes, mode):
+    """Issue #368 acceptance criterion 1: a freshly scaffolded recipe passes the audited
+    request-count route with no hand-edit to the plumbing ``tools/new_recipe.py`` writes --
+    ``request_budget.json``, the ``AuditedBackend`` wrapping in the setup cell, the final
+    standalone ``print(backend.audit_json())`` cell, and the README's rendered
+    ``## Switch to live`` paragraph. Only ``helpers.py`` and ``fixtures/`` are filled in -- the
+    same two files every scaffold needs before it can execute at all -- and the executed
+    notebook's audit still agrees with the untouched declaration and the untouched README,
+    because the scaffold declares exactly the one ``decide()`` call its own ``answer`` cell
+    makes. This calls ``tests/request_audit.py``'s real ``audit_recipe``, the same function the
+    recipe guard's ``readme_budget_note_matches_request_audit`` check loads, not a
+    reimplementation of its rules."""
+    if mode == "scripted":
+        folder = scaffold_scripted(catalog, recipes, number=1)
+        subprocess.run([sys.executable, str(folder / "build_fixtures.py")], check=True)
+    else:
+        _, recipe = entry(catalog, 1)
+        run(1, catalog, recipes, mode=mode)
+        folder = recipes / recipe["slug"]
+        _fill_minimal_scaffold(folder)
+    assert execute_notebook.main([str(folder)]) == 0
+
+    cells = json.loads((folder / "notebook.ipynb").read_text("utf-8"))["cells"]
+    result = _request_audit.audit_recipe(folder, cells)
+    assert result == 1, "a fresh scaffold's own declared, audited and rendered count should agree"
+
+    # Negative control (asked for explicitly in the issue): the same executed notebook, with
+    # only request_budget.json removed, must fail instead of silently falling back to the old
+    # len(responses.json) proxy -- audit_recipe's declaration, audited notebook and rendered
+    # README paragraph come together or not at all.
+    budget_path = folder / "request_budget.json"
+    saved = budget_path.read_text("utf-8")
+    budget_path.unlink()
+    with pytest.raises(AssertionError, match="request_budget.json"):
+        _request_audit.audit_recipe(folder, cells)
+    budget_path.write_text(saved, encoding="utf-8", newline="\n")
+
+
+def test_a_fresh_scaffold_also_passes_the_one_backend_per_budget_guard(catalog, recipes):
+    """The companion #213 guard check (``one_backend_per_budget`` in
+    ``tests/test_recipe_guard.py``): a scaffold builds no more ``get_backend`` call sites, across
+    the notebook and ``helpers.py``, than it has audited backends, and does not build any backend
+    in ``helpers.py`` at all. This calls the guard's own real ``_backend_budget_verdict`` (``import
+    load_module_at(...) from tests/test_recipe_guard.py`` above, not a local reimplementation of
+    its rules), so it sees both of the guard's rules -- the site-count ceiling and "an audited
+    recipe builds its backends in the notebook, not in helpers.py" -- not only the first."""
+    _, recipe = entry(catalog, 7)
+    run(7, catalog, recipes)
+    folder = recipes / recipe["slug"]
+    status, message = recipe_guard._backend_budget_verdict(folder)
+    assert (status, message) == ("pass", ""), (status, message)
 
 
 SCRIPTED_HELPERS = """
@@ -1405,21 +1554,30 @@ def test_the_scaffold_readme_live_section_states_the_budget_and_env_var(catalog,
     readme = (recipes / recipe["slug"] / "README.md").read_text("utf-8")
     section = readme.split("## Switch to live")[1].split("## What was and was not measured")[0]
     assert "JEV_COOKBOOK_LIVE_MAX_REQUESTS" in section
-    assert "25" in section
+    # Pinned against the installed package's constant (F1), not a third hand-written "25": see
+    # test_the_local_budget_renderer_and_default_cap_agree_byte_for_byte_with_the_shared_package.
+    assert str(jev_cookbook.live.DEFAULT_MAX_REQUESTS) in section
     assert "TODO" in section
 
 
-MINIMAL_REPLAY_HELPERS = """
-from jev_cookbook import Choice
+@pytest.mark.parametrize("mode", new_recipe.MODES)
+def test_the_local_budget_renderer_and_default_cap_agree_byte_for_byte_with_the_shared_package(
+    mode,
+):
+    """F1 (#375 fix round): the direct pin the three ``tools/new_recipe.py`` comments (above
+    ``request_budget_text``, above ``DEFAULT_MAX_REQUESTS`` and in ``request_budget_note``'s own
+    docstring) claim exists. Before this test, the agreement was only indirect, via
+    ``test_a_fresh_scaffold_passes_the_request_audit_with_no_hand_edit`` executing a scaffold and
+    running the real ``audit_recipe``, whose ``check_readme_note`` happens to re-render the same
+    paragraph; that test can still fail for reasons unrelated to the two comparisons below (a
+    kernel problem, a fixtures mismatch). This test calls the shared package's own
+    ``parse_budget``/``render_budget_note`` and ``DEFAULT_MAX_REQUESTS`` directly, so a drift in
+    either copy fails here with nothing else involved."""
+    declared = json.loads(new_recipe.request_budget_text(mode))
+    requests = declared["backends"]["main"]["requests"]
+    assert new_recipe.request_budget_note(requests) == render_budget_note(parse_budget(declared))
+    assert new_recipe.DEFAULT_MAX_REQUESTS == jev_cookbook.live.DEFAULT_MAX_REQUESTS
 
-
-def build_state(fields):
-    return {"text": fields["text"]}
-
-
-def build_questions():
-    return {"pick": Choice(instructions="Which one?", criteria={"a": "first", "b": "second"})}
-"""
 
 MINIMAL_REPLAY_ROWS = (
     'ROWS = [("v1", "validation", {"text": "x"}, "a", 0.9), '
