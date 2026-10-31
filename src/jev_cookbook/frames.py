@@ -101,9 +101,12 @@ def sample_frames(
     while the target is at most ``end`` (computed by multiplication, so error does not
     accumulate). Each target selects the eligible frame **nearest in time**. Frames whose
     distance from the target is within :data:`TIME_EPSILON` of the smallest distance are tied,
-    however many there are and on whichever side of the target, and **the earliest tied frame
-    is selected** (so an exact midpoint goes to the earlier frame). A frame chosen by two
-    targets is kept once, so a sparse sequence yields fewer indices than targets.
+    on either side of the target, and **the earliest tied frame is selected** (so an exact
+    midpoint goes to the earlier frame). The result is ascending: a target whose earliest tied
+    frame lies before a frame already selected for an earlier target adds nothing (float
+    rounding of the slack can otherwise move an earlier frame in and out of the tied set from
+    one target to the next). A frame chosen by two targets is kept once, so a sparse sequence
+    yields fewer indices than targets.
 
     ``count``: exactly ``count`` indices spread evenly by *position* across the eligible
     frames, always including the first and last eligible frame (``count == 1`` keeps only
@@ -141,7 +144,8 @@ def sample_frames(
             # step back to the earliest frame whose distance is within the slack of the closest
             while best > 0 and abs(window_times[best - 1] - target) <= closest + TIME_EPSILON:
                 best -= 1
-            if not chosen or chosen[-1] != eligible[best]:
+            # a target adds nothing when its earliest tied frame is not after the last selection
+            if not chosen or eligible[best] > chosen[-1]:
                 chosen.append(eligible[best])
         return chosen
 
@@ -244,10 +248,15 @@ def frame_at(timestamps: Iterable[float], seconds: float, *, side: str = "before
     """Index of the frame at ``seconds`` (a log line, an agent-state record, a clicked time).
 
     ``side="before"`` is the last frame at or before ``seconds``; ``"after"`` the first frame
-    at or after it; ``"nearest"`` the closer one, **a tie going to the earlier frame**. A frame
-    within :data:`TIME_EPSILON` of ``seconds`` counts as at it. Raises ``ValueError`` when no
-    frame qualifies (for example ``"before"`` a time earlier than the first frame) instead of
-    guessing, because attaching an event to the wrong frame is a silent error.
+    at or after it; ``"nearest"`` the closer of those two frames, **a tie (distances within
+    :data:`TIME_EPSILON` of each other) going to the earlier of the two**. A frame within
+    :data:`TIME_EPSILON` of ``seconds`` counts as at it. ``"nearest"`` compares only those two
+    frames, so it does not use the rule of :func:`sample_frames` (the earliest of all frames
+    within :data:`TIME_EPSILON` of the smallest distance) and the two can pick different
+    frames: ``frame_at([0, 1, 1 + 3e-10, 2], 1 + 2e-9, side="nearest")`` returns 2, where that
+    rule gives 1 (tracked in #395). Raises ``ValueError`` when no frame qualifies (for example
+    ``"before"`` a time earlier than the first frame) instead of guessing, because attaching an
+    event to the wrong frame is a silent error.
     """
     times = _ordered(timestamps)
     when = _seconds(seconds, "seconds")
