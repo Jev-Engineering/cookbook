@@ -197,15 +197,32 @@ a real kernel and asserts an `image/png` output, and its negative control (no
 
 | Helper | Draws |
 | --- | --- |
-| `plot_confusion_matrix(counts, labels=None, *, normalize=False, title=None, ax=None)` | gold by predicted, every cell annotated; `counts` may be an object with `.labels` and `.matrix` |
+| `plot_confusion_matrix(counts, labels=None, *, row_labels=None, col_labels=None, row_axis_title="Gold", col_axis_title="Predicted", normalize=False, title=None, ax=None)` | gold by predicted, every cell annotated; `counts` may be an object with `.labels` and `.matrix`; rows and columns may have different labels and titles |
 | `plot_answer_probabilities(answer, *, highlight=None, title=None, ax=None)` | probability bars for a Choice, Score, Noul, or a plain mapping |
 | `plot_threshold_sweep(thresholds, metrics=None, *, chosen=None, title=None, ax=None)` | one line per metric, chosen threshold marked; `thresholds` may be a list of objects with `.threshold` and `.precision`, `.recall`, `.f1` |
-| `plot_risk_coverage(coverage, risk=None, *, label=None, reference_risk=None, title=None, ax=None)` | error rate on answered cases against fraction answered; `coverage` may be an object with `.coverage` and `.risk` |
+| `plot_risk_coverage(coverage, risk=None, *, label=None, reference_risk=None, connect=True, title=None, ax=None)` | error rate on answered cases against fraction answered; `coverage` may be an object with `.coverage` and `.risk`; `connect=False` draws markers only |
 
 The evaluation toolkit's results are accepted by duck typing, without importing it:
 `confusion_matrix(...)` results (`.labels`, `.matrix`), the list from `threshold_sweep(...)`
 (each point has `.threshold`, `.precision`, `.recall`, `.f1`; an undefined NaN value leaves a
 gap in the line), and `selective_curve(...)` results (`.coverage`, `.risk`).
+
+Two options exist for data that is not one vocabulary or one curve, and three decisions
+came with them:
+
+- `plot_confusion_matrix` takes one `labels` list for both axes, as it always has. A table whose
+  rows and columns are different quantities (gold content against the final action) is a plain
+  array with `row_labels` and `col_labels` (either defaults to `labels`) and, to name the axes,
+  `row_axis_title` and `col_axis_title`. `ConfusionMatrix` does not change: it stays one
+  vocabulary, so its "gold option / predicted option" wording stays true, and a two-vocabulary
+  table is not a `ConfusionMatrix`. Abbreviation is judged on each axis on its own.
+- Abbreviating a label past 14 characters stays the default presentation. Wrapping or
+  rotating every long label would move each committed matrix that has one (recipe 47 among
+  them); only an axis on which abbreviation would merge two different labels gives it up.
+- `plot_risk_coverage` joins its points in the order given and never sorts them, so a
+  `SelectiveCurve` draws as it always has. Points that are separate policies, not a curve,
+  take `connect=False`: the same coordinates as markers only. Sorting was not chosen because
+  a sorted line still says the policies lie on one frontier.
 
 ### What the rendering tests check
 
@@ -224,8 +241,9 @@ that module with a new helper, or a new option on an existing one.
 Two behaviours follow from it:
 
 - `plot_confusion_matrix` abbreviates a label longer than 14 characters to its first 11 plus
-  `...`, as it always has. If that would make two different labels look the same (they share
-  their first 11 characters), it abbreviates none of them and stands the column labels on end.
+  `...`, as it always has. If that would make two different labels on an axis look the same
+  (they share their first 11 characters), it abbreviates none of that axis's labels and, for
+  the columns, stands them on end.
 - `plot_answer_probabilities` puts a Score's `score` legend in the lower-right corner, as it
   always has, unless a bar's value label would sit under it (a confident answer whose highest
   level is the bottom bar); it then moves to the upper-right corner, and outside the axes if
