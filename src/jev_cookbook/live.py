@@ -692,6 +692,10 @@ class LiveBackend:
     def decide(
         self, state: Any, questions: Mapping[str, Question], *, assets: Assets | None = None
     ) -> DecisionResult:
+        # First of all, so nothing below that raises can leave the previous call's retried
+        # attempts on a refused request's ledger line (see ``last_retried``).
+        with self._lock:
+            self._retried = []
         plain_state, checked = _check_request(state, questions)
         key = replay_key(plain_state, checked, assets=assets)
         checked_assets = _check_assets(plain_state, checked, assets)
@@ -724,8 +728,6 @@ class LiveBackend:
             }
         payload = {name: _question_payload(q) for name, q in checked.items()}
         attempt = 0
-        with self._lock:
-            self._retried = []
         # Errors are raised after their `except` block has ended, so neither `__cause__` nor
         # `__context__` carries the SDK exception (its message may echo the key).
         while True:
@@ -970,15 +972,20 @@ def record(
     answer validation raises ``LiveResponseError`` naming the question and field; nothing
     is loosened.
 
-    ``ledger_path`` optionally writes a sidecar with one line per paid call made here
-    (``request_id`` is not part of the stored-response format, so it lives there): a success is
-    ``{replay_key: {status: "recorded", request_id, model, date, input_tokens, output_tokens}}``
-    and a call that produced nothing to record (``invalid_response``, ``error``, ``timeout``,
-    ``budget_stopped``) is ``{replay_key + "!failed-N": {status, error_type, http_status,
-    request_id, model, date, attempts, retried}}``, written before the error is re-raised.
-    ``attempts`` is the HTTP attempts that call spent (a budget stop with nothing sent is 0) and
-    ``retried`` lists ``{error_type, http_status, request_id}`` for each failed attempt it retried
-    past, on both kinds of line. Re-recording a key with ``overwrite=True`` keeps the earlier
+    ``ledger_path`` optionally writes a sidecar with one line per ``decide`` call made here: each
+    paid call, and each call refused before anything was sent, which spends nothing
+    (``request_id`` is not part of the stored-response format, so it lives there). A success is
+    ``{replay_key: {status: "recorded", request_id, model, date, input_tokens, output_tokens,
+    attempts, retried}}``, plus ``images`` and ``distinct_images`` (counts only) when the call
+    carried image assets. A call that produced nothing to record (``invalid_response``, ``error``,
+    ``timeout``, ``budget_stopped``) is ``{replay_key + "!failed-N": {status, error_type,
+    http_status, request_id, model, date, attempts, retried}}`` with no image counts, written
+    before the error is re-raised. A request refused before anything was sent
+    (``ImageRequestTooLarge``, ``LiveConfigError``, a request that fails validation) is
+    ``status: "error"`` with ``error_type`` the exception's class name and ``attempts`` 0.
+    ``attempts`` is the HTTP attempts that call spent (0 when nothing was sent) and ``retried``
+    lists ``{error_type, http_status, request_id}`` for each failed attempt it retried past, on
+    both kinds of line. Re-recording a key with ``overwrite=True`` keeps the earlier
     ``recorded`` entry under ``superseded``. A ``ledger_path`` inside a ``fixtures/`` directory,
     or the same file as ``responses_path``, is refused with ``ValueError`` before any call.
     """

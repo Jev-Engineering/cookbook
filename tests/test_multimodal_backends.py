@@ -755,6 +755,53 @@ def test_the_recorder_refuses_an_over_cap_request_without_spending(monkeypatch, 
     assert line["status"] == "error" and line["attempts"] == 0
 
 
+class RetryOnceClient(Client):
+    """Fails its first call with a retryable 503 (request id ``req-retried-1``), then answers."""
+
+    def system_one(self, **kwargs):
+        self.calls.append(kwargs)
+        if len(self.calls) == 1:
+            error = RuntimeError("temporarily unavailable")
+            error.status = 503
+            error.request_id = "req-retried-1"
+            raise error
+        return self.body
+
+
+def test_a_refused_request_does_not_inherit_the_previous_calls_retried_list(
+    monkeypatch, fake_sdk, tmp_path
+):
+    from jev_cookbook.vision import ImageRequestTooLarge
+
+    accepting_any_bytes(monkeypatch)
+    backend = LiveBackend(
+        "jev-1.14.0", client=RetryOnceClient(), images=True, sleep=lambda seconds: None
+    )
+    sent = (
+        {"photo": "<small>"},
+        {"target": Box(instructions="Find the target.")},
+        {"<small>": sized(1000)},
+    )
+    refused = (
+        {"photo": "<big> " * 5},
+        {"q": Noul(instructions="Fine?")},
+        {"<big>": sized(7 * MIB)},
+    )
+    ledger = tmp_path / "ledger.json"
+    with pytest.raises(ImageRequestTooLarge):
+        record(backend, [sent, refused], tmp_path / "r.json", ledger_path=ledger)
+    lines = json.loads(ledger.read_text("utf-8"))
+    (recorded,) = [entry for key, entry in lines.items() if "!failed-" not in key]
+    (failed,) = [entry for key, entry in lines.items() if key.endswith("!failed-1")]
+    # The first call retried once past a 503 and then succeeded.
+    assert recorded["status"] == "recorded" and recorded["attempts"] == 2
+    assert [attempt["request_id"] for attempt in recorded["retried"]] == ["req-retried-1"]
+    # The refusal sent nothing, so it retried past nothing: its line must not repeat the 503.
+    assert failed["status"] == "error" and failed["error_type"] == "ImageRequestTooLarge"
+    assert failed["attempts"] == 0 and failed["retried"] == []
+    assert backend.last_retried == ()
+
+
 def test_the_live_ledger_carries_image_counts_beside_the_token_fields(fake_sdk, tmp_path):
     backend = LiveBackend("jev-1.14.0", client=Client(), images=True)
     questions = {"target": Box(instructions=f"The pink rectangle in `photo`; ignore {REF}.")}

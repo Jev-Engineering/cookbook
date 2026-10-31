@@ -128,7 +128,7 @@ state fields is a deliberate choice that costs a copy each time.
 `LiveBackend.decide` calls `preflight_image_request(profile)` after validating the request and
 before importing the SDK or spending anything. If the distinct bytes or the expanded bytes exceed
 32 MiB it raises `ImageRequestTooLarge` (a `ValueError`) that names the counts and the cure;
-`requests_made` stays 0. The check uses no network and covers only the distinct-image and
+`requests_made` is unchanged. The check uses no network and covers only the distinct-image and
 expanded caps, and only in part. It is necessary, not sufficient, and a request that passes can
 still be refused:
 

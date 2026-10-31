@@ -512,7 +512,7 @@ references to avoid accidental substring matches. See the official [image contra
 
 A reference repeated in state, criteria or several questions' instructions adds a copy of the
 image each time, and the live backend refuses a request whose distinct images or expanded copies
-exceed 32 MiB before spending anything (`ImageRequestTooLarge`, `requests_made == 0`). That check
+exceed 32 MiB before spending anything (`ImageRequestTooLarge`, `requests_made` unchanged). That check
 is necessary, not sufficient: it does not model the request-body cap, and a request that passes
 can still be refused. Put a shared image in the state once.
 [Copies and the 32 MiB caps](vision.md#image-copies-and-the-32-mib-caps)
