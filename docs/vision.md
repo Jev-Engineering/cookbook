@@ -652,10 +652,10 @@ window = window_timestamps(sampled, 1, 2)  # start 0.75, end 1.5, duration 0.75 
 - `start` / `end` bound an inclusive window (default: first and last timestamp). A window with
   no frame raises rather than returning nothing.
 - `every_seconds`: targets are `window_start + k * every_seconds` (multiplied, never
-  accumulated) up to `end`. Each target takes the **nearest** frame in the window; **a tie
-  goes to the earlier frame**. Frames within the 1e-9 s slack of each other are not
-  distinguishable by time: the rule is guaranteed for up to two such frames around a target, and
-  real elapsed-time data does not contain them. Repeats are
+  accumulated) up to `end`. Each target takes the **nearest** frame in the window. Frames whose
+  distance from the target is within the 1e-9 s slack of the smallest distance are tied,
+  however many there are and on either side of the target, and **the earliest tied frame
+  wins**, so an exact midpoint goes to the earlier frame. Repeats are
   dropped, so a sparse sequence returns fewer indices than targets. Use this when even
   spacing **in time** matters.
 - `count`: exactly `count` frames spread by **position**, not by time, across the window,
@@ -688,20 +688,25 @@ Other helpers:
   (ranks 89 and 92) as `{"window_start_seconds", "window_end_seconds", "indices"}`, edges
   inclusive, only windows that fit by stride. If the last of those stops short of the end, one
   final window aligned to the end (`[end - width, end]`) is added: frames every 0.5 s to 8 s
-  with width 3 and stride 2 give windows starting at 0, 2, 4 and 5. **Every frame lies in some
-  window only when `stride_seconds <= width_seconds`.** A larger stride gives deliberately
-  sparse windows: with frames every second to 10 s, width 1 and stride 5 the windows are
-  `[0, 1]`, `[5, 6]` and `[9, 10]`, so frames 2, 3, 4, 7 and 8 are in none, and nothing is
-  raised. Use a stride no larger than the width when every frame must be scored. A window in
-  a gap is kept with `indices == []`, so the recipe decides what an empty window means.
+  with width 3 and stride 2 give windows starting at 0, 2, 4 and 5. **When
+  `stride_seconds <= width_seconds`, every frame lies in some window.** A larger stride is
+  accepted, not rejected, because scoring only some stretches of a sequence is a valid choice;
+  a frame that falls between two windows is then in none, and nothing is raised. Whether any
+  frame does depends on where the frames fall: with frames every second to 10 s and width 1,
+  stride 5 gives the windows `[0, 1]`, `[5, 6]` and `[9, 10]`, so frames 2, 3, 4, 7 and 8 are
+  in none, while stride 1.5 leaves no frame out. With the default `start` and `end`, the
+  frames in no window are `set(range(n)) - {i for w in windows for i in w["indices"]}` for `n`
+  timestamps. Use a stride no larger than the width when every frame must be scored. A window
+  in a gap is kept with `indices == []`, so the recipe decides what an empty window means.
 - `transition_time(frames, first_new_index)` and `earliest_transition(frames, changed)` apply
   the cookbook's single convention for when a transition happened: the timestamp of the
   **first frame in which the new state is visible**. `changed[i]` is the answer to "did the
   state change between frame `i` and `i + 1`?" (`True`, `False`, or `None` for an undetermined
   pair); the first `True` gives that time, but an undetermined pair before it returns
-  `{"review": True, ...}` instead of a later transition. Gold labels
-  use the same rule, and the metric that compares them is `evaluation.transition_metrics`
-  ([evaluation.md](evaluation.md)), whose tolerance should be at least the largest sampled gap.
+  `{"review": True, ...}` instead of a later transition. Gold labels use the same rule and
+  have a stated format ([Transition labels](fixtures.md#transition-labels)), and the metric
+  that compares them is `evaluation.transition_metrics` ([evaluation.md](evaluation.md)),
+  whose tolerance should be at least the largest sampled gap.
 
 **Index spaces.** `sample_frames` returns indices into the list it was given. `select_frames`
 copies the rows and adds `frame_index`, the position in the list selected from (kept when you

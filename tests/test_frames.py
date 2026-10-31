@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import json
 import math
+import random
+from pathlib import Path
 
 import numpy as np
 import pytest
 
 from jev_cookbook import frames
+from jev_cookbook.evaluation import transition_metrics
+from jev_cookbook.fixtures import validate_recipe
 from jev_cookbook.frames import (
     earliest_transition,
     frame_at,
@@ -303,6 +308,72 @@ def test_tie_rule_holds_when_frames_are_closer_than_the_slack():
     assert sample_frames([0.0, 1.0 - 5e-10, 1.0 + 5e-10, 2.0], every_seconds=1) == [0, 1, 3]
 
 
+@pytest.mark.parametrize(
+    ("times", "expected"),
+    [
+        # three frames: index 1 is exactly on the target (1.0), indices 2 and 3 are just after it
+        ([0.0, 1.0, 1.0 + 3e-10, 1.0 + 6e-10, 2.0], [0, 1, 4]),
+        # three frames around the target: the earliest of the tied frames wins
+        ([0.0, 1.0 - 4e-10, 1.0, 1.0 + 4e-10, 2.0], [0, 1, 4]),
+        # three frames, all after the target; the first of them is the closest
+        ([0.0, 1.0 + 1e-10, 1.0 + 2e-10, 1.0 + 3e-10, 2.0], [0, 1, 4]),
+        # four frames after the target
+        ([0.0, 1.0, 1.0 + 2e-10, 1.0 + 4e-10, 1.0 + 6e-10, 2.0], [0, 1, 5]),
+        # three frames up to the target: index 3 is exactly on it, indices 1 and 2 are just before
+        # it, so the earliest tied frame is two frames before the closest one
+        ([0.0, 1.0 - 6e-10, 1.0 - 3e-10, 1.0, 2.0], [0, 1, 4]),
+        # the closest frame is index 2 (1e-10 after the target); index 1 is 5e-10 before it, so
+        # its distance is within 1e-9 of the smallest one and the two are tied
+        ([0.0, 1.0 - 5e-10, 1.0 + 1e-10, 1.0 + 2e-10, 2.0], [0, 1, 4]),
+        # index 1 is 3e-9 before the target, outside the slack of the closest frame (index 2,
+        # exactly on the target), so it is not tied
+        ([0.0, 1.0 - 3e-9, 1.0, 1.0 + 3e-10, 2.0], [0, 2, 4]),
+    ],
+)
+def test_every_seconds_picks_the_earliest_frame_within_the_slack_of_the_closest(times, expected):
+    assert sample_frames(times, every_seconds=1) == expected
+
+
+def test_a_cluster_inside_the_window_edge_slack_is_tied_too():
+    # index 1 is 3e-10 before start=1.0, inside the window's own slack, so it is eligible and
+    # tied with index 2 (exactly on the target) and index 3: the earliest of the three wins
+    times = [0.0, 1.0 - 3e-10, 1.0, 1.0 + 3e-10, 2.0]
+    assert sample_frames(times, every_seconds=1, start=1.0) == [1, 4]
+
+
+def _nearest_by_the_rule(times, every_seconds):
+    """The documented rule written out literally, with no cursor and no shortcut.
+
+    For each target, the earliest frame whose distance is within TIME_EPSILON of the smallest
+    distance; a frame chosen by two targets is kept once.
+    """
+    n_targets = math.floor(
+        (times[-1] - times[0]) / every_seconds + frames.TIME_EPSILON / every_seconds
+    )
+    chosen = []
+    for k in range(n_targets + 1):
+        target = times[0] + k * every_seconds
+        distance = [abs(t - target) for t in times]
+        smallest = min(distance)
+        best = next(i for i, d in enumerate(distance) if d <= smallest + frames.TIME_EPSILON)
+        if not chosen or chosen[-1] != best:
+            chosen.append(best)
+    return chosen
+
+
+def test_every_seconds_matches_the_rule_written_out_literally_including_clusters():
+    rng = random.Random(340)
+    gaps = [1e-10, 2e-10, 3e-10, 5e-10, 9e-10, 0.1, 0.25, 0.5, 1.0]
+    for _ in range(2000):
+        times, now = [], 0.0
+        for _ in range(rng.randint(1, 12)):
+            now += rng.choice(gaps)
+            times.append(now)
+        every = rng.choice([0.1, 0.25, 0.3, 0.5, 1.0])
+        got = sample_frames(times, every_seconds=every)
+        assert got == _nearest_by_the_rule(times, every), (times, every)
+
+
 def test_count_spreading_is_by_position_not_by_time():
     # the 9.7 s gap is not sampled evenly: positions 0, 2, 4 keep 0.0, 0.2 and 10.0
     assert sample_frames([0.0, 0.1, 0.2, 0.3, 10.0], count=3) == [0, 2, 4]
@@ -519,6 +590,20 @@ def test_frame_windows_with_a_stride_wider_than_the_width_leave_frames_out():
     assert sorted(set(range(21)) - _covered(narrow)) == [2, 5, 8, 11, 14, 17]
 
 
+def test_frame_windows_stride_wider_than_the_width_is_accepted_and_may_leave_no_frame_out():
+    times = [float(i) for i in range(11)]  # 0 .. 10 s, one frame per second
+    # width 1, stride 1.5: the windows [0, 1] [1.5, 2.5] [3, 4] [4.5, 5.5] [6, 7] [7.5, 8.5]
+    # [9, 10] hold every frame although the stride is wider than the width: no error, no gap
+    aligned = frame_windows(times, width_seconds=1.0, stride_seconds=1.5)
+    assert [w["window_start_seconds"] for w in aligned] == [0.0, 1.5, 3.0, 4.5, 6.0, 7.5, 9.0]
+    assert set(range(11)) - _covered(aligned) == set()
+    # width 1, stride 5: the frames in no window are what the documented expression gives
+    sparse = frame_windows(times, width_seconds=1.0, stride_seconds=5.0)
+    n = len(times)
+    uncovered = set(range(n)) - {i for w in sparse for i in w["indices"]}
+    assert uncovered == {2, 3, 4, 7, 8}
+
+
 def test_select_frames_validates_an_existing_frame_index():
     state = rows(0.0, 1.0)
     state[1]["frame_index"] = 7
@@ -528,3 +613,95 @@ def test_select_frames_validates_an_existing_frame_index():
         broken[1]["frame_index"] = bad
         with pytest.raises(ValueError, match="frame_index"):
             select_frames(broken, [1])
+
+
+DOCS = Path(__file__).resolve().parent.parent / "docs"
+
+
+def _transition_label_section():
+    """The "Transition labels" section of docs/fixtures.md and its JSON example rows."""
+    text = (DOCS / "fixtures.md").read_text("utf-8")
+    start = text.index("### Transition labels\n")
+    section = text[start : text.index("\n## ", start)]
+    lines = [
+        line
+        for block in section.split("```json\n")[1:]
+        for line in block[: block.index("```")].splitlines()
+        if line.strip()
+    ]
+    return section, [json.loads(line) for line in lines]
+
+
+def _validator_problems(root, labels):
+    """What the fixture validator reports for a recipe whose test split carries ``labels``."""
+    folder = root / "01-demo" / "fixtures"
+    folder.mkdir(parents=True)
+    ids = ["v00"] + [f"s{i:02d}" for i in range(len(labels))]
+    splits = ["validation"] + ["test"] * len(labels)
+    inputs = [
+        {"id": ident, "split": split, "fields": {"n": n}, "replay_keys": []}
+        for n, (ident, split) in enumerate(zip(ids, splits, strict=True))
+    ]
+    gold = [{"transition": "opened", "seconds": 1.0}, *labels]
+    gold_rows = [{"id": ident, "label": label} for ident, label in zip(ids, gold, strict=True)]
+    for name, content in (("inputs", inputs), ("labels", gold_rows)):
+        text = "".join(json.dumps(row) + "\n" for row in content)
+        (folder / f"{name}.jsonl").write_text(text, encoding="utf-8", newline="\n")
+    return [str(problem) for problem in validate_recipe(folder.parent)]
+
+
+def test_transition_label_examples_follow_the_stated_format_and_decode_for_the_metric():
+    _, examples = _transition_label_section()
+    assert len(examples) >= 2
+    pairs = []
+    for row in examples:
+        label = row["label"]
+        assert "transition" in label and set(label) <= {"transition", "seconds"}, label
+        assert isinstance(label["transition"], str) and label["transition"], label
+        if "seconds" in label:
+            seconds = label["seconds"]
+            assert isinstance(seconds, int | float) and not isinstance(seconds, bool), label
+            assert math.isfinite(seconds) and seconds >= 0, label
+        pairs.append((label["transition"], label.get("seconds")))
+    assert any(s is None for _, s in pairs) and any(s is not None for _, s in pairs), (
+        "the section must show a label with a time and one without"
+    )
+    scored = transition_metrics(pairs, pairs, tolerance_seconds=0.5)
+    assert scored.exact_correct == len(pairs)
+
+
+def test_the_validator_checks_nothing_specific_to_transition_labels(tmp_path):
+    _, examples = _transition_label_section()
+    shown = [row["label"] for row in examples]
+    assert _validator_problems(tmp_path / "ok", shown) == []
+    malformed = [
+        {"transition": "opened", "seconds": -1.0},
+        {"transition": "opened", "seconds": "2.5"},
+        {"transition": "opened", "seconds": True},
+        {"transition": "opened", "seconds": None},
+        {"seconds": 2.5},
+        {"transition": "", "seconds": 1.0},
+        {"transition": "opened", "seconds": 2.5, "note": "x"},
+        {"transition": "uncertain"},
+    ]
+    for n, label in enumerate(malformed):
+        assert _validator_problems(tmp_path / f"bad{n}", [label]) == [], label
+    # `present` is the Box format's marker: the validator reads the object as a Box label
+    marked = {"transition": "opened", "seconds": 2.5, "present": True}
+    problems = _validator_problems(tmp_path / "present", [marked])
+    assert any("Box label" in problem for problem in problems), problems
+    # and a file that mixes Box labels with transition labels fails
+    mixed = _validator_problems(tmp_path / "mixed", [{"present": False}])
+    assert any("Box label" in problem for problem in mixed), mixed
+
+
+def test_the_metric_rejects_a_malformed_gold_time_and_a_review_label():
+    for pair in [("opened", -1.0), ("opened", "2.5"), ("opened", True), ("uncertain", None)]:
+        with pytest.raises(ValueError):
+            transition_metrics([pair], [pair], tolerance_seconds=0.5)
+
+
+def test_vision_links_to_the_transition_label_format():
+    vision = (DOCS / "vision.md").read_text("utf-8")
+    assert "(fixtures.md#transition-labels)" in vision
+    assert "### Transition labels\n" in (DOCS / "fixtures.md").read_text("utf-8")
