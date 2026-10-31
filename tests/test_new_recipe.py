@@ -2456,7 +2456,7 @@ def test_the_generated_stored_answers_test_fails_when_no_wrong_answer_is_confide
     script = folder / "build_fixtures.py"
     text = script.read_text("utf-8")
     weakened = text.replace('"loading", 25, 0.81,', '"loading", 25, 0.51,').replace(
-        '"error", 27, 0.18,', '"error", 27, 0.49,'
+        '"error", 54, 0.18,', '"error", 54, 0.49,'
     )
     assert weakened.count("0.51") == 1 and weakened.count("0.49") == 1
     script.write_text(weakened, encoding="utf-8", newline="\n")
