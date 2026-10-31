@@ -18,6 +18,8 @@ python -m venv .venv
 pip install -e ".[dev,ml]"
 #    ml is scikit-learn: CI installs it, and pytest below collects every recipe's helpers.py,
 #    which may import it. Add ,live to also run tests/test_live_sdk.py (CI does on Python 3.14).
+#    The `optional live extra` block near the end of the run says which set was measured; see
+#    "Comparing runs with and without the live extra" below.
 
 # 2. Lint and format check
 ruff check .
@@ -80,7 +82,10 @@ Both are described below and in [notebook-ci.md](notebook-ci.md).
 
 The two test jobs differ on purpose: `Tests (py3.14)` installs `.[dev,ml,live]` so the SDK-backed
 tests in `tests/test_live_sdk.py` run, while `Tests (py3.10)` installs `.[dev,ml]` and proves
-the package and every offline test work with the SDK absent (that one module is skipped).
+the package and every offline test work with the SDK absent. There the SDK-backed tests are
+skipped one by one: each test and each parametrized case is its own `SKIPPED` line, not one skip
+for the module. One more test, in `tests/test_notebook_ci_netguard.py`, skips inside its body
+when the SDK is absent.
 
 Both install the `ml` extra, because the test jobs import every recipe's `helpers.py` and
 `tests/`, and `ml` is the extra a recipe is told it may use. Neither applies
@@ -109,6 +114,49 @@ request can never satisfy it, because no recipe on `main` may link forward to on
 yet published and a recipe pull request may change only its own folder. Run it by hand at each
 wave close-out, after the close-out sweep has added the missing backlinks:
 `pytest -m catalog_audit tests/test_recipe_guard.py`.
+
+### Comparing runs with and without the live extra
+
+Two honest runs of the same tree can differ in their passed and skipped totals, depending on
+whether the `live` extra (`typesafe_sdk` and `httpx2`) is installed. Neither total is wrong, so
+never quote a pytest total without the summary line described below.
+
+Every run says which case it is. `tests/conftest.py` prints a header line, either
+`live extra (typesafe_sdk, httpx2): INSTALLED ...` or `NOT INSTALLED (missing: ...)`, which `-q`
+hides. It also always prints one summary line near the end of the run, just before pytest's own
+totals line, in a block headed `optional live extra`, even under `-q`. With the extra it reads
+`live extra INSTALLED: SDK-gated tests in this run: ran=N skipped=0 deselected=0`. Without it
+it reads `live extra NOT INSTALLED (missing: typesafe_sdk, httpx2): SDK-gated tests in this
+run: ran=0 skipped=M deselected=0 -- install with pip install -e ".[live]" to run them;
+counts are not comparable with a run that has it`.
+
+Each dynamic count has the same scope, and none of them is a whole-suite total. It is counted
+per test node id, so a parametrized case is its own test, and it covers only the SDK-gated
+tests of this one invocation. A test is SDK-gated if it carries the `live_sdk` marker or is
+skipped with a reason that names `typesafe_sdk` or `httpx2`. `ran` counts the gated tests
+executed (passed, failed, errored, xfailed or xpassed), `skipped` counts the gated tests
+skipped, and `deselected` counts the gated tests removed by `-k`, `-m` or `--deselect`. A
+test's setup, call and teardown reports are counted once. The counts move with every test
+added and with the SDK version, so none of them is frozen in the repository.
+
+The skip is per test. The `live_sdk` marker is applied by `pytestmark` in
+`tests/test_live_sdk.py` and registered in `tests/conftest.py`, so each skip is one test, and
+the skip count equals the number of SDK-gated tests not run.
+
+To compare two runs, run the same command, with the same paths and the same `-k` or `-m`, once
+with `pip install -e ".[dev,ml]"` and once with `pip install -e ".[dev,ml,live]"`. In a
+like-for-like pair, `skipped` in the run without the extra equals `ran` in the run with it,
+and pytest's own totals differ by that amount: `passed` is higher with the extra and `skipped`
+is lower. There is one honest exception. A test that skips inside its body, through an
+in-test `pytest.importorskip` such as the one in `tests/test_notebook_ci_netguard.py`, carries
+no marker, so it is counted only when it skips. Such a test makes `skipped` without the extra
+exceed `ran` with the extra by the number of such tests. A difference beyond that is a real
+difference, not the extra.
+
+To run only the SDK-backed tests, use `pytest -m live_sdk`. To leave them out, use
+`pytest -m "not live_sdk and not catalog_audit"`. A command-line `-m` replaces the
+`-m 'not catalog_audit'` in `addopts`, so keep `and not catalog_audit` whenever you exclude
+by marker, or the `catalog_audit` test runs too.
 
 ### Notebook checks (workflow `Notebooks`)
 
