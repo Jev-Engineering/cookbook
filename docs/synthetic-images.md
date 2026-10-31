@@ -163,19 +163,73 @@ Colours are `PALETTE` names (`"ink"`, `"blue"`, ...) or `(r, g, b)`.
 | Perturbations | `blur`, `noise`, `lighting` (brightness, with a left-to-right gradient for a shadow), `occlude` (cover a fraction of a target from one side). |
 | Frames | `moving_object_frame(s)`, `build_frames`, `save_frames`, `interpolate`. |
 
-**Text** uses a 5 by 7 bitmap font drawn for this module (MIT, like the repository), at an
-integer `scale`. It has `A-Z`, `0-9`, space and ``. , : ; - _ + = / ( ) ! ? % # * ' " < > [ ]``;
-lower case is folded to upper case (the folded text is what `attrs["text"]` reports) and any other
-character raises `ValueError` instead of drawing a blank. There is no system font and no FreeType
-involved, which is what makes the pixels the same everywhere. It has no accents and no
-non-Latin scripts: a recipe that needs them (rank 96, multilingual instructions) needs a decision
-about a committed font that this module does not make.
+`line` endpoints must be within 8192 pixels of the origin in each coordinate (a line may run off the
+canvas, and is clipped), and its width at most 1568, so a stray number cannot make the rasteriser
+walk billions of pixels.
+
+**Text** uses a 5 by 7 bitmap font drawn for this module (MIT, like the repository), at an integer
+`scale`. It draws upper case Latin `A-Z`, digits `0-9`, space, the punctuation
+``. , : ; - _ + = / ( ) ! ? % # * ' " < > [ ]``, and the Cyrillic and Greek capitals listed in
+[Scripts and their limits](#scripts-and-their-limits). Input is normalised to NFC first, so a letter
+typed as a base letter and a combining mark is one letter (Cyrillic Й, typed as И and a combining
+breve, is the single letter Й). Lower case is then folded to upper case, and the folded text is what
+`attrs["text"]` reports. Any other character raises `ValueError` ("no glyph") instead of drawing a
+blank, and text with no visible character (only spaces) raises `ValueError` too ("no visible
+character"). In `text_block`, a line that is only spaces is not drawn but still takes its row, so it works as a blank separator line (`["TOTAL", " ", "42"]`), and the line after it keeps its pitch and its index in the part name (`name.line2`). `parts` holds one entry per visible line, `attrs["lines"]` counts every input line, and the block's box is the extent of the visible lines. A block with no visible character at all raises `ValueError` ("no visible character"), like a single text of only spaces; an empty string is still an error. There is no system font and no FreeType involved, which is what makes the pixels the
+same everywhere.
 
 **Randomness** comes from `Rng`, splitmix64 written in integer arithmetic (`Rng(0).u64()` is
 `0xE220A8397B1DCDAF`, the published first output for seed 0). Python's `random` is not used: only
 `random.random()` is stable across releases. A canvas has its own stream (`seed=`), advanced only by
 primitives that need randomness (`signature`, `scratch`, `dent`, `noise`, and the scenes' own
 choices), so a fixed sequence of calls always draws the same pixels.
+
+### Scripts and their limits
+
+| Script | What is drawn | Capitals |
+| - | - | - |
+| Latin | A-Z, 26 letters | A B C D E F G H I J K L M N O P Q R S T U V W X Y Z |
+| Cyrillic | the 32 capitals of the modern Russian alphabet, without Ё | А Б В Г Д Е Ж З И Й К Л М Н О П Р С Т У Ф Х Ц Ч Ш Щ Ъ Ы Ь Э Ю Я |
+| Greek | the 24 capitals; lower case and final sigma fold to these; no tonos or other accents | Α Β Γ Δ Ε Ζ Η Θ Ι Κ Λ Μ Ν Ξ Ο Π Ρ Σ Τ Υ Φ Χ Ψ Ω |
+
+`SUPPORTED_SCRIPTS` holds the same sets, and `SUPPORTED_CHARACTERS` lists every drawable character.
+
+**Decision.** Non-Latin text in synthetic images is drawn with the module's own integer bitmap glyphs,
+extended to Cyrillic and Greek capitals; no font file is committed. The reason is byte-identical
+pixels without FreeType: its output differs between versions and hinting settings, which would break
+the pixel and byte pins. A committed glyph table also means no licence to track and nothing to
+download. This is the foundation decision that rank 96 was waiting for.
+
+**Limits.** Capitals only. There is no Ё, and no Ukrainian, Serbian, Belarusian or other Cyrillic
+extension letters. There are no accented Latin letters: é, ñ and ü raise `ValueError`, and ß folds
+to SS. So Spanish, French and German signage must be drawn without accents or not at all.
+The MICRO SIGN (U+00B5) is refused with a `ValueError` that names it, because it would upper-case to Greek capital Mu and draw as a Latin M, so "5 µs" would read "5 MS"; spell the unit out or write "US". There are
+no Arabic, Hebrew, Indic, Thai, Chinese, Japanese or Korean glyphs: those scripts need joining,
+shaping or thousands of glyphs, not a 5 by 7 cell, and any such character raises `ValueError`. The
+glyphs are blocky capitals designed here and were not reviewed by native readers, so a reviewer
+checks that every drawn word is legible and spelled correctly.
+
+**Homoglyphs.** Some Cyrillic and Greek capitals are shaped like Latin ones and draw exactly the same
+pixels as the Latin letter: Cyrillic А В Е К М Н О Р С Т Х and Greek Α Β Ε Ζ Η Ι Κ Μ Ν Ο Ρ Τ Υ Χ. The
+pairs Г and Γ, П and Π, and Ф and Φ also draw the same pixels as each other. So a word made only of
+those letters, such as МАМА, is pixel-identical to its Latin look-alike, MAMA, and shows nothing about
+reading a non-Latin script. `attrs["text"]` keeps the real code points. Never transliterate a Latin
+word into Cyrillic or Greek letters and call it a non-Latin test. Use `text_scripts(text)`, which
+reports the scripts the letters belong to, in the order Latin, Cyrillic, Greek, and require
+`looks_like_latin(text)` to be False for any text that is meant to be non-Latin. `looks_like_latin(text) is False` is necessary but not sufficient, so also require `text_scripts(text)` to be exactly the intended script (for example `("Cyrillic",)`); near look-alikes exist (Д is close to a Latin A with feet, Б to a 6), and because Cyrillic and Greek share some shapes (Г/Γ, П/Π, Ф/Φ) a word made of such letters can be pixel-identical in either script.
+
+**What it does not prove.** A synthetic image of blocky capitals in these alphabets tests a pipeline:
+a typed question, the presence rule and the evaluation. It does not prove anything about how a model
+reads real signage or photographs in those languages, and a recipe must say so.
+
+**Recorded limit, not met by this change.** Scripts beyond these need a committed licensed font. The
+concrete route is an SIL OFL 1.1 font such as Noto Sans and the Noto script variants, with its licence
+file committed; its glyphs pre-rasterised once to a committed bitmap table by a one-off tool run in a
+pinned environment, because live FreeType rendering is not reproducible across FreeType versions and
+so cannot feed the pixel pins; and a shaping engine for Arabic and Indic scripts, which Pillow's basic
+layout does not provide. That is a licensing and maintenance decision for the repository owner, not a
+recipe builder's, and it is not made here. Rank 96 therefore uses Cyrillic and Greek for its in-image
+text, and anything else must be a symbol or pictogram.
 
 ### Example scenes
 
@@ -187,7 +241,7 @@ copy and change, not a catalogue.
 | - | - | - | - |
 | `login_screen` | `state` (`normal`, `error`, `loading`, `crash`), `seed` | `window`, `logo`, `username`, `password`, `submit`, and `error_banner`, `spinner` or `dialog` | 61, 62, 73, 77, 88, 93, 99, 100 |
 | `part_photo` | `defect` (`none`, `scratch`, `dent`, `missing_screw`), `seed` | `part`, `screw_tl` ..., `connector`, `serial`, `defect` | 63, 67, 71, 81, 82 |
-| `deck_hud` | `cards` 1-5, `enemies` 0-3, `energy`, `energy_max`, `seed` | `player`, `enemy_i` (+ `.intent`, `.hp`), `energy`, `card_i`, `end_turn` | 80, 87, 95 |
+| `deck_hud` | `cards` 1-5, `enemies` 0-3, `energy_max` an integer 0-9, `energy` 0 to `energy_max`, `seed` | `player`, `enemy_i` (+ `.intent`, `.hp`), `energy`, `card_i`, `end_turn` | 80, 87, 95 |
 | `moving_object_frame` | `t`, `start`, `end`, `travel_seconds`, `appear_at`, `disappear_at`, `object_size`, `seed` | `belt`, and `item` while present | 85 to 92 |
 
 ![A sign-in screen in four states](assets/synthetic-images/login-states.png)
@@ -255,12 +309,16 @@ with tempfile.TemporaryDirectory() as folder:
 assert [row["timestamp_seconds"] for row in state] == [0.0, 1.0, 2.5, 4.0]
 ```
 
+`save_frames` names each file from the name given (`belt` above) and the frame's index. The index is zero-padded to the width of the largest index (at least two digits, `-00` to `-99`, then `-000` for 101 frames or more), so the names sort in time order.
+
 For a sequence of your own, `build_frames(times, draw)` calls `draw(t)` for each time and returns
 `Frame(timestamp_seconds, canvas)` objects; give the canvas a `provenance(...)` for the manifest.
 Each frame is a still: there is no video file or codec anywhere (see the
 [multimodal track](multimodal-track.md)).
 
-![Six stills of an item on a belt: absent, then moving](assets/synthetic-images/frames.png)
+![Six stills of an item on a belt at 0, 0.75, 1.5, 2.25, 3 and 4 seconds: absent at the first, then moving](assets/synthetic-images/frames.png)
+
+The times are not drawn into the stills: the picture is the gallery's committed bytes, and a recipe's own frames carry their time in the `(timestamp_seconds, path)` pairs, not in the pixels; a recipe that wants a visible clock draws one with `text` on its own canvas.
 
 ## Saving and the manifest
 
@@ -271,7 +329,7 @@ link that leaves the recipe is refused), the exact bytes against the API's limit
 (`vision.validate_image_asset`: each side 280 to 1568 pixels, the area range), the chunk set and
 the 1 MiB cap. An image that fails raises `ValueError` and leaves nothing on disk (not the file,
 not an empty `assets/`, not a temporary file), and a file is written to a temporary name and
-renamed, so a failure part-way leaves none either. `Canvas` cannot make an undersized image, but
+renamed, so a failure part-way leaves none either. The committed file keeps the mode that the process's umask gives a new file (normally 0644), not the private 0600 of the temporary file. `Canvas` cannot make an undersized image, but
 `write_asset` and `write_png` also take a raw Pillow image, which is where this matters. The
 image-file contract, with the 280 pixel minimum, is in
 [fixtures.md](fixtures.md#the-image-file-contract) and is enforced by
@@ -305,6 +363,8 @@ for entry in manifest["assets"]:
         assert si.check_reproducible(RECIPE_DIR, entry) in ("unchanged", "kept-committed-bytes")
 ```
 
+`reproduce` and `check_reproducible` raise `ValueError` for parameters that do not fit the scene, and for a manifest entry missing `generator`, `parameters` or `path`; they never raise a bare `TypeError` or `KeyError`.
+
 ## Byte stability and regeneration
 
 An image's bytes are part of the replay key (`backends.replay_key` hashes them), so a regenerated
@@ -325,7 +385,11 @@ every example scene.
 encoder and from the zlib it is linked to, so the gate is both: `CANONICAL_PILLOW` (the Pillow in
 [`.github/constraints-notebooks.txt`](../.github/constraints-notebooks.txt), kept equal by a
 test) **and** a classic zlib 1.x (not zlib-ng, whose deflate output differs), and
-`bytes_are_canonical()` is true only when both hold. The evidence, measured rather than assumed:
+`bytes_are_canonical()` is true only when both hold. The zlib must be a plain numeric `1.x` or `1.x.y`
+version string: a build that appends a suffix (zlib-ng, `-ipp`, `-cf`, a fourth component) is outside
+the measured set. A fork that reports an unmodified upstream number cannot be told apart by its
+version, so that gap is a decided limit; the ten `GOLDEN` byte digests are what would catch it. The
+evidence, measured rather than assumed:
 Pillow 12.3.0 reports zlib 1.2.13 from a PyPI wheel and zlib 1.3 on the GitHub Actions runner,
 Pillow 13.0.0 reports 1.2.13, and all three wrote identical bytes for every example scene and every
 gallery sheet. So the zlib version is deliberately not pinned exactly (that would switch the byte
@@ -352,7 +416,7 @@ Pillow version reads: there the decoded pixels decide.
 | `unchanged` | The bytes are the same. |
 | `kept-committed-bytes` | Different bytes, same decoded pixels, and `bytes_are_canonical()` is false. Nothing written. |
 | `rewritten` | `overwrite=True` and the bytes differed. |
-| raises `RegenerationMismatch` | Different pixels (the message says the generator, its parameters or the seed changed the picture), or the same pixels with different bytes where `bytes_are_canonical()` is true (the message says the committed file was not written by the canonical encoder, so recreate it under the pin; the generator is not at fault, since equal pixels encode to the canonical bytes), and no `overwrite`. |
+| raises `RegenerationMismatch` | Different pixels (the message says the generator, its parameters or the seed changed the picture), or the same pixels with different bytes where `bytes_are_canonical()` is true (the message says the committed file was not written by the canonical encoder, so recreate it under the pin; the generator is not at fault, since equal pixels encode to the canonical bytes), or the committed file cannot be decoded as an image at all (the message says it is empty, truncated, corrupt or not a PNG, and does not blame the generator), and no `overwrite`. |
 | raises `ValueError` | The image is outside the API's limits, carries metadata or is over 1 MiB. Nothing is written. |
 
 **Bumping the Pillow pin** in `.github/constraints-notebooks.txt` is a foundation change with
@@ -370,7 +434,11 @@ the resolved environment is canonical. Today that is `Tests (py3.10)`: Pillow 13
 3.11 or later, so Python 3.10 resolves 12.3.0. `Tests (py3.14)` resolves a newer Pillow and skips
 them, reporting why; its pixel pins still run. If the floor moves to 3.11 the byte pins stop
 running in CI until a job installs under the constraints, so run them yourself before a pin bump:
-`pip install -e ".[dev]" -c .github/constraints-notebooks.txt && pytest tests/test_synthetic_images.py`.
+`pip install -e ".[dev]" -c .github/constraints-notebooks.txt && pytest tests/test_synthetic_images.py`. A test, the guard test, asserts that on GitHub Actions the
+floor-Python leg (`Tests (py3.10)`, the floor read from `requires-python` in `pyproject.toml`) really
+runs the pins: it fails that leg if a new Pillow or a different zlib would switch them off silently.
+It is leg-aware, so it cannot detect the other leg's state, and it fails by design when the floor
+moves to 3.11, until a job installs under the constraints.
 Only PNG is generated: a JPEG's bytes depend on the libjpeg build, so a lossy variant of a picture
 should be made with `blur` or `noise`, not by saving as JPEG.
 

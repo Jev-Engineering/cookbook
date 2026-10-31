@@ -26,8 +26,9 @@ import json
 import math
 import os
 import re
+import secrets
 import struct
-import tempfile
+import unicodedata
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from fractions import Fraction
@@ -49,6 +50,7 @@ __all__ = [
     "PALETTE",
     "SCENES",
     "SUPPORTED_CHARACTERS",
+    "SUPPORTED_SCRIPTS",
     "Canvas",
     "Drawn",
     "Frame",
@@ -65,6 +67,7 @@ __all__ = [
     "grid_positions",
     "interpolate",
     "login_screen",
+    "looks_like_latin",
     "manifest_entry",
     "mix",
     "moving_object_frame",
@@ -74,6 +77,7 @@ __all__ = [
     "png_pixels_equal",
     "reproduce",
     "save_frames",
+    "text_scripts",
     "text_width",
     "write_asset",
     "write_png",
@@ -82,8 +86,10 @@ __all__ = [
 # The environment whose PNG encoder produced the committed bytes. The bytes of a PNG come from
 # Pillow's encoder (filter choice, written chunks) and from the zlib it is linked to. CANONICAL_PILLOW
 # is the Pillow pinned in .github/constraints-notebooks.txt (a test keeps the two equal). The zlib
-# is required to be a classic zlib 1.x, not zlib-ng or another implementation, whose deflate output
-# differs. Measured, not assumed: Pillow 12.3.0 reports zlib 1.2.13 from a local PyPI wheel and
+# must be a plain numeric 1.x release (see _classic_zlib), not zlib-ng or another implementation,
+# whose deflate output differs. A fork that reports an unmodified upstream number cannot be told
+# apart by its version: the GOLDEN byte digests in the tests are what catch it. Measured, not
+# assumed: Pillow 12.3.0 reports zlib 1.2.13 from a local PyPI wheel and
 # zlib 1.3 on the GitHub Actions runner, Pillow 13.0.0 reports 1.2.13, and all three wrote
 # identical bytes for every example scene and gallery sheet. Only when the Pillow matches AND the
 # zlib is classic are the bytes the contract; under any other environment the decoded pixels are
@@ -119,9 +125,16 @@ PALETTE: dict[str, Colour] = {
 }
 
 # --- the 5x7 bitmap font ----------------------------------------------------------------------
-# Drawn by hand for this module (MIT, like the repository). Upper case only: lower case input is
-# folded to upper case and the folded text is what Drawn.attrs["text"] reports. A character
-# outside this table raises ValueError rather than drawing a blank.
+# Drawn by hand for this module (MIT, like the repository). The first table is ASCII: upper case
+# letters, digits, space and punctuation. After it come the Cyrillic capitals U+0410..U+042F and
+# the Greek capitals U+0391..U+03A9 without U+03A2 (SUPPORTED_SCRIPTS). Input is NFC-normalised and
+# upper-cased before lookup, so lower case and decomposed letters fold to a capital. The folded text
+# is what Drawn.attrs["text"] reports, with the real code points. A character outside this table
+# raises ValueError rather than drawing a blank.
+# Of the 56 non-ASCII letters, 25 are homoglyphs: a Cyrillic or Greek capital shaped like a Latin
+# capital reuses that Latin glyph, so it draws the same pixels as the Latin letter. The other 31
+# have a shape of their own, except that Greek GAMMA, PI and PHI share the shape of Cyrillic GHE,
+# PE and EF. Pixels that match Latin prove nothing about a script; see looks_like_latin.
 
 GLYPH_WIDTH = 5
 GLYPH_HEIGHT = 7
@@ -189,6 +202,80 @@ _GLYPH_SOURCE = {
     "]": ".###./...#./...#./...#./...#./...#./.###.",
 }
 
+# The Cyrillic and Greek capitals. They come after the ASCII table, so its entries and their order
+# are unchanged. The keys are \uXXXX escapes, and each comment names the letter.
+_SHAPES_NON_ASCII = {
+    "\u0411": "#####/#..../#..../####./#...#/#...#/####.",  # CYRILLIC CAPITAL BE
+    "\u0413": "#####/#..../#..../#..../#..../#..../#....",  # CYRILLIC CAPITAL GHE
+    "\u0414": ".###./.#.#./.#.#./.#.#./#####/#...#/#...#",  # CYRILLIC CAPITAL DE
+    "\u0416": "#.#.#/#.#.#/.###./..#../.###./#.#.#/#.#.#",  # CYRILLIC CAPITAL ZHE
+    "\u0417": ".###./#...#/....#/..##./....#/#...#/.###.",  # CYRILLIC CAPITAL ZE
+    "\u0418": "#...#/#...#/#..##/#.#.#/##..#/#...#/#...#",  # CYRILLIC CAPITAL I
+    "\u0419": ".#.#./..#../#...#/#..##/#.#.#/##..#/#...#",  # CYRILLIC CAPITAL SHORT I
+    "\u041b": "..###/.#..#/.#..#/.#..#/#...#/#...#/#...#",  # CYRILLIC CAPITAL EL
+    "\u041f": "#####/#...#/#...#/#...#/#...#/#...#/#...#",  # CYRILLIC CAPITAL PE
+    "\u0423": "#...#/#...#/.#.#./..#../..#../.#.../#....",  # CYRILLIC CAPITAL U
+    "\u0424": "..#../.###./#.#.#/#.#.#/#.#.#/.###./..#..",  # CYRILLIC CAPITAL EF
+    "\u0426": "#..#./#..#./#..#./#..#./#..#./#####/....#",  # CYRILLIC CAPITAL TSE
+    "\u0427": "#...#/#...#/#...#/.####/....#/....#/....#",  # CYRILLIC CAPITAL CHE
+    "\u0428": "#.#.#/#.#.#/#.#.#/#.#.#/#.#.#/#.#.#/#####",  # CYRILLIC CAPITAL SHA
+    "\u0429": "#.#.#/#.#.#/#.#.#/#.#.#/#.#.#/#####/....#",  # CYRILLIC CAPITAL SHCHA
+    "\u042a": "##.../.#.../.#.../.###./.#..#/.#..#/.###.",  # CYRILLIC CAPITAL HARD SIGN
+    "\u042b": "#...#/#...#/#...#/###.#/#..##/#..##/###.#",  # CYRILLIC CAPITAL YERU
+    "\u042c": "#..../#..../#..../####./#...#/#...#/####.",  # CYRILLIC CAPITAL SOFT SIGN
+    "\u042d": ".###./#...#/....#/.####/....#/#...#/.###.",  # CYRILLIC CAPITAL E
+    "\u042e": "#..#./#.#.#/#.#.#/###.#/#.#.#/#.#.#/#..#.",  # CYRILLIC CAPITAL YU
+    "\u042f": ".####/#...#/#...#/.####/..#.#/.#..#/#...#",  # CYRILLIC CAPITAL YA
+    "\u0393": "#####/#..../#..../#..../#..../#..../#....",  # GREEK CAPITAL GAMMA
+    "\u0394": "..#../..#../.#.#./.#.#./#...#/#...#/#####",  # GREEK CAPITAL DELTA
+    "\u0398": ".###./#...#/#...#/#####/#...#/#...#/.###.",  # GREEK CAPITAL THETA
+    "\u039b": "..#../..#../.#.#./.#.#./#...#/#...#/#...#",  # GREEK CAPITAL LAMDA
+    "\u039e": "#####/...../...../.###./...../...../#####",  # GREEK CAPITAL XI
+    "\u03a0": "#####/#...#/#...#/#...#/#...#/#...#/#...#",  # GREEK CAPITAL PI
+    "\u03a3": "#####/#..../.#.../..#../.#.../#..../#####",  # GREEK CAPITAL SIGMA
+    "\u03a6": "..#../.###./#.#.#/#.#.#/#.#.#/.###./..#..",  # GREEK CAPITAL PHI
+    "\u03a8": "#.#.#/#.#.#/#.#.#/.###./..#../..#../..#..",  # GREEK CAPITAL PSI
+    "\u03a9": ".###./#...#/#...#/#...#/.#.#./.#.#./##.##",  # GREEK CAPITAL OMEGA
+}
+# Each homoglyph reuses the glyph of the Latin capital it looks like.
+_HOMOGLYPHS = {
+    "\u0410": "A",  # CYRILLIC CAPITAL A
+    "\u0412": "B",  # CYRILLIC CAPITAL VE
+    "\u0415": "E",  # CYRILLIC CAPITAL IE
+    "\u041a": "K",  # CYRILLIC CAPITAL KA
+    "\u041c": "M",  # CYRILLIC CAPITAL EM
+    "\u041d": "H",  # CYRILLIC CAPITAL EN
+    "\u041e": "O",  # CYRILLIC CAPITAL O
+    "\u0420": "P",  # CYRILLIC CAPITAL ER
+    "\u0421": "C",  # CYRILLIC CAPITAL ES
+    "\u0422": "T",  # CYRILLIC CAPITAL TE
+    "\u0425": "X",  # CYRILLIC CAPITAL HA
+    "\u0391": "A",  # GREEK CAPITAL ALPHA
+    "\u0392": "B",  # GREEK CAPITAL BETA
+    "\u0395": "E",  # GREEK CAPITAL EPSILON
+    "\u0396": "Z",  # GREEK CAPITAL ZETA
+    "\u0397": "H",  # GREEK CAPITAL ETA
+    "\u0399": "I",  # GREEK CAPITAL IOTA
+    "\u039a": "K",  # GREEK CAPITAL KAPPA
+    "\u039c": "M",  # GREEK CAPITAL MU
+    "\u039d": "N",  # GREEK CAPITAL NU
+    "\u039f": "O",  # GREEK CAPITAL OMICRON
+    "\u03a1": "P",  # GREEK CAPITAL RHO
+    "\u03a4": "T",  # GREEK CAPITAL TAU
+    "\u03a5": "Y",  # GREEK CAPITAL UPSILON
+    "\u03a7": "X",  # GREEK CAPITAL CHI
+}
+_NON_ASCII_SOURCE = {
+    **_SHAPES_NON_ASCII,
+    **{char: _GLYPH_SOURCE[latin] for char, latin in _HOMOGLYPHS.items()},
+}
+# Cyrillic first, then Greek, each in code-point order. The sort key puts U+0400 and up (Cyrillic)
+# ahead of the Greek capitals, which sit below U+0400.
+_GLYPH_SOURCE.update(
+    (char, _NON_ASCII_SOURCE[char])
+    for char in sorted(_NON_ASCII_SOURCE, key=lambda char: (ord(char) < 0x400, ord(char)))
+)
+
 
 def _compile_glyphs() -> dict[str, tuple[tuple[int, int, int], ...]]:
     """Per glyph, the lit runs as ``(row, first_column, last_column)``."""
@@ -213,12 +300,30 @@ def _compile_glyphs() -> dict[str, tuple[tuple[int, int, int], ...]]:
 
 _GLYPHS = _compile_glyphs()
 SUPPORTED_CHARACTERS = "".join(_GLYPHS)
+# The letters of each script the font draws, in code-point order (the three ranges are the
+# letters, not a copy of the table). A homoglyph is listed under its own script.
+SUPPORTED_SCRIPTS: dict[str, str] = {
+    "Latin": "".join(chr(c) for c in range(ord("A"), ord("Z") + 1)),
+    "Cyrillic": "".join(chr(c) for c in range(0x0410, 0x0430)),  # U+0410..U+042F
+    "Greek": "".join(chr(c) for c in range(0x0391, 0x03AA) if c != 0x03A2),  # no U+03A2
+}
+# The shapes of the ASCII characters. A glyph whose shape is in this set draws the same pixels as
+# some ASCII text, so it proves nothing about reading a non-Latin script (see looks_like_latin).
+_ASCII_SHAPES = frozenset(shape for char, shape in _GLYPH_SOURCE.items() if char.isascii())
 
 
 def _fold(text: str) -> str:
     if not isinstance(text, str) or not text:
         raise ValueError("text must be a non-empty string")
-    folded = text.upper()
+    # MICRO SIGN is refused rather than folded: its upper case is GREEK CAPITAL MU, which draws as
+    # a Latin M, so a unit such as "5 us" would read "5 MS". Spell the unit out or write "US".
+    if "\N{MICRO SIGN}" in text:
+        raise ValueError(
+            "the text has U+00B5 MICRO SIGN, which would upper-case to GREEK CAPITAL MU and draw "
+            "as a Latin M (5 us would read 5 MS); spell the unit out or write US"
+        )
+    # NFC first, so a letter typed as a base letter plus a combining mark is one code point
+    folded = unicodedata.normalize("NFC", text).upper()
     bad = sorted({c for c in folded if c not in _GLYPHS})
     if bad:
         raise ValueError(f"the built-in font has no glyph for {bad!r}; see SUPPORTED_CHARACTERS")
@@ -242,6 +347,37 @@ def fit_scale(text: str, max_width: int, max_height: int, *, maximum: int = 8) -
         if text_width(text, scale) <= max_width and GLYPH_HEIGHT * scale <= max_height:
             return scale
     raise ValueError(f"{text!r} does not fit in {max_width}x{max_height} pixels even at scale 1")
+
+
+def text_scripts(text: str) -> tuple[str, ...]:
+    """The scripts of the letters in ``text`` (after folding), in the order Latin, Cyrillic, Greek.
+
+    Digits, punctuation and spaces belong to no script. A character the font does not have is a
+    ValueError. A homoglyph counts as the script it is written in: a Cyrillic capital shaped like
+    a Latin one is Cyrillic here, although it draws the Latin letter's pixels. ``attrs["text"]``
+    keeps the real code points. Nothing here proves anything about a real model's multilingual
+    quality.
+    """
+    folded = _fold(text)
+    return tuple(
+        script
+        for script, letters in SUPPORTED_SCRIPTS.items()
+        if any(char in letters for char in folded)
+    )
+
+
+def looks_like_latin(text: str) -> bool:
+    """True when every character of ``text`` (after folding) has a glyph shape identical to the
+    shape of some ASCII character, so the picture is pixel-identical to some Latin or ASCII text.
+
+    Homoglyph letters (Cyrillic and Greek capitals shaped like Latin ones) draw the same pixels as
+    the Latin letter, and ``Drawn.attrs["text"]`` keeps the real code points. A test of reading a
+    non-Latin script must therefore use ``looks_like_latin(text) is False``: a picture that passes
+    as Latin proves nothing about reading that script. Nothing here proves anything about a real
+    model's multilingual quality. Digits and punctuation are ASCII, so they count as Latin.
+    """
+    folded = _fold(text)
+    return all(_GLYPH_SOURCE[char] in _ASCII_SHAPES for char in folded)
 
 
 # --- colours and numbers ------------------------------------------------------------------------
@@ -538,6 +674,9 @@ def _triangle_spans(w: int, h: int, direction: str) -> Iterable[tuple[int, int, 
 _EMBLEMS = ("disc", "ring", "triangle", "bars", "stack")
 _LOGO_COLOURS = ("blue", "teal", "green", "amber", "red", "purple")
 _SHAPES = ("rect", "ellipse", "triangle", "triangle-down", "triangle-left", "triangle-right")
+# A line endpoint further than this from the origin is refused: a Bresenham line takes one step
+# per pixel of its length, so an unbounded endpoint would take unbounded time.
+_MAX_COORDINATE = 8192
 
 
 class Canvas:
@@ -747,8 +886,14 @@ class Canvas:
     ) -> Drawn:
         """A Bresenham line drawn with a ``width`` x ``width`` square brush (centred, rounding up)."""
         for value, label in ((x0, "x0"), (y0, "y0"), (x1, "x1"), (y1, "y1")):
-            _int(value, label)
+            if abs(_int(value, label)) > _MAX_COORDINATE:
+                raise ValueError(
+                    f"{label} is {value}; a line coordinate must be from -{_MAX_COORDINATE} "
+                    f"to {_MAX_COORDINATE} pixels"
+                )
         _int(width, "width", minimum=1)
+        if width > IMAGE_LIMITS["max_side"]:
+            raise ValueError(f"width must be at most {IMAGE_LIMITS['max_side']} pixels")
         paint = _colour(colour)
         offset = (width - 1) // 2
         dx, dy = abs(x1 - x0), -abs(y1 - y0)
@@ -788,6 +933,8 @@ class Canvas:
         _int(x, "x"), _int(y, "y")
         scale = _scale(scale)
         folded = _fold(text)
+        if not any(_GLYPHS[char] for char in folded):
+            raise ValueError("the text has no visible character (only spaces)")
         paint = _colour(colour)
         for index, char in enumerate(folded):
             left = x + index * GLYPH_PITCH * scale
@@ -830,15 +977,25 @@ class Canvas:
         leading: int = 3,
         name: str | None = None,
     ) -> Drawn:
-        """Lines of text, ``7 + leading`` glyph rows apart. ``parts`` are the lines."""
+        """Lines of text, ``7 + leading`` glyph rows apart.
+
+        A blank line (only spaces) is not drawn but keeps its row. ``parts`` has one entry per
+        visible line, named by its input index (``name.line2`` is the third input line), and
+        ``attrs["lines"]`` counts every input line. A block with no visible character is refused
+        (ValueError) before anything is drawn; an empty or non-string line is refused too.
+        """
         if isinstance(lines, str) or not lines:
             raise ValueError("lines must be a non-empty sequence of strings")
         pitch = (GLYPH_HEIGHT + _int(leading, "leading", minimum=0)) * _scale(scale)
+        folded = [_fold(line) for line in lines]
+        visible = [i for i, f in enumerate(folded) if any(_GLYPHS[c] for c in f)]
+        if not visible:
+            raise ValueError("the text block has no visible character (only spaces)")
         parts = tuple(
-            self.text(x, y + i * pitch, line, colour, scale, name=_sub(name, f"line{i}"))
-            for i, line in enumerate(lines)
+            self.text(x, y + i * pitch, lines[i], colour, scale, name=_sub(name, f"line{i}"))
+            for i in visible
         )
-        return self._record(name, "text-block", self._union(parts), parts, lines=len(parts))
+        return self._record(name, "text-block", self._union(parts), parts, lines=len(lines))
 
     # -- labelled objects, stamps, signatures, symbols --
 
@@ -1703,9 +1860,15 @@ _ASSET_PATH = re.compile(r"^assets/([A-Za-z0-9][A-Za-z0-9_.-]*/)*[A-Za-z0-9][A-Z
 
 
 def _classic_zlib() -> bool:
-    """Is Pillow linked to a classic zlib 1.x (not zlib-ng, whose output differs)?"""
-    version = (features.version("zlib") or "").lower()
-    return version.startswith("1.") and "ng" not in version
+    """Is Pillow linked to a plain numeric zlib 1.x release (``1.2.13``, ``1.3``, ``1.3.1``)?
+
+    Anything else is not classic: a suffix (``1.3.1.zlib-ng``, ``1.2.11-ipp``, ``1.3.1-cf``), a
+    four-part development version, ``zlib 1.3``, or an empty or missing value. A fork that reports
+    an unmodified upstream number cannot be told apart by its version; the GOLDEN byte digests in
+    the tests are what catch it.
+    """
+    version = (features.version("zlib") or "").strip()
+    return re.fullmatch(r"1\.\d+(\.\d+)?", version) is not None
 
 
 def bytes_are_canonical() -> bool:
@@ -1722,7 +1885,23 @@ def _compare(existing: bytes, regenerated: bytes, label: str) -> str:
     if existing == regenerated:
         return "unchanged"
     try:
-        same_pixels = png_pixels_equal(existing, regenerated)
+        committed = _pixels(existing)
+    except (
+        OSError,
+        ValueError,
+        SyntaxError,
+        EOFError,
+        struct.error,
+        Image.DecompressionBombError,
+    ) as exc:
+        raise RegenerationMismatch(
+            f"{label}: the committed file cannot be read as an image (it is empty, truncated, "
+            "corrupt or not a PNG), so there is nothing to compare the regenerated picture with; "
+            "nothing written. Replace it deliberately with overwrite=True (and then rebuild the "
+            "manifest hash and replay_keys)"
+        ) from exc
+    try:
+        same_pixels = _pixels(regenerated) == committed
     except (OSError, ValueError):
         same_pixels = False
     if not same_pixels:
@@ -1787,13 +1966,18 @@ def _store(image: Image.Image | Canvas, target: Path, overwrite: bool) -> str:
             return _compare(existing, data, target.name)
         status = "rewritten"
     target.parent.mkdir(parents=True, exist_ok=True)
-    handle, name = tempfile.mkstemp(dir=target.parent, prefix=".tmp-", suffix=".part")
+    # A unique sibling name, so os.replace is a rename on one filesystem. It is created with
+    # O_EXCL and mode 0o666, so the process umask decides the permissions (0644 normally), as for
+    # any file the program creates. tempfile.mkstemp would have made it private (0600).
+    name = target.parent / f".tmp-{secrets.token_hex(8)}.part"
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+    handle = os.open(name, flags, 0o666)
     try:
         with os.fdopen(handle, "wb") as out:
             out.write(data)
         os.replace(name, target)
     except BaseException:
-        Path(name).unlink(missing_ok=True)
+        name.unlink(missing_ok=True)
         raise
     return status
 
@@ -1867,13 +2051,24 @@ def reproduce(generator: str, parameters: Mapping[str, Any]) -> Canvas:
     module, _, function = generator.partition(":")
     if module != "jev_cookbook.synthetic_images" or function not in SCENES:
         raise ValueError(f"{generator!r} is not one of {sorted(SCENES)} of this module")
-    return SCENES[function](**parameters)
+    if not isinstance(parameters, Mapping):
+        raise ValueError("parameters must be a mapping of keyword arguments")
+    try:
+        return SCENES[function](**parameters)
+    except TypeError as exc:
+        # a wrong or missing keyword (binding), or a wrong-typed value the scene cannot use
+        raise ValueError(f"the parameters do not fit {function}: {exc}") from exc
 
 
 def check_reproducible(recipe_dir: Any, entry: Mapping[str, Any]) -> str:
     """Regenerate a manifest entry's image from its generator and parameters and compare it
     with the committed file under the byte policy. Returns 'unchanged' or
     'kept-committed-bytes'; raises :class:`RegenerationMismatch` otherwise. Writes nothing."""
+    if not isinstance(entry, Mapping):
+        raise ValueError("the manifest entry must be a mapping")
+    for key in ("generator", "parameters", "path"):
+        if key not in entry:
+            raise ValueError(f"the manifest entry has no {key!r}")
     canvas = reproduce(entry["generator"], entry["parameters"])
     committed = (Path(recipe_dir) / entry["path"]).read_bytes()
     return _compare(committed, canvas.png(), entry["path"])
@@ -1918,10 +2113,12 @@ def save_frames(
 ) -> list[tuple[float, str]]:
     """Write ``assets/<stem>-00.png``, ``-01``, ... under the byte policy of
     :func:`write_asset`, and return ``(timestamp_seconds, path)`` pairs, which is exactly what
-    ``vision.load_frames(pairs, root=recipe_dir)`` takes."""
+    ``vision.load_frames(pairs, root=recipe_dir)`` takes. The index has two digits, or more once
+    there are more than 100 frames, so every name has the same width and sorts in frame order."""
     pairs = []
+    width = max(2, len(str(len(frames) - 1)))
     for index, frame in enumerate(frames):
-        path = f"assets/{stem}-{index:02d}.png"
+        path = f"assets/{stem}-{index:0{width}d}.png"
         write_asset(frame.canvas, recipe_dir, path, overwrite=overwrite)
         pairs.append((frame.timestamp_seconds, path))
     return pairs
@@ -2047,6 +2244,7 @@ def deck_hud(
     for value, low, high, label in ((cards, 1, 5, "cards"), (enemies, 0, 3, "enemies")):
         if not low <= _int(value, label) <= high:
             raise ValueError(f"{label} must be from {low} to {high}")
+    energy_max = _int(energy_max, "energy_max")
     if not 0 <= _int(energy, "energy") <= energy_max <= 9:
         raise ValueError("energy must be from 0 to energy_max, which is at most 9")
     c = Canvas(800, 450, "navy", seed=seed)
