@@ -726,14 +726,16 @@ fields = {
 ## Honest accounting
 
 `run_record(result, mode=...)` creates one row with mode, returned model,
-input/output tokens, latency in seconds and cost in USD:
+input/output tokens, latency in seconds and cost in USD, and the capture date and N when you
+pass them:
 
 ```python
 from jev_cookbook.vision import run_record
 
 # result is a DecisionResult from the recipe's existing replay or live backend.
-# row = run_record(result, mode="synthetic")
-# row = run_record(result, mode="recorded", measured_latency_seconds=captured_seconds)
+# row = run_record(result, mode="synthetic", n=len(examples))
+# row = run_record(result, mode="recorded", measured_latency_seconds=captured_seconds,
+#                  capture_date="2026-10-31", n=len(examples))
 ```
 
 Synthetic and scripted rows contain `None` for model, tokens, latency and cost,
@@ -745,10 +747,92 @@ Provide `measured_latency_seconds` only for actual inference timing, and
 `measured_cost_usd` only for an actual measured charge. Replay execution time is
 not inference latency. Token-derived price calculations are estimates and do not
 belong in the measured-cost field. The helper neither times a request nor infers a
-price. For a replay of recorded responses, load any actual measurements from the
-capture record; leave missing ones null.
+price. For a replay of recorded responses, read the latency the recorder captured with
+`jev_cookbook.live.load_ledger_latency` ([live](live.md#latency) says what the timing
+covers) and leave a measurement that was not captured null.
+
+`capture_date` is a `YYYY-MM-DD` calendar date string and `n` a positive integer: the number of
+examples the row's numbers cover. Each is a key of the row only when you pass it, so a row built
+without them has the keys it had before. A synthetic or scripted row takes `n` and refuses
+`capture_date`, because nothing was captured. `2026-02-30`, `20261031` and a `datetime.date`
+object are refused as a capture date.
+
+```python
+from jev_cookbook.live import load_ledger_latency
+from jev_cookbook.vision import run_record
+
+# `ledger` is the sidecar that live.record(..., ledger_path=...) wrote, `key` the replay key of
+# the request, and `result` the recorded DecisionResult replayed for that key.
+measured = load_ledger_latency(ledger, key)  # None when no latency was captured for this key
+row = run_record(
+    result,
+    mode="recorded",
+    measured_latency_seconds=None if measured is None else measured.latency_seconds,
+    capture_date=None if measured is None else measured.date,
+    n=1,
+)
+```
+
+For a ledger line that holds 0.8 seconds captured on 2026-10-31 and a result that reported 61
+input tokens, `row` is:
+
+```text
+{'model': 'jev-1.13.0', 'input_tokens': 61, 'output_tokens': 0, 'latency_seconds': 0.8, 'cost_usd': None, 'mode': 'recorded', 'capture_date': '2026-10-31', 'n': 1}
+```
 
 Continue to use `run_header`, the recipe's measured-results disclosure and the
 [offline/live contract](offline-and-live.md). Accounting rows do not make a
 synthetic pipeline check a model benchmark, or turn validation selection into a
 held-out result.
+
+### Context size and the comparison table
+
+`context_size(state, questions)` counts the text of a request on your machine and returns
+`{"characters": ..., "utf8_bytes": ...}`, the sum of `len(s)` and of `len(s.encode("utf-8"))`
+over the strings it covers. They are counts of characters and bytes, not tokens: the result has
+no token key, and the API's own count is the `usage.input_tokens` of a recorded response.
+
+The strings covered are the ones in the state (a string, the items of a list, or the keys and
+string values of an object, at any depth) and, for each question, its name and every string in
+its instructions and criteria, object keys included, so a `Choice`'s option names count.
+Numbers, booleans, JSON punctuation and the question type are not counted. An image reference
+counts as the text it is; the image behind it does not. A string shared by two questions is
+counted once per question. Pass one question to get the state plus that question, the
+per-question context that [live](live.md#context-limits) describes. A string that cannot be
+encoded as UTF-8, such as a lone surrogate, raises `ValueError`.
+
+`comparison_table(rows)` formats rows as aligned text. A row is a mapping with keys from `label`,
+`mode`, `model`, `characters`, `utf8_bytes`, `input_tokens`, `output_tokens`, `latency_seconds`,
+`cost_usd`, `capture_date` and `n`: normally a `run_record` row plus a label and the output of
+`context_size`. A column appears when at least one row has the key. A row without the key shows
+`-`; a key whose value is `None` shows `not measured`, so a synthetic or scripted row, or a
+recorded row whose response reported no `input_tokens`, shows no number it does not have. It
+raises `ValueError` for no rows, for a key outside that list, and for a synthetic or scripted row
+that holds a model, tokens, latency or cost.
+
+```python
+from jev_cookbook.vision import comparison_table, context_size
+
+# Continuing from above: `state` and `questions` are the request, `row` is the recorded row,
+# `synthetic_result` was replayed from a synthetic fixture, and `unreported` is a recorded result
+# whose response reported no usage.
+size = context_size(state, questions)  # {'characters': 123, 'utf8_bytes': 123}
+rows = [
+    {"label": "synthetic check", **run_record(synthetic_result, mode="synthetic", n=1), **size},
+    {"label": "recorded", **row, **size},
+    {"label": "no usage reported", **run_record(unreported, mode="recorded", n=1), **size},
+]
+print(comparison_table(rows))
+```
+
+```text
+label              mode       model         characters  utf8_bytes  input_tokens  output_tokens  latency_seconds  cost_usd      capture_date  n
+-----------------  ---------  ------------  ----------  ----------  ------------  -------------  ---------------  ------------  ------------  -
+synthetic check    synthetic  not measured  123         123         not measured  not measured   not measured     not measured  -             1
+recorded           recorded   jev-1.13.0    123         123         61            0              0.8              not measured  2026-10-31    1
+no usage reported  recorded   jev-1.13.0    123         123         not measured  not measured   not measured     not measured  -             1
+```
+
+A character count or a synthetic row does not demonstrate a measured long-context inference
+([multimodal-track.md](multimodal-track.md#what-an-evaluation-must-show)). `run_record` takes
+`input_tokens` from the recorded response and gives a synthetic or scripted row none.

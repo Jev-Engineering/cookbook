@@ -34,6 +34,7 @@ from jev_cookbook import (
     record,
     replay_key,
 )
+from jev_cookbook import live as live_module
 from jev_cookbook.live import _dump, dump_responses
 
 # A stand-in secret assembled at run time so no literal in this file looks like a credential.
@@ -114,6 +115,12 @@ def make(*outcomes, **kw):
     kw.setdefault("sleep", lambda s: None)
     client = FakeClient(*outcomes)
     return LiveBackend(kw.pop("model", "jev-latest"), client=client, **kw), client
+
+
+def clock_of(*readings):
+    """A clock that returns the given readings in turn: two per HTTP attempt, before and after."""
+    it = iter(readings)
+    return lambda: next(it)
 
 
 # -- protocol, provenance, shapes ------------------------------------------------------------
@@ -616,7 +623,10 @@ def test_record_surfaces_an_invalid_answer_and_writes_nothing_for_it(tmp_path):
 
 def test_record_writes_an_optional_request_id_sidecar(tmp_path):
     path, ledger = tmp_path / "r.json", tmp_path / "ledger.json"
-    backend, _ = make(Resp(api_body(usage={"input_tokens": 7, "output_tokens": None}), "req-9"))
+    backend, _ = make(
+        Resp(api_body(usage={"input_tokens": 7, "output_tokens": None}), "req-9"),
+        clock=clock_of(1.0, 1.25),
+    )
     report = record(backend, [(STATE, QUESTIONS)], path, ledger_path=ledger)
     key = replay_key(STATE, QUESTIONS)
     assert report.ledger_path == ledger
@@ -628,6 +638,7 @@ def test_record_writes_an_optional_request_id_sidecar(tmp_path):
             "date": DAY,
             "input_tokens": 7,
             "output_tokens": None,
+            "latency_seconds": 0.25,
             "attempts": 1,
             "retried": [],
         }
@@ -755,7 +766,9 @@ def test_a_200_with_a_text_body_has_no_parsed_response():
 
 def test_failure_on_the_second_call_leaves_a_ledger_with_the_first_request_id(tmp_path):
     path, ledger = tmp_path / "r.json", tmp_path / "ledger.json"
-    backend, _ = make(Resp(api_body(), "req-paid"), ApiError(400, "bad"))
+    backend, _ = make(
+        Resp(api_body(), "req-paid"), ApiError(400, "bad"), clock=clock_of(0.0, 0.5, 1.0, 1.125)
+    )
     with pytest.raises(LiveCallError):
         record(backend, two_requests(), path, ledger_path=ledger)
     first = replay_key(*two_requests()[0])
@@ -771,6 +784,7 @@ def test_failure_on_the_second_call_leaves_a_ledger_with_the_first_request_id(tm
         "request_id": "req-err-400",
         "model": "jev-latest",
         "date": DAY,
+        "latency_seconds": 0.125,
         "attempts": 1,
         "retried": [],
     }
@@ -977,6 +991,11 @@ def test_sidecar_attempts_add_up_to_requests_made_and_keep_retried_request_ids(t
         ApiError(503),
         max_requests=7,
         max_retries=2,
+        # Seven attempts, two readings each: A 0.5 s; B 1.0 s (timeout), 2.0 s (500), 0.25 s (200);
+        # C 0.75 s; D 0.125 s and 0.375 s.
+        clock=clock_of(
+            0.0, 0.5, 10.0, 11.0, 20.0, 22.0, 30.0, 30.25, 40.0, 40.75, 50.0, 50.125, 60.0, 60.375
+        ),
     )
     record(backend, doc(1), path, ledger_path=ledger)
     record(backend, doc(2), path, ledger_path=ledger)
@@ -991,24 +1010,47 @@ def test_sidecar_attempts_add_up_to_requests_made_and_keep_retried_request_ids(t
     assert [side[k]["attempts"] for k in (keys[0], keys[1])] == [1, 3]
     assert side[keys[1]]["request_id"] == "req-b"
     assert side[keys[1]]["retried"] == [
-        {"error_type": "TimeoutError", "http_status": None, "request_id": None},
-        {"error_type": "ApiError", "http_status": 500, "request_id": "req-err-500"},
+        {
+            "error_type": "TimeoutError",
+            "http_status": None,
+            "request_id": None,
+            "latency_seconds": 1.0,
+        },
+        {
+            "error_type": "ApiError",
+            "http_status": 500,
+            "request_id": "req-err-500",
+            "latency_seconds": 2.0,
+        },
     ]
     assert side[keys[0]]["retried"] == [] and side[keys[2] + "!failed-1"]["retried"] == []
     stopped = side[keys[3] + "!failed-1"]
     assert stopped["status"] == "budget_stopped" and stopped["attempts"] == 2
     assert [r["request_id"] for r in stopped["retried"]] == ["req-err-503", "req-err-503"]
+    assert side[keys[0]]["latency_seconds"] == 0.5 and side[keys[1]]["latency_seconds"] == 0.25
+    assert side[keys[2] + "!failed-1"]["latency_seconds"] == 0.75
+    # The budget stopped D before a third attempt was sent, so no attempt ended the call.
+    assert stopped["latency_seconds"] is None
+    assert [r["latency_seconds"] for r in stopped["retried"]] == [0.125, 0.375]
     assert "req-err-500" in ledger.read_text("utf-8")
 
 
 def test_a_failed_call_after_retries_lists_them_on_the_failed_line(tmp_path):
-    backend, _ = make(ApiError(502), ApiError(400), max_retries=2)
+    backend, _ = make(
+        ApiError(502), ApiError(400), max_retries=2, clock=clock_of(0.0, 0.5, 1.0, 1.25)
+    )
     _, side, _ = sidecar_after(tmp_path, backend)
     line = list(side.values())[0]
     assert line["attempts"] == 2 and line["http_status"] == 400
     assert line["retried"] == [
-        {"error_type": "ApiError", "http_status": 502, "request_id": "req-err-502"}
+        {
+            "error_type": "ApiError",
+            "http_status": 502,
+            "request_id": "req-err-502",
+            "latency_seconds": 0.5,
+        }
     ]
+    assert line["latency_seconds"] == 0.25
 
 
 def test_retried_entries_are_scrubbed(tmp_path, clean_env):
@@ -1115,3 +1157,233 @@ def test_a_text_only_live_ledger_summary_has_exactly_its_original_fields():
         "request_ids",
     ]
     assert backend.records[0].images == backend.records[0].distinct_images == 0
+
+
+# -- latency capture: per attempt, around the client call, in the ledger only ----------------
+
+
+def test_latency_window_is_the_client_call_and_nothing_around_it(monkeypatch):
+    events = []
+    readings = iter([10.0, 10.25])
+
+    def clock():
+        events.append(f"clock(requests_made={backend.requests_made})")
+        return next(readings)
+
+    class TimedClient:
+        def system_one(self, **kwargs):
+            events.append(f"client(requests_made={backend.requests_made})")
+            return Resp(api_body())
+
+    real_parse = live_module._parse_response
+
+    def parse(*args, **kwargs):
+        events.append("parse")
+        return real_parse(*args, **kwargs)
+
+    monkeypatch.setattr(live_module, "_parse_response", parse)
+    backend = LiveBackend(
+        "jev-latest",
+        client=TimedClient(),
+        clock=clock,
+        today=lambda: DAY,
+        sleep=lambda seconds: events.append("sleep"),
+    )
+    backend.decide(STATE, QUESTIONS)
+    # The attempt is already counted when the first reading is taken, and the second reading
+    # comes before the response is validated.
+    assert events == [
+        "clock(requests_made=1)",
+        "client(requests_made=1)",
+        "clock(requests_made=1)",
+        "parse",
+    ]
+    assert backend.records[0].latency_seconds == 0.25
+    assert backend.last_latency_seconds == 0.25
+
+
+def test_each_attempt_is_timed_and_the_backoff_sleep_is_outside_every_window():
+    events = []
+    readings = iter([0.0, 0.5, 1.0, 3.0])
+
+    def clock():
+        events.append("clock")
+        return next(readings)
+
+    client = FakeClient(ApiError(503), Resp(api_body()))
+    original = client.system_one
+
+    def logged(**kwargs):
+        events.append("client")
+        return original(**kwargs)
+
+    client.system_one = logged
+    backend = LiveBackend(
+        "jev-latest",
+        client=client,
+        clock=clock,
+        today=lambda: DAY,
+        sleep=lambda seconds: events.append(f"sleep({seconds})"),
+    )
+    backend.decide(STATE, QUESTIONS)
+    assert events == ["clock", "client", "clock", "sleep(0.5)", "clock", "client", "clock"]
+    assert [r["latency_seconds"] for r in backend.last_retried] == [0.5]
+    assert backend.records[0].latency_seconds == 2.0
+    assert backend.last_latency_seconds == 2.0
+
+
+def _raising_clock():
+    raise RuntimeError("the clock is broken")
+
+
+@pytest.mark.parametrize(
+    "make_clock, expected",
+    [
+        (lambda: clock_of(1.0, 3.5), 2.5),
+        (lambda: clock_of(5, 7), 2.0),
+        (lambda: clock_of(2.0, 2.0), 0.0),
+        (lambda: clock_of(0.1, 0.3), 0.2),  # 0.3 - 0.1 is 0.19999999999999998 before rounding
+        (lambda: clock_of(5.0, 4.0), None),
+        (lambda: clock_of(1.0, float("nan")), None),
+        (lambda: clock_of(1.0, float("inf")), None),
+        (lambda: clock_of(None, 1.0), None),
+        (lambda: clock_of(1.0, "x"), None),
+        (lambda: _raising_clock, None),
+    ],
+)
+def test_latency_is_none_unless_the_clock_gives_a_finite_non_negative_difference(
+    make_clock, expected
+):
+    backend, _ = make(Resp(api_body()), clock=make_clock())
+    backend.decide(STATE, QUESTIONS)
+    # A clock that cannot measure never loses the paid response; the latency is just missing.
+    assert len(backend.records) == 1 and backend.requests_made == 1
+    assert backend.records[0].latency_seconds == expected
+    assert backend.last_latency_seconds == expected
+
+
+def test_the_clock_must_be_callable():
+    with pytest.raises(TypeError, match="callable"):
+        LiveBackend("jev-latest", client=FakeClient(), clock=5)
+
+
+def test_a_call_record_built_without_a_latency_has_none():
+    assert live_module.CallRecord("k", "m", None, Usage(), DAY).latency_seconds is None
+
+
+def test_the_ledger_line_holds_the_latency_and_the_responses_file_and_keys_do_not(tmp_path):
+    for name, readings in (("fast", (0.0, 0.25)), ("slow", (100.0, 107.5))):
+        backend, _ = make(Resp(api_body(), "req-1"), clock=clock_of(*readings))
+        record(
+            backend,
+            [(STATE, QUESTIONS)],
+            tmp_path / name / "r.json",
+            ledger_path=tmp_path / f"{name}-ledger.json",
+        )
+    fast = (tmp_path / "fast" / "r.json").read_text("utf-8")
+    slow = (tmp_path / "slow" / "r.json").read_text("utf-8")
+    assert fast == slow and "latency" not in fast
+    key = replay_key(STATE, QUESTIONS)
+    assert set(json.loads(fast)) == {key}
+    ledger = {
+        n: json.loads((tmp_path / f"{n}-ledger.json").read_text("utf-8")) for n in ("fast", "slow")
+    }
+    assert ledger["fast"][key]["latency_seconds"] == 0.25
+    assert ledger["slow"][key]["latency_seconds"] == 7.5
+
+
+def test_a_failed_line_has_the_latency_of_the_attempt_that_ended_the_call(tmp_path):
+    path, ledger = tmp_path / "r.json", tmp_path / "ledger.json"
+    backend, _ = make(
+        ApiError(400),
+        Resp({"model": MODEL, "answers": {}}),
+        clock=clock_of(0.0, 0.75, 10.0, 10.5),
+    )
+    with pytest.raises(LiveCallError):
+        record(backend, doc(1), path, ledger_path=ledger)
+    with pytest.raises(LiveResponseError):
+        record(backend, doc(2), path, ledger_path=ledger)
+    side = json.loads(ledger.read_text("utf-8"))
+    keys = [replay_key(*doc(n)[0]) for n in (1, 2)]
+    assert side[keys[0] + "!failed-1"]["latency_seconds"] == 0.75
+    assert side[keys[1] + "!failed-1"]["latency_seconds"] == 0.5
+    assert backend.last_latency_seconds == 0.5
+
+
+def test_a_call_that_sends_nothing_has_no_latency_not_the_previous_calls():
+    backend, _ = make(Resp(api_body()), clock=clock_of(0.0, 0.25), max_requests=1)
+    backend.decide(STATE, QUESTIONS)
+    assert backend.last_latency_seconds == 0.25
+    with pytest.raises(ValueError):
+        backend.decide(STATE, {})
+    assert backend.last_latency_seconds is None
+    with pytest.raises(BudgetExceeded):
+        backend.decide({"document": "other"}, QUESTIONS)
+    assert backend.last_latency_seconds is None
+
+
+LEDGER_LINE = {"status": "recorded", "model": MODEL, "date": DAY}
+
+
+def write_ledger(tmp_path, lines):
+    path = tmp_path / "ledger.json"
+    path.write_text(json.dumps(lines), encoding="utf-8")
+    return path
+
+
+def test_load_ledger_latency_reads_what_record_wrote(tmp_path):
+    backend, _ = make(Resp(api_body()), clock=clock_of(1.0, 1.25))
+    record(backend, [(STATE, QUESTIONS)], tmp_path / "r.json", ledger_path=tmp_path / "l.json")
+    found = live_module.load_ledger_latency(tmp_path / "l.json", replay_key(STATE, QUESTIONS))
+    assert found == live_module.LedgerLatency(0.25, DAY, MODEL)
+
+
+@pytest.mark.parametrize(
+    "lines",
+    [
+        {},
+        {"k": dict(LEDGER_LINE)},
+        {"k": {**LEDGER_LINE, "latency_seconds": None}},
+        {"k!failed-1": {**LEDGER_LINE, "latency_seconds": 9.0}},
+        {"k": {**LEDGER_LINE, "status": "error", "latency_seconds": 9.0}},
+        {"k": 5},
+    ],
+)
+def test_load_ledger_latency_is_none_when_nothing_was_measured(tmp_path, lines):
+    assert live_module.load_ledger_latency(write_ledger(tmp_path, lines), "k") is None
+
+
+def test_a_zero_latency_is_a_measurement_not_a_missing_one(tmp_path):
+    path = write_ledger(tmp_path, {"k": {**LEDGER_LINE, "latency_seconds": 0}})
+    assert live_module.load_ledger_latency(path, "k") == live_module.LedgerLatency(0.0, DAY, MODEL)
+
+
+def test_only_the_line_under_the_key_is_read_not_its_history(tmp_path):
+    old = {**LEDGER_LINE, "latency_seconds": 99.0}
+    path = write_ledger(tmp_path, {"k": {**LEDGER_LINE, "latency_seconds": 2, "superseded": [old]}})
+    assert live_module.load_ledger_latency(path, "k") == live_module.LedgerLatency(2.0, DAY, MODEL)
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"latency_seconds": -1.0},
+        {"latency_seconds": True},
+        {"latency_seconds": "1"},
+        {"latency_seconds": float("nan")},
+        {"latency_seconds": float("inf")},
+        {"latency_seconds": 1.0, "date": None},
+        {"latency_seconds": 1.0, "model": ""},
+    ],
+)
+def test_load_ledger_latency_rejects_a_malformed_recorded_line(tmp_path, change):
+    path = write_ledger(tmp_path, {"k": {**LEDGER_LINE, **change}})
+    with pytest.raises(ValueError):
+        live_module.load_ledger_latency(path, "k")
+
+
+def test_load_ledger_latency_refuses_a_missing_file_and_a_non_text_key(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        live_module.load_ledger_latency(tmp_path / "nope.json", "k")
+    with pytest.raises(TypeError):
+        live_module.load_ledger_latency(write_ledger(tmp_path, {}), 5)

@@ -83,6 +83,25 @@ apply when a header is enabled; enabling a flag is not a measurement of accuracy
 latency or cost. See [images](https://docs.typesafe.ai/images),
 [Box](https://docs.typesafe.ai/primitives/box), and [models](https://docs.typesafe.ai/models).
 
+### Context limits
+
+These are the limits the models page states, read on 2026-10-31 at
+<https://docs.typesafe.ai/models>. Its table gives the context length of `jev-1.14.0` and
+`jev-1.13.0` as "64k per-request / 32k per-question". The page defines the per-request context as
+the state plus all questions combined and the per-question context as the state plus any one
+question, and a request has to fit both. It sets no separate limit on the number of questions.
+Sending the header `TypeSafe-Danger-Zone-Long-Context: true`, which `long_context=True` adds,
+raises both limits to 262k tokens on either model. The page adds that long context costs the same
+per token and is slower and less accurate than staying inside the default limits.
+
+The page states the 262k figure in tokens and does not say what a "k" in its table counts, so this
+cookbook converts none of the three limits to characters, and it does not check a request against
+them. [`context_size`](vision.md#context-size-and-the-comparison-table) counts characters and
+UTF-8 bytes, which are not tokens. The one token count the cookbook can show is the
+`usage.input_tokens` of a recorded response, which may be `null`. The documentation index at
+<https://docs.typesafe.ai/llms.txt> (read on 2026-10-31) lists no page or endpoint for counting or
+estimating tokens, and the cookbook has no estimator.
+
 ## What a call does
 
 - Requests are built from the question objects: `state` as given, each question as the raw
@@ -97,8 +116,9 @@ latency or cost. See [images](https://docs.typesafe.ai/images),
 - The `request_id` (the `x-typesafe-request-id` header, when present) is not part of the stored
   response format, and `DecisionResult` rejects unknown fields, so it is kept beside the result:
   `backend.last_request_id`, `backend.request_ids`, `backend.records` (one `CallRecord` per
-  successful call: replay key, model, request id, usage, date, and `images` and `distinct_images`,
-  both 0 unless the call carried image assets) and the recorder's optional sidecar.
+  successful call: replay key, model, request id, usage, date, `images` and `distinct_images`
+  (both 0 unless the call carried image assets) and `latency_seconds`, see [Latency](#latency))
+  and the recorder's optional sidecar.
 
 ## Budget guard
 
@@ -164,6 +184,53 @@ returning an SDK-style response. The backend requires no opt-in or key for it (i
 `retry=` the backend passes a no-retry policy per call, so the SDK's own retries cannot add
 requests; a client without that parameter that retries inside itself is invisible to the budget,
 so build it with retries off.
+
+## Latency
+
+Each HTTP attempt is timed with the backend's `clock` (default `time.perf_counter`, a monotonic
+clock; pass `clock=` to inject one in a test). The clock is read once immediately before
+`client.system_one(...)` is called and once immediately after that call returns or raises. The
+difference, rounded to a nanosecond, is the attempt's `latency_seconds`.
+
+| What | In the timed window? |
+| --- | --- |
+| Whatever the client does inside the one `system_one` call | Yes |
+| The budget check that counts the attempt | No: it comes first, so `requests_made` already includes the attempt at the first reading |
+| The cookbook's validation of the response | No: it comes after the second reading |
+| The backoff sleep before a retry | No: it falls between one attempt's second reading and the next attempt's first |
+| The recorder's ledger write | No: it happens after `decide` has returned |
+
+The cookbook does not look inside the client, so `latency_seconds` is the wall-clock time of that
+call as seen from the machine that made it. It is not a server-side or model-only time.
+
+Where it is kept:
+
+- `CallRecord.latency_seconds` and `backend.last_latency_seconds` hold the answering attempt's.
+- Each entry of `backend.last_retried` holds the `latency_seconds` of the failed attempt it
+  describes.
+- The recorder's sidecar holds it on a `recorded` line (the answering attempt), on every entry of
+  `retried`, and on a failed line (the attempt that ended the call; null when that call sent
+  nothing, such as a budget stop or a refusal).
+- It is not in the responses file and not in the replay key: recording one request under two
+  different clocks writes byte-identical response files.
+- `backend.ledger()`, the in-memory summary, has no latency field.
+
+A latency is null when the clock gave no usable reading: a difference that is negative or not
+finite, a clock that raises, or readings that cannot be subtracted. A call that took several
+attempts has one latency for its answering attempt; the failed attempts' latencies are in
+`retried`, and the backoff between attempts is in none of them, so their sum is not the call's
+elapsed time.
+
+### Reading a captured latency back
+
+`load_ledger_latency(ledger_path, replay_key)` returns a `LedgerLatency(latency_seconds, date,
+model)` for the `recorded` line stored under the key. It returns `None`, meaning "not measured",
+when the ledger has no `recorded` line under that key or the line has no latency (a ledger
+written before latency was captured has none). It reads only the line under the key itself: not a
+`!failed-N` line, not a `superseded` history entry, and nothing from a replay. It raises
+`FileNotFoundError` for a ledger file that does not exist and `ValueError` for a latency that is
+not a finite, non-negative number, or a line without a text date or model.
+[vision.md](vision.md#honest-accounting) shows the result feeding `run_record`.
 
 ## Recorder
 
@@ -233,27 +300,32 @@ report = record(
   there, and a path that is the same file as `responses_path` (including through a different
   spelling or a link). Never commit it as a fixture. It is rewritten atomically after every call.
   - A call that produced a response is `{replay_key: {status: "recorded", request_id, model, date,
-    input_tokens, output_tokens, attempts, retried}}`, written before that response is merged, so
-    a merge conflict still leaves its request id. `request_id` is the id of the answering
-    attempt. `attempts` is every HTTP attempt that call spent, the answering one included (1 when
+    input_tokens, output_tokens, latency_seconds, attempts, retried}}`, written before that
+    response is merged, so a merge conflict still leaves its request id. `request_id` is the id
+    of the answering attempt, and `latency_seconds` is that attempt's [latency](#latency).
+    `attempts` is every HTTP attempt that call spent, the answering one included (1 when
     nothing was retried). `retried` lists the failed attempts it retried past, oldest first, as
-    `{error_type, http_status, request_id}` (`http_status` and `request_id` are null when the
-    attempt got no response, for example a timeout); it is `[]` when nothing was retried.
+    `{error_type, http_status, request_id, latency_seconds}` (`http_status` and `request_id` are
+    null when the attempt got no response, for example a timeout; `latency_seconds` is that
+    attempt's own latency); it is `[]` when nothing was retried.
     `images` and `distinct_images` (the image copies and the distinct assets, counts only, never
     bytes or references) are added only when the call carried image assets; a text-only call's
     line has neither.
   - A call that produced nothing to record is written before the error is re-raised, as
     `{replay_key + "!failed-N": {status, error_type, http_status, request_id, model, date,
-    attempts, retried}}`. `status` is `invalid_response` (the API answered but the result failed
-    validation, or contained the key), `error` (an HTTP or connection error, or any other
+    latency_seconds, attempts, retried}}`. `status` is `invalid_response` (the API answered but
+    the result failed validation, or contained the key), `error` (an HTTP or connection error, or any other
     exception that ended the call, including a request refused before anything was sent),
     `timeout` or `budget_stopped`. `error_type`, `http_status` and `request_id` describe the last
     attempt (the one that ended the call; a timeout has no request id; for `budget_stopped`
-    `error_type` is `BudgetExceeded` and the other two are null). A `decide` call refused before
-    anything was sent (`ImageRequestTooLarge` for an image request over a 32 MiB cap, or
+    `error_type` is `BudgetExceeded` and the other two are null). `latency_seconds` is the
+    [latency](#latency) of that same attempt, and null when the call sent nothing (a budget stop
+    or a refusal, including a budget stop after earlier attempts were retried). A `decide` call
+    refused before anything was sent (`ImageRequestTooLarge` for an image request over a 32 MiB cap, or
     `LiveConfigError` for a request the backend is not set up for, such as image assets without
     `images=True`) is `status: "error"` with `error_type` the exception's class name,
-    `http_status` and `request_id` null, `attempts: 0` and `retried: []`; it is not a paid call.
+    `http_status`, `request_id` and `latency_seconds` null, `attempts: 0` and `retried: []`; it is
+    not a paid call.
     A request that fails validation is not one of these: it raises from `record` before `decide`
     is called and gets no line. `attempts` is the HTTP attempts this call spent: 0 when
     nothing was sent (a budget already spent, or a refusal as above), and otherwise includes any
