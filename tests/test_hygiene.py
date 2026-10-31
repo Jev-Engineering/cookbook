@@ -1429,20 +1429,25 @@ def test_this_file_scans_clean_without_the_exemption(monkeypatch):
     assert hygiene.scan_text(Path(__file__).read_text(encoding="utf-8")) == []
 
 
-def test_the_module_docstring_names_every_shape_the_entropy_rule_does_not_catch():
-    # this shape really is uncovered: neither scanner reports it, so the docstring must name it
+def test_the_module_docstring_describes_the_unscored_assignment_shapes():
+    # these shapes really are uncovered: neither scanner reports them, so the docstring says so
     chain = "ABCD1234" + "_EFGH5678" + "_IJKL9012" + "_MNOP3456"
     line = f"license_id={chain}"
     assert hygiene.scan_text(line) == []
     assert packaged_scan.scan_text(line) == []
+    # the names the docstring lists as examples of a broken-apart secret word really escape
+    for name in ("api1_key", "api_1_key", "api__key", "api_v2_key", "pass_word"):
+        line = f"{name}={LOWER_36}"
+        assert hygiene.scan_text(line) == [], line
+        assert packaged_scan.scan_text(line) == [], line
 
     doc = " ".join(hygiene.__doc__.split())
     needles = (
         "all-lowercase, all-uppercase, or a chain of letters-then-digits runs",
         "(``ABCD1234_EFGH5678_`` and so on, 32 characters or more)",
-        "api1_key",
-        "access1_key",
-        "issue #339",
+        "with at most one ``_`` or ``-`` between ``api`` or ``access`` and ``key``",
+        "(``api1_key``, ``api_1_key``, ``api__key``, ``api_v2_key``, ``pass_word``)",
+        "decided limit tracked in #391",
     )
     for needle in needles:
         assert needle in doc, needle
@@ -1450,17 +1455,18 @@ def test_the_module_docstring_names_every_shape_the_entropy_rule_does_not_catch(
 
 @pytest.mark.xfail(
     strict=True,
+    raises=AssertionError,
     reason=(
-        "decided limit (issue #339): the secret-name rule (api[_-]?key, access[_-]?key)"
-        " does not match a digit before the underscore, and fixing it means changing"
-        " the packaged copy src/jev_cookbook/fixtures/_scan.py in step"
-        " (tests/test_fixtures.py compares the two), which was out of scope;"
-        " when that is fixed this test XPASSes and strict=True makes the suite fail,"
-        " so remove the marker then."
+        "decided limit (issues #339, #391): the secret-name rule matches api or access, at most"
+        " one '_' or '-', then key, so a name that splits those words any other way is not"
+        " matched; closing it means changing the rule in tools/check_hygiene.py and in"
+        " src/jev_cookbook/fixtures/_scan.py in step (tests/test_fixtures.py compares the two)."
+        " When a case is fixed it XPASSes and strict=True fails the suite: take it out of"
+        " the list then."
     ),
 )
-@pytest.mark.parametrize("name", ["api1_key", "access1_key"])
-def test_a_digit_before_the_underscore_of_a_two_word_secret_name_escapes_the_name_check(name):
+@pytest.mark.parametrize("name", ["api1_key", "access1_key", "api_1_key", "api__key", "api_v2_key"])
+def test_a_two_word_secret_name_split_by_digits_or_extra_text_escapes_the_name_check(name):
     line = f"{name}={LOWER_36}"
     assert hygiene.scan_text(line), line
     assert packaged_scan.scan_text(line), line

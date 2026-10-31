@@ -862,7 +862,7 @@ def test_idat_is_inflated_no_further_than_the_length_the_header_implies():
     assert peak < 2 * 2**20, f"peak {peak:,} bytes while checking a 100 MiB bomb"
 
 
-def test_the_inflate_limit_is_exactly_one_byte_past_the_expected_length():
+def test_the_exact_length_is_accepted_and_a_longer_stream_is_refused():
     # The exact length is accepted and anything longer is refused as "inflates past". (This test
     # alone cannot tell the margin of one byte from a larger one, or from none: the next test
     # pins the limit given to zlib.)
@@ -957,11 +957,15 @@ def test_the_largest_legal_asset_is_not_refused_by_the_backstop(interlace):
 
 
 def test_a_large_embedded_figure_is_not_refused_by_the_backstop():
-    # A notebook figure has no dimension limit: 3000 x 2400 RGBA implies 28,802,400 bytes.
-    expected = assets.png_raw_length(3000, 2400, 6, 8, 0)
-    assert expected > 16 * 2**20
-    data = png_with_header(3000, 2400, 6, 8, 0, zeros_stream(expected))
+    # A notebook figure has no dimension limit: 4800 x 3600 RGBA (matplotlib figsize (16, 12) at
+    # 300 dpi) implies 69,123,600 bytes, more than twice the 32 MiB asset backstop.
+    expected = assets.png_raw_length(4800, 3600, 6, 8, 0)
+    assert expected == 69_123_600
+    assert expected > 32 * 2**20
+    data = png_with_header(4800, 3600, 6, 8, 0, zeros_stream(expected))
     assert embedded_findings(data) == []
+    # the same header in a file under assets/ is refused by the 32 MiB backstop, without inflating
+    assert [rule for rule, _ in asset_findings(data)] == ["dimensions"]
 
 
 @pytest.mark.parametrize(("constant", "check", "rule", "mib"), BACKSTOPS)
@@ -999,11 +1003,13 @@ def test_the_backstops_are_the_documented_sizes(constant, check, rule, mib):
         f"the image header implies {mib * 2**20 + 2:,} bytes of pixel data; "
         f"the most inflated is {mib * 2**20:,}"
     )
+    if rule == "dimensions":  # on an asset the message also says what the side limits are
+        assert found[0][1].endswith(" (each side must be 280 to 1568)")
 
 
 def test_a_small_file_with_a_huge_header_cannot_make_the_asset_check_allocate_much():
     # A 299 KB file with a 9000 x 9000 header (243,009,000 bytes implied, under the old 256 MiB
-    # backstop) made the checker peak at about 487 MB. Nothing is inflated for it now.
+    # backstop) made the checker peak at about 487 MB.
     expected = assets.png_raw_length(9000, 9000, 2, 8, 0)
     data = png_with_header(9000, 9000, 2, 8, 0, zeros_stream(300 * 2**20))
     assert len(data) < assets.MAX_FILE_BYTES

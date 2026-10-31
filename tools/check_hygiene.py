@@ -32,10 +32,13 @@ alone; no quotes) is code and is not scored by the entropy rule. So a long unquo
 assigned to a name that contains none of api key, secret, token, password, access key or
 credential is not caught by it when the value has that shape: all-lowercase, all-uppercase, or
 a chain of letters-then-digits runs (``ABCD1234_EFGH5678_`` and so on, 32 characters or more).
-A name that does contain one of those words is always scored, with one known gap: a digit directly
-before the ``_`` of a two-word name (``api1_key``, ``access1_key``) hides the name from the
-check, so a one-case secret assigned to such a name is not caught either (a decided limit, see
-issue #339: the packaged copy in src/jev_cookbook/fixtures/_scan.py must change with the rule).
+The name check looks for the secret words (api key, secret, token, password, access key,
+credential) in the left side, with at most one ``_`` or ``-`` between ``api`` or ``access`` and
+``key``. A plain ``name=VALUE`` whose name breaks one of those words apart with a digit run, extra
+underscores or another word (``api1_key``, ``api_1_key``, ``api__key``, ``api_v2_key``,
+``pass_word``) does not match it, so a value of the shapes above assigned to that name, unquoted,
+is not scored either. This is a decided limit tracked in #391: closing it means changing the rule
+in step in src/jev_cookbook/fixtures/_scan.py.
 No hex token of any length is caught by the entropy rule (hex cannot reach the threshold); a
 hex-format key is caught only by the header, bearer and assignment rules. ANSI colour codes
 are stripped before scanning. UTF-8 and UTF-16/32 text is decoded; a notebook of any size is
