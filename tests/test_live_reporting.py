@@ -262,8 +262,12 @@ def test_needs_the_sdk():
 """
 
 
-def run_pytest(tmp_path, files, *, block=(), stubs=(), args=()):
+def run_pytest(tmp_path, files, *, block=(), stubs=(), args=(), stub_sources=None):
     """Run pytest in ``tmp_path`` with a copy of conftest.py.
+
+    ``stubs`` names get empty stub modules on the path. ``stub_sources`` maps module names to
+    source written as their stub; it is written after ``stubs``, so it overrides an empty stub of
+    the same name. ``block`` names are blocked in sys.modules.
 
     Returns (returncode, stdout, counts), where counts is (ran, skipped, deselected) from the
     live line, or None when no such line was printed.
@@ -277,6 +281,8 @@ def run_pytest(tmp_path, files, *, block=(), stubs=(), args=()):
     stub_dir.mkdir()
     for name in stubs:
         (stub_dir / f"{name}.py").write_text("", encoding="utf-8")
+    for name, source in (stub_sources or {}).items():
+        (stub_dir / f"{name}.py").write_text(source, encoding="utf-8")
     env = dict(os.environ)
     env.pop("PYTEST_ADDOPTS", None)
     env["PYTHONPATH"] = os.pathsep.join([str(stub_dir), str(SRC_DIR)])
@@ -388,3 +394,44 @@ def test_teardown_error_after_a_pass_is_one_test(tmp_path):
     assert rc != 0
     assert "1 passed" in out and "1 error" in out
     assert counts == (1, 0, 0)
+
+
+# -- A broken install is an error, not a skip -----------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("stub_sources", "stubs"),
+    [
+        (
+            {"typesafe_sdk": "raise ImportError(\"cannot import name 'x' from 'pydantic'\")"},
+            ("httpx2",),
+        ),
+        (
+            {
+                "typesafe_sdk": (
+                    'raise ModuleNotFoundError("No module named \'pydantic\'", name="pydantic")'
+                )
+            },
+            ("httpx2",),
+        ),
+        ({"httpx2": 'raise ImportError("broken httpx2")'}, ("typesafe_sdk",)),
+    ],
+    ids=["sdk-import-error", "sdk-transitive-missing", "httpx2-import-error"],
+)
+def test_a_present_but_broken_sdk_fails_collection_loudly(tmp_path, stub_sources, stubs):
+    rc, out, counts = run_pytest(tmp_path, REAL_SDK_FILES, stubs=stubs, stub_sources=stub_sources)
+    assert rc == 2  # pytest's exit code for collection errors
+    assert "error" in out.lower()
+    assert "ImportError" in out or "ModuleNotFoundError" in out
+    assert counts is not None and counts[1] == 0
+    assert "optional live extra not installed" not in out
+
+
+def test_a_missing_live_module_still_skips_per_test_not_errors(tmp_path):
+    stubs, block = ("typesafe_sdk",), ("httpx2",)
+    collect_rc, collected = collect(tmp_path, REAL_SDK_FILES, stubs=stubs, block=block)
+    rc, out, counts = run_pytest(tmp_path, REAL_SDK_FILES, stubs=stubs, block=block)
+    assert collect_rc == 0
+    assert rc == 0
+    assert counts is not None and counts[1] > 1
+    assert counts == (0, collected, 0)
