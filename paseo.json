@@ -2,7 +2,7 @@
   "worktree": {
     "setup": [
       "python3 -m venv .venv",
-      ".venv/bin/python -m pip install -e \".[dev]\""
+      ".venv/bin/python -m pip install -e \".[dev,ml]\""
     ],
     "teardown": "echo \"Setup starts no persistent services; Paseo handles worktree removal.\""
   },
