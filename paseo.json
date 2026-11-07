@@ -8,7 +8,7 @@
   },
   "scripts": {
     "diff-check": {
-      "command": "git diff --check"
+      "command": "git diff --check && git diff --cached --check"
     },
     "test": {
       "command": ".venv/bin/python -m pytest"
