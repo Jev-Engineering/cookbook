@@ -17,6 +17,7 @@ import re
 import string
 import subprocess
 import sys
+import time
 import zipfile
 from pathlib import Path
 
@@ -1435,8 +1436,13 @@ def test_the_module_docstring_describes_the_unscored_assignment_shapes():
     line = f"license_id={chain}"
     assert hygiene.scan_text(line) == []
     assert packaged_scan.scan_text(line) == []
-    # the names the docstring lists as examples of a broken-apart secret word really escape
-    for name in ("api1_key", "api_1_key", "api__key", "api_v2_key", "pass_word"):
+    # the names the docstring lists as broken-apart secret words really are scored, and the
+    # bare names it lists as out of scope really stay exempt
+    for name in BROKEN_APART_SECRET_NAMES:
+        line = f"{name}={LOWER_36}"
+        assert hygiene.scan_text(line), line
+        assert packaged_scan.scan_text(line), line
+    for name in BARE_NAMES_OUT_OF_SCOPE:
         line = f"{name}={LOWER_36}"
         assert hygiene.scan_text(line) == [], line
         assert packaged_scan.scan_text(line) == [], line
@@ -1445,31 +1451,98 @@ def test_the_module_docstring_describes_the_unscored_assignment_shapes():
     needles = (
         "all-lowercase, all-uppercase, or a chain of letters-then-digits runs",
         "(``ABCD1234_EFGH5678_`` and so on, 32 characters or more)",
-        "with at most one ``_`` or ``-`` between ``api`` or ``access`` and ``key``",
-        "(``api1_key``, ``api_1_key``, ``api__key``, ``api_v2_key``, ``pass_word``)",
-        "decided limit tracked in #391",
+        "reads the left side with every digit and ``_`` removed",
+        "``api`` or ``access`` followed anywhere later by ``key``",
+        "(``api1_key``, ``api_1_key``, ``api__key``, ``api_v2_key``, ``stripe_api_live_key``,"
+        " ``access_aws_key``, ``pass_word``)",
+        "Bare ``key``, ``key_id``, ``signature``, ``session``, ``nonce`` and ``salt`` are"
+        " deliberately not secret names",
     )
     for needle in needles:
         assert needle in doc, needle
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "decided limit (issues #339, #391): the secret-name rule matches api or access, at most"
-        " one '_' or '-', then key, so a name that splits those words any other way is not"
-        " matched; closing it means changing the rule in tools/check_hygiene.py and in"
-        " src/jev_cookbook/fixtures/_scan.py in step (tests/test_fixtures.py compares the two)."
-        " When a case is fixed it XPASSes and strict=True fails the suite: take it out of"
-        " the list then."
-    ),
-)
-@pytest.mark.parametrize("name", ["api1_key", "access1_key", "api_1_key", "api__key", "api_v2_key"])
-def test_a_two_word_secret_name_split_by_digits_or_extra_text_escapes_the_name_check(name):
+# A two-word secret name split by a digit run, extra underscores or another word, and a single
+# secret word split by "_" or digits: the name check reads the left side with digits and "_"
+# removed, so each of these is a secret name and a one-case value assigned to it is scored.
+BROKEN_APART_SECRET_NAMES = [
+    "api1_key", "access1_key", "API1_KEY", "x_api1_key", "api1_key_id", "api_1_key",
+    "api_12_key", "access_1_key", "api__key", "access__key", "api_v2_key", "API_V2_KEY",
+    "api_prod_key", "stripe_api_live_key", "access_aws_key", "pass_word", "to_ken", "sec_ret",
+    "cred_ential", "api_k_ey", "pass1word",
+]  # fmt: skip
+# Decided out of scope: bare names that name sort keys, dictionary keys and objects in code.
+BARE_NAMES_OUT_OF_SCOPE = ["key", "key_id", "signature", "session", "nonce", "salt"]
+
+
+@pytest.mark.parametrize("name", BROKEN_APART_SECRET_NAMES)
+def test_a_secret_name_split_by_digits_underscores_or_another_word_is_scored(name):
     line = f"{name}={LOWER_36}"
     assert hygiene.scan_text(line), line
     assert packaged_scan.scan_text(line), line
+
+
+@pytest.mark.parametrize("name", BARE_NAMES_OUT_OF_SCOPE)
+def test_a_bare_key_session_or_salt_name_keeps_the_exemption(name):
+    line = f"{name}={LOWER_36}"
+    assert hygiene.scan_text(line) == [], line
+    assert packaged_scan.scan_text(line) == [], line
+
+
+def test_code_keyword_arguments_keep_the_exemption_after_the_name_normalisation():
+    # not secret names even with digits and "_" removed: the exemption still applies
+    for line in (
+        "startup_timeout=" + "KERNEL_START_TIMEOUT" + "_FOR_EVERY_NOTEBOOK_CELL",
+        "instructions=" + "_STAGE1_INSTRUCTIONS" + "_FOR_THE_SECOND_ROUTING_PASS",
+        f"key_order={LOWER_36}",
+    ):
+        assert hygiene.scan_text(line) == [], line
+        assert packaged_scan.scan_text(line) == [], line
+
+
+@pytest.mark.parametrize(
+    ("constant", "mutant"),
+    [
+        ("_NAME_GLUE", r"(?!)"),  # no normalisation at all
+        ("_NAME_GLUE", r"_+"),  # digits kept
+        ("_NAME_GLUE", r"[0-9]+"),  # underscores kept
+    ],
+)
+def test_a_mutant_of_the_name_normalisation_lets_a_split_secret_name_escape(
+    monkeypatch, constant, mutant
+):
+    # each weaker rule must let at least one listed name escape, so the list above pins the
+    # rule as written and not just some rule that happens to catch the plain names
+    monkeypatch.setattr(hygiene, constant, re.compile(mutant, re.IGNORECASE))
+    escaped = [n for n in BROKEN_APART_SECRET_NAMES if not hygiene.scan_text(f"{n}={LOWER_36}")]
+    assert escaped
+    # an unbroken secret word is still caught by every mutant: it is the split forms that escape
+    assert hygiene.scan_text(f"token={LOWER_36}")
+
+
+def test_a_mutant_that_needs_key_right_after_api_or_access_lets_a_split_name_escape(monkeypatch):
+    # the adjacent-words rule (no other word between api/access and key) is weaker than the
+    # rule as written: at least one listed name must escape it
+    adjacent = re.compile(r"apikey|secret|token|passw(?:or)?d|accesskey|credential", re.I)
+    monkeypatch.setattr(hygiene, "_is_secret_name", lambda name: bool(adjacent.search(name)))
+    escaped = [n for n in BROKEN_APART_SECRET_NAMES if not hygiene.scan_text(f"{n}={LOWER_36}")]
+    assert escaped
+    assert hygiene.scan_text(f"token={LOWER_36}")
+
+
+@pytest.mark.parametrize("scanner", [hygiene, packaged_scan], ids=["tools", "packaged"])
+@pytest.mark.parametrize("prefix", ["api", "access", "API"])
+def test_a_long_name_of_repeated_api_or_access_with_no_key_scans_in_linear_time(scanner, prefix):
+    # A regex such as api[a-z]*key retries the letter run from every "api" when no "key"
+    # follows, so its cost grows with the square of the name's length: 8000 repeats took
+    # seconds and this length would take minutes. The check as written finds the first
+    # prefix and then looks for "key" once, so this returns at once and stays exempt.
+    line = prefix * 60000 + "=value"
+    started = time.perf_counter()
+    assert scanner.scan_text(line) == []
+    assert time.perf_counter() - started < 5.0
+    # with a "key" at the very end the same long name is a secret name
+    assert scanner._is_secret_name(prefix * 60000 + "key")
 
 
 def test_the_exemption_regex_does_not_backtrack_catastrophically():
