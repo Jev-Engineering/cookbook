@@ -1564,10 +1564,11 @@ SCANNER_FUNCTIONS = (
     "_is_placeholder",
     "_entropy",
     "_letters_and_digits",
+    "_is_secret_name",
 )
 SCANNER_PATTERNS = (
     "_AUTH_HEADER", "_BEARER", "_ASSIGNMENT", "_WORD", "_TOKEN", "_TOKEN_SLASH",
-    "_PATH_SHAPED", "_DATA_URI", "_ANSI", "_IDENT_ASSIGNMENT", "_SECRET_NAME",
+    "_PATH_SHAPED", "_DATA_URI", "_ANSI", "_IDENT_ASSIGNMENT", "_NAME_GLUE", "_SECRET_WORD", "_LETTER_RUN",
 )  # fmt: skip
 
 
@@ -1588,6 +1589,7 @@ def test_the_packaged_scanner_has_the_same_rules_as_the_repository_scanner():
         )
     assert scan_module._PLACEHOLDER_MARKERS == hygiene._PLACEHOLDER_MARKERS
     assert scan_module._ENTROPY_THRESHOLD == hygiene._ENTROPY_THRESHOLD
+    assert scan_module._KEY_PREFIXES == hygiene._KEY_PREFIXES
     for name in SCANNER_FUNCTIONS:
         ours_source = inspect.getsource(getattr(scan_module, name))
         assert ours_source == inspect.getsource(getattr(hygiene, name)), name
