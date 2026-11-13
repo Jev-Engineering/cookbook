@@ -274,6 +274,20 @@ class ImageRequestProfile:
     def __post_init__(self) -> None:
         object.__setattr__(self, "per_question", MappingProxyType(dict(self.per_question)))
 
+    def __hash__(self) -> int:
+        # The generated ``__hash__`` would hash the ``per_question`` proxy, which is unhashable.
+        # Equality compares that mapping without regard to order, so the hash must too.
+        return hash(
+            (
+                self.distinct_assets,
+                self.distinct_bytes,
+                self.copies,
+                self.expanded_bytes,
+                self.state_copies,
+                frozenset(self.per_question.items()),
+            )
+        )
+
 
 class ImageRequestTooLarge(ValueError):
     """A request's images exceed an aggregate cap; raised before anything is sent."""
@@ -354,21 +368,50 @@ def preflight_image_request(profile: ImageRequestProfile) -> None:
     not added here, and the request-body cap (JSON, base64 text and multipart framing) is not
     modelled at all.
     """
-    mib = 1024 * 1024
+    # With encoded file sizes every distinct asset counted here is also counted at least once in
+    # ``expanded_bytes``, so ``expanded_bytes >= distinct_bytes`` always holds and this first
+    # check can fire only when the expanded check below would fire too. It decides which message
+    # is shown; it is not independent coverage of the API's distinct-image cap, which the API
+    # measures after processing and this module cannot see.
     if profile.distinct_bytes > REQUEST_IMAGE_LIMITS["distinct_bytes"]:
         raise ImageRequestTooLarge(
             f"the request's {profile.distinct_assets} distinct image(s) are "
-            f"{profile.distinct_bytes / mib:.1f} MiB, over the 32 MiB cap on all images in a "
+            f"{_bytes_text(profile.distinct_bytes)}, over the "
+            f"{REQUEST_IMAGE_LIMITS['distinct_bytes']:,}-byte (32 MiB) cap on all images in a "
             "request; use fewer or smaller images. Nothing was sent."
         )
     if profile.expanded_bytes > REQUEST_IMAGE_LIMITS["expanded_bytes"]:
         raise ImageRequestTooLarge(
             f"the request expands to {profile.copies} image copies of "
-            f"{profile.expanded_bytes / mib:.1f} MiB, over the 32 MiB cap on the expanded request "
+            f"{_bytes_text(profile.expanded_bytes)}, over the "
+            f"{REQUEST_IMAGE_LIMITS['expanded_bytes']:,}-byte (32 MiB) cap on the expanded request "
             f"(each use of a reference adds the image again; {profile.state_copies} in the state, "
-            f"per question {dict(profile.per_question)}). Put a shared image in the state once "
-            "and refer to it by path, or use fewer references. Nothing was sent."
+            f"{_question_copies_text(profile.per_question)}). Put a shared image in the state "
+            "once and refer to it by path, or use fewer references. Nothing was sent."
         )
+
+
+def _bytes_text(size: int) -> str:
+    """``size`` as exact bytes with an approximate MiB beside it.
+
+    The exact count is what tells a request one byte over the cap from one at it; a MiB figure
+    alone rounds both to "32.0 MiB".
+    """
+    return f"{size:,} bytes (about {size / (1024 * 1024):.1f} MiB)"
+
+
+_LISTED_QUESTIONS = 10
+
+
+def _question_copies_text(per_question: Mapping[str, int]) -> str:
+    """The questions that hold copies, at most ``_LISTED_QUESTIONS`` of them; zeros are left out."""
+    holding = {name: count for name, count in per_question.items() if count}
+    if not holding:
+        return "none in any question"
+    shown = dict(list(holding.items())[:_LISTED_QUESTIONS])
+    more = len(holding) - len(shown)
+    tail = f" and {more} more question(s) with copies" if more else ""
+    return f"per question {shown}{tail}"
 
 
 def _number(value: Any, name: str, *, unit: bool = False) -> float:

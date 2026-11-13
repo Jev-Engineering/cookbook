@@ -31,6 +31,7 @@ The declaration
 
 from __future__ import annotations
 
+import contextvars
 import json
 import re
 from collections.abc import Callable, Mapping
@@ -92,15 +93,32 @@ __all__ = [
 ]
 
 
+# Values shared by the counters of one ``_profile`` call: set to a fresh dict for the duration
+# of that call only, so a value computed for one request is never seen by another (or by a
+# counter called directly, outside an audit).
+_ONE_REQUEST: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar(
+    "_ONE_REQUEST", default=None
+)
+
+
 def _image_counter(field: str) -> ProfileCounter:
-    """A counter for one count of ``vision.image_request_profile`` (copies or distinct assets)."""
+    """A counter for one count of ``vision.image_request_profile`` (copies or distinct assets).
+
+    Both image counters read the same profile, so within one audited request it is computed once
+    and shared; outside ``_profile`` each call computes its own.
+    """
 
     def count(state: Any, questions: Mapping[str, Question], assets: Assets | None) -> int:
         if not assets:
             return 0  # a text-only request never imports the image code
         from .vision import image_request_profile
 
-        return getattr(image_request_profile(state, questions, assets), field)
+        shared = _ONE_REQUEST.get()
+        if shared is None:
+            return getattr(image_request_profile(state, questions, assets), field)
+        if "image_profile" not in shared:
+            shared["image_profile"] = image_request_profile(state, questions, assets)
+        return getattr(shared["image_profile"], field)
 
     return count
 
@@ -231,12 +249,16 @@ def _profile(
 ) -> dict[str, int]:
     """The registered per-request quantities of one request; zeros are omitted."""
     out: dict[str, int] = {}
-    for name in sorted(PROFILE_COUNTERS):
-        amount = PROFILE_COUNTERS[name](state, questions, assets)
-        if type(amount) is not int or amount < 0:
-            raise ValueError(f"profile counter {name!r} must return a non-negative int")
-        if amount:
-            out[name] = amount
+    token = _ONE_REQUEST.set({})
+    try:
+        for name in sorted(PROFILE_COUNTERS):
+            amount = PROFILE_COUNTERS[name](state, questions, assets)
+            if type(amount) is not int or amount < 0:
+                raise ValueError(f"profile counter {name!r} must return a non-negative int")
+            if amount:
+                out[name] = amount
+    finally:
+        _ONE_REQUEST.reset(token)
     return out
 
 
