@@ -241,10 +241,12 @@ Noul/Score answers (`.noul` or `.score` is read), through one shared extraction,
 answers can go to all five. (`ndcg` used to accept `.score` only and raise `TypeError` on a Noul
 answer while `recall_at_budget` accepted both; that difference is gone.) `mean_ndcg` and
 `mean_recall_at_budget` sum the per-query values with `math.fsum`, like every other mean here, so
-the result does not depend on the order of the queries. A query given to `mean_recall_at_budget`
-is read once with `tuple(q)`, so a one-shot iterable works; `top_k_query_accuracy` takes only
-`(gold_relevant, scores)` pairs, and a three-tuple (the `eligible` form) raises a `ValueError`
-that names the missing `eligible`.
+the result does not depend on the order of the queries. A query given to `mean_ndcg`,
+`mean_recall_at_budget` or `top_k_query_accuracy` is read once with `tuple(q)`, so a one-shot
+iterable works, and a query of the wrong length raises a `ValueError` naming the expected
+shape. `top_k_query_accuracy` takes only `(gold_relevant, scores)` pairs, and a three-tuple (the
+`eligible` form) raises a `ValueError` that names the missing `eligible` and says when
+`mean_recall_at_budget` is, and is not, the same metric.
 
 **`top_k_query_accuracy` is not `recall_at_budget` under another name.** The two differ whenever
 a query has more than one relevant item: with two relevant items among three and the top-scored
@@ -520,9 +522,14 @@ examples the rule answered, which is what `evaluate_outcomes` reports at the sam
 `accepted = ~rejected & (exempt | (confidence >= t))`; the test
 `test_outcome_curve_rejected_combines_with_exempt_and_matches_evaluate_outcomes_per_row` checks
 that row by row. An example the rule settles with no question at all has no confidence to pass:
-leave it out and account for it separately, exactly as for `exempt` (below). With `rejected`
-set, a threshold can select nothing (every example not rejected is below `t`, none is exempt),
-and that row's `accuracy` and `risk` are NaN, the module's undefined-is-NaN convention.
+leave it out and account for it separately, exactly as for `exempt` (below). The candidate
+thresholds come from the confidences of the examples that are not rejected (a rejected example's
+confidence can never select anything, so it would only add a duplicate row, or a row above every
+other confidence that selects nothing). Every row therefore selects at least one example and
+`accuracy` and `risk` are never NaN, with or without `exempt` and `rejected`, except when
+**every** example is rejected: then the thresholds are those of all the confidences passed in,
+every row selects nothing, and `accuracy` and `risk` are NaN, the module's undefined-is-NaN
+convention.
 
 Rows have the same shape `selective_curve` returns (`thresholds`, `coverage`, `accuracy`, `risk`),
 so `plot_risk_coverage` plots either one unchanged:
@@ -542,8 +549,7 @@ under which the two curves coincide.** Do not pass a rule's own `accepted` array
 happened to accept this one" as "this one is exempt from the sweep" — reproduces a capped-coverage
 curve that stops rising once `t` falls below whatever gate `accepted` was built from, which is
 exactly the bug this function's signature now rules out (see "The curves coincide under a
-narrower condition" below for a worked example). With `rejected` unset and at least one `exempt`
-example, `accuracy` (and so `risk`) is never NaN: every threshold answers at least one example.
+narrower condition" below for a worked example).
 
 **Which shipped rules `exempt` serves, and which need `rejected`.** `exempt` models an
 unconditionally *accepted* branch (CONTRIBUTING.md section 4's exemption); `rejected` models an
@@ -716,9 +722,9 @@ for itself. None of them reapplies a confidence gate; each reads what the rule r
 
 | Helper | Returns |
 | --- | --- |
-| `accepted_and_correct(results, gold, *, accepted_when, label_of, key_of=None)` | the `(accepted, correct)` pair `evaluate_outcomes` takes, so `evaluate_outcomes(*accepted_and_correct(...))` is the whole accounting. `accepted_when(result)` says whether the rule answered; `label_of(result)` is the label it answered with; `gold` is a sequence parallel to `results`, or a mapping looked up with `key_of(result)`. `correct` is computed for every result, the review ones included, because `evaluate_outcomes` requires a value there and never reads it |
+| `accepted_and_correct(results, gold, *, accepted_when, label_of, key_of=None)` | the `(accepted, correct)` pair `evaluate_outcomes` takes, so `evaluate_outcomes(*accepted_and_correct(...))` is the whole accounting. `accepted_when(result)` says whether the rule answered; `label_of(result)` is the label it answered with; `gold` is a sequence parallel to `results`, or a mapping looked up with `key_of(result)`. `label_of` is called only for accepted results (a review result often has no label to read), and a review result gets `correct = False`, because `evaluate_outcomes` requires a value there and never reads it. A Choice answer is unwrapped to `.choice` on either side before `==`, as `accuracy` does |
 | `action_error_rate(results, gold, *, acts_when, label_of, key_of=None)` | the share of the results that triggered the side effect (`acts_when`) whose label is wrong; NaN when none acted. One name for the false merge rate (recipe 18) and the false link rate (recipe 22): a wrong result that did not act (a missed duplicate, a wrong `no_match`) lowers `evaluate_outcomes`' accuracy but is not counted here |
-| `outcome_breakdown(outcomes, correct, *, order=None)` | `{outcome: OutcomeTally(right, wrong)}`: every example counted under its own outcome, so the totals add up to the number of examples and nothing disappears. `order` lists the outcomes, in that order, with zero counts for one that never happened, so a table keeps its shape across splits. `OutcomeTally` has `right`, `wrong`, `total` and `accuracy` (NaN for a zero total) |
+| `outcome_breakdown(outcomes, correct, *, order=None)` | `{outcome: OutcomeTally(right, wrong)}`: every example counted under its own outcome, so the totals add up to the number of examples and nothing disappears. `order` lists the outcomes, in that order, with zero counts for one that never happened, so a table keeps its shape across splits; a label listed twice, or two labels of different types that compare equal (`True` and `1`), raise `ValueError` rather than silently sharing a tally. `OutcomeTally` has `right`, `wrong`, `total` and `accuracy` (NaN for a zero total) |
 
 `accepted_and_correct` fixes one spelling of the pair across recipes: `(accepted, correct)`, in the
 order `evaluate_outcomes` takes them. Its first argument is the rule's results and its second the

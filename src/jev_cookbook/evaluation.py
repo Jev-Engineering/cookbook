@@ -1165,11 +1165,27 @@ def mean_ndcg(
     Returns:
         The mean over lists whose nDCG is defined, summed with :func:`math.fsum` like every
         other mean in this module, so it does not depend on the order of the lists. Lists
-        with IDCG 0 are skipped; if every list is skipped the result is NaN. No lists, or any
-        invalid list, raise ``ValueError``.
+        with IDCG 0 are skipped; if every list is skipped the result is NaN. No lists, a
+        query that is not a pair (each query is read once with ``tuple(q)``, as in
+        :func:`mean_recall_at_budget`), or any invalid list, raise ``ValueError``.
     """
-    vals = [ndcg(r, s, k=k, gain=gain) for r, s in _as_list(queries, "queries")]
+    vals = []
+    for q in _as_list(queries, "queries"):
+        rel, sc = _query_parts(q, 2, "mean_ndcg", "(gold_relevance, scores)")
+        vals.append(ndcg(rel, sc, k=k, gain=gain))
     return _mean([v for v in vals if not math.isnan(v)])
+
+
+def _query_parts(q: Any, max_len: int, function: str, shape: str) -> tuple[Any, ...]:
+    """One query of the ranking family read once with ``tuple(q)``: two items, or up to
+    ``max_len``; any other length raises ``ValueError`` naming ``shape``."""
+    try:
+        parts = tuple(q)
+    except TypeError:
+        raise ValueError(f"{function}: each query must be {shape}, got {q!r}") from None
+    if not 2 <= len(parts) <= max_len:
+        raise ValueError(f"{function}: each query must be {shape}, got {len(parts)} items")
+    return parts
 
 
 def top_probabilities(answers: Iterable[Any]) -> list[float]:
@@ -1325,13 +1341,11 @@ def mean_recall_at_budget(queries: Iterable[tuple[Any, ...]], budget: int) -> fl
     """
     vals = []
     for q in _as_list(queries, "queries"):
-        parts = tuple(q)
+        parts = _query_parts(q, 3, "mean_recall_at_budget", "(gold_relevant, scores[, eligible])")
         if len(parts) == 2:
             vals.append(recall_at_budget(parts[0], parts[1], budget))
-        elif len(parts) == 3:
-            vals.append(recall_at_budget(parts[0], parts[1], budget, eligible=parts[2]))
         else:
-            raise ValueError("each query must be (gold_relevant, scores[, eligible])")
+            vals.append(recall_at_budget(parts[0], parts[1], budget, eligible=parts[2]))
     return _mean([v for v in vals if not math.isnan(v)])
 
 
@@ -1441,15 +1455,15 @@ def top_k_query_accuracy(queries: Iterable[tuple[Any, Any]], k: int = 1) -> floa
         raise ValueError("k must be at least 1")
     per_query = []
     for q in _as_list(queries, "queries"):
-        parts = tuple(q)
+        parts = _query_parts(q, 3, "top_k_query_accuracy", "a (gold_relevant, scores) pair")
         if len(parts) == 3:
             raise ValueError(
                 "top_k_query_accuracy takes (gold_relevant, scores) pairs and has no eligible "
-                "argument; use mean_recall_at_budget(queries, k) for a rule that excludes "
-                "candidates before ranking"
+                "argument, so it cannot score a rule that excludes candidates before ranking; "
+                "mean_recall_at_budget(queries, k) with each query's eligible mask is the same "
+                "metric only when every query has exactly one relevant item (it measures recall, "
+                "not a hit); otherwise compute the hit rate from the rule's own pick"
             )
-        if len(parts) != 2:
-            raise ValueError("each query must be a (gold_relevant, scores) pair")
         rel, sc = parts
         relevant = _binary(_as_list(rel, "gold_relevant"), "gold_relevant")
         scores = _floats((_score_value(x) for x in _as_list(sc, "scores")), "scores")
@@ -1750,7 +1764,11 @@ def _results_and_gold(
         out = []
         for r in rs:
             key = key_of(r)
-            if key not in gold:
+            try:
+                found = key in gold
+            except TypeError:
+                raise ValueError(f"{function}: key_of returned an unhashable key {key!r}") from None
+            if not found:
                 raise ValueError(f"{function}: no gold label for key {key!r}")
             out.append(gold[key])
         return rs, out
@@ -1773,9 +1791,10 @@ def accepted_and_correct(
 
     One spelling for what every recipe with a non-confidence review branch wrote itself: for
     each result ``r``, ``accepted[i] = accepted_when(r)`` (did the rule answer, as opposed to
-    send to review) and ``correct[i] = label_of(r) == gold`` for **every** result, accepted or
-    not, because :func:`evaluate_outcomes` requires a ``correct`` value where ``accepted`` is
-    False (and never reads it there). The order is ``(accepted, correct)``, the order
+    send to review) and ``correct[i] = label_of(r) == gold`` for an accepted result. A result
+    sent to review gets ``correct[i] = False`` without ``label_of`` being called (a review
+    result often has no label to read), because :func:`evaluate_outcomes` requires a
+    ``correct`` value where ``accepted`` is False and never reads it there. The order is ``(accepted, correct)``, the order
     :func:`evaluate_outcomes` takes them, so ``evaluate_outcomes(*accepted_and_correct(...))``
     is the whole accounting. Pass what the rule actually returned: ``accepted_when`` reads the
     rule's own outcome, it never reapplies a confidence gate.
@@ -1785,19 +1804,26 @@ def accepted_and_correct(
         gold: The gold label of each example: a sequence parallel to ``results``, or a mapping
             from ``key_of(result)`` to the gold label.
         accepted_when: ``result -> bool``, True when the rule answered the example.
-        label_of: ``result -> label``, the label the rule answered with (compared with the
-            gold label by ``==``).
+        label_of: ``result -> label``, the label the rule answered with, called only for
+            accepted results. It and the gold label are compared by ``==`` after a Choice
+            answer is unwrapped to its ``.choice`` on either side, exactly as :func:`accuracy`
+            compares them (a Noul or Score answer raises ``ValueError``, as there).
         key_of: ``result -> key`` into a mapping ``gold`` (for example ``lambda r: r.ticket_id``);
             required when ``gold`` is a mapping and not allowed otherwise.
 
     Returns:
         ``(accepted, correct)``, two lists of ``bool`` the length of ``results``. Empty
         ``results``, a sequence ``gold`` of another length, a mapping ``gold`` without a key a
-        result names, or a mismatch of ``gold`` and ``key_of`` raise ``ValueError``.
+        result names (or an unhashable key), or a mismatch of ``gold`` and ``key_of`` raise
+        ``ValueError``.
     """
-    rs, gs = _results_and_gold(results, gold, key_of, "accepted_and_correct")
+    fn = "accepted_and_correct"
+    rs, gs = _results_and_gold(results, gold, key_of, fn)
     accepted = [bool(accepted_when(r)) for r in rs]
-    correct = [bool(label_of(r) == g) for r, g in zip(rs, gs, strict=True)]
+    correct = [
+        a and bool(_choice_value(label_of(r), fn) == _choice_value(g, fn))
+        for r, g, a in zip(rs, gs, accepted, strict=True)
+    ]
     return accepted, correct
 
 
@@ -1820,7 +1846,8 @@ def action_error_rate(
     not act is not counted, in the numerator or the denominator.
 
     Args:
-        results, gold, label_of, key_of: As in :func:`accepted_and_correct`.
+        results, gold, label_of, key_of: As in :func:`accepted_and_correct`, except that
+            ``label_of`` is called only for results that acted.
         acts_when: ``result -> bool``, True when the result triggered the side effect.
 
     Returns:
@@ -1828,11 +1855,13 @@ def action_error_rate(
         NaN, never 0.0). Empty ``results`` and the other input errors of
         :func:`accepted_and_correct` raise ``ValueError``.
     """
-    rs, gs = _results_and_gold(results, gold, key_of, "action_error_rate")
+    fn = "action_error_rate"
+    rs, gs = _results_and_gold(results, gold, key_of, fn)
     acting = [(r, g) for r, g in zip(rs, gs, strict=True) if acts_when(r)]
     if not acting:
         return float("nan")
-    return sum(label_of(r) != g for r, g in acting) / len(acting)
+    wrong = sum(_choice_value(label_of(r), fn) != _choice_value(g, fn) for r, g in acting)
+    return wrong / len(acting)
 
 
 @dataclass(frozen=True)
@@ -1852,6 +1881,11 @@ class OutcomeTally:
     @property
     def accuracy(self) -> float:
         return _safe_div(self.right, self.total)
+
+
+def _same_label_kind(a: Any, b: Any) -> bool:
+    """True when two equal labels are the same kind of value (both ``str``, or one type)."""
+    return (isinstance(a, str) and isinstance(b, str)) or type(a) is type(b)
 
 
 def outcome_breakdown(
@@ -1875,22 +1909,40 @@ def outcome_breakdown(
         correct: Whether each example's answer was right (bool or 0/1).
         order: Optional outcome labels, in the order the result lists them. Each appears in
             the result, with zero counts if it never happened, so a table keeps a stable shape
-            across splits. An outcome that occurs but is not listed raises ``ValueError``. By
-            default the outcomes appear in order of first occurrence.
+            across splits. An outcome that occurs but is not listed, or a label listed twice,
+            raises ``ValueError``. By default the outcomes appear in order of first occurrence.
+
+    Two labels of different types that compare equal (``True`` and ``1``, ``1`` and ``1.0``)
+    would be one dictionary key and silently share a tally, so they raise ``ValueError``
+    instead (two ``str`` labels are never confused this way).
 
     Returns:
-        ``{outcome: OutcomeTally(right, wrong)}``. Empty input or unequal lengths raise
-        ``ValueError``.
+        ``{outcome: OutcomeTally(right, wrong)}``. Empty input, unequal lengths, a duplicate
+        in ``order`` or two equal labels of different types raise ``ValueError``.
     """
     outs = _as_list(outcomes, "outcomes")
     ok = _binary(_as_list(correct, "correct"), "correct")
     _same_length(outs, ok, "outcomes and correct")
-    keys = list(dict.fromkeys(outs)) if order is None else list(dict.fromkeys(order))
+    seen: dict[Hashable, Hashable] = {}
+    if order is not None:
+        for label in order:
+            if label in seen:
+                raise ValueError(f"outcome {label!r} is listed twice in order")
+            seen[label] = label
+    for o in outs:
+        if o not in seen:
+            if order is not None:
+                raise ValueError(f"outcome {o!r} is not among the order given")
+            seen[o] = o
+        elif not _same_label_kind(seen[o], o):
+            raise ValueError(
+                f"outcome labels {seen[o]!r} and {o!r} compare equal but have different types, "
+                "so they would share one tally"
+            )
+    keys = list(seen)
     right = {k: 0 for k in keys}
     wrong = {k: 0 for k in keys}
     for o, good in zip(outs, ok.tolist(), strict=True):
-        if o not in right:
-            raise ValueError(f"outcome {o!r} is not among the order given")
         if good:
             right[o] += 1
         else:
@@ -1923,8 +1975,10 @@ def outcome_curve(
     clears ``t``, exactly as in :func:`selective_curve`.
     ``coverage`` is the selected share of all examples; ``accuracy`` is the correct share of the
     selected ones; ``risk = 1 - accuracy``. Candidate thresholds come from
-    :func:`_candidate_thresholds`, exactly as in :func:`selective_curve`, so two confidences a
-    few ULPs apart (see :func:`noul_confidence`'s note on hand-written mirror-pair literals) are
+    :func:`_candidate_thresholds` of the confidences of the examples that are not ``rejected``
+    (a rejected example's confidence can never select anything, so it would only add a
+    duplicate row or a row that selects nothing), exactly as in :func:`selective_curve`
+    otherwise, so two confidences a few ULPs apart (see :func:`noul_confidence`'s note on hand-written mirror-pair literals) are
     one threshold candidate, not two, and that candidate is always one of the actual observed
     confidences.
 
@@ -1939,11 +1993,12 @@ def outcome_curve(
     "accepted no matter what", not "was accepted", and confusing the two reproduces exactly the
     capped-coverage bug this function exists to avoid.
 
-    With ``rejected=None`` (the default) every threshold answers at least one example whenever
-    ``exempt`` marks one, so ``accuracy`` (and ``risk``) is never NaN there. With ``rejected`` it
-    can be: a threshold at which every non-rejected example is below ``t`` and none is exempt
-    selects nothing, and that row's ``accuracy`` and ``risk`` are NaN, the module's undefined-is-NaN
-    convention, as in :func:`selective_curve`.
+    Every threshold is the confidence of some example that is not rejected, so every row selects
+    at least that example and ``accuracy`` (and ``risk``) is never NaN, with or without
+    ``exempt`` and ``rejected``. The one exception is a call in which **every** example is
+    rejected: the thresholds are then the candidates of all the confidences passed in (so the
+    curve keeps its x-axis), every row selects nothing, ``coverage`` is 0 and ``accuracy`` and
+    ``risk`` are NaN, the module's undefined-is-NaN convention.
 
     ``exempt`` serves a rule with an unconditionally *accepted* branch (CONTRIBUTING.md section 4's
     exemption): recipes 11, 13, 14, 18 and 22 (see "Outcomes versus the confidence-only view" in
@@ -1962,9 +2017,9 @@ def outcome_curve(
     sweeps the *answered* examples only) and report them separately with
     :func:`evaluate_outcomes`-style accounting instead. An invented number such as ``0.0`` is not
     inert here even though the example would be exempt either way: ``thresholds`` comes from
-    :func:`_candidate_thresholds` of every confidence passed in, so a placeholder adds a row to
-    that grid and shifts the curve's x-axis, even though it can never change which examples are
-    selected.
+    :func:`_candidate_thresholds` of every confidence passed in (that is not ``rejected``), so a
+    placeholder adds a row to that grid and shifts the curve's x-axis, even though it can never
+    change which examples are selected.
 
     Args:
         confidences: Per-example confidence, in [0, 1], for every *answered* example (exempt
@@ -1999,7 +2054,9 @@ def outcome_curve(
         _same_length(ok, rejected_mask, "correct and rejected")
     if bool((exempt_mask & rejected_mask).any()):
         raise ValueError("an example cannot be both exempt and rejected")
-    thresholds = _candidate_thresholds(conf)[::-1]
+    eligible_conf = conf[~rejected_mask]
+    grid_conf = eligible_conf if len(eligible_conf) else conf
+    thresholds = _candidate_thresholds(grid_conf)[::-1]
     n = len(ok)
     cov, accuracy = [], []
     for t in thresholds:

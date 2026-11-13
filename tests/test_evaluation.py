@@ -2340,6 +2340,24 @@ def test_mean_recall_at_budget_reads_each_query_once_so_a_one_shot_iterable_stil
         ev.mean_recall_at_budget([([1],)], 1)
 
 
+def test_mean_ndcg_reads_each_query_once_and_names_a_bad_length():
+    # mean_ndcg now shares the ranking family's one input contract (#356): a three-tuple used
+    # to die with the bare "too many values to unpack".
+    assert ev.mean_ndcg([iter([[1, 0], [0.9, 0.1]])]) == 1.0
+    with pytest.raises(ValueError, match="each query must be"):
+        ev.mean_ndcg([([1, 0], [0.9, 0.1], [1, 1])])
+    with pytest.raises(ValueError, match="each query must be"):
+        ev.mean_ndcg([([1, 0],)])
+    with pytest.raises(ValueError, match="each query must be"):
+        ev.mean_ndcg([5])
+
+
+def test_top_k_query_accuracy_three_tuple_message_does_not_offer_recall_as_the_same_metric():
+    with pytest.raises(ValueError, match="exactly one relevant item") as err:
+        ev.top_k_query_accuracy([([1, 1, 0], [0.9, 0.5, 0.1], [1, 1, 1])])
+    assert "recall" in str(err.value)
+
+
 def test_top_k_query_accuracy_names_the_missing_eligible_argument_for_a_three_tuple():
     # The docstring says this helper has no `eligible`; the three-tuple mean_recall_at_budget
     # takes used to die with "too many values to unpack (expected 2)".
@@ -2386,8 +2404,9 @@ def test_accepted_and_correct_is_the_pair_evaluate_outcomes_takes():
         label_of=lambda r: r.label,
         key_of=lambda r: r.ticket_id,
     )
-    # accepted: t1 yes, t2 no (review), t3 yes, t4 yes ; correct is computed for EVERY result,
-    # the review one included (B != Z): right, wrong, right, wrong
+    # accepted: t1 yes, t2 no (review), t3 yes, t4 yes ; correct is computed for the accepted
+    # results and False for the review one, whose label_of is never called: right, False,
+    # right, wrong
     assert accepted == [True, False, True, True]
     assert correct == [True, False, True, False]
     r = ev.evaluate_outcomes(accepted, correct)
@@ -2459,6 +2478,8 @@ def test_outcome_breakdown_tallies_each_outcome_by_right_and_wrong():
     assert nan(ordered["absent"].accuracy)
     with pytest.raises(ValueError, match="not among the order"):
         ev.outcome_breakdown(outcomes, correct, order=["ans", "rev"])
+    with pytest.raises(ValueError, match="listed twice"):
+        ev.outcome_breakdown(outcomes, correct, order=["ans", "rev", "none", "ans"])
     with pytest.raises(ValueError):
         ev.outcome_breakdown([], [])
     with pytest.raises(ValueError):
@@ -2467,19 +2488,94 @@ def test_outcome_breakdown_tallies_each_outcome_by_right_and_wrong():
         ev.outcome_breakdown(["a"], [2])
 
 
+def test_outcome_breakdown_refuses_equal_labels_of_different_types():
+    # True == 1 and 1 == 1.0: as dictionary keys they would silently share one tally
+    with pytest.raises(ValueError, match="different types"):
+        ev.outcome_breakdown([True, 1], [1, 0])
+    with pytest.raises(ValueError, match="different types"):
+        ev.outcome_breakdown([1, 1.0], [1, 0])
+    with pytest.raises(ValueError, match="listed twice"):
+        ev.outcome_breakdown([True], [1], order=[True, 1])
+    with pytest.raises(ValueError, match="different types"):
+        ev.outcome_breakdown([1.0], [1], order=[1])
+    # equal labels of one type, and str subclasses, are one outcome as before
+    assert ev.outcome_breakdown([1, 1], [1, 0]) == {1: ev.OutcomeTally(1, 1)}
+    assert ev.outcome_breakdown(["a", np.str_("a")], [1, 1]) == {"a": ev.OutcomeTally(2, 0)}
+
+
+def test_accepted_and_correct_calls_label_of_only_for_accepted_results():
+    def label_of(r):
+        if r.outcome == "review":
+            raise AttributeError("a review result has no answer")
+        return r.label
+
+    accepted, correct = ev.accepted_and_correct(
+        RES, GOLD_BY_ID, accepted_when=_answered, label_of=label_of, key_of=lambda r: r.ticket_id
+    )
+    assert accepted == [True, False, True, True]
+    assert correct == [True, False, True, False]
+    # action_error_rate calls it only for results that acted
+    rate = ev.action_error_rate(
+        RES,
+        GOLD_BY_ID,
+        acts_when=lambda r: r.outcome == "linked",
+        label_of=label_of,
+        key_of=lambda r: r.ticket_id,
+    )
+    assert rate == 0.5
+
+
+def test_accepted_and_correct_and_action_error_rate_unwrap_choice_answers_like_accuracy():
+    class ChoiceStub:
+        def __init__(self, choice):
+            self.choice = choice
+
+    results = [Res("t1", "linked", "A"), Res("t3", "linked", "none")]
+    gold = {"t1": "A", "t3": ChoiceStub("X")}
+    kw = {"label_of": lambda r: ChoiceStub(r.label), "key_of": lambda r: r.ticket_id}
+    acc, ok = ev.accepted_and_correct(results, gold, accepted_when=lambda r: True, **kw)
+    assert ok == [True, False]
+    assert ev.accuracy(["A", "X"], [ChoiceStub("A"), ChoiceStub("none")]) == 0.5
+    assert ev.action_error_rate(results, gold, acts_when=lambda r: True, **kw) == 0.5
+
+    class NoulStub:
+        noul = 0.7
+
+    with pytest.raises(ValueError, match="compares Choice options"):
+        ev.accepted_and_correct(
+            results,
+            gold,
+            accepted_when=lambda r: True,
+            label_of=lambda r: NoulStub(),
+            key_of=kw["key_of"],
+        )
+
+
+def test_accepted_and_correct_names_an_unhashable_key_with_a_value_error():
+    with pytest.raises(ValueError, match="unhashable key"):
+        ev.accepted_and_correct(
+            RES,
+            GOLD_BY_ID,
+            accepted_when=_answered,
+            label_of=lambda r: r.label,
+            key_of=lambda r: [r.ticket_id],
+        )
+
+
 # ---------------------------------------------------------------- outcome_curve with a REJECT branch (#161)
 
 
 def test_outcome_curve_rejected_examples_are_never_selected_whatever_their_confidence():
-    # confidences 0.9 0.8 0.7 0.6, correct 1 1 0 1, example 1 (0.8) is rejected outright.
-    # t=0.9: {0}: coverage 1/4, accuracy 1 ; t=0.8: {0,1} minus the rejected 1 = {0}: 1/4, 1 ;
-    # t=0.7: {0,2}: 2/4, accuracy 1/2 ; t=0.6: {0,2,3}: 3/4, accuracy 2/3
+    # confidences 0.9 0.8 0.7 0.6, correct 1 1 0 1, example 1 (0.8) is rejected outright, so
+    # its 0.8 is not a threshold (it could only repeat the 0.9 row).
+    # t=0.9: {0}: coverage 1/4, accuracy 1 ; t=0.7: {0,2}: 2/4, accuracy 1/2 ;
+    # t=0.6: {0,2,3}: 3/4, accuracy 2/3
     conf = [0.9, 0.8, 0.7, 0.6]
     c = ev.outcome_curve(conf, [1, 1, 0, 1], rejected=[False, True, False, False])
-    assert c.thresholds.tolist() == [0.9, 0.8, 0.7, 0.6]
-    assert c.coverage.tolist() == [0.25, 0.25, 0.5, 0.75]
-    assert c.accuracy.tolist() == pytest.approx([1.0, 1.0, 0.5, 2 / 3])
-    assert c.risk.tolist() == pytest.approx([0.0, 0.0, 0.5, 1 / 3])
+    assert c.thresholds.tolist() == [0.9, 0.7, 0.6]
+    assert c.coverage.tolist() == [0.25, 0.5, 0.75]
+    assert c.accuracy.tolist() == pytest.approx([1.0, 0.5, 2 / 3])
+    assert c.risk.tolist() == pytest.approx([0.0, 0.5, 1 / 3])
     # the frozen-gate row is what the rule's own accounting gives (the point of the curve)
     gate = 0.7
     accepted = [cf >= gate and not rj for cf, rj in zip(conf, [0, 1, 0, 0], strict=True)]
@@ -2488,7 +2584,7 @@ def test_outcome_curve_rejected_examples_are_never_selected_whatever_their_confi
     assert (c.coverage[row], c.accuracy[row]) == (own.coverage, own.accuracy)
     # without the rejected mask the same call reports the confidence-only numbers instead
     plain = ev.outcome_curve(conf, [1, 1, 0, 1])
-    assert plain.coverage[1] == 0.5 and c.coverage[1] == 0.25
+    assert plain.coverage[list(plain.thresholds).index(gate)] == 0.75 and c.coverage[1] == 0.5
 
 
 def test_outcome_curve_rejected_combines_with_exempt_and_matches_evaluate_outcomes_per_row():
@@ -2509,6 +2605,28 @@ def test_outcome_curve_rejected_combines_with_exempt_and_matches_evaluate_outcom
     row = list(c.thresholds).index(0.5)
     assert c.coverage[row] == pytest.approx(4 / 6)
     assert c.accuracy[row] == pytest.approx(3 / 4)
+
+
+def test_outcome_curve_threshold_grid_skips_rejected_confidences_so_no_row_is_nan():
+    # A rejected 0.95 above every other confidence used to give a top row that selected
+    # nothing (coverage 0, NaN accuracy), so risk.min() and np.max(accuracy) were NaN.
+    c = ev.outcome_curve([0.95, 0.5], [1, 0], rejected=[True, False])
+    assert c.thresholds.tolist() == [0.5]
+    assert c.coverage.tolist() == [0.5]
+    assert c.accuracy.tolist() == [0.0]
+    assert not np.isnan(c.risk.min()) and not np.isnan(np.max(c.accuracy))
+    # every row of a mixed call selects something, so no row is NaN
+    mixed = ev.outcome_curve(
+        [0.99, 0.9, 0.8, 0.7, 0.3],
+        [1, 0, 1, 0, 1],
+        exempt=[False, False, False, False, True],
+        rejected=[True, False, True, False, False],
+    )
+    assert mixed.thresholds.tolist() == [0.9, 0.7, 0.3]
+    assert not any(nan(a) for a in mixed.accuracy)
+    # t=0.9: {1, exempt 4} -> 2/5, 1 of 2 ; t=0.7 and t=0.3: {1, 3, 4} -> 3/5, 1 of 3
+    assert mixed.coverage.tolist() == pytest.approx([0.4, 0.6, 0.6])
+    assert mixed.accuracy.tolist() == pytest.approx([0.5, 1 / 3, 1 / 3])
 
 
 def test_outcome_curve_with_everything_rejected_selects_nothing_and_is_nan_not_zero():
