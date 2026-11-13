@@ -70,9 +70,10 @@ the call: a backend built with `images=True` sends the images header on every ca
 including a call with no image or Box question, and a backend built with `long_context=True`
 does the same with the long-context header. Upstream asks for the images header "with each
 request that contains an image or a Box question" ([images](https://docs.typesafe.ai/images)).
-Both defaults are false: a backend built without a flag sends no header for it, and refuses image
-assets and Box questions (below), so a text-only call that should carry no experimental header
-goes through a backend built without the flags.
+Both defaults are false, and a backend built without a flag sends no header for it. Only
+`images=True` admits image assets and Box questions: a backend built without it refuses them
+(below), whatever `long_context` is. A text-only call that should carry no images header therefore
+goes through a backend built without `images=True`.
 The existing restriction on arbitrary `request_kwargs["extra_headers"]` still holds.
 
 Pass raw image dictionaries using `decide(state, questions, assets=assets)` as described in

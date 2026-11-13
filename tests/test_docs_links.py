@@ -7,8 +7,11 @@ network, no SDK.
 
 from __future__ import annotations
 
+import functools
 import json
 import re
+import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -18,24 +21,37 @@ from jev_cookbook import LiveBackend, Noul, NoulAnswer, Provenance
 REPO = Path(__file__).resolve().parents[1]
 DOCS = REPO / "docs"
 
-_FENCED = re.compile(r"^```.*?^```", re.S | re.M)
-_LINK = re.compile(r"\]\(([^)\s#]+)(?:#[^)\s]*)?(?:\s+\"[^\"]*\")?\)")
+_FENCED = re.compile(r"^[ \t]*```.*?^[ \t]*```", re.S | re.M)
+_COMMENT = re.compile(r"<!--.*?-->", re.S)
+_CODE_SPAN = re.compile(r"(`+).+?\1", re.S)
+_LINK = re.compile(r"\]\(([^)\s#]+)(?:#[^)\s]*)?(?:\s+(?:\"[^\"]*\"|'[^']*'))?\)")
+_REFERENCE = re.compile(r"^[ ]{0,3}\[[^\]]+\]:\s*<?([^>\s#]+)", re.M)
 
 
-def linked_pages(page: Path) -> set[Path]:
-    """The markdown files ``page`` links to, resolved, ignoring fenced code and URLs."""
-    text = _FENCED.sub("", page.read_text("utf-8"))
+def prose(text: str) -> str:
+    """``text`` without fenced code blocks, HTML comments and inline code spans, none of which
+    GitHub renders as a link."""
+    return _CODE_SPAN.sub("", _COMMENT.sub("", _FENCED.sub("", text)))
+
+
+@functools.cache
+def linked_pages(page: Path) -> frozenset[Path]:
+    """The markdown files ``page`` links to (inline and reference-style links), resolved,
+    ignoring fenced code, HTML comments, inline code and URLs."""
+    text = prose(page.read_text("utf-8"))
     found: set[Path] = set()
-    for target in _LINK.findall(text):
+    for target in _LINK.findall(text) + _REFERENCE.findall(text):
         if "://" in target or target.startswith("mailto:") or not target.endswith(".md"):
             continue
         found.add((page.parent / target).resolve())
-    return found
+    return frozenset(found)
 
 
 def section(text: str, heading: str) -> str:
     """The body under ``heading`` (a full heading line such as ``## Name``), up to the next
-    heading of level 1 to 3."""
+    heading of level 1 to 3. Fenced code is removed first, so a ``# comment`` inside a code block
+    is not taken for a heading."""
+    text = _FENCED.sub("", text)
     match = re.search(rf"^{re.escape(heading)}\n(.*?)(?=^#{{1,3}} |\Z)", text, re.S | re.M)
     assert match, f"no section {heading!r}"
     return match.group(1)
@@ -51,11 +67,20 @@ def squash(text: str) -> str:
 def test_linked_pages_reads_fragments_and_skips_code_and_urls(tmp_path):
     (tmp_path / "page.md").write_text(
         "See [b](b.md) and [c](c.md#part) and [d](https://example.com/d.md) "
-        "and [e](notes.txt).\n\n```\n[f](f.md)\n```\n",
+        "and [e](notes.txt) and [g](g.md 'title') and [h][ref].\n\n"
+        "```\n[f](f.md)\n```\n\n  ```\n  [i](i.md)\n  ```\n\n"
+        "Not links: `[j](j.md)` and <!-- [k](k.md) -->.\n\n[ref]: h.md#part\n",
         encoding="utf-8",
     )
     root = tmp_path.resolve()
-    assert linked_pages(tmp_path / "page.md") == {root / "b.md", root / "c.md"}
+    expected = {root / "b.md", root / "c.md", root / "g.md", root / "h.md"}
+    assert linked_pages(tmp_path / "page.md") == expected
+
+
+def test_section_ignores_a_comment_line_inside_fenced_code():
+    text = "## A\n\nfirst\n\n```python\n# a comment\n```\n\nsecond\n\n## B\n\nthird\n"
+    body = section(text, "## A")
+    assert "first" in body and "second" in body and "third" not in body
 
 
 # -- reachability -------------------------------------------------------------------------------
@@ -127,6 +152,27 @@ def test_live_md_documents_the_sdk_default_compression():
         "Compression does not raise the 32 MiB request-body limit",
     ):
         assert needle in body, needle
+
+
+def test_the_backend_builds_its_client_without_a_compression_argument(monkeypatch):
+    """The compression sentence holds only while the backend leaves ``compression=`` to the SDK's
+    default. A stub SDK records the constructor's arguments; no key is read and nothing is sent."""
+    built = []
+
+    class _SdkClient:
+        def __init__(self, **kwargs):
+            built.append(kwargs)
+
+    sdk = types.ModuleType("typesafe_sdk")
+    sdk.TypeSafeClient = _SdkClient
+    sdk.RetryPolicy = lambda **kw: types.SimpleNamespace(**kw)
+    monkeypatch.setitem(sys.modules, "typesafe_sdk", sdk)
+    monkeypatch.delenv("TYPESAFE_BASE_URL", raising=False)
+    monkeypatch.setenv("JEV_COOKBOOK_LIVE", "1")
+    monkeypatch.setenv("TYPESAFE_API_KEY", "test-placeholder-not-a-key")
+    LiveBackend("jev-1.13.0", sleep=lambda s: None)
+    assert len(built) == 1
+    assert "compression" not in built[0]
 
 
 class _Resp:
