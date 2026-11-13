@@ -862,21 +862,168 @@ def test_idat_is_inflated_no_further_than_the_length_the_header_implies():
     assert peak < 2 * 2**20, f"peak {peak:,} bytes while checking a 100 MiB bomb"
 
 
-def test_the_inflate_limit_is_exactly_one_byte_past_the_expected_length():
-    # One byte too many is refused and the exact length is accepted, so neither a limit that is
-    # one too small (which would reject every good file) nor one that is too large is possible.
+def test_the_exact_length_is_accepted_and_a_longer_stream_is_refused():
+    # The exact length is accepted and anything longer is refused as "inflates past". (This test
+    # alone cannot tell the margin of one byte from a larger one, or from none: the next test
+    # pins the limit given to zlib.)
     expected = assets.png_raw_length(320, 320, 2, 8, 0)
     for extra, outcome in ((0, []), (1, ["png-structure"]), (2, ["png-structure"])):
         data = png_with_idat(png(), zlib.compress(bytes(expected + extra)))
         assert only(f"{A}/e{extra}.png", data) == outcome, extra
 
 
-def test_a_header_implying_more_than_the_backstop_is_refused_without_inflating(monkeypatch):
-    # A header that claims enormous dimensions would otherwise raise the inflate limit with it.
-    monkeypatch.setattr(assets, "_MAX_INFLATED", 100_000)
-    found = findings(entry(f"{A}/big.png", png()))  # 320 x 320 RGB implies 307,520 bytes
+class InflateSpy:
+    """Stands in for ``zlib`` inside the checker: all real, but every inflate call is recorded
+    as (max_length it was given, number of bytes it returned)."""
+
+    def __init__(self):
+        self.calls: list[tuple[int, int]] = []
+        self.crc32 = zlib.crc32
+        self.error = zlib.error
+
+    def decompressobj(self):
+        real, calls = zlib.decompressobj(), self.calls
+
+        class Recording:
+            def decompress(self, data, max_length=0):
+                out = real.decompress(data, max_length)
+                calls.append((max_length, len(out)))
+                return out
+
+            def __getattr__(self, name):  # eof, unused_data, ...
+                return getattr(real, name)
+
+        return Recording()
+
+
+def spy_on_inflate(monkeypatch) -> InflateSpy:
+    spy = InflateSpy()
+    monkeypatch.setattr(assets, "zlib", spy)
+    return spy
+
+
+def test_the_inflate_call_is_given_exactly_one_byte_past_the_expected_length(monkeypatch):
+    # The spare byte is what tells "too long" from "does not end cleanly" and keeps a valid file
+    # off the output limit altogether. A margin of two bytes (or none) returns a different
+    # number of bytes here, so the margin cannot drift unnoticed.
+    spy = spy_on_inflate(monkeypatch)
+    expected = assets.png_raw_length(320, 320, 2, 8, 0)
+    data = png_with_idat(png(), zlib.compress(bytes(expected + 50)))
+    found = findings(entry(f"{A}/long.png", data))
     assert [f.rule for f in found] == ["png-structure"]
-    assert "the most inflated is 100,000" in found[0].message
+    assert spy.calls == [(expected + 1, expected + 1)]
+
+
+def png_with_header(width, height, colour, depth, interlace, idat: bytes) -> bytes:
+    """A PNG whose header says anything, with the given IDAT body (not necessarily matching)."""
+    header = struct.pack(">IIBBBBB", width, height, depth, colour, 0, 0, interlace)
+    return png_rebuilt([(b"IHDR", header), (b"IDAT", idat), (b"IEND", b"")])
+
+
+def zeros_stream(total: int) -> bytes:
+    """A zlib stream of ``total`` zero bytes, built without ever holding them all in memory."""
+    packer = zlib.compressobj(9)
+    parts = [packer.compress(bytes(2**20)) for _ in range(total // 2**20)]
+    parts += [packer.compress(bytes(total % 2**20)), packer.flush()]
+    return b"".join(parts)
+
+
+def asset_findings(data: bytes) -> list[tuple[str, str]]:
+    return [(f.rule, f.message) for f in findings(entry(f"{A}/big.png", data))]
+
+
+def embedded_findings(data: bytes) -> list[tuple[str, str]]:
+    return [(f.rule, f.message) for f in assets.inspect_embedded("image/png", data)]
+
+
+# (backstop constant, how a file reaches it, the rule a refusal carries, its value in MiB): a file
+# under assets/ has the dimension limits, so a refusal is a "dimensions" finding; an image
+# embedded in a notebook has none, so the cap is much higher.
+BACKSTOPS = [
+    pytest.param("_MAX_INFLATED_ASSET", asset_findings, "dimensions", 32, id="asset"),
+    pytest.param("_MAX_INFLATED", embedded_findings, "png-structure", 256, id="embedded"),
+]
+
+
+@pytest.mark.parametrize("interlace", [0, 1])
+def test_the_largest_legal_asset_is_not_refused_by_the_backstop(interlace):
+    # 1568 x 1568 RGBA 16-bit implies 19,670,560 bytes (19,671,932 interlaced) and is a file of
+    # about 19 KB. A backstop under that would reject a legal image (a 16 MiB one does).
+    expected = assets.png_raw_length(1568, 1568, 6, 16, interlace)
+    assert expected > 16 * 2**20
+    data = png_with_header(1568, 1568, 6, 16, interlace, zeros_stream(expected))
+    assert len(data) < assets.MAX_FILE_BYTES
+    assert only(f"{A}/largest.png", data) == []
+
+
+def test_a_large_embedded_figure_is_not_refused_by_the_backstop():
+    # A notebook figure has no dimension limit: 4800 x 3600 RGBA (matplotlib figsize (16, 12) at
+    # 300 dpi) implies 69,123,600 bytes, more than twice the 32 MiB asset backstop.
+    expected = assets.png_raw_length(4800, 3600, 6, 8, 0)
+    assert expected == 69_123_600
+    assert expected > 32 * 2**20
+    data = png_with_header(4800, 3600, 6, 8, 0, zeros_stream(expected))
+    assert embedded_findings(data) == []
+    # the same header in a file under assets/ is refused by the 32 MiB backstop, without inflating
+    assert [rule for rule, _ in asset_findings(data)] == ["dimensions"]
+
+
+@pytest.mark.parametrize(("constant", "check", "rule", "mib"), BACKSTOPS)
+def test_a_header_one_past_the_backstop_is_refused_and_one_at_it_is_not(
+    monkeypatch, constant, check, rule, mib
+):
+    spy = spy_on_inflate(monkeypatch)
+    expected = assets.png_raw_length(320, 320, 2, 8, 0)  # 307,520 bytes for a 320 x 320 RGB PNG
+    data = png()
+    monkeypatch.setattr(assets, constant, expected)  # exactly at the backstop: allowed
+    assert check(data) == []
+    assert spy.calls
+    spy.calls.clear()
+    monkeypatch.setattr(assets, constant, expected - 1)  # one byte over it: refused, not inflated
+    found = check(data)
+    assert [r for r, _ in found] == [rule]
+    assert found[0][1].startswith(
+        f"the image header implies {expected:,} bytes of pixel data; "
+        f"the most inflated is {expected - 1:,}"
+    )
+    assert spy.calls == []
+
+
+@pytest.mark.parametrize(("constant", "check", "rule", "mib"), BACKSTOPS)
+def test_the_backstops_are_the_documented_sizes(constant, check, rule, mib):
+    # A header implying 2 bytes more than the stated size is refused (a backstop of 4 GiB would
+    # let it through to the length check, which words it differently), whatever the constant
+    # says: gray 8-bit, 1 pixel wide, implies two bytes per row.
+    height = mib * 2**20 // 2 + 1
+    data = png_with_header(1, height, 0, 8, 0, zlib.compress(bytes(64)))
+    assert assets.png_raw_length(1, height, 0, 8, 0) == mib * 2**20 + 2
+    found = check(data)
+    assert [r for r, _ in found] == [rule]
+    assert found[0][1].startswith(
+        f"the image header implies {mib * 2**20 + 2:,} bytes of pixel data; "
+        f"the most inflated is {mib * 2**20:,}"
+    )
+    if rule == "dimensions":  # on an asset the message also says what the side limits are
+        assert found[0][1].endswith(" (each side must be 280 to 1568)")
+
+
+def test_a_small_file_with_a_huge_header_cannot_make_the_asset_check_allocate_much():
+    # A 299 KB file with a 9000 x 9000 header (243,009,000 bytes implied, under the old 256 MiB
+    # backstop) made the checker peak at about 487 MB.
+    expected = assets.png_raw_length(9000, 9000, 2, 8, 0)
+    data = png_with_header(9000, 9000, 2, 8, 0, zeros_stream(300 * 2**20))
+    assert len(data) < assets.MAX_FILE_BYTES
+    if tracemalloc.is_tracing():
+        pytest.skip("tracemalloc is already running, so its peak is not this test's")
+    tracemalloc.start()
+    try:
+        found = asset_findings(data)
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert peak < 4 * 2**20, f"peak {peak:,} bytes while checking a 9000 x 9000 header"
+    assert [r for r, _ in found] == ["dimensions"]
+    assert f"implies {expected:,} bytes" in found[0][1]
 
 
 def test_idat_chunks_must_be_consecutive():

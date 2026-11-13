@@ -1650,7 +1650,7 @@
         "Box",
         "Choice"
       ],
-      "use_case": "Identify and locate a requested energy meter, card, action button, or enemy indicator in a synthetic Slay the Spire 2-style screenshot, with absent and ambiguous outcomes before any simulated action.",
+      "use_case": "Identify and locate a requested energy meter, card, action button, or enemy indicator in a synthetic screenshot of an invented, unbranded deck-building game HUD, with absent and ambiguous outcomes before any simulated action.",
       "sources": [
         "S02",
         "S03",

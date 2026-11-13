@@ -1422,9 +1422,54 @@ def test_this_file_scans_clean_without_the_exemption(monkeypatch):
     that tests it.
     """
     monkeypatch.setattr(hygiene, "_IDENT_ASSIGNMENT", re.compile(r"(?!)"))
-    # the switch really turns the exemption off: these lines are findings without it
-    assert all(hygiene.scan_text(line) for line in DIGIT_RUN_KEYWORDS)
+    # the switch really turns the exemption off: these lines are findings without it; the
+    # leading `DIGIT_RUN_KEYWORDS and` stops this guard passing vacuously if the list is ever
+    # emptied (all([]) is True)
+    assert DIGIT_RUN_KEYWORDS and all(hygiene.scan_text(line) for line in DIGIT_RUN_KEYWORDS)
     assert hygiene.scan_text(Path(__file__).read_text(encoding="utf-8")) == []
+
+
+def test_the_module_docstring_describes_the_unscored_assignment_shapes():
+    # these shapes really are uncovered: neither scanner reports them, so the docstring says so
+    chain = "ABCD1234" + "_EFGH5678" + "_IJKL9012" + "_MNOP3456"
+    line = f"license_id={chain}"
+    assert hygiene.scan_text(line) == []
+    assert packaged_scan.scan_text(line) == []
+    # the names the docstring lists as examples of a broken-apart secret word really escape
+    for name in ("api1_key", "api_1_key", "api__key", "api_v2_key", "pass_word"):
+        line = f"{name}={LOWER_36}"
+        assert hygiene.scan_text(line) == [], line
+        assert packaged_scan.scan_text(line) == [], line
+
+    doc = " ".join(hygiene.__doc__.split())
+    needles = (
+        "all-lowercase, all-uppercase, or a chain of letters-then-digits runs",
+        "(``ABCD1234_EFGH5678_`` and so on, 32 characters or more)",
+        "with at most one ``_`` or ``-`` between ``api`` or ``access`` and ``key``",
+        "(``api1_key``, ``api_1_key``, ``api__key``, ``api_v2_key``, ``pass_word``)",
+        "decided limit tracked in #391",
+    )
+    for needle in needles:
+        assert needle in doc, needle
+
+
+@pytest.mark.xfail(
+    strict=True,
+    raises=AssertionError,
+    reason=(
+        "decided limit (issues #339, #391): the secret-name rule matches api or access, at most"
+        " one '_' or '-', then key, so a name that splits those words any other way is not"
+        " matched; closing it means changing the rule in tools/check_hygiene.py and in"
+        " src/jev_cookbook/fixtures/_scan.py in step (tests/test_fixtures.py compares the two)."
+        " When a case is fixed it XPASSes and strict=True fails the suite: take it out of"
+        " the list then."
+    ),
+)
+@pytest.mark.parametrize("name", ["api1_key", "access1_key", "api_1_key", "api__key", "api_v2_key"])
+def test_a_two_word_secret_name_split_by_digits_or_extra_text_escapes_the_name_check(name):
+    line = f"{name}={LOWER_36}"
+    assert hygiene.scan_text(line), line
+    assert packaged_scan.scan_text(line), line
 
 
 def test_the_exemption_regex_does_not_backtrack_catastrophically():
