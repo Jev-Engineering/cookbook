@@ -3687,6 +3687,81 @@ def test_a_wrong_decide_count_in_the_audit_line_is_still_caught_after_the_exclus
         _request_audit.audit_recipe(folder, notebook_cells(folder))
 
 
+def _replace_audit_line(folder: Path, cell_id: str, edit) -> None:
+    """Rewrite the committed audit line of ``folder``'s notebook through ``edit(payload)``, in
+    canonical form, so only the edited values differ from a genuine line."""
+    from jev_cookbook._canonical import canonical_json
+
+    path = folder / "notebook.ipynb"
+    notebook = json.loads(path.read_text("utf-8"))
+    cell = next(c for c in notebook["cells"] if c.get("id") == cell_id)
+    for output in cell["outputs"]:
+        text = output.get("text", [])
+        for i, line in enumerate(text):
+            if line.startswith(AUDIT_PREFIX):
+                payload = json.loads(line[len(AUDIT_PREFIX) :])
+                edit(payload)
+                text[i] = AUDIT_PREFIX + canonical_json(payload) + "\n"
+                path.write_text(json.dumps(notebook), "utf-8")
+                return
+    raise AssertionError(f"cell {cell_id} commits no audit line")
+
+
+def test_what_the_ledger_pins_about_its_replay_keys(tmp_path):
+    """#379: what ``readme_budget_note_matches_request_audit`` pins about a ledger's
+    ``replay_key`` values, in both configurations, as docs/backends.md states it.
+
+    * With a fixture inventory declared (the template, ``fixtures/responses.json``), a key
+      replaced by a well-formed but wrong value fails: the executed key set must equal the
+      inventory.
+    * With ``fixtures: null`` (a scripted lane, which has no stored answers to compare against),
+      the guard checks a key's FORM and the counts the key list implies: a malformed key fails,
+      and so does a duplicated key, whose ledger then holds fewer distinct requests than it
+      states. A well-formed wrong key is the recorded limit and PASSES here. What catches it is
+      the fresh-kernel notebook check (``tools/check_notebook_fresh.py``, CI's ``Notebook
+      (<recipe>)`` job): the committed text output must equal a fresh run's, so the edited line
+      differs from what the run prints, shown at the end on the same two notebooks."""
+    template = tmp_path / "template"
+    shutil.copytree(RECIPES_DIR / "_template", template)
+    assert _request_audit.audit_recipe(template, notebook_cells(template)) == 22
+
+    def wrong_key(payload):
+        payload["backends"][0]["calls"][0]["replay_key"] = "a" * 64
+
+    _replace_audit_line(template, "audit", wrong_key)
+    with pytest.raises(AssertionError, match="differ from fixture inventory"):
+        _request_audit.audit_recipe(template, notebook_cells(template))
+
+    folder, _ = _audited_mini_recipe(tmp_path, n=3)
+    genuine = folder.parent / "genuine.ipynb"
+    shutil.copy(folder / "notebook.ipynb", genuine)
+    assert _request_audit.audit_recipe(folder, notebook_cells(folder)) == 3
+
+    def malformed_key(payload):
+        payload["backends"][0]["calls"][0]["replay_key"] = "not-a-key"
+
+    def duplicated_key(payload):
+        calls = payload["backends"][0]["calls"]
+        calls[1]["replay_key"] = calls[0]["replay_key"]
+
+    for edit, message in (
+        (malformed_key, "malformed replay key"),
+        (duplicated_key, "stated distinct count differs"),
+    ):
+        shutil.copy(genuine, folder / "notebook.ipynb")
+        _replace_audit_line(folder, "audit", edit)
+        with pytest.raises(AssertionError, match=message):
+            _request_audit.audit_recipe(folder, notebook_cells(folder))
+
+    shutil.copy(genuine, folder / "notebook.ipynb")
+    _replace_audit_line(folder, "audit", wrong_key)
+    # The recorded limit: a well-formed wrong key on a backend with no inventory passes the guard.
+    assert _request_audit.audit_recipe(folder, notebook_cells(folder)) == 3
+    fresh = load_tool("check_notebook_fresh.py")
+    assert fresh.main([str(genuine), str(genuine)]) == 0
+    assert fresh.main([str(folder / "notebook.ipynb"), str(genuine)]) == 1
+
+
 # --------------------------------------------------------------------------------------------
 # check 8c: one budget per backend (#213): a recipe builds exactly the backends it audits
 # --------------------------------------------------------------------------------------------

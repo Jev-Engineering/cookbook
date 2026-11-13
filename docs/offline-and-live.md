@@ -165,8 +165,10 @@ The exclusion costs no other check: the ledger's own content is verified far mor
 (see [backends.md](backends.md#actual-calls-and-distinct-requests)) -- every count recomputed from
 the ordered ledger and checked against `request_budget.json`, the key set against the declared
 fixture inventory, and the line itself against the shared canonical form -- though a `replay_key`'s
-own value is pinned only when the backend declares a fixture inventory; a backend with none
-declared does not have its keys checked (#379). That check also reads stdout only, and not every
+own value is pinned by this check only when the backend declares a fixture inventory; for a
+backend with none declared it checks each key's form and the counts its key list implies, and
+the key values are pinned by the fresh-kernel notebook check instead (see
+[backends.md](backends.md#actual-calls-and-distinct-requests)). That check also reads stdout only, and not every
 code cell's: it builds its scan from code cells whose source is non-blank, so a prefixed line
 parked in the committed output of a blank-source code cell is invisible to it, while this
 exclusion still finds and blanks that same line regardless of what the cell's source contains.
