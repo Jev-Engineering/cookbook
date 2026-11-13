@@ -153,8 +153,10 @@ The skip is per test. The `live_sdk` marker is applied by `pytestmark` in
 `tests/test_live_sdk.py` and on the one SDK-backed test in `tests/test_notebook_ci_netguard.py`,
 and registered in `tests/conftest.py`. Both skip before the test body runs, so each skip is one
 test, and the skip count equals the number of SDK-gated tests not run. Only a missing
-`typesafe_sdk` or `httpx2` skips: an installed SDK that cannot import, including one missing a
-submodule of its own, fails collection of `tests/test_live_sdk.py` instead of skipping.
+`typesafe_sdk` or `httpx2` skips (both files take that condition from `tests/conftest.py`'s
+module list): an installed SDK that cannot import, including one missing a submodule of its own,
+fails collection of `tests/test_live_sdk.py` instead of skipping, and fails the netguard test,
+which imports both modules first, with the same import error.
 
 To compare two runs, run the same command, with the same paths and the same `-k` or `-m`, once
 with `pip install -e ".[dev,ml]"` and once with `pip install -e ".[dev,ml,live]"`. In a
