@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import base64
 import itertools
+import re
 
 import pytest
 
@@ -145,12 +146,27 @@ def test_a_counter_called_outside_an_audit_still_counts():
 
 def _validator_length(encoded: str) -> int | None:
     """Decoded length when ``validate_image_asset``'s base64 step accepts ``encoded``, else None."""
-    import binascii
-
     try:
-        return len(base64.b64decode(encoded, validate=True))
-    except (binascii.Error, ValueError):
+        return len(vision._decode_base64(encoded))
+    except ValueError:
         return None
+
+
+# Canonical padded base64: whole groups of four, the last one optionally ending "==" or "=".
+_CANONICAL_BASE64 = re.compile(r"(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?")
+
+
+def test_the_validator_accepts_exactly_canonical_base64_on_every_python_version():
+    # Before Python 3.13, b64decode(validate=True) also accepted excess padding such as "=" or
+    # "AAAA="; the validator must refuse it everywhere, as 3.13 and later do.
+    for length in range(0, 9):
+        for chars in itertools.product("Aw+=", repeat=length):
+            encoded = "".join(chars)
+            accepted = _validator_length(encoded) is not None
+            assert accepted == bool(_CANONICAL_BASE64.fullmatch(encoded)), encoded
+    for excess in ("=", "==", "AAAA=", "AAAA==", "Aw==="):
+        with pytest.raises(ValueError, match="standard base64"):
+            vision._decode_base64(excess)
 
 
 def test_the_size_count_agrees_with_the_validator_for_every_short_string_including_excess_padding():

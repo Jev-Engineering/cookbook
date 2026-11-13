@@ -131,6 +131,23 @@ def _image_format(data: bytes) -> str:
     return fmt
 
 
+def _decode_base64(encoded: str) -> bytes:
+    """Decode canonical padded base64, with the same rule on every supported Python version.
+
+    ``b64decode(validate=True)`` checks the alphabet and allows at most two trailing ``=``. Before
+    Python 3.13 it also accepted excess padding after a complete group (``"="``, ``"AAAA="``),
+    which 3.13 and later refuse. Requiring a length that is a multiple of four removes exactly
+    those strings, so the accepted set is the same everywhere and :func:`_encoded_size`, which
+    counts from the length, agrees with it.
+    """
+    if len(encoded) % 4:
+        raise ValueError("data_base64 must be standard base64 without whitespace")
+    try:
+        return base64.b64decode(encoded, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise ValueError("data_base64 must be standard base64 without whitespace") from exc
+
+
 def validate_image_asset(asset: Mapping[str, Any]) -> bytes:
     """Validate a raw image asset and return its original encoded bytes.
 
@@ -148,10 +165,7 @@ def validate_image_asset(asset: Mapping[str, Any]) -> bytes:
         raise ValueError("data_base64 must be a base64 string")
     if len(encoded) > 4 * ((_MAX_IMAGE_BYTES + 2) // 3):
         raise ValueError("image exceeds the 16 MiB file limit")
-    try:
-        data = base64.b64decode(encoded, validate=True)
-    except (binascii.Error, ValueError) as exc:
-        raise ValueError("data_base64 must be standard base64 without whitespace") from exc
+    data = _decode_base64(encoded)
     detected = _image_format(data)
     if detected != declared:
         raise ValueError("declared image format does not match the image bytes")
