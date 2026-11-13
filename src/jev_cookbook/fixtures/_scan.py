@@ -113,9 +113,30 @@ _ENTROPY_THRESHOLD = 4.2
 _NAME_RUN = r"(?:[A-Z]+|[a-z]+)[0-9]*"
 _RUN = rf"(?:{_NAME_RUN}|[0-9]+)"
 _IDENT_ASSIGNMENT = re.compile(rf"_*{_NAME_RUN}(?:_+{_RUN})*_*=_*{_RUN}(?:[_.]+{_RUN})*_*")
-_SECRET_NAME = re.compile(
-    r"api[_-]?key|secret|token|passw(?:or)?d|access[_-]?key|credential", re.IGNORECASE
-)
+# The left side is read with every digit and "_" removed first, so a digit run, extra
+# underscores or a word split apart (``api1_key``, ``api__key``, ``pass_word``) still names a
+# secret, and ``api`` or ``access`` with any letters between it and a later ``key``
+# (``api_v2_key``, ``stripe_api_live_key``, ``access_aws_key``) does too.
+_NAME_GLUE = re.compile(r"[0-9_]+")
+_SECRET_WORD = re.compile(r"secret|token|passw(?:or)?d|credential", re.IGNORECASE)
+_KEY_PREFIXES = ("api", "access")
+_LETTER_RUN = re.compile(r"[a-z]+")
+
+
+def _is_secret_name(name: str) -> bool:
+    # True for a secret word, or for "api" or "access" with only letters between it and a
+    # later "key". That second test is str.find inside each run of letters, not a regex such
+    # as ``api[a-z]*key``: the regex retries the letter run from every "api" in a name with
+    # no later "key", which is quadratic in the name's length; this is linear.
+    lowered = name.lower()
+    if _SECRET_WORD.search(lowered):
+        return True
+    for run in _LETTER_RUN.findall(lowered):
+        for prefix in _KEY_PREFIXES:
+            start = run.find(prefix)
+            if start >= 0 and run.find("key", start + len(prefix)) >= 0:
+                return True
+    return False
 
 
 def _scan_secrets_line(line: str) -> Iterator[tuple[str, str]]:
@@ -136,7 +157,8 @@ def _scan_secrets_line(line: str) -> Iterator[tuple[str, str]]:
         if _letters_and_digits(v) and not _is_placeholder(v):
             yield "secret-assignment", _mask(v)
     for word in _WORD.findall(line):
-        if _IDENT_ASSIGNMENT.fullmatch(word) and not _SECRET_NAME.search(word.partition("=")[0]):
+        name = _NAME_GLUE.sub("", word.partition("=")[0])
+        if _IDENT_ASSIGNMENT.fullmatch(word) and not _is_secret_name(name):
             continue
         pattern = _TOKEN if _PATH_SHAPED.search(word) else _TOKEN_SLASH
         for t in pattern.findall(word):
