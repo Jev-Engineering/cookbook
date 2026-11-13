@@ -593,7 +593,7 @@ ref, an unreadable body, an unreadable diff); it fails closed.
   pull request. Only one: rejected. Closing any other issue of this repository as well, or closing
   two recipe issues: rejected. The branch slug must exist in the base catalog, have an assigned
   issue, and match the sole closing reference. Unknown or unassigned slugs fail closed, including
-  a `recipe/` branch for a planned multimodal entry with `issue: null`. Assignments in the head
+  a `recipe/` branch for any entry with `issue: null`. Assignments in the head
   catalog do not authorize a recipe pull request. A foundation branch with `Closes #61` remains
   foundation work while issue 61 is not assigned to a catalog recipe; a rank of 61 does not assign
   that issue.
