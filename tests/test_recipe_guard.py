@@ -9755,6 +9755,26 @@ def _without_audit_lines(text: str) -> str:
     )
 
 
+# A hash-like token: a hex digest of at least 16 characters that mixes letters and digits (a
+# replay key, a SHA-256 or SHA-1 content hash, a full git SHA, a cache key), or a UUID. Its digit
+# runs are not quantities, but read as numbers they back almost any figure: 22 replay keys
+# offered 71 of the integers 0 to 100 (#376, #378). A pure-digit run of any length is a number
+# and is kept; so is a hex-looking word with no digit. A shorter digest (a 7-character git
+# short SHA) and base64-style identifiers are not recognised.
+_HASH_LIKE = re.compile(
+    r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b"
+    r"|\b(?=[0-9a-f]*[a-f])(?=[0-9a-f]*[0-9])[0-9a-f]{16,}\b",
+    re.IGNORECASE,
+)
+
+
+def _without_hash_like_tokens(text: str) -> str:
+    """``text`` with every hash-like token replaced by ``<hash>``, which holds no digit: the
+    token's own digit runs leave the pool, and every other character of its line, a genuine
+    number beside it included, stays exactly where it was (#378)."""
+    return _HASH_LIKE.sub("<hash>", text)
+
+
 def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     """The numbers a quote of each kind can be backed by. A ``metric`` quote: any number a code
     cell's committed output prints, or the recipe's own ``tests/`` type (CONTRIBUTING.md section
@@ -9776,13 +9796,16 @@ def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     the line, so it only reaches the ledger reproduced alone on its own line (e.g. a triple-quoted
     ``EXPECTED`` assignment); an indented occurrence or a one-line assignment where a quote
     character precedes the prefix is a different shape this match does not reach on either arm
-    (#378 measures this). A cell that prints the audit line alongside a genuine metric line still
-    has the metric line counted. The
+    (#378 measures this). Since #378, every hash-like token (``_HASH_LIKE``) is replaced by a
+    digit-free placeholder in both sources as well, wherever it sits on a line, which also takes
+    the replay keys of an indented or mid-line ledger out of the pool; the line-prefix exclusion
+    stays, for the ledger's other fields. A cell that prints the audit line alongside a genuine
+    metric line still has the metric line counted. The
     ledger's own integrity is checked separately, and far more strictly, by
     ``readme_budget_note_matches_request_audit`` against ``request_budget.json``; this exclusion
     removes nothing that check relies on."""
     output = "\n".join(
-        _without_audit_lines(_output_text(cell))
+        _without_hash_like_tokens(_without_audit_lines(_output_text(cell)))
         for cell in notebook_cells(recipe_dir_)
         if cell["cell_type"] == "code"
     )
@@ -9790,7 +9813,9 @@ def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     tests_dir = recipe_dir_ / "tests"
     if tests_dir.is_dir():
         for path in sorted(tests_dir.glob("*.py")):
-            metric += _decimals(_without_audit_lines(path.read_text("utf-8")))
+            metric += _decimals(
+                _without_hash_like_tokens(_without_audit_lines(path.read_text("utf-8")))
+            )
     price = [
         n for m in re.finditer(_PRICE_AMOUNT, output, re.IGNORECASE) for n in _decimals(m.group(0))
     ]
@@ -11268,6 +11293,68 @@ def test_a_number_and_its_unit_split_across_two_cells_still_catches_a_fabricatio
     )
     unbacked = _unprinted_quantities(folder)
     assert any("180" in message for message in unbacked), unbacked
+
+
+# #378: a digest whose only "93" is a digit run inside the hex, so before the fix it alone backed
+# "The accuracy is 93%."; and a UUID with the same property.
+_DIGEST_WITH_93 = "f" * 30 + "a93b" + "e" * 30
+_UUID_WITH_93 = "deadbeef-cafe-4a93-bead-facefacefeed"
+
+
+@pytest.mark.parametrize(
+    ("where", "line"),
+    [
+        ("output", f"fixture digest (sha256): {_DIGEST_WITH_93}"),
+        ("output", f"run id: {_UUID_WITH_93}"),
+        ("output", f"cache key {_DIGEST_WITH_93.upper()}"),
+        # An indented ledger pinned in the recipe's own tests: the line-prefix exclusion does not
+        # reach it (#378's second comment), the hash filter does.
+        ("tests", f'    assert \'"replay_key":"{_DIGEST_WITH_93}"\' in out\n'),
+        ("tests", f'EXPECTED = "{AUDIT_PREFIX}{{\\"replay_key\\":\\"{_DIGEST_WITH_93}\\"}}"\n'),
+    ],
+)
+def test_a_hash_like_token_does_not_back_a_fabricated_figure(tmp_path, where, line):
+    """#378 option A. A recipe has ordinary reasons to print a digest (a fixture hash, a run id, a
+    cache key) or to pin one in its tests; its hex digit runs are not quantities. Before: the
+    token's own digits hold the quoted 93 (asserted on the raw text, which is what the pool read).
+    After: the fabricated sentence is reported."""
+    assert Decimal("93") in _decimals(line)
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
+    if where == "output":
+        _append_cell(folder, "code", line, cell_id="prints-a-digest")
+    else:
+        (folder / "tests").mkdir(exist_ok=True)
+        (folder / "tests" / "test_digest.py").write_text(line, "utf-8")
+    _append_cell(folder, "markdown", "The accuracy is 93%.", cell_id="fabricated")
+    unbacked = _unprinted_quantities(folder)
+    assert any("fabricated" in message for message in unbacked), unbacked
+
+
+def test_a_genuine_number_beside_a_hash_like_token_still_backs_its_quote(tmp_path):
+    """The false-positive direction of #378: only the token is replaced, so a real figure on the
+    same line, a long pure-digit number and a hex-looking word with no digit all stay in the pool,
+    and a figure the recipe's own tests derive beside a pinned key stays too."""
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
+    _append_cell(
+        folder,
+        "code",
+        f"digest {_DIGEST_WITH_93} validation accuracy: 0.8800 (a pipeline check, not a Jev result)",
+        cell_id="digest-and-metric",
+    )
+    _append_cell(folder, "code", "rows read: 12345678901234567890 decaffeinated", cell_id="long")
+    (folder / "tests").mkdir(exist_ok=True)
+    (folder / "tests" / "test_digest.py").write_text(
+        f'    assert "{_DIGEST_WITH_93}" in out and total == 41\n', "utf-8"
+    )
+    for i, sentence in enumerate(
+        (
+            "The accuracy is 0.88 (a pipeline check, not a Jev result).",
+            "It read 12345678901234567890 rows, an accuracy of 0.88 again.",
+            "The suite recomputes an accuracy of 41% from the fixtures.",
+        )
+    ):
+        _append_cell(folder, "markdown", sentence, cell_id=f"genuine-{i}")
+    assert [m for m in _unprinted_quantities(folder) if "genuine-" in m] == []
 
 
 def test_the_audit_line_pinned_in_the_recipes_own_tests_does_not_back_a_fabrication(tmp_path):

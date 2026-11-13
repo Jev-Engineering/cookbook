@@ -155,10 +155,16 @@ runs at all lengths, 133 of them two or three digits (73 two-digit, 60 three-dig
 the integers 0-100 and 12 of their 21 multiples of five. A different, real line of the same
 length -- #375's migrated template, which is what #376 itself measured -- supplied a different
 count: 342 digit runs and 71 of 0-100 backed; the hex depends on the requests behind it, so the two
-lines' figures do not match and neither should be read as the other's. Nothing else a notebook
-prints is excluded by this rule: a hash, a UUID or any other hex token committed outside that one
-prefixed line still enters the pool as numbers (see the limits list below; #378 tracks excluding
-hash-like tokens generally).
+lines' figures do not match and neither should be read as the other's.
+
+A second, narrower exclusion applies to both sources as well: every **hash-like token** is
+replaced by a placeholder that holds no digit, wherever it sits on a line, before the digit scan
+(`_without_hash_like_tokens`). A hash-like token is a UUID, or a run of at least 16 hexadecimal
+characters that mixes letters and digits: a replay key, a SHA-256 or SHA-1 content hash, a full
+git SHA, a cache key. Only the token goes; a genuine number on the same line stays in the pool, as
+do a pure-digit number of any length and a hex-looking word with no digit. This also takes the
+replay keys of a ledger the line-prefix rule cannot reach (indented, or after a quote character)
+out of the pool. No published recipe's pool changes by it.
 
 The exclusion costs no other check: the ledger's own content is verified far more strictly by
 `readme_budget_note_matches_request_audit`
@@ -199,20 +205,15 @@ the README and every markdown cell for them:
   cost word nor a unit of work ("Jev at $0.0004 is affordable"), and no number spelled in words.
   A quoted parameter or target ("coverage stays at 0.70 by construction") is read as a quote, so
   it must be printed.
-- A hash, UUID or other hex token committed anywhere other than the one `JEV_REQUEST_AUDIT ` line:
-  only that one line's digit runs are excluded (above), so another high-entropy token a recipe
-  commits to output -- a replay-key table, a cache id column -- still enters the pool and can
-  coincidentally back a fabricated round figure, the same way the audit line itself did before
-  #376. Excluding hash-like tokens generally is #378. The match itself is also narrower than "the
-  line contains the prefix": `line.startswith(AUDIT_PREFIX)` requires the prefix at the line's
-  very first character, on both arms, so an indented occurrence (`    assert "<ledger line>" in
-  out`, the idiomatic Python shape) or a one-line assignment where a quote character precedes the
-  prefix (`EXPECTED = "<ledger line>"`) is unreached by either filter -- only the ledger
-  reproduced alone on its own physical line is caught. #378 now carries the measured table for
-  this and the design question of whether to widen the match (and, if so, on which arm: a
-  substring match is safe for `tests/*.py`, where the ledger is only ever a quoted string value,
-  but not obviously safe for committed output, where a notebook could legitimately print prose
-  that happens to mention the prefix).
+- A high-entropy token that is not hash-like by the definition above still enters the pool and can
+  coincidentally back a fabricated figure: a hex digest shorter than 16 characters (a 7-character
+  git short SHA), an all-letter or all-digit hex run, a base64 or base32 identifier, an
+  uppercase-and-lowercase mixed id that is not hexadecimal. The line-prefix rule for the
+  `JEV_REQUEST_AUDIT ` line still matches only a line that starts with the prefix, so an indented or
+  mid-line ledger keeps its non-key fields (call counts and the like, small integers) in the pool;
+  its replay keys are removed by the hash-like rule. Widening the prefix match itself was not done,
+  because a "match anywhere and blank the line" rule removes genuine numbers that share the line
+  (measured in #378).
 - A stale or inflated N ("20 examples" printed where the fixtures hold 22), and a header line that
   claims real measurement while the mode word is unchanged: the mode and the disclosure are
   checked, N is only required to be printed.
