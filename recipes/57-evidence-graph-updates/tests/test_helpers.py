@@ -4,7 +4,9 @@ The expected values below are literals typed from the fixtures, not recomputed b
 under test (docs/simulation.md, shape 2: decide-and-apply)."""
 
 import inspect
+import math
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -107,17 +109,39 @@ def test_the_states_keep_ids_in_python():
     }
 
 
-def test_every_person_appears_at_most_once_per_split():
-    """build_second_state reads the current employer from the seed graph; that is the graph at
-    request time only because no person is proposed twice in one split."""
-    labels = load_labels(RECIPE)
+def test_request_one_never_chooses_the_same_person_twice_among_rows_that_reach_request_two():
+    """build_second_state shows the seed graph, so a person chosen twice among the proposals
+    that get request 2 in one split would be shown with a stale employer the second time. The
+    check is over the persons request 1 actually chose, not the gold persons: in the test split
+    t08-wrong-match chooses P17, who is gold for t12-low-confidence, which the gate stops."""
     for split in ("validation", "test"):
-        people = [
-            labels[e.id]["entity"]
-            for e in select_split(load_inputs(RECIPE), split)
-            if labels[e.id]["entity"] != "no_match"
-        ]
-        assert len(people) == len(set(people))
+        _, rows, first, second, _, _ = _run(split)
+        chosen = [first[e.id]["entity"].choice for e in rows if e.id in second]
+        assert len(chosen) == len(set(chosen)), split
+    _, rows, first, second, _, _ = _run("test")
+    assert [first[e.id]["entity"].choice for e in rows if e.id in ("t08-wrong-match", "t12-low-confidence")] == ["P17", "P17"]  # fmt: skip
+    assert "t12-low-confidence" not in second
+
+
+def test_a_mention_with_no_candidate_is_settled_in_python_without_a_request():
+    class NoRequests:
+        def decide(self, *_):
+            raise AssertionError("a request was sent")
+
+    assert helpers.candidates("") == [] and helpers.candidates("   ") == []
+    assert helpers.candidates("Mira Okafor,") == ["P01", "P02"]
+    mentions = {"u1": "Lena Smith", "u2": "", "u3": "  ", "u4": "Smith."}
+    examples = [
+        SimpleNamespace(id=k, fields={"mention": m, "target": "O1", "excerpts": []})
+        for k, m in mentions.items()
+    ]
+    budget = Budget(requests=4)
+    first = helpers.ask_first(NoRequests(), budget, examples)
+    assert budget.used("requests") == 0
+    for e in examples:
+        d = helpers.decide(e, first[e.id], None, SETTINGS)
+        assert (d.outcome, d.reason, d.answers) == ("no_match", "the mention matches no listed person", {})  # fmt: skip
+    assert helpers.ask_second(NoRequests(), budget, examples, first, SETTINGS) == {}
 
 
 def test_every_replay_key_matches_the_current_questions():
@@ -177,11 +201,11 @@ def test_decide_composes_the_second_request():
     e = _examples()["t01"]
     first = _first({"P12": 0.9, "P11": 0.05, "no_match": 0.05}, 0.1)
     replace = helpers.decide(e, first, _second(0.9, 0.9), SETTINGS)
-    assert (replace.outcome, replace.person, replace.target, replace.remove) == (
-        "propose", "P12", "O2", "edge:P12|works_at|O3",
+    assert (replace.outcome, replace.person, replace.target, replace.replace) == (
+        "propose", "P12", "O2", True,
     )  # fmt: skip
     add = helpers.decide(e, first, _second(0.9, 0.1), SETTINGS)
-    assert (add.outcome, add.remove) == ("propose", None)
+    assert (add.outcome, add.replace) == ("propose", False)
     rejected = helpers.decide(e, first, _second(0.5, 0.9), SETTINGS)
     assert (rejected.outcome, rejected.reason) == (
         "rejected",
@@ -203,6 +227,27 @@ def test_the_budget_holds_whatever_the_model_answers():
     assert helpers.ask_second(_backend(), budget, examples[:1], first, SETTINGS) == {
         examples[0].id: None
     }
+
+
+def test_freezing_handles_refused_requests_and_an_empty_second_stage():
+    probs = {"P01": 0.9, "P02": 0.05, "no_match": 0.05}
+    answered = [_first(probs, 0.9), _first({"P01": 0.1, "P02": 0.8, "no_match": 0.1}, 0.1)]
+    gold = [
+        {"entity": "P01", "conflict": True},
+        {"entity": "P02", "conflict": False},
+    ]
+    expected = helpers.freeze_stage_one(answered, gold)
+    mixed = [None, answered[0], helpers.UNMATCHED, answered[1]]
+    mixed_gold = [gold[0], *gold[:1], gold[1], gold[1]]
+    assert helpers.freeze_stage_one(mixed, mixed_gold) == expected
+    nothing = helpers.freeze_stage_one([None, helpers.UNMATCHED], gold)
+    assert (nothing.gate, nothing.conflict) == (math.inf, math.inf)
+    refused = helpers.freeze_stage_two(expected, [None], [{"supported": True, "ended": False}])
+    assert (refused.supported, refused.ended) == (math.inf, math.inf)
+    assert helpers.freeze_stage_two(expected, [], []) == refused
+    calm = _first(probs, 0.0)
+    d = helpers.decide(_examples()["t01"], calm, _second(0.99, 0.99), refused)
+    assert (d.outcome, d.reason) == ("rejected", "the evidence does not support the relationship")
 
 
 # --- settings ------------------------------------------------------------------------------
@@ -325,8 +370,8 @@ def test_update_accuracy_against_gold():
 
 def test_a_rolled_back_update_leaves_the_store_unchanged():
     e = _examples()["t04-invariant"]
-    add = helpers.Decision(e.id, "propose", "", "P15", "O1", None, None)
-    already = helpers.Decision("dup", "propose", "", "P15", "O5", None, None)
+    add = helpers.Decision(e.id, "propose", "", "P15", "O1", False, None)
+    already = helpers.Decision("dup", "propose", "", "P15", "O5", False, None)
     tx, queue, outcomes = helpers.run_updates([add, already], "rule:test")
     assert [r.status for r in tx.log] == ["committed", "rolled_back", "rolled_back"]
     assert tx.store.version == 52
@@ -338,6 +383,43 @@ def test_a_rolled_back_update_leaves_the_store_unchanged():
     assert tx.log[2].error == "ValueError: validate rejected: ['the edge is already in the graph']"
     assert [o.outcome for o in outcomes] == ["review", "review"]
     assert [i["reason"] for i in queue.to_dicts()] == ["the transaction was rolled back"] * 2
+
+
+def test_a_replacement_deletes_the_edge_the_live_store_holds_for_that_person():
+    """The second update of one person deletes the edge the first one wrote, not the seed edge."""
+    first = helpers.Decision("a", "propose", "", "P17", "O2", True, None)
+    second = helpers.Decision("b", "propose", "", "P17", "O3", True, None)
+    tx, queue, outcomes = helpers.run_updates([first, second], "rule:test")
+    assert [(o.outcome, o.ops) for o in outcomes] == [
+        ("applied", (("delete", "edge:P17|works_at|O1"), ("put", "edge:P17|works_at|O2"))),
+        ("applied", (("delete", "edge:P17|works_at|O2"), ("put", "edge:P17|works_at|O3"))),
+    ]
+    assert len(queue) == 0
+    assert [k for k in tx.store.keys() if k.startswith("edge:P17|")] == ["edge:P17|works_at|O3"]
+
+
+def test_validate_update_rejects_removing_another_persons_edge():
+    tx, _, _ = helpers.run_updates([], "rule:test")
+    own = {"person": "P12", "org": "O2", "replace": True, "remove": "edge:P12|works_at|O3"}
+    assert helpers.validate_update(tx.store, own) is None
+    other = {**own, "remove": "edge:P11|works_at|O6"}
+    assert helpers.validate_update(tx.store, other) == [
+        "edge:P11|works_at|O6 is not P12's current employment"
+    ]
+    gone = {**own, "remove": "edge:P12|works_at|O5"}
+    assert helpers.validate_update(tx.store, gone) is not None
+    nothing = {**own, "remove": None}
+    assert helpers.validate_update(tx.store, nothing) == [
+        "P12 has no current employment to replace"
+    ]
+
+
+def test_removing_an_employment_without_adding_one_is_not_what_the_invariant_checks():
+    """The invariant is "at most one employer": a person left with none passes it."""
+    tx, _, _ = helpers.run_updates([], "rule:test")
+    state = {k: v for k, v in tx.store.snapshot().items() if k != "edge:P01|works_at|O1"}
+    view = SimpleNamespace(snapshot=lambda: state)
+    assert helpers.graph_invariant(view) is None
 
 
 def test_the_log_replays_to_an_identical_graph():
@@ -387,6 +469,29 @@ def test_each_proposition_alone_changes_the_composed_outcome_on_t01():
 
 
 # --- the baseline --------------------------------------------------------------------------
+
+
+def _baseline_row(*texts):
+    excerpts = [{"source": "s", "text": t} for t in texts]
+    fields = {"mention": "Ruth Pell", "target": "O2", "excerpts": excerpts}
+    return SimpleNamespace(id="b", fields=fields)
+
+
+def test_the_baseline_ended_cue_starts_at_a_word_in_the_same_excerpt_as_the_employer():
+    # Ruth Pell (P07) works at Tessaly Foundry in the seed graph; the proposed employer is Halden.
+    plain = _baseline_row("Ruth Pell of Tessaly Foundry will join Halden Institute.")
+    assert helpers.baseline_decide(plain).replace is False
+    left = _baseline_row("Ruth Pell left Tessaly Foundry to join Halden Institute.")
+    assert helpers.baseline_decide(left).replace is True
+    substring = _baseline_row(
+        "Ruth Pell of Tessaly Foundry mapped the cleft, then Halden Institute."
+    )
+    assert helpers.baseline_decide(substring).replace is False
+    apart = _baseline_row(
+        "Ruth Pell left the choir last spring.",
+        "Ruth Pell works at Tessaly Foundry and will join Halden Institute.",
+    )
+    assert helpers.baseline_decide(apart).replace is False
 
 
 def test_the_baseline_on_test():

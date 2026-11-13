@@ -21,6 +21,8 @@ writes, so a failing update is rolled back and leaves the store untouched. Every
 ``tx.log`` with its provenance, and ``replay_transactions(tx.log)`` rebuilds the graph.
 """
 
+import math
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -35,6 +37,7 @@ from jev_cookbook.simulation import ReviewQueue, Store, Transactor
 SLUG = "57-evidence-graph-updates"
 RELATION = "works_at"
 NO_MATCH = "no_match"
+UNMATCHED = "unmatched"  # what ask_first stores when the mention has no candidate
 
 # Outcomes Python can reach for one proposal.
 APPLIED = "applied"  # the transaction committed
@@ -52,8 +55,9 @@ REASON_UNSUPPORTED = "the evidence does not support the relationship"
 REASON_COMMITTED = "the transaction committed"
 
 # ---------------------------------------------------------------------------------------------
-# The seed graph. Fabricated organisations and people; every person has exactly one current
-# employer, which is the graph invariant the Transactor enforces on every update.
+# The seed graph. Fabricated organisations and people; every person starts with exactly one
+# current employer. The graph invariant the Transactor enforces on every update is "at most
+# one": it rejects a second employer, but not a person left with none.
 # ---------------------------------------------------------------------------------------------
 
 ORGANISATIONS = {
@@ -107,15 +111,20 @@ def edge_key(person: str, org: str) -> str:
 
 def candidates(mention: str) -> list[str]:
     """The people Python shortlists for a mention: everyone whose surname is the mention's last
-    word, in id order. Jev never adds a candidate; it only chooses among these or ``no_match``."""
-    surname = mention.split()[-1].lower()
+    word (ignoring punctuation around it), in id order. An empty or blank mention has no
+    candidates. Jev never adds a candidate; it only chooses among these or ``no_match``."""
+    words = mention.split()
+    surname = words[-1].strip(".,;:!?\"'()").lower() if words else ""
+    if not surname:
+        return []
     return [pid for pid, (name, _, _) in PEOPLE.items() if name.split()[-1].lower() == surname]
 
 
 def option_order(example_id: str, mention: str) -> list[str]:
     """The candidates in a per-example order from the seeded permutation helper, keyed by
-    ``f"{SLUG}:{example_id}"``, so the shown order comes from neither the data nor the id order;
-    ``no_match`` is always last."""
+    ``f"{SLUG}:{example_id}"``, so the shown order comes from neither the data nor the id order.
+    It holds only the shortlisted people: ``build_first_questions`` appends ``no_match`` after
+    them, and ``ask_first`` sends no request at all when the shortlist is empty."""
     pool = candidates(mention)
     order = stable_permutation(f"{SLUG}:{example_id}", len(pool))
     return [pool[i] for i in order]
@@ -142,7 +151,8 @@ def build_first_state(fields: dict[str, Any]) -> dict[str, Any]:
 
 
 def build_first_questions(example_id: str, fields: dict[str, Any]) -> dict[str, Any]:
-    """Request 1: two independent questions about the same state, asked together."""
+    """Request 1: two independent questions about the same state, asked together. The mention
+    must have at least one candidate: a ``Choice`` needs two options (a person and ``no_match``)."""
     options = {pid: describe(pid) for pid in option_order(example_id, fields["mention"])}
     options[NO_MATCH] = (
         "None of the people listed above: the excerpts describe someone else who shares the name."
@@ -167,8 +177,11 @@ def build_first_questions(example_id: str, fields: dict[str, Any]) -> dict[str, 
 
 def build_second_state(fields: dict[str, Any], person: str) -> dict[str, Any]:
     """Request 2's state, built from request 1's choice: the matched person's graph record, the
-    current employer from the seed graph, the proposed employer, and the same excerpts. Each
-    person appears at most once in a split, so the seed graph is the graph at request time."""
+    current employer from the seed graph, the proposed employer, and the same excerpts. Every
+    request is asked before any update is applied, so this state shows the seed graph; the
+    committed fixtures never have request 1 choose the same person twice among the proposals that
+    reach request 2 in one split (a test pins it). The edge an update deletes is not read from
+    here: ``run_updates`` reads it from the live store when the update is applied."""
     name, role, org = PEOPLE[person]
     return {
         "person": f"{name}, {role}",
@@ -208,12 +221,23 @@ class Settings:
     ended: float | None = None
 
 
+def _answered(first: list[Any], gold: list[dict[str, Any]]) -> tuple[list[Any], list[Any]]:
+    """The (answer, gold) pairs whose request was actually answered: a request the budget could
+    not pay for (``None``) or a mention with no candidate (``UNMATCHED``) has no probability."""
+    pairs = [(a, g) for a, g in zip(first, gold, strict=True) if a is not None and a != UNMATCHED]
+    return [a for a, _ in pairs], [g for _, g in pairs]
+
+
 def freeze_stage_one(first: list[Any], gold: list[dict[str, Any]]) -> Settings:
     """The entity confidence gate and the conflict threshold, chosen on validation.
 
     The gate is the lowest observed confidence at which every validation entity answer at or
     above it is right (``target_accuracy=1.0``); every option, ``no_match`` included, is gated.
-    The conflict threshold maximises F1 over the validation conflict answers."""
+    The conflict threshold maximises F1 over the validation conflict answers. Unanswered
+    requests are left out; with none answered, nothing can pass the gate (both are infinite)."""
+    first, gold = _answered(first, gold)
+    if not first:
+        return Settings(gate=math.inf, conflict=math.inf)
     correct = [a["entity"].choice == g["entity"] for a, g in zip(first, gold, strict=True)]
     confidence = [a["entity"].confidence for a in first]
     gate = select_confidence_threshold(correct, confidence, target_accuracy=1.0)
@@ -225,7 +249,11 @@ def freeze_stage_one(first: list[Any], gold: list[dict[str, Any]]) -> Settings:
 
 def freeze_stage_two(settings: Settings, second: list[Any], gold: list[dict[str, Any]]) -> Settings:
     """The two business thresholds of request 2, each maximising F1 on validation over the rows
-    that reached request 2 with the right person matched."""
+    that reached request 2 with the right person matched. Unanswered requests are left out; with
+    no row left, both thresholds are infinite, so nothing is proposed."""
+    second, gold = _answered(second, gold)
+    if not second:
+        return Settings(settings.gate, settings.conflict, math.inf, math.inf)
     supported = select_threshold(
         [g["supported"] for g in gold], [a["supported"].noul for a in second], "f1"
     )
@@ -240,9 +268,14 @@ def freeze_stage_two(settings: Settings, second: list[Any], gold: list[dict[str,
 
 
 def ask_first(backend: Any, budget: Any, examples: list[Any]) -> dict[str, Any]:
-    """Request 1 for every example, in order: ``{example id: DecisionResult or None}``."""
+    """Request 1 for every example, in order: ``{example id: DecisionResult, None or UNMATCHED}``.
+    ``None`` is a request the budget could not pay for; ``UNMATCHED`` is a mention with no
+    candidate in the graph, which Python settles as ``no_match`` without a request."""
     out = {}
     for e in examples:
+        if not candidates(e.fields["mention"]):
+            out[e.id] = UNMATCHED
+            continue
         if not budget.can_spend("requests"):
             out[e.id] = None
             continue
@@ -286,7 +319,7 @@ class Decision:
     reason: str
     person: str | None = None
     target: str | None = None
-    remove: str | None = None  # the current edge to delete, when the old employment ended
+    replace: bool = False  # the old employment ended: delete the person's current edge
     answers: Any = None  # plain-JSON answers, carried into the log as provenance
 
 
@@ -298,7 +331,7 @@ def _answers_dict(first: Any, second: Any) -> dict[str, Any]:
     plain ``{name: answer}`` mapping (the notebook's counterfactual rows use one)."""
     out = {}
     for result in (first, second):
-        if result is not None:
+        if result is not None and result != UNMATCHED:
             for name in result.keys():
                 out[name] = result[name].to_dict()
     return out
@@ -309,6 +342,8 @@ def decide_first(first: Any, settings: Settings, example: str = "") -> Decision 
     answers = _answers_dict(first, None)
     if first is None:
         return Decision(example, REVIEW, REASON_BUDGET)
+    if first == UNMATCHED:
+        return Decision(example, NOT_MATCHED, REASON_NO_MATCH, answers={})
     entity = first["entity"]
     if entity.confidence < settings.gate:
         return Decision(example, REVIEW, REASON_LOW_CONFIDENCE, answers=answers)
@@ -331,10 +366,8 @@ def decide(example: Any, first: Any, second: Any, settings: Settings) -> Decisio
     target = example.fields["target"]
     if second["supported"].noul < settings.supported:
         return Decision(example.id, REJECTED, REASON_UNSUPPORTED, person, target, answers=answers)
-    remove = None
-    if second["ended"].noul >= settings.ended:
-        remove = edge_key(person, PEOPLE[person][2])
-    return Decision(example.id, PROPOSE, "", person, target, remove, answers)
+    replace = second["ended"].noul >= settings.ended
+    return Decision(example.id, PROPOSE, "", person, target, replace, answers)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -351,12 +384,21 @@ ENDED_CUES = (
     "transferred from",
     "retired",
 )
+# A cue starts at a word boundary; one written with a trailing space must be followed by
+# whitespace (so ``left `` matches "left Tessaly" but not "cleft" or the sentence-final "left.").
+_ENDED_PATTERN = re.compile(
+    "|".join(
+        r"\b" + re.escape(cue.rstrip()) + (r"\s" if cue.endswith(" ") else r"\b")
+        for cue in ENDED_CUES
+    )
+)
 
 
 def baseline_decide(example: Any) -> Decision:
     """Keyword baseline. Entity: the one candidate whose full name appears in an excerpt, else
     ``no_match``. No conflict check. Supported: the proposed organisation's name appears in an
-    excerpt. Ended: the current employer's name and one of ``ENDED_CUES`` both appear."""
+    excerpt. Ended: the current employer's name and one of ``ENDED_CUES`` (from a word boundary) both
+    appear in the same excerpt."""
     fields = example.fields
     text = " ".join(e["text"] for e in fields["excerpts"]).lower()
     named = [p for p in candidates(fields["mention"]) if PEOPLE[p][0].lower() in text]
@@ -367,10 +409,12 @@ def baseline_decide(example: Any) -> Decision:
     if ORGANISATIONS[target].lower() not in text:
         return Decision(example.id, REJECTED, REASON_UNSUPPORTED, person, target)
     current = PEOPLE[person][2]
-    remove = None
-    if ORGANISATIONS[current].lower() in text and any(cue in text for cue in ENDED_CUES):
-        remove = edge_key(person, current)
-    return Decision(example.id, PROPOSE, "", person, target, remove)
+    employer = ORGANISATIONS[current].lower()
+    replace = any(
+        employer in e["text"].lower() and _ENDED_PATTERN.search(e["text"].lower())
+        for e in fields["excerpts"]
+    )
+    return Decision(example.id, PROPOSE, "", person, target, replace)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -397,6 +441,15 @@ def graph_invariant(view: Any) -> list[str] | None:
     return problems or None
 
 
+def current_edges(state: dict[str, Any], person: str) -> list[str]:
+    """The keys of ``person``'s employment edges in ``state``, a graph snapshot."""
+    return [
+        key
+        for key, value in sorted(state.items())
+        if key.startswith("edge:") and value["person"] == person
+    ]
+
+
 def validate_update(view: Any, params: Any) -> list[str] | None:
     """Checks on the proposal itself, before it is staged."""
     problems = []
@@ -406,8 +459,11 @@ def validate_update(view: Any, params: Any) -> list[str] | None:
         problems.append(f"no organisation {params['org']}")
     if edge_key(params["person"], params["org"]) in view:
         problems.append("the edge is already in the graph")
-    if params["remove"] is not None and params["remove"] not in view:
-        problems.append(f"{params['remove']} is not in the graph")
+    if params["replace"] and params["remove"] is None:
+        problems.append(f"{params['person']} has no current employment to replace")
+    if params["remove"] is not None:
+        if params["remove"] not in current_edges(view.snapshot(), params["person"]):
+            problems.append(f"{params['remove']} is not {params['person']}'s current employment")
     return problems or None
 
 
@@ -464,8 +520,17 @@ def run_updates(
         if d.outcome != PROPOSE:
             outcomes.append(Outcome(d.example, d.outcome, d.reason))
             continue
-        params = {"example": d.example, "person": d.person, "org": d.target, "remove": d.remove}
-        rule = "replace the employer" if d.remove else "add an employer"
+        # The edge to delete is read from the live store now, not from the seed graph, so an
+        # earlier committed update to the same person is respected.
+        edges = current_edges(tx.store.snapshot(), d.person) if d.replace else []
+        params = {
+            "example": d.example,
+            "person": d.person,
+            "org": d.target,
+            "replace": d.replace,
+            "remove": edges[0] if edges else None,
+        }
+        rule = "replace the employer" if d.replace else "add an employer"
         record = tx.run(
             f"{RELATION}:{d.example}",
             _apply_update,

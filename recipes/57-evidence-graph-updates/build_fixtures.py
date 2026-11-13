@@ -254,17 +254,18 @@ def _first_results(rows):
     }
 
 
-def stage_one_settings(rows):
+def stage_one_settings(rows, first=None):
     """The first-stage settings the notebook freezes, computed with the same helper."""
-    first = _first_results(rows)
+    first = _first_results(rows) if first is None else first
     validation = [r for r in rows if r[1] == "validation"]
     return helpers.freeze_stage_one([first[r[0]] for r in validation], [r[3] for r in validation])
 
 
 def requests_for(rows):
-    """``[(id, [(state, questions), ...]), ...]``: every request the notebook makes per row."""
+    """``[(id, [(state, questions), ...]), ...]``: every request the notebook makes per row.
+    The stage-one answers and settings are computed once here."""
     first = _first_results(rows)
-    settings = stage_one_settings(rows)
+    settings = stage_one_settings(rows, first)
     out = []
     for ident, _split, fields, _label, spec in rows:
         requests = [
@@ -286,11 +287,12 @@ def requests_for(rows):
     return out
 
 
-def build_inputs_and_labels(rows):
+def build_inputs_and_labels(rows, requests=None):
     """``(inputs, labels)`` from ``rows``. Neither ever holds a model's answer, so both are
-    always safe to regenerate, even after ``responses.json`` has been recorded."""
+    always safe to regenerate, even after ``responses.json`` has been recorded. ``requests`` is
+    ``dict(requests_for(rows))``, passed in by ``main`` so it is computed once."""
     inputs, labels = [], []
-    requests = dict(requests_for(rows))
+    requests = dict(requests_for(rows)) if requests is None else requests
     for ident, split, fields, label, _spec in rows:
         keys = [replay_key(state, questions) for state, questions in requests[ident]]
         inputs.append({"id": ident, "split": split, "fields": fields, "replay_keys": keys})
@@ -299,11 +301,12 @@ def build_inputs_and_labels(rows):
     return inputs, labels
 
 
-def build_responses(rows):
+def build_responses(rows, requests=None):
     """``{replay_key: stored response}`` from ``rows``. Always synthetic: this script never
-    calls Jev, so it can never produce a recorded response."""
+    calls Jev, so it can never produce a recorded response. ``requests`` as in
+    ``build_inputs_and_labels``."""
     responses = {}
-    requests = dict(requests_for(rows))
+    requests = dict(requests_for(rows)) if requests is None else requests
     for ident, _split, _fields, _label, spec in rows:
         builders = (first_answers, second_answers)
         for (state, questions), build in zip(requests[ident], builders, strict=False):
@@ -356,7 +359,8 @@ def main() -> None:
     args = parser.parse_args()
     folder = HERE / "fixtures"
     folder.mkdir(exist_ok=True)
-    inputs, labels = build_inputs_and_labels(ROWS)
+    requests = dict(requests_for(ROWS))
+    inputs, labels = build_inputs_and_labels(ROWS, requests)
     for name, rows in (("inputs.jsonl", inputs), ("labels.jsonl", labels)):
         text = "".join(json.dumps(row) + "\n" for row in rows)
         (folder / name).write_text(text, encoding="utf-8", newline="\n")
@@ -374,7 +378,7 @@ def main() -> None:
                 "--force a rewrite or record the missing answers."
             )
         raise SystemExit(message)
-    responses = build_responses(ROWS)
+    responses = build_responses(ROWS, requests)
     # dump_responses is the serialization the recorder writes with (top-level keys sorted, each
     # response keeping the field order DecisionResult.to_dict() emits), so a recording's diff
     # stays limited to the values that actually changed.
