@@ -2399,3 +2399,68 @@ def test_the_docs_list_both_alphabets_and_say_a_synthetic_test_does_not_prove_qu
         assert letter in text, f"U+{ord(letter):04X} is not listed in {DOC.name}"
     assert "Cyrillic" in text and "Greek" in text
     assert "does not prove" in text
+
+
+# -- Canvas.ellipse and Canvas.triangle bounds -----------------------------------------------------
+
+SHAPES = [
+    ("ellipse", {}),
+    ("ellipse", {"outline": "ink"}),
+    ("triangle", {"direction": "up"}),
+    ("triangle", {"direction": "down"}),
+    ("triangle", {"direction": "left"}),
+    ("triangle", {"direction": "right"}),
+]
+
+
+def _draw(canvas, shape, x, y, w, h, extra):
+    return getattr(canvas, shape)(x, y, w, h, "teal", **extra)
+
+
+@pytest.mark.parametrize(("shape", "extra"), SHAPES)
+@pytest.mark.parametrize(
+    ("position", "value", "fragment"),
+    [
+        ("x", 8193, "shape corner"),
+        ("x", -8193, "shape corner"),
+        ("y", 8193, "shape corner"),
+        ("y", -8193, "shape corner"),
+        ("w", 1569, "shape side"),
+        ("h", 1569, "shape side"),
+        ("w", 10**9, "shape side"),
+        ("h", 10**9, "shape side"),
+    ],
+)
+def test_an_out_of_range_shape_is_refused_before_anything_is_drawn(
+    shape, extra, position, value, fragment
+):
+    # the old code ran one row (left/right triangles: one pixel) per unit of h or w, so h=10**9
+    # took minutes, and accepted any corner
+    box = {"x": 10, "y": 10, "w": 50, "h": 50, position: value}
+    c = si.Canvas(640, 400)
+    before = c.image.copy()
+    with pytest.raises(ValueError, match=fragment):
+        _draw(c, shape, box["x"], box["y"], box["w"], box["h"], extra)
+    assert changed(before, c.image) is None
+    assert c.objects == {}
+
+
+@pytest.mark.parametrize(("shape", "extra"), SHAPES)
+def test_a_shape_at_the_bounds_is_accepted_and_clipped(shape, extra):
+    # within the bound, a shape wholly off the canvas reaches the existing visibility rule
+    for corner, side in ((-8192, 1568), (8192, 1)):
+        with pytest.raises(ValueError, match="lies entirely outside"):
+            _draw(si.Canvas(640, 400), shape, corner, corner, side, side, extra)
+    drawn = _draw(si.Canvas(640, 400), shape, -400, -400, 1568, 1568, extra)
+    assert drawn.pixels is not None
+    left, top, right, bottom = drawn.pixels
+    assert 0 <= left < right <= 640 and 0 <= top < bottom <= 400
+
+
+@pytest.mark.parametrize(("shape", "extra"), SHAPES)
+def test_the_shape_bound_checks_types_first(shape, extra):
+    for bad in (1.5, True, "3", None):
+        with pytest.raises(ValueError, match="must be an integer"):
+            _draw(si.Canvas(640, 400), shape, bad, 0, 10, 10, extra)
+    with pytest.raises(ValueError, match="w must be at least 1"):
+        _draw(si.Canvas(640, 400), shape, 0, 0, 0, 10, extra)

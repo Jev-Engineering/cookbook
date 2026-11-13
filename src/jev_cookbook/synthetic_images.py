@@ -679,6 +679,27 @@ _SHAPES = ("rect", "ellipse", "triangle", "triangle-down", "triangle-left", "tri
 _MAX_COORDINATE = 8192
 
 
+def _shape_box(x: Any, y: Any, w: Any, h: Any) -> None:
+    """Refuse an ``ellipse`` or ``triangle`` box the rasterisers could take unbounded time on.
+
+    They take one step per row (a ``left`` or ``right`` triangle, one per pixel of its box), so
+    the corner is held to ``_MAX_COORDINATE``, like a line endpoint, and each side to the largest
+    canvas side.
+    """
+    for value, label in ((x, "x"), (y, "y")):
+        if abs(_int(value, label)) > _MAX_COORDINATE:
+            raise ValueError(
+                f"{label} is {value}; a shape corner must be from -{_MAX_COORDINATE} "
+                f"to {_MAX_COORDINATE} pixels"
+            )
+    for value, label in ((w, "w"), (h, "h")):
+        if _int(value, label, minimum=1) > IMAGE_LIMITS["max_side"]:
+            raise ValueError(
+                f"{label} is {value}; a shape side must be from 1 to "
+                f"{IMAGE_LIMITS['max_side']} pixels"
+            )
+
+
 class Canvas:
     """An RGB image plus a ledger of everything drawn on it.
 
@@ -837,7 +858,7 @@ class Canvas:
         **attrs: Any,
     ) -> Drawn:
         """An ellipse inscribed in the ``w`` x ``h`` rectangle at ``(x, y)``."""
-        _int(x, "x"), _int(y, "y"), _int(w, "w", minimum=1), _int(h, "h", minimum=1)
+        _shape_box(x, y, w, h)
         bounds = None
         inner = (x, y, w, h)
         if outline is not None:
@@ -865,7 +886,7 @@ class Canvas:
         **attrs: Any,
     ) -> Drawn:
         """An isosceles triangle in the ``w`` x ``h`` rectangle, apex up, down, left or right."""
-        _int(x, "x"), _int(y, "y"), _int(w, "w", minimum=1), _int(h, "h", minimum=1)
+        _shape_box(x, y, w, h)
         spans = list(_triangle_spans(w, h, direction))
         return self._record(
             name, kind, self._spans(x, y, spans, _colour(fill)), direction=direction, **attrs
