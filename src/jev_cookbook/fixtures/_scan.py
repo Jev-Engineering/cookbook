@@ -113,8 +113,13 @@ _ENTROPY_THRESHOLD = 4.2
 _NAME_RUN = r"(?:[A-Z]+|[a-z]+)[0-9]*"
 _RUN = rf"(?:{_NAME_RUN}|[0-9]+)"
 _IDENT_ASSIGNMENT = re.compile(rf"_*{_NAME_RUN}(?:_+{_RUN})*_*=_*{_RUN}(?:[_.]+{_RUN})*_*")
+# The left side is read with every digit and "_" removed first, so a digit run, extra
+# underscores or a word split apart (``api1_key``, ``api__key``, ``pass_word``) still names a
+# secret, and ``api`` or ``access`` with any letters between it and a later ``key``
+# (``api_v2_key``, ``stripe_api_live_key``, ``access_aws_key``) does too.
+_NAME_GLUE = re.compile(r"[0-9_]+")
 _SECRET_NAME = re.compile(
-    r"api[_-]?key|secret|token|passw(?:or)?d|access[_-]?key|credential", re.IGNORECASE
+    r"api[a-z]*key|secret|token|passw(?:or)?d|access[a-z]*key|credential", re.IGNORECASE
 )
 
 
@@ -136,7 +141,8 @@ def _scan_secrets_line(line: str) -> Iterator[tuple[str, str]]:
         if _letters_and_digits(v) and not _is_placeholder(v):
             yield "secret-assignment", _mask(v)
     for word in _WORD.findall(line):
-        if _IDENT_ASSIGNMENT.fullmatch(word) and not _SECRET_NAME.search(word.partition("=")[0]):
+        name = _NAME_GLUE.sub("", word.partition("=")[0])
+        if _IDENT_ASSIGNMENT.fullmatch(word) and not _SECRET_NAME.search(name):
             continue
         pattern = _TOKEN if _PATH_SHAPED.search(word) else _TOKEN_SLASH
         for t in pattern.findall(word):

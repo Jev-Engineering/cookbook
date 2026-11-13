@@ -32,13 +32,16 @@ alone; no quotes) is code and is not scored by the entropy rule. So a long unquo
 assigned to a name that contains none of api key, secret, token, password, access key or
 credential is not caught by it when the value has that shape: all-lowercase, all-uppercase, or
 a chain of letters-then-digits runs (``ABCD1234_EFGH5678_`` and so on, 32 characters or more).
-The name check looks for the secret words (api key, secret, token, password, access key,
-credential) in the left side, with at most one ``_`` or ``-`` between ``api`` or ``access`` and
-``key``. A plain ``name=VALUE`` whose name breaks one of those words apart with a digit run, extra
-underscores or another word (``api1_key``, ``api_1_key``, ``api__key``, ``api_v2_key``,
-``pass_word``) does not match it, so a value of the shapes above assigned to that name, unquoted,
-is not scored either. This is a decided limit tracked in #391: closing it means changing the rule
-in step in src/jev_cookbook/fixtures/_scan.py.
+The name check reads the left side with every digit and ``_`` removed, then looks for secret,
+token, password (or passwd), credential, or ``api`` or ``access`` followed anywhere later by
+``key``. So a name that breaks a secret word apart with a digit run, extra underscores or another
+word (``api1_key``, ``api_1_key``, ``api__key``, ``api_v2_key``, ``stripe_api_live_key``,
+``access_aws_key``, ``pass_word``) is still a secret name and its value is scored. Bare ``key``,
+``key_id``, ``signature``, ``session``, ``nonce`` and ``salt`` are deliberately not secret names:
+in this repository they name sort keys, dictionary keys and objects (``key=lambda``,
+``key=value``), and a value assigned to them unquoted is exempt only when it has the one-case
+shapes above. The rule is the same in src/jev_cookbook/fixtures/_scan.py, and
+tests/test_fixtures.py compares the two copies.
 No hex token of any length is caught by the entropy rule (hex cannot reach the threshold); a
 hex-format key is caught only by the header, bearer and assignment rules. ANSI colour codes
 are stripped before scanning. UTF-8 and UTF-16/32 text is decoded; a notebook of any size is
@@ -189,8 +192,13 @@ _ENTROPY_THRESHOLD = 4.2
 _NAME_RUN = r"(?:[A-Z]+|[a-z]+)[0-9]*"
 _RUN = rf"(?:{_NAME_RUN}|[0-9]+)"
 _IDENT_ASSIGNMENT = re.compile(rf"_*{_NAME_RUN}(?:_+{_RUN})*_*=_*{_RUN}(?:[_.]+{_RUN})*_*")
+# The left side is read with every digit and "_" removed first, so a digit run, extra
+# underscores or a word split apart (``api1_key``, ``api__key``, ``pass_word``) still names a
+# secret, and ``api`` or ``access`` with any letters between it and a later ``key``
+# (``api_v2_key``, ``stripe_api_live_key``, ``access_aws_key``) does too.
+_NAME_GLUE = re.compile(r"[0-9_]+")
 _SECRET_NAME = re.compile(
-    r"api[_-]?key|secret|token|passw(?:or)?d|access[_-]?key|credential", re.IGNORECASE
+    r"api[a-z]*key|secret|token|passw(?:or)?d|access[a-z]*key|credential", re.IGNORECASE
 )
 
 
@@ -212,7 +220,8 @@ def _scan_secrets_line(line: str) -> Iterator[tuple[str, str]]:
         if _letters_and_digits(v) and not _is_placeholder(v):
             yield "secret-assignment", _mask(v)
     for word in _WORD.findall(line):
-        if _IDENT_ASSIGNMENT.fullmatch(word) and not _SECRET_NAME.search(word.partition("=")[0]):
+        name = _NAME_GLUE.sub("", word.partition("=")[0])
+        if _IDENT_ASSIGNMENT.fullmatch(word) and not _SECRET_NAME.search(name):
             continue
         pattern = _TOKEN if _PATH_SHAPED.search(word) else _TOKEN_SLASH
         for t in pattern.findall(word):
