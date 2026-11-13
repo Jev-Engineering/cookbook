@@ -538,12 +538,13 @@ Each failure is one line, `path: [rule] message`, naming the image (or the manif
 | `unlisted-asset` | A file under `assets/` has no entry, or a `fields` image path names no entry. |
 | `missing-file` | An entry's file is not in `assets/`. |
 | `hash-mismatch`, `format-mismatch`, `size-mismatch` | The file's SHA-256, format (read from the bytes) or pixel size is not what the entry says. |
-| `generator` | The generator script is not a file in the recipe, or does not contain the function name; or a `jev_cookbook.<module>` is not a module of the installed package, or its source does not bind the function at the top level (a `def`, `class`, assignment or import of that name). The module's source is parsed, not imported. Whether the function really draws the image is for the reviewer. |
+| `generator` | The generator script is not a file in the recipe, or does not contain the function name; or a `jev_cookbook.<module>` is not a module of the installed package, or its source does not bind the function at the top level: a `def`, `class`, assignment with a value (tuple and starred targets included), `for` or `with` target, or import of that name, also inside a top-level `if`, `try`, `with`, `for` or `while` block. A `from __future__` import and an annotation without a value bind nothing. A module with `from ... import *` or a module-level `__getattr__` accepts any name, because its source cannot tell. A package's `__init__.py` is read before a `.py` file of the same name, the order `import` uses. The module's source is parsed, not imported. The check runs for every entry, also when its file is missing. Whether the name is a function (an imported module passes too), and whether it really draws the image, is for the reviewer. |
 | `split-leak` | Examples in different scored splits (`train`, `validation`, `test`) name images with the same bytes, under one path or two. |
 
 A **`fields` image path** is any string value in `fields`, at any depth and under any key, that
-has no whitespace and starts with `assets/`; in a recipe without images it must also end in
-`.png`, `.jpg` or `.jpeg` (any case). In a recipe that has images (an `assets/` folder or a
+has no whitespace and starts with `assets/`; in a recipe without images (no file under
+`assets/` and no manifest) its last segment must also contain a `.`, as `assets/a.png` and
+`assets/diagram.svg` do. In a recipe that has images (a file under `assets/`, or a
 manifest) a string that ends in one of those suffixes and contains a `/` or a
 backslash is one too, so a typo such as `../x.png`, `fixtures/x.png`, `./assets/x.png`,
 `assets\x.png` or `C:/x.png` is reported rather than ignored. Every such string must be written
@@ -552,7 +553,8 @@ whichever operating system runs the validator; anything else is an `asset-path` 
 file name (`IMG_2041.JPG`), a URL in a recipe without images, and a prose sentence that mentions
 `chart.png` are not paths. In a text-only recipe a value such as `assets/equity` is therefore not a
 path, while `assets/ghost.png` still is, and fails as `unlisted-asset` because there is no manifest
-to list it. In a recipe that has images, `assets/equity` is a path and fails as `asset-path`. In a
+to list it; `assets/diagram.svg` is one too, and fails as `asset-path` because it is not a PNG or
+JPEG. In a recipe that has images, `assets/equity` is a path and fails as `asset-path`. In a
 recipe that has images, a value that
 ends in an image suffix and contains a `/` or a backslash (an upload path, an attachment URL)
 cannot be kept in `fields` as written; keep only the bare file name, put whitespace in the value,
@@ -564,7 +566,8 @@ see it; it still needs an entry, like every file under `assets/`. For a referenc
 `"shared_across_splits": true` on every entry that carries those bytes.
 
 What the validator does not do: decode pixels (two encodings of the same picture have different
-hashes), run or import the generator, or read it beyond finding the function name, or judge whether a description
+hashes), run or import the generator, read a recipe's generator script beyond finding the function
+name or a package module beyond the names it binds at its top level, or judge whether a description
 or an attestation is true. The reviewer does the last two, and the image-file contract above
 (`tools/check_recipe_assets.py`) still decides what a valid file is.
 

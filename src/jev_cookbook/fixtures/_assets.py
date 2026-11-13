@@ -34,6 +34,7 @@ or judge that a description is true.
 from __future__ import annotations
 
 import ast
+import functools
 import hashlib
 import os
 import re
@@ -102,10 +103,12 @@ def inspect_image(data: bytes) -> tuple[str, int, int] | None:
 def looks_like_image_path(value: str, *, has_images: bool = True) -> bool:
     """Is a ``fields`` string meant as an image path?
 
-    The convention: a string with no whitespace that starts with ``assets/`` (in a recipe without
-    images, only when it also ends in ``.png``, ``.jpg`` or ``.jpeg``, any case, so a text value such
-    as ``assets/equity`` is not a path there); and, in a recipe that has images (``has_images``),
-    also one that ends in one of those suffixes and contains a ``/`` or a backslash, which catches ``../x.png``, ``C:/x.png`` and
+    The convention: a string with no whitespace that starts with ``assets/`` (in a recipe
+    without images, only when its last segment has a ``.``, as ``assets/a.png`` or
+    ``assets/a.svg`` does, so a text value such as ``assets/equity`` is not a path there); and,
+    in a recipe that has images (``has_images``), also one that ends in ``.png``, ``.jpg`` or
+    ``.jpeg`` (any case) and contains a ``/`` or a backslash, which catches ``../x.png``,
+    ``C:/x.png`` and
     ``assets\\x.png`` written as a typo for ``assets/x.png``. A bare file name ("IMG_2041.JPG")
     or a prose mention ("see chart.png") is not a path, and a recipe without images never has
     suffix-only strings treated as paths. Keys and nesting do not matter. The answer does not
@@ -115,7 +118,7 @@ def looks_like_image_path(value: str, *, has_images: bool = True) -> bool:
         return False
     image_suffix = value.lower().endswith(IMAGE_SUFFIXES)
     if value.startswith(f"{ASSETS_DIR}/"):
-        return has_images or image_suffix
+        return has_images or "." in value.rsplit("/", 1)[-1]
     return has_images and image_suffix and ("/" in value or "\\" in value)
 
 
@@ -138,38 +141,101 @@ def image_path_strings(fields: Any, *, has_images: bool = True) -> list[str]:
 _PACKAGE_DIR = Path(__file__).resolve().parent.parent  # src/jev_cookbook
 
 
-def _top_level_names(tree: ast.Module) -> set[str]:
-    """Names a module binds at its top level: ``def``, ``class``, assignments and imports."""
+_COMPOUND_BLOCKS = ("body", "orelse", "handlers", "finalbody")
+
+
+def _bound_names(target: ast.expr) -> Iterable[str]:
+    """Names an assignment target binds: ``a``, ``a, b``, ``[a, *rest]``."""
+    if isinstance(target, ast.Name):
+        yield target.id
+    elif isinstance(target, ast.Starred):
+        yield from _bound_names(target.value)
+    elif isinstance(target, (ast.Tuple, ast.List)):
+        for item in target.elts:
+            yield from _bound_names(item)
+
+
+def _top_level_names(tree: ast.Module) -> set[str] | None:
+    """Names a module binds at its top level, or ``None`` when its source cannot tell.
+
+    A ``def``, ``class``, assignment with a value (tuple and starred targets included), ``for``
+    or ``with`` target, or import binds a name, also inside a top-level ``if``, ``try``, ``with``,
+    ``for`` or ``while`` block. A ``from __future__`` import and an annotation without a value
+    bind nothing. ``from x import *`` or a module-level ``__getattr__`` means any name may exist,
+    so the answer is ``None``.
+    """
     names: set[str] = set()
-    for node in tree.body:
+    pending: list[ast.stmt] = list(tree.body)
+    while pending:
+        node = pending.pop()
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if node.name == "__getattr__" and not isinstance(node, ast.ClassDef):
+                return None
             names.add(node.name)
+        elif isinstance(node, ast.ImportFrom) and node.module == "__future__":
+            continue
         elif isinstance(node, (ast.Import, ast.ImportFrom)):
-            names.update((a.asname or a.name).split(".")[0] for a in node.names)
-        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
-            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-            names.update(t.id for t in targets if isinstance(t, ast.Name))
+            for alias in node.names:
+                if alias.name == "*":
+                    return None
+                names.add((alias.asname or alias.name).split(".")[0])
+        elif isinstance(node, ast.Assign):
+            for target in node.targets:
+                names.update(_bound_names(target))
+        elif isinstance(node, ast.AnnAssign):
+            if node.value is not None:
+                names.update(_bound_names(node.target))
+        else:
+            if isinstance(node, (ast.For, ast.AsyncFor)):
+                names.update(_bound_names(node.target))
+            elif isinstance(node, (ast.With, ast.AsyncWith)):
+                for item in node.items:
+                    if item.optional_vars is not None:
+                        names.update(_bound_names(item.optional_vars))
+            for block in _COMPOUND_BLOCKS:
+                for child in getattr(node, block, ()):
+                    if isinstance(child, ast.ExceptHandler):
+                        pending.extend(child.body)
+                    elif isinstance(child, ast.stmt):
+                        pending.append(child)
     return names
+
+
+@functools.lru_cache(maxsize=64)
+def _module_names(source: str, mtime_ns: int, size: int) -> tuple[bool, frozenset[str] | None]:
+    """``(parsed, names)`` for one module source file; cached, so a manifest of 200 frames from
+    one generator parses its module once. The file's mtime and size are part of the key."""
+    del mtime_ns, size  # only part of the cache key
+    try:
+        tree = ast.parse(Path(source).read_bytes(), filename=source)
+    except (OSError, SyntaxError, ValueError):
+        return False, None
+    names = _top_level_names(tree)
+    return True, None if names is None else frozenset(names)
 
 
 def package_generator_problem(module: str, function: str) -> str | None:
     """Why ``module:function`` (``module`` = ``jev_cookbook.<...>``) names no package function.
 
-    The module's source is found under the installed package folder and parsed, never imported,
-    so a generator module that needs Pillow costs nothing here. ``function`` must be bound at the
-    module's top level (``def``, ``class``, an assignment or an import); whether it is callable,
-    or really drew the image, is not decided. ``None`` when it is found.
+    The module's source is found under the installed package folder, as a package's
+    ``__init__.py`` before a ``.py`` file of the same name (the order ``import`` uses), and
+    parsed, never imported, so a generator module that needs Pillow costs nothing here.
+    ``function`` must be bound at the module's top level (see ``_top_level_names``); whether it
+    is a function, or really drew the image, is not decided. ``None`` when it is found.
     """
     parts = module.split(".")[1:]
     base = _PACKAGE_DIR.joinpath(*parts)
-    source = next((p for p in (base.with_suffix(".py"), base / "__init__.py") if p.is_file()), None)
+    source = next((p for p in (base / "__init__.py", base.with_suffix(".py")) if p.is_file()), None)
     if source is None:
         return f"{module} is not a module of the jev_cookbook package"
     try:
-        tree = ast.parse(source.read_bytes(), filename=str(source))
-    except (OSError, SyntaxError, ValueError):
+        stat = source.stat()
+    except OSError:
         return f"{module} is not a readable Python module"
-    if function not in _top_level_names(tree):
+    parsed, names = _module_names(str(source), stat.st_mtime_ns, stat.st_size)
+    if not parsed:
+        return f"{module} is not a readable Python module"
+    if names is not None and function not in names:
         return f"{module} does not define {function!r} at its top level"
     return None
 
@@ -280,13 +346,38 @@ def check_assets(
             )
             out.append((shown(path), msg, None))
 
-    examples = list(examples)
     has_images = bool(actual) or manifest_path.is_file()
-    if not entries and not any(
-        image_path_strings(e.fields, has_images=has_images)
-        for e in examples
-        if e.fields is not None
-    ):
+    field_paths = [
+        (example, image_path_strings(example.fields, has_images=has_images))
+        for example in examples
+        if example.fields is not None
+    ]
+
+    # Each entry's generator: it needs no file, so it is checked even when the file is missing.
+    for path, entry in sorted(entries.items()):
+        generator = _GENERATOR.fullmatch(entry["generator"])
+        if generator is None:
+            continue
+        file = shown(path)
+        if generator.group(1).endswith(".py"):
+            script = recipe / generator.group(1)
+            try:
+                text = script.read_text(encoding="utf-8") if script.is_file() else None
+            except (OSError, UnicodeDecodeError):
+                text = None
+            func = generator.group(3)
+            if text is None:
+                msg = f"[generator] {generator.group(1)} is not a readable file in the recipe"
+                out.append((file, msg, None))
+            elif not re.search(rf"\b{re.escape(func)}\b", text):
+                msg = f"[generator] {generator.group(1)} does not mention {func!r}"
+                out.append((file, msg, None))
+        else:
+            problem = package_generator_problem(generator.group(1), generator.group(3))
+            if problem:
+                out.append((file, f"[generator] {problem}", None))
+
+    if not entries and not any(paths for _, paths in field_paths):
         return out  # nothing below needs a path check; a text-only recipe never imports vision
     from ..vision import AssetPathError, resolve_asset_path  # Pillow: import only when needed
 
@@ -328,24 +419,6 @@ def check_assets(
                     f"{entry['width']} x {entry['height']}"
                 )
                 out.append((file, msg, None))
-        generator = _GENERATOR.fullmatch(entry["generator"])
-        if generator and generator.group(1).endswith(".py"):
-            script = recipe / generator.group(1)
-            try:
-                text = script.read_text(encoding="utf-8") if script.is_file() else None
-            except (OSError, UnicodeDecodeError):
-                text = None
-            func = generator.group(3)
-            if text is None:
-                msg = f"[generator] {generator.group(1)} is not a readable file in the recipe"
-                out.append((file, msg, None))
-            elif not re.search(rf"\b{re.escape(func)}\b", text):
-                msg = f"[generator] {generator.group(1)} does not mention {func!r}"
-                out.append((file, msg, None))
-        elif generator:
-            problem = package_generator_problem(generator.group(1), generator.group(3))
-            if problem:
-                out.append((file, f"[generator] {problem}", None))
 
     # fields: every image path names a manifest entry; no image crosses splits.
     # A path is judged by its text alone (_ASSET_PATH), never by what this operating system makes
@@ -354,10 +427,8 @@ def check_assets(
     users: dict[str, dict[str, list[tuple[str, str]]]] = defaultdict(lambda: defaultdict(list))
     manifest_reported = manifest is None and bool(out)
     reported: set[tuple[str | None, str]] = set()
-    for example in examples:
-        if example.fields is None:
-            continue
-        for value in image_path_strings(example.fields, has_images=has_images):
+    for example, paths in field_paths:
+        for value in paths:
             if (example.id, value) in reported:
                 continue
             reported.add((example.id, value))

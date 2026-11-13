@@ -221,6 +221,15 @@ def test_an_image_recipe_still_rejects_an_assets_path_without_a_suffix(tmp_path)
     expect(recipe, "asset-path", "'assets/equity'", "e0")
 
 
+@pytest.mark.parametrize("text", ["assets/diagram.svg", "assets/photo.webp", "assets/a.gif"])
+def test_a_text_only_recipe_naming_an_unsupported_assets_file_fails(tmp_path, text):
+    recipe = build(tmp_path)
+    _drop_images(recipe)
+    edit_inputs(recipe, text_only)
+    edit_inputs(recipe, lambda rows: rows[0]["fields"].update(image=text))
+    expect(recipe, "asset-path", repr(text), "e0")
+
+
 def test_a_text_only_recipe_naming_an_assets_path_still_fails(tmp_path):
     recipe = build(tmp_path)
     _drop_images(recipe)
@@ -266,6 +275,7 @@ def test_a_package_generator_is_valid(tmp_path):
         ("jev_cookbook.nowhere:draw", "jev_cookbook.nowhere is not a module"),
         ("jev_cookbook.synthetic_images.sub:draw", "is not a module"),
         ("jev_cookbook.vision:Image", None),  # an import binds the name: accepted
+        ("jev_cookbook.vision:annotations", "does not define 'annotations'"),  # __future__
         ("jev_cookbook.vision:gold_box", None),
         ("jev_cookbook.fixtures:validate_recipe", None),  # a package's __init__.py
         ("jev_cookbook.fixtures.permutation:stable_shuffle", None),
@@ -279,6 +289,83 @@ def test_a_package_generator_must_name_a_top_level_function(tmp_path, generator,
         assert problems(recipe) == []
     else:
         expect(recipe, "generator", fragment)
+
+
+def _names(source: str):
+    import ast
+
+    return assets_module._top_level_names(ast.parse(source))
+
+
+@pytest.mark.parametrize(
+    ("source", "bound"),
+    [
+        ("try:\n    from ._fast import draw\nexcept ImportError:\n    def draw(): pass\n", "draw"),
+        ("if True:\n    def draw(): pass\nelse:\n    draw = None\n", "draw"),
+        ("draw_a, (draw_b, *rest) = make()\n", "draw_b"),
+        ("[first, *rest] = make()\n", "rest"),
+        ("for draw in []:\n    pass\n", "draw"),
+        ("with open('x') as (draw, other):\n    pass\n", "draw"),
+        ("while False:\n    draw = 1\n", "draw"),
+        ("draw: object = make()\n", "draw"),
+    ],
+)
+def test_top_level_names_include_names_bound_in_blocks_and_by_unpacking(source, bound):
+    assert bound in _names(source)
+
+
+@pytest.mark.parametrize(
+    ("source", "unbound"),
+    [
+        ("from __future__ import annotations\n", "annotations"),
+        ("draw: object\n", "draw"),
+        ("def outer():\n    def draw(): pass\n", "draw"),
+        ("class Scenes:\n    def draw(self): pass\n", "draw"),
+    ],
+)
+def test_top_level_names_exclude_future_imports_bare_annotations_and_nested_defs(source, unbound):
+    names = _names(source)
+    assert names is not None and unbound not in names
+
+
+@pytest.mark.parametrize("source", ["from ._impl import *\n", "def __getattr__(name): pass\n"])
+def test_a_module_whose_names_cannot_be_read_from_its_source_accepts_any_name(source):
+    assert _names(source) is None
+
+
+def test_a_package_folder_wins_over_a_module_file_of_the_same_name(tmp_path, monkeypatch):
+    """`import` loads `scenes/__init__.py` before `scenes.py`; the check reads the same file."""
+    (tmp_path / "scenes").mkdir()
+    (tmp_path / "scenes" / "__init__.py").write_text("def from_package(): pass\n", "utf-8")
+    (tmp_path / "scenes.py").write_text("def from_module(): pass\n", "utf-8")
+    monkeypatch.setattr(assets_module, "_PACKAGE_DIR", tmp_path)
+    problem = assets_module.package_generator_problem
+    assert problem("jev_cookbook.scenes", "from_package") is None
+    assert "does not define 'from_module'" in problem("jev_cookbook.scenes", "from_module")
+
+
+def test_a_package_module_is_parsed_once_for_many_entries():
+    assets_module._module_names.cache_clear()
+    for _ in range(5):
+        assert (
+            assets_module.package_generator_problem("jev_cookbook.synthetic_images", "login_screen")
+            is None
+        )
+    info = assets_module._module_names.cache_info()
+    assert (info.misses, info.hits) == (1, 4)
+
+
+@pytest.mark.parametrize(
+    ("generator", "fragment"),
+    [("jev_cookbook.nowhere:draw", "is not a module"), ("nowhere.py:draw", "nowhere.py")],
+)
+def test_a_generator_is_checked_even_when_its_file_is_missing(tmp_path, generator, fragment):
+    recipe = build(tmp_path)
+    edit_manifest(recipe, lambda m: m["assets"][0].update(generator=generator))
+    manifest = json.loads((recipe / ASSETS_MANIFEST_FILE).read_text("utf-8"))
+    (recipe / manifest["assets"][0]["path"]).unlink()
+    expect(recipe, "missing-file", "scene-0.png")
+    expect(recipe, "generator", fragment)
 
 
 def test_a_package_generator_is_found_without_importing_its_module(tmp_path):
@@ -1011,8 +1098,10 @@ def test_looks_like_image_path():
         assert not looks_like_image_path(only_with_images, has_images=False), only_with_images
     assert looks_like_image_path("assets/a.png", has_images=False)
     assert looks_like_image_path("assets/a.JPEG", has_images=False)
-    for word in ["assets/noext", "assets/equity", "assets/a.gif"]:
+    for word in ["assets/noext", "assets/equity", "assets/v2/draft"]:
         assert not looks_like_image_path(word, has_images=False), word
+    for other_format in ["assets/a.gif", "assets/diagram.svg", "assets/photo.webp"]:
+        assert looks_like_image_path(other_format, has_images=False), other_format
     for no in [
         "",
         "a picture.png",
