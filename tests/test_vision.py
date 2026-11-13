@@ -913,7 +913,15 @@ def test_measured_latency_flows_from_the_ledger_into_a_recorded_row(tmp_path):
     )
     assert row["latency_seconds"] == 0.75 and row["capture_date"] == "2026-10-31"
     # A call with no captured latency stays unmeasured; nothing is taken from replay timing.
-    assert live.load_ledger_latency(ledger, "key-without-latency") is None
+    unmeasured = live.load_ledger_latency(ledger, "key-without-latency")
+    assert unmeasured == live.LedgerLatency(None, "2026-10-31", "jev-1.13.0")
+    row = vision.run_record(
+        RECORDED,
+        mode="recorded",
+        measured_latency_seconds=unmeasured.latency_seconds,
+        capture_date=unmeasured.date,
+    )
+    assert row["latency_seconds"] is None and row["capture_date"] == "2026-10-31"
     assert vision.run_record(RECORDED, mode="recorded")["latency_seconds"] is None
 
 

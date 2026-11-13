@@ -278,7 +278,7 @@ def _elapsed_seconds(start: Any, end: Any) -> float | None:
     """
     try:
         seconds = float(end - start)
-    except (TypeError, ValueError, OverflowError):
+    except Exception:  # any clock failure, e.g. decimal.InvalidOperation: never lose the response
         return None
     return round(seconds, 9) if math.isfinite(seconds) and seconds >= 0 else None
 
@@ -1226,10 +1226,12 @@ class LedgerLatency:
 
     ``latency_seconds`` is the wall-clock time of the HTTP attempt that produced the recorded
     response, ``date`` is the UTC date of that call (the capture date) and ``model`` is the
-    model string the API returned.
+    model string the API returned. ``latency_seconds`` is ``None`` when the line holds no
+    latency (a ledger written before latency was captured, or an unusable clock reading), so the
+    capture date and model are still available.
     """
 
-    latency_seconds: float
+    latency_seconds: float | None
     date: str
     model: str
 
@@ -1239,23 +1241,25 @@ def load_ledger_latency(
 ) -> LedgerLatency | None:
     """Read the measured latency of one recorded call from a ``record`` sidecar ledger.
 
-    Returns ``None``, meaning "not measured", when the ledger holds the key but has no
-    ``recorded`` line under it (only ``!failed-N`` lines), or when that line has no
-    ``latency_seconds`` (null, or missing as in a ledger written before latency was captured).
-    Only the line stored under the key itself is read: a ``!failed-N`` line, a ``superseded``
-    entry and the elapsed time of a replay are never used.
+    Returns ``None`` when the ledger holds the key but has no ``recorded`` line under it (only
+    ``!failed-N`` lines). Otherwise returns the line's ``LedgerLatency``, whose
+    ``latency_seconds`` is ``None``, meaning "not measured", when the line has no latency (null,
+    or missing as in a ledger written before latency was captured). Only the line stored under
+    the key itself is read: a ``!failed-N`` line, a ``superseded`` entry and the elapsed time of
+    a replay are never used.
 
     Raises ``FileNotFoundError`` when ``ledger_path`` does not exist; ``KeyError`` when the ledger
     has no line at all for ``replay_key`` (neither the key nor a ``!failed-N`` line for it), which
     is a wrong ledger file or a stale key rather than a call that was not measured; and
-    ``ValueError`` when a ``recorded`` line holds a latency that is not a finite, non-negative
-    number or lacks a text ``date`` or ``model``.
+    ``ValueError`` when a ``recorded`` line lacks a text ``date`` or ``model`` or holds a latency
+    that is not a finite, non-negative number.
 
     Pass the ``DecisionResult`` replayed for the key as ``result`` to check that the ledger line
     describes that response: its ``model`` must equal ``result.model`` and its ``date`` the date
     of the result's recorded answers, otherwise ``ValueError`` (an old ledger kept after the
-    response was recorded again). Pass the latency to ``vision.run_record`` as
-    ``measured_latency_seconds`` with ``capture_date=`` the returned ``date``.
+    response was recorded again). The check runs whether or not the line holds a latency. Pass
+    the latency to ``vision.run_record`` as ``measured_latency_seconds`` with ``capture_date=``
+    the returned ``date``.
     """
     if type(replay_key) is not str:
         raise TypeError("replay_key must be a str")
@@ -1268,9 +1272,28 @@ def load_ledger_latency(
         raise KeyError(f"{path} has no line for replay key {replay_key}")
     if not isinstance(line, dict) or line.get("status") != "recorded":
         return None
+    date, model = line.get("date"), line.get("model")
+    if not (isinstance(date, str) and date and isinstance(model, str) and model):
+        raise ValueError(f"{path}: the recorded line for {replay_key} needs a text date and model")
+    if result is not None:
+        from .vision import _recorded_dates
+
+        if getattr(result, "model", None) != model:
+            raise ValueError(
+                f"{path}: the ledger line for {replay_key} was recorded with {model!r}, but the "
+                f"result is from {getattr(result, 'model', None)!r}; the ledger does not describe "
+                "this response"
+            )
+        dates = _recorded_dates(result)
+        if dates and dates != {date}:
+            raise ValueError(
+                f"{path}: the ledger line for {replay_key} is dated {date}, but the result's "
+                f"recorded answers are dated {sorted(dates)}; the ledger does not describe this "
+                "response"
+            )
     seconds = line.get("latency_seconds")
     if seconds is None:
-        return None
+        return LedgerLatency(None, date, model)
     try:
         usable = type(seconds) in (int, float) and math.isfinite(seconds) and seconds >= 0
     except OverflowError:  # an integer too large for a float
@@ -1279,27 +1302,6 @@ def load_ledger_latency(
         raise ValueError(
             f"{path}: latency_seconds for {replay_key} must be a finite, non-negative number"
         )
-    date, model = line.get("date"), line.get("model")
-    if not (isinstance(date, str) and date and isinstance(model, str) and model):
-        raise ValueError(f"{path}: the recorded line for {replay_key} needs a text date and model")
-    if result is not None:
-        if getattr(result, "model", None) != model:
-            raise ValueError(
-                f"{path}: the ledger line for {replay_key} was recorded with {model!r}, but the "
-                f"result is from {getattr(result, 'model', None)!r}; the ledger does not describe "
-                "this response"
-            )
-        dates = {
-            answer.provenance.date
-            for answer in getattr(result, "answers", {}).values()
-            if answer.provenance.date
-        }
-        if dates and dates != {date}:
-            raise ValueError(
-                f"{path}: the ledger line for {replay_key} is dated {date}, but the result's "
-                f"recorded answers are dated {sorted(dates)}; the ledger does not describe this "
-                "response"
-            )
     return LedgerLatency(float(seconds), date, model)
 
 

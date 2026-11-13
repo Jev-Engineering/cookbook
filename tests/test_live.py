@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import decimal
 import json
 import subprocess
 import sys
@@ -1286,6 +1287,8 @@ def _raising_clock():
         (lambda: clock_of(None, 1.0), None),
         (lambda: clock_of(1.0, "x"), None),
         (lambda: _raising_clock, None),
+        # inf - inf on Decimal raises decimal.InvalidOperation, an ArithmeticError of its own
+        (lambda: clock_of(decimal.Decimal("Infinity"), decimal.Decimal("Infinity")), None),
     ],
 )
 def test_latency_is_none_unless_the_clock_gives_a_finite_non_negative_difference(
@@ -1378,8 +1381,6 @@ def test_load_ledger_latency_reads_what_record_wrote(tmp_path):
 @pytest.mark.parametrize(
     "lines",
     [
-        {"k": dict(LEDGER_LINE)},
-        {"k": {**LEDGER_LINE, "latency_seconds": None}},
         {"k!failed-1": {**LEDGER_LINE, "latency_seconds": 9.0}},
         {"k": {**LEDGER_LINE, "status": "error", "latency_seconds": 9.0}},
         {"k": 5},
@@ -1387,6 +1388,19 @@ def test_load_ledger_latency_reads_what_record_wrote(tmp_path):
 )
 def test_load_ledger_latency_is_none_when_nothing_was_measured(tmp_path, lines):
     assert live_module.load_ledger_latency(write_ledger(tmp_path, lines), "k") is None
+
+
+@pytest.mark.parametrize("line", [dict(LEDGER_LINE), {**LEDGER_LINE, "latency_seconds": None}])
+def test_a_recorded_line_without_a_latency_keeps_its_date_and_model(tmp_path, line):
+    path = write_ledger(tmp_path, {"k": line})
+    expected = live_module.LedgerLatency(None, DAY, MODEL)
+    assert live_module.load_ledger_latency(path, "k") == expected
+    assert live_module.load_ledger_latency(path, "k", result=_recorded()) == expected
+    # The model and date are checked against the result even though no latency was captured.
+    with pytest.raises(ValueError, match="recorded with"):
+        live_module.load_ledger_latency(path, "k", result=_recorded(model="jev-1.14.0"))
+    with pytest.raises(ValueError, match="dated"):
+        live_module.load_ledger_latency(path, "k", result=_recorded(date="2026-11-01"))
 
 
 def test_a_key_the_ledger_has_never_seen_is_an_error_not_unmeasured(tmp_path):

@@ -1281,6 +1281,19 @@ def load_frames(
     return state, assets
 
 
+# The four modes of a run_record row.
+_MODES = ("synthetic", "scripted", "recorded", "live")
+
+
+def _recorded_dates(result: Any) -> set[str]:
+    """The provenance dates on a result's answers (empty for a result without dated answers)."""
+    return {
+        answer.provenance.date
+        for answer in getattr(result, "answers", {}).values()
+        if answer.provenance.date
+    }
+
+
 def _capture_date(value: Any) -> str:
     # The same rule as ``run_header``'s date: a real calendar date written exactly YYYY-MM-DD.
     if not _is_iso_date(value):
@@ -1312,7 +1325,7 @@ def run_record(
     live row refuses a ``capture_date`` that differs from the date on the result's recorded
     answers.
     """
-    if mode not in ("synthetic", "scripted", "recorded", "live"):
+    if mode not in _MODES:
         raise ValueError("mode must be synthetic, scripted, recorded or live")
     extra: dict[str, Any] = {}
     if capture_date is not None:
@@ -1341,11 +1354,7 @@ def run_record(
     ):
         raise ValueError("recorded/live mode requires a recorded result with its returned model")
     if "capture_date" in extra:
-        dates = {
-            answer.provenance.date
-            for answer in getattr(result, "answers", {}).values()
-            if answer.provenance.date
-        }
+        dates = _recorded_dates(result)
         if dates and dates != {extra["capture_date"]}:
             raise ValueError(
                 f"capture_date {extra['capture_date']} contradicts the result's recorded answers, "
@@ -1433,9 +1442,8 @@ _TABLE_COLUMNS = (
 )
 _MEASUREMENT_FIELDS = ("model", "input_tokens", "output_tokens", "latency_seconds", "cost_usd")
 _NOT_MEASURED = "not measured"
-_MODES = ("synthetic", "scripted", "recorded", "live")
 # Columns that hold no measurement: "not measured" would be the wrong word for a missing value.
-_COMPUTED_COLUMNS = ("label", "mode", "characters", "utf8_bytes", "n")
+_COMPUTED_COLUMNS = ("label", "characters", "utf8_bytes", "n")
 
 
 def comparison_table(rows: Iterable[Mapping[str, Any]]) -> str:

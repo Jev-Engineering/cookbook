@@ -777,12 +777,12 @@ from jev_cookbook.vision import run_record
 # `ledger` is the sidecar that live.record(..., ledger_path=...) wrote, `key` the replay key of
 # the request, and `result` the recorded DecisionResult replayed for that key.
 # `result=` checks that the ledger line describes this response (same model, same date).
-measured = load_ledger_latency(ledger, key, result=result)  # None: no latency was captured
+measured = load_ledger_latency(ledger, key, result=result)
 row = run_record(
     result,
     mode="recorded",
-    measured_latency_seconds=None if measured is None else measured.latency_seconds,
-    capture_date=None if measured is None else measured.date,
+    measured_latency_seconds=measured.latency_seconds,  # None when no latency was captured
+    capture_date=measured.date,
     n=1,
 )
 ```
