@@ -131,22 +131,18 @@ recipes do not invent ten formats. An object with a boolean `present`:
 The validator treats an object with a `present` key as a Box label, at the top of a label or
 nested at any depth inside one (under an object key or as an item of a list): that is how a
 recipe declares the format, so `present` is reserved in label objects, at every depth. Every
-such object must pass `gold_box`; the message names its place in the label, for example
-`malformed Box label at label.target: ...` (keys that are not plain names are quoted, as in
-`label["two words"]`). The place where one label holds a Box label is a place where every label
-of the file that has a value there must hold one:
+such object must pass `gold_box`; the message names its place in the label in the dotted form
+the schema messages use, for example `malformed Box label at label.target: ...` or
+`label.boxes[1]`. Once any label in the file is a Box label at the top, a label that is not (a
+bare box, a string, or an object that only nests a Box label) is an error, and the message
+names a label that is one.
 
-- At the top: once any label in the file is a Box label, a label that is not (a bare box, a
-  string, or an object that only nests a Box label) is an error, and the message names a label
-  that is one.
-- Under a key: a label whose value under that key is not a Box label (for example a bare box
-  without `present`) is an error. A label that does not have the key is not.
-- As an item of a list: every item of that list, in every label, must be a Box label.
-
-The validator does not know which key the recipe reads, and it does not require every label to
-hold a Box label. A recipe whose label holds a Box label among other values nests it under its
-own key (or in a list) and calls `gold_box(label["target"])` in its own test, and that test must
-cover every split the recipe ships (`train` included):
+The validator does not compare where labels nest their Box labels: it does not know which key
+the recipe reads, so a label with a bare box (no `present`) or a string under the key that
+other labels use for a Box label passes, and it does not require every label to hold a Box
+label. A recipe whose label holds a Box label among other values nests it under its own key
+(or in a list) and calls `gold_box(label["target"])` in its own test, and that test must cover
+every split the recipe ships (`train` included):
 
 ```json
 {"id": "t12", "label": {"target": {"present": true, "box": {"top": 0.25, "bottom": 0.75, "left": 0.125, "right": 0.625}}, "rubric": 3}}
@@ -175,7 +171,7 @@ A recipe that scores a transition over an ordered frame sequence ([vision](visio
 
 `(label["transition"], label.get("seconds"))` is the `(label, seconds_or_None)` pair that `evaluation.transition_metrics` takes for gold ([evaluation](evaluation.md#transitions)).
 
-**What the validator checks.** Nothing that is specific to this format. A transition label gets the checks every label gets (for example, the line must be valid JSON, so a line with `NaN` is an error, and every example in a labelled split needs a label). A negative, non-finite (`1e400`, which JSON reads as `inf`), string, boolean or `null` `seconds`, a missing or empty `transition`, an extra key and a review label all pass `python -m jev_cookbook.fixtures validate`. The one interaction is the `present` key: an object that has one, at any depth, is checked as a Box label, and once any label in the file is a Box label at the top, a label that is not one is an error, so a file that mixes top-level Box labels and transition labels fails. Transition labels beside labels that nest a Box label under a key pass, because a transition label does not have that key. Extending the validator to check this format is tracked in #396.
+**What the validator checks.** Nothing that is specific to this format. A transition label gets the checks every label gets (for example, the line must be valid JSON, so a line with `NaN` is an error, and every example in a labelled split needs a label). A negative, non-finite (`1e400`, which JSON reads as `inf`), string, boolean or `null` `seconds`, a missing or empty `transition`, an extra key and a review label all pass `python -m jev_cookbook.fixtures validate`. The one interaction is the `present` key: an object that has one, at any depth, is checked as a Box label, and once any label in the file is a Box label at the top, a label that is not one is an error, so a file that mixes top-level Box labels and transition labels fails. Transition labels beside labels that nest a Box label under a key pass. Extending the validator to check this format is tracked in #396.
 
 The recipe's own test therefore decodes every split it ships (`train` included) and checks the key set exactly. Scoring the decoded pairs with `transition_metrics` already raises `ValueError` for a negative, non-finite, string or boolean `seconds` and for a review label; it does not notice an empty or non-string `transition`, a `null` `seconds` (read as "no time") or an extra key.
 
