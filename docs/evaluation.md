@@ -722,9 +722,9 @@ for itself. None of them reapplies a confidence gate; each reads what the rule r
 
 | Helper | Returns |
 | --- | --- |
-| `accepted_and_correct(results, gold, *, accepted_when, label_of, key_of=None)` | the `(accepted, correct)` pair `evaluate_outcomes` takes, so `evaluate_outcomes(*accepted_and_correct(...))` is the whole accounting. `accepted_when(result)` says whether the rule answered; `label_of(result)` is the label it answered with; `gold` is a sequence parallel to `results`, or a mapping looked up with `key_of(result)`. `label_of` is called only for accepted results (a review result often has no label to read), and a review result gets `correct = False`, because `evaluate_outcomes` requires a value there and never reads it. A Choice answer is unwrapped to `.choice` on either side before `==`, as `accuracy` does |
+| `accepted_and_correct(results, gold, *, accepted_when, label_of, key_of=None)` | the `(accepted, correct)` pair `evaluate_outcomes` takes, so `evaluate_outcomes(*accepted_and_correct(...))` is the whole accounting. `accepted_when(result)` says whether the rule answered; `label_of(result)` is the label it answered with; `gold` is a sequence parallel to `results`, or a mapping looked up with `key_of(result)`. `correct` is computed for every result, the review ones included: `evaluate_outcomes` never reads it there, but `outcome_curve`, `selective_curve`, `evaluate_selective` and `outcome_breakdown` do, so `label_of` returns the label the rule answered with or, for a review result, the label it held back, and must not fail on a review result. A Choice answer is unwrapped to `.choice` on either side before `==`, as `accuracy` does |
 | `action_error_rate(results, gold, *, acts_when, label_of, key_of=None)` | the share of the results that triggered the side effect (`acts_when`) whose label is wrong; NaN when none acted. One name for the false merge rate (recipe 18) and the false link rate (recipe 22): a wrong result that did not act (a missed duplicate, a wrong `no_match`) lowers `evaluate_outcomes`' accuracy but is not counted here |
-| `outcome_breakdown(outcomes, correct, *, order=None)` | `{outcome: OutcomeTally(right, wrong)}`: every example counted under its own outcome, so the totals add up to the number of examples and nothing disappears. `order` lists the outcomes, in that order, with zero counts for one that never happened, so a table keeps its shape across splits; a label listed twice, or two labels of different types that compare equal (`True` and `1`), raise `ValueError` rather than silently sharing a tally. `OutcomeTally` has `right`, `wrong`, `total` and `accuracy` (NaN for a zero total) |
+| `outcome_breakdown(outcomes, correct, *, order=None)` | `{outcome: OutcomeTally(right, wrong)}`: every example counted under its own outcome, so the totals add up to the number of examples and nothing disappears. `order` lists the outcomes, in that order, with zero counts for one that never happened, so a table keeps its shape across splits; a label listed twice, an unhashable label, or two labels of different kinds that compare equal (`True` and `1`, `1` and `1.0`; a numpy scalar is the kind of the Python value it stands for), raise `ValueError` rather than silently sharing a tally. `OutcomeTally` has `right`, `wrong`, `total` and `accuracy` (NaN for a zero total) |
 
 `accepted_and_correct` fixes one spelling of the pair across recipes: `(accepted, correct)`, in the
 order `evaluate_outcomes` takes them. Its first argument is the rule's results and its second the
@@ -925,8 +925,9 @@ ways, and each still measures its own composition:
   to claim.
 * **A decision function that takes an answer object, not `p`**: build a synthetic answer for each
   grid value with the same type the rule receives (`NoulAnswer(p, Provenance.synthetic())`
-  from `jev_cookbook.answers`, the form recipes 02, 06 and 10 use in their tests) and call the rule's real decision function on it. Do not
-  re-derive the rule inside the measurement; the point is to measure the code that ships.
+  from `jev_cookbook.answers`, the form recipes 02, 06 and 10 use in their tests) and call the
+  rule's real decision function on it. Do not re-derive the rule inside the measurement; the
+  point is to measure the code that ships.
 
 For a multi-label recipe whose only review branch *is* this confidence gate (no fallback label,
 no membership check), the pooled confidence-only view and the pooled outcomes view give the same

@@ -26,6 +26,7 @@ Conventions that hold for every public function (see also ``docs/evaluation.md``
 from __future__ import annotations
 
 import math
+import numbers
 from collections.abc import Callable, Collection, Hashable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
@@ -1791,10 +1792,13 @@ def accepted_and_correct(
 
     One spelling for what every recipe with a non-confidence review branch wrote itself: for
     each result ``r``, ``accepted[i] = accepted_when(r)`` (did the rule answer, as opposed to
-    send to review) and ``correct[i] = label_of(r) == gold`` for an accepted result. A result
-    sent to review gets ``correct[i] = False`` without ``label_of`` being called (a review
-    result often has no label to read), because :func:`evaluate_outcomes` requires a
-    ``correct`` value where ``accepted`` is False and never reads it there. The order is ``(accepted, correct)``, the order
+    send to review) and ``correct[i] = label_of(r) == gold`` for **every** result, accepted or
+    not. :func:`evaluate_outcomes` never reads ``correct`` where ``accepted`` is False, but
+    :func:`outcome_curve`, :func:`selective_curve`, :func:`evaluate_selective` and
+    :func:`outcome_breakdown` do (a review example below the gate is selected at a lower
+    threshold), so the same ``correct`` must be right for review results too: ``label_of``
+    returns the label the rule would have answered with, which for a review result is the
+    label it held back (the spelling recipes 11, 18 and 22 already use). The order is ``(accepted, correct)``, the order
     :func:`evaluate_outcomes` takes them, so ``evaluate_outcomes(*accepted_and_correct(...))``
     is the whole accounting. Pass what the rule actually returned: ``accepted_when`` reads the
     rule's own outcome, it never reapplies a confidence gate.
@@ -1804,8 +1808,9 @@ def accepted_and_correct(
         gold: The gold label of each example: a sequence parallel to ``results``, or a mapping
             from ``key_of(result)`` to the gold label.
         accepted_when: ``result -> bool``, True when the rule answered the example.
-        label_of: ``result -> label``, the label the rule answered with, called only for
-            accepted results. It and the gold label are compared by ``==`` after a Choice
+        label_of: ``result -> label``, the label the rule answered with, or would have
+            answered with for a review result; called for every result, so it must not fail on
+            a review result. It and the gold label are compared by ``==`` after a Choice
             answer is unwrapped to its ``.choice`` on either side, exactly as :func:`accuracy`
             compares them (a Noul or Score answer raises ``ValueError``, as there).
         key_of: ``result -> key`` into a mapping ``gold`` (for example ``lambda r: r.ticket_id``);
@@ -1821,8 +1826,8 @@ def accepted_and_correct(
     rs, gs = _results_and_gold(results, gold, key_of, fn)
     accepted = [bool(accepted_when(r)) for r in rs]
     correct = [
-        a and bool(_choice_value(label_of(r), fn) == _choice_value(g, fn))
-        for r, g, a in zip(rs, gs, accepted, strict=True)
+        bool(_choice_value(label_of(r), fn) == _choice_value(g, fn))
+        for r, g in zip(rs, gs, strict=True)
     ]
     return accepted, correct
 
@@ -1883,9 +1888,25 @@ class OutcomeTally:
         return _safe_div(self.right, self.total)
 
 
+def _label_kind(x: Any) -> Any:
+    """The kind of an outcome label: text, boolean, integer, other real number, or its type.
+
+    numpy scalars fall in the same kind as the Python values they stand for (``np.int64(0)``
+    with ``0``, ``np.bool_(True)`` with ``True``)."""
+    if isinstance(x, str):
+        return "str"
+    if isinstance(x, (bool, np.bool_)):
+        return "bool"
+    if isinstance(x, numbers.Integral):
+        return "int"
+    if isinstance(x, numbers.Real):
+        return "real"
+    return type(x)
+
+
 def _same_label_kind(a: Any, b: Any) -> bool:
-    """True when two equal labels are the same kind of value (both ``str``, or one type)."""
-    return (isinstance(a, str) and isinstance(b, str)) or type(a) is type(b)
+    """True when two equal labels are the same kind of value (see :func:`_label_kind`)."""
+    return _label_kind(a) == _label_kind(b)
 
 
 def outcome_breakdown(
@@ -1912,13 +1933,16 @@ def outcome_breakdown(
             across splits. An outcome that occurs but is not listed, or a label listed twice,
             raises ``ValueError``. By default the outcomes appear in order of first occurrence.
 
-    Two labels of different types that compare equal (``True`` and ``1``, ``1`` and ``1.0``)
+    Two labels of different kinds that compare equal (``True`` and ``1``, ``1`` and ``1.0``)
     would be one dictionary key and silently share a tally, so they raise ``ValueError``
-    instead (two ``str`` labels are never confused this way).
+    instead. The kinds are text, boolean, integer and other real number (a numpy scalar is the
+    kind of the Python value it stands for, so ``np.int64(0)`` and ``0`` are one label), and
+    otherwise the type.
 
     Returns:
         ``{outcome: OutcomeTally(right, wrong)}``. Empty input, unequal lengths, a duplicate
-        in ``order`` or two equal labels of different types raise ``ValueError``.
+        in ``order``, two equal labels of different kinds or an unhashable label raise
+        ``ValueError``.
     """
     outs = _as_list(outcomes, "outcomes")
     ok = _binary(_as_list(correct, "correct"), "correct")
@@ -1926,17 +1950,25 @@ def outcome_breakdown(
     seen: dict[Hashable, Hashable] = {}
     if order is not None:
         for label in order:
+            try:
+                hash(label)
+            except TypeError:
+                raise ValueError(f"outcome label {label!r} in order is not hashable") from None
             if label in seen:
                 raise ValueError(f"outcome {label!r} is listed twice in order")
             seen[label] = label
     for o in outs:
+        try:
+            hash(o)
+        except TypeError:
+            raise ValueError(f"outcome label {o!r} is not hashable") from None
         if o not in seen:
             if order is not None:
                 raise ValueError(f"outcome {o!r} is not among the order given")
             seen[o] = o
         elif not _same_label_kind(seen[o], o):
             raise ValueError(
-                f"outcome labels {seen[o]!r} and {o!r} compare equal but have different types, "
+                f"outcome labels {seen[o]!r} and {o!r} compare equal but are different kinds of value, "
                 "so they would share one tally"
             )
     keys = list(seen)
@@ -2002,9 +2034,10 @@ def outcome_curve(
 
     ``exempt`` serves a rule with an unconditionally *accepted* branch (CONTRIBUTING.md section 4's
     exemption): recipes 11, 13, 14, 18 and 22 (see "Outcomes versus the confidence-only view" in
-    ``docs/evaluation.md`` for the inventory). ``rejected`` serves one with an unconditionally
-    *rejected* branch: recipe 23 (``judge_pair``'s "orders disagree" branch) and recipe 21 (the
-    model choosing ``needs_review`` outright). A rejected example still enters ``confidences``,
+    ``docs/evaluation.md`` for the inventory). ``rejected`` is for a rule with an unconditionally
+    *rejected* branch, the shape of recipe 23 (``judge_pair``'s "orders disagree" branch) and
+    recipe 21 (the model choosing ``needs_review`` outright); whether it reproduces those
+    recipes' own numbers is for each recipe to check when it adopts it. A rejected example still enters ``confidences``,
     ``correct`` and the coverage denominator when it received a confidence (it was asked, and the
     rule refused the answer), so ``coverage`` is the share of *all passed* examples
     that the rule answered. ``correct`` is read for every example, but a rejected one is never
@@ -2013,8 +2046,8 @@ def outcome_curve(
     Pass a confidence for every example that received one, exempt included — never a placeholder
     for one that did not. An example a rule short-circuits before any question is asked (recipe
     14's ``no_candidates``, recipe 22's ``no_candidate_resolution``) has no confidence to report:
-    leave such examples out of ``confidences``/``correct``/``exempt`` entirely (``outcome_curve``
-    sweeps the *answered* examples only) and report them separately with
+    leave such examples out of ``confidences``/``correct``/``exempt``/``rejected`` entirely
+    (``outcome_curve`` sweeps the examples that were asked only) and report them separately with
     :func:`evaluate_outcomes`-style accounting instead. An invented number such as ``0.0`` is not
     inert here even though the example would be exempt either way: ``thresholds`` comes from
     :func:`_candidate_thresholds` of every confidence passed in (that is not ``rejected``), so a
@@ -2022,11 +2055,12 @@ def outcome_curve(
     change which examples are selected.
 
     Args:
-        confidences: Per-example confidence, in [0, 1], for every *answered* example (exempt
-            included): numbers, or Choice/Score answers (``.confidence``). For Noul see
-            :func:`noul_confidence`. Omit an example that never received a confidence (a rule's
-            own short-circuit before any question was asked) rather than inventing one: it would
-            still enter the threshold grid.
+        confidences: Per-example confidence, in [0, 1], for every example that was asked a
+            question (exempt and rejected included): numbers, or Choice/Score answers
+            (``.confidence``). For Noul see :func:`noul_confidence`. Omit an example that never
+            received a confidence (a rule's own short-circuit before any question was asked)
+            rather than inventing one: unless it is rejected it would still enter the threshold
+            grid.
         correct: Whether each example's answer was right (bool or 0/1); read for every example,
             exempt ones included, since an exempt example is accepted at every threshold.
         exempt: Whether each example is accepted by the rule regardless of confidence (bool or

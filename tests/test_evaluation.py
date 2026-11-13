@@ -2404,9 +2404,8 @@ def test_accepted_and_correct_is_the_pair_evaluate_outcomes_takes():
         label_of=lambda r: r.label,
         key_of=lambda r: r.ticket_id,
     )
-    # accepted: t1 yes, t2 no (review), t3 yes, t4 yes ; correct is computed for the accepted
-    # results and False for the review one, whose label_of is never called: right, False,
-    # right, wrong
+    # accepted: t1 yes, t2 no (review), t3 yes, t4 yes ; correct is computed for EVERY result,
+    # the review one included (B != Z): right, wrong, right, wrong
     assert accepted == [True, False, True, True]
     assert correct == [True, False, True, False]
     r = ev.evaluate_outcomes(accepted, correct)
@@ -2490,31 +2489,59 @@ def test_outcome_breakdown_tallies_each_outcome_by_right_and_wrong():
 
 def test_outcome_breakdown_refuses_equal_labels_of_different_types():
     # True == 1 and 1 == 1.0: as dictionary keys they would silently share one tally
-    with pytest.raises(ValueError, match="different types"):
+    with pytest.raises(ValueError, match="different kinds"):
         ev.outcome_breakdown([True, 1], [1, 0])
-    with pytest.raises(ValueError, match="different types"):
+    with pytest.raises(ValueError, match="different kinds"):
         ev.outcome_breakdown([1, 1.0], [1, 0])
     with pytest.raises(ValueError, match="listed twice"):
         ev.outcome_breakdown([True], [1], order=[True, 1])
-    with pytest.raises(ValueError, match="different types"):
+    with pytest.raises(ValueError, match="different kinds"):
         ev.outcome_breakdown([1.0], [1], order=[1])
-    # equal labels of one type, and str subclasses, are one outcome as before
+    # equal labels of one kind are one outcome as before: one type, a str subclass, or a numpy
+    # scalar beside the Python value it stands for
     assert ev.outcome_breakdown([1, 1], [1, 0]) == {1: ev.OutcomeTally(1, 1)}
     assert ev.outcome_breakdown(["a", np.str_("a")], [1, 1]) == {"a": ev.OutcomeTally(2, 0)}
+    codes = ev.outcome_breakdown(np.array([0, 1, 0]), [1, 0, 1], order=[0, 1])
+    assert codes == {0: ev.OutcomeTally(2, 0), 1: ev.OutcomeTally(0, 1)}
+    flags = ev.outcome_breakdown([np.bool_(True), True], [1, 0])
+    assert flags == {True: ev.OutcomeTally(1, 1)}
+    with pytest.raises(ValueError, match="different kinds"):
+        ev.outcome_breakdown(np.array([1.0]), [1], order=[1])
+    # an unhashable label is a ValueError, like every other input error here
+    with pytest.raises(ValueError, match="not hashable"):
+        ev.outcome_breakdown([["a"]], [1])
+    with pytest.raises(ValueError, match="not hashable"):
+        ev.outcome_breakdown(["a"], [1], order=[["a"]])
 
 
-def test_accepted_and_correct_calls_label_of_only_for_accepted_results():
+def test_accepted_and_correct_reads_the_held_back_label_of_a_review_result():
+    # A review result whose held-back label is right must be correct=True: outcome_curve,
+    # selective_curve and evaluate_selective select it below the gate. Forcing it to False
+    # reported accuracy 2/3 here instead of 1.0.
+    results = [Res("t1", "linked", "A"), Res("t2", "review", "B"), Res("t3", "no_match", "none")]
+    gold = {"t1": "A", "t2": "B", "t3": "none"}
+    accepted, correct = ev.accepted_and_correct(
+        results,
+        gold,
+        accepted_when=_answered,
+        label_of=lambda r: r.label,
+        key_of=lambda r: r.ticket_id,
+    )
+    assert accepted == [True, False, True]
+    assert correct == [True, True, True]
+    conf = [0.9, 0.5, 0.3]
+    curve = ev.outcome_curve(conf, correct, exempt=[False, False, True])
+    assert curve.accuracy.tolist() == [1.0, 1.0, 1.0]
+    assert ev.evaluate_selective(correct, conf, 0.5).accuracy == 1.0
+    assert ev.evaluate_outcomes(accepted, correct).accuracy == 1.0
+
+
+def test_action_error_rate_calls_label_of_only_for_results_that_acted():
     def label_of(r):
-        if r.outcome == "review":
-            raise AttributeError("a review result has no answer")
+        if r.outcome != "linked":
+            raise AttributeError("only a linked result carries a link target")
         return r.label
 
-    accepted, correct = ev.accepted_and_correct(
-        RES, GOLD_BY_ID, accepted_when=_answered, label_of=label_of, key_of=lambda r: r.ticket_id
-    )
-    assert accepted == [True, False, True, True]
-    assert correct == [True, False, True, False]
-    # action_error_rate calls it only for results that acted
     rate = ev.action_error_rate(
         RES,
         GOLD_BY_ID,
