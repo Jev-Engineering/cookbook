@@ -51,8 +51,8 @@ GitHub is the source of truth, not this file and not any ledger. Before dispatch
       (`recipe/NN-*`, `foundation/multimodal-integration`) have been re-integrated with current `main`;
    4. epics #78 and #79 and the release audit #73, which you prepare but never close or tag.
 
-Open work at the time of writing, to be re-measured: about 74 open issues, 11 of them recipe issues
-(51 to 60 and #326), about 53 foundation issues, four epics or tracking issues, and the release audit.
+Open work at the time of writing, to be re-measured: about 74 open issues, 11 of them original-track
+recipe issues (51 to 60 and #326), about 53 foundation issues, four epics or tracking issues, and the release audit.
 Catalog ranks 61 to 100 exist on `main` and record their recipe issues #402 to #441, so a recipe pull
 request for one of them passes the scope check only by closing that recorded issue.
 

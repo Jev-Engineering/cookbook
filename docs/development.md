@@ -44,8 +44,7 @@ three digits for `100`. `python tools/new_recipe.py NN` accepts ranks 1–100 an
 slug. A rank is not an issue number: the `issue` field records the assigned repository issue.
 The multimodal entries record their recipe issues #402–#441; for an entry with `issue: null` the
 scaffolder prints a notice and creates a local skeleton, but opening a recipe pull request must
-wait for a real issue assignment in the trusted
-base catalog. See [recipe-template.md](recipe-template.md) for the workflow.
+wait for a real issue assignment in the trusted base catalog. See [recipe-template.md](recipe-template.md) for the workflow.
 
 The README tables are generated: after a catalog change run
 `python tools/render_catalog.py`, and `python tools/render_catalog.py --check` to verify.

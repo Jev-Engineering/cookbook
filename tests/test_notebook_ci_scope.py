@@ -705,13 +705,6 @@ def test_the_original_sixty_issue_assignments_are_preserved():
     assert [r["issue"] for r in CATALOG["recipes"][:60]] == list(range(1, 61))
 
 
-def test_the_multimodal_issue_assignments_are_the_recorded_recipe_issues():
-    """Ranks 61-100 carry the recipe issues #402-#441 (owner decision 2026-11-13), each once;
-    the rank-by-rank mapping is pinned in tests/test_catalog_shape.py."""
-    issues = [r["issue"] for r in CATALOG["recipes"][60:]]
-    assert sorted(issues) == list(range(402, 442))
-
-
 def test_issue_61_remains_foundation_when_not_assigned_in_base_catalog(repo):
     repo.put("src/jev_cookbook/new.py", "x = 1\n")
     problems, note = run_check(repo, branch="foundation/visual-backend", body="Closes #61")
@@ -720,7 +713,7 @@ def test_issue_61_remains_foundation_when_not_assigned_in_base_catalog(repo):
 
 
 @pytest.mark.parametrize(
-    "body", ["Closes #100", "Closes #401", "Closes #441", "Closes #1", "No issue assigned"]
+    "body", ["Closes #100", "Closes #401", "Closes #440", "Closes #1", "No issue assigned"]
 )
 def test_unassigned_recipe_100_fails_closed(repo, body):
     slug, _ = assign_in_base(repo, 100, None)
@@ -747,6 +740,33 @@ def test_recipe_100_closing_an_assigned_issue_above_300_passes_with_rendered_rea
     problems, note = run_check(repo, branch=f"recipe/{slug}", body="Closes #401")
     assert problems == []
     assert note.startswith(f"recipe pull request for #401 ({slug})")
+
+
+def recorded_multimodal_recipe(rank):
+    """A multimodal recipe as the real catalog records it (no synthetic reassignment)."""
+    recipe = next(r for r in CATALOG["recipes"] if r["rank"] == rank)
+    return recipe["slug"], recipe["issue"]
+
+
+def test_a_multimodal_recipe_closing_its_recorded_issue_passes_against_the_real_catalog(repo):
+    slug, issue = recorded_multimodal_recipe(100)
+    assert issue == 441
+    repo.put(f"recipes/{slug}/notebook.ipynb", NOTEBOOK)
+    repo.put("README.md", rendered_readme({SLUG2, slug}))
+    problems, note = run_check(repo, branch=f"recipe/{slug}", body=f"Closes #{issue}")
+    assert problems == []
+    assert note.startswith(f"recipe pull request for #441 ({slug})")
+
+
+def test_a_multimodal_recipe_closing_another_recorded_issue_is_rejected(repo):
+    slug, _ = recorded_multimodal_recipe(100)
+    other, other_issue = recorded_multimodal_recipe(99)
+    assert other_issue == 440
+    repo.put(f"recipes/{slug}/notebook.ipynb", NOTEBOOK)
+    rejected(
+        run_check(repo, branch=f"recipe/{slug}", body="Closes #440"),
+        f"is not recipe/{other}, the recipe closed by #440",
+    )
 
 
 def test_high_assigned_issue_requires_recipe_branch_and_exactly_one_closed_issue(repo):

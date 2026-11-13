@@ -93,7 +93,7 @@ def test_issue_assignments_are_unique_positive_integers_or_explicitly_unassigned
 
 # Rank -> recipe issue for the multimodal track, recorded from the issue titles
 # ("Recipe <rank>: <catalog title>") on the owner decision of 2026-11-13. A rank is not its issue
-# number; this table is the only place the pairs are typed, so a reassignment fails here.
+# number; this table pins the pairs in catalog/recipes.json, so a reassignment there fails here.
 MULTIMODAL_ISSUES = {
     61: 411, 62: 405, 63: 412, 64: 413, 65: 414, 66: 415, 67: 416, 68: 417, 69: 402, 70: 418,
     71: 419, 72: 420, 73: 421, 74: 422, 75: 423, 76: 424, 77: 403, 78: 425, 79: 426, 80: 406,
