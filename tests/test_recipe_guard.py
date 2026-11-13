@@ -658,25 +658,32 @@ PROCESS_CITATIONS: dict[str, re.Pattern[str]] = {
 # docs/x.md"), the one carve-out #225 asks for. The identifiers the repository itself defines
 # (G1(c), R21, CONTRIBUTING.md section 6, S07) match none of the shapes above, so they need no
 # allowlist; this is only for a numbered rule that names where it is written. The target is
-# `of`/`in`/`from` and a path from the repository root that looks like one (it has a "/" or a
-# ".") and EXISTS in the tree being checked: any committed file qualifies, a neighbouring
-# recipe's README included, and a path that names nothing, or climbs out with "..", does not.
-COMMITTED_RULE_TARGET = re.compile(r"\s*(?:of|in|from)\s+`?([\w./-]*[/.][\w./-]*[\w])")
+# `of`/`in`/`from` (any case) and a path from the repository root that looks like one (it has a
+# "/" or a ".") and EXISTS in this repository's checkout: any committed file qualifies, a
+# neighbouring recipe's README included, and a path that names nothing, climbs out with "..", or
+# is absolute (so names a file outside the repository) does not.
+COMMITTED_RULE_TARGET = re.compile(r"\s*(?i:of|in|from)\s+`?([\w./-]*[/.][\w./-]*[\w])")
 # A recipe reference ("recipe 30", "../30-citation-verification/") the reader cannot follow
 # because that recipe is not published (#225's second comment). Pointing at a published
-# neighbour is what section 6 asks for.
-RECIPE_NUMBER = re.compile(r"\brecipes?\s+(\d{1,2})\b", re.IGNORECASE)
-RECIPE_SLUG_LINK = re.compile(r"\.\./(\d\d)-[a-z0-9-]+")
+# neighbour is what section 6 asks for. Ranks run to 100, so a number or slug prefix has two or
+# three digits, and a slug link must name the published folder itself: a published number with a
+# slug that is not that recipe's (``../30-not-a-real-slug/``) leads nowhere either.
+RECIPE_NUMBER = re.compile(r"\brecipes?\s+(\d{1,3})\b", re.IGNORECASE)
+RECIPE_SLUG_LINK = re.compile(r"\.\./((\d{2,3})-[a-z0-9-]*[a-z0-9])")
 
 
 def _published_recipe_numbers() -> set[int]:
     return {int(r["slug"].split("-", 1)[0]) for r in PUBLISHED}
 
 
+def _published_recipe_slugs() -> set[str]:
+    return {r["slug"] for r in PUBLISHED}
+
+
 def _names_a_committed_file(text: str, end: int) -> bool:
     """Whether the text right after position ``end`` names a file or folder that exists."""
     found = COMMITTED_RULE_TARGET.match(text, end)
-    if not found or ".." in found.group(1).split("/"):
+    if not found or found.group(1).startswith("/") or ".." in found.group(1).split("/"):
         return False
     return (REPO / found.group(1)).exists()
 
@@ -691,10 +698,13 @@ def _citation_hits(text: str, location: str) -> list[str]:
                 continue
             hits.append(f"{location}: {m.group(0)!r} ({kind}: a reader cannot open it)")
     published = _published_recipe_numbers()
-    for pattern in (RECIPE_NUMBER, RECIPE_SLUG_LINK):
-        for m in pattern.finditer(text):
-            if int(m.group(1)) not in published:
-                hits.append(f"{location}: {m.group(0)!r} (a recipe that is not published)")
+    for m in RECIPE_NUMBER.finditer(text):
+        if int(m.group(1)) not in published:
+            hits.append(f"{location}: {m.group(0)!r} (a recipe that is not published)")
+    slugs = _published_recipe_slugs()
+    for m in RECIPE_SLUG_LINK.finditer(text):
+        if m.group(1) not in slugs:
+            hits.append(f"{location}: {m.group(0)!r} (a recipe that is not published)")
     return hits
 
 
@@ -748,7 +758,7 @@ def _hyphenated_cell_ids(recipe_dir_: Path) -> set[str]:
     ``setup``, ``answer``) is also an ordinary English word, so a backticked ``state`` is more
     often prose than a pointer, and counting those made every count taken before this one
     wrong (13 across 9 recipes, then 9 across 5 with ``state`` in it, then 13 in recipe 36 alone,
-    all of them coincidences); they cannot be told apart mechanically and are not checked."""
+    every one of those 13 a coincidence); they cannot be told apart mechanically and are not checked."""
     return {c["id"] for c in notebook_cells(recipe_dir_) if "-" in str(c.get("id", ""))}
 
 
@@ -842,6 +852,10 @@ _UNREADABLE_CITATIONS = {
     "fix-round": ("in the recipe's first fix round", "review round"),
     "unpublished-recipe-number": ("Rule 11 (recipe 99 lineage)", "not published"),
     "unpublished-recipe-link": ("see ../99-not-a-recipe/ for the shape", "not published"),
+    "unpublished-recipe-100": ("the recipe 100 pattern", "not published"),
+    "unpublished-recipe-100-link": ("see ../100-not-a-recipe/ for the shape", "not published"),
+    "published-number-wrong-slug": ("see ../30-not-a-real-slug/ for the shape", "not published"),
+    "rule-of-an-absolute-path": ("rule 4 of /etc/hosts", "house rule"),
 }
 
 # Prose that must keep passing: a target that is committed, an identifier the repository itself
@@ -854,6 +868,7 @@ _READABLE_CITATIONS = {
     "a-catalog-source": "TypeSafe's notes on Jev 1.13 (S07) document it",
     "a-numbered-rule-that-names-its-file": "rule 4 of docs/glossary.md says so",
     "a-numbered-rule-in-contributing": "rule 4 in CONTRIBUTING.md says so",
+    "a-numbered-rule-capitalised-of": "Rule 4 Of docs/glossary.md says so",
     "a-numbered-rule-of-a-neighbours-readme": (
         "rule 4 of recipes/38-abstention-and-review-queues/README.md says so"
     ),
@@ -1013,6 +1028,9 @@ def test_a_cited_hyphenated_cell_id_fails(tmp_path, case, where):
         _append_cell(folder, "markdown", text)
     hits = _recipe_cell_id_citations(folder)
     assert hits, f"{case}: nothing noticed"
+    # Every cited id is reported, not only the first one in the sentence.
+    cited = re.findall(r"`([a-z0-9]+(?:-[a-z0-9]+)+)`", text)
+    assert len(hits) == len(cited) and all(any(i in h for h in hits) for i in cited), hits
     assert all(("README.md" if where == "README.md" else "honesty-probe") in h for h in hits)
 
 
