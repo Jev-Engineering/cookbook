@@ -21,17 +21,18 @@ from jev_cookbook import LiveBackend, Noul, NoulAnswer, Provenance
 REPO = Path(__file__).resolve().parents[1]
 DOCS = REPO / "docs"
 
-_FENCED = re.compile(r"^[ \t]*```.*?^[ \t]*```", re.S | re.M)
+_FENCED = re.compile(r"^[ \t]*(`{3,}|~{3,}).*?^[ \t]*\1", re.S | re.M)
 _COMMENT = re.compile(r"<!--.*?-->", re.S)
-_CODE_SPAN = re.compile(r"(`+).+?\1", re.S)
+_CODE_SPAN = re.compile(r"(`+)(?:(?!\n[ \t]*\n).)+?\1", re.S)
 _LINK = re.compile(r"\]\(([^)\s#]+)(?:#[^)\s]*)?(?:\s+(?:\"[^\"]*\"|'[^']*'))?\)")
 _REFERENCE = re.compile(r"^[ ]{0,3}\[[^\]]+\]:\s*<?([^>\s#]+)", re.M)
 
 
 def prose(text: str) -> str:
-    """``text`` without fenced code blocks, HTML comments and inline code spans, none of which
-    GitHub renders as a link."""
-    return _CODE_SPAN.sub("", _COMMENT.sub("", _FENCED.sub("", text)))
+    """``text`` without fenced code blocks, inline code spans and HTML comments, none of which
+    GitHub renders as a link. Code spans go before comments, so a ``<!--`` written inside a code
+    span opens no comment; a code span never runs past a blank line."""
+    return _COMMENT.sub("", _CODE_SPAN.sub("", _FENCED.sub("", text)))
 
 
 @functools.cache
@@ -75,6 +76,17 @@ def test_linked_pages_reads_fragments_and_skips_code_and_urls(tmp_path):
     root = tmp_path.resolve()
     expected = {root / "b.md", root / "c.md", root / "g.md", root / "h.md"}
     assert linked_pages(tmp_path / "page.md") == expected
+
+
+def test_prose_keeps_links_after_a_comment_opener_in_code_and_a_stray_backtick():
+    text = (
+        "Use `<!--` to hide notes. See [a](a.md).\n\n"
+        "Press ` to open the console.\n\nSee [b](b.md).\n\n"
+        "````\n```\n[c](c.md)\n```\n````\n\n~~~\n[d](d.md)\n~~~\n\nSee [e](e.md) and `x`.\n"
+    )
+    kept = prose(text)
+    assert "[a](a.md)" in kept and "[b](b.md)" in kept and "[e](e.md)" in kept
+    assert "c.md" not in kept and "d.md" not in kept
 
 
 def test_section_ignores_a_comment_line_inside_fenced_code():
@@ -127,11 +139,14 @@ def test_images_and_box_opens_with_the_experimental_label_and_upstream_links():
 
 # -- docs/live.md: the images header and compression -----------------------------------------------
 
-LIVE_TEXT = (DOCS / "live.md").read_text("utf-8")
+
+@functools.cache
+def live_text() -> str:
+    return (DOCS / "live.md").read_text("utf-8")
 
 
 def test_live_md_says_the_flag_belongs_to_the_backend_not_to_the_call():
-    body = squash(section(LIVE_TEXT, "### Experimental images and long context"))
+    body = squash(section(live_text(), "### Experimental images and long context"))
     for needle in (
         "a backend built with `images=True` sends the images header on every call it makes",
         "including a call with no image or Box question",
@@ -142,7 +157,7 @@ def test_live_md_says_the_flag_belongs_to_the_backend_not_to_the_call():
 
 
 def test_live_md_documents_the_sdk_default_compression():
-    body = squash(section(LIVE_TEXT, "## What a call does"))
+    body = squash(section(live_text(), "## What a call does"))
     for needle in (
         "Compression: the backend builds its own client without a `compression=` argument",
         "SDK 0.7.5 made it zstd",
@@ -170,7 +185,8 @@ def test_the_backend_builds_its_client_without_a_compression_argument(monkeypatc
     monkeypatch.delenv("TYPESAFE_BASE_URL", raising=False)
     monkeypatch.setenv("JEV_COOKBOOK_LIVE", "1")
     monkeypatch.setenv("TYPESAFE_API_KEY", "test-placeholder-not-a-key")
-    LiveBackend("jev-1.13.0", sleep=lambda s: None)
+    with LiveBackend("jev-1.13.0", sleep=lambda s: None):
+        pass
     assert len(built) == 1
     assert "compression" not in built[0]
 

@@ -73,7 +73,9 @@ request that contains an image or a Box question" ([images](https://docs.typesaf
 Both defaults are false, and a backend built without a flag sends no header for it. Only
 `images=True` admits image assets and Box questions: a backend built without it refuses them
 (below), whatever `long_context` is. A text-only call that should carry no images header therefore
-goes through a backend built without `images=True`.
+goes through a backend built without `images=True`. That is a second instance with its own request
+budget, ledger and records (see [Budget guard](#budget-guard)): each instance enforces its own
+`max_requests`, so the caller budgets and accounts for both.
 The existing restriction on arbitrary `request_kwargs["extra_headers"]` still holds.
 
 Pass raw image dictionaries using `decide(state, questions, assets=assets)` as described in
