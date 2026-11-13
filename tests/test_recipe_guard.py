@@ -211,6 +211,11 @@ check id                              rule -> detection
                                        or is accurate/fast/cheap ..., or outperforms something,
                                        unless the same sentence, heading, list item or
                                        table row negates, hedges or attributes it.
+``synthetic_output_prints_no_token_count``
+                                       #312: in a synthetic or scripted run (read from the
+                                       fixtures), no committed output line prints a number
+                                       as a token count, in any cell: nothing offline measures
+                                       tokens, and characters or bytes are not tokens.
 ====================================  =====================================================
 
 Scope decisions (see the pull request body for the full reasoning):
@@ -9199,6 +9204,9 @@ def test_the_inventory_matches_what_the_published_recipes_do_today():
 # * ``no_unhedged_quality_claim_about_jev``: in a recipe whose answers are all synthetic, no
 #   sentence says Jev or the model does something correctly, reliably, well ... or is accurate,
 #   fast, cheap ... without a negation, a hypothetical or an attribution in the same sentence.
+# * ``synthetic_output_prints_no_token_count``: in a synthetic or scripted run, no committed
+#   output line prints a token count ("262k tokens", "1,200 input tokens", "input_tokens: 1200"):
+#   nothing offline measures tokens, and a character or byte count is not one (#312).
 
 PIPELINE_CHECK_LABEL = "(a pipeline check, not a Jev result)"
 SYNTHETIC_RUN_MODES = ("synthetic", "scripted")
@@ -9210,6 +9218,7 @@ HONESTY_CHECKS = (
     "metric_output_lines_carry_pipeline_check",
     "prose_quantities_are_printed",
     "no_unhedged_quality_claim_about_jev",
+    "synthetic_output_prints_no_token_count",
 )
 
 _MODE_LINE = re.compile(
@@ -9976,6 +9985,49 @@ def test_no_sentence_says_jev_does_well_in_a_synthetic_recipe(recipe):
     all ("Jev judges from the evidence as a whole"); the reviewer reads for those."""
     violations = _unhedged_quality_claims(recipe_dir(recipe))
     assert not violations, _honesty_failure("claim about Jev", violations)
+
+
+# A number printed as a count of tokens: "262k tokens", "1,200 input tokens", "a 64k-token
+# request", or a token field printed with its value ("input_tokens: 1200", "'tokens': 37").
+# Prose about authentication tokens ("a refresh token stays valid for 30 days") puts no number
+# directly in front of the word, and a field printed as ``None`` or ``not measured`` has no digit.
+_TOKEN_COUNT = re.compile(
+    r"\b\d[\d,]*(?:\.\d+)?(?:\s?[km]\b)?[\s-]?"
+    r"(?:(?:input|output|prompt|completion|context|total)[\s-])?tokens?\b"
+    r"|(?<![a-z])tokens?\b['\"]?\s*[:=]\s*\d",
+    re.IGNORECASE,
+)
+
+
+def _printed_token_counts(recipe_dir_: Path) -> list[str]:
+    """In a run whose stored answers are synthetic or scripted, every committed output line that
+    prints a token count. Every cell is read, the measured cell included: offline, that cell
+    prints the not-measured disclosure, and nothing an offline run computes is a token count (a
+    locally computed context size is characters or bytes). A recorded run is out of scope here;
+    the reviewer holds its numbers to its model, date and N."""
+    if _fixture_provenance(recipe_dir_)[0] not in SYNTHETIC_RUN_MODES:
+        return []
+    return [
+        f"cell {cell_id}: {line.strip()!r}"
+        for cell_id, line in _committed_output_lines(recipe_dir_)
+        if _TOKEN_COUNT.search(line)
+    ]
+
+
+@pytest.mark.parametrize(
+    "recipe", guarded_with_template("synthetic_output_prints_no_token_count")()
+)
+def test_a_synthetic_run_prints_no_token_count(recipe):
+    """#312 (CONTRIBUTING.md section 2, docs/multimodal-track.md): a character count or an offline
+    run does not demonstrate a token count, so a synthetic or scripted notebook that prints "262k
+    tokens", "1,200 input tokens" or "input_tokens: 1200" states a measurement nobody made. Keyed
+    on the committed output and on the provenance the fixtures carry. Limits: it reads output, not
+    prose (``prose_quantities_are_printed`` and the reviewer cover a quoted figure); a count
+    spelled without a digit ("two hundred tokens") passes; and an in-fiction count of
+    authentication tokens printed with a number in front ("3 tokens revoked") fails, so such a
+    recipe says "3 credentials revoked" instead."""
+    violations = _printed_token_counts(recipe_dir(recipe))
+    assert not violations, _honesty_failure("a token count printed by an offline run", violations)
 
 
 # --- the tests for checks 12-16 ----------------------------------------------------------------
@@ -10887,6 +10939,64 @@ def test_the_honesty_doc_anchor_resolves_and_the_doc_names_every_check_and_its_l
     assert "the reviewer's alone" in section
     for check in ("metric_lines_carry_check", "validation_lines_carry_selection_and_check"):
         assert f"`{check}`" in section and "Their existence is not evidence" in section
+
+
+_TOKEN_COUNTS_THAT_FAIL = {
+    "k-suffix": "context: 262k tokens",
+    "thousands-separator": "the request used 1,200 input tokens",
+    "hyphenated-adjective": "a 64k-token request fits the limit",
+    "field-and-value": "input_tokens: 1200",
+    "dict-repr": "{'tokens': 37, 'characters': 180}",
+    "singular": "1 token per word",
+}
+_LINES_THAT_ARE_NOT_TOKEN_COUNTS = {
+    "an-auth-token": "A refresh token stays valid for 30 days unless the password changes.",
+    "a-character-count": "context: 262,144 characters (11,904 UTF-8 bytes)",
+    "a-field-not-measured": "input_tokens: None (not measured)",
+    "a-field-label-only": "Access tokens issued by the login service expire after 3600 seconds.",
+    "a-tokenizer-word": "tokenizer 3 is not used offline",
+}
+
+
+@pytest.mark.parametrize("case", sorted(_TOKEN_COUNTS_THAT_FAIL))
+def test_a_token_count_printed_by_a_synthetic_run_fails(tmp_path, case):
+    folder = _copy_recipe(tmp_path, "_template")
+    assert _printed_token_counts(folder) == []
+    _append_cell(folder, "code", _TOKEN_COUNTS_THAT_FAIL[case])
+    violations = _printed_token_counts(folder)
+    assert len(violations) == 1 and "honesty-probe" in violations[0], violations
+
+
+@pytest.mark.parametrize("case", sorted(_LINES_THAT_ARE_NOT_TOKEN_COUNTS))
+def test_a_line_that_counts_no_tokens_passes(tmp_path, case):
+    folder = _copy_recipe(tmp_path, "_template")
+    _append_cell(folder, "code", _LINES_THAT_ARE_NOT_TOKEN_COUNTS[case])
+    assert _printed_token_counts(folder) == [], case
+
+
+def test_a_token_count_in_the_measured_cell_of_a_synthetic_run_fails_too(tmp_path):
+    """The measured cell is not exempt offline: its offline branch prints the not-measured
+    disclosure, so a token count there is the same unmeasured claim as anywhere else."""
+    folder = _copy_recipe(tmp_path, "_template")
+    _edit_streams(
+        folder,
+        "Provenance: synthetic. Not measured live: a pipeline check, not a Jev result.",
+        "Provenance: synthetic. Not measured live: a pipeline check, not a Jev result.\n"
+        "input tokens: 4,096",
+    )
+    violations = _printed_token_counts(folder)
+    assert len(violations) == 1 and "cell measured" in violations[0], violations
+
+
+def test_a_recorded_run_may_print_its_token_count(tmp_path):
+    """The other direction: the check keys on the provenance the fixtures carry, so the same line
+    in a recorded run is not this check's business (the recorded ledger records tokens)."""
+    folder = _copy_recipe(tmp_path, "_template")
+    _make_recorded(folder)
+    _append_cell(folder, "code", _TOKEN_COUNTS_THAT_FAIL["thousands-separator"])
+    assert _printed_token_counts(folder) == []
+    _append_cell(folder, "code", "input_tokens: 1200", cell_id="second-probe")
+    assert _printed_token_counts(folder) == []
 
 
 def _strip_labels_from_outputs(folder: Path) -> None:
