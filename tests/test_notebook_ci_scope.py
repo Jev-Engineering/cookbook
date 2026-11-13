@@ -703,7 +703,13 @@ def test_raw_diff_lists_both_sides_of_a_rename(repo):
 
 def test_the_original_sixty_issue_assignments_are_preserved():
     assert [r["issue"] for r in CATALOG["recipes"][:60]] == list(range(1, 61))
-    assert all(r["issue"] is None for r in CATALOG["recipes"][60:])
+
+
+def test_the_multimodal_issue_assignments_are_the_recorded_recipe_issues():
+    """Ranks 61-100 carry the recipe issues #402-#441 (owner decision 2026-11-13), each once;
+    the rank-by-rank mapping is pinned in tests/test_catalog_shape.py."""
+    issues = [r["issue"] for r in CATALOG["recipes"][60:]]
+    assert sorted(issues) == list(range(402, 442))
 
 
 def test_issue_61_remains_foundation_when_not_assigned_in_base_catalog(repo):
@@ -713,15 +719,18 @@ def test_issue_61_remains_foundation_when_not_assigned_in_base_catalog(repo):
     assert note.startswith("foundation pull request")
 
 
-@pytest.mark.parametrize("body", ["Closes #100", "Closes #401", "Closes #1", "No issue assigned"])
+@pytest.mark.parametrize(
+    "body", ["Closes #100", "Closes #401", "Closes #441", "Closes #1", "No issue assigned"]
+)
 def test_unassigned_recipe_100_fails_closed(repo, body):
-    slug = CATALOG["recipes"][-1]["slug"]
+    slug, _ = assign_in_base(repo, 100, None)
     repo.put(f"recipes/{slug}/notebook.ipynb", NOTEBOOK)
     rejected(run_check(repo, branch=f"recipe/{slug}", body=body), "no assigned issue")
 
 
 def assign_in_base(repo, rank, issue):
-    """Synthetic mapping only; no actual issue creation or guessed production assignment."""
+    """Synthetic mapping only; no actual issue creation or guessed production assignment.
+    ``issue=None`` unassigns the slug in the base catalog."""
     catalog = json.loads(json.dumps(CATALOG))
     recipe = next(r for r in catalog["recipes"] if r["rank"] == rank)
     recipe["issue"] = issue
@@ -767,7 +776,8 @@ def test_high_assigned_issue_preserves_path_and_readme_prose_guards(repo):
 
 
 def test_head_catalog_cannot_assign_itself_a_recipe_issue(repo):
-    catalog = json.loads(json.dumps(CATALOG))
+    _, base = assign_in_base(repo, 100, None)
+    catalog = json.loads(json.dumps(base))
     recipe = catalog["recipes"][-1]
     recipe["issue"] = 401
     repo.put("catalog/recipes.json", json.dumps(catalog))

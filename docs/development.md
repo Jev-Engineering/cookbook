@@ -42,8 +42,9 @@ How a recipe's tests import its `helpers.py` is defined in #68 (every recipe has
 (61–100). In paths such as `recipes/NN-slug/`, the prefix is zero-padded through `99` and is
 three digits for `100`. `python tools/new_recipe.py NN` accepts ranks 1–100 and uses the catalog
 slug. A rank is not an issue number: the `issue` field records the assigned repository issue.
-The new multimodal entries have `issue: null`; the scaffolder prints a notice and creates a local
-skeleton, but opening a recipe pull request must wait for a real issue assignment in the trusted
+The multimodal entries record their recipe issues #402–#441; for an entry with `issue: null` the
+scaffolder prints a notice and creates a local skeleton, but opening a recipe pull request must
+wait for a real issue assignment in the trusted
 base catalog. See [recipe-template.md](recipe-template.md) for the workflow.
 
 The README tables are generated: after a catalog change run
