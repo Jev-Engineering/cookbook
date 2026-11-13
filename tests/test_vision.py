@@ -917,6 +917,22 @@ def test_measured_latency_flows_from_the_ledger_into_a_recorded_row(tmp_path):
     assert vision.run_record(RECORDED, mode="recorded")["latency_seconds"] is None
 
 
+def _dated(date):
+    answer = SimpleNamespace(provenance=SimpleNamespace(date=date))
+    return SimpleNamespace(**vars(RECORDED), answers={"q": answer})
+
+
+@pytest.mark.parametrize("mode", ["recorded", "live"])
+def test_a_capture_date_must_be_the_date_on_the_recorded_answers(mode):
+    result = _dated("2026-10-31")
+    row = vision.run_record(result, mode=mode, capture_date="2026-10-31")
+    assert row["capture_date"] == "2026-10-31"
+    with pytest.raises(ValueError, match="contradicts the result's recorded answers"):
+        vision.run_record(result, mode=mode, capture_date="2026-11-01")
+    # Without a capture date nothing is compared.
+    assert "capture_date" not in vision.run_record(result, mode=mode)
+
+
 CONTEXT_CASES = [
     # (state, questions, characters, utf8_bytes), each counted by hand in the comment beside it
     ("abc", {"q": Noul(instructions="Is it?")}, 10, 10),  # 3 + name 1 + instructions 6
@@ -933,7 +949,7 @@ CONTEXT_CASES = [
     ("", {"s": Score(criteria=["lo", "high"])}, 7, 7),  # name 1 + levels 2 + 4
     ("", {"q": Noul(instructions={"rule": "r1"})}, 7, 7),  # name 1 + key 4 + value 2
     ("", {"a": Noul(instructions="xx"), "b": Noul(instructions="xx")}, 6, 6),  # shared text twice
-    ("é€\U0001f600", {}, 3, 9),  # 3 characters, 2 + 3 + 4 UTF-8 bytes
+    ("é€\U0001f600", {"q": Noul()}, 4, 10),  # 3 characters, 2 + 3 + 4 UTF-8 bytes, + name 1
 ]
 
 
@@ -961,18 +977,61 @@ def test_context_size_of_one_question_plus_the_state_is_the_per_question_count()
     only_a = vision.context_size(state, {"a": both["a"]})["characters"]
     only_b = vision.context_size(state, {"b": both["b"]})["characters"]
     assert (only_a, only_b, whole) == (3 + 1 + 2, 3 + 1 + 4, 3 + 1 + 2 + 1 + 4)
-    assert whole == only_a + only_b - vision.context_size(state, {})["characters"]
+    assert whole == only_a + only_b - len(state)  # the state is counted once in the whole
 
 
 def test_context_size_rejects_a_lone_surrogate_and_a_non_mapping_of_questions():
     with pytest.raises(ValueError, match="UTF-8"):
         vision.context_size("\ud800", {"q": Noul(instructions="Is it?")})
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError, match="mapping"):
         vision.context_size("abc", [Noul(instructions="Is it?")])
+
+
+@pytest.mark.parametrize(
+    "state, questions",
+    [
+        ("abc", {"q": "Is it a long question text?"}),  # a plain string, not a question
+        ("abc", {"q": {"type": "noul", "instructions": "Is it?"}}),  # a question's dict form
+        ({"a", "b"}, {"q": Noul(instructions="Is it?")}),  # a set is not a JSON state
+        ({1: "x"}, {"q": Noul(instructions="Is it?")}),  # a non-string key
+        ("abc", {}),  # a request needs a question
+    ],
+)
+def test_context_size_refuses_what_a_request_refuses_instead_of_counting_it_short(state, questions):
+    with pytest.raises((TypeError, ValueError)):
+        vision.context_size(state, questions)
 
 
 def _row(result, label, **kwargs):
     return {**vision.run_record(result, **kwargs), "label": label}
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        {"label": "x", "input_tokens": 262000},  # no mode at all
+        {"label": "x", "mode": "Synthetic", "input_tokens": 262000},  # not a known mode
+        {"label": "x", "mode": None},
+    ],
+)
+def test_comparison_table_requires_a_known_mode_on_every_row(row):
+    with pytest.raises(ValueError, match="every row needs a mode"):
+        vision.comparison_table([row])
+
+
+@pytest.mark.parametrize("mode", ["synthetic", "scripted"])
+def test_comparison_table_refuses_a_capture_date_on_a_synthetic_or_scripted_row(mode):
+    row = {**vision.run_record(SimpleNamespace(source="synthetic"), mode=mode), "label": "x"}
+    vision.comparison_table([row])
+    with pytest.raises(ValueError, match="capture date"):
+        vision.comparison_table([{**row, "capture_date": "2026-10-31"}])
+
+
+@pytest.mark.parametrize("column", ["label", "characters", "utf8_bytes", "n"])
+def test_comparison_table_refuses_none_in_a_column_computed_locally(column):
+    row = {**vision.run_record(RECORDED, mode="recorded"), "label": "x", column: None}
+    with pytest.raises(ValueError, match="computed locally"):
+        vision.comparison_table([row])
 
 
 def test_comparison_table_prints_not_measured_wherever_a_value_is_none():

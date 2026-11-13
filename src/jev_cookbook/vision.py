@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import base64
 import binascii
-import datetime
 import hashlib
 import io
 import math
@@ -25,9 +24,9 @@ from typing import Any
 from PIL import Image, ImageDraw, UnidentifiedImageError
 
 from ._canonical import canonical_image_format
-from .backends import _string_values
+from .backends import _check_request, _string_values
 from .evaluation import sum_usage
-from .style import INK, PAPER, PINK
+from .style import INK, PAPER, PINK, _is_iso_date
 
 __all__ = [
     "DEFAULT_MAX_TILES",
@@ -1282,16 +1281,10 @@ def load_frames(
     return state, assets
 
 
-_CAPTURE_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
-
-
 def _capture_date(value: Any) -> str:
-    if not isinstance(value, str) or not _CAPTURE_DATE.fullmatch(value):
-        raise ValueError("capture_date must be a YYYY-MM-DD string")
-    try:
-        datetime.date.fromisoformat(value)
-    except ValueError:
-        raise ValueError("capture_date must be a real calendar date, YYYY-MM-DD") from None
+    # The same rule as ``run_header``'s date: a real calendar date written exactly YYYY-MM-DD.
+    if not _is_iso_date(value):
+        raise ValueError("capture_date must be a real calendar date written YYYY-MM-DD")
     return value
 
 
@@ -1315,7 +1308,9 @@ def run_record(
     ``capture_date`` (a ``YYYY-MM-DD`` calendar date) and ``n`` (a positive integer: how many
     examples the row's numbers cover) become keys of the row only when they are given, so a row
     built without them has exactly the keys it had before they existed. A synthetic or scripted
-    row refuses ``capture_date``, because no capture happened, and accepts ``n``.
+    row refuses ``capture_date``, because no capture happened, and accepts ``n``. A recorded or
+    live row refuses a ``capture_date`` that differs from the date on the result's recorded
+    answers.
     """
     if mode not in ("synthetic", "scripted", "recorded", "live"):
         raise ValueError("mode must be synthetic, scripted, recorded or live")
@@ -1345,6 +1340,17 @@ def run_record(
         or model == "synthetic"
     ):
         raise ValueError("recorded/live mode requires a recorded result with its returned model")
+    if "capture_date" in extra:
+        dates = {
+            answer.provenance.date
+            for answer in getattr(result, "answers", {}).values()
+            if answer.provenance.date
+        }
+        if dates and dates != {extra["capture_date"]}:
+            raise ValueError(
+                f"capture_date {extra['capture_date']} contradicts the result's recorded answers, "
+                f"dated {sorted(dates)}"
+            )
     usage = sum_usage([getattr(result, "usage", None)])
     row.update(
         model=model,
@@ -1389,14 +1395,17 @@ def context_size(state: Any, questions: Mapping[str, Any]) -> dict[str, int]:
     names count). Each string is counted once where it appears, so an instruction shared by
     two questions is counted twice. JSON punctuation, numbers, booleans and the question type
     are not counted, and an image reference is counted as the text it is while the image behind
-    it is not. Pass a single question to count the state plus that question alone.
+    it is not. Pass a single question to count the state plus that question alone. ``state`` and
+    ``questions`` get the same checks as a request (``TypeError``/``ValueError``), so input that
+    ``decide`` would refuse is never counted short.
 
     Returns ``{"characters": ..., "utf8_bytes": ...}``: the sum of ``len(s)`` and of
     ``len(s.encode("utf-8"))``. A string that cannot be encoded as UTF-8 (a lone surrogate)
     raises ``ValueError``.
     """
-    if not isinstance(questions, Mapping):
-        raise TypeError("questions must be a mapping of name -> question")
+    # The same checks as a request: a state or question that ``decide`` would refuse is refused
+    # here too, rather than counted as fewer characters than it has.
+    state, questions = _check_request(state, questions)
     parts = list(_strings(state))
     for name, question in questions.items():
         parts.extend(_strings(name))
@@ -1424,6 +1433,9 @@ _TABLE_COLUMNS = (
 )
 _MEASUREMENT_FIELDS = ("model", "input_tokens", "output_tokens", "latency_seconds", "cost_usd")
 _NOT_MEASURED = "not measured"
+_MODES = ("synthetic", "scripted", "recorded", "live")
+# Columns that hold no measurement: "not measured" would be the wrong word for a missing value.
+_COMPUTED_COLUMNS = ("label", "mode", "characters", "utf8_bytes", "n")
 
 
 def comparison_table(rows: Iterable[Mapping[str, Any]]) -> str:
@@ -1438,9 +1450,11 @@ def comparison_table(rows: Iterable[Mapping[str, Any]]) -> str:
     no ``input_tokens``, never shows a number it does not have. Other values are shown as
     ``str`` of the value, unrounded.
 
-    Raises ``ValueError`` for no rows, for a key outside the list above, and for a row whose
-    ``mode`` is ``synthetic`` or ``scripted`` but whose model, tokens, latency or cost is not
-    ``None``: such a row did not come from :func:`run_record`.
+    Raises ``ValueError`` for no rows, for a key outside the list above, for a row whose ``mode``
+    is not ``synthetic``, ``scripted``, ``recorded`` or ``live``, for a row whose ``mode`` is
+    ``synthetic`` or ``scripted`` but whose model, tokens, latency, cost or capture date is not
+    ``None`` (such a row did not come from :func:`run_record`), and for a ``None`` in a column
+    computed locally (label, mode, characters, utf8_bytes, n), where "not measured" would be wrong.
     """
     table = [dict(row) for row in rows]
     if not table:
@@ -1449,12 +1463,22 @@ def comparison_table(rows: Iterable[Mapping[str, Any]]) -> str:
         unknown = [key for key in row if key not in _TABLE_COLUMNS]
         if unknown:
             raise ValueError(f"unknown comparison column(s) {unknown!r}; allowed: {_TABLE_COLUMNS}")
-        if row.get("mode") in ("synthetic", "scripted") and any(
-            row.get(field) is not None for field in _MEASUREMENT_FIELDS
+        if row.get("mode") not in _MODES:
+            raise ValueError(
+                f"every row needs a mode, one of {_MODES}, got {row.get('mode')!r}; "
+                "build rows with run_record"
+            )
+        if row["mode"] in ("synthetic", "scripted") and any(
+            row.get(field) is not None for field in (*_MEASUREMENT_FIELDS, "capture_date")
         ):
             raise ValueError(
-                "a synthetic or scripted row cannot hold a model, tokens, latency or cost; "
-                "build rows with run_record"
+                "a synthetic or scripted row cannot hold a model, tokens, latency, cost or capture "
+                "date; build rows with run_record"
+            )
+        computed = [key for key in _COMPUTED_COLUMNS if key in row and row[key] is None]
+        if computed:
+            raise ValueError(
+                f"{computed} are computed locally, never measured, so they cannot be None"
             )
     columns = [column for column in _TABLE_COLUMNS if any(column in row for row in table)]
 

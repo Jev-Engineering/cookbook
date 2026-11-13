@@ -800,14 +800,16 @@ class LiveBackend:
             delay = 0.0
             started: Any = None
             try:
-                call_kwargs = {
-                    "state": plain_json(plain_state, "state"),
-                    "questions": payload,
-                    "model": self.requested_model,
+                # ``dict(...)`` keyword form, not a ``{**a, **b}`` literal: a keyword given twice
+                # still raises ``TypeError`` instead of one value silently replacing the other.
+                call_kwargs = dict(
+                    state=plain_json(plain_state, "state"),
+                    questions=payload,
+                    model=self.requested_model,
                     **asset_kwargs,
                     **self._request_kwargs,
                     **self._call_extra,
-                }
+                )
                 started = self._read_clock()
                 response = self._client.system_one(**call_kwargs)
             except Exception as exc:
@@ -1233,37 +1235,71 @@ class LedgerLatency:
 
 
 def load_ledger_latency(
-    ledger_path: str | os.PathLike[str], replay_key: str
+    ledger_path: str | os.PathLike[str], replay_key: str, *, result: Any = None
 ) -> LedgerLatency | None:
     """Read the measured latency of one recorded call from a ``record`` sidecar ledger.
 
-    Returns ``None``, meaning "not measured", when the ledger has no ``recorded`` line under
-    ``replay_key`` or that line has no ``latency_seconds`` (null, or missing as in a ledger
-    written before latency was captured). Only the line stored under the key itself is read: a
-    ``!failed-N`` line, a ``superseded`` entry and the elapsed time of a replay are never used.
-    Raises ``FileNotFoundError`` when ``ledger_path`` does not exist, and ``ValueError`` when a
-    ``recorded`` line holds a latency that is not a finite, non-negative number or lacks a text
-    ``date`` or ``model``. Pass the result to ``vision.run_record`` as ``measured_latency_seconds``
-    with ``capture_date=result.date``.
+    Returns ``None``, meaning "not measured", when the ledger holds the key but has no
+    ``recorded`` line under it (only ``!failed-N`` lines), or when that line has no
+    ``latency_seconds`` (null, or missing as in a ledger written before latency was captured).
+    Only the line stored under the key itself is read: a ``!failed-N`` line, a ``superseded``
+    entry and the elapsed time of a replay are never used.
+
+    Raises ``FileNotFoundError`` when ``ledger_path`` does not exist; ``KeyError`` when the ledger
+    has no line at all for ``replay_key`` (neither the key nor a ``!failed-N`` line for it), which
+    is a wrong ledger file or a stale key rather than a call that was not measured; and
+    ``ValueError`` when a ``recorded`` line holds a latency that is not a finite, non-negative
+    number or lacks a text ``date`` or ``model``.
+
+    Pass the ``DecisionResult`` replayed for the key as ``result`` to check that the ledger line
+    describes that response: its ``model`` must equal ``result.model`` and its ``date`` the date
+    of the result's recorded answers, otherwise ``ValueError`` (an old ledger kept after the
+    response was recorded again). Pass the latency to ``vision.run_record`` as
+    ``measured_latency_seconds`` with ``capture_date=`` the returned ``date``.
     """
     if type(replay_key) is not str:
         raise TypeError("replay_key must be a str")
     path = Path(ledger_path)
     if not path.exists():
         raise FileNotFoundError(f"no ledger file at {path}")
-    line = _load_responses(path).get(replay_key)
+    ledger = _load_responses(path)
+    line = ledger.get(replay_key)
+    if line is None and not any(key.startswith(replay_key + "!failed-") for key in ledger):
+        raise KeyError(f"{path} has no line for replay key {replay_key}")
     if not isinstance(line, dict) or line.get("status") != "recorded":
         return None
     seconds = line.get("latency_seconds")
     if seconds is None:
         return None
-    if type(seconds) not in (int, float) or not math.isfinite(seconds) or seconds < 0:
+    try:
+        usable = type(seconds) in (int, float) and math.isfinite(seconds) and seconds >= 0
+    except OverflowError:  # an integer too large for a float
+        usable = False
+    if not usable:
         raise ValueError(
             f"{path}: latency_seconds for {replay_key} must be a finite, non-negative number"
         )
     date, model = line.get("date"), line.get("model")
     if not (isinstance(date, str) and date and isinstance(model, str) and model):
         raise ValueError(f"{path}: the recorded line for {replay_key} needs a text date and model")
+    if result is not None:
+        if getattr(result, "model", None) != model:
+            raise ValueError(
+                f"{path}: the ledger line for {replay_key} was recorded with {model!r}, but the "
+                f"result is from {getattr(result, 'model', None)!r}; the ledger does not describe "
+                "this response"
+            )
+        dates = {
+            answer.provenance.date
+            for answer in getattr(result, "answers", {}).values()
+            if answer.provenance.date
+        }
+        if dates and dates != {date}:
+            raise ValueError(
+                f"{path}: the ledger line for {replay_key} is dated {date}, but the result's "
+                f"recorded answers are dated {sorted(dates)}; the ledger does not describe this "
+                "response"
+            )
     return LedgerLatency(float(seconds), date, model)
 
 

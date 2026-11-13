@@ -91,8 +91,8 @@ These are the limits the models page states, read on 2026-10-31 at
 the state plus all questions combined and the per-question context as the state plus any one
 question, and a request has to fit both. It sets no separate limit on the number of questions.
 Sending the header `TypeSafe-Danger-Zone-Long-Context: true`, which `long_context=True` adds,
-raises both limits to 262k tokens on either model. The page adds that long context costs the same
-per token and is slower and less accurate than staying inside the default limits.
+raises both limits to 262k tokens on either model. The page says more about long context; this
+cookbook has measured none of its cost, latency or accuracy and makes no claim about them.
 
 The page states the 262k figure in tokens and does not say what a "k" in its table counts, so this
 cookbook converts none of the three limits to characters, and it does not check a request against
@@ -223,13 +223,19 @@ elapsed time.
 
 ### Reading a captured latency back
 
-`load_ledger_latency(ledger_path, replay_key)` returns a `LedgerLatency(latency_seconds, date,
-model)` for the `recorded` line stored under the key. It returns `None`, meaning "not measured",
-when the ledger has no `recorded` line under that key or the line has no latency (a ledger
-written before latency was captured has none). It reads only the line under the key itself: not a
-`!failed-N` line, not a `superseded` history entry, and nothing from a replay. It raises
-`FileNotFoundError` for a ledger file that does not exist and `ValueError` for a latency that is
-not a finite, non-negative number, or a line without a text date or model.
+`load_ledger_latency(ledger_path, replay_key, result=...)` returns a
+`LedgerLatency(latency_seconds, date, model)` for the `recorded` line stored under the key. It
+returns `None`, meaning "not measured", when the ledger holds the key only as `!failed-N` lines or
+its `recorded` line has no latency (a ledger written before latency was captured has none). It
+reads only the line under the key itself: not a `!failed-N` line, not a `superseded` history
+entry, and nothing from a replay. It raises `FileNotFoundError` for a ledger file that does not
+exist; `KeyError` when the ledger has no line at all for the key, which means a wrong ledger file
+or a stale key rather than an unmeasured call; and `ValueError` for a latency that is not a
+finite, non-negative number, or a line without a text date or model. The replay key does not
+include the model, so pass the replayed `DecisionResult` as `result`: the call raises
+`ValueError` unless the line's model equals `result.model` and its date is the date of the
+result's recorded answers. That catches an old ledger kept after the response was recorded again,
+or one ledger shared by two arms.
 [vision.md](vision.md#honest-accounting) shows the result feeding `run_record`.
 
 ## Recorder

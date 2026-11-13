@@ -767,7 +767,8 @@ covers) and leave a measurement that was not captured null.
 examples the row's numbers cover. Each is a key of the row only when you pass it, so a row built
 without them has the keys it had before. A synthetic or scripted row takes `n` and refuses
 `capture_date`, because nothing was captured. `2026-02-30`, `20261031` and a `datetime.date`
-object are refused as a capture date.
+object are refused as a capture date, and so is a date other than the one on the result's
+recorded answers.
 
 ```python
 from jev_cookbook.live import load_ledger_latency
@@ -775,7 +776,8 @@ from jev_cookbook.vision import run_record
 
 # `ledger` is the sidecar that live.record(..., ledger_path=...) wrote, `key` the replay key of
 # the request, and `result` the recorded DecisionResult replayed for that key.
-measured = load_ledger_latency(ledger, key)  # None when no latency was captured for this key
+# `result=` checks that the ledger line describes this response (same model, same date).
+measured = load_ledger_latency(ledger, key, result=result)  # None: no latency was captured
 row = run_record(
     result,
     mode="recorded",
@@ -810,7 +812,9 @@ its instructions and criteria, object keys included, so a `Choice`'s option name
 Numbers, booleans, JSON punctuation and the question type are not counted. An image reference
 counts as the text it is; the image behind it does not. A string shared by two questions is
 counted once per question. Pass one question to get the state plus that question, the
-per-question context that [live](live.md#context-limits) describes. A string that cannot be
+per-question context that [live](live.md#context-limits) describes. The state and questions get
+the same checks as a request, so a state or question that `decide` would refuse (a set, a plain
+dict in place of a question) raises instead of being counted short. A string that cannot be
 encoded as UTF-8, such as a lone surrogate, raises `ValueError`.
 
 `comparison_table(rows)` formats rows as aligned text. A row is a mapping with keys from `label`,
@@ -819,8 +823,10 @@ encoded as UTF-8, such as a lone surrogate, raises `ValueError`.
 `context_size`. A column appears when at least one row has the key. A row without the key shows
 `-`; a key whose value is `None` shows `not measured`, so a synthetic or scripted row, or a
 recorded row whose response reported no `input_tokens`, shows no number it does not have. It
-raises `ValueError` for no rows, for a key outside that list, and for a synthetic or scripted row
-that holds a model, tokens, latency or cost.
+raises `ValueError` for no rows, for a key outside that list, for a row whose `mode` is not one of
+`synthetic`, `scripted`, `recorded` and `live`, for a synthetic or scripted row that holds a model,
+tokens, latency, cost or capture date, and for a `None` label, mode, character or byte count or N,
+which are computed locally and so are never "not measured".
 
 ```python
 from jev_cookbook.vision import comparison_table, context_size

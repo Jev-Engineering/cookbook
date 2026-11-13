@@ -1202,6 +1202,43 @@ def test_latency_window_is_the_client_call_and_nothing_around_it(monkeypatch):
     assert backend.last_latency_seconds == 0.25
 
 
+def test_the_latency_window_starts_after_the_request_is_built(monkeypatch):
+    events = []
+    readings = iter([10.0, 10.25])
+    real_plain_json = live_module.plain_json
+
+    def plain_json(*args, **kwargs):
+        events.append("build")
+        return real_plain_json(*args, **kwargs)
+
+    def clock():
+        events.append("clock")
+        return next(readings)
+
+    class TimedClient:
+        def system_one(self, **kwargs):
+            events.append("client")
+            return Resp(api_body())
+
+    monkeypatch.setattr(live_module, "plain_json", plain_json)
+    backend = LiveBackend("jev-latest", client=TimedClient(), clock=clock, today=lambda: DAY)
+    backend.decide(STATE, QUESTIONS)
+    # Serializing the state happens before the first reading, so it is not in latency_seconds.
+    first_clock = events.index("clock")
+    assert "build" in events[:first_clock]
+    assert events[first_clock:] == ["clock", "client", "clock"]
+
+
+def test_a_keyword_given_twice_to_the_client_call_is_still_an_error():
+    backend, client = make(Resp(api_body()))
+    backend._call_extra = {"model": "jev-other"}  # collides with the model keyword
+    # As before latency capture: the duplicate is refused (and reported as a failed call), never
+    # resolved by letting one value replace the other.
+    with pytest.raises(live_module.LiveCallError, match="multiple values for keyword argument"):
+        backend.decide(STATE, QUESTIONS)
+    assert client.calls == []
+
+
 def test_each_attempt_is_timed_and_the_backoff_sleep_is_outside_every_window():
     events = []
     readings = iter([0.0, 0.5, 1.0, 3.0])
@@ -1341,7 +1378,6 @@ def test_load_ledger_latency_reads_what_record_wrote(tmp_path):
 @pytest.mark.parametrize(
     "lines",
     [
-        {},
         {"k": dict(LEDGER_LINE)},
         {"k": {**LEDGER_LINE, "latency_seconds": None}},
         {"k!failed-1": {**LEDGER_LINE, "latency_seconds": 9.0}},
@@ -1351,6 +1387,42 @@ def test_load_ledger_latency_reads_what_record_wrote(tmp_path):
 )
 def test_load_ledger_latency_is_none_when_nothing_was_measured(tmp_path, lines):
     assert live_module.load_ledger_latency(write_ledger(tmp_path, lines), "k") is None
+
+
+def test_a_key_the_ledger_has_never_seen_is_an_error_not_unmeasured(tmp_path):
+    path = write_ledger(tmp_path, {"other": dict(LEDGER_LINE, latency_seconds=1.0)})
+    with pytest.raises(KeyError, match="no line for replay key k"):
+        live_module.load_ledger_latency(path, "k")
+    with pytest.raises(KeyError):
+        live_module.load_ledger_latency(write_ledger(tmp_path, {}), "k")
+    # A key with only failed lines is known and was not measured.
+    path = write_ledger(tmp_path, {"k!failed-1": {**LEDGER_LINE, "status": "error"}})
+    assert live_module.load_ledger_latency(path, "k") is None
+
+
+def _recorded(model=MODEL, date=DAY):
+    answer = types.SimpleNamespace(provenance=types.SimpleNamespace(date=date))
+    return types.SimpleNamespace(model=model, answers={"q": answer})
+
+
+def test_the_result_must_be_the_response_the_ledger_line_describes(tmp_path):
+    path = write_ledger(tmp_path, {"k": {**LEDGER_LINE, "latency_seconds": 0.5}})
+    expected = live_module.LedgerLatency(0.5, DAY, MODEL)
+    assert live_module.load_ledger_latency(path, "k", result=_recorded()) == expected
+    with pytest.raises(ValueError, match="recorded with 'jev-1.13.0'.*'jev-1.14.0'"):
+        live_module.load_ledger_latency(path, "k", result=_recorded(model="jev-1.14.0"))
+    with pytest.raises(ValueError, match="dated 2026-10-06.*2026-11-01"):
+        live_module.load_ledger_latency(path, "k", result=_recorded(date="2026-11-01"))
+    # Without a result nothing is compared, as before.
+    assert live_module.load_ledger_latency(path, "k") == expected
+
+
+def test_a_latency_too_large_for_a_float_is_a_value_error(tmp_path):
+    path = tmp_path / "ledger.json"
+    line = json.dumps(LEDGER_LINE)[:-1] + ', "latency_seconds": 1' + "0" * 400 + "}"
+    path.write_text('{"k": ' + line + "}", encoding="utf-8")
+    with pytest.raises(ValueError, match="finite, non-negative"):
+        live_module.load_ledger_latency(path, "k")
 
 
 def test_a_zero_latency_is_a_measurement_not_a_missing_one(tmp_path):
