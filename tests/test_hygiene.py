@@ -17,6 +17,7 @@ import re
 import string
 import subprocess
 import sys
+import time
 import zipfile
 from pathlib import Path
 
@@ -1505,10 +1506,6 @@ def test_code_keyword_arguments_keep_the_exemption_after_the_name_normalisation(
         ("_NAME_GLUE", r"(?!)"),  # no normalisation at all
         ("_NAME_GLUE", r"_+"),  # digits kept
         ("_NAME_GLUE", r"[0-9]+"),  # underscores kept
-        (
-            "_SECRET_NAME",
-            r"apikey|secret|token|passw(?:or)?d|accesskey|credential",
-        ),  # no other word allowed between api/access and key
     ],
 )
 def test_a_mutant_of_the_name_normalisation_lets_a_split_secret_name_escape(
@@ -1521,6 +1518,31 @@ def test_a_mutant_of_the_name_normalisation_lets_a_split_secret_name_escape(
     assert escaped
     # an unbroken secret word is still caught by every mutant: it is the split forms that escape
     assert hygiene.scan_text(f"token={LOWER_36}")
+
+
+def test_a_mutant_that_needs_key_right_after_api_or_access_lets_a_split_name_escape(monkeypatch):
+    # the adjacent-words rule (no other word between api/access and key) is weaker than the
+    # rule as written: at least one listed name must escape it
+    adjacent = re.compile(r"apikey|secret|token|passw(?:or)?d|accesskey|credential", re.I)
+    monkeypatch.setattr(hygiene, "_is_secret_name", lambda name: bool(adjacent.search(name)))
+    escaped = [n for n in BROKEN_APART_SECRET_NAMES if not hygiene.scan_text(f"{n}={LOWER_36}")]
+    assert escaped
+    assert hygiene.scan_text(f"token={LOWER_36}")
+
+
+@pytest.mark.parametrize("scanner", [hygiene, packaged_scan], ids=["tools", "packaged"])
+@pytest.mark.parametrize("prefix", ["api", "access", "API"])
+def test_a_long_name_of_repeated_api_or_access_with_no_key_scans_in_linear_time(scanner, prefix):
+    # A regex such as api[a-z]*key retries the letter run from every "api" when no "key"
+    # follows, so its cost grows with the square of the name's length: 8000 repeats took
+    # seconds and this length would take minutes. The check as written finds the first
+    # prefix and then looks for "key" once, so this returns at once and stays exempt.
+    line = prefix * 60000 + "=value"
+    started = time.perf_counter()
+    assert scanner.scan_text(line) == []
+    assert time.perf_counter() - started < 5.0
+    # with a "key" at the very end the same long name is a secret name
+    assert scanner._is_secret_name(prefix * 60000 + "key")
 
 
 def test_the_exemption_regex_does_not_backtrack_catastrophically():
