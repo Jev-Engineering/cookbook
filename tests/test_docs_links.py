@@ -8,6 +8,7 @@ network, no SDK.
 from __future__ import annotations
 
 import functools
+import importlib.util
 import json
 import re
 import sys
@@ -21,10 +22,19 @@ from jev_cookbook import LiveBackend, Noul, NoulAnswer, Provenance
 REPO = Path(__file__).resolve().parents[1]
 DOCS = REPO / "docs"
 
-_FENCED = re.compile(r"^[ \t]*(`{3,}|~{3,}).*?^[ \t]*\1", re.S | re.M)
+# Fenced code is removed with the scope check's CommonMark fence reader (a closing fence carries no
+# info string, an unclosed fence runs to the end), so the two tools agree on what is code.
+_spec = importlib.util.spec_from_file_location(
+    "check_recipe_scope_docs", REPO / "tools" / "check_recipe_scope.py"
+)
+_scope = importlib.util.module_from_spec(_spec)
+sys.modules[_spec.name] = _scope  # its dataclasses resolve their module through sys.modules
+_spec.loader.exec_module(_scope)
+without_code_fences = _scope.without_code_fences
+
 _COMMENT = re.compile(r"<!--.*?-->", re.S)
 _CODE_SPAN = re.compile(r"(`+)(?:(?!\n[ \t]*\n).)+?\1", re.S)
-_LINK = re.compile(r"\]\(([^)\s#]+)(?:#[^)\s]*)?(?:\s+(?:\"[^\"]*\"|'[^']*'))?\)")
+_LINK = re.compile(r"\]\((<[^>#]+>|[^)\s#]+)(?:#[^)\s]*)?(?:\s+(?:\"[^\"]*\"|'[^']*'))?\)")
 _REFERENCE = re.compile(r"^[ ]{0,3}\[[^\]]+\]:\s*<?([^>\s#]+)", re.M)
 
 
@@ -32,7 +42,7 @@ def prose(text: str) -> str:
     """``text`` without fenced code blocks, inline code spans and HTML comments, none of which
     GitHub renders as a link. Code spans go before comments, so a ``<!--`` written inside a code
     span opens no comment; a code span never runs past a blank line."""
-    return _COMMENT.sub("", _CODE_SPAN.sub("", _FENCED.sub("", text)))
+    return _COMMENT.sub("", _CODE_SPAN.sub("", without_code_fences(text)))
 
 
 @functools.cache
@@ -42,9 +52,11 @@ def linked_pages(page: Path) -> frozenset[Path]:
     text = prose(page.read_text("utf-8"))
     found: set[Path] = set()
     for target in _LINK.findall(text) + _REFERENCE.findall(text):
+        target = target.strip("<>")
         if "://" in target or target.startswith("mailto:") or not target.endswith(".md"):
             continue
-        found.add((page.parent / target).resolve())
+        base = REPO if target.startswith("/") else page.parent
+        found.add((base / target.lstrip("/")).resolve())
     return frozenset(found)
 
 
@@ -52,7 +64,7 @@ def section(text: str, heading: str) -> str:
     """The body under ``heading`` (a full heading line such as ``## Name``), up to the next
     heading of level 1 to 3. Fenced code is removed first, so a ``# comment`` inside a code block
     is not taken for a heading."""
-    text = _FENCED.sub("", text)
+    text = without_code_fences(text)
     match = re.search(rf"^{re.escape(heading)}\n(.*?)(?=^#{{1,3}} |\Z)", text, re.S | re.M)
     assert match, f"no section {heading!r}"
     return match.group(1)
@@ -87,6 +99,17 @@ def test_prose_keeps_links_after_a_comment_opener_in_code_and_a_stray_backtick()
     kept = prose(text)
     assert "[a](a.md)" in kept and "[b](b.md)" in kept and "[e](e.md)" in kept
     assert "c.md" not in kept and "d.md" not in kept
+
+
+def test_linked_pages_reads_root_relative_and_angle_targets_and_commonmark_fences(tmp_path):
+    (tmp_path / "page.md").write_text(
+        "See [r](/docs/vision.md) and [a](<b.md>).\n\n"
+        "```\n```text\n[c](c.md)\n```\n\n"
+        "```\n[d](d.md)\n",
+        encoding="utf-8",
+    )
+    expected = {(REPO / "docs" / "vision.md").resolve(), (tmp_path / "b.md").resolve()}
+    assert linked_pages(tmp_path / "page.md") == expected
 
 
 def test_section_ignores_a_comment_line_inside_fenced_code():

@@ -108,7 +108,8 @@ latency or cost. See [images](https://docs.typesafe.ai/images),
   ([changelog](https://docs.typesafe.ai/sdk/python/changelog): "enable request body compression
   with zstd by default (non-official APIs may not support this immediately)"). The clients
   compress request bodies of 1 KiB or more with zstd when zstd is available: the standard library
-  provides it from Python 3.14, and `typesafe-sdk[zstd]` provides it on earlier versions
+  provides it from Python 3.14 (`compression.zstd`, present only when the interpreter was built
+  with zstd), and `typesafe-sdk[zstd]` provides it on earlier versions
   ([SDK advanced usage](https://docs.typesafe.ai/sdk/python/usage/advanced)). Without zstd the SDK
   sends bodies uncompressed, and `jev_cookbook[live]` does not install that extra. A client you
   pass with `client=` keeps the compression you built it with. Compression does not raise the
