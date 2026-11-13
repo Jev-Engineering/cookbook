@@ -215,13 +215,17 @@ came with them:
   array with `row_labels` and `col_labels` (either defaults to `labels`) and, to name the axes,
   `row_axis_title` and `col_axis_title`. `ConfusionMatrix` does not change: it stays one
   vocabulary, so its "gold option / predicted option" wording stays true, and a two-vocabulary
-  table is not a `ConfusionMatrix`. Abbreviation is judged on each axis on its own.
+  table is not a `ConfusionMatrix`. Abbreviation is judged on each axis on its own. A
+  rectangular table's figure starts from its cell counts and grows until no label or title
+  runs past the figure edge; a square table's figure is sized exactly as before.
 - Abbreviating a label past 14 characters stays the default presentation. Wrapping or
   rotating every long label would move each committed matrix that has one (recipe 47 among
   them); only an axis on which abbreviation would merge two different labels gives it up.
 - `plot_risk_coverage` joins its points in the order given and never sorts them, so a
   `SelectiveCurve` draws as it always has. Points that are separate policies, not a curve,
-  take `connect=False`: the same coordinates as markers only. Sorting was not chosen because
+  take `connect=False`: the same coordinates as markers only, unclipped so a policy at
+  coverage 1.0 shows whole, with a marker even on an axes made outside the style (whose
+  default cycle has none). Sorting was not chosen because
   a sorted line still says the policies lie on one frontier.
 
 ### What the rendering tests check

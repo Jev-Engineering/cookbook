@@ -40,6 +40,7 @@ from matplotlib.axes import Axes
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.colors import LinearSegmentedColormap, to_rgb
 from matplotlib.figure import Figure
+from matplotlib.text import Text
 
 __all__ = [
     "CATEGORICAL",
@@ -626,6 +627,9 @@ def plot_confusion_matrix(
     instead, and ``row_axis_title`` and ``col_axis_title`` to name the axes; ``counts`` is
     then ``len(row_labels)`` rows by ``len(col_labels)`` columns. Either one defaults to
     ``labels``, and the titles default to ``"Gold"`` (rows) and ``"Predicted"`` (columns).
+    A rectangular table's figure (when ``ax`` is not given) is sized from its cell counts and
+    then grown until no label, tick or title runs past the figure edge; a square table's
+    figure is sized exactly as before.
 
     A label longer than 14 characters is abbreviated to its first 11 plus ``...``. If that
     would make two different labels on an axis render as the same tick, no label on that axis
@@ -643,18 +647,16 @@ def plot_confusion_matrix(
     arr = np.asarray(counts, dtype=float)
     n_rows, n_cols = len(rows), len(cols)
     if arr.shape != (n_rows, n_cols):
-        if n_rows == n_cols:
-            raise ValueError(
-                f"counts must be {n_rows}x{n_rows} to match labels, got shape {arr.shape}"
-            )
         raise ValueError(
             f"counts must be {n_rows}x{n_cols} (one row per row label, one column per "
-            f"column label), got shape {arr.shape}"
+            f"column label; labels names both axes, row_labels and col_labels one each), "
+            f"got shape {arr.shape}"
         )
     shown = arr
     if normalize:
         totals = arr.sum(axis=1, keepdims=True)
         shown = np.divide(arr, totals, out=np.zeros_like(arr), where=totals > 0)
+    own_figure = ax is None
     fig, ax = _new_figure(ax, (max(4.0, 0.9 * n_cols + 2.5), max(4.0, 0.9 * n_rows + 2.5)))
     with style_context():
         vmax = float(shown.max()) if shown.max() > 0 else 1.0
@@ -679,7 +681,38 @@ def plot_confusion_matrix(
             spine.set_visible(True)
         if title:
             ax.set_title(title)
+    if own_figure and n_rows != n_cols:
+        _grow_to_fit_text(fig)
     return fig
+
+
+def _grow_to_fit_text(fig: Figure, rounds: int = 4, pad_px: float = 2.0) -> None:
+    """Enlarge ``fig`` until no text artist runs past its edge.
+
+    The size of a rectangular confusion matrix comes from its cell counts, which says nothing
+    about how long its labels are: two columns of short actions against long whole row
+    labels, or a few rows under whole rotated column labels, leave text cut off by the
+    figure edge. This measures the laid-out text and grows the figure in the direction that
+    is short (constrained layout re-centres the axes, so by twice the overflow) until it fits.
+    """
+    for _ in range(rounds):
+        fig.draw_without_rendering()
+        boxes = [
+            t.get_window_extent()
+            for t in fig.findobj(Text)
+            if t.get_visible() and t.get_text().strip()
+        ]
+        if not boxes:
+            return
+        width_px, height_px = fig.bbox.width, fig.bbox.height
+        over_x = max(0.0, -min(b.x0 for b in boxes), max(b.x1 for b in boxes) - width_px)
+        over_y = max(0.0, -min(b.y0 for b in boxes), max(b.y1 for b in boxes) - height_px)
+        if over_x == 0.0 and over_y == 0.0:
+            return
+        w, h = fig.get_size_inches()
+        grow_w = 2 * (over_x + pad_px) / fig.dpi if over_x else 0.0
+        grow_h = 2 * (over_y + pad_px) / fig.dpi if over_y else 0.0
+        fig.set_size_inches(w + grow_w, h + grow_h)
 
 
 _LEGEND_CORNERS = ("lower right", "upper right")
@@ -877,8 +910,9 @@ def plot_risk_coverage(
     The points are joined by a line in the order given, which is right for a curve such as a
     ``SelectiveCurve`` (its coverage is monotone) and wrong for separate policies, where a
     line implies a frontier that does not exist. For those pass ``connect=False``: the same
-    coordinates are drawn as markers only, in the order given, with no line between them.
-    Nothing is sorted either way.
+    coordinates are drawn as markers only, in the order given, with no line between them,
+    unclipped (so a policy at coverage 1.0 shows whole), and always with a visible marker,
+    even on an axes created outside the style. Nothing is sorted either way.
 
     ``coverage`` may instead be any object with ``.coverage`` and ``.risk`` arrays (such as
     the evaluation toolkit's ``SelectiveCurve``), with ``risk`` left out.
@@ -893,7 +927,15 @@ def plot_risk_coverage(
         raise ValueError(f"coverage has {x.size} values but risk has {y.size}")
     fig, ax = _new_figure(ax, (6.4, 4.0))
     with style_context():
-        ax.plot(x, y, label=label, **({} if connect else {"linestyle": "none"}))
+        if connect:
+            ax.plot(x, y, label=label)
+        else:
+            # Markers are then the only mark: draw them unclipped so a policy at coverage 1.0
+            # is not cut in half by the axes edge, and give them a marker of the style's own
+            # when the axes was made outside style_context (matplotlib's default cycle has none).
+            (points,) = ax.plot(x, y, label=label, linestyle="none", clip_on=False)
+            if points.get_marker() in (None, "None", "none", "", " "):
+                points.set_marker(_MARKERS[0])
         if reference_risk is not None and not math.isnan(reference_risk):
             ax.axhline(
                 reference_risk,

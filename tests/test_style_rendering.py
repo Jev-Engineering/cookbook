@@ -134,6 +134,8 @@ VOCABULARY: dict[str, tuple[str, ...]] = {
     "probability": ("probability",),
     "gold": ("gold",),
     "predicted": ("predicted",),
+    "content": ("content",),
+    "action": ("action",),
 }
 
 
@@ -267,6 +269,18 @@ def _confusion(labels, *, normalize=False, exact=False) -> Case:
     return Case(fig, labels, labels, "predicted", "gold", exact_ticks=exact)
 
 
+def _two_vocabularies(rows, cols, *, exact=False) -> Case:
+    counts = np.arange(len(rows) * len(cols)).reshape(len(rows), len(cols)) % 5
+    fig = style.plot_confusion_matrix(
+        counts,
+        row_labels=rows,
+        col_labels=cols,
+        row_axis_title="Gold content",
+        col_axis_title="Final action",
+    )
+    return Case(fig, cols, rows, "action", "content", exact_ticks=exact)
+
+
 def _answer(answer, names, *, exact=False) -> Case:
     fig = style.plot_answer_probabilities(answer)
     return Case(fig, None, names, "probability", None, exact_ticks=exact)
@@ -291,6 +305,15 @@ CASES = {
     "confusion unique after shortening": lambda: _confusion(UNIQUE_AFTER_SHORTENING),
     "confusion prefix collision": lambda: _confusion(PREFIX_COLLISION, exact=True),
     "confusion hierarchical labels": lambda: _confusion(HIERARCHICAL, exact=True),
+    "confusion two vocabularies": lambda: _two_vocabularies(
+        ["clear", "borderline", "violates"], ["allowed", "held"], exact=True
+    ),
+    "confusion two vocabularies, row collision": lambda: _two_vocabularies(
+        HIERARCHICAL, ["allowed", "held"], exact=True
+    ),
+    "confusion two vocabularies, column collision": lambda: _two_vocabularies(
+        ["clear", "violates"], PREFIX_COLLISION, exact=True
+    ),
     "answer choice": lambda: _answer(CHOICE, ["calm", "angry", "excited"], exact=True),
     "answer confident choice": lambda: _answer(CONFIDENT_CHOICE, ["refund", "replace"], exact=True),
     "answer noul": lambda: _answer(FakeNoul(0.93), ["no", "yes"], exact=True),
@@ -307,6 +330,7 @@ CASES = {
     "sweep chosen": lambda: _sweep(chosen=0.5),
     "risk coverage": lambda: _risk(),
     "risk coverage label and reference": lambda: _risk(label="model", reference_risk=0.2),
+    "risk coverage points only": lambda: _risk(label="policies", reference_risk=0.2, connect=False),
 }
 
 

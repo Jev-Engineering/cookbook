@@ -346,3 +346,33 @@ def test_connect_false_draws_into_a_given_axes_and_keeps_the_reference_line():
     assert out is fig
     assert ax.lines[0].get_linestyle() == "None"
     assert ax.lines[1].get_linestyle() == "--"
+
+
+def test_connect_false_on_an_axes_made_outside_the_style_still_draws_a_marker():
+    # matplotlib's default property cycle has colours but no markers, so linestyle "none"
+    # alone would leave the policies invisible on a caller's own axes.
+    fig = Figure()
+    ax = fig.subplots()
+    style.plot_risk_coverage(POLICY_COVERAGE, POLICY_RISK, connect=False, ax=ax)
+    points = ax.lines[0]
+    assert points.get_linestyle() == "None"
+    assert points.get_marker() not in (None, "None", "none", "", " ")
+    assert points.get_markersize() > 0
+
+
+def test_connect_false_keeps_the_style_cycle_marker_and_is_unclipped_at_full_coverage():
+    fig = style.plot_risk_coverage(POLICY_COVERAGE, POLICY_RISK, connect=False)
+    points = fig.axes[0].lines[0]
+    with style.style_context():
+        first_cycle_marker = style.rc_params()["axes.prop_cycle"].by_key()["marker"][0]
+    assert points.get_marker() == first_cycle_marker
+    # two of the three policies sit at coverage 1.0, on the right edge of xlim(0, 1)
+    assert points.get_clip_on() is False
+    # the default line is unchanged: clipped as before
+    assert style.plot_risk_coverage(POLICY_COVERAGE, POLICY_RISK).axes[0].lines[0].get_clip_on()
+
+
+def test_a_square_shape_mistake_points_at_row_and_column_labels():
+    # a 3x2 table given only the row vocabulary as `labels`
+    with pytest.raises(ValueError, match=r"3x3.*row_labels and col_labels.*shape \(3, 2\)"):
+        style.plot_confusion_matrix(CONTENT_BY_ACTION, GOLD_CONTENT)
