@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import bisect
 import json
 import math
 import random
@@ -493,13 +494,84 @@ def test_frame_windows_cover_the_frames_in_start_to_end_when_the_stride_is_at_mo
     assert set(range(11)) - _covered(bounded) == {0, 1, 9, 10}
 
 
-def test_frame_at_nearest_compares_only_the_two_straddling_frames():
+def test_frame_at_nearest_uses_the_sample_frames_tie_rule_for_clusters():
+    """Three or more frames within the slack: the earliest tied frame, as in sample_frames."""
     first = [0.0, 1.0, 1.0 + 3e-10, 2.0]
     second = [0.0, 1.0 - 4e-10, 1.0, 1.0 + 4e-10, 2.0]
-    assert frame_at(first, 1.0 + 2e-9, side="nearest") == 2
-    assert frame_at(second, 1.0 + 1.5e-9, side="nearest") == 3
-    assert _earliest_tied(first, 1.0 + 2e-9) == 1
+    assert frame_at(first, 1.0 + 2e-9, side="nearest") == 1 == _earliest_tied(first, 1.0 + 2e-9)
+    assert frame_at(second, 1.0 + 1.5e-9, side="nearest") == 1
     assert _earliest_tied(second, 1.0 + 1.5e-9) == 1
+    # the same frame sample_frames picks for a target at that time (the window starts at 0)
+    assert sample_frames(first, every_seconds=1.0 + 2e-9)[1] == 1
+
+
+def test_frame_at_nearest_matches_the_rule_written_out_literally_including_clusters():
+    rng = random.Random(395)
+    gaps = [1e-10, 2e-10, 3e-10, 5e-10, 9e-10, 1e-9, 1.1e-9, 0.1, 0.25, 0.5, 1.0]
+    clustered = 0
+    for _ in range(3000):
+        times, now = [], rng.choice([0.0, 0.5, 3.0])
+        for _ in range(rng.randint(1, 12)):
+            times.append(now)
+            now += rng.choice(gaps)
+        when = rng.choice(times) + rng.choice([-2e-9, -1e-9, -5e-10, 0.0, 5e-10, 1.5e-9, 0.05])
+        when = max(0.0, when)
+        got = frame_at(times, when, side="nearest")
+        assert got == _earliest_tied(times, when), (times, when)
+        clustered += sum(abs(t - when) <= 3e-9 for t in times) >= 3
+    assert clustered > 0, "the generator must reach clusters of three or more frames"
+
+
+def _old_frame_at_nearest(times, when):
+    """frame_at(side="nearest") before this rule: the closer of the before and after frames."""
+    eps = frames.TIME_EPSILON
+    before = bisect.bisect_right(times, when + eps) - 1
+    after = bisect.bisect_left(times, when - eps)
+    candidates = [i for i in (before, after) if 0 <= i < len(times)]
+    gap = {i: abs(times[i] - when) for i in candidates}
+    closest = min(gap.values())
+    return min(i for i in candidates if gap[i] <= closest + eps)
+
+
+def test_frame_at_nearest_changed_only_for_gaps_within_three_times_the_slack():
+    """The one kind of change with no cluster: a frame at the time (within the slack) and a
+    neighbour 2.5e-9 s away, which the old rule never compared and the tie rule ties."""
+    times = [0.0, 1.0, 1.0 + 2.5e-9, 2.0]
+    when = 1.0 + 3.5e-9  # 1e-9 from frame 2, 3.5e-9 from frame 1: not tied
+    assert frame_at(times, when, side="nearest") == _old_frame_at_nearest(times, when) == 2
+    when = 1.0 + 1.5e-9  # 1.5e-9 from frame 1, 1e-9 from frame 2: tied within the slack
+    assert _old_frame_at_nearest(times, when) == 2
+    assert frame_at(times, when, side="nearest") == 1 == _earliest_tied(times, when)
+
+
+def test_frame_at_nearest_is_unchanged_when_every_gap_is_larger_than_three_times_the_slack():
+    """Seeded comparison with the previous two-frame rule: identical when every gap exceeds
+    3 * TIME_EPSILON (a tie needs the other frame within 2 * TIME_EPSILON of the time)."""
+    rng = random.Random(3950)
+    ties = 0
+    for _ in range(5000):
+        times, now = [], rng.uniform(0.0, 5.0)
+        for _ in range(rng.randint(1, 15)):
+            times.append(now)
+            now += rng.choice([3.5e-9, 1e-6, 0.001, 0.04, 0.1, 0.5, 1.0, rng.uniform(1e-8, 2.0)])
+        i = rng.randrange(len(times))
+        midpoint = (times[i] + times[min(i + 1, len(times) - 1)]) / 2
+        when = rng.choice(
+            [
+                times[i],
+                midpoint,
+                midpoint + 4e-10,
+                midpoint - 4e-10,
+                times[i] + 1e-9,
+                times[i] - 1e-9,
+                rng.uniform(times[0] - 1.0, times[-1] + 1.0),
+            ]
+        )
+        when = max(0.0, when)
+        new, old = frame_at(times, when, side="nearest"), _old_frame_at_nearest(times, when)
+        assert new == old, (times, when, new, old)
+        ties += when in (midpoint, midpoint + 4e-10, midpoint - 4e-10) and len(times) > 1
+    assert ties > 0
 
 
 def test_count_spreading_is_by_position_not_by_time():
