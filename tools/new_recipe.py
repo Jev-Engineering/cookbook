@@ -473,11 +473,25 @@ def image_notebook_cells(catalog: dict, recipe: dict) -> list[dict]:
             f"""
 from IPython.display import Image, display
 
-from jev_cookbook import AuditedBackend, get_backend, load_helpers
+from jev_cookbook import (
+    AuditedBackend,
+    BoxAnswer,
+    NoulAnswer,
+    Provenance,
+    get_backend,
+    load_helpers,
+)
 from jev_cookbook.evaluation import noul_confidence, select_confidence_threshold
 from jev_cookbook.fixtures import load_inputs, load_labels, responses_path, select_split
 from jev_cookbook.style import apply_style, run_header, show_answer
-from jev_cookbook.vision import box_confidence, box_iou, draw_boxes, gold_box, localization_report
+from jev_cookbook.vision import (
+    box_confidence,
+    box_iou,
+    draw_boxes,
+    gold_box,
+    localization_report,
+    resolve_asset_path,
+)
 
 apply_style()
 helpers = load_helpers()  # this recipe's helpers.py, loaded by path
@@ -523,7 +537,8 @@ print(json.dumps(example.fields, indent=2))
 state, assets = helpers.build_request(example.fields)
 print("Jev sees:")
 print(json.dumps(state, indent=2))
-display(Image(filename=helpers.ROOT / example.fields["image"]))
+# A path read from a fixture is data: resolve_asset_path refuses one that leaves the recipe folder.
+display(Image(filename=resolve_asset_path(example.fields["image"], root=helpers.ROOT)))
 """,
         ),
         "answer-md": md(
@@ -640,6 +655,43 @@ display(Image(data=helpers.png_bytes(marked), format="png"))
 """,
                 )
             )
+        if cell["id"] == "python-rule":
+            out.append(
+                md(
+                    "gate-effect-md",
+                    "The presence gate reviews an answer whose confidence `|2p - 1|` is below the "
+                    "frozen threshold. That confidence is symmetric about one half, so the gate is "
+                    "a band around `p = 0.5` and can change outcomes on either side of it. The cell "
+                    "below runs the rule itself over a grid of probabilities with the frozen gate "
+                    "and with no gate (threshold 0), the rectangle held confident so only the "
+                    "presence gate acts, and counts the outcomes that change on each side "
+                    f"([evaluation.md](../../docs/evaluation.md#noul-three-path-pattern)). "
+                    f"{TODO_MARK}: say in a sentence which side the gate does work on for your "
+                    "recipe, and what each changed outcome becomes.",
+                )
+            )
+            out.append(
+                code(
+                    "gate-effect",
+                    """
+grid = [step / 100 for step in range(101)]
+held_box = BoxAnswer(
+    {"top": 0.25, "bottom": 0.5, "left": 0.25, "right": 0.5}, 1.0, Provenance.synthetic()
+)
+changed = {"p above one half": [], "p at or below one half": []}
+for p in grid:
+    answer = NoulAnswer(p, Provenance.synthetic())
+    gated = helpers.locate("grid", answer, held_box, presence_threshold, 0.0)
+    ungated = helpers.locate("grid", answer, held_box, 0.0, 0.0)
+    if gated.kind != ungated.kind:
+        side = "p above one half" if p > 0.5 else "p at or below one half"
+        changed[side].append(f"{ungated.kind} -> {gated.kind}")
+print(f"{len(grid)} grid probabilities, presence threshold {presence_threshold:.2f}{selection}")
+for side, moves in changed.items():
+    print(f"  {side}: {len(moves)} outcomes change ({', '.join(sorted(set(moves))) or 'none'})")
+""",
+                )
+            )
         if cell["id"] == "evaluation":
             out.append(
                 code(
@@ -703,7 +755,8 @@ def readme_text(catalog: dict, recipe: dict, mode: str = "replay") -> str:
             "([docs/fixtures.md](../../docs/fixtures.md#image-provenance-manifest)); "
             "[docs/vision.md](../../docs/vision.md) covers loading images and Box answers.\n\n"
             f"{TODO_MARK}: before you commit, recreate the images under the notebook constraints "
-            "pin (the install in the paragraph below) with `python build_fixtures.py`: the PNG "
+            "pin (the install in the paragraph below) with `python build_fixtures.py --overwrite-assets` "
+            "(without the flag it refuses a file whose bytes differ, even with the same pixels): the PNG "
             "bytes are part of the replay key of each request that carries a picture, and the "
             "committed bytes are meant to be the ones "
             "that pin writes "
@@ -1405,14 +1458,14 @@ def locate(
         if not 0.0 <= value <= 1.0:
             raise ValueError(f"{name} must be between 0 and 1, got {value!r}")
     if noul_confidence([presence.noul])[0] < presence_threshold:
-        return Localized(capture, REVIEW, None, "presence confidence below the threshold")
+        return Localized(capture, REVIEW, None, "confidence below the threshold")
     if presence.noul <= 0.5:
-        return Localized(capture, ABSENT, None, "no error banner")
+        return Localized(capture, ABSENT, None, "the presence answer is no")
     confidence = box_confidence(location)
     if confidence is None:
         return Localized(capture, REVIEW, None, "the rectangle has no confidence")
     if confidence < box_threshold:
-        return Localized(capture, REVIEW, None, "rectangle confidence below the threshold")
+        return Localized(capture, REVIEW, None, "confidence below the threshold")
     return Localized(capture, LOCATED, normalized_box(location), "confident rectangle")
 
 
@@ -1609,10 +1662,22 @@ def main() -> None:
     args = parser.parse_args()
     if not ROWS:
         raise SystemExit("@TODO@: add examples to ROWS in build_fixtures.py")
+    responses_file = HERE / "fixtures" / "responses.json"
+    if args.overwrite_assets and _is_recorded(responses_file) and not args.force:
+        # A redrawn picture changes the replay key of every request that carries it, which would
+        # orphan the recorded answers kept in responses.json; refuse before any file is touched.
+        raise SystemExit(
+            f"refusing --overwrite-assets: {responses_file} holds a recorded response, and a "
+            "changed picture changes its replay keys (pass --force too to rewrite both); "
+            "nothing was written"
+        )
     try:
         entries = write_images(ROWS, args.overwrite_assets)
     except si.RegenerationMismatch as error:
-        raise SystemExit(f"refused: {error}\nnothing else was written") from None
+        raise SystemExit(
+            f"refused: {error}\nnothing else was written; to accept the redrawn picture, run "
+            "python build_fixtures.py --overwrite-assets"
+        ) from None
     manifest = {"schema": 1, "assets": entries}
     (HERE / "assets-manifest.json").write_text(
         json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n"
@@ -1754,7 +1819,7 @@ def test_a_rectangle_without_enough_confidence_is_a_review():
     missing = helpers.locate("C-1", noul(0.9), box(None), 0.3, 0.0)
     assert (missing.kind, missing.reason) == ("review", "the rectangle has no confidence")
     low = helpers.locate("C-1", noul(0.9), box(0.5), 0.3, 0.8)
-    assert (low.kind, low.reason) == ("review", "rectangle confidence below the threshold")
+    assert (low.kind, low.reason) == ("review", "confidence below the threshold")
     assert helpers.locate("C-1", noul(0.9), box(0.8), 0.3, 0.8).kind == "located"
 
 
@@ -1800,6 +1865,18 @@ def test_stored_answers_are_not_all_right():
         if not right(e, a) and noul_confidence([a.noul])[0] >= threshold
     ]
     assert wrong_and_confident, "expected at least one confidently wrong test answer"
+
+
+def test_the_notebook_selects_both_thresholds_by_target_accuracy_not_min_coverage():
+    # The value a test re-derives pins an objective only if no other objective reaches the same
+    # value on this pool, so the committed cell source is what pins it: both real
+    # select_confidence_threshold calls in the python-rule cell use target_accuracy=1.0.
+    notebook = json.loads((RECIPE / "notebook.ipynb").read_text("utf-8"))
+    cell = next(c for c in notebook["cells"] if c.get("id") == "python-rule")
+    source = "".join(cell["source"])
+    assert source.count("select_confidence_threshold(") == 2
+    assert source.count("target_accuracy=1.0") == 2
+    assert "min_coverage" not in source
 '''
 
 IMAGE_BUILD_FIXTURES_TEST = r'''"""build_fixtures.py follows the recipes/_template/build_fixtures.py pattern, with images: inputs
@@ -2028,8 +2105,11 @@ def _draw_images(target: Path) -> None:
         problem = "" if done.returncode == 0 else "\n".join(done.stderr.strip().splitlines()[-8:])
         if done.returncode != 0 and not problem:
             problem = f"exit status {done.returncode}"
-    except (OSError, subprocess.SubprocessError) as error:
+    except (OSError, subprocess.SubprocessError, UnicodeDecodeError) as error:
         problem = f"{type(error).__name__}: {error}"
+    except BaseException:
+        shutil.rmtree(target, ignore_errors=True)
+        raise
     if problem:
         shutil.rmtree(target, ignore_errors=True)
         raise ScaffoldError(

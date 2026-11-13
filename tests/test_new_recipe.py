@@ -2122,6 +2122,8 @@ def test_the_image_scaffold_notebook_has_the_nine_sections_the_image_cells_and_n
         "answer-boxes",
         "python-md",
         "python-rule",
+        "gate-effect-md",
+        "gate-effect",
         "evaluation-md",
         "evaluation",
         "evaluation-review",
@@ -2216,10 +2218,10 @@ def test_the_image_example_numbers_are_the_ones_the_notebook_will_print(image_sc
         ("located", "confident rectangle"),  # t01
         ("located", "confident rectangle"),  # t02
         ("review", "the rectangle has no confidence"),  # t03: a present target in review
-        ("absent", "no error banner"),  # t04
+        ("absent", "the presence answer is no"),  # t04
         ("located", "confident rectangle"),  # t05: a box on a screen with no banner
-        ("review", "presence confidence below the threshold"),  # t06
-        ("absent", "no error banner"),  # t07: a present target said to be absent
+        ("review", "confidence below the threshold"),  # t06
+        ("absent", "the presence answer is no"),  # t07: a present target said to be absent
     ]
     report = localization_report([labels[e.id] for e in test], [o.outcome for o in outcomes])
     assert (report.n_total, report.n_present, report.n_absent) == (7, 4, 3)
@@ -2408,6 +2410,32 @@ def test_the_image_scaffold_fails_cleanly_and_leaves_no_folder_when_the_drawing_
     assert not (recipes / recipe["slug"]).exists()
 
 
+def test_the_image_scaffold_counts_in_the_template_docs_match_its_rows():
+    """docs/recipe-template.md states how many examples the image scaffold has, per split, and
+    how its stored answers are wrong; each number is derived here from IMAGE_ROWS."""
+    rows = new_recipe.IMAGE_ROWS
+    text = " ".join((REPO / "docs" / "recipe-template.md").read_text("utf-8").split())
+    number = {1: "one", 2: "two", 14: "fourteen"}
+    splits = {
+        split: sum(row[1] == split for row in rows) for split in ("validation", "test", "demo")
+    }
+    assert len(rows) == 14
+    assert f"The example asks of {number[len(rows)]} drawings" in text
+    assert f"{number[len(rows)].capitalize()} PNG files" in text
+    assert (
+        f"{splits['validation']} `validation`, {splits['test']} `test` and {splits['demo']} `demo`"
+        in text
+    )
+    # A screen shows the target exactly when it is in the "error" state; a yes is p above one half.
+    wrong_yes = sum(row[3] != "error" and row[5] > 0.5 for row in rows)
+    wrong_no = sum(row[3] == "error" and row[5] <= 0.5 for row in rows)
+    no_confidence = sum(row[8] is None for row in rows)
+    assert (
+        f"{number[wrong_yes]} wrong yes answers and {number[wrong_no]} wrong no, "
+        f"{number[no_confidence]} rectangle without a confidence"
+    ) in text
+
+
 def test_the_image_scaffold_never_overwrites_either(catalog, recipes, capsys):
     folder = scaffold_images(catalog, recipes, 62)
     before = {p: p.read_bytes() for p in folder.rglob("*") if p.is_file()}
@@ -2422,9 +2450,11 @@ def test_the_generated_test_catches_a_review_that_becomes_an_absence(image_scaff
     folder = copy_of(image_scaffold, tmp_path)
     helpers_path = folder / "helpers.py"
     text = helpers_path.read_text("utf-8")
+    # The presence gate's branch is the first of the two that return this reason.
     mutated = text.replace(
-        'return Localized(capture, REVIEW, None, "presence confidence below the threshold")',
-        'return Localized(capture, ABSENT, None, "presence confidence below the threshold")',
+        'return Localized(capture, REVIEW, None, "confidence below the threshold")',
+        'return Localized(capture, ABSENT, None, "confidence below the threshold")',
+        1,
     )
     assert mutated != text
     helpers_path.write_text(mutated, encoding="utf-8", newline="\n")
