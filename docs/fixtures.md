@@ -516,7 +516,7 @@ and checked against the schema by `tests/test_fixtures_assets.py`):
 | `path` | Relative to the recipe folder, forward slashes, starting `assets/`, lowercase `.png`/`.jpg`/`.jpeg`. Letters, digits, `_`, `.`, `-` only, and no segment starts with `.`, so it can contain no `..`. It is exactly the string an `inputs.jsonl` `fields` value uses. |
 | `sha256`, `format`, `width`, `height` | Digest of the file's bytes (the digest behind `image_reference`), `PNG` or `JPEG`, and pixel size. Checked against the file. |
 | `origin` | `generated`: drawn by the recipe's own code. Nothing else is allowed. |
-| `generator` | `build_fixtures.py:draw_scene`: a `.py` file in the recipe folder (it must exist and mention the function name), or `jev_cookbook.<module>:<function>` for shared code. |
+| `generator` | `build_fixtures.py:draw_scene`: a `.py` file in the recipe folder (it must exist and mention the function name), or `jev_cookbook.<module>:<function>` for shared code (the module must be part of the package and bind the function at its top level). |
 | `parameters` | The arguments, seed included, that reproduce the file from the generator. `{}` if there are none. |
 | `licence` | `MIT` (this repository's licence) or `CC0-1.0`. Third-party material is not allowed, so no other licence is. |
 | `description` | What the image shows, for a reader who cannot see it. |
@@ -538,20 +538,22 @@ Each failure is one line, `path: [rule] message`, naming the image (or the manif
 | `unlisted-asset` | A file under `assets/` has no entry, or a `fields` image path names no entry. |
 | `missing-file` | An entry's file is not in `assets/`. |
 | `hash-mismatch`, `format-mismatch`, `size-mismatch` | The file's SHA-256, format (read from the bytes) or pixel size is not what the entry says. |
-| `generator` | The generator script is not a file in the recipe, or does not contain the function name. Whether the function really draws the image is for the reviewer. |
+| `generator` | The generator script is not a file in the recipe, or does not contain the function name; or a `jev_cookbook.<module>` is not a module of the installed package, or its source does not bind the function at the top level (a `def`, `class`, assignment or import of that name). The module's source is parsed, not imported. Whether the function really draws the image is for the reviewer. |
 | `split-leak` | Examples in different scored splits (`train`, `validation`, `test`) name images with the same bytes, under one path or two. |
 
 A **`fields` image path** is any string value in `fields`, at any depth and under any key, that
-has no whitespace and starts with `assets/`. In a recipe that has images (an `assets/` folder or a
-manifest) a string that ends in `.png`, `.jpg` or `.jpeg` (any case) and contains a `/` or a
+has no whitespace and starts with `assets/`; in a recipe without images it must also end in
+`.png`, `.jpg` or `.jpeg` (any case). In a recipe that has images (an `assets/` folder or a
+manifest) a string that ends in one of those suffixes and contains a `/` or a
 backslash is one too, so a typo such as `../x.png`, `fixtures/x.png`, `./assets/x.png`,
 `assets\x.png` or `C:/x.png` is reported rather than ignored. Every such string must be written
 `assets/<name>.png` (or `.jpg`, `.jpeg`) with forward slashes and equal a manifest `path` exactly,
 whichever operating system runs the validator; anything else is an `asset-path` failure. A bare
 file name (`IMG_2041.JPG`), a URL in a recipe without images, and a prose sentence that mentions
-`chart.png` are not paths. So a text-only recipe is unaffected by the image-suffix rule, but not by
-the `assets/` prefix rule: a text-only recipe still fails if a `fields` value has no whitespace and
-starts with `assets/` (`assets/equity`). In a recipe that has images, a value that
+`chart.png` are not paths. In a text-only recipe a value such as `assets/equity` is therefore not a
+path, while `assets/ghost.png` still is, and fails as `unlisted-asset` because there is no manifest
+to list it. In a recipe that has images, `assets/equity` is a path and fails as `asset-path`. In a
+recipe that has images, a value that
 ends in an image suffix and contains a `/` or a backslash (an upload path, an attachment URL)
 cannot be kept in `fields` as written; keep only the bare file name, put whitespace in the value,
 or leave it out. `state` examples are not scanned,
@@ -562,7 +564,7 @@ see it; it still needs an entry, like every file under `assets/`. For a referenc
 `"shared_across_splits": true` on every entry that carries those bytes.
 
 What the validator does not do: decode pixels (two encodings of the same picture have different
-hashes), run or read the generator beyond finding the function name, or judge whether a description
+hashes), run or import the generator, or read it beyond finding the function name, or judge whether a description
 or an attestation is true. The reviewer does the last two, and the image-file contract above
 (`tools/check_recipe_assets.py`) still decides what a valid file is.
 

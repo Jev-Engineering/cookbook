@@ -13,6 +13,8 @@ import io
 import json
 import os
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -204,6 +206,21 @@ def test_a_text_only_recipe_may_hold_file_names_and_links_in_fields(tmp_path, te
     assert problems(recipe) == []
 
 
+@pytest.mark.parametrize("text", ["assets/equity", "assets/2024", "assets/under-review"])
+def test_a_text_only_recipe_may_hold_an_assets_word_without_an_image_suffix(tmp_path, text):
+    recipe = build(tmp_path)
+    _drop_images(recipe)
+    edit_inputs(recipe, text_only)
+    edit_inputs(recipe, lambda rows: rows[0]["fields"].update(category=text))
+    assert problems(recipe) == []
+
+
+def test_an_image_recipe_still_rejects_an_assets_path_without_a_suffix(tmp_path):
+    recipe = build(tmp_path)
+    edit_inputs(recipe, lambda rows: rows[0]["fields"].update(category="assets/equity"))
+    expect(recipe, "asset-path", "'assets/equity'", "e0")
+
+
 def test_a_text_only_recipe_naming_an_assets_path_still_fails(tmp_path):
     recipe = build(tmp_path)
     _drop_images(recipe)
@@ -237,9 +254,68 @@ def test_a_package_generator_is_valid(tmp_path):
     recipe = build(tmp_path)
     edit_manifest(
         recipe,
-        lambda m: m["assets"][0].update(generator="jev_cookbook.synthetic_images:draw_dialog"),
+        lambda m: m["assets"][0].update(generator="jev_cookbook.synthetic_images:login_screen"),
     )
     assert problems(recipe) == []
+
+
+@pytest.mark.parametrize(
+    ("generator", "fragment"),
+    [
+        ("jev_cookbook.synthetic_images:draw_dialog", "does not define 'draw_dialog'"),
+        ("jev_cookbook.nowhere:draw", "jev_cookbook.nowhere is not a module"),
+        ("jev_cookbook.synthetic_images.sub:draw", "is not a module"),
+        ("jev_cookbook.vision:Image", None),  # an import binds the name: accepted
+        ("jev_cookbook.vision:gold_box", None),
+        ("jev_cookbook.fixtures:validate_recipe", None),  # a package's __init__.py
+        ("jev_cookbook.fixtures.permutation:stable_shuffle", None),
+        ("jev_cookbook.vision:_helper_that_is_not_there", "does not define"),
+    ],
+)
+def test_a_package_generator_must_name_a_top_level_function(tmp_path, generator, fragment):
+    recipe = build(tmp_path)
+    edit_manifest(recipe, lambda m: m["assets"][0].update(generator=generator))
+    if fragment is None:
+        assert problems(recipe) == []
+    else:
+        expect(recipe, "generator", fragment)
+
+
+def test_a_package_generator_is_found_without_importing_its_module(tmp_path):
+    """The check parses the module's source; a package generator module is never imported."""
+    script = (
+        "import sys, json\n"
+        "from jev_cookbook.fixtures._assets import package_generator_problem as p\n"
+        "out = [p('jev_cookbook.synthetic_images', 'login_screen'),"
+        " p('jev_cookbook.synthetic_images', 'nope')]\n"
+        "print(json.dumps([out, 'jev_cookbook.synthetic_images' in sys.modules]))\n"
+    )
+    env = {**os.environ, "PYTHONPATH": str(ROOT / "src")}
+    done = subprocess.run(
+        [sys.executable, "-c", script], capture_output=True, text=True, env=env, check=True
+    )
+    (found, missing), imported = json.loads(done.stdout)
+    assert found is None and "does not define 'nope'" in missing
+    assert imported is False
+
+
+def test_a_text_only_recipe_never_imports_vision(tmp_path):
+    """check_assets on a recipe with no images and no image paths does not import Pillow."""
+    recipe = build(tmp_path)
+    _drop_images(recipe)
+    edit_inputs(recipe, text_only)
+    script = (
+        "import sys\n"
+        "from jev_cookbook.fixtures import validate_recipe\n"
+        f"report = validate_recipe({str(recipe)!r})\n"
+        "assert not list(report), list(report)\n"
+        "print('jev_cookbook.vision' in sys.modules, 'PIL' in sys.modules)\n"
+    )
+    env = {**os.environ, "PYTHONPATH": str(ROOT / "src")}
+    done = subprocess.run(
+        [sys.executable, "-c", script], capture_output=True, text=True, env=env, check=True
+    )
+    assert done.stdout.split() == ["False", "False"]
 
 
 def test_empty_parameters_are_valid(tmp_path):
@@ -934,6 +1010,9 @@ def test_looks_like_image_path():
     for only_with_images in ["../a.jpeg", "https://h/a.png", "C:\\x\\a.png"]:
         assert not looks_like_image_path(only_with_images, has_images=False), only_with_images
     assert looks_like_image_path("assets/a.png", has_images=False)
+    assert looks_like_image_path("assets/a.JPEG", has_images=False)
+    for word in ["assets/noext", "assets/equity", "assets/a.gif"]:
+        assert not looks_like_image_path(word, has_images=False), word
     for no in [
         "",
         "a picture.png",

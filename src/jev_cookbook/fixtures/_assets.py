@@ -18,16 +18,22 @@ with the ``[rule]`` that failed; ``validate_recipe`` turns them into ``Problem``
 ``hash-mismatch``         ``sha256`` is not the digest of the file
 ``format-mismatch``       ``format`` is not what the bytes are (or they are neither PNG nor JPEG)
 ``size-mismatch``         ``width``/``height`` are not the image's
-``generator``             the generator script does not exist in the recipe, or does not mention the function
+``generator``             the generator script does not exist in the recipe, or does not mention the function;
+                          or a ``jev_cookbook.<module>`` is not a module of the package, or does not define
+                          the function at its top level
 ``split-leak``            the same image bytes are named by examples of different splits
 
-Only the standard library is used, so reading an image is a header parse, not a decode. What this
+Reading an image is a header parse with the standard library, not a decode, and a package
+generator is found by reading its module's source, not by importing it. ``jev_cookbook.vision``
+(which imports Pillow) is imported only for its path check, and only when the recipe has a manifest
+entry or a ``fields`` image path to check, so a text-only recipe never imports it. What this
 does not do: decode pixels, so the same picture saved twice with different bytes is two hashes;
 or judge that a description is true.
 """
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import os
 import re
@@ -96,9 +102,10 @@ def inspect_image(data: bytes) -> tuple[str, int, int] | None:
 def looks_like_image_path(value: str, *, has_images: bool = True) -> bool:
     """Is a ``fields`` string meant as an image path?
 
-    The convention: a string with no whitespace that starts with ``assets/``; and, in a recipe
-    that has images (``has_images``), also one that ends in ``.png``, ``.jpg`` or ``.jpeg`` (any
-    case) and contains a ``/`` or a backslash, which catches ``../x.png``, ``C:/x.png`` and
+    The convention: a string with no whitespace that starts with ``assets/`` (in a recipe without
+    images, only when it also ends in ``.png``, ``.jpg`` or ``.jpeg``, any case, so a text value such
+    as ``assets/equity`` is not a path there); and, in a recipe that has images (``has_images``),
+    also one that ends in one of those suffixes and contains a ``/`` or a backslash, which catches ``../x.png``, ``C:/x.png`` and
     ``assets\\x.png`` written as a typo for ``assets/x.png``. A bare file name ("IMG_2041.JPG")
     or a prose mention ("see chart.png") is not a path, and a recipe without images never has
     suffix-only strings treated as paths. Keys and nesting do not matter. The answer does not
@@ -106,9 +113,10 @@ def looks_like_image_path(value: str, *, has_images: bool = True) -> bool:
     """
     if not value or any(c.isspace() for c in value):
         return False
+    image_suffix = value.lower().endswith(IMAGE_SUFFIXES)
     if value.startswith(f"{ASSETS_DIR}/"):
-        return True
-    return has_images and value.lower().endswith(IMAGE_SUFFIXES) and ("/" in value or "\\" in value)
+        return has_images or image_suffix
+    return has_images and image_suffix and ("/" in value or "\\" in value)
 
 
 def image_path_strings(fields: Any, *, has_images: bool = True) -> list[str]:
@@ -125,6 +133,45 @@ def image_path_strings(fields: Any, *, has_images: bool = True) -> list[str]:
         elif isinstance(item, list):
             pending.extend(reversed(item))
     return found
+
+
+_PACKAGE_DIR = Path(__file__).resolve().parent.parent  # src/jev_cookbook
+
+
+def _top_level_names(tree: ast.Module) -> set[str]:
+    """Names a module binds at its top level: ``def``, ``class``, assignments and imports."""
+    names: set[str] = set()
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            names.add(node.name)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            names.update((a.asname or a.name).split(".")[0] for a in node.names)
+        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            names.update(t.id for t in targets if isinstance(t, ast.Name))
+    return names
+
+
+def package_generator_problem(module: str, function: str) -> str | None:
+    """Why ``module:function`` (``module`` = ``jev_cookbook.<...>``) names no package function.
+
+    The module's source is found under the installed package folder and parsed, never imported,
+    so a generator module that needs Pillow costs nothing here. ``function`` must be bound at the
+    module's top level (``def``, ``class``, an assignment or an import); whether it is callable,
+    or really drew the image, is not decided. ``None`` when it is found.
+    """
+    parts = module.split(".")[1:]
+    base = _PACKAGE_DIR.joinpath(*parts)
+    source = next((p for p in (base.with_suffix(".py"), base / "__init__.py") if p.is_file()), None)
+    if source is None:
+        return f"{module} is not a module of the jev_cookbook package"
+    try:
+        tree = ast.parse(source.read_bytes(), filename=str(source))
+    except (OSError, SyntaxError, ValueError):
+        return f"{module} is not a readable Python module"
+    if function not in _top_level_names(tree):
+        return f"{module} does not define {function!r} at its top level"
+    return None
 
 
 def _listed_files(assets: Path) -> set[str]:
@@ -164,8 +211,6 @@ def check_assets(
     ``examples`` are the recipe's ``Example`` rows (``id``, ``split``, ``fields``); ``read_json``
     is ``(path) -> (value, problem message | None)``, the package's strict reader.
     """
-    from ..vision import AssetPathError, resolve_asset_path  # PIL: import only when needed
-
     out: list[Finding] = []
     shown = lambda rel: (recipe / rel).as_posix()  # noqa: E731
     assets_dir = recipe / ASSETS_DIR
@@ -235,6 +280,16 @@ def check_assets(
             )
             out.append((shown(path), msg, None))
 
+    examples = list(examples)
+    has_images = bool(actual) or manifest_path.is_file()
+    if not entries and not any(
+        image_path_strings(e.fields, has_images=has_images)
+        for e in examples
+        if e.fields is not None
+    ):
+        return out  # nothing below needs a path check; a text-only recipe never imports vision
+    from ..vision import AssetPathError, resolve_asset_path  # Pillow: import only when needed
+
     # Each entry against its file.
     hashes: dict[str, str] = {}
     for path, entry in sorted(entries.items()):
@@ -287,13 +342,16 @@ def check_assets(
             elif not re.search(rf"\b{re.escape(func)}\b", text):
                 msg = f"[generator] {generator.group(1)} does not mention {func!r}"
                 out.append((file, msg, None))
+        elif generator:
+            problem = package_generator_problem(generator.group(1), generator.group(3))
+            if problem:
+                out.append((file, f"[generator] {problem}", None))
 
     # fields: every image path names a manifest entry; no image crosses splits.
     # A path is judged by its text alone (_ASSET_PATH), never by what this operating system makes
     # of it, so "C:/x.png" is the same finding on Windows and on Linux. When the manifest could not
     # be read, that is already reported once, and a line per reference would only bury it.
     users: dict[str, dict[str, list[tuple[str, str]]]] = defaultdict(lambda: defaultdict(list))
-    has_images = bool(actual) or manifest_path.is_file()
     manifest_reported = manifest is None and bool(out)
     reported: set[tuple[str | None, str]] = set()
     for example in examples:
@@ -355,4 +413,5 @@ __all__ = [
     "image_path_strings",
     "inspect_image",
     "looks_like_image_path",
+    "package_generator_problem",
 ]
