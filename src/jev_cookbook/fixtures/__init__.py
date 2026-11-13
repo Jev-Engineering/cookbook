@@ -556,32 +556,61 @@ def _check_examples(
     return problems
 
 
+def _nested_box_labels(value: Any, path: str) -> list[tuple[str, Any]]:
+    """Every object with a ``present`` key nested inside ``value``, with its path from the label.
+
+    ``value`` itself is not included. The search stops at an object with a ``present`` key (it
+    is a Box label, and ``gold_box`` checks all of it); depth is bounded by the nesting limit.
+    """
+    if isinstance(value, Mapping):
+        children = [(f"{path}[{json.dumps(key)}]", child) for key, child in value.items()]
+    elif isinstance(value, list):
+        children = [(f"{path}[{index}]", child) for index, child in enumerate(value)]
+    else:
+        return []
+    found: list[tuple[str, Any]] = []
+    for child_path, child in children:
+        if isinstance(child, Mapping) and "present" in child:
+            found.append((child_path, child))
+        else:
+            found.extend(_nested_box_labels(child, child_path))
+    return found
+
+
 def _check_box_labels(
     labels: dict[str, Any], label_lines: dict[str, int], name: str
 ) -> list[Problem]:
-    """A recipe whose labels are Box labels must use the gold Box label format everywhere.
+    """Box labels, at the top of a label or nested inside one, must use the gold Box format.
 
     A top-level label object with a ``present`` key declares the format (``docs/fixtures.md``,
     "Box labels"): every such label must decode with ``vision.gold_box``, and once one label
     declares it, a label that does not (a bare box, a string) is an error, not a quiet skip.
-    A label that nests a Box label under another key is not seen here.
+    In a recipe with no top-level Box label, every object with a ``present`` key nested at any
+    depth inside a label (under an object key or in a list) is a Box label and must decode
+    with ``gold_box``; a label that nests none is not an error.
     """
     declared = {i for i, v in labels.items() if isinstance(v, Mapping) and "present" in v}
-    if not declared:
+    if declared:
+        checks = {i: [("label", v)] if i in declared else None for i, v in labels.items()}
+    else:
+        checks = {i: _nested_box_labels(v, "label") for i, v in labels.items()}
+    if not declared and not any(checks.values()):
         return []
     from ..vision import gold_box  # deferred: validating other recipes needs no Pillow
 
     problems: list[Problem] = []
-    for ident, label in labels.items():
-        if ident not in declared:
+    for ident, found in checks.items():
+        if found is None:
             msg = "label is not a Box label ({'present': ...}) but this recipe's other labels are"
-        else:
+            problems.append(Problem(name, msg, label_lines[ident], ident))
+            continue
+        for path, box_label in found:
             try:
-                gold_box(label)
-                continue
+                gold_box(box_label)
             except ValueError as exc:
-                msg = f"malformed Box label: {exc}"
-        problems.append(Problem(name, msg, label_lines[ident], ident))
+                where = "" if path == "label" else f" at {path}"
+                msg = f"malformed Box label{where}: {exc}"
+                problems.append(Problem(name, msg, label_lines[ident], ident))
     return problems
 
 

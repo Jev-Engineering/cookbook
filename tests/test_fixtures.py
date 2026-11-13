@@ -399,6 +399,56 @@ def test_labels_without_a_present_key_are_not_treated_as_box_labels(recipe):
     assert messages(recipe) == []
 
 
+def test_well_formed_nested_box_labels_are_valid(recipe):
+    """Box labels nested under a key or in a list (ranks 80, 83, 84, 98 nest them) validate."""
+    data = box_set(
+        {"target": BOX_LABEL, "rubric": 3},
+        {"target": {"present": False}, "rubric": 1},
+        {"boxes": [BOX_LABEL, {"present": False}], "rubric": 2},
+        {"step": {"after": {"target": BOX_LABEL}}},
+    )
+    write(recipe, data)
+    assert messages(recipe) == []
+
+
+@pytest.mark.parametrize(
+    ("label", "where"),
+    [
+        ({"target": {"present": "yes"}, "rubric": 3}, 'label["target"]'),
+        ({"target": {"present": False, "box": BOX_LABEL["box"]}}, 'label["target"]'),
+        ({"boxes": [BOX_LABEL, {"present": True}]}, 'label["boxes"][1]'),
+        ([{"present": None}], "label[0]"),
+        ({"a": {"b": [{"c": {**BOX_LABEL, "extra": 1}}]}}, 'label["a"]["b"][0]["c"]'),
+    ],
+)
+def test_malformed_nested_box_labels_are_rejected_with_their_path(recipe, label, where):
+    write(recipe, box_set({"target": BOX_LABEL}, label, "plain", {"present_count": 2}))
+    expect(recipe, f"labels.jsonl:2 (id 't1'): malformed Box label at {where}: ")
+    assert len(messages(recipe)) == 1
+
+
+def test_every_malformed_nested_box_label_in_one_label_is_reported(recipe):
+    bad = {"present": True}
+    write(recipe, box_set({"before": bad, "after": [bad]}, "x", "y", "z"))
+    expect(
+        recipe,
+        "labels.jsonl:1 (id 't0'): malformed Box label at label[\"before\"]",
+        "labels.jsonl:1 (id 't0'): malformed Box label at label[\"after\"][0]",
+    )
+
+
+def test_nested_box_labels_do_not_require_every_label_to_nest_one(recipe):
+    write(recipe, box_set({"target": BOX_LABEL}, "billing", ["y"], {"tags": []}))
+    assert messages(recipe) == []
+
+
+def test_top_level_box_label_rules_are_unchanged_when_labels_also_nest_one(recipe):
+    """With a top-level Box label in the file, a label that only nests one is still not one."""
+    write(recipe, box_set(BOX_LABEL, {"target": BOX_LABEL}, BOX_LABEL, {"present": False}))
+    expect(recipe, "labels.jsonl:2 (id 't1'): label is not a Box label")
+    assert len(messages(recipe)) == 1
+
+
 # --------------------------------------------------------------- responses and linking
 
 

@@ -127,12 +127,16 @@ recipes do not invent ten formats. An object with a boolean `present`:
 `ValueError` on anything else; `vision.localization_report` takes these labels directly.
 
 The validator treats a label that is an object with a `present` key as a Box label: that is
-how a recipe declares the format, so `present` is reserved at the top level of a label object.
+how a recipe declares the format, so `present` is reserved in label objects, at every depth.
 Every such label must pass `gold_box`, and once any label in the file is a Box label, a label
-that is not (a bare box, a string) is an error. A recipe whose label holds a Box label among
-other values nests it under its own key and calls `gold_box(label["target"])` in its own test;
-the validator does not look inside other labels, so that test must cover every split the
-recipe ships (`train` included), not only the one it reports:
+that is not (a bare box, a string, or an object that only nests a Box label) is an error. A
+recipe whose label holds a Box label among other values nests it under its own key (or in a
+list) and calls `gold_box(label["target"])` in its own test. In a file with no top-level Box
+label, the validator checks every object with a `present` key nested at any depth inside a
+label (under an object key or in a list) with `gold_box`, and names its place in the label,
+for example `malformed Box label at label["target"]: ...`. It does not require every label to
+nest one, and it does not know which key should hold it, so the recipe's test that decodes
+the key it reads must cover every split the recipe ships (`train` included):
 
 ```json
 {"id": "t12", "label": {"target": {"present": true, "box": {"top": 0.25, "bottom": 0.75, "left": 0.125, "right": 0.625}}, "rubric": 3}}
