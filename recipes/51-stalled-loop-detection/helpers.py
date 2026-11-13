@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from jev_cookbook import Choice
+from jev_cookbook.evaluation import select_confidence_threshold
 
 # No ``from __future__ import annotations`` here: load_helpers removes this module from
 # ``sys.modules``, so typing.get_type_hints cannot resolve postponed annotations on a dataclass.
@@ -80,7 +81,8 @@ REASON_REPEATING_AGAIN = "still repeating after a strategy change"
 REASON_BUDGET = "turn budget reached"
 
 # A stop or a strategy change for one of these reasons is a stall intervention, the event
-# detection delay is measured to. A stop for "task complete" or the turn budget is not.
+# detection delay is measured to. A stop for "task complete" or the turn budget is not, except
+# that a confident stall answer at the budget turn still counts (see ``is_stall_intervention``).
 STALL_REASONS = frozenset({REASON_REGRESSING, REASON_REPEATING, REASON_REPEATING_AGAIN})
 
 
@@ -116,15 +118,21 @@ def build_questions() -> dict[str, Choice]:
     }
 
 
-def transition(
+def choose_threshold(correct: list[bool], confidences: list[float]) -> float:
+    """The frozen gate: the lowest confidence at which every answer that clears it is right.
+
+    The tests derive the threshold through this one function. The notebook makes the same call
+    to ``select_confidence_threshold`` in its own cell, so that its objective is visible there,
+    and a test checks that the two agree. Pass only the answers that name one of the four
+    actionable labels: a confident ``unclear`` never acts, so it cannot set the bar.
+    """
+    return select_confidence_threshold(correct, confidences, target_accuracy=1.0)
+
+
+def _answer_decision(
     choice: str, confidence: float, threshold: float, changes_used: int
 ) -> tuple[str, str]:
-    """``(decision, reason)`` for one checkpoint, from the answer and the run's state so far.
-
-    A pure function: the same table drives the supervised run, the gold run and the baseline,
-    so the three can differ only in the labels they are fed. A label taken at face value (a
-    gold label, or the baseline's) is passed with confidence 1.0, which clears any threshold.
-    """
+    """The table for one answer, before the turn budget: the gate, then the label."""
     if choice not in OPTIONS:
         raise ValueError(f"unknown progress label {choice!r}")
     if not 0.0 <= threshold <= 1.0:
@@ -145,14 +153,51 @@ def transition(
     return STOP, REASON_REPEATING_AGAIN
 
 
-def checkpoint_answered(answer: Any, threshold: float) -> bool:
-    """Whether the policy acts on this one answer (it is not sent to review), judged alone.
+def transition(
+    choice: str, confidence: float, threshold: float, changes_used: int, turn: int
+) -> tuple[str, str]:
+    """``(decision, reason)`` for one checkpoint, from the answer, the run's state and the turn.
+
+    A pure function and the one table: the supervised run, the gold run, the baseline,
+    ``checkpoint_answered``, the review queue and the action log all use it, so they can differ
+    only in the labels they are fed. A label taken at face value (a gold label, or the
+    baseline's) is passed with confidence 1.0, which clears any threshold.
+
+    The turn budget is part of the table. At ``turn >= MAX_TURNS`` the run stops whatever the
+    answer: the budget is a hard stop owned by Python, so a below-threshold or ``unclear``
+    answer at that turn is stopped, not queued for review, and a confident ``repeating`` is
+    stopped instead of asking for a change. An answer that stops the run anyway (``complete``,
+    ``regressing``, a further ``repeating``) keeps its own reason; every other answer stops with
+    the reason "turn budget reached".
+    """
+    decision, reason = _answer_decision(choice, confidence, threshold, changes_used)
+    if turn >= MAX_TURNS and decision != STOP:
+        return STOP, REASON_BUDGET
+    return decision, reason
+
+
+def is_stall_intervention(
+    choice: str, confidence: float, threshold: float, changes_used: int
+) -> bool:
+    """Whether the answer alone, before the turn budget, is a stall intervention.
+
+    ``_run`` uses it so that a confident ``repeating`` or ``regressing`` at the budget turn,
+    which the budget turns into a stop with its own reason, still counts as the first stall
+    intervention for detection delay.
+    """
+    _, reason = _answer_decision(choice, confidence, threshold, changes_used)
+    return reason in STALL_REASONS
+
+
+def checkpoint_answered(answer: Any, threshold: float, turn: int) -> bool:
+    """Whether the policy acts on this one answer at this turn (it is not sent to review).
 
     Built from ``transition`` itself rather than re-typed, so the evaluation counts exactly what
     the policy does: a confident ``unclear`` is a deferral and is not answered, whatever its
-    confidence.
+    confidence, and at the budget turn every answer is acted on (the run is stopped), so it
+    counts as answered there.
     """
-    decision, _ = transition(answer.choice, answer.confidence, threshold, 0)
+    decision, _ = transition(answer.choice, answer.confidence, threshold, 0, turn)
     return decision != REVIEW
 
 
@@ -181,7 +226,7 @@ class Run:
 def _run(
     transcript: str, checkpoints: list[tuple[int, str, float]], threshold: float, on_step=None
 ) -> Run:
-    """Walk ``(turn, choice, confidence)`` in turn order through ``transition`` and the budget."""
+    """Walk ``(turn, choice, confidence)`` in turn order through ``transition``, the one table."""
     turns = [turn for turn, _, _ in checkpoints]
     if turns != sorted(turns) or len(set(turns)) != len(turns):
         raise ValueError(f"{transcript}: checkpoints must be in strictly increasing turn order")
@@ -189,19 +234,15 @@ def _run(
     changes = 0
     first_stall = None
     for turn, choice, confidence in checkpoints:
-        decision, reason = transition(choice, confidence, threshold, changes)
-        if turn >= MAX_TURNS and decision != STOP:
-            # The budget is checked after the answer, so a confident stop at the last allowed
-            # turn keeps its own reason; anything else at that turn is stopped by the budget.
-            decision, reason = STOP, REASON_BUDGET
+        decision, reason = transition(choice, confidence, threshold, changes, turn)
         step = Step(transcript, turn, choice, decision, reason)
         steps.append(step)
         if on_step is not None:
             on_step(step)
+        if first_stall is None and is_stall_intervention(choice, confidence, threshold, changes):
+            first_stall = turn
         if decision == CHANGE_STRATEGY:
             changes += 1
-        if reason in STALL_REASONS and first_stall is None:
-            first_stall = turn
         if decision == STOP:
             return Run(transcript, tuple(steps), turn, reason, first_stall)
     return Run(transcript, tuple(steps), None, None, first_stall)
@@ -226,11 +267,14 @@ def supervise(
 ) -> Run:
     """Replay one transcript's answered checkpoints under the policy, writing what it does.
 
-    Every answer is gated the same way, with no exemption: below ``threshold`` it goes to the
-    review queue with the reason "confidence below the threshold"; a confident ``unclear`` goes
-    there too, with its own reason, and the loop continues in both cases. A strategy change or
-    a stop is recorded in the action log (simulated: nothing is executed). Checkpoints after a
-    stop are never consumed.
+    Before the turn budget every answer is gated the same way, with no exemption: below
+    ``threshold`` it goes to the review queue with the reason "confidence below the threshold";
+    a confident ``unclear`` goes there too, with its own reason, and the loop continues in both
+    cases. At turn ``MAX_TURNS`` the budget is a hard stop owned by Python: whatever the answer,
+    including one the gate would have sent to review, the run stops, the stop is recorded in the
+    action log (reason "turn budget reached", or the answer's own reason when it stops the run
+    anyway), and nothing is queued. A strategy change or a stop is recorded in the action log
+    (simulated: nothing is executed). Checkpoints after a stop are never consumed.
     """
     by_turn = {turn: answer for turn, answer in answers}
 
