@@ -549,7 +549,7 @@ def test_frame_at_nearest_changed_only_for_gaps_within_three_times_the_slack():
     times = [0.0, 1.0, 1.0 + 2.5e-9, 2.0]
     when = 1.0 + 3.5e-9  # 1e-9 from frame 2, 3.5e-9 from frame 1: not tied
     assert frame_at(times, when, side="nearest") == _old_frame_at_nearest(times, when) == 2
-    when = 1.0 + 1.5e-9  # 1.5e-9 from frame 1, 1e-9 from frame 2: tied within the slack
+    when = 1.0 + 1.6e-9  # 1.6e-9 from frame 1, 0.9e-9 from frame 2: tied within the slack
     assert _old_frame_at_nearest(times, when) == 2
     assert frame_at(times, when, side="nearest") == 1 == _earliest_tied(times, when)
 
@@ -584,6 +584,20 @@ def test_frame_at_nearest_is_unchanged_when_every_gap_is_larger_than_three_times
             # a real tie: the two neighbours' distances are within the slack of each other
             ties += abs((when - times[i]) - (times[i + 1] - when)) <= frames.TIME_EPSILON
     assert ties > 0, "the generator must reach two-frame ties"
+
+
+def test_the_three_slack_bound_is_exact_arithmetic_not_float_rounding_at_large_times():
+    """Documented limit: the slack comparisons round, so at timestamps of thousands of seconds
+    a gap within rounding distance of 3 * TIME_EPSILON can still change the answer."""
+    times = [1000000.0155812273, 1000000.0155812303, 1000000.0155812353, 1000000.0155812385]
+    when = 1000000.0155812292
+    assert all(b - a > 3 * frames.TIME_EPSILON for a, b in zip(times[:-1], times[1:], strict=True))
+    assert frame_at(times, when, side="nearest") == 0
+    assert _old_frame_at_nearest(times, when) == 1
+    pair = [6944.357042662554, 6944.357042665554]
+    assert pair[1] - pair[0] > 3 * frames.TIME_EPSILON
+    assert frame_at(pair, 6944.357042664554, side="nearest") == 0
+    assert frame_at(pair, 6944.357042664554, side="before") == 1
 
 
 def test_count_spreading_is_by_position_not_by_time():

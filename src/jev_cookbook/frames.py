@@ -266,9 +266,12 @@ def frame_at(timestamps: Iterable[float], seconds: float, *, side: str = "before
     an exact midpoint goes to the earlier frame, and
     ``frame_at([0, 1, 1 + 3e-10, 2], 1 + 2e-9, side="nearest")`` returns 1). When every gap
     between frames is larger than ``3 * TIME_EPSILON``, this is the closer of the ``"before"``
-    and ``"after"`` frames, a tie going to the earlier; with a smaller gap a frame up to
-    ``2 * TIME_EPSILON`` away can tie with one at ``seconds``
-    (``frame_at([0, 1, 1 + 2.5e-9, 2], 1 + 1.5e-9, side="nearest")`` returns 1). So with frames
+    and ``"after"`` frames, a tie going to the earlier. That bound holds in exact arithmetic;
+    float rounding of the slack comparisons can still change the answer for a gap within
+    rounding distance of ``3 * TIME_EPSILON``, which timestamps of thousands of seconds reach.
+    With a smaller gap a frame
+    up to ``2 * TIME_EPSILON`` away can tie with one at ``seconds``
+    (``frame_at([0, 1, 1 + 2.5e-9, 2], 1 + 1.6e-9, side="nearest")`` returns 1). So with frames
     that close together, ``"nearest"`` can return a frame earlier than the ``"before"`` frame,
     and a frame exactly at ``seconds`` loses to an earlier frame within the slack of it
     (``frame_at([0, 1, 1 + 5e-10, 2], 1 + 5e-10, side="nearest")`` returns 1).

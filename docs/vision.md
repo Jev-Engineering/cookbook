@@ -689,12 +689,14 @@ Other helpers:
   recorded agent-state time; it raises when no frame qualifies. `"nearest"` uses the
   `sample_frames` tie rule above for that one time: the frames within `TIME_EPSILON` of the
   smallest distance are tied, however many, and the earliest is returned, so
-  `frame_at([0, 1, 1 + 3e-10, 2], 1 + 2e-9, side="nearest")` returns 1, the frame
-  `sample_frames` picks for a target at that time. When every gap between frames is larger
-  than `3 * TIME_EPSILON` (3e-9 s) this is the closer of the `"before"` and `"after"` frames,
-  a tie going to the earlier of the two. With a smaller gap a frame up to `2 * TIME_EPSILON`
-  away can tie with one at the time: `frame_at([0, 1, 1 + 2.5e-9, 2], 1 + 1.5e-9,
-  side="nearest")` returns 1. So with frames that close together `"nearest"` can be earlier
+  `frame_at([0, 1, 1 + 3e-10, 2], 1 + 2e-9, side="nearest")` returns 1, the frame that rule
+  picks for that time. When every gap between frames is larger than `3 * TIME_EPSILON`
+  (3e-9 s) this is the closer of the `"before"` and `"after"` frames, a tie going to the
+  earlier of the two. That bound holds in exact arithmetic; float rounding of the slack
+  comparisons can still change the answer for a gap within rounding distance of 3e-9 s, which
+  timestamps of thousands of seconds reach. With a smaller gap a frame up to `2 * TIME_EPSILON` away can tie
+  with one at the time: `frame_at([0, 1, 1 + 2.5e-9, 2], 1 + 1.6e-9, side="nearest")`
+  returns 1. So with frames that close together `"nearest"` can be earlier
   than the `"before"` frame, and a frame exactly at the time loses to an earlier frame within
   the slack of it (`frame_at([0, 1, 1 + 5e-10, 2], 1 + 5e-10, side="nearest")` returns 1).
 - `frame_windows(timestamps, *, width_seconds, stride_seconds)` enumerates sliding windows
