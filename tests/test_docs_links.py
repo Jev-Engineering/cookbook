@@ -23,7 +23,7 @@ REPO = Path(__file__).resolve().parents[1]
 DOCS = REPO / "docs"
 
 # Fenced code is removed with the scope check's CommonMark fence reader (a closing fence carries no
-# info string, an unclosed fence runs to the end), so the two tools agree on what is code.
+# info string, an unclosed fence runs to the end), so the two tools agree on what is fenced code.
 _spec = importlib.util.spec_from_file_location(
     "check_recipe_scope_docs", REPO / "tools" / "check_recipe_scope.py"
 )

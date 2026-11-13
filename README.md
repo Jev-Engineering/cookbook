@@ -44,7 +44,7 @@ take it from here:
 - [Getting started](docs/getting-started.md): install, open a notebook, run it offline, run a recipe's tests, switch to live.
 - [Offline and live](docs/offline-and-live.md): what each mode is, what provenance says, why synthetic metrics are pipeline checks, and what "not measured live" means.
 - [Glossary](docs/glossary.md): state, question, `Choice`, `Noul`, `Score`, criteria, probabilities, confidence, threshold, replay key, fixture, provenance, and run mode, each linked to its source.
-- [Images, boxes and ordered frames](docs/vision.md): the local helpers in `jev_cookbook.vision` for image assets, Box coordinates and tiles, and in `jev_cookbook.frames` for timestamped frames.
+- [Images, boxes and ordered frames](docs/vision.md): the local helpers in `jev_cookbook.vision` for image assets, Box coordinates, tiles and loading timestamped frames, and in `jev_cookbook.frames` for sampling and windowing them.
 - [Multimodal track](docs/multimodal-track.md): the forty planned recipes 61–100, what must hold before one is ready, and what its evaluation must show.
 
 ## How a recipe works
