@@ -1164,7 +1164,9 @@ def test_every_hang_guard_fits_in_the_ci_test_job():
     guards = executor_budget.every_guard(execute_notebook)
     assert HANG_GUARD == guards["tests/test_new_recipe.py"]
     for user, guard in guards.items():
-        assert executor_budget.fits_in_the_ci_test_job(guard), (user, guard, job)
+        assert executor_budget.fits_in_the_ci_test_job(guard), executor_budget.fit_problem(
+            user, guard, job
+        )
         # and it still covers what the tool may legitimately take on a silent kernel
         assert guard > execute_notebook.START_WAIT * execute_notebook.START_ATTEMPTS[SLOW_START]
         if user != "tests/test_new_recipe.py":  # the other users wait with the same derivation
