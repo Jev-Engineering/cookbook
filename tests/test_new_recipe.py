@@ -233,8 +233,9 @@ def test_a_number_outside_1_to_100_is_a_usage_error(bad, catalog, recipes):
 
 
 def test_recipe_100_scaffolds_without_inventing_an_issue(catalog, recipes, capsys):
-    _, recipe = entry(catalog, 100)
-    assert recipe["issue"] is None
+    data, recipe = entry(catalog, 100)
+    recipe["issue"] = None  # the real catalog records one; this test is about an unassigned entry
+    catalog.write_text(json.dumps(data), encoding="utf-8")
     assert run(100, catalog, recipes) == 0
     assert "No assigned recipe issue" in capsys.readouterr().out
     folder = recipes / "100-multimodal-agent-handoff-verification"
