@@ -5299,9 +5299,25 @@ def _spellings_pinned_by_assertions(
         target = node.targets[0].id
         if not _extraction_checked(target, func):
             continue
-        for const in ast.walk(node.value):
-            if isinstance(const, ast.Constant) and isinstance(const.value, str):
-                pinned.add(const.value)
+        constants = [
+            const.value
+            for const in ast.walk(node.value)
+            if isinstance(const, ast.Constant) and isinstance(const.value, str)
+        ]
+        # The extraction ties its result to ONE objective spelling only when the call names one:
+        # ``_pull(source, "min_coverage", "target_accuracy")`` followed by ``is not None`` holds
+        # whichever of the two the notebook uses, so it pins neither and is credited nothing
+        # (#338). Constants that name no objective (the threshold function's own name) are kept.
+        named = {
+            spelling
+            for spellings in THRESHOLD_OBJECTIVE_SPELLINGS.values()
+            for spelling in spellings
+            for value in constants
+            if _objective_token_present(spelling, value)
+        }
+        if len(named) > 1:
+            continue
+        pinned.update(constants)
 
     return pinned
 
@@ -5540,6 +5556,87 @@ def test_probe():
     )
     pinned = _spellings_pinned_by_assertions(func, tainted, locally_defined={"_call_keyword_value"})
     assert "min_coverage" in pinned, "the genuine extraction idiom was not credited"
+
+
+def test_an_extraction_that_names_two_objective_spellings_pins_neither():
+    """#338: the extraction route used to credit every string constant of the extracting call, so
+    ``_pull(source, "min_coverage", "target_accuracy")`` checked by ``is not None`` -- which
+    holds whichever of the two the notebook uses -- credited both. It now credits a call only
+    when its constants name at most one objective spelling."""
+    tainted = {"source", "extracted"}
+    func = _single_test_function(
+        """
+def test_probe():
+    source = read_the_real_notebook()
+    extracted = _pull(source, "min_coverage", "target_accuracy")
+    assert extracted is not None
+"""
+    )
+    pinned = _spellings_pinned_by_assertions(func, tainted, locally_defined={"_pull"})
+    assert not {"min_coverage", "target_accuracy"} & pinned, pinned
+
+    func = _single_test_function(
+        """
+def test_probe():
+    source = read_the_real_notebook()
+    extracted = _pull(source, "select_confidence_threshold", "min_coverage")
+    assert extracted is not None
+"""
+    )
+    pinned = _spellings_pinned_by_assertions(func, tainted, locally_defined={"_pull"})
+    assert "min_coverage" in pinned, "the one-spelling extraction is still credited"
+
+
+def _flip_notebook_call(folder: Path, cell_id: str, old: str, new: str) -> None:
+    path = folder / "notebook.ipynb"
+    notebook = json.loads(path.read_text("utf-8"))
+    cell = next(c for c in notebook["cells"] if c.get("id") == cell_id)
+    source = cell_source(cell)
+    assert source.count(old) == 1, f"the flip did not find {old!r} once in cell {cell_id}"
+    cell["source"] = source.replace(old, new).splitlines(keepends=True)
+    path.write_text(json.dumps(notebook), "utf-8")
+
+
+def test_flipping_recipe_42s_objective_turns_its_extraction_pin_red(tmp_path):
+    """#338's flip-mutation test for the extraction route, on the recipe that uses it (42): the
+    copy passes; with the notebook's confidence gate flipped from ``min_coverage`` to
+    ``target_accuracy`` its genuine extraction pin goes red; and with that pin rewritten into the
+    pooled two-spelling shape (the one that used to pass a flipped notebook) it stays red."""
+    folder = _copy_recipe(tmp_path, "42-outbound-disclosure-screening")
+    assert _objective_pin_violations(folder) == []
+    _flip_notebook_call(folder, "python-rule", "min_coverage=0.75", "target_accuracy=1.0")
+    assert _objective_pin_violations(folder), "the flipped objective still passed"
+
+    tests_file = folder / "tests" / "test_helpers.py"
+    text = tests_file.read_text("utf-8")
+    genuine = (
+        'min_coverage = _call_keyword_value(source, "select_confidence_threshold", "min_coverage")'
+    )
+    assert text.count(genuine) == 1
+    pooled = 'min_coverage = _pull(source, "min_coverage", "target_accuracy")'
+    helper = (
+        "\n\ndef _pull(source, *keywords):\n"
+        "    for keyword in keywords:\n"
+        '        value = _call_keyword_value(source, "select_confidence_threshold", keyword)\n'
+        "        if value is not None:\n"
+        "            return value\n"
+        "    return None\n"
+    )
+    tests_file.write_text(text.replace(genuine, pooled) + helper, "utf-8")
+    assert _objective_pin_violations(folder), "the pooled extraction passed a flipped notebook"
+
+
+def test_flipping_recipe_28s_objective_turns_its_production_tie_pin_red(tmp_path):
+    """#338's flip-mutation test for the production-tie route, on the recipe that uses it (28)."""
+    folder = _copy_recipe(tmp_path, "28-skill-selection")
+    assert _objective_pin_violations(folder) == []
+    _flip_notebook_call(
+        folder,
+        "confidence-gate",
+        "min_coverage=helpers.MARGIN_MIN_COVERAGE",
+        "target_accuracy=1.0",
+    )
+    assert _objective_pin_violations(folder), "the flipped objective still passed"
 
 
 def test_import_alias_is_resolved_across_notebook_cells_not_per_cell(tmp_path):

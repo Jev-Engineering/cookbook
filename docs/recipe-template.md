@@ -141,7 +141,9 @@ own first use the same way.
   2. **An extraction.** `name = _your_helper(source, ...)`, through a function defined in the
      test file, followed by `assert name is not None`. That is the only truthiness check
      credited here: a bare `assert name`, or any other check, is not. The strings in the call
-     are what is pinned.
+     are what is pinned, and only when they name at most one objective spelling: an extraction
+     such as `_pull(source, "min_coverage", "target_accuracy")` holds whichever of the two the
+     notebook uses, so it pins neither and is not credited.
   3. **A production tie** (recipe 28's shape, which reads no file). A `helpers.py` function
      whose body makes the real selection call is compared with `==` to a local re-derivation
      computed with an explicit keyword, and a separate `!=` assert shows that re-derivation
