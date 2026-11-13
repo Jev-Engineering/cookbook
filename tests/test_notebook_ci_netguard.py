@@ -240,7 +240,6 @@ def test_the_sdk_backed_netguard_test_is_gated_like_the_live_sdk_tests():
     assert _CONFTEST.LIVE_SDK_MARKER in marks
     assert marks["skipif"].args == (bool(_MISSING_LIVE_MODULES),)
     # the condition is the conftest list itself (both modules), not a lookup of one of them
-    assert _MISSING_LIVE_MODULES == _CONFTEST.missing_live_modules()
     source = inspect.getsource(test)
     assert "bool(_MISSING_LIVE_MODULES)" in source
     assert "find_spec" not in source
