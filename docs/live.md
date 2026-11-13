@@ -97,7 +97,8 @@ latency or cost. See [images](https://docs.typesafe.ai/images),
 - The `request_id` (the `x-typesafe-request-id` header, when present) is not part of the stored
   response format, and `DecisionResult` rejects unknown fields, so it is kept beside the result:
   `backend.last_request_id`, `backend.request_ids`, `backend.records` (one `CallRecord` per
-  successful call: replay key, model, request id, usage, date) and the recorder's optional sidecar.
+  successful call: replay key, model, request id, usage, date, and `images` and `distinct_images`,
+  both 0 unless the call carried image assets) and the recorder's optional sidecar.
 
 ## Budget guard
 
@@ -126,8 +127,10 @@ images=False, long_context=False)`.
 - For a ledger: `requests_made`, `requests_remaining`, `max_requests`, `usage_total` (a `Usage`
   summing the counts the API reported; `None` until a call reports one), `records`, and
   `ledger()`, a plain dictionary (requested and returned model, budget, requests made, successes,
-  failed attempts, token sums, calls that did not report both counts, request ids). It holds no
-  key, state or answers.
+  failed attempts, token sums, calls that did not report both counts, request ids). When any
+  successful call carried image assets it also holds `images` (image copies) and `distinct_images`,
+  each summed over the successful calls; a text-only ledger has neither key. It holds no key,
+  state or answers.
 
 - The cap is inclusive and per backend. With `JEV_COOKBOOK_LIVE_MAX_REQUESTS=N` a backend sends
   N attempts and refuses the (N+1)th, so a recipe that makes N requests on one backend runs to the
@@ -219,7 +222,11 @@ report = record(
   race.
 - `RecordReport` lists `written`, `skipped` and `unchanged` keys, the number of attempts the
   backend made, and the returned model.
-- `ledger_path`: a JSON sidecar with one line for every paid call made in this run. It is separate
+- `ledger_path`: a JSON sidecar with one line for each call `record` makes to `decide` in this
+  run: a call that produced a response, and a call that raised, including one refused before
+  anything was sent, which spends nothing. A request that fails validation (for example an asset
+  that no state, instruction or criteria value names) never becomes a `decide` call: `record`
+  raises before any call and writes no line for it. The sidecar is separate
   from the responses file because the stored-response format has no field for the request id. It
   is optional, and **it must live outside `fixtures/`**: `record` refuses (`ValueError`, before any
   call) a path inside a `fixtures/` directory, because the fixture validator rejects stray files
@@ -232,17 +239,28 @@ report = record(
     nothing was retried). `retried` lists the failed attempts it retried past, oldest first, as
     `{error_type, http_status, request_id}` (`http_status` and `request_id` are null when the
     attempt got no response, for example a timeout); it is `[]` when nothing was retried.
+    `images` and `distinct_images` (the image copies and the distinct assets, counts only, never
+    bytes or references) are added only when the call carried image assets; a text-only call's
+    line has neither.
   - A call that produced nothing to record is written before the error is re-raised, as
     `{replay_key + "!failed-N": {status, error_type, http_status, request_id, model, date,
     attempts, retried}}`. `status` is `invalid_response` (the API answered but the result failed
-    validation, or contained the key), `error` (an HTTP or connection error), `timeout` or
-    `budget_stopped`. `error_type`, `http_status` and `request_id` describe the last attempt (the
-    one that ended the call; a timeout has no request id; for `budget_stopped` `error_type` is
-    `BudgetExceeded` and the other two are null). `attempts` is the HTTP attempts this call spent: 0 only when the
-    budget was already spent before the call sent anything, and otherwise includes any attempts
-    made before the budget stopped it. `retried` is as above. The same last-attempt id is on the
-    exception (`LiveResponseError.request_id`, `LiveCallError.request_id`). A failed line never
-    replaces the entry of an earlier call for the same key.
+    validation, or contained the key), `error` (an HTTP or connection error, or any other
+    exception that ended the call, including a request refused before anything was sent),
+    `timeout` or `budget_stopped`. `error_type`, `http_status` and `request_id` describe the last
+    attempt (the one that ended the call; a timeout has no request id; for `budget_stopped`
+    `error_type` is `BudgetExceeded` and the other two are null). A `decide` call refused before
+    anything was sent (`ImageRequestTooLarge` for an image request over a 32 MiB cap, or
+    `LiveConfigError` for a request the backend is not set up for, such as image assets without
+    `images=True`) is `status: "error"` with `error_type` the exception's class name,
+    `http_status` and `request_id` null, `attempts: 0` and `retried: []`; it is not a paid call.
+    A request that fails validation is not one of these: it raises from `record` before `decide`
+    is called and gets no line. `attempts` is the HTTP attempts this call spent: 0 when
+    nothing was sent (a budget already spent, or a refusal as above), and otherwise includes any
+    attempts made before the call failed or the budget stopped it. `retried` is as above. A failed
+    line carries no `images` or `distinct_images`. The same last-attempt id is on the exception
+    (`LiveResponseError.request_id`, `LiveCallError.request_id`). A failed line never replaces the
+    entry of an earlier call for the same key.
   - Reconciling: within one fresh sidecar, the sum of `attempts` over its lines (including any
     `superseded` entries, below) equals `backend.ledger()["requests_made"]` for the backend that
     ran. Every request id the backend saw is on disk: as `request_id` or inside `retried`.

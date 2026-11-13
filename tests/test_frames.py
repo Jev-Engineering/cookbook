@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import json
 import math
+import random
+from pathlib import Path
 
 import numpy as np
 import pytest
 
 from jev_cookbook import frames
+from jev_cookbook.evaluation import transition_metrics
+from jev_cookbook.fixtures import validate_recipe
 from jev_cookbook.frames import (
     earliest_transition,
     frame_at,
@@ -303,6 +308,200 @@ def test_tie_rule_holds_when_frames_are_closer_than_the_slack():
     assert sample_frames([0.0, 1.0 - 5e-10, 1.0 + 5e-10, 2.0], every_seconds=1) == [0, 1, 3]
 
 
+@pytest.mark.parametrize(
+    ("times", "expected"),
+    [
+        # three frames: index 1 is exactly on the target (1.0), indices 2 and 3 are just after it
+        ([0.0, 1.0, 1.0 + 3e-10, 1.0 + 6e-10, 2.0], [0, 1, 4]),
+        # three frames around the target: the earliest of the tied frames wins
+        ([0.0, 1.0 - 4e-10, 1.0, 1.0 + 4e-10, 2.0], [0, 1, 4]),
+        # three frames, all after the target; the first of them is the closest
+        ([0.0, 1.0 + 1e-10, 1.0 + 2e-10, 1.0 + 3e-10, 2.0], [0, 1, 4]),
+        # four frames after the target
+        ([0.0, 1.0, 1.0 + 2e-10, 1.0 + 4e-10, 1.0 + 6e-10, 2.0], [0, 1, 5]),
+        # three frames up to the target: index 3 is exactly on it, indices 1 and 2 are just before
+        # it, so the earliest tied frame is two frames before the closest one
+        ([0.0, 1.0 - 6e-10, 1.0 - 3e-10, 1.0, 2.0], [0, 1, 4]),
+        # the closest frame is index 2 (1e-10 after the target); index 1 is 5e-10 before it, so
+        # its distance is within 1e-9 of the smallest one and the two are tied
+        ([0.0, 1.0 - 5e-10, 1.0 + 1e-10, 1.0 + 2e-10, 2.0], [0, 1, 4]),
+        # index 1 is 3e-9 before the target, outside the slack of the closest frame (index 2,
+        # exactly on the target), so it is not tied
+        ([0.0, 1.0 - 3e-9, 1.0, 1.0 + 3e-10, 2.0], [0, 2, 4]),
+    ],
+)
+def test_every_seconds_picks_the_earliest_frame_within_the_slack_of_the_closest(times, expected):
+    assert sample_frames(times, every_seconds=1) == expected
+
+
+def test_a_cluster_inside_the_window_edge_slack_is_tied_too():
+    # index 1 is 3e-10 before start=1.0, inside the window's own slack, so it is eligible and
+    # tied with index 2 (exactly on the target) and index 3: the earliest of the three wins
+    times = [0.0, 1.0 - 3e-10, 1.0, 1.0 + 3e-10, 2.0]
+    assert sample_frames(times, every_seconds=1, start=1.0) == [1, 4]
+
+
+def _earliest_tied(times, target):
+    """The earliest frame whose distance from ``target`` is within TIME_EPSILON of the smallest."""
+    distance = [abs(t - target) for t in times]
+    smallest = min(distance)
+    return next(i for i, d in enumerate(distance) if d <= smallest + frames.TIME_EPSILON)
+
+
+def _targets_by_the_rule(times, every_seconds):
+    """The per-target rule written out literally: one pick for each target, no cursor."""
+    n_targets = math.floor(
+        (times[-1] - times[0]) / every_seconds + frames.TIME_EPSILON / every_seconds
+    )
+    return [_earliest_tied(times, times[0] + k * every_seconds) for k in range(n_targets + 1)]
+
+
+def _nearest_by_the_rule(times, every_seconds):
+    """The documented result: the picks, where a pick not after the last selection adds nothing."""
+    chosen = []
+    for pick in _targets_by_the_rule(times, every_seconds):
+        if not chosen or pick > chosen[-1]:
+            chosen.append(pick)
+    return chosen
+
+
+def _assert_ascending_and_accepted_by_select_frames(times, got):
+    assert all(a < b for a, b in zip(got, got[1:], strict=False)), (times, got)
+    assert [row["frame_index"] for row in select_frames(rows(*times), got)] == got
+
+
+def test_every_seconds_matches_the_rule_written_out_literally_including_clusters():
+    rng = random.Random(340)
+    gaps = [1e-10, 2e-10, 3e-10, 5e-10, 9e-10, 0.1, 0.25, 0.5, 1.0]
+    stepped_back = 0
+    for _ in range(2000):
+        times, now = [], 0.0
+        for _ in range(rng.randint(1, 12)):
+            now += rng.choice(gaps)
+            times.append(now)
+        every = rng.choice([0.1, 0.25, 0.3, 0.5, 1.0])
+        got = sample_frames(times, every_seconds=every)
+        # checked without the reference: ascending, no repeats, and select_frames accepts it
+        _assert_ascending_and_accepted_by_select_frames(times, got)
+        assert got == _nearest_by_the_rule(times, every), (times, every)
+        picks = _targets_by_the_rule(times, every)
+        stepped_back += any(b < a for a, b in zip(picks, picks[1:], strict=False))
+    assert stepped_back > 0, "the generator must reach the case the rule's last step is for"
+
+
+def test_every_seconds_is_ascending_for_clusters_midway_between_targets():
+    rng = random.Random(393)
+    stepped_back = 0
+    for _ in range(2000):
+        step = rng.choice([0.05, 0.1, 0.2, 0.25, 0.3])
+        points = {0.0}
+        for _ in range(rng.randint(1, 6)):
+            centre = (rng.randint(0, 14) + rng.choice([0.0, 0.25, 0.5])) * step
+            for j in range(rng.randint(1, 5)):
+                points.add(
+                    centre + j * rng.choice([1e-10, 2e-10, 3e-10, 5e-10, 9e-10, 1e-9, 1.1e-9])
+                )
+        times = sorted(points)
+        every = step * rng.choice([0.5, 1, 1, 2])
+        got = sample_frames(times, every_seconds=every)
+        _assert_ascending_and_accepted_by_select_frames(times, got)
+        assert got == _nearest_by_the_rule(times, every), (times, every)
+        picks = _targets_by_the_rule(times, every)
+        stepped_back += any(b < a for a, b in zip(picks, picks[1:], strict=False))
+    assert stepped_back > 0, "the generator must reach the case the rule's last step is for"
+
+
+@pytest.mark.parametrize(
+    ("times", "every", "expected"),
+    [
+        (
+            [0.3, 0.3000000009, 0.300000001, 2.000000001, 2.0000000021, 2.0000000022],
+            0.1,
+            [0, 1, 3],
+        ),
+        (
+            [
+                5e-10,
+                1e-09,
+                0.250000001,
+                0.2500000015,
+                0.25000000170000003,
+                0.25000000200000005,
+                1.2500000020000002,
+                1.2500000025000002,
+                1.2500000026000002,
+            ],
+            0.1,
+            [0, 2, 3, 6],
+        ),
+        (
+            [
+                3e-10,
+                0.2500000003,
+                0.2500000008,
+                0.250000001,
+                0.25000000110000004,
+                0.25000000200000005,
+                1.2500000020000002,
+                1.2500000023000002,
+                1.2500000032000003,
+                1.3500000032000004,
+                1.3500000033000004,
+            ],
+            0.1,
+            [0, 1, 4, 6, 7],
+        ),
+        (
+            [
+                0.1,
+                0.1000000003,
+                0.3500000003,
+                0.35000000130000003,
+                1.3500000013,
+                1.3500000016,
+                1.4500000016,
+                1.4500000027000002,
+            ],
+            0.25,
+            [0, 2, 3, 4],
+        ),
+    ],
+)
+def test_every_seconds_is_ascending_and_repeat_free_when_rounding_moves_a_tie(
+    times, every, expected
+):
+    got = sample_frames(times, every_seconds=every)
+    assert got == expected
+    _assert_ascending_and_accepted_by_select_frames(times, got)
+
+
+def test_a_distance_exactly_epsilon_beyond_the_closest_is_still_tied():
+    times = [0.0, 1.500021943435706e-09, 2.905970529987242e-09]
+    got = sample_frames(times, every_seconds=2.702996236711474e-09)
+    assert got == [0, 1]
+
+
+def test_three_frames_before_the_closest_are_tied_and_the_earliest_wins():
+    times = [0.0, 1.0 - 9e-10, 1.0 - 6e-10, 1.0 - 3e-10, 1.0, 2.0]
+    assert sample_frames(times, every_seconds=1) == [0, 1, 5]
+
+
+def test_frame_windows_cover_the_frames_in_start_to_end_when_the_stride_is_at_most_the_width():
+    times = [float(i) for i in range(11)]
+    bounded = frame_windows(times, width_seconds=1.0, stride_seconds=1.0, start=2.0, end=8.0)
+    assert set(range(2, 9)) <= _covered(bounded)
+    assert set(range(11)) - _covered(bounded) == {0, 1, 9, 10}
+
+
+def test_frame_at_nearest_compares_only_the_two_straddling_frames():
+    first = [0.0, 1.0, 1.0 + 3e-10, 2.0]
+    second = [0.0, 1.0 - 4e-10, 1.0, 1.0 + 4e-10, 2.0]
+    assert frame_at(first, 1.0 + 2e-9, side="nearest") == 2
+    assert frame_at(second, 1.0 + 1.5e-9, side="nearest") == 3
+    assert _earliest_tied(first, 1.0 + 2e-9) == 1
+    assert _earliest_tied(second, 1.0 + 1.5e-9) == 1
+
+
 def test_count_spreading_is_by_position_not_by_time():
     # the 9.7 s gap is not sampled evenly: positions 0, 2, 4 keep 0.0, 0.2 and 10.0
     assert sample_frames([0.0, 0.1, 0.2, 0.3, 10.0], count=3) == [0, 2, 4]
@@ -519,6 +718,20 @@ def test_frame_windows_with_a_stride_wider_than_the_width_leave_frames_out():
     assert sorted(set(range(21)) - _covered(narrow)) == [2, 5, 8, 11, 14, 17]
 
 
+def test_frame_windows_stride_wider_than_the_width_is_accepted_and_may_leave_no_frame_out():
+    times = [float(i) for i in range(11)]  # 0 .. 10 s, one frame per second
+    # width 1, stride 1.5: the windows [0, 1] [1.5, 2.5] [3, 4] [4.5, 5.5] [6, 7] [7.5, 8.5]
+    # [9, 10] hold every frame although the stride is wider than the width: no error, no gap
+    aligned = frame_windows(times, width_seconds=1.0, stride_seconds=1.5)
+    assert [w["window_start_seconds"] for w in aligned] == [0.0, 1.5, 3.0, 4.5, 6.0, 7.5, 9.0]
+    assert set(range(11)) - _covered(aligned) == set()
+    # width 1, stride 5: the frames in no window are what the documented expression gives
+    sparse = frame_windows(times, width_seconds=1.0, stride_seconds=5.0)
+    n = len(times)
+    uncovered = set(range(n)) - {i for w in sparse for i in w["indices"]}
+    assert uncovered == {2, 3, 4, 7, 8}
+
+
 def test_select_frames_validates_an_existing_frame_index():
     state = rows(0.0, 1.0)
     state[1]["frame_index"] = 7
@@ -528,3 +741,111 @@ def test_select_frames_validates_an_existing_frame_index():
         broken[1]["frame_index"] = bad
         with pytest.raises(ValueError, match="frame_index"):
             select_frames(broken, [1])
+
+
+DOCS = Path(__file__).resolve().parent.parent / "docs"
+
+
+def _transition_label_section():
+    """The "Transition labels" section of docs/fixtures.md and its JSON example rows."""
+    text = (DOCS / "fixtures.md").read_text("utf-8")
+    start = text.index("### Transition labels\n")
+    section = text[start : text.index("\n## ", start)]
+    lines = [
+        line
+        for block in section.split("```json\n")[1:]
+        for line in block[: block.index("```")].splitlines()
+        if line.strip()
+    ]
+    return section, [json.loads(line) for line in lines]
+
+
+def _validator_problems(root, labels, *, raw=None):
+    """What the fixture validator reports for a recipe whose test split carries ``labels``.
+
+    ``raw`` is an ``(old, new)`` text replacement applied to the labels file, for JSON that
+    ``json.dumps`` cannot write (``1e400``).
+    """
+    folder = root / "01-demo" / "fixtures"
+    folder.mkdir(parents=True)
+    ids = ["v00"] + [f"s{i:02d}" for i in range(len(labels))]
+    splits = ["validation"] + ["test"] * len(labels)
+    inputs = [
+        {"id": ident, "split": split, "fields": {"n": n}, "replay_keys": []}
+        for n, (ident, split) in enumerate(zip(ids, splits, strict=True))
+    ]
+    gold = [{"transition": "opened", "seconds": 1.0}, *labels]
+    gold_rows = [{"id": ident, "label": label} for ident, label in zip(ids, gold, strict=True)]
+    for name, content in (("inputs", inputs), ("labels", gold_rows)):
+        text = "".join(json.dumps(row) + "\n" for row in content)
+        if name == "labels" and raw is not None:
+            text = text.replace(*raw)
+        (folder / f"{name}.jsonl").write_text(text, encoding="utf-8", newline="\n")
+    return [str(problem) for problem in validate_recipe(folder.parent)]
+
+
+def test_transition_label_examples_follow_the_stated_format_and_decode_for_the_metric():
+    _, examples = _transition_label_section()
+    assert len(examples) >= 2
+    pairs = []
+    for row in examples:
+        label = row["label"]
+        assert "transition" in label and set(label) <= {"transition", "seconds"}, label
+        assert isinstance(label["transition"], str) and label["transition"], label
+        if "seconds" in label:
+            seconds = label["seconds"]
+            assert isinstance(seconds, int | float) and not isinstance(seconds, bool), label
+            assert math.isfinite(seconds) and seconds >= 0, label
+        pairs.append((label["transition"], label.get("seconds")))
+    assert any(s is None for _, s in pairs) and any(s is not None for _, s in pairs), (
+        "the section must show a label with a time and one without"
+    )
+    scored = transition_metrics(pairs, pairs, tolerance_seconds=0.5)
+    assert scored.exact_correct == len(pairs)
+
+
+def test_the_validator_checks_nothing_specific_to_transition_labels(tmp_path):
+    _, examples = _transition_label_section()
+    shown = [row["label"] for row in examples]
+    assert _validator_problems(tmp_path / "ok", shown) == []
+    malformed = [
+        {"transition": "opened", "seconds": -1.0},
+        {"transition": "opened", "seconds": "2.5"},
+        {"transition": "opened", "seconds": True},
+        {"transition": "opened", "seconds": None},
+        {"seconds": 2.5},
+        {"transition": "", "seconds": 1.0},
+        {"transition": "opened", "seconds": 2.5, "note": "x"},
+        {"transition": "uncertain"},
+    ]
+    for n, label in enumerate(malformed):
+        assert _validator_problems(tmp_path / f"bad{n}", [label]) == [], label
+    # JSON reads 1e400 as inf, which json.dumps cannot write, so the text is replaced
+    huge = [{"transition": "opened", "seconds": "huge"}]
+    assert _validator_problems(tmp_path / "huge", huge, raw=('"huge"', "1e400")) == []
+    # `present` is the Box format's marker: the validator reads the object as a Box label
+    marked = {"transition": "opened", "seconds": 2.5, "present": True}
+    problems = _validator_problems(tmp_path / "present", [marked])
+    assert any("Box label" in problem for problem in problems), problems
+    # and a file that mixes Box labels with transition labels fails
+    mixed = _validator_problems(tmp_path / "mixed", [{"present": False}])
+    assert any("Box label" in problem for problem in mixed), mixed
+
+
+def test_the_metric_rejects_a_malformed_gold_time_and_a_review_label():
+    for pair in [
+        ("opened", -1.0),
+        ("opened", float("inf")),
+        ("opened", float("-inf")),
+        ("opened", "2.5"),
+        ("opened", True),
+        ("uncertain", None),
+    ]:
+        with pytest.raises(ValueError):
+            transition_metrics([pair], [pair], tolerance_seconds=0.5)
+
+
+def test_vision_links_to_the_transition_label_format():
+    vision = (DOCS / "vision.md").read_text("utf-8")
+    assert "(fixtures.md#transition-labels)" in vision
+    assert "### Transition labels\n" in (DOCS / "fixtures.md").read_text("utf-8")
