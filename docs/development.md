@@ -96,10 +96,14 @@ Both install the `ml` extra, because the test jobs import every recipe's `helper
 `tests/`, and `ml` is the extra a recipe is told it may use. Neither applies
 `.github/constraints-notebooks.txt`, and no single pin could serve both legs: `numpy==2.5.3` and
 `scipy==1.18.1` need Python 3.12 or newer and `scikit-learn==1.9.1` needs 3.11 or newer, so none of
-them installs on the 3.10 floor. Each leg takes the newest release its interpreter supports. Today
-the 3.14 leg gets scikit-learn 1.9.1, the release the notebook job pins, but nothing holds it
-there, so it moves when a newer release is published (numpy already differs: 2.5.4 against the
-pin 2.5.3); the 3.10 leg gets 1.7.2, an older release than the other leg, and will always lag it.
+them installs on the 3.10 floor. Each leg takes the newest release its interpreter supports,
+within the `ml` extra's bound in `pyproject.toml`, `scikit-learn>=1.7.2,<2`: the lower bound is
+what the 3.10 leg resolves, and the upper bound is the next major after the notebook pin's.
+Today the 3.14 leg gets scikit-learn 1.9.1, the release the notebook job pins, but the bound only
+keeps it inside the pin's major version, so it moves when a newer 1.x release is published (numpy,
+which has no bound, already differs: 2.5.4 against the pin 2.5.3); the 3.10 leg gets 1.7.2, an
+older release than the other leg, and will always lag it. Raise the lower bound when the 3.10
+floor goes, and the upper bound when the notebook pin moves to a new major.
 A recipe test that exercises a trained model therefore asserts properties that hold on every
 version (the shape of the output, that it beats the baseline, determinism under a fixed seed) and
 never a trained number or a printed `repr` that depends on the scikit-learn version; those belong
@@ -458,7 +462,7 @@ with at most three of its update pull requests open at once for each.
   A new core dependency needs a reason in its pull request.
 - **Extras** (`optional-dependencies`): anything only some recipes or contributors need.
   - `live`: `typesafe-sdk`, for opt-in live inference (`JEV_COOKBOOK_LIVE=1`).
-  - `ml`: `scikit-learn`, for recipes that train baselines.
+  - `ml`: `scikit-learn` (bounded `>=1.7.2,<2`, see [Continuous integration](#continuous-integration)), for recipes that train baselines.
   - `dev`: `ruff` (pinned exactly, so new rules or formatter changes cannot break `main`
     without a code change; bump it deliberately in its own pull request) and `pytest`.
 - **No import-time side effects.** Importing `jev_cookbook` never touches the network,
@@ -468,7 +472,7 @@ with at most three of its update pull requests open at once for each.
 - Recipes run offline with the core dependencies and the `ml` extra. CI installs `.[ml]` in the
   notebook job (before the network is cut), with the plotting stack pinned by
   `.github/constraints-notebooks.txt`; the `live` extra is never installed there. The `Tests` jobs
-  install `ml` too (unpinned), so `helpers.py`, `build_fixtures.py` and a recipe's `tests/` may
+  install `ml` too (bounded, not pinned), so `helpers.py`, `build_fixtures.py` and a recipe's `tests/` may
   import scikit-learn, and `pytest` on a checkout needs `pip install -e ".[dev,ml]"` for the
   recipes that do. A recipe that needs any other extra needs the workflow's install line changed
   first (a foundation change; a
