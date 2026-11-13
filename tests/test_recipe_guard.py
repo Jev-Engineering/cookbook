@@ -9791,19 +9791,32 @@ def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     if tests_dir.is_dir():
         for path in sorted(tests_dir.glob("*.py")):
             metric += _decimals(_without_audit_lines(path.read_text("utf-8")))
+    # A number and its unit are read off one committed output line, never across a line break:
+    # the unit patterns bind a number to its unit with ``\s?``, which a newline satisfies, and the
+    # joins above put exactly one newline between two output segments, so a segment committed
+    # without its own trailing newline (``print(..., end="")``, ``sys.stdout.write``, a displayed
+    # value) would otherwise fuse its last number to the unit opening the next segment, in the
+    # next cell or in the same cell's next output part, and back a latency, price, throughput or
+    # percentage the notebook never printed (#380). Prose may wrap a quote across lines; output
+    # that is printed on two lines is two lines.
+    output_lines = output.splitlines()
     price = [
-        n for m in re.finditer(_PRICE_AMOUNT, output, re.IGNORECASE) for n in _decimals(m.group(0))
+        n
+        for line in output_lines
+        for m in re.finditer(_PRICE_AMOUNT, line, re.IGNORECASE)
+        for n in _decimals(m.group(0))
     ]
     speed = [
         n
+        for line in output_lines
         for pattern in (_LATENCY_MS, _THROUGHPUT, _SECONDS)
-        for m in pattern.finditer(output)
+        for m in pattern.finditer(line)
         for n in _decimals(m.group("q"))
     ]
-    percentages = [Decimal(m.group(1)) for m in _PERCENT.finditer(output)]
+    percentages = [Decimal(m.group(1)) for line in output_lines for m in _PERCENT.finditer(line)]
     metric += [pct / 100 for pct in percentages]
     complements: list[Decimal] = []
-    for line in output.splitlines():
+    for line in output_lines:
         if not _RATE_LINE.search(line):
             continue
         complements += [
@@ -11255,8 +11268,8 @@ def test_a_number_and_its_unit_split_across_two_cells_still_catches_a_fabricatio
     exactly as shipped and only collapses the inter-cell gap (``.rstrip("\\n")`` on each filtered
     cell's text before the outer join) passes the rest of this module's suite untouched. This
     does not pin the *unterminated* shape (a cell whose committed stdout carries no trailing
-    newline at all, e.g. ``print(..., end="")``): that one is pre-existing on ``origin/main``
-    itself, not introduced or worsened here, and is filed as #380."""
+    newline at all, e.g. ``print(..., end="")``): that one was pre-existing, and #380's own test,
+    ``test_an_unterminated_output_segment_does_not_fuse_a_number_to_the_next_unit``, pins it."""
     folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
     _append_cell(folder, "code", "median latency 180", cell_id="ends-with-number")
     _append_cell(folder, "code", "ms over the sample", cell_id="begins-with-unit")
@@ -11268,6 +11281,110 @@ def test_a_number_and_its_unit_split_across_two_cells_still_catches_a_fabricatio
     )
     unbacked = _unprinted_quantities(folder)
     assert any("180" in message for message in unbacked), unbacked
+
+
+# #380: committed output whose number-ending segment carries no trailing newline. Each shape is
+# (the segment that ends with the number, the segment that opens with the unit, a prose sentence
+# that quotes the fused quantity as a claim about Jev). The four unit patterns and ``_PERCENT``
+# bind a number to its unit with ``\s?``, so before #380 the one newline the output joins put
+# between the two segments fused them and backed the sentence.
+_UNTERMINATED_SHAPES = {
+    "latency": (
+        "median latency 180",
+        "ms over the sample",
+        "Jev answers with a median latency of 180 ms.",
+    ),
+    "throughput": (
+        "the replay handled 40",
+        "requests per second offline",
+        "Jev handles 40 requests per second.",
+    ),
+    "seconds": (
+        "replay rows: 12",
+        "seconds is the offline wall time",
+        "A live Jev call takes 12 seconds of latency.",
+    ),
+    "price": (
+        "budget line $",
+        "0.25 per call, from the fixture invoice",
+        "Each Jev call costs $0.25 per call.",
+    ),
+    "percent": (
+        "rows checked: 93",
+        "% of the fixture file was read",
+        # A printed percentage also backs its fraction, so the fused "93\n%" backed "0.93".
+        "Jev reaches an accuracy of 0.93 on this task.",
+    ),
+}
+
+
+def _append_unterminated_output(folder: Path, segments: list[str], cell_id: str) -> None:
+    """A code cell whose committed outputs are ``segments`` exactly as given: one stdout stream
+    each, with no trailing newline added (unlike ``_append_cell``), the shape a cell that ends in
+    ``print(..., end="")`` or ``sys.stdout.write(...)`` commits."""
+    path = folder / "notebook.ipynb"
+    notebook = json.loads(path.read_text("utf-8"))
+    notebook["cells"].append(
+        {
+            "cell_type": "code",
+            "id": cell_id,
+            "metadata": {},
+            "execution_count": None,
+            "source": ["import sys\n", "sys.stdout.write('probe')\n"],
+            "outputs": [
+                {"name": "stdout", "output_type": "stream", "text": [segment]}
+                for segment in segments
+            ],
+        }
+    )
+    path.write_text(json.dumps(notebook), "utf-8")
+
+
+@pytest.mark.parametrize("where", ["across two cells", "inside one cell"])
+@pytest.mark.parametrize("shape", sorted(_UNTERMINATED_SHAPES))
+def test_an_unterminated_output_segment_does_not_fuse_a_number_to_the_next_unit(
+    tmp_path, shape, where
+):
+    """#380. The number ends one committed output segment with no trailing newline and its unit
+    opens the next, either in the next cell or in the same cell's next output part. Before the
+    fix the fused text was scanned as one and backed the fabricated sentence; the first assertion
+    shows the case reaches that fusion (the joined output really does hold ``number\\nunit`` and
+    the unit pattern really does match across it), the second that the guard now catches the
+    sentence anyway."""
+    ends_with_number, begins_with_unit, sentence = _UNTERMINATED_SHAPES[shape]
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
+    if where == "across two cells":
+        _append_unterminated_output(folder, [ends_with_number], "ends-with-number")
+        _append_unterminated_output(folder, [begins_with_unit + "\n"], "begins-with-unit")
+    else:
+        _append_unterminated_output(folder, [ends_with_number, begins_with_unit + "\n"], "split")
+    fused = "\n".join(
+        _output_text(cell) for cell in notebook_cells(folder) if cell["cell_type"] == "code"
+    )
+    pattern = {
+        "latency": _LATENCY_MS,
+        "throughput": _THROUGHPUT,
+        "seconds": _SECONDS,
+        "price": re.compile(_PRICE_AMOUNT, re.IGNORECASE),
+        "percent": _PERCENT,
+    }[shape]
+    assert any("\n" in m.group(0) for m in pattern.finditer(fused)), fused
+    _append_cell(folder, "markdown", sentence, cell_id="fabricated-quantity")
+    unbacked = _unprinted_quantities(folder)
+    assert any("fabricated-quantity" in message for message in unbacked), unbacked
+
+
+def test_a_number_and_its_unit_printed_on_one_line_is_still_backed(tmp_path):
+    """The other direction of #380: reading units per line removes nothing a recipe genuinely
+    prints. The same five sentences, each backed by one output line that prints the number with
+    its unit, unterminated or not, all pass."""
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
+    for i, (number, unit, _) in enumerate(_UNTERMINATED_SHAPES.values()):
+        joined = number + (" " if not number.endswith("$") else "") + unit
+        _append_unterminated_output(folder, [joined], f"printed-{i}")
+    for i, (_, _, sentence) in enumerate(_UNTERMINATED_SHAPES.values()):
+        _append_cell(folder, "markdown", sentence, cell_id=f"backed-{i}")
+    assert [m for m in _unprinted_quantities(folder) if "backed-" in m] == []
 
 
 def test_the_audit_line_pinned_in_the_recipes_own_tests_does_not_back_a_fabrication(tmp_path):
