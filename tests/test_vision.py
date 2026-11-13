@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import contextlib
+import dataclasses
 import hashlib
 import importlib.util
 import io
@@ -995,7 +996,31 @@ def test_report_mixed_outcomes_by_hand():
         "hit_rate": 5,
         "false_positive_rate": 4,
         "correct_absent_rate": 4,
+        "review_rate": 9,
     }
+    # One present and one absent target went to review: 2 of all 9 examples.
+    assert report.n_review == 2
+    assert report.review_rate == pytest.approx(2 / 9)
+
+
+def test_review_rate_counts_both_sides_and_is_nan_only_without_examples():
+    report = vision.localization_report(
+        [ABSENT, ABSENT, PRESENT], [("review", None), ("review", None), ("review", None)]
+    )
+    assert (report.n_review, report.review_rate) == (3, 1.0)
+    report = vision.localization_report([PRESENT, ABSENT], [("located", SAME), ("absent", None)])
+    assert (report.n_review, report.review_rate) == (0, 0.0)
+    empty = dataclasses.replace(
+        report,
+        n_total=0,
+        n_present=0,
+        n_absent=0,
+        present_located=0,
+        correct_absents=0,
+        hits=0,
+        ious=(),
+    )
+    assert math.isnan(empty.review_rate)
 
 
 def test_report_all_absent_has_no_iou_and_no_invented_zero():
@@ -1142,6 +1167,7 @@ def test_report_prints_every_denominator_for_the_documented_example():
         "sent to review 1",
         "  false positive rate: 1/3 = 0.3333 (denominator 3: all absent targets)",
         "  correct absent rate: 1/3 = 0.3333 (denominator 3: all absent targets)",
+        "Sent to review, present and absent together: 2/7 = 0.2857 (denominator 7: all examples)",
     ]
 
 
