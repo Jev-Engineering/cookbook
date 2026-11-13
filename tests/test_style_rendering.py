@@ -245,6 +245,19 @@ HIERARCHICAL = [
 ]
 
 
+# Long labels that share their first eleven characters, so they are kept whole (#265): the
+# figure size, computed from the cell counts, cannot hold them without growing.
+LONG_COLUMN_COLLISION = [
+    "customer_refund_requested_by_email_after_delivery",
+    "customer_refund_requested_by_phone_after_delivery",
+    "other",
+]
+LONG_ROW_COLLISION = [
+    "account_billing.invoice_question_about_a_charge_that_appeared_twice_this_month",
+    "account_billing.invoice_question_about_a_charge_that_never_appeared_at_all",
+]
+
+
 def _matrix(n: int) -> np.ndarray:
     return np.arange(n * n).reshape(n, n) % 7 + np.eye(n, dtype=int) * 5
 
@@ -313,6 +326,14 @@ CASES = {
     ),
     "confusion two vocabularies, column collision": lambda: _two_vocabularies(
         ["clear", "violates"], PREFIX_COLLISION, exact=True
+    ),
+    # These two overflow the figure edge unless the figure grows: vertically for few rows
+    # under long whole column labels, horizontally for long whole row labels and one column.
+    "confusion two vocabularies, long column labels": lambda: _two_vocabularies(
+        ["clear", "violates"], LONG_COLUMN_COLLISION, exact=True
+    ),
+    "confusion two vocabularies, long row labels": lambda: _two_vocabularies(
+        LONG_ROW_COLLISION, ["allowed"], exact=True
     ),
     "answer choice": lambda: _answer(CHOICE, ["calm", "angry", "excited"], exact=True),
     "answer confident choice": lambda: _answer(CONFIDENT_CHOICE, ["refund", "replace"], exact=True),

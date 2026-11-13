@@ -27,6 +27,7 @@ import io
 import json
 import math
 import textwrap
+import warnings
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -696,7 +697,13 @@ def _grow_to_fit_text(fig: Figure, rounds: int = 4, pad_px: float = 2.0) -> None
     is short (constrained layout re-centres the axes, so by twice the overflow) until it fits.
     """
     for _ in range(rounds):
-        fig.draw_without_rendering()
+        with warnings.catch_warnings():
+            # An intermediate size can be too small for constrained layout, which then warns
+            # and asks for a larger figure: exactly what this loop goes on to do.
+            warnings.filterwarnings(
+                "ignore", message="constrained_layout not applied", category=UserWarning
+            )
+            fig.draw_without_rendering()
         boxes = [
             t.get_window_extent()
             for t in fig.findobj(Text)

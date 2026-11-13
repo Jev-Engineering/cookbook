@@ -376,3 +376,14 @@ def test_a_square_shape_mistake_points_at_row_and_column_labels():
     # a 3x2 table given only the row vocabulary as `labels`
     with pytest.raises(ValueError, match=r"3x3.*row_labels and col_labels.*shape \(3, 2\)"):
         style.plot_confusion_matrix(CONTENT_BY_ACTION, GOLD_CONTENT)
+
+
+def test_growing_a_rectangular_figure_prints_no_constrained_layout_warning():
+    # an intermediate size can be too small for constrained layout; the helper keeps growing
+    import warnings
+
+    rows = [f"account_billing.{'x' * 60}_{i}" for i in range(2)]
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        fig = style.plot_confusion_matrix(np.ones((2, 3)), row_labels=rows, col_labels=list("abc"))
+        _draw(fig)
