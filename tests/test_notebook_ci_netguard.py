@@ -188,8 +188,16 @@ def test_offline_notebook_runs_clean_under_the_guard(tmp_path):
     assert nb["cells"][0]["outputs"][0]["text"] == ["offline\n"]
 
 
+# Marked live_sdk and skipped before it runs, like every test in tests/test_live_sdk.py, so the
+# run summary in tests/conftest.py counts it as ran with the live extra and as skipped without
+# it (#389). find_spec only looks the module up: an installed but broken SDK is not skipped, it
+# runs and fails the assertions below.
+@pytest.mark.live_sdk
+@pytest.mark.skipif(
+    importlib.util.find_spec("typesafe_sdk") is None,
+    reason='optional live extra not installed (typesafe_sdk): pip install -e ".[live]"',
+)
 def test_live_backend_call_is_blocked_with_the_sdk_installed(tmp_path):
-    pytest.importorskip("typesafe_sdk")
     folder = make_recipe(
         tmp_path,
         f"""
