@@ -51,7 +51,7 @@
           "const": "generated"
         },
         "generator": {
-          "description": "The code that drew it: 'build_fixtures.py:draw_dialog' (a .py file in the recipe folder, which must exist, and a function name that appears in it) or 'jev_cookbook.<module>:<function>' for shared package code (a module of the package whose source binds the function at its top level).",
+          "description": "The code that drew it: 'build_fixtures.py:draw_dialog' (a .py file in the recipe folder, which must exist, and a function name that appears in it) or 'jev_cookbook.<module>:<function>' for shared package code (a module of the package whose source mentions the function name).",
           "type": "string",
           "pattern": "^([A-Za-z0-9_][A-Za-z0-9_.-]*[.]py|jev_cookbook([.][a-z_][a-z0-9_]*)+):([A-Za-z_][A-Za-z0-9_]*)$"
         },
