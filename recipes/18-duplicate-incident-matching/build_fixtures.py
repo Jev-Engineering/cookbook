@@ -30,7 +30,7 @@ but held back by the same low confidence. The replay keys come from the same ``b
 shortlist Python retrieves for that ticket's own symptoms, each row's key is computed from that
 ticket's own question.
 
-`t15-dup-email-ranked-second` is not wrong, but it fixes something a Wave 1 review noted: every
+`t15-dup-email-ranked-second` is not wrong, but it covers a gap in the rest of the set: every
 other real-incident gold label in this recipe happens to land on `shortlist(...)[0]`, so a rule
 that always answered "the first candidate" would score perfectly without ever discriminating
 among options. This ticket's gold match, `INC-104`, is the shortlist's *second* entry
