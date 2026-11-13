@@ -226,7 +226,7 @@ Scope decisions (see the pull request body for the full reasoning):
   catalog row; ``next_steps_inbound_links`` asks whether another recipe links to this one, and no
   recipe links to the template; ``simulated_side_effect_invoked`` keys its obligation on a
   published slug (``SIDE_EFFECT_INVENTORY``, ``SIMULATOR_REQUIRED``), and the template declares
-  no side effect, has none detected and needs no simulator, so there it could only skip. The template
+  no side effect, has none detected and needs no simulator, so there it would only skip today. The template
   already has its own dedicated pins in ``tests/test_template.py``, and including it here gives
   this module's own detection logic a sanity check -- the template is the thing every one of these
   rules is written to match. ``readme_budget_note_matches_request_audit`` runs on the template
@@ -3609,7 +3609,13 @@ def _drift_template_audit_line(folder: Path) -> None:
             for i, line in enumerate(text):
                 if line.startswith(AUDIT_PREFIX):
                     payload = json.loads(line[len(AUDIT_PREFIX) :])
-                    payload["backends"][0]["decide_calls"] += 1
+                    # A self-consistent ledger with one call more than the declaration and the
+                    # README state: the call is appended and both counts move with it, so only
+                    # the comparison against the declaration can see the drift.
+                    entry = payload["backends"][0]
+                    entry["calls"].append({"replay_key": "f" * 64, "returned": True})
+                    entry["decide_calls"] += 1
+                    entry["distinct_requests"] += 1
                     text[i] = AUDIT_PREFIX + json.dumps(payload, separators=(",", ":")) + "\n"
                     path.write_text(json.dumps(notebook), "utf-8")
                     return
@@ -3634,11 +3640,17 @@ def test_the_request_audit_check_runs_on_the_template_and_bites_there(tmp_path, 
     recipe = {"slug": "_template"}
     shutil.copytree(template, tmp_path / "_template")
     test_the_live_budget_note_matches_the_request_audit(recipe)
-    for drift in (_drift_template_budget, _drift_template_readme, _drift_template_audit_line):
+    # Each drift must fail on its own comparison, not on a neighbouring one that happens to see it.
+    drifts = (
+        (_drift_template_budget, r"made 22 decide\(\) calls, request_budget\.json declares 23"),
+        (_drift_template_readme, r"README budget paragraph differs"),
+        (_drift_template_audit_line, r"made 23 decide\(\) calls, request_budget\.json declares 22"),
+    )
+    for drift, message in drifts:
         shutil.rmtree(tmp_path / "_template")
         shutil.copytree(template, tmp_path / "_template")
         drift(tmp_path / "_template")
-        with pytest.raises(AssertionError, match="request audit"):
+        with pytest.raises(AssertionError, match=message):
             test_the_live_budget_note_matches_the_request_audit(recipe)
 
 
