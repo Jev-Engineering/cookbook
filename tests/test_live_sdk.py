@@ -1,8 +1,11 @@
 """LiveBackend against the real ``typesafe_sdk`` types, with a mock HTTP transport.
 
-These tests need the optional SDK (``pip install -e ".[live]"``); without it the module is
-not collected. The offline contract (no SDK needed) is covered in ``test_live.py``. No
-request leaves the process: the SDK's transport is replaced by ``httpx2.MockTransport``.
+These tests need the optional SDK (``pip install -e ".[live]"``); without it every test in the
+module is reported as skipped individually (marker ``live_sdk``, registered and summarised in
+``tests/conftest.py``, issue #264). The offline contract (no SDK needed) is covered in
+``test_live.py``. No request leaves the process: the SDK's transport is replaced by
+``httpx2.MockTransport``. Only a missing live-extra module skips; a broken install still fails
+collection.
 """
 
 from __future__ import annotations
@@ -11,8 +14,28 @@ import json
 
 import pytest
 
-sdk = pytest.importorskip("typesafe_sdk")
-httpx2 = pytest.importorskip("httpx2")
+LIVE_EXTRA_MODULES = ("typesafe_sdk", "httpx2")
+
+try:
+    import httpx2
+    import typesafe_sdk as sdk
+except ModuleNotFoundError as exc:
+    # Skip only when a module of the optional `live` extra itself is missing. Any other import
+    # failure (an installed SDK that cannot import, or a missing transitive dependency) must stay
+    # a loud collection error rather than become 62 quiet skips.
+    if (exc.name or "").partition(".")[0] not in LIVE_EXTRA_MODULES:
+        raise
+    httpx2 = sdk = None
+
+# One SKIPPED line per test (and per parametrized case) rather than one for the module, so the
+# skip count equals the number of tests not run; tests/conftest.py summarises them (#264).
+pytestmark = [
+    pytest.mark.live_sdk,
+    pytest.mark.skipif(
+        sdk is None or httpx2 is None,
+        reason='optional live extra not installed (typesafe_sdk, httpx2): pip install -e ".[live]"',
+    ),
+]
 
 from jev_cookbook import Box, Choice, LiveBackend, Noul, Score  # noqa: E402
 

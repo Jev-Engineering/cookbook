@@ -99,9 +99,14 @@ def sample_frames(
 
     ``every_seconds``: targets are ``window_start + k * every_seconds`` for ``k = 0, 1, ...``
     while the target is at most ``end`` (computed by multiplication, so error does not
-    accumulate). Each target selects the eligible frame **nearest in time**; **a tie goes
-    to the earlier frame**. A frame chosen by two targets is kept once, so a sparse
-    sequence yields fewer indices than targets.
+    accumulate). Each target selects the eligible frame **nearest in time**. Frames whose
+    distance from the target is within :data:`TIME_EPSILON` of the smallest distance are tied,
+    on either side of the target, and **the earliest tied frame is selected** (so an exact
+    midpoint goes to the earlier frame). The result is ascending: a target whose earliest tied
+    frame lies before a frame already selected for an earlier target adds nothing (float
+    rounding of the slack can otherwise move an earlier frame in and out of the tied set from
+    one target to the next). A frame chosen by two targets is kept once, so a sparse sequence
+    yields fewer indices than targets.
 
     ``count``: exactly ``count`` indices spread evenly by *position* across the eligible
     frames, always including the first and last eligible frame (``count == 1`` keeps only
@@ -129,20 +134,18 @@ def sample_frames(
         if n_targets > 10_000_000:
             raise ValueError("every_seconds yields more than 10,000,000 sampling targets")
         chosen: list[int] = []
-        cursor = 0  # targets ascend, so the nearest frame never moves backwards
+        window_times = [times[i] for i in eligible]
         for k in range(n_targets):
             target = low + k * step
-            while (
-                cursor + 1 < len(eligible) and times[eligible[cursor + 1]] <= target + TIME_EPSILON
-            ):
-                cursor += 1
-            near = range(max(0, cursor - 1), min(len(eligible), cursor + 2))
-            distances = {j: abs(times[eligible[j]] - target) for j in near}
-            closest = min(distances.values())
-            # the earliest frame within the slack of the closest one: the tie rule holds even
-            # when frames lie closer together than TIME_EPSILON
-            best = next(j for j in near if distances[j] <= closest + TIME_EPSILON)
-            if not chosen or chosen[-1] != eligible[best]:
+            at = bisect.bisect_left(window_times, target)  # first frame at or after the target
+            neighbours = [j for j in (at - 1, at) if 0 <= j < len(window_times)]
+            closest = min(abs(window_times[j] - target) for j in neighbours)
+            best = neighbours[-1]
+            # step back to the earliest frame whose distance is within the slack of the closest
+            while best > 0 and abs(window_times[best - 1] - target) <= closest + TIME_EPSILON:
+                best -= 1
+            # a target adds nothing when its earliest tied frame is not after the last selection
+            if not chosen or eligible[best] > chosen[-1]:
                 chosen.append(eligible[best])
         return chosen
 
@@ -245,10 +248,15 @@ def frame_at(timestamps: Iterable[float], seconds: float, *, side: str = "before
     """Index of the frame at ``seconds`` (a log line, an agent-state record, a clicked time).
 
     ``side="before"`` is the last frame at or before ``seconds``; ``"after"`` the first frame
-    at or after it; ``"nearest"`` the closer one, **a tie going to the earlier frame**. A frame
-    within :data:`TIME_EPSILON` of ``seconds`` counts as at it. Raises ``ValueError`` when no
-    frame qualifies (for example ``"before"`` a time earlier than the first frame) instead of
-    guessing, because attaching an event to the wrong frame is a silent error.
+    at or after it; ``"nearest"`` the closer of those two frames, **a tie (distances within
+    :data:`TIME_EPSILON` of each other) going to the earlier of the two**. A frame within
+    :data:`TIME_EPSILON` of ``seconds`` counts as at it. ``"nearest"`` compares only those two
+    frames, so it does not use the rule of :func:`sample_frames` (the earliest of all frames
+    within :data:`TIME_EPSILON` of the smallest distance) and the two can pick different
+    frames: ``frame_at([0, 1, 1 + 3e-10, 2], 1 + 2e-9, side="nearest")`` returns 2, where that
+    rule gives 1 (tracked in #395). Raises ``ValueError`` when no frame qualifies (for example
+    ``"before"`` a time earlier than the first frame) instead of guessing, because attaching an
+    event to the wrong frame is a silent error.
     """
     times = _ordered(timestamps)
     when = _seconds(seconds, "seconds")
@@ -288,9 +296,15 @@ def frame_windows(
     one **final window aligned to ``end``** (``[end - width, end]``) is appended.
 
     **Coverage.** With ``stride_seconds <= width_seconds`` every frame in ``[start, end]`` lies
-    in at least one window. With a larger stride the windows are deliberately sparse: frames
-    between one window's end and the next window's start lie in **no** window, the final
-    end-aligned window closes only the gap at the tail, and nothing is raised. Choose
+    in at least one window. A larger stride is accepted, not rejected, because scoring only some
+    stretches of a sequence is a valid choice: the stride-spaced windows then leave
+    ``stride_seconds - width_seconds`` seconds between one window's end and the next one's
+    start, and a frame that falls in such a stretch lies in **no** window. Whether any frame
+    does depends on where the frames fall: with frames every second from 0 to 10 s and
+    ``width_seconds=1``, ``stride_seconds=5`` gives ``[0, 1]``, ``[5, 6]`` and ``[9, 10]``
+    (frames 2, 3, 4, 7 and 8 are in no window) and ``stride_seconds=1.5`` leaves no frame out.
+    With the default ``start`` and ``end`` and ``n`` timestamps, the frames in no window are
+    ``set(range(n)) - {i for w in windows for i in w["indices"]}``. Choose
     ``stride_seconds <= width_seconds`` when every frame must be scored.
 
     A window that falls in a gap between frames is **kept** with ``indices == []`` so the

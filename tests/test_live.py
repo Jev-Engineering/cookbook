@@ -1095,3 +1095,23 @@ def test_dump_responses_text_is_exactly_the_stored_form():
     assert json.dumps(data) == before
     assert "\r" not in text and not text.endswith("\n\n")
     assert json.loads(text) == data
+
+
+def test_a_text_only_live_ledger_summary_has_exactly_its_original_fields():
+    # Image counts (#313) appear only for a request that carried images; a text-only summary is
+    # key for key what it was before they existed.
+    backend, _ = make(Resp(api_body()))
+    backend.decide(STATE, QUESTIONS)
+    assert list(backend.ledger()) == [
+        "requested_model",
+        "model",
+        "max_requests",
+        "requests_made",
+        "successful_calls",
+        "failed_attempts",
+        "input_tokens",
+        "output_tokens",
+        "calls_without_usage",
+        "request_ids",
+    ]
+    assert backend.records[0].images == backend.records[0].distinct_images == 0
