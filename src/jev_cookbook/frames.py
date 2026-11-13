@@ -136,14 +136,7 @@ def sample_frames(
         chosen: list[int] = []
         window_times = [times[i] for i in eligible]
         for k in range(n_targets):
-            target = low + k * step
-            at = bisect.bisect_left(window_times, target)  # first frame at or after the target
-            neighbours = [j for j in (at - 1, at) if 0 <= j < len(window_times)]
-            closest = min(abs(window_times[j] - target) for j in neighbours)
-            best = neighbours[-1]
-            # step back to the earliest frame whose distance is within the slack of the closest
-            while best > 0 and abs(window_times[best - 1] - target) <= closest + TIME_EPSILON:
-                best -= 1
+            best = _nearest(window_times, low + k * step)
             # a target adds nothing when its earliest tied frame is not after the last selection
             if not chosen or eligible[best] > chosen[-1]:
                 chosen.append(eligible[best])
@@ -244,17 +237,45 @@ def window_timestamps(
     }
 
 
+def _nearest(times: list[float], target: float) -> int:
+    """Index of the earliest frame whose distance from ``target`` is within :data:`TIME_EPSILON`
+    of the smallest distance (``times`` ascending and non-empty). The rule of "nearest" in
+    :func:`sample_frames` and :func:`frame_at`."""
+    at = bisect.bisect_left(times, target)  # first frame at or after the target
+    if at == len(times):
+        best, closest = at - 1, abs(times[at - 1] - target)
+    else:
+        best, closest = at, abs(times[at] - target)
+        if at > 0:
+            closest = min(closest, abs(times[at - 1] - target))
+    # step back to the earliest frame whose distance is within the slack of the closest
+    while best > 0 and abs(times[best - 1] - target) <= closest + TIME_EPSILON:
+        best -= 1
+    return best
+
+
 def frame_at(timestamps: Iterable[float], seconds: float, *, side: str = "before") -> int:
     """Index of the frame at ``seconds`` (a log line, an agent-state record, a clicked time).
 
     ``side="before"`` is the last frame at or before ``seconds``; ``"after"`` the first frame
-    at or after it; ``"nearest"`` the closer of those two frames, **a tie (distances within
-    :data:`TIME_EPSILON` of each other) going to the earlier of the two**. A frame within
-    :data:`TIME_EPSILON` of ``seconds`` counts as at it. ``"nearest"`` compares only those two
-    frames, so it does not use the rule of :func:`sample_frames` (the earliest of all frames
-    within :data:`TIME_EPSILON` of the smallest distance) and the two can pick different
-    frames: ``frame_at([0, 1, 1 + 3e-10, 2], 1 + 2e-9, side="nearest")`` returns 2, where that
-    rule gives 1 (tracked in #395). Raises ``ValueError`` when no frame qualifies (for example
+    at or after it; for these two sides a frame within :data:`TIME_EPSILON` of ``seconds``
+    counts as at it.
+    ``"nearest"`` uses the rule of :func:`sample_frames` for one target: the frames whose
+    distance from ``seconds`` is within :data:`TIME_EPSILON` of the smallest distance are tied,
+    however many there are and on either side, and **the earliest tied frame is returned** (so
+    an exact midpoint goes to the earlier frame, and
+    ``frame_at([0, 1, 1 + 3e-10, 2], 1 + 2e-9, side="nearest")`` returns 1). When every gap
+    between frames is larger than ``3 * TIME_EPSILON``, this is the closer of the ``"before"``
+    and ``"after"`` frames, a tie going to the earlier. That bound holds in exact arithmetic;
+    float rounding of the slack comparisons can still change the answer for a gap within
+    rounding distance of ``3 * TIME_EPSILON``, which timestamps of thousands of seconds reach.
+    With a smaller gap a frame
+    up to ``2 * TIME_EPSILON`` away can tie with one at ``seconds``
+    (``frame_at([0, 1, 1 + 2.5e-9, 2], 1 + 1.6e-9, side="nearest")`` returns 1). So with frames
+    that close together, ``"nearest"`` can return a frame earlier than the ``"before"`` frame,
+    and a frame exactly at ``seconds`` loses to an earlier frame within the slack of it
+    (``frame_at([0, 1, 1 + 5e-10, 2], 1 + 5e-10, side="nearest")`` returns 1).
+    Raises ``ValueError`` when no frame qualifies (for example
     ``"before"`` a time earlier than the first frame) instead of guessing, because attaching an
     event to the wrong frame is a silent error.
     """
@@ -262,20 +283,17 @@ def frame_at(timestamps: Iterable[float], seconds: float, *, side: str = "before
     when = _seconds(seconds, "seconds")
     if side not in ("before", "after", "nearest"):
         raise ValueError("side must be 'before', 'after' or 'nearest'")
-    before = bisect.bisect_right(times, when + TIME_EPSILON) - 1  # -1 when none
-    after = bisect.bisect_left(times, when - TIME_EPSILON)  # len(times) when none
+    if side == "nearest":
+        return _nearest(times, when)
     if side == "before":
+        before = bisect.bisect_right(times, when + TIME_EPSILON) - 1  # -1 when none
         if before < 0:
             raise ValueError(f"no frame at or before {when} seconds")
         return before
-    if side == "after":
-        if after >= len(times):
-            raise ValueError(f"no frame at or after {when} seconds")
-        return after
-    candidates = [i for i in (before, after) if 0 <= i < len(times)]
-    gap = {i: abs(times[i] - when) for i in candidates}
-    closest = min(gap.values())
-    return min(i for i in candidates if gap[i] <= closest + TIME_EPSILON)
+    after = bisect.bisect_left(times, when - TIME_EPSILON)  # len(times) when none
+    if after >= len(times):
+        raise ValueError(f"no frame at or after {when} seconds")
+    return after
 
 
 def frame_windows(
