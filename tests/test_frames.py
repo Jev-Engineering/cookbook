@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import bisect
 import json
 import math
 import random
@@ -493,13 +494,110 @@ def test_frame_windows_cover_the_frames_in_start_to_end_when_the_stride_is_at_mo
     assert set(range(11)) - _covered(bounded) == {0, 1, 9, 10}
 
 
-def test_frame_at_nearest_compares_only_the_two_straddling_frames():
+def test_frame_at_nearest_uses_the_sample_frames_tie_rule_for_clusters():
+    """Three or more frames within the slack: the earliest tied frame, as in sample_frames."""
     first = [0.0, 1.0, 1.0 + 3e-10, 2.0]
     second = [0.0, 1.0 - 4e-10, 1.0, 1.0 + 4e-10, 2.0]
-    assert frame_at(first, 1.0 + 2e-9, side="nearest") == 2
-    assert frame_at(second, 1.0 + 1.5e-9, side="nearest") == 3
-    assert _earliest_tied(first, 1.0 + 2e-9) == 1
+    assert frame_at(first, 1.0 + 2e-9, side="nearest") == 1 == _earliest_tied(first, 1.0 + 2e-9)
+    assert frame_at(second, 1.0 + 1.5e-9, side="nearest") == 1
     assert _earliest_tied(second, 1.0 + 1.5e-9) == 1
+    # the same frame sample_frames picks for a target at that time (the window starts at 0)
+    assert sample_frames(first, every_seconds=1.0 + 2e-9)[1] == 1
+
+
+def test_frame_at_nearest_can_be_earlier_than_before_and_beat_a_frame_at_the_time():
+    """The documented consequences of the tie rule when frames are closer than the slack."""
+    times = [0.0, 1.0, 1.0 + 3e-10, 2.0]
+    assert frame_at(times, 1.0 + 2e-9, side="before") == 2
+    assert frame_at(times, 1.0 + 2e-9, side="nearest") == 1
+    exact = [0.0, 1.0, 1.0 + 5e-10, 2.0]
+    assert frame_at(exact, 1.0 + 5e-10, side="nearest") == 1
+
+
+def test_frame_at_nearest_matches_the_rule_written_out_literally_including_clusters():
+    rng = random.Random(395)
+    gaps = [1e-10, 2e-10, 3e-10, 5e-10, 9e-10, 1e-9, 1.1e-9, 0.1, 0.25, 0.5, 1.0]
+    clustered = 0
+    for _ in range(3000):
+        times, now = [], rng.choice([0.0, 0.5, 3.0])
+        for _ in range(rng.randint(1, 12)):
+            times.append(now)
+            now += rng.choice(gaps)
+        when = rng.choice(times) + rng.choice([-2e-9, -1e-9, -5e-10, 0.0, 5e-10, 1.5e-9, 0.05])
+        when = max(0.0, when)
+        got = frame_at(times, when, side="nearest")
+        assert got == _earliest_tied(times, when), (times, when)
+        closest = min(abs(t - when) for t in times)
+        clustered += sum(abs(t - when) <= closest + frames.TIME_EPSILON for t in times) >= 3
+    assert clustered > 0, "the generator must reach ties of three or more frames"
+
+
+def _old_frame_at_nearest(times, when):
+    """frame_at(side="nearest") before this rule: the closer of the before and after frames."""
+    eps = frames.TIME_EPSILON
+    before = bisect.bisect_right(times, when + eps) - 1
+    after = bisect.bisect_left(times, when - eps)
+    candidates = [i for i in (before, after) if 0 <= i < len(times)]
+    gap = {i: abs(times[i] - when) for i in candidates}
+    closest = min(gap.values())
+    return min(i for i in candidates if gap[i] <= closest + eps)
+
+
+def test_frame_at_nearest_changed_only_for_gaps_within_three_times_the_slack():
+    """The one kind of change with no cluster: a frame at the time (within the slack) and a
+    neighbour 2.5e-9 s away, which the old rule never compared and the tie rule ties."""
+    times = [0.0, 1.0, 1.0 + 2.5e-9, 2.0]
+    when = 1.0 + 3.5e-9  # 1e-9 from frame 2, 3.5e-9 from frame 1: not tied
+    assert frame_at(times, when, side="nearest") == _old_frame_at_nearest(times, when) == 2
+    when = 1.0 + 1.6e-9  # 1.6e-9 from frame 1, 0.9e-9 from frame 2: tied within the slack
+    assert _old_frame_at_nearest(times, when) == 2
+    assert frame_at(times, when, side="nearest") == 1 == _earliest_tied(times, when)
+
+
+def test_frame_at_nearest_is_unchanged_when_every_gap_is_larger_than_three_times_the_slack():
+    """Seeded comparison with the previous two-frame rule: identical when every gap exceeds
+    3 * TIME_EPSILON (a tie needs the other frame within 2 * TIME_EPSILON of the time)."""
+    rng = random.Random(3950)
+    ties = 0
+    for _ in range(5000):
+        times, now = [], rng.uniform(0.0, 5.0)
+        for _ in range(rng.randint(1, 15)):
+            times.append(now)
+            now += rng.choice([3.5e-9, 1e-6, 0.001, 0.04, 0.1, 0.5, 1.0, rng.uniform(1e-8, 2.0)])
+        i = rng.randrange(len(times))
+        midpoint = (times[i] + times[min(i + 1, len(times) - 1)]) / 2
+        when = rng.choice(
+            [
+                times[i],
+                midpoint,
+                midpoint + 4e-10,
+                midpoint - 4e-10,
+                times[i] + 1e-9,
+                times[i] - 1e-9,
+                rng.uniform(times[0] - 1.0, times[-1] + 1.0),
+            ]
+        )
+        when = max(0.0, when)
+        new, old = frame_at(times, when, side="nearest"), _old_frame_at_nearest(times, when)
+        assert new == old, (times, when, new, old)
+        if i + 1 < len(times) and times[i] <= when <= times[i + 1]:
+            # a real tie: the two neighbours' distances are within the slack of each other
+            ties += abs((when - times[i]) - (times[i + 1] - when)) <= frames.TIME_EPSILON
+    assert ties > 0, "the generator must reach two-frame ties"
+
+
+def test_the_three_slack_bound_is_exact_arithmetic_not_float_rounding_at_large_times():
+    """Documented limit: the slack comparisons round, so at timestamps of thousands of seconds
+    a gap within rounding distance of 3 * TIME_EPSILON can still change the answer."""
+    times = [1000000.0155812273, 1000000.0155812303, 1000000.0155812353, 1000000.0155812385]
+    when = 1000000.0155812292
+    assert all(b - a > 3 * frames.TIME_EPSILON for a, b in zip(times[:-1], times[1:], strict=True))
+    assert frame_at(times, when, side="nearest") == 0
+    assert _old_frame_at_nearest(times, when) == 1
+    pair = [6944.357042662554, 6944.357042665554]
+    assert pair[1] - pair[0] > 3 * frames.TIME_EPSILON
+    assert frame_at(pair, 6944.357042664554, side="nearest") == 0
+    assert frame_at(pair, 6944.357042664554, side="before") == 1
 
 
 def test_count_spreading_is_by_position_not_by_time():
