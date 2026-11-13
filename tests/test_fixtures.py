@@ -418,7 +418,7 @@ def test_well_formed_nested_box_labels_are_valid(recipe):
         ({"target": {"present": False, "box": BOX_LABEL["box"]}}, "label.target"),
         ({"boxes": [BOX_LABEL, {"present": True}]}, "label.boxes[1]"),
         ([{"present": None}], "label[0]"),
-        ({"a": {"b": [{"c": {**BOX_LABEL, "extra": 1}}]}}, "label.a.b[0].c"),
+        ({"a": {"b": [{"c": {"present": True, "box": [0, 1]}}]}}, "label.a.b[0].c"),
     ],
 )
 def test_malformed_nested_box_labels_are_rejected_with_their_path(recipe, label, where):
@@ -458,24 +458,39 @@ def test_where_labels_nest_their_box_labels_is_not_compared_across_labels(recipe
 
 
 def test_one_stray_top_level_box_label_names_a_label_that_is_one(recipe):
-    """The labels that nest a Box label are still decoded, and the message names the label
-    that made Box labels the file's top-level format, so the stray line can be found."""
+    """The message names the label that made Box labels the file's top-level format, so the
+    stray line can be found; a label that is not a Box label gets that one message only."""
     bad = {"target": {"present": True}, "rubric": 1}
     write(recipe, box_set({"target": BOX_LABEL}, bad, {"present": False}, {"target": BOX_LABEL}))
+    assert messages(recipe) == [
+        str(recipe / "fixtures" / "labels.jsonl") + f":{n} (id 't{n - 1}'): label is not a Box "
+        "label ({'present': ...}) but other labels in this file are (for example id 't2')"
+        for n in (1, 2, 4)
+    ]
+
+
+@pytest.mark.parametrize(
+    "label",
+    [
+        {"expected": {"billing": {"tp": 3, "fp": 1, "fn": 0, "present": True}}},  # class counts
+        {"answers": {"present": True, "button": BOX_LABEL}},  # a question named `present`
+        {"counts": {"present": 12, "absent": 3}},
+    ],
+)
+def test_a_nested_object_with_other_keys_beside_present_is_not_a_box_label(recipe, label):
+    """Below the top, only an object whose keys are `present` and `box` is read as a Box label;
+    the search goes on inside any other object (and finds the Box label under `button`)."""
+    write(recipe, box_set(label, "x", "y", "z"))
+    assert messages(recipe) == []
+
+
+def test_a_nested_object_with_only_present_or_box_keys_is_a_box_label(recipe):
+    write(recipe, box_set({"counts": {"present": 12}}, {"t": {"present": True}}, "y", "z"))
     expect(
         recipe,
-        "labels.jsonl:2 (id 't1'): malformed Box label at label.target:",
-        "labels.jsonl:1 (id 't0'): label is not a Box label ({'present': ...}) but other "
-        "labels in this file are (for example id 't2')",
+        "labels.jsonl:1 (id 't0'): malformed Box label at label.counts: ",
+        "labels.jsonl:2 (id 't1'): malformed Box label at label.t: ",
     )
-    assert len(messages(recipe)) == 4
-
-
-def test_present_is_reserved_for_box_labels_at_every_depth(recipe):
-    """A nested object with a `present` key that is not meant as a Box label is still read as
-    one (docs/fixtures.md "Labels"), so a recipe names such a key differently."""
-    write(recipe, box_set({"counts": {"present": 12, "absent": 3}}, "x", "y", "z"))
-    expect(recipe, "labels.jsonl:1 (id 't0'): malformed Box label at label.counts: ")
 
 
 @pytest.mark.parametrize(

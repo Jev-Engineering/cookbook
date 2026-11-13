@@ -567,26 +567,39 @@ def _label_path(path: _LabelPath) -> str:
     return out
 
 
-def _box_label_places(label: Any) -> list[tuple[_LabelPath, Any]]:
-    """``(path, object)`` for every object with a ``present`` key in ``label``, itself included.
+_BOX_KEYS = frozenset({"present", "box"})
 
-    The search does not look inside such an object (it is a Box label; ``gold_box`` checks all
-    of it). Iterative, in document order, like the module's other walkers.
+
+def _box_label_places(label: Any) -> list[tuple[_LabelPath, Any]]:
+    """``(path, object)`` for every Box label in ``label``, in document order.
+
+    The label itself is one when it is an object with a ``present`` key. Below the top, an
+    object is one when it has a ``present`` key and no key other than ``present`` and ``box``,
+    so an object that merely has a ``present`` field among others (a per-class count, an
+    answer named ``present``) is searched, not decoded. The search does not look inside a Box
+    label. Iterative; each node keeps a link to its parent, so a path is built only for a Box
+    label found.
     """
+    if isinstance(label, Mapping) and "present" in label:
+        return [((), label)]
     found: list[tuple[_LabelPath, Any]] = []
-    pending: list[tuple[_LabelPath, Any]] = [((), label)]
+    pending: list[tuple[Any, Any]] = [(label, None)]  # (node, (parent link, key) or None)
     while pending:
-        path, node = pending.pop()
+        node, link = pending.pop()
         if isinstance(node, Mapping):
-            if "present" in node:
-                found.append((path, node))
+            if link is not None and "present" in node and _BOX_KEYS.issuperset(node):
+                parts: list[str | int] = []
+                while link is not None:
+                    link, key = link
+                    parts.append(key)
+                found.append((tuple(reversed(parts)), node))
                 continue
-            children = [((*path, key), child) for key, child in node.items()]
+            children = list(node.items())
         elif isinstance(node, list):
-            children = [((*path, index), child) for index, child in enumerate(node)]
+            children = list(enumerate(node))
         else:
             continue
-        pending.extend(reversed(children))
+        pending.extend((child, (link, key)) for key, child in reversed(children))
     return found
 
 
@@ -595,27 +608,30 @@ def _check_box_labels(
 ) -> list[Problem]:
     """Box labels, at the top of a label or nested inside one, must use the gold Box format.
 
-    An object with a ``present`` key, at any depth in a label, is a Box label
-    (``docs/fixtures.md``, "Box labels") and must decode with ``vision.gold_box``. A top-level
-    Box label also declares the format for the file: once one label is a Box label, a label
-    that is not one is an error. Where a recipe nests its Box labels (which key, which list) is
-    not checked across labels; the recipe's own test decodes the key it reads.
+    A label that is an object with a ``present`` key is a Box label, and so is a nested object
+    with a ``present`` key and no key but ``present`` and ``box`` (``docs/fixtures.md``, "Box
+    labels"); each must decode with ``vision.gold_box``. A top-level Box label also declares
+    the format for the file: once one label is a Box label, a label that is not one is an
+    error, reported once for that label. Where a recipe nests its Box labels is not compared
+    across labels; the recipe's own test decodes the key it reads.
     """
     places = {ident: _box_label_places(label) for ident, label in labels.items()}
     if not any(places.values()):
         return []
     from ..vision import gold_box  # deferred: a recipe without Box labels does not import it
 
-    declared = next((i for i, found in places.items() if any(not p for p, _ in found)), None)
+    top = {i for i, found in places.items() if found and not found[0][0]}
+    declared = next((i for i in labels if i in top), None)  # the first, in file order
     problems: list[Problem] = []
-    for ident, label in labels.items():
+    for ident in labels:
         line = label_lines[ident]
-        if declared is not None and not (isinstance(label, Mapping) and "present" in label):
+        if declared is not None and ident not in top:
             msg = (
                 "label is not a Box label ({'present': ...}) but other labels in this file "
                 f"are (for example id {declared!r})"
             )
             problems.append(Problem(name, msg, line, ident))
+            continue
         for path, box_label in places[ident]:
             try:
                 gold_box(box_label)
