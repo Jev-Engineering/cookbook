@@ -505,6 +505,15 @@ def test_frame_at_nearest_uses_the_sample_frames_tie_rule_for_clusters():
     assert sample_frames(first, every_seconds=1.0 + 2e-9)[1] == 1
 
 
+def test_frame_at_nearest_can_be_earlier_than_before_and_beat_a_frame_at_the_time():
+    """The documented consequences of the tie rule when frames are closer than the slack."""
+    times = [0.0, 1.0, 1.0 + 3e-10, 2.0]
+    assert frame_at(times, 1.0 + 2e-9, side="before") == 2
+    assert frame_at(times, 1.0 + 2e-9, side="nearest") == 1
+    exact = [0.0, 1.0, 1.0 + 5e-10, 2.0]
+    assert frame_at(exact, 1.0 + 5e-10, side="nearest") == 1
+
+
 def test_frame_at_nearest_matches_the_rule_written_out_literally_including_clusters():
     rng = random.Random(395)
     gaps = [1e-10, 2e-10, 3e-10, 5e-10, 9e-10, 1e-9, 1.1e-9, 0.1, 0.25, 0.5, 1.0]
@@ -518,8 +527,9 @@ def test_frame_at_nearest_matches_the_rule_written_out_literally_including_clust
         when = max(0.0, when)
         got = frame_at(times, when, side="nearest")
         assert got == _earliest_tied(times, when), (times, when)
-        clustered += sum(abs(t - when) <= 3e-9 for t in times) >= 3
-    assert clustered > 0, "the generator must reach clusters of three or more frames"
+        closest = min(abs(t - when) for t in times)
+        clustered += sum(abs(t - when) <= closest + frames.TIME_EPSILON for t in times) >= 3
+    assert clustered > 0, "the generator must reach ties of three or more frames"
 
 
 def _old_frame_at_nearest(times, when):
@@ -570,8 +580,10 @@ def test_frame_at_nearest_is_unchanged_when_every_gap_is_larger_than_three_times
         when = max(0.0, when)
         new, old = frame_at(times, when, side="nearest"), _old_frame_at_nearest(times, when)
         assert new == old, (times, when, new, old)
-        ties += when in (midpoint, midpoint + 4e-10, midpoint - 4e-10) and len(times) > 1
-    assert ties > 0
+        if i + 1 < len(times) and times[i] <= when <= times[i + 1]:
+            # a real tie: the two neighbours' distances are within the slack of each other
+            ties += abs((when - times[i]) - (times[i + 1] - when)) <= frames.TIME_EPSILON
+    assert ties > 0, "the generator must reach two-frame ties"
 
 
 def test_count_spreading_is_by_position_not_by_time():

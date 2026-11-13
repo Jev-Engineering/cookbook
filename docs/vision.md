@@ -694,7 +694,9 @@ Other helpers:
   than `3 * TIME_EPSILON` (3e-9 s) this is the closer of the `"before"` and `"after"` frames,
   a tie going to the earlier of the two. With a smaller gap a frame up to `2 * TIME_EPSILON`
   away can tie with one at the time: `frame_at([0, 1, 1 + 2.5e-9, 2], 1 + 1.5e-9,
-  side="nearest")` returns 1.
+  side="nearest")` returns 1. So with frames that close together `"nearest"` can be earlier
+  than the `"before"` frame, and a frame exactly at the time loses to an earlier frame within
+  the slack of it (`frame_at([0, 1, 1 + 5e-10, 2], 1 + 5e-10, side="nearest")` returns 1).
 - `frame_windows(timestamps, *, width_seconds, stride_seconds)` enumerates sliding windows
   (ranks 89 and 92) as `{"window_start_seconds", "window_end_seconds", "indices"}`, edges
   inclusive, only windows that fit by stride. If the last of those stops short of the end, one
