@@ -41,6 +41,7 @@ live inference explicitly opt-in under the [contract](../CONTRIBUTING.md).
 | `assets/` | Multimodal recipes only (absent from the template): the image files the recipe sends to Jev, PNG or baseline JPEG, each at most 1 MiB, 8 MiB in all, with no metadata, and nowhere else in the recipe. The contract and the check that enforces it are in [fixtures.md](fixtures.md#image-fixtures); how a recipe loads them is in [vision.md](vision.md). |
 | `assets-manifest.json` | Multimodal recipes only, beside `assets/`: one entry per image with its hash, size, generator and parameters, licence and the attestations that it is synthetic and holds no real photograph, brand, person or third-party content. Required exactly when `assets/` exists; `build_fixtures.py` should write it with the images. Format, worked example and rules: [fixtures.md](fixtures.md#image-provenance-manifest). |
 | `fixtures/` | `inputs.jsonl`, `labels.jsonl`, `responses.json`: 22 examples (10 `validation`, 10 `test`, 2 `demo`), synthetic and deliberately imperfect. |
+| `request_budget.json` | The recipe's declared live request count (#213, #368), the one place it is stated: one audited backend, `main`, declaring `requests: 22` and `fixtures: "fixtures/responses.json"`. The setup cell's one `get_backend(...)` is wrapped in `AuditedBackend(..., label="main")`, and a final standalone cell (nested under "What was and was not measured" as a `###` subsection, never a new `##` heading) prints `backend.audit_json()`. The README's `## Switch to live` paragraph is *rendered* from this file by `jev_cookbook.accounting.render_recipe_note`, never typed by hand, and the recipe guard's `readme_budget_note_matches_request_audit` check (#213) compares the declaration, the audited execution and the rendered paragraph against each other for every published recipe. The template's own agreement is checked by `tests/test_template.py` using the same audit. [backends.md](backends.md#the-declared-count-request_budgetjson) is the full contract; this is the one route a recipe's live request count is stated through. |
 | `tests/test_helpers.py` | Tests for the rule, a check that the stored keys match the current question, `test_stored_answers_are_not_all_right` (replay recipes only): re-derives the frozen threshold from `validation` (the `select_confidence_threshold` call written out, or `gate = helpers.<fn>(...)` through a function of the recipe's own `helpers.py` that calls it; the guard finds the test by its name, so keep `test_stored_answers_are_not_all_right` as the prefix) and requires a wrong `test` answer at or above it, so a fixture set that is merely "not all correct" (but has every mistake caught by the gate) still fails, and a test that pins the threshold-selection call's own **objective** keyword against the committed cell source (see "Pin the threshold's OBJECTIVE" above) — a value-only re-derivation does not pin which objective ran. `tools/new_recipe.py` scaffolds a working copy of the stored-answers test, so no recipe has to hand-write it from scratch; the objective pin is adapted per recipe from the template's own worked example. |
 | `side_effects.json` | The recipe's statement of its simulated side effects (a `ReviewQueue`, `ActionLog`, `Store`, `Transactor` or `Simulator` write): `{"schema": 1, "sites": {"helpers.submit_reviews": 2}}`, the exact number of places the notebook calls each side-effect function or method, or `{"schema": 1, "none": "why"}`. `tools/new_recipe.py` scaffolds it as a `none` declaration whose reason is a `TODO` placeholder (the template recipe has no simulated side effect, so `none` is what it would declare): rewrite the reason, or replace the file with `sites`, before the recipe is done. The recipe guard rejects a reason that still carries the `TODO`, rejects `none` for a recipe that has a side effect or needs a simulator, and fails a notebook that calls fewer, more or none of what it declares. Schema, keys, `not_side_effects` (bookkeeping only, with a reason per entry), factory-built simulators, the guard's known limits and the two function shapes (a batch fill, a decide-and-apply function) with their test rules: [simulation.md](simulation.md). |
 | `tests/test_build_fixtures.py` | Guards `build_fixtures.py` (replay recipes only): refusal without `--force`, `inputs.jsonl`/`labels.jsonl` regenerated from `ROWS` even on a refused run, and the committed `responses.json` byte-identical to what `jev_cookbook.dump_responses` returns (the public form of the serialization the recorder writes with; `jev_cookbook.live._dump` is kept only as a transitional alias, and recipes do not import it). A scripted recipe has no `responses.json` and nothing for these tests to guard, so the scaffolder does not emit this file for `--mode scripted`. |
@@ -74,6 +75,17 @@ own first use the same way.
 
 ### Choices the template makes for you
 
+- **The live request count is declared once, audited, and never hand-typed.** `request_budget.json`
+  declares `requests: 22` for the one backend the setup cell builds, wrapped
+  `AuditedBackend(get_backend(fixtures=responses_path()), label="main")`. A final standalone code
+  cell (`### Live request audit`, a `###` subsection of "What was and was not measured", never a
+  new `##` heading) prints `backend.audit_json()`, and the README's `## Switch to live` paragraph,
+  between `<!-- request-budget:begin -->` and `<!-- request-budget:end -->`, is *rendered* from
+  the declaration by `jev_cookbook.accounting.render_recipe_note` — never typed, never a hand-written
+  count or cap. This is the one route a recipe states its live request count through; see
+  [backends.md](backends.md#the-declared-count-request_budgetjson) and
+  [live.md](live.md#budget-guard) for the contract and `readme_budget_note_matches_request_audit`
+  (#213) in `tests/test_recipe_guard.py` for the check.
 - **Mode-neutral cells.** The notebook prints `check`, a suffix that says "a pipeline check, not a
   Jev result" in an offline run and is empty otherwise. `run_header(..., backend=backend)` states
   the mode, and the setup cell passes `n_examples=len(scored)` in every mode.
@@ -390,12 +402,26 @@ writes) is accepted.
 `NN`, and creates `recipes/<slug>/` with:
 
 - `notebook.ipynb`: no outputs; the first cell has the title, recipe number, level and difficulty,
-  decision types, use case and sources from the catalog, and the nine sections follow with a
-  `TODO` in each markdown cell;
+  decision types, use case and sources from the catalog, and the nine sections follow, each with a
+  `TODO` in its own markdown cell. The setup cell's one `get_backend(...)` is already wrapped
+  `AuditedBackend(..., label="main")`, and under "What was and was not measured" a
+  `### Live request audit` markdown cell and the final standalone code cell that prints
+  `backend.audit_json()` are already complete, so neither carries a `TODO`.
 - `README.md`: the recipe README with the same fields, the run commands for this slug, and a `TODO`
-  where you write what it teaches;
+  where you write what it teaches. Its `## Switch to live` section already holds the rendered
+  budget paragraph for `request_budget.json`'s declaration, between the
+  `<!-- request-budget:begin -->` / `<!-- request-budget:end -->` markers, plus a `TODO` that says
+  how to keep the two in step as you add `decide()` calls while writing Evaluation (step 5).
 - `helpers.py`, `build_fixtures.py`: skeletons that raise `NotImplementedError("TODO ...")` until
   you write them.
+- `request_budget.json`: declares exactly the one `decide()` call the skeleton notebook's own
+  `answer` cell makes (`requests: 1`, `fixtures: "fixtures/responses.json"`, or `fixtures: null`
+  for `--mode scripted`) — already self-consistent with the audited setup cell and the rendered
+  README paragraph above, with nothing to edit yet. As `decide()` calls are added while writing
+  Evaluation (step 5), update this file's declared count (and `distinct`/`at_most` where they
+  apply) to match, then regenerate the README paragraph the same way
+  ([backends.md](backends.md#the-declared-count-request_budgetjson)); step 8's checks fail a
+  mismatch, so this cannot be forgotten.
 - `side_effects.json`: a `none` declaration whose reason is a `TODO` placeholder. A recipe with no
   simulated side effect rewrites the reason; a recipe that writes to a `ReviewQueue`, `ActionLog`,
   `Store`, `Transactor` or `Simulator` (every recipe flagged `needs: simulator`) replaces the file
@@ -441,7 +467,15 @@ catalog is insufficient; the scope guard reads assignments from the base.
    rerunning the script refuses to overwrite it unless you pass `--force`.
 5. Work through `notebook.ipynb` section by section. The scaffold's setup, state, question and
    answer cells already run once steps 3 and 4 are done; replace each `TODO` and fill the
-   `# TODO` code cells. Copy the template's evaluation cells as a starting point.
+   `# TODO` code cells. Copy the template's evaluation cells as a starting point. As Evaluation
+   adds more `decide()` calls, update `request_budget.json`'s declared `requests` (and `distinct`
+   or `at_most` where they apply) to match, then regenerate the README's rendered paragraph with
+   `python -c "from jev_cookbook.accounting import render_recipe_note as r; print(r('recipes/NN-slug'), end='')"`
+   and replace the whole README block,
+   including the `<!-- request-budget:begin -->` / `<!-- request-budget:end -->` markers,
+   with its output
+   ([backends.md](backends.md#the-declared-count-request_budgetjson)). Leave the final
+   `print(backend.audit_json())` cell as the scaffold wrote it.
 6. Committable outputs require Python 3.14 with the constraints file: the floor, Python 3.10,
    cannot even install it (`numpy==2.5.3` needs Python 3.12 or newer), and CI compares text output
    byte for byte against its pinned stack. Install the way the `Notebook (<recipe>)` job does,
@@ -476,7 +510,8 @@ scripted scaffold changes:
 | - | - | - |
 | `helpers.py` | `build_state`, `build_questions` | also `SEED` and `script(state, questions, rng)`, a `TODO` that returns `{question name: spec}` (see `Spec` in [backends.md](backends.md)) |
 | `build_fixtures.py` | `ROWS` of 5 fields, `answers_for`; `--force` is needed to overwrite a `recorded` `responses.json` | `ROWS` of 4 fields (no spec), no `answers_for`; writes `inputs.jsonl` and `labels.jsonl` with `"replay_keys": []`, and removes a stale `responses.json`; no `responses.json` ever exists, so there is nothing `--force` would protect |
-| setup cell | `get_backend(fixtures=responses_path())` | `get_backend(script=helpers.script, seed=helpers.SEED)`; `run_header(..., backend=backend, n_examples=len(scored))` is the same |
+| setup cell | `AuditedBackend(get_backend(fixtures=responses_path()), label="main")` | `AuditedBackend(get_backend(script=helpers.script, seed=helpers.SEED), label="main")`; `run_header(..., backend=backend, n_examples=len(scored))` is the same |
+| `request_budget.json` | `"fixtures": "fixtures/responses.json"` | `"fixtures": null` (nothing to replay); `requests: 1` either way at scaffold time |
 | `measured` cell | follows `backend.mode` | the same line: `Provenance: scripted. Not measured live: a pipeline check, not a Jev result.` |
 | `tests/test_helpers.py` | asserts every example's keys equal `replay_key(state, questions)` | asserts the keys are empty and that a fresh `ScriptedBackend(helpers.script, helpers.SEED)` answers the same request identically twice; the scaffolder writes the one test file that fits `--mode`, so neither carries the other's machinery |
 | `tests/test_build_fixtures.py` | emitted: guards the refusal, inputs/labels regeneration and the writer | not emitted: no `responses.json` and no refusal logic for these tests to guard |

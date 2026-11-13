@@ -151,8 +151,19 @@ _ADAM7 = (
     (0, 1, 1, 2),
 )
 
-# Backstop for a header that claims absurd dimensions: IDAT is never inflated past the length the
-# header implies, and a header implying more than this is refused without inflating anything.
+# Backstops for a header that claims absurd dimensions: IDAT is inflated no more than one byte past
+# the length the header implies, and a header implying more than the backstop is refused without
+# inflating anything. The header is the file's own claim, so for a hostile one the backstop is
+# the real memory bound, and zlib's output buffer peaks at about twice it (a 299 KB file claiming
+# 9000 x 9000 once made the Hygiene job peak at about 487 MB).
+#
+# A file under assets/ also has the side limits, so the largest image it can legally be (1568 x
+# 1568 RGBA 16-bit: 19,670,560 bytes, 19,671,932 interlaced) is the most it can need; 32 MiB is
+# about 1.7 times that. An image embedded in a notebook has no size limit, so its backstop stays
+# high; a figure of 4800 x 3600 RGBA (matplotlib figsize (16, 12) at 300 dpi) needs 69,123,600,
+# over twice the asset backstop. tests/test_check_recipe_assets.py pins both from below (those
+# images pass) and from above (a header just past each is refused).
+_MAX_INFLATED_ASSET = 32 * 1024 * 1024
 _MAX_INFLATED = 256 * 1024 * 1024
 
 
@@ -294,11 +305,14 @@ def inspect_png(data: bytes, *, embedded: bool = False) -> tuple[int, int]:
     if colour == 3 and not palette:
         raise ImageError("png-structure", "palette PNG without a PLTE chunk")
     expected = png_raw_length(size[0], size[1], colour, depth, interlace)
-    if expected > _MAX_INFLATED:
+    limit = _MAX_INFLATED if embedded else _MAX_INFLATED_ASSET
+    if expected > limit:
+        # In an assets/ file this means a side past MAX_SIDE (the smallest square header refused
+        # is 2048 x 2048, RGBA 16-bit), so it is the dimensions rule.
         raise ImageError(
-            "png-structure",
+            "png-structure" if embedded else "dimensions",
             f"the image header implies {expected:,} bytes of pixel data; the most inflated is "
-            f"{_MAX_INFLATED:,}",
+            f"{limit:,}" + ("" if embedded else f" (each side must be {MIN_SIDE} to {MAX_SIDE})"),
         )
     inflater = zlib.decompressobj()
     try:
