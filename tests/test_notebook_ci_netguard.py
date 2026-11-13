@@ -5,6 +5,7 @@ is sent, and the one test that needs a reachable address uses loopback.
 """
 
 import importlib.util
+import inspect
 import json
 import os
 import subprocess
@@ -61,10 +62,19 @@ def test_guard_is_loaded_by_pythonpath_alone():
     assert result.stdout.strip() == "sitecustomize"
 
 
+# A refused attempt must come back long before the attempt's own timeout: that is what tells a
+# refusal by the guard from a connection that was tried and timed out. The margin is wide on
+# purpose (#328): a fixed 3 s limit under a 5 s timeout failed once on a loaded Windows machine.
+# With a 30 s timeout and a 15 s limit, a refusal delayed by load has 15 s of room, and an
+# attempt that really ran to its timeout still fails the limit by 15 s.
+ATTEMPT_TIMEOUT = 30
+REFUSAL_LIMIT = ATTEMPT_TIMEOUT / 2
+
+
 @pytest.mark.parametrize(
     "attempt",
     [
-        "socket.create_connection(('192.0.2.1', 80), timeout=5)",
+        f"socket.create_connection(('192.0.2.1', 80), timeout={ATTEMPT_TIMEOUT})",
         "socket.socket().connect(('192.0.2.1', 80))",
         "socket.socket().connect_ex(('192.0.2.1', 80))",
         "socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(b'x', ('192.0.2.1', 53))",
@@ -74,8 +84,8 @@ def test_guard_is_loaded_by_pythonpath_alone():
         "socket.gethostbyname('api.typesafe.ai')",
         "socket.gethostbyname_ex('api.typesafe.ai')",
         "socket.gethostbyaddr('192.0.2.1')",
-        "urllib.request.urlopen('https://api.typesafe.ai/', timeout=5)",
-        "urllib.request.urlopen('http://192.0.2.1/', timeout=5)",
+        f"urllib.request.urlopen('https://api.typesafe.ai/', timeout={ATTEMPT_TIMEOUT})",
+        f"urllib.request.urlopen('http://192.0.2.1/', timeout={ATTEMPT_TIMEOUT})",
     ],
 )
 def test_outbound_attempts_fail_at_once_with_a_clear_error(attempt):
@@ -96,7 +106,16 @@ def test_outbound_attempts_fail_at_once_with_a_clear_error(attempt):
     assert first.startswith("blocked"), result.stdout
     # urllib wraps the OSError in a URLError, whose text names the guard; the others raise it.
     assert first.endswith("True"), result.stdout
-    assert float(second.split()[1]) < 3, "the refusal must be immediate, not a timeout"
+    seconds = float(second.split()[1])
+    assert seconds < REFUSAL_LIMIT, f"the refusal must be immediate, not a timeout ({seconds} s)"
+
+
+def test_the_refusal_limit_is_below_every_attempt_timeout_and_the_subprocess_timeout():
+    # a timed-out attempt (ATTEMPT_TIMEOUT) must fail the limit, and must finish (and print its
+    # time) before run_python's own subprocess timeout kills it
+    assert REFUSAL_LIMIT < ATTEMPT_TIMEOUT < 60
+    source = inspect.getsource(test_outbound_attempts_fail_at_once_with_a_clear_error)
+    assert "REFUSAL_LIMIT" in source
 
 
 def test_loopback_and_unix_sockets_still_work():
