@@ -22,13 +22,13 @@ The arithmetic, for a run that has nothing wrong with its notebook (seconds):
 The job running the suite (``.github/workflows/ci.yml``, ``test``) is killed at its
 ``timeout-minutes`` (20, 1200 s). ``SUITE_SECONDS`` is the room reserved for everything else in
 that job, set from a measurement: on 16 green ``Tests`` jobs (both Python versions, 8 runs of
-``main``, 2026-10-31 to 2026-11-07), the whole job, set-up and install included, took 282 to 408 s. The reserve is
-that maximum plus about 18%, 480 s, so no guard here may exceed what is left, 720 s; the largest
-(525) leaves 195 s. When the suite grows past the reserve, raise ``SUITE_SECONDS`` from a new
-measurement and, if a guard then no longer fits, the job's ``timeout-minutes``: never shorten a
-guard below what the tool may legitimately take. ``test_every_hang_guard_fits_in_the_ci_test_job``
-in tests/test_new_recipe.py checks this against the file, not a copy of the number, and its
-failure message (``fit_problem``) names both numbers.
+``main``, 2026-10-31 to 2026-11-07), the whole job, set-up and install included, took
+282 to 408 s. The reserve is that maximum plus about 18%, 480 s, so no guard here may exceed what
+is left, 720 s; the largest (525) leaves 195 s. When the suite grows past the reserve, raise
+``SUITE_SECONDS`` from a new measurement and, if a guard then no longer fits, the job's
+``timeout-minutes``: never shorten a guard below what the tool may legitimately take.
+``test_every_hang_guard_fits_in_the_ci_test_job`` in tests/test_new_recipe.py checks this against
+the file, not a copy of the number, and its failure message (``fit_problem``) names both numbers.
 
 This is a plain module (not a test file), loaded by path like the other helpers in tests/.
 """
