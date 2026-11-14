@@ -1,6 +1,6 @@
 """Tests for recipe 45's helpers. They load the helpers by file path.
 
-The acceptance criterion this file exists to satisfy is narrower than "the store works" --
+What this file exists to show is narrower than "the store works" --
 ``jev_cookbook.simulation.Store`` already has its own tests in ``tests/test_simulation.py``, and
 a test that only re-proves "the store never deletes" would pass whether or not this recipe's
 *policy* (``helpers.reconcile``) is correct, because that property holds by construction of

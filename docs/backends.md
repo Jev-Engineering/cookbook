@@ -481,6 +481,13 @@ with `mode="live"`.
 
 ## Images and Box
 
+**Experimental.** Upstream labels images and Box "Dreamer-ready" on its
+[images](https://docs.typesafe.ai/images) and [Box](https://docs.typesafe.ai/primitives/box)
+pages (read on 2026-10-31): "Images and Box questions aren’t yet up to our standards to call ready
+for production", and, of those upstream pages, "The request format, the answers, and the limits on
+this page can change between releases, and accuracy will change as we update the models". This
+section describes what this repository does today; the local helpers are in [vision.md](vision.md).
+
 `assets` maps a stable reference string to the official raw image dictionary:
 `{"type": "image", "format": "png", "data_base64": ...}` (`jpg` and any letter case also work;
 the format is canonicalized to `png`/`jpeg` before the replay key is computed, so the same bytes
@@ -500,13 +507,17 @@ ref = image_reference(photo)
 assets = {ref: photo}
 state = {"screenshot": ref}
 questions = {
-    "present": Noul(instructions="The Save button is visible in `screenshot`."),
+    "visible": Noul(instructions="The Save button is visible in `screenshot`."),
     "button": Box(instructions="The Save button in `screenshot`."),
 }
 backend = get_backend(fixtures="fixtures/responses.json", model="jev-1.14.0", images=True)
 result = backend.decide(state, questions, assets=assets)
 result.boxes["button"].box
 ```
+
+The presence question is named `visible`, not `present`: a gold label whose top level has a
+`present` key is read as a Box label ([fixtures.md](fixtures.md#box-labels)), so a label that
+stores these answers by question name would not validate with a question called `present`.
 
 References remain strings in cookbook state and questions; the API substitutes images.
 They can occur inside longer strings and nested values in state, instructions or criteria.
