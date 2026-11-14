@@ -686,9 +686,11 @@ for p in grid:
     if gated.kind != ungated.kind:
         side = "p above one half" if p > 0.5 else "p at or below one half"
         changed[side].append(f"{ungated.kind} -> {gated.kind}")
-print(f"{len(grid)} grid probabilities, presence threshold {presence_threshold:.2f}{selection}")
+gate = f"presence threshold {presence_threshold:.2f}"
+print(f"{len(grid)} grid probabilities, {gate}{selection}{check}")
 for side, moves in changed.items():
-    print(f"  {side}: {len(moves)} outcomes change ({', '.join(sorted(set(moves))) or 'none'})")
+    kinds = ", ".join(sorted(set(moves))) or "none"
+    print(f"  {side}: {len(moves)} outcomes change ({kinds}){check}")
 """,
                 )
             )
