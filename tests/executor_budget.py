@@ -20,10 +20,15 @@ The arithmetic, for a run that has nothing wrong with its notebook (seconds):
     total             480-525
 
 The job running the suite (``.github/workflows/ci.yml``, ``test``) is killed at its
-``timeout-minutes`` (15, 900 s); the rest of the suite takes about 275 s on Python 3.14, so
-``SUITE_SECONDS`` reserves 300 of the 900 and no guard here may exceed what is left, 600 s; the
-largest (525) leaves 75 s. ``test_every_hang_guard_fits_in_the_ci_test_job`` in
-tests/test_new_recipe.py checks this against the file, not a copy of the number.
+``timeout-minutes`` (20, 1200 s). ``SUITE_SECONDS`` is the room reserved for everything else in
+that job, set from a measurement: on 16 green ``Tests`` jobs (both Python versions, 8 runs of
+``main``, 2026-10-31 to 2026-11-07), the whole job, set-up and install included, took
+282 to 408 s. The reserve is that maximum plus about 18%, 480 s, so no guard here may exceed what
+is left, 720 s; the largest (525) leaves 195 s. When the suite grows past the reserve, raise
+``SUITE_SECONDS`` from a new measurement and, if a guard then no longer fits, the job's
+``timeout-minutes``: never shorten a guard below what the tool may legitimately take.
+``test_every_hang_guard_fits_in_the_ci_test_job`` in tests/test_new_recipe.py checks this against
+the file, not a copy of the number, and its failure message (``fit_problem``) names both numbers.
 
 This is a plain module (not a test file), loaded by path like the other helpers in tests/.
 """
@@ -43,7 +48,7 @@ QUICK_START = "Kernel died before replying"
 WARM_UP_SECONDS = 30
 QUICK_START_SECONDS = 15
 SLACK_SECONDS = 30
-SUITE_SECONDS = 300
+SUITE_SECONDS = 480  # measured Tests job maximum 408 s, plus about 18%
 
 # What the notebooks the three users run need for their cells, on top of the start-up.
 NO_CELLS = 0  # tests/test_new_recipe.py: a dead kernel, a cell that loops for 3 seconds
@@ -76,6 +81,18 @@ def fits_in_the_ci_test_job(guard: int, job_seconds: int | None = None) -> bool:
     rest of the suite (``SUITE_SECONDS``) has run in the same job."""
     job = ci_test_job_seconds() if job_seconds is None else job_seconds
     return guard + SUITE_SECONDS <= job
+
+
+def fit_problem(user: str, guard: int, job_seconds: int | None = None) -> str:
+    """The failure message for a guard that does not fit, naming the numbers to update."""
+    job = ci_test_job_seconds() if job_seconds is None else job_seconds
+    return (
+        f"{user}: hang guard {guard} s + SUITE_SECONDS {SUITE_SECONDS} s = "
+        f"{guard + SUITE_SECONDS} s exceeds the CI {CI_TEST_JOB!r} job's timeout-minutes "
+        f"({job} s). Re-measure the Tests job duration and update SUITE_SECONDS in "
+        f"tests/executor_budget.py, or raise timeout-minutes in .github/workflows/ci.yml; do not "
+        f"shorten the guard below what tools/execute_notebook.py may legitimately take."
+    )
 
 
 def every_guard(executor) -> dict[str, int]:
