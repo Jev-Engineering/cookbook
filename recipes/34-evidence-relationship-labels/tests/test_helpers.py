@@ -36,6 +36,10 @@ def test_the_notebook_selects_the_gate_by_min_coverage_not_target_accuracy():
     source = "".join(cell["source"])
     assert "min_coverage=MIN_COVERAGE" in source
     assert "target_accuracy" not in source
+    # And that the cell's own MIN_COVERAGE is helpers' value rather than a literal: with only
+    # the two assertions above, rebinding the notebook's local MIN_COVERAGE to 0.90 while
+    # leaving the keyword spelling intact still passes.
+    assert "MIN_COVERAGE = helpers.MIN_COVERAGE" in source
     assert helpers.MIN_COVERAGE == pytest.approx(0.85)
 
 

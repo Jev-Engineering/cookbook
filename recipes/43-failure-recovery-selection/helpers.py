@@ -242,8 +242,8 @@ def enforce_recovery(
 def _new_budget() -> Budget:
     """A fresh ``Budget`` with both numeric limits and the episode's one stop condition: once a
     state says the episode is ``terminal`` (an escalation has already happened, chosen or
-    forced), ``budget.check(state)`` raises ``StopConditionMet`` -- the primitive this recipe's
-    build notes mean by "stop conditions", proven directly by
+    forced), ``budget.check(state)`` raises ``StopConditionMet`` -- the primitive that expresses
+    that stop condition, proven directly by
     ``test_episode_budget_stop_condition_fires_once_terminal`` in ``tests/test_helpers.py``."""
     return Budget(
         retries=MAX_RETRIES,
@@ -297,8 +297,8 @@ class RecoveryEpisode(Simulator):
     forced -- occurs: escalation always ends the episode, because it hands the remaining
     decision to a person, and ``_legal_actions`` returns no options once that has happened, so
     ``Simulator.step`` raises ``IllegalActionError`` for anything proposed afterwards. That is
-    the stop condition this recipe's build notes ask for, enforced by the base class itself
-    rather than by any caller remembering to check a flag.
+    the episode's one stop condition, enforced by the base class itself rather than by any
+    caller remembering to check a flag.
     """
 
     def __init__(self, seed: int = 0, task_id: str = "episode") -> None:

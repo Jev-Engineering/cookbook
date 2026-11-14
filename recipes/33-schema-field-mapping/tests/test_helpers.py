@@ -542,6 +542,28 @@ def test_the_frozen_threshold_objective_is_pinned():
     assert THRESHOLD == pytest.approx(0.7777777777777778)
 
 
+def test_both_threshold_objectives_select_the_same_gate_on_validation():
+    """`python-md` says that on THIS fixture set the alternative objective
+    (``target_accuracy=1.0``) selects the same gate as ``min_coverage=MIN_COVERAGE``, which is
+    why the preference between them is an argument about which floor to ask for rather than
+    about which cut it yields. That is a property of the committed answers, not of either
+    function, so a fixture edit could falsify the sentence silently; both cuts are recomputed
+    here from the committed responses and compared to each other, never to a literal."""
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    examples = load_inputs(RECIPE)
+    labels = load_labels(RECIPE)
+    validation = select_split(examples, "validation")
+    val_decisions = _decisions(backend, questions, validation)
+    val_correct = [val_decisions[e.id].choice == labels[e.id] for e in validation]
+    val_confidence = [val_decisions[e.id].confidence for e in validation]
+    by_coverage = select_confidence_threshold(
+        val_correct, val_confidence, min_coverage=MIN_COVERAGE
+    )
+    by_accuracy = select_confidence_threshold(val_correct, val_confidence, target_accuracy=1.0)
+    assert by_accuracy == by_coverage
+
+
 def test_stored_answers_are_not_all_right():
     """Re-derives the frozen threshold directly (the strong form: a wrong `test` answer must
     clear a gate re-computed here, not merely exist somewhere). A wrong-and-confident raw answer

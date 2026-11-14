@@ -238,10 +238,10 @@ def test_the_baseline_fit_on_committed_train_matches_trains_own_majority():
     assert (sum(train_targets), len(train_targets)) == (7, 16)
     baseline = helpers.fit_majority_baseline(train_targets)
     assert baseline.majority is False
-    # Not construction-perfect: the two classes are not tied and neither is unanimous, so the
-    # baseline's own accuracy on train itself is below 1.0: what would make this number come
-    # out differently is simply a different mix of train examples, which is worth naming beside
-    # a number that otherwise looks construction-perfect.
+    # The pinned pair above is also what carries "not construction-perfect": 7 escalate of 16
+    # means the two classes are neither tied nor unanimous, so the baseline's own accuracy on
+    # train is below 1.0. A different mix of train examples is all it would take to move that,
+    # which is worth naming beside a number that otherwise looks construction-perfect.
 
 
 # --------------------------------------------------------------------------- the classifier
@@ -249,6 +249,56 @@ def test_the_baseline_fit_on_committed_train_matches_trains_own_majority():
 
 def test_naive_bayes_uses_a_fixed_never_tuned_smoothing_constant():
     assert helpers.LAPLACE_ALPHA == 1.0
+
+
+# The nine candidate smoothing constants the `python-md` sweep sentence is about. The grid is
+# spelled here rather than only in prose, so the sentence has something that fails when it stops
+# being true of the committed fixtures.
+ALPHA_GRID = (0.1, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 5.0, 10.0)
+
+
+def test_the_frozen_smoothing_constant_was_not_picked_by_looking_at_test():
+    """`python-md` makes three claims about ``LAPLACE_ALPHA``, each a property of the committed
+    fixtures rather than of any function here, and so each silently falsifiable by a fixture
+    edit: that it is among the best of nine candidates on ``test``, that it is NOT uniquely best
+    there (larger constants tie it), and that the constants ``validation``'s own sweep favours
+    are different ones that score worse on ``test``. All three are recomputed from the committed
+    fixtures and asserted, rather than left to the sentence."""
+    assert len(ALPHA_GRID) == 9
+    assert helpers.LAPLACE_ALPHA in ALPHA_GRID
+    thresholds, _confidence_gate, _model, decide = _fit_from_fixtures()
+    examples = load_inputs(RECIPE)
+    labels = load_labels(RECIPE)
+
+    def rows(split):
+        split_examples = select_split(examples, split)
+        vectors = [
+            helpers.feature_vector(helpers.compose_features(decide(e), thresholds))
+            for e in split_examples
+        ]
+        return vectors, [labels[e.id]["escalate"] for e in split_examples]
+
+    train_vectors, train_targets = rows("train")
+    val_vectors, val_targets = rows("validation")
+    test_vectors, test_targets = rows("test")
+
+    def accuracy_at(alpha, vectors, targets):
+        model = helpers.fit_naive_bayes(train_vectors, train_targets, alpha=alpha)
+        predicted = [helpers.predict_naive_bayes(model, vector) for vector in vectors]
+        return sum(p == t for p, t in zip(predicted, targets, strict=True)) / len(targets)
+
+    on_test = {alpha: accuracy_at(alpha, test_vectors, test_targets) for alpha in ALPHA_GRID}
+    on_validation = {alpha: accuracy_at(alpha, val_vectors, val_targets) for alpha in ALPHA_GRID}
+    frozen = helpers.LAPLACE_ALPHA
+
+    assert on_test[frozen] == max(on_test.values())
+    tied_on_test = [a for a, value in on_test.items() if value == on_test[frozen]]
+    assert len(tied_on_test) > 1, tied_on_test  # best on test, but not uniquely so
+    favoured = [a for a, value in on_validation.items() if value == max(on_validation.values())]
+    assert len(favoured) == 2, favoured
+    assert frozen not in favoured, favoured
+    for alpha in favoured:
+        assert on_test[alpha] < on_test[frozen], (alpha, on_test)
 
 
 def test_naive_bayes_matches_a_hand_computed_posterior():
