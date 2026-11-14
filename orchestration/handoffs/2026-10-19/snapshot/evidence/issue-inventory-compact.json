@@ -1,0 +1,3028 @@
+{
+  "repository": "Jev-Engineering/cookbook",
+  "main_sha": "2dd687f858549ee8eeb9c98f83344814dfc7d0b6",
+  "recorded_at_utc": "2026-10-19T05:29:04.491881+00:00",
+  "coverage": {
+    "issues": 53,
+    "comment_threads": 53,
+    "comments_read": 67,
+    "native_dependency_and_subissue_pairs": 53,
+    "all_comment_counts_match": true,
+    "all_relationship_pages_exhausted": true,
+    "all_bodies_and_all_comments_read": true
+  },
+  "limitations": [
+    "Closed dependency state is not acceptance/approval proof.",
+    "Source-presence observations are partial reconnaissance, not code review or executed regression evidence.",
+    "Latest owner decisions on #80 and tracking issues are handled by the parent/other assigned evidence agent.",
+    "All assigned issue bodies and comments were inspected, including corrections that supersede opening premises.",
+    "Historical referenced PR metadata came from all-prs.json; comments/diffs/review authenticity of those PRs were not independently re-audited here."
+  ],
+  "queue_guidance": [
+    "First dispose of unproven #284 based on existing explicit decision and current source/tests, if confirmed by primary.",
+    "Prioritize safety/infrastructure: #218, #290, #243, #117/#287, #248, #272, plus safety/polarity issues in parent-assigned partition.",
+    "Coordinate shared guard surfaces: #276 precedes #282; #210 interface precedes #212; #222 overlaps #244/#208 but retains independent gaps.",
+    "Coordinate plotting #261/#265/#267/#288 and prose/guard #216/#257 without assuming same-title duplication.",
+    "Reconcile #240 partial prior implementation from #185; do not rebuild top_k_query_accuracy.",
+    "Complete advanced recipes #51/#52, run final #214/#252 backlink/consistency work and satisfy #78 before expert-wave dispatch.",
+    "Expert #53\u201359 have closed native prerequisites, but wave ordering remains; #59 unblocks #60.",
+    "Release #73 remains tracking/blocker stage after #78/#79, all foundation work and owner-approved tag gate."
+  ],
+  "common_runtime_blocker": "All implementation/review work requires truthful repository-assigned Sonnet and Opus models, unavailable in this runtime. Read-only triage/provenance reconnaissance remains permissible. Runtime block is not a technical issue dependency.",
+  "issues": [
+    {
+      "issue": 290,
+      "title": "Foundation: get_backend ignores fixtures= under live mode, so a deliberately-offline backend built through it would attempt a real API call",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/290",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P1 safety sequencing (repository P2)",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "size: S",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Document that fixtures/script are ignored in live mode; deliberately offline comparison lanes construct ReplayBackend directly. Keep public API unchanged and record rejection of a get_backend call-count heuristic.",
+      "dependencies": [],
+      "decision": "6186880183 resolves docs/API/guard choice; current get_backend docstring still lacks the deliberately-offline constructor guidance.",
+      "comments_inspected": 1,
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/290#issuecomment-6186880183"
+      ],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 289,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/289",
+          "state": "closed",
+          "merged_at": "2026-10-15T07:26:51Z",
+          "head_branch": "recipe/50-model-comparison-and-calibration",
+          "head_sha": "2b03069366dc48ad379030d5e6cd25408119bf45",
+          "merge_commit_sha": "6fe0008b4aed05ac2350d9ce819803de568edf99"
+        },
+        {
+          "number": 298,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/298",
+          "state": "closed",
+          "merged_at": "2026-10-15T22:59:43Z",
+          "head_branch": "foundation/request-accounting-audit",
+          "head_sha": "f8878a1d3255c4764cc4fa518d1c9de4faf6e731",
+          "merge_commit_sha": "68f7de69af42d4f561a338c8050fd65033c36d24"
+        }
+      ],
+      "source_presence": [
+        "src/jev_cookbook/backends.py:406",
+        "src/jev_cookbook/live.py:1088"
+      ],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Use the resolved docs-only decision to prepare a narrow Sonnet foundation change before the next multi-backend harness; do not claim zero spend from zero recordings."
+    },
+    {
+      "issue": 288,
+      "title": "Foundation: give style.py a rendering-assertions test module \u2014 #267, #278 and #286 are one defect in three faces",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/288",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "size: M",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Add rendered-artist assertions for overlap, label identity and axis vocabulary, with failing planted cases and confident Score regression; absorb the closed #286 legend defect without golden images.",
+      "dependencies": [],
+      "decision": "#278 is closed duplicate of #265; #286 is closed not_planned and its actual defect is retained by #288. Neither closure proves a fix. #265/#267 may proceed independently.",
+      "comments_inspected": 0,
+      "comment_urls": [],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 285,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/285",
+          "state": "closed",
+          "merged_at": "2026-10-14T21:47:01Z",
+          "head_branch": "recipe/49-multi-agent-task-assignment",
+          "head_sha": "0604fb3a8c724a35cc6c9825a1d5690ca9ac8e98",
+          "merge_commit_sha": "b4e39ce5beb45d1efcd5737bc02bedca90de6fc7"
+        }
+      ],
+      "source_presence": [
+        "src/jev_cookbook/style.py:623",
+        "src/jev_cookbook/style.py:701"
+      ],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Reconcile rendering invariants with legacy-output requirements on #265/#267, inventory current plotting callers, then implement independently reviewed rendering assertions and the owned #286 fix."
+    },
+    {
+      "issue": 287,
+      "title": "Foundation: Notebook (37-research-domain-tagging) fails ~1 run in 4 on 'cell 2 wrote to stderr', taking Notebooks (execute) with it on unrelated PRs",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/287",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P1 infrastructure diagnosis (repository P2)",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "size: M",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Identify exact stderr text/cause for intermittent recipe37 setup failure or record unsuccessful bounded reproduction; any narrow treatment must preserve unexpected stderr failure and update observed counts.",
+      "dependencies": [],
+      "decision": "Historical 3 pass/1 fail sample is not an estimated general failure probability; current defect/cause remains unproven.",
+      "comments_inspected": 0,
+      "comment_urls": [],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 281,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/281",
+          "state": "closed",
+          "merged_at": "2026-10-14T20:53:13Z",
+          "head_branch": "recipe/48-document-revision-consistency",
+          "head_sha": "374138efa91c7b2352d56bcd09ade0e7457386a4",
+          "merge_commit_sha": "2b0c67f1d6c359bd6387100b29f26ce3ccbdcffe"
+        }
+      ],
+      "source_presence": [],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Primary schedules bounded cold-environment reproduction and collects raw job stderr; no generic warning suppression or repeated blind rerun."
+    },
+    {
+      "issue": 284,
+      "title": "Foundation: an empty notebook matrix produces no per-recipe leg at all, so a missing clean-kernel execution is indistinguishable from a passing one",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/284",
+      "stage": "Ready",
+      "execution_status": "Triage disposition available",
+      "priority": "P1 triage disposition",
+      "labels": [
+        "type: foundation",
+        "priority: p1"
+      ],
+      "milestone": null,
+      "acceptance": "Reconcile the unproven empty-matrix claim with select(), intentional notebook deletion and conditional aggregate semantics; close the original defect claim if current evidence confirms the existing contract.",
+      "dependencies": [],
+      "decision": "6186880768 expressly preserves conditional matrix behavior and permits primary to close the unproven defect claim; no unconditional nonempty-matrix rule.",
+      "comments_inspected": 1,
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/284#issuecomment-6186880768"
+      ],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 281,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/281",
+          "state": "closed",
+          "merged_at": "2026-10-14T20:53:13Z",
+          "head_branch": "recipe/48-document-revision-consistency",
+          "head_sha": "374138efa91c7b2352d56bcd09ade0e7457386a4",
+          "merge_commit_sha": "2b0c67f1d6c359bd6387100b29f26ce3ccbdcffe"
+        }
+      ],
+      "source_presence": [],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Primary verifies the named selection tests/current workflow and records reasoned disposition; any defense-in-depth follow-up must compare expected recipe identities and exclude deletion."
+    },
+    {
+      "issue": 282,
+      "title": "Foundation: nothing requires a recipe's confidence gate to come from the shared helper, so a hardcoded gate SKIPS three checks instead of failing them",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/282",
+      "stage": "Blocked",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P3 after #276 (conflicting repository P2/P3 labels)",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "priority: p3",
+        "size: M",
+        "status: blocked"
+      ],
+      "milestone": null,
+      "acceptance": "Require applicable gated/selective recipes to use supported shared threshold selection; catch bare constants while legitimate gate-free cases pass. Preserve the three existing skip rules and accept wrappers.",
+      "dependencies": [
+        {
+          "issue": 276,
+          "state": "open",
+          "kind": "discussion prerequisite"
+        }
+      ],
+      "decision": "6195522157 explicitly says blocked by #276; native dependencies are empty, so this is discussion-backed.",
+      "comments_inspected": 1,
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/282#issuecomment-6195522157"
+      ],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 273,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/273",
+          "state": "closed",
+          "merged_at": "2026-10-14T16:55:25Z",
+          "head_branch": "foundation/objective-pin-guard",
+          "head_sha": "f099be14f232b3092f596624724502262d7cdc66",
+          "merge_commit_sha": "d99d369a84f2955656449d0024b549077162c65d"
+        },
+        {
+          "number": 280,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/280",
+          "state": "closed",
+          "merged_at": "2026-10-14T19:03:58Z",
+          "head_branch": "foundation/scripted-recipe-skips",
+          "head_sha": "7409241e5063fca71ed7ba014e500582fa0bef56",
+          "merge_commit_sha": "5af4ab56e1411606c459a7fb1be956c871979d65"
+        }
+      ],
+      "source_presence": [],
+      "nonruntime_blockers": [
+        {
+          "kind": "discussion prerequisite",
+          "issue": 276,
+          "url": "https://github.com/Jev-Engineering/cookbook/issues/276",
+          "detail": "Await discussion prerequisite #276 and verify its delivery requirements."
+        }
+      ],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "After #276 lands, settle recipe31 wrapper and recipe35 diagnostic-gate applicability and implement positive requirement with a published-recipe mutation."
+    },
+    {
+      "issue": 274,
+      "title": "Foundation: sum() over floats is not bit-stable across CPython 3.12, so a byte-exact fixture assertion can pass on one Tests leg and fail the other",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/274",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "size: S",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Document deterministic fixture arithmetic across supported interpreters; decide migration of exposed float sum/power callers; an optional guard must use AST and distinguish integer operations and strings.",
+      "dependencies": [],
+      "decision": null,
+      "comments_inspected": 0,
+      "comment_urls": [],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 271,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/271",
+          "state": "closed",
+          "merged_at": "2026-10-14T16:13:15Z",
+          "head_branch": "recipe/46-semantic-context-paging",
+          "head_sha": "a73bfb1e9d17d8a0c00f93f942b63686c8da3f29",
+          "merge_commit_sha": "28100f907598653c2e3a413f8d54315579df7d02"
+        }
+      ],
+      "source_presence": [],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Re-measure current fixture arithmetic, record migrate-or-defer decision, and implement targeted guidance/regressions without weakening byte-exact fixtures."
+    },
+    {
+      "issue": 272,
+      "title": "Foundation: _find_function_body does not stop at a decorator, so a decorated neighbour makes the strong-form guard fail with an unrelated SyntaxError",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/272",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P1 developer infrastructure (repository P2)",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "size: S",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Fix strong-form body extraction including decorated neighboring functions and nested-decorator negative case; reassess current source and affected callers.",
+      "dependencies": [],
+      "decision": null,
+      "comments_inspected": 1,
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/272#issuecomment-6174144946"
+      ],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 271,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/271",
+          "state": "closed",
+          "merged_at": "2026-10-14T16:13:15Z",
+          "head_branch": "recipe/46-semantic-context-paging",
+          "head_sha": "a73bfb1e9d17d8a0c00f93f942b63686c8da3f29",
+          "merge_commit_sha": "28100f907598653c2e3a413f8d54315579df7d02"
+        },
+        {
+          "number": 277,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/277",
+          "state": "closed",
+          "merged_at": "2026-10-14T18:08:05Z",
+          "head_branch": "recipe/47-evidence-conflict-diagnosis",
+          "head_sha": "1b180b47ac007cc83b41e6121b15189905f84a39",
+          "merge_commit_sha": "0d1ee8bdf3781c88cd49df1f06c22ef5c9879c4d"
+        }
+      ],
+      "source_presence": [
+        "tests/test_recipe_guard.py:482"
+      ],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Prepare focused foundation fix/test, preserving the audited function's nested code; report test-file-layout workarounds in recipe46/47."
+    },
+    {
+      "issue": 270,
+      "title": "Foundation: FLOAT_FORMAT misses aligned format specs, so metric-line guards silently skip an aligned baselines table",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/270",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "size: S",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Handle aligned/width-bearing float formats in metric guards; mutation-test both metric trigger and format trigger, including min_coverage negative controls.",
+      "dependencies": [],
+      "decision": null,
+      "comments_inspected": 1,
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/270#issuecomment-6170220214"
+      ],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 269,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/269",
+          "state": "closed",
+          "merged_at": "2026-10-14T14:03:59Z",
+          "head_branch": "foundation/sweep-level4-prose",
+          "head_sha": "763f53353ee7626a3b236b43923d52675dc1345e",
+          "merge_commit_sha": "24676686cf3d36f5b41187edc013c40e27f9591b"
+        }
+      ],
+      "source_presence": [
+        "tests/test_recipe_guard.py:661"
+      ],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Inventory currently uninspected printed metric lines and implement format handling plus meaningful negative tests; do not silently widen unrelated metric semantics."
+    },
+    {
+      "issue": 267,
+      "title": "Foundation: plot_risk_coverage joins points in input order with no sorting and no points-only mode, so a mechanism-vs-baselines figure draws a zig-zag implying a frontier",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/267",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2 correctness sequencing (repository P3)",
+      "labels": [
+        "type: foundation",
+        "priority: p3",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Add explicit points-only plotting while preserving existing default order/connected behavior and legacy output; audit discrete-policy callers 41/44 and demonstrate rendered coordinates without connecting line.",
+      "dependencies": [],
+      "decision": "6186573312 resolves against default sorting; historical count30 is not current.",
+      "comments_inspected": 2,
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/267#issuecomment-6168646404",
+        "https://github.com/Jev-Engineering/cookbook/issues/267#issuecomment-6186573312"
+      ],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 266,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/266",
+          "state": "closed",
+          "merged_at": "2026-10-14T13:19:09Z",
+          "head_branch": "recipe/44-plan-constraint-assessment",
+          "head_sha": "a621e09b21bb402a6699d2d05f3f6bf7ffb0b3c1",
+          "merge_commit_sha": "aca7f3240b09bd6f2d3d78857aeba255a348ec6d"
+        }
+      ],
+      "source_presence": [
+        "src/jev_cookbook/style.py:776"
+      ],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Implement connect=False or equally clear mode, audit current callers and use reviewed migrations only where needed."
+    },
+    {
+      "issue": 265,
+      "title": "Foundation: plot_confusion_matrix truncates tick labels to 14 chars with no collision check \u2014 two labels sharing 11 characters would render as the same tick",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/265",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P3",
+      "labels": [
+        "type: foundation",
+        "priority: p3",
+        "size: S",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Prevent 11-character-prefix label collisions while preserving existing rendered callers; record truncation presentation decision and prove distinct rendered ticks.",
+      "dependencies": [],
+      "decision": "6195522671 identifies closed #278 as duplicate and carries its recipe47 evidence here.",
+      "comments_inspected": 1,
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/265#issuecomment-6195522671"
+      ],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 263,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/263",
+          "state": "closed",
+          "merged_at": "2026-10-14T11:31:34Z",
+          "head_branch": "recipe/43-failure-recovery-selection",
+          "head_sha": "52f2c97d0416653cda88a0eff4904311713617aa",
+          "merge_commit_sha": "86d4c112f826edaf7a2ae9a3c300adf44b1db76b"
+        }
+      ],
+      "source_presence": [
+        "src/jev_cookbook/style.py:623"
+      ],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Recount current call sites, implement collision-safe labeling and behavioral/rendered tests; coordinate #288's stronger label-identity proposal."
+    },
+    {
+      "issue": 264,
+      "title": "Foundation: full-suite totals differ by ~60 tests depending on the optional live extra, and a module-level importorskip hides it behind one SKIPPED line",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/264",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P3",
+      "labels": [
+        "type: foundation",
+        "priority: p3",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Make optional live-extra coverage explicit in plain pytest results; decide module-level importorskip behavior and report both install profiles with measured current totals.",
+      "dependencies": [],
+      "decision": null,
+      "comments_inspected": 0,
+      "comment_urls": [],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 260,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/260",
+          "state": "closed",
+          "merged_at": "2026-10-14T10:48:09Z",
+          "head_branch": "recipe/42-outbound-disclosure-screening",
+          "head_sha": "89bbc39d165a601b407807d9ce20cfe8447d97c2",
+          "merge_commit_sha": "3ce859fd2f208bcf01b4688728d633a82d4119a1"
+        }
+      ],
+      "source_presence": [],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Implement honest collection/summary reporting and docs, then primary runs supported suites with/without optional SDK dependencies under bounded resource controls."
+    },
+    {
+      "issue": 261,
+      "title": "Foundation: plot_confusion_matrix takes one label list for both axes and hardcodes Gold/Predicted, so a gold-content-versus-action matrix cannot be labelled correctly",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/261",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "size: S",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Support separate row/column vocabularies and axis titles in confusion plots, preserving default callers; explicitly decide data-type changes and assert rendered axis text.",
+      "dependencies": [],
+      "decision": null,
+      "comments_inspected": 0,
+      "comment_urls": [],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 260,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/260",
+          "state": "closed",
+          "merged_at": "2026-10-14T10:48:09Z",
+          "head_branch": "recipe/42-outbound-disclosure-screening",
+          "head_sha": "89bbc39d165a601b407807d9ce20cfe8447d97c2",
+          "merge_commit_sha": "3ce859fd2f208bcf01b4688728d633a82d4119a1"
+        }
+      ],
+      "source_presence": [
+        "src/jev_cookbook/style.py:586"
+      ],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Choose minimally compatible plotter API, test distinct vocabularies, and rerender current published callers; coordinate overlapping style work."
+    },
+    {
+      "issue": 259,
+      "title": "Foundation: a Next-steps exercise's quoted numbers are structurally unpinnable, and four recipes have shipped one wrong",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/259",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Make counterfactual Next steps exercises consequential and their quoted outcomes verifiable; decide whether to print, test-pin or omit exact outcome numbers; audit all exercises.",
+      "dependencies": [],
+      "decision": null,
+      "comments_inspected": 0,
+      "comment_urls": [],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 254,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/254",
+          "state": "closed",
+          "merged_at": "2026-10-14T08:32:49Z",
+          "head_branch": "recipe/41-approval-scope-review",
+          "head_sha": "b665b2fd3e020a412ad4715bad1ad7583c422ab5",
+          "merge_commit_sha": "0ee89d80cd10b4d112ccd694051301a648aed434"
+        }
+      ],
+      "source_presence": [],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Resolve convention using ordinary engineering judgment, document relation to #245, and measure wrong-direction/inert exercise cases before guarded implementation."
+    },
+    {
+      "issue": 258,
+      "title": "Foundation: no convention for a recipe whose coverage is mostly deterministic, where the metric describes the Python guard rather than the decision",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/258",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Define reporting for deterministic branches dominating aggregate metrics, including decision-level contribution and structural baselines; document mechanical limits and recipe41 example.",
+      "dependencies": [],
+      "decision": null,
+      "comments_inspected": 0,
+      "comment_urls": [],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 254,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/254",
+          "state": "closed",
+          "merged_at": "2026-10-14T08:32:49Z",
+          "head_branch": "recipe/41-approval-scope-review",
+          "head_sha": "b665b2fd3e020a412ad4715bad1ad7583c422ab5",
+          "merge_commit_sha": "0ee89d80cd10b4d112ccd694051301a648aed434"
+        }
+      ],
+      "source_presence": [],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Record concrete reporting convention in builder/reviewer guidance and test any adopted enforceable part by mutation."
+    },
+    {
+      "issue": 257,
+      "title": "Foundation: docs/notebook-style.md mandates the em dash in prose; 32 of 40 published notebooks use ASCII ' -- ' and no check enforces either",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/257",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P3",
+      "labels": [
+        "type: foundation",
+        "priority: p3",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Retain em dash for rendered prose and ASCII double hyphen for code; perform context-aware corpus count then bounded repair, preserving code/fixtures/outputs/structure.",
+      "dependencies": [],
+      "decision": "6188692458 rejects relaxing/grandfathering the rule; historical raw counts are candidate inventory only.",
+      "comments_inspected": 1,
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/257#issuecomment-6188692458"
+      ],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 254,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/254",
+          "state": "closed",
+          "merged_at": "2026-10-14T08:32:49Z",
+          "head_branch": "recipe/41-approval-scope-review",
+          "head_sha": "b665b2fd3e020a412ad4715bad1ad7583c422ab5",
+          "merge_commit_sha": "0ee89d80cd10b4d112ccd694051301a648aed434"
+        },
+        {
+          "number": 295,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/295",
+          "state": "closed",
+          "merged_at": "2026-10-15T09:09:18Z",
+          "head_branch": "foundation/sweep-44-45-prose",
+          "head_sha": "e856b4f55fd994078c3df02a82a2c88723fdf108",
+          "merge_commit_sha": "9ef24c916ed9f50c9f5537a25c6a71c57566ed58"
+        }
+      ],
+      "source_presence": [],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Use settled context exclusions, record per-file/cell candidates and adjudicate ambiguous cases before sweep; coordinate shared dash guard with #216."
+    },
+    {
+      "issue": 256,
+      "title": "Foundation: no check requires a recipe to have any figure, so a figureless notebook satisfies both plot guards by vacuity",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/256",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Require at least one committed figure in published recipes, or a named reviewed exception; prove figure-removal failure and describe relation to otherwise vacuous plotting checks.",
+      "dependencies": [],
+      "decision": null,
+      "comments_inspected": 0,
+      "comment_urls": [],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 254,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/254",
+          "state": "closed",
+          "merged_at": "2026-10-14T08:32:49Z",
+          "head_branch": "recipe/41-approval-scope-review",
+          "head_sha": "b665b2fd3e020a412ad4715bad1ad7583c422ab5",
+          "merge_commit_sha": "0ee89d80cd10b4d112ccd694051301a648aed434"
+        }
+      ],
+      "source_presence": [],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Decide hard-fail versus named exemption, inventory current figures and add precise guard with mutation, coordinating per-cell guard #232."
+    },
+    {
+      "issue": 255,
+      "title": "Foundation: no check notices a number written as a WORD in recipe prose, which is how the one false count in a thrice-reviewed recipe survived",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/255",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P3",
+      "labels": [
+        "type: foundation",
+        "priority: p3",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Decide number-word lint value versus explicit review limitation; quantity claims require property tests regardless of spelling. If lint chosen, measure false positives and original recipe40 mutation.",
+      "dependencies": [],
+      "decision": null,
+      "comments_inspected": 0,
+      "comment_urls": [],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 253,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/253",
+          "state": "closed",
+          "merged_at": "2026-10-14T07:25:49Z",
+          "head_branch": "recipe/40-hierarchical-classification",
+          "head_sha": "25fda80cfef6c76012eb9552d812252efe51b00b",
+          "merge_commit_sha": "06cc0d767584567bf9e5de741307ba93eb74ccba"
+        }
+      ],
+      "source_presence": [],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Record a reasoned lint/no-lint choice and put the limitation beside numeral-sweep guidance; do not infer semantic quantity truth from word matching."
+    },
+    {
+      "issue": 252,
+      "title": "Foundation: the inbound-link audit accepts a link in ANY markdown cell, while the rule it implements is about the Next steps section",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/252",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Align inbound audit to visible Next steps section or explicitly reconcile rule; current proposal prefers heading-based section extraction with mid-notebook negative mutation.",
+      "dependencies": [],
+      "decision": null,
+      "comments_inspected": 0,
+      "comment_urls": [],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 251,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/251",
+          "state": "closed",
+          "merged_at": "2026-10-14T00:50:24Z",
+          "head_branch": "sweep/wave3-inbound-links",
+          "head_sha": "558a6cac6f650de0b2039ca054a9b474adc705b9",
+          "merge_commit_sha": "5e46758f85325f4b229cd0461fde49a3a1dd8513"
+        }
+      ],
+      "source_presence": [
+        "tests/test_recipe_guard.py:1068"
+      ],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Audit current cohort under section-specific rule, record delta and align docstring/contract before implementing; keep #214 cadence distinct."
+    },
+    {
+      "issue": 250,
+      "title": "Foundation: recipes cite their own cell ids in reader-facing prose, and a cell id is invisible in the rendered notebook",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/250",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Find reader-facing references to hyphenated cell IDs in markdown/README, rewrite to visible heading/output descriptions, add positive/negative guard and clarify contract.",
+      "dependencies": [],
+      "decision": "6156946180 settles distinguishable/hyphenated ID detection; historical9 across5 is not current inventory.",
+      "comments_inspected": 3,
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/250#issuecomment-6156946180",
+        "https://github.com/Jev-Engineering/cookbook/issues/250#issuecomment-6157446708",
+        "https://github.com/Jev-Engineering/cookbook/issues/250#issuecomment-6157990668"
+      ],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 242,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/242",
+          "state": "closed",
+          "merged_at": "2026-10-13T23:31:09Z",
+          "head_branch": "recipe/39-document-extraction-cascade",
+          "head_sha": "57a13679157f53ad38c3e123cd4461f55362dc36",
+          "merge_commit_sha": "5caf98fb68b485e45e2f48b2f0fc4ce76bfc610c"
+        }
+      ],
+      "source_presence": [],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Recount under settled hyphenated-ID criterion on current main; preserve test/code ID lookups and ordinary words such as state."
+    },
+    {
+      "issue": 248,
+      "title": "Foundation: notebook discovery re-executes an unrelated published recipe when pull_request.base.sha goes stale",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/248",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P1 infrastructure efficiency (repository P2)",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Use correct current merge-ref base for notebook discovery so intervening recipe or src changes do not spuriously widen matrix; retain genuine change execution and reproducible merge-tree tests.",
+      "dependencies": [],
+      "decision": null,
+      "comments_inspected": 2,
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/248#issuecomment-6156040593",
+        "https://github.com/Jev-Engineering/cookbook/issues/248#issuecomment-6156420825"
+      ],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 236,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/236",
+          "state": "closed",
+          "merged_at": "2026-10-13T20:07:12Z",
+          "head_branch": "recipe/37-research-domain-tagging",
+          "head_sha": "03a184ec0709b62fafbc111215aeaa4ed8ef66fd",
+          "merge_commit_sha": "d23a7f68611eb8981c7d8ce24cfadfb5d484366a"
+        },
+        {
+          "number": 241,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/241",
+          "state": "closed",
+          "merged_at": "2026-10-13T21:45:11Z",
+          "head_branch": "recipe/38-abstention-and-review-queues",
+          "head_sha": "f27474816e017899a8626d056e6a6f2c5dd3c2bc",
+          "merge_commit_sha": "0c1f2bfdd2d5a37f289bd906d9e141f2ffb5b25b"
+        },
+        {
+          "number": 242,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/242",
+          "state": "closed",
+          "merged_at": "2026-10-13T23:31:09Z",
+          "head_branch": "recipe/39-document-extraction-cascade",
+          "head_sha": "57a13679157f53ad38c3e123cd4461f55362dc36",
+          "merge_commit_sha": "5caf98fb68b485e45e2f48b2f0fc4ce76bfc610c"
+        }
+      ],
+      "source_presence": [],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Reproduce stale-base merge-ref selection including intervening src change, then prepare targeted workflow/tool change with retained fail-closed fallbacks."
+    },
+    {
+      "issue": 243,
+      "title": "Foundation: check_hygiene rejects ordinary keyword arguments whose constant name contains a letter-digit run (STAGE1, SHA256)",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/243",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P1 safety tooling (repository P2)",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Allow genuine Python identifier keyword assignments containing STAGE1/SHA256 while preserving detection of real high-entropy literals; include all probes and corpus rescan.",
+      "dependencies": [],
+      "decision": null,
+      "comments_inspected": 0,
+      "comment_urls": [],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [],
+      "source_presence": [],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Implement narrowly justified scanner parsing/exemption after reproducing probes; explicitly prove planted literal secret still fails."
+    },
+    {
+      "issue": 240,
+      "title": "Foundation: no top-k ranking-accuracy helper in jev_cookbook.evaluation (recipe 17 documents the gap in three committed files)",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/240",
+      "stage": "Remediation",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Reconcile obsolete no-helper premise: top_k_query_accuracy, docs and divergence tests already exist from #185. Remaining work is recipe17 migration-or-retention decision/stale prose, recall_at_budget caveats and caller audit.",
+      "dependencies": [],
+      "decision": "Source discovery establishes partial prior implementation, not complete acceptance or qualifying review verification.",
+      "comments_inspected": 0,
+      "comment_urls": [],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 185,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/185",
+          "state": "closed",
+          "merged_at": "2026-10-09T14:17:15Z",
+          "head_branch": "foundation/evaluation-helpers-161",
+          "head_sha": "a40d761903a27b80bb421457547fa155817a101d",
+          "merge_commit_sha": "9c4f51a139597bfb8486f7cc0bb08cd7473f63c8"
+        }
+      ],
+      "source_presence": [
+        "src/jev_cookbook/evaluation.py:1310",
+        "tests/test_evaluation.py:710",
+        "docs/evaluation.md:235",
+        "recipes/17-passage-reranking/helpers.py:198",
+        "recipes/17-passage-reranking/notebook.ipynb:644"
+      ],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Do not add duplicate helper. Audit remaining acceptance against #185/#163, then prepare bounded remaining docs/migration changes with compatibility handling for local raises versus shared NaN semantics."
+    },
+    {
+      "issue": 239,
+      "title": "Foundation: DecisionResult has __getitem__ but no __contains__, so 'name in result' raises KeyError(0) via the legacy sequence protocol",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/239",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "size: S",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Give DecisionResult membership behavior consistent with name-keyed lookup, preserving access compatibility; test present/absent membership and prevent legacy KeyError(0).",
+      "dependencies": [],
+      "decision": null,
+      "comments_inspected": 0,
+      "comment_urls": [],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [],
+      "source_presence": [
+        "src/jev_cookbook/answers.py"
+      ],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Prepare small shared-interface fix with downstream audit and focused regression; deliberate iteration/keys design if included."
+    },
+    {
+      "issue": 238,
+      "title": "Foundation: docs invite the [ml] extra for recipes that train a baseline, but the Tests jobs never install it and they import helpers.py",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/238",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "size: M",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Reconcile optional ml dependency availability between notebook jobs and Tests; document and enforce chosen import boundary or install profile without masking import failures.",
+      "dependencies": [],
+      "decision": null,
+      "comments_inspected": 0,
+      "comment_urls": [],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 237,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/237",
+          "state": "closed",
+          "merged_at": "2026-10-13T19:34:51Z",
+          "head_branch": "recipe/35-semantic-feature-extraction",
+          "head_sha": "ea4a585bc8f6b256095720ac598f3c09ec84f83f",
+          "merge_commit_sha": "0ad22602e5064cb9c10cf494c2b2bb6129e4ac19"
+        }
+      ],
+      "source_presence": [],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Check current workflow extras and recipe imports, choose documented minimal boundary with appropriate guard, and validate SDK/ML job profiles."
+    },
+    {
+      "issue": 234,
+      "title": "Foundation: the validation-metric-line guard keys on formatting idioms, not the printed value (one false negative, two safe false positives)",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/234",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P3",
+      "labels": [
+        "type: foundation",
+        "priority: p3",
+        "size: M",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Trace hoisted formatted metric values into print calls; keep deliberately rejected concatenated suffix style and avoid treating fixture-composition statistics/demo answers as performance metrics.",
+      "dependencies": [],
+      "decision": "6111938241 preserves safe concatenation rejection; 6153131868 identifies legitimate unlabelled fixture-composition negative case.",
+      "comments_inspected": 2,
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/234#issuecomment-6111938241",
+        "https://github.com/Jev-Engineering/cookbook/issues/234#issuecomment-6153131868"
+      ],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 226,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/226",
+          "state": "closed",
+          "merged_at": "2026-10-11T18:49:15Z",
+          "head_branch": "recipe/28-skill-selection",
+          "head_sha": "a44c63f62e15d5f912f37d242cadfcdf1c0afa12",
+          "merge_commit_sha": "14fb29e87b55ef7851685bc4f039cbda559a5831"
+        }
+      ],
+      "source_presence": [],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Re-measure hidden formatted lines then implement binding-aware trigger and positive/negative cases, coordinating #270."
+    },
+    {
+      "issue": 233,
+      "title": "Foundation: the template tells readers every number carries the run mode, which is false for demo answer and per-example lines (32 notebooks)",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/233",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "size: S",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Change copied setup claim from every number carries mode to every reported metric; update template and exact current cohort without code/output drift.",
+      "dependencies": [],
+      "decision": null,
+      "comments_inspected": 0,
+      "comment_urls": [],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 226,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/226",
+          "state": "closed",
+          "merged_at": "2026-10-11T18:49:15Z",
+          "head_branch": "recipe/28-skill-selection",
+          "head_sha": "a44c63f62e15d5f912f37d242cadfcdf1c0afa12",
+          "merge_commit_sha": "14fb29e87b55ef7851685bc4f039cbda559a5831"
+        }
+      ],
+      "source_presence": [
+        "recipes/_template/notebook.ipynb:33"
+      ],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Enumerate exact boilerplate then bounded markdown-only foundation sweep with source/output invariance evidence."
+    },
+    {
+      "issue": 232,
+      "title": "Foundation: a committed figure can vanish with every check green, and print_what_you_plot encourages the edit that does it",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/232",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "size: S",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Require each plotting cell to commit image/* output, including answer plots; document prints-before-plot/cell-result behavior and preserve freshness's separate role.",
+      "dependencies": [],
+      "decision": "6111882777 selects image/* property rather than PNG-only and static signal first.",
+      "comments_inspected": 2,
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/232#issuecomment-6111673290",
+        "https://github.com/Jev-Engineering/cookbook/issues/232#issuecomment-6111882777"
+      ],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 230,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/230",
+          "state": "closed",
+          "merged_at": "2026-10-11T18:10:54Z",
+          "head_branch": "recipe/32-regression-test-selection",
+          "head_sha": "50398ed18638d3e3db787d248d594538b11dd251",
+          "merge_commit_sha": "2e5ac443140f99ac56e79eb4e8012773edac150a"
+        }
+      ],
+      "source_presence": [],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Implement static per-cell image presence and trailing-print mutation first; audit current plotting cells, then separately consider counted freshness evidence."
+    },
+    {
+      "issue": 231,
+      "title": "Foundation: recall_at_budget credits ineligible candidates, so a gated rule's task-level recall can be a number the rule never produces",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/231",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "size: M",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Make eligibility explicit in recall-at-budget usage or API, preserve correct denominator/tie semantics, and require task metrics to agree with composed policy; audit gated callers.",
+      "dependencies": [],
+      "decision": null,
+      "comments_inspected": 2,
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/231#issuecomment-6110866902",
+        "https://github.com/Jev-Engineering/cookbook/issues/231#issuecomment-6153224315"
+      ],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 230,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/230",
+          "state": "closed",
+          "merged_at": "2026-10-11T18:10:54Z",
+          "head_branch": "recipe/32-regression-test-selection",
+          "head_sha": "50398ed18638d3e3db787d248d594538b11dd251",
+          "merge_commit_sha": "2e5ac443140f99ac56e79eb4e8012773edac150a"
+        }
+      ],
+      "source_presence": [],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Reproduce eligible tie/zero-eligible cases, decide compatible API and exact-selection versus tie-expectation semantics, document both metric traps and audit current callers."
+    },
+    {
+      "issue": 228,
+      "title": "Foundation: some recipes' test split is a near-duplicate of validation, so the held-out set is not held out",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/228",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2 diagnostic audit",
+      "labels": [
+        "type: foundation"
+      ],
+      "milestone": null,
+      "acceptance": "Reconcile withdrawn overlap/leakage premise to bounded threshold-sensitivity and disclosure audit on validation data; preserve untouched-test rules and avoid arbitrary invariance cutoff.",
+      "dependencies": [],
+      "decision": "6186574415 permits bounded audit and retires overlap ceiling; finite constant intervals alone are not defects.",
+      "comments_inspected": 8,
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/228#issuecomment-6110440032",
+        "https://github.com/Jev-Engineering/cookbook/issues/228#issuecomment-6110548600",
+        "https://github.com/Jev-Engineering/cookbook/issues/228#issuecomment-6110668127",
+        "https://github.com/Jev-Engineering/cookbook/issues/228#issuecomment-6110677319",
+        "https://github.com/Jev-Engineering/cookbook/issues/228#issuecomment-6110699189",
+        "https://github.com/Jev-Engineering/cookbook/issues/228#issuecomment-6110866751",
+        "https://github.com/Jev-Engineering/cookbook/issues/228#issuecomment-6111018380",
+        "https://github.com/Jev-Engineering/cookbook/issues/228#issuecomment-6186574415"
+      ],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 226,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/226",
+          "state": "closed",
+          "merged_at": "2026-10-11T18:49:15Z",
+          "head_branch": "recipe/28-skill-selection",
+          "head_sha": "a44c63f62e15d5f912f37d242cadfcdf1c0afa12",
+          "merge_commit_sha": "14fb29e87b55ef7851685bc4f039cbda559a5831"
+        },
+        {
+          "number": 229,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/229",
+          "state": "closed",
+          "merged_at": "2026-10-11T16:37:21Z",
+          "head_branch": "recipe/31-patch-risk-triage",
+          "head_sha": "91d87e610412698f74e721a08b223313d64346cd",
+          "merge_commit_sha": "38014c93c6064298a5c6992db785ccfcd21cc0eb"
+        },
+        {
+          "number": 230,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/230",
+          "state": "closed",
+          "merged_at": "2026-10-11T18:10:54Z",
+          "head_branch": "recipe/32-regression-test-selection",
+          "head_sha": "50398ed18638d3e3db787d248d594538b11dd251",
+          "merge_commit_sha": "2e5ac443140f99ac56e79eb4e8012773edac150a"
+        }
+      ],
+      "source_presence": [],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Primary may retitle/reconcile body preserving history, then inventory claimed sensitivity and measure actual validation outcome changes with limits before any reviewed contract proposal."
+    },
+    {
+      "issue": 227,
+      "title": "Foundation: the confidence-gate reason-string guard proves a string is present, not that a live review branch produces it",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/227",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2",
+      "labels": [
+        "type: foundation"
+      ],
+      "milestone": null,
+      "acceptance": "Condition reason-string proof on real claimed confidence-gated review; trace actual reason flow and committed output, reject comments/literal-only print/dead path, allow explicit justified gate-free design.",
+      "dependencies": [],
+      "decision": "6186573902 is the latest controlling direction; earlier unconditional reachability proposals are superseded.",
+      "comments_inspected": 7,
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/227#issuecomment-6109586155",
+        "https://github.com/Jev-Engineering/cookbook/issues/227#issuecomment-6110167977",
+        "https://github.com/Jev-Engineering/cookbook/issues/227#issuecomment-6111160942",
+        "https://github.com/Jev-Engineering/cookbook/issues/227#issuecomment-6151425748",
+        "https://github.com/Jev-Engineering/cookbook/issues/227#issuecomment-6151952781",
+        "https://github.com/Jev-Engineering/cookbook/issues/227#issuecomment-6152899845",
+        "https://github.com/Jev-Engineering/cookbook/issues/227#issuecomment-6186573902"
+      ],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 226,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/226",
+          "state": "closed",
+          "merged_at": "2026-10-11T18:49:15Z",
+          "head_branch": "recipe/28-skill-selection",
+          "head_sha": "a44c63f62e15d5f912f37d242cadfcdf1c0afa12",
+          "merge_commit_sha": "14fb29e87b55ef7851685bc4f039cbda559a5831"
+        }
+      ],
+      "source_presence": [
+        "tests/test_recipe_guard.py:1181"
+      ],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Audit current cohort and implement conditional applicability plus removed-call/comment mutations; preserve recipe28's reviewed gate-free design and adjudicate unknown forms."
+    },
+    {
+      "issue": 225,
+      "title": "Foundation: the no_issue_citations guard is narrower than CONTRIBUTING section 6 (PR-description and house-rule citations pass)",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/225",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "size: M",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Broaden inaccessible-reference detection beyond two spellings; audit PR/brief/rule/finding/acceptance pointers while preserving real committed-path/heading references. Retain recipe34 remaining instance.",
+      "dependencies": [],
+      "decision": "6187617434 explicitly retains recipe34 acceptance-criterion pointer outside previous six-file sweep.",
+      "comments_inspected": 3,
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/225#issuecomment-6109262332",
+        "https://github.com/Jev-Engineering/cookbook/issues/225#issuecomment-6153163094",
+        "https://github.com/Jev-Engineering/cookbook/issues/225#issuecomment-6187617434"
+      ],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 223,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/223",
+          "state": "closed",
+          "merged_at": "2026-10-11T13:31:58Z",
+          "head_branch": "recipe/30-citation-verification",
+          "head_sha": "f9519d4f6a8c287d430b825104032b2979605e8e",
+          "merge_commit_sha": "4e828be977ae0b9043dc84d3a0b1c3b0553f2c6b"
+        },
+        {
+          "number": 224,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/224",
+          "state": "closed",
+          "merged_at": "2026-10-11T14:18:57Z",
+          "head_branch": "recipe/33-schema-field-mapping",
+          "head_sha": "54617665049238d5672df076901f7e78ac92f551",
+          "merge_commit_sha": "3747cea46ffccab55d45b5b55bfe1573462c7574"
+        },
+        {
+          "number": 236,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/236",
+          "state": "closed",
+          "merged_at": "2026-10-13T20:07:12Z",
+          "head_branch": "recipe/37-research-domain-tagging",
+          "head_sha": "03a184ec0709b62fafbc111215aeaa4ed8ef66fd",
+          "merge_commit_sha": "d23a7f68611eb8981c7d8ce24cfadfb5d484366a"
+        },
+        {
+          "number": 293,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/293",
+          "state": "closed",
+          "merged_at": "2026-10-15T08:21:34Z",
+          "head_branch": "foundation/sweep-prose-closeout",
+          "head_sha": "4a72ea69331f80ef54d86c3101c68ae27d199fdc",
+          "merge_commit_sha": "b4aa3ec7f4cf93c326aa9d72f57c7c07ea1999bd"
+        },
+        {
+          "number": 294,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/294",
+          "state": "closed",
+          "merged_at": "2026-10-15T08:45:28Z",
+          "head_branch": "foundation/sweep-build-note-citations",
+          "head_sha": "45d70cb0fdfdece489a80f0e14af9df1f870186d",
+          "merge_commit_sha": "a25f6038c9935006b004222f998b8583968c4c38"
+        }
+      ],
+      "source_presence": [],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Measure context-aware candidate set, reconcile prior sweeps' bounded coverage, then implement guard and separately bounded remediation without expanding closed PR scopes."
+    },
+    {
+      "issue": 222,
+      "title": "Foundation: four set-wide gaps from the recipe 25 review (queue attribution, threshold binding, forced-metric disclosure, baseline template line)",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/222",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2 scope reconciliation",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "size: M",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Four independently actionable gaps: truthful multi-label queue attribution; notebook/test threshold objective binding; forced-metric disclosure; conditional PR baseline line and level3 baseline policy.",
+      "dependencies": [],
+      "decision": "Later mechanism corrections say strong-form is hybrid text extraction/regex assignment/AST assertion; independent local re-derivation remains legitimate. Shared helper factoring should be allowed, not forced.",
+      "comments_inspected": 7,
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/222#issuecomment-6109262471",
+        "https://github.com/Jev-Engineering/cookbook/issues/222#issuecomment-6109610836",
+        "https://github.com/Jev-Engineering/cookbook/issues/222#issuecomment-6109756743",
+        "https://github.com/Jev-Engineering/cookbook/issues/222#issuecomment-6110668251",
+        "https://github.com/Jev-Engineering/cookbook/issues/222#issuecomment-6152793620",
+        "https://github.com/Jev-Engineering/cookbook/issues/222#issuecomment-6153154080",
+        "https://github.com/Jev-Engineering/cookbook/issues/222#issuecomment-6155548013"
+      ],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 219,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/219",
+          "state": "closed",
+          "merged_at": "2026-10-11T08:26:36Z",
+          "head_branch": "foundation/scaffolder-offline-n-215",
+          "head_sha": "1f46fb0220f54e5ce0dc1cb9ef3af637d45168fe",
+          "merge_commit_sha": "844f41fb594362579e013c0ddb76e81805c0ab38"
+        },
+        {
+          "number": 221,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/221",
+          "state": "closed",
+          "merged_at": "2026-10-11T11:23:24Z",
+          "head_branch": "recipe/25-change-evidence-review",
+          "head_sha": "f70a1357b8a3cff5ce5a593e63eefd3eef63d575",
+          "merge_commit_sha": "a994608156eb7f4da5acba9e0e0be9c47829b672"
+        },
+        {
+          "number": 223,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/223",
+          "state": "closed",
+          "merged_at": "2026-10-11T13:31:58Z",
+          "head_branch": "recipe/30-citation-verification",
+          "head_sha": "f9519d4f6a8c287d430b825104032b2979605e8e",
+          "merge_commit_sha": "4e828be977ae0b9043dc84d3a0b1c3b0553f2c6b"
+        },
+        {
+          "number": 224,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/224",
+          "state": "closed",
+          "merged_at": "2026-10-11T14:18:57Z",
+          "head_branch": "recipe/33-schema-field-mapping",
+          "head_sha": "54617665049238d5672df076901f7e78ac92f551",
+          "merge_commit_sha": "3747cea46ffccab55d45b5b55bfe1573462c7574"
+        },
+        {
+          "number": 226,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/226",
+          "state": "closed",
+          "merged_at": "2026-10-11T18:49:15Z",
+          "head_branch": "recipe/28-skill-selection",
+          "head_sha": "a44c63f62e15d5f912f37d242cadfcdf1c0afa12",
+          "merge_commit_sha": "14fb29e87b55ef7851685bc4f039cbda559a5831"
+        },
+        {
+          "number": 246,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/246",
+          "state": "closed",
+          "merged_at": "2026-10-13T22:53:46Z",
+          "head_branch": "recipe/36-card-game-action-selection",
+          "head_sha": "eb7e52a10fd6a0c851d2d4d382fdebfaa332c34b",
+          "merge_commit_sha": "12aacbbb08e88d7c1a6cbde1314788eb58f39bc7"
+        }
+      ],
+      "source_presence": [
+        ".github/pull_request_template.md:19",
+        "tests/test_recipe_guard.py:472"
+      ],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Map already-delivered narrower work to exact remaining criteria, especially #244 and #208; retain strong-form factoring/name failures that objective binding does not fix and avoid duplicate implementation."
+    },
+    {
+      "issue": 218,
+      "title": "Foundation: CONTRIBUTING section 2, the honesty rule, has no mechanical check at all",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/218",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P1",
+      "labels": [
+        "type: foundation",
+        "priority: p1",
+        "size: L",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Guard provenance/output consistency and mechanically verifiable labeling/numeric claims across notebook and README; explicitly preserve semantic reviewer responsibility and contract strength.",
+      "dependencies": [],
+      "decision": "6153077362 rejects naive recorded-vocabulary ban (all 35 historical recipes would fail) and proposes structural invariant from nested answers.*.provenance.source.",
+      "comments_inspected": 4,
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/218#issuecomment-6105826396",
+        "https://github.com/Jev-Engineering/cookbook/issues/218#issuecomment-6108195710",
+        "https://github.com/Jev-Engineering/cookbook/issues/218#issuecomment-6111458234",
+        "https://github.com/Jev-Engineering/cookbook/issues/218#issuecomment-6153077362"
+      ],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 204,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/204",
+          "state": "closed",
+          "merged_at": "2026-10-11T07:20:00Z",
+          "head_branch": "recipe/29-tool-outcome-verification",
+          "head_sha": "972078a303e75fa07487da40e0123315b2353cc8",
+          "merge_commit_sha": "c0f505c3995aa5931f515e5186964328a5de92a0"
+        },
+        {
+          "number": 205,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/205",
+          "state": "closed",
+          "merged_at": "2026-10-11T06:31:50Z",
+          "head_branch": "recipe/27-function-selection",
+          "head_sha": "14dc13cfda54503d74a4cddb3478b6208f636e58",
+          "merge_commit_sha": "26b6fa2d01afeb4ae6dac73605aa5a36725de871"
+        },
+        {
+          "number": 206,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/206",
+          "state": "closed",
+          "merged_at": "2026-10-11T04:50:44Z",
+          "head_branch": "recipe/26-prompt-injection-screening",
+          "head_sha": "4a1e7cdca4bcfe5b1ee16f8f01175af08005f070",
+          "merge_commit_sha": "b3c6ea99b2b7ecd48f5e915dc85aee95e5a7d016"
+        },
+        {
+          "number": 221,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/221",
+          "state": "closed",
+          "merged_at": "2026-10-11T11:23:24Z",
+          "head_branch": "recipe/25-change-evidence-review",
+          "head_sha": "f70a1357b8a3cff5ce5a593e63eefd3eef63d575",
+          "merge_commit_sha": "a994608156eb7f4da5acba9e0e0be9c47829b672"
+        },
+        {
+          "number": 226,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/226",
+          "state": "closed",
+          "merged_at": "2026-10-11T18:49:15Z",
+          "head_branch": "recipe/28-skill-selection",
+          "head_sha": "a44c63f62e15d5f912f37d242cadfcdf1c0afa12",
+          "merge_commit_sha": "14fb29e87b55ef7851685bc4f039cbda559a5831"
+        }
+      ],
+      "source_presence": [],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Start with fixture provenance versus declared committed run mode, not ban on recorded word; measure current cohort and positive/negative mutations; separately scope semantic claim warnings and quoted-number limits."
+    },
+    {
+      "issue": 217,
+      "title": "Foundation: the template's confusion-matrix print block misaligns when a count is wider than the widest label",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/217",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P3",
+      "labels": [
+        "type: foundation",
+        "priority: p3",
+        "size: M",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Make printed matrix width account for both label and count width, reconcile seven output shapes and recipe23 fragile ljust form, guard alignment even after fresh execution, keep scaffold/template consistent.",
+      "dependencies": [],
+      "decision": "6104902475 corrects historical claim: recipe20/23 outputs were not actually misaligned; formulas were fragile.",
+      "comments_inspected": 1,
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/217#issuecomment-6104902475"
+      ],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 199,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/199",
+          "state": "closed",
+          "merged_at": "2026-10-11T01:27:56Z",
+          "head_branch": "foundation/template-followups-164b",
+          "head_sha": "28cde026dfc58b2ab01c7a84e3a7b667d5d90ded",
+          "merge_commit_sha": "a22a27d1738083ece99b40c956fc0d7204adc915"
+        },
+        {
+          "number": 201,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/201",
+          "state": "closed",
+          "merged_at": "2026-10-11T03:16:25Z",
+          "head_branch": "foundation/sweep-163-f2-notebooks",
+          "head_sha": "69ac432e613b239824deb8665efe4f92478e2b57",
+          "merge_commit_sha": "91057237eeca84cebc8dfa5ce1db5b40692c5d77"
+        }
+      ],
+      "source_presence": [],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Inventory current printed forms, choose explicit convergence/retain outcomes and implement corrected template plus meaningful rendered-text mutation."
+    },
+    {
+      "issue": 216,
+      "title": "Foundation: documentation facts and the dash convention have no enforcement, so docs go stale silently",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/216",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "size: M",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Pin checkable doc facts without freezing wording, handle duplicated contract rules by cross-reference/equality choice, and enforce context-sensitive prose dash rule.",
+      "dependencies": [],
+      "decision": null,
+      "comments_inspected": 1,
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/216#issuecomment-6104594217"
+      ],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 192,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/192",
+          "state": "closed",
+          "merged_at": "2026-10-09T19:16:56Z",
+          "head_branch": "foundation/sweep-163-e",
+          "head_sha": "9ba219588028d256b4aaadbeb15b0a9f56ddd155",
+          "merge_commit_sha": "4299ca041a26baeab47224d80419582872dcd3fb"
+        },
+        {
+          "number": 196,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/196",
+          "state": "closed",
+          "merged_at": "2026-10-09T18:48:58Z",
+          "head_branch": "foundation/sweep-163-c",
+          "head_sha": "6a93ff198c088fae055a4b2a869f1be85a97f544",
+          "merge_commit_sha": "c297509eeb7b917b00508eefaf77d700e49c6bf6"
+        },
+        {
+          "number": 199,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/199",
+          "state": "closed",
+          "merged_at": "2026-10-11T01:27:56Z",
+          "head_branch": "foundation/template-followups-164b",
+          "head_sha": "28cde026dfc58b2ab01c7a84e3a7b667d5d90ded",
+          "merge_commit_sha": "a22a27d1738083ece99b40c956fc0d7204adc915"
+        },
+        {
+          "number": 200,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/200",
+          "state": "closed",
+          "merged_at": "2026-10-11T02:24:14Z",
+          "head_branch": "foundation/sweep-163-f1-readmes-docs",
+          "head_sha": "c54339567b613091d770d6ad08164d260c309ccf",
+          "merge_commit_sha": "1d0eff7ab1a5dbcc7bb5127b7ba06ce2a329914d"
+        }
+      ],
+      "source_presence": [],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Survey current factual claims and duplicate rules, choose shared homes, coordinate dash detector/sweep with #257, and prove fact/dash mutations."
+    },
+    {
+      "issue": 214,
+      "title": "Foundation: the wave close-out audit has no procedure that runs it",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/214",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2 prerequisite to wave closeout",
+      "labels": [
+        "type: foundation"
+      ],
+      "milestone": null,
+      "acceptance": "Document primary-owned explicit wave-closeout audit, command/selection/exit/output evidence and repair loop; clarify marker/node-id trap and contract cadence. Final closeout follows recipe52.",
+      "dependencies": [],
+      "decision": "6185983902 resolves no new schedule/dispatch; historical six/seven failures are snapshots, not durable expected counts.",
+      "comments_inspected": 9,
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/214#issuecomment-6104956617",
+        "https://github.com/Jev-Engineering/cookbook/issues/214#issuecomment-6106111673",
+        "https://github.com/Jev-Engineering/cookbook/issues/214#issuecomment-6108710872",
+        "https://github.com/Jev-Engineering/cookbook/issues/214#issuecomment-6109610694",
+        "https://github.com/Jev-Engineering/cookbook/issues/214#issuecomment-6110002803",
+        "https://github.com/Jev-Engineering/cookbook/issues/214#issuecomment-6153030833",
+        "https://github.com/Jev-Engineering/cookbook/issues/214#issuecomment-6155886034",
+        "https://github.com/Jev-Engineering/cookbook/issues/214#issuecomment-6164278292",
+        "https://github.com/Jev-Engineering/cookbook/issues/214#issuecomment-6185983902"
+      ],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 205,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/205",
+          "state": "closed",
+          "merged_at": "2026-10-11T06:31:50Z",
+          "head_branch": "recipe/27-function-selection",
+          "head_sha": "14dc13cfda54503d74a4cddb3478b6208f636e58",
+          "merge_commit_sha": "26b6fa2d01afeb4ae6dac73605aa5a36725de871"
+        },
+        {
+          "number": 207,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/207",
+          "state": "closed",
+          "merged_at": "2026-10-11T00:00:31Z",
+          "head_branch": "foundation/guard-inbound-audit-203",
+          "head_sha": "11ef0913140b0f6fbbc5bbe47038f1f5fa1f4962",
+          "merge_commit_sha": "3c25a2a98d276fb9f55d2143b45686f5851b4f72"
+        },
+        {
+          "number": 223,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/223",
+          "state": "closed",
+          "merged_at": "2026-10-11T13:31:58Z",
+          "head_branch": "recipe/30-citation-verification",
+          "head_sha": "f9519d4f6a8c287d430b825104032b2979605e8e",
+          "merge_commit_sha": "4e828be977ae0b9043dc84d3a0b1c3b0553f2c6b"
+        },
+        {
+          "number": 224,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/224",
+          "state": "closed",
+          "merged_at": "2026-10-11T14:18:57Z",
+          "head_branch": "recipe/33-schema-field-mapping",
+          "head_sha": "54617665049238d5672df076901f7e78ac92f551",
+          "merge_commit_sha": "3747cea46ffccab55d45b5b55bfe1573462c7574"
+        }
+      ],
+      "source_presence": [],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Implement settled manual procedure docs; retain baseline as historical and run exact current audit at final advanced-wave closeout after backlink remediation."
+    },
+    {
+      "issue": 212,
+      "title": "Foundation: no check verifies a recipe's notebook actually invokes its simulated side effect",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/212",
+      "stage": "Blocked",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2 after #210 interface",
+      "labels": [
+        "type: foundation"
+      ],
+      "milestone": null,
+      "acceptance": "Prove a notebook executes its applicable simulated side-effect path, not merely mentions/tests it; explicit applicability and unknown-shape handling; independent ordered IDs/reasons/splits/content assertions.",
+      "dependencies": [
+        {
+          "issue": 210,
+          "state": "open",
+          "kind": "discussion prerequisite"
+        }
+      ],
+      "decision": "6186575413 sets interface-before-invocation-guard order, without blanket block to unrelated recipes.",
+      "comments_inspected": 2,
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/212#issuecomment-6105180360",
+        "https://github.com/Jev-Engineering/cookbook/issues/212#issuecomment-6186575413"
+      ],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 202,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/202",
+          "state": "closed",
+          "merged_at": "2026-10-11T04:09:37Z",
+          "head_branch": "recipe/24-incident-priority-composition",
+          "head_sha": "16bfc710fba209fb4def8e0a008d2d9ea51d1f69",
+          "merge_commit_sha": "f353c5d4d5e4aef4a67a59c054535c8dc2f17a1c"
+        }
+      ],
+      "source_presence": [],
+      "nonruntime_blockers": [
+        {
+          "kind": "discussion prerequisite",
+          "issue": 210,
+          "url": "https://github.com/Jev-Engineering/cookbook/issues/210",
+          "detail": "Await discussion prerequisite #210 and verify its delivery requirements."
+        }
+      ],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Agree #210 interface first, inventory named/inline forms, then reproduce M15 removed invocation and fresh-execution failure under new guard."
+    },
+    {
+      "issue": 211,
+      "title": "Foundation: the glossary-linking rule has no guard, and the same finding has now hit three recipes",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/211",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "size: M",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Define contextual first technical use and real Markdown link/anchor validity; enumerate per-recipe/term drift before rule finalization and retain current recipe45 accuracy finding.",
+      "dependencies": [],
+      "decision": null,
+      "comments_inspected": 2,
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/211#issuecomment-6105180216",
+        "https://github.com/Jev-Engineering/cookbook/issues/211#issuecomment-6188691960"
+      ],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 202,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/202",
+          "state": "closed",
+          "merged_at": "2026-10-11T04:09:37Z",
+          "head_branch": "recipe/24-incident-priority-composition",
+          "head_sha": "16bfc710fba209fb4def8e0a008d2d9ea51d1f69",
+          "merge_commit_sha": "f353c5d4d5e4aef4a67a59c054535c8dc2f17a1c"
+        },
+        {
+          "number": 204,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/204",
+          "state": "closed",
+          "merged_at": "2026-10-11T07:20:00Z",
+          "head_branch": "recipe/29-tool-outcome-verification",
+          "head_sha": "972078a303e75fa07487da40e0123315b2353cc8",
+          "merge_commit_sha": "c0f505c3995aa5931f515e5186964328a5de92a0"
+        },
+        {
+          "number": 206,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/206",
+          "state": "closed",
+          "merged_at": "2026-10-11T04:50:44Z",
+          "head_branch": "recipe/26-prompt-injection-screening",
+          "head_sha": "4a1e7cdca4bcfe5b1ee16f8f01175af08005f070",
+          "merge_commit_sha": "b3c6ea99b2b7ecd48f5e915dc85aee95e5a7d016"
+        },
+        {
+          "number": 295,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/295",
+          "state": "closed",
+          "merged_at": "2026-10-15T09:09:18Z",
+          "head_branch": "foundation/sweep-44-45-prose",
+          "head_sha": "e856b4f55fd994078c3df02a82a2c88723fdf108",
+          "merge_commit_sha": "9ef24c916ed9f50c9f5537a25c6a71c57566ed58"
+        }
+      ],
+      "source_presence": [],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Audit full cohort including 03/17/20/23/45 with recipe24 reference, distinguish everyday words, then guard and bounded remediation."
+    },
+    {
+      "issue": 210,
+      "title": "Foundation: ReviewQueue and the simulation primitives need a shared fill helper so a notebook and its test call one code path",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/210",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2 prerequisite",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "size: M",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Provide common tested fill path for ReviewQueue/simulation callers; notebook and tests share invocation but expected IDs/order/reasons/splits are independent; docs/template and downstream simulator audit.",
+      "dependencies": [],
+      "decision": null,
+      "comments_inspected": 0,
+      "comment_urls": [],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 202,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/202",
+          "state": "closed",
+          "merged_at": "2026-10-11T04:09:37Z",
+          "head_branch": "recipe/24-incident-priority-composition",
+          "head_sha": "16bfc710fba209fb4def8e0a008d2d9ea51d1f69",
+          "merge_commit_sha": "f353c5d4d5e4aef4a67a59c054535c8dc2f17a1c"
+        }
+      ],
+      "source_presence": [],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Design interface against published simulation recipes and planned57\u201360, then reviewed helper change before #212's guard."
+    },
+    {
+      "issue": 209,
+      "title": "Foundation: the scaffold makes all sixty recipes import the private jev_cookbook.live._dump; promote it to public API",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/209",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2",
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "size: M",
+        "status: ready"
+      ],
+      "milestone": null,
+      "acceptance": "Expose documented public fixture serialization helper, update scaffolder and all recipe private imports, record compatibility alias decision and guard practical private imports.",
+      "dependencies": [],
+      "decision": null,
+      "comments_inspected": 0,
+      "comment_urls": [],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 204,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/204",
+          "state": "closed",
+          "merged_at": "2026-10-11T07:20:00Z",
+          "head_branch": "recipe/29-tool-outcome-verification",
+          "head_sha": "972078a303e75fa07487da40e0123315b2353cc8",
+          "merge_commit_sha": "c0f505c3995aa5931f515e5186964328a5de92a0"
+        }
+      ],
+      "source_presence": [
+        "src/jev_cookbook/live.py:822",
+        "recipes/17-passage-reranking/tests/test_build_fixtures.py:11"
+      ],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Enumerate _dump and all private shared imports, design minimal public API preserving serialization, implement migration with scaffold/byte-exact regression."
+    },
+    {
+      "issue": 208,
+      "title": "Foundation: a fixed-order Choice must print no first-option-lean statistic; brief and docs contradict each other",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/208",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2",
+      "labels": [
+        "type: foundation"
+      ],
+      "milestone": null,
+      "acceptance": "Reconcile fixed-order Choice position-statistic instruction and docs; forbid synthetic statistic presented as model evidence; also codify construction-perfect-metric disclosure with practical guard/manual limits.",
+      "dependencies": [],
+      "decision": null,
+      "comments_inspected": 1,
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/208#issuecomment-6093143668"
+      ],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 204,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/204",
+          "state": "closed",
+          "merged_at": "2026-10-11T07:20:00Z",
+          "head_branch": "recipe/29-tool-outcome-verification",
+          "head_sha": "972078a303e75fa07487da40e0123315b2353cc8",
+          "merge_commit_sha": "c0f505c3995aa5931f515e5186964328a5de92a0"
+        },
+        {
+          "number": 205,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/205",
+          "state": "closed",
+          "merged_at": "2026-10-11T06:31:50Z",
+          "head_branch": "recipe/27-function-selection",
+          "head_sha": "14dc13cfda54503d74a4cddb3478b6208f636e58",
+          "merge_commit_sha": "26b6fa2d01afeb4ae6dac73605aa5a36725de871"
+        },
+        {
+          "number": 206,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/206",
+          "state": "closed",
+          "merged_at": "2026-10-11T04:50:44Z",
+          "head_branch": "recipe/26-prompt-injection-screening",
+          "head_sha": "4a1e7cdca4bcfe5b1ee16f8f01175af08005f070",
+          "merge_commit_sha": "b3c6ea99b2b7ecd48f5e915dc85aee95e5a7d016"
+        }
+      ],
+      "source_presence": [],
+      "nonruntime_blockers": [],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Locate original brief wording where possible, audit current01/02/18 and recipe27 fixed rejection metric, record evidence-backed per-recipe verdicts and remaining guard scope."
+    },
+    {
+      "issue": 117,
+      "title": "Foundation: finish notebook stability evidence and align startup hang guards after #110",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/117",
+      "stage": "Blocked",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P1 infrastructure evidence",
+      "labels": [],
+      "milestone": null,
+      "acceptance": "Align test hang guards with permitted startup duration; meaningful slow-start regression; three consecutive full-suite runs on one final head under exactly two bounded owned notebook loops, supported-version and PID cleanup evidence.",
+      "dependencies": [],
+      "decision": "6186881287 retains full original evidence, allows a current final implementation/main head, and preserves unresolved original-cause limitations.",
+      "comments_inspected": 1,
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/117#issuecomment-6186881287"
+      ],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [
+        {
+          "number": 110,
+          "url": "https://github.com/Jev-Engineering/cookbook/pull/110",
+          "state": "closed",
+          "merged_at": "2026-10-07T08:19:29Z",
+          "head_branch": "foundation/flaky-scaffold-test",
+          "head_sha": "2703a048dceb73dac5b4031d72a6c7154b04a9bb",
+          "merge_commit_sha": "4a0ff370d1292bd12e96ee4f02a28640144a955e"
+        }
+      ],
+      "source_presence": [],
+      "nonruntime_blockers": [
+        {
+          "kind": "bounded test environment",
+          "detail": "Required Python3.10/3.14 load evidence and bounded two-loop procedure must be scheduled by primary; no fresh stress tests run here."
+        }
+      ],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Primary schedules a design compatible with current single-heavy-job/shared VM constraints after worker capability restored; do not recreate old saturation or treat green main as required load evidence."
+    },
+    {
+      "issue": 73,
+      "title": "Release 1.0: cross-recipe audit, documentation pass, and tag",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/73",
+      "stage": "Tracking",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P3 release",
+      "labels": [
+        "type: foundation",
+        "priority: p3",
+        "size: M",
+        "status: blocked"
+      ],
+      "milestone": "Release 1.0",
+      "acceptance": "All60 recipes and foundation work completed; Linux+Windows fresh-clone offline full audit, cross-recipe consistency, claims/provenance/link audit, correct catalog, green main, truthful release notes, explicit human tag approval.",
+      "dependencies": [
+        {
+          "issue": 74,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 75,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 76,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 77,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 78,
+          "state": "open",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 79,
+          "state": "open",
+          "kind": "native blocked_by"
+        }
+      ],
+      "decision": "Owner-reserved tag/release gate remains; issue #73/#80 cannot be closed by agent merely on preparation.",
+      "comments_inspected": 0,
+      "comment_urls": [],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": null,
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [],
+      "source_presence": [],
+      "nonruntime_blockers": [
+        {
+          "kind": "native blocked_by",
+          "issue": 78,
+          "url": "https://github.com/Jev-Engineering/cookbook/issues/78",
+          "detail": "Await native blocked_by #78 and verify its delivery requirements."
+        },
+        {
+          "kind": "native blocked_by",
+          "issue": 79,
+          "url": "https://github.com/Jev-Engineering/cookbook/issues/79",
+          "detail": "Await native blocked_by #79 and verify its delivery requirements."
+        },
+        {
+          "kind": "owner-reserved release gate",
+          "detail": "Human approval required for v1.0.0 tag/publishing after release preparation; no such approval established."
+        }
+      ],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "After #78/#79 and all foundation obligations, have Opus perform complete release audit and Sonnet deliver reviewed fixes/notes; stop before v1.0.0 tag/publishing."
+    },
+    {
+      "issue": 60,
+      "title": "Recipe 60: Factory production control",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/60",
+      "stage": "Blocked",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P3",
+      "labels": [
+        "type: recipe",
+        "level: 5 expert",
+        "decision: choice",
+        "decision: noul",
+        "decision: score",
+        "decision: combination",
+        "cat: games & simulation",
+        "priority: p3",
+        "size: XL",
+        "status: blocked",
+        "needs: simulator"
+      ],
+      "milestone": "M5 \u00b7 Expert",
+      "acceptance": "Self-contained Python Factorio-style simulator; Choice/Noul/Score select bounded goals/recovery, deterministic predefined action templates, throughput/stalls/resources against fixed-schedule seeded baseline.",
+      "dependencies": [
+        {
+          "issue": 69,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 70,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 43,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 59,
+          "state": "open",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 140,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 147,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 78,
+          "state": "open",
+          "kind": "orchestration wave ordering"
+        }
+      ],
+      "decision": "Native listed prerequisites closed except59 for60. Closed state alone is not acceptance/review verification; all recipe live evidence remains subject to #80 owner decisions.",
+      "comments_inspected": 0,
+      "comment_urls": [],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": "recipe/60-factory-production-control",
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [],
+      "source_presence": [],
+      "nonruntime_blockers": [
+        {
+          "kind": "native blocked_by",
+          "issue": 59,
+          "url": "https://github.com/Jev-Engineering/cookbook/issues/59",
+          "detail": "Await native blocked_by #59 and verify its delivery requirements."
+        },
+        {
+          "kind": "orchestration wave ordering",
+          "issue": 78,
+          "url": "https://github.com/Jev-Engineering/cookbook/issues/78",
+          "detail": "Await orchestration wave ordering #78 and verify its delivery requirements."
+        },
+        {
+          "kind": "live-evidence completion",
+          "detail": "Per-recipe authentic recording required by #80 remains a separate requirement; use only designated credential and reconciled cumulative $25 accounting. No live call performed here."
+        }
+      ],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Wait for59 plus advanced-wave closeout, then implement bounded factory simulation without connecting to actual game, services or equipment."
+    },
+    {
+      "issue": 59,
+      "title": "Recipe 59: Observation and action selection",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/59",
+      "stage": "Blocked",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P3",
+      "labels": [
+        "type: recipe",
+        "level: 5 expert",
+        "decision: choice",
+        "cat: games & simulation",
+        "priority: p3",
+        "size: XL",
+        "status: blocked",
+        "needs: simulator"
+      ],
+      "milestone": "M5 \u00b7 Expert",
+      "acceptance": "Partially observed game: Python enumerates permitted observations and legal actions; observation judgment followed by dependent later action request; seeded trajectory comparison and zero illegal moves.",
+      "dependencies": [
+        {
+          "issue": 69,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 70,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 36,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 147,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 78,
+          "state": "open",
+          "kind": "orchestration wave ordering"
+        }
+      ],
+      "decision": "Native listed prerequisites closed except59 for60. Closed state alone is not acceptance/review verification; all recipe live evidence remains subject to #80 owner decisions.",
+      "comments_inspected": 0,
+      "comment_urls": [],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": "recipe/59-observation-and-action-selection",
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [],
+      "source_presence": [],
+      "nonruntime_blockers": [
+        {
+          "kind": "orchestration wave ordering",
+          "issue": 78,
+          "url": "https://github.com/Jev-Engineering/cookbook/issues/78",
+          "detail": "Await orchestration wave ordering #78 and verify its delivery requirements."
+        },
+        {
+          "kind": "live-evidence completion",
+          "detail": "Per-recipe authentic recording required by #80 remains a separate requirement; use only designated credential and reconciled cumulative $25 accounting. No live call performed here."
+        }
+      ],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "After advanced-wave closeout, prioritize this expert recipe because60 depends on it; implement only bounded offline game and legal action enforcement."
+    },
+    {
+      "issue": 58,
+      "title": "Recipe 58: Simulated process supervision",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/58",
+      "stage": "Blocked",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P3",
+      "labels": [
+        "type: recipe",
+        "level: 5 expert",
+        "decision: choice",
+        "decision: noul",
+        "decision: combination",
+        "cat: games & simulation",
+        "priority: p3",
+        "size: XL",
+        "status: blocked",
+        "needs: simulator"
+      ],
+      "milestone": "M5 \u00b7 Expert",
+      "acceptance": "Simulated PLC supervisory response selection with Python interlocks and separate simulated timing/actuation controller; property test no interlock violation for any model answer and explicit no-real-equipment README.",
+      "dependencies": [
+        {
+          "issue": 69,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 70,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 43,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 140,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 147,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 78,
+          "state": "open",
+          "kind": "orchestration wave ordering"
+        }
+      ],
+      "decision": "Native listed prerequisites closed except59 for60. Closed state alone is not acceptance/review verification; all recipe live evidence remains subject to #80 owner decisions.",
+      "comments_inspected": 0,
+      "comment_urls": [],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": "recipe/58-simulated-process-supervision",
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [],
+      "source_presence": [],
+      "nonruntime_blockers": [
+        {
+          "kind": "orchestration wave ordering",
+          "issue": 78,
+          "url": "https://github.com/Jev-Engineering/cookbook/issues/78",
+          "detail": "Await orchestration wave ordering #78 and verify its delivery requirements."
+        },
+        {
+          "kind": "live-evidence completion",
+          "detail": "Per-recipe authentic recording required by #80 remains a separate requirement; use only designated credential and reconciled cumulative $25 accounting. No live call performed here."
+        }
+      ],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Wait for advanced-wave closeout, then implement simulation-only process supervision with unconditional Python interlocks and baseline."
+    },
+    {
+      "issue": 57,
+      "title": "Recipe 57: Evidence graph updates",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/57",
+      "stage": "Blocked",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P3",
+      "labels": [
+        "type: recipe",
+        "level: 5 expert",
+        "decision: choice",
+        "decision: noul",
+        "decision: combination",
+        "cat: data quality & graphs",
+        "priority: p3",
+        "size: XL",
+        "status: blocked",
+        "needs: simulator"
+      ],
+      "milestone": "M5 \u00b7 Expert",
+      "acceptance": "Typed entity/relationship/evidence graph updates, Python transactional validation/rollback and replayable provenance; gold update accuracy, rollback/replay tests and same-condition baseline.",
+      "dependencies": [
+        {
+          "issue": 69,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 70,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 34,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 47,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 140,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 78,
+          "state": "open",
+          "kind": "orchestration wave ordering"
+        }
+      ],
+      "decision": "Native listed prerequisites closed except59 for60. Closed state alone is not acceptance/review verification; all recipe live evidence remains subject to #80 owner decisions.",
+      "comments_inspected": 0,
+      "comment_urls": [],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": "recipe/57-evidence-graph-updates",
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [],
+      "source_presence": [],
+      "nonruntime_blockers": [
+        {
+          "kind": "orchestration wave ordering",
+          "issue": 78,
+          "url": "https://github.com/Jev-Engineering/cookbook/issues/78",
+          "detail": "Await orchestration wave ordering #78 and verify its delivery requirements."
+        },
+        {
+          "kind": "live-evidence completion",
+          "detail": "Per-recipe authentic recording required by #80 remains a separate requirement; use only designated credential and reconciled cumulative $25 accounting. No live call performed here."
+        }
+      ],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Wait for advanced-wave closeout, then implement simulated graph store using verified34/47 patterns; audit proposed shared side-effect helper if210 has landed."
+    },
+    {
+      "issue": 56,
+      "title": "Recipe 56: Adversarial harness evaluation",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/56",
+      "stage": "Blocked",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P3",
+      "labels": [
+        "type: recipe",
+        "level: 5 expert",
+        "decision: noul",
+        "cat: trust & security",
+        "priority: p3",
+        "size: XL",
+        "status: blocked"
+      ],
+      "milestone": "M5 \u00b7 Expert",
+      "acceptance": "Mild synthetic adversarial+benign replay across input/context/action/output; per-boundary and combined attack success, false positive and completion metrics, budgets/seeds and equal-condition baseline.",
+      "dependencies": [
+        {
+          "issue": 69,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 26,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 41,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 42,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 140,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 147,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 78,
+          "state": "open",
+          "kind": "orchestration wave ordering"
+        }
+      ],
+      "decision": "Native listed prerequisites closed except59 for60. Closed state alone is not acceptance/review verification; all recipe live evidence remains subject to #80 owner decisions.",
+      "comments_inspected": 0,
+      "comment_urls": [],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": "recipe/56-adversarial-harness-evaluation",
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [],
+      "source_presence": [],
+      "nonruntime_blockers": [
+        {
+          "kind": "orchestration wave ordering",
+          "issue": 78,
+          "url": "https://github.com/Jev-Engineering/cookbook/issues/78",
+          "detail": "Await orchestration wave ordering #78 and verify its delivery requirements."
+        },
+        {
+          "kind": "live-evidence completion",
+          "detail": "Per-recipe authentic recording required by #80 remains a separate requirement; use only designated credential and reconciled cumulative $25 accounting. No live call performed here."
+        }
+      ],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Wait for advanced-wave closeout, then implement bounded offline four-boundary harness with Python-owned permissions and no real side effects."
+    },
+    {
+      "issue": 55,
+      "title": "Recipe 55: Adaptive model routing",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/55",
+      "stage": "Blocked",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P3",
+      "labels": [
+        "type: recipe",
+        "level: 5 expert",
+        "decision: choice",
+        "decision: score",
+        "decision: combination",
+        "cat: evaluation & optimization",
+        "priority: p3",
+        "size: XL",
+        "status: blocked",
+        "needs: live run"
+      ],
+      "milestone": "M5 \u00b7 Expert",
+      "acceptance": "Jev routing across model tiers; Python budgets/fallbacks, compare traffic-mix quality/latency/cost against always-cheapest/always-strongest with every number assumed or recorded.",
+      "dependencies": [
+        {
+          "issue": 69,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 64,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 50,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 78,
+          "state": "open",
+          "kind": "orchestration wave ordering"
+        }
+      ],
+      "decision": "Native listed prerequisites closed except59 for60. Closed state alone is not acceptance/review verification; all recipe live evidence remains subject to #80 owner decisions.",
+      "comments_inspected": 1,
+      "comment_urls": [
+        "https://github.com/Jev-Engineering/cookbook/issues/55#issuecomment-6153877366"
+      ],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": "recipe/55-adaptive-model-routing",
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [],
+      "source_presence": [],
+      "nonruntime_blockers": [
+        {
+          "kind": "orchestration wave ordering",
+          "issue": 78,
+          "url": "https://github.com/Jev-Engineering/cookbook/issues/78",
+          "detail": "Await orchestration wave ordering #78 and verify its delivery requirements."
+        },
+        {
+          "kind": "live-evidence completion",
+          "detail": "Per-recipe authentic recording required by #80 remains a separate requirement; use only designated credential and reconciled cumulative $25 accounting. No live call performed here."
+        }
+      ],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Wait for advanced-wave closeout then build on50; use ReplayBackend for deliberately fabricated comparison lanes per290 and retain assumed-cost distinction and untouched test."
+    },
+    {
+      "issue": 54,
+      "title": "Recipe 54: Question and policy optimization",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/54",
+      "stage": "Blocked",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P3",
+      "labels": [
+        "type: recipe",
+        "level: 5 expert",
+        "decision: choice",
+        "decision: noul",
+        "decision: score",
+        "decision: combination",
+        "cat: evaluation & optimization",
+        "priority: p3",
+        "size: XL",
+        "status: blocked",
+        "needs: live run"
+      ],
+      "milestone": "M5 \u00b7 Expert",
+      "acceptance": "Budgeted external question/policy search; frozen variant comparison with untouched test hash, baseline, seeds and budget accounting; offline harness disclosure and real-results recording instructions.",
+      "dependencies": [
+        {
+          "issue": 69,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 64,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 38,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 140,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 78,
+          "state": "open",
+          "kind": "orchestration wave ordering"
+        }
+      ],
+      "decision": "Native listed prerequisites closed except59 for60. Closed state alone is not acceptance/review verification; all recipe live evidence remains subject to #80 owner decisions.",
+      "comments_inspected": 0,
+      "comment_urls": [],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": "recipe/54-question-and-policy-optimization",
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [],
+      "source_presence": [],
+      "nonruntime_blockers": [
+        {
+          "kind": "orchestration wave ordering",
+          "issue": 78,
+          "url": "https://github.com/Jev-Engineering/cookbook/issues/78",
+          "detail": "Await orchestration wave ordering #78 and verify its delivery requirements."
+        },
+        {
+          "kind": "live-evidence completion",
+          "detail": "Per-recipe authentic recording required by #80 remains a separate requirement; use only designated credential and reconciled cumulative $25 accounting. No live call performed here."
+        }
+      ],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Wait for advanced-wave closeout, then build offline harness with validation-only search and split hash guard; live evidence awaits designated credential/accounting gate."
+    },
+    {
+      "issue": 53,
+      "title": "Recipe 53: Semantic feature discovery",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/53",
+      "stage": "Blocked",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P3",
+      "labels": [
+        "type: recipe",
+        "level: 5 expert",
+        "decision: noul",
+        "decision: score",
+        "decision: combination",
+        "cat: evaluation & optimization",
+        "priority: p3",
+        "size: XL",
+        "status: blocked"
+      ],
+      "milestone": "M5 \u00b7 Expert",
+      "acceptance": "Fixture-supplied semantic features, budgeted validation feature search, frozen downstream classifier evaluated once on untouched test; compare recipe35 feature set and baseline with seeds/budget ledger.",
+      "dependencies": [
+        {
+          "issue": 69,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 35,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 140,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 78,
+          "state": "open",
+          "kind": "orchestration wave ordering"
+        }
+      ],
+      "decision": "Native listed prerequisites closed except59 for60. Closed state alone is not acceptance/review verification; all recipe live evidence remains subject to #80 owner decisions.",
+      "comments_inspected": 0,
+      "comment_urls": [],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": "recipe/53-semantic-feature-discovery",
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [],
+      "source_presence": [],
+      "nonruntime_blockers": [
+        {
+          "kind": "orchestration wave ordering",
+          "issue": 78,
+          "url": "https://github.com/Jev-Engineering/cookbook/issues/78",
+          "detail": "Await orchestration wave ordering #78 and verify its delivery requirements."
+        },
+        {
+          "kind": "live-evidence completion",
+          "detail": "Per-recipe authentic recording required by #80 remains a separate requirement; use only designated credential and reconciled cumulative $25 accounting. No live call performed here."
+        }
+      ],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "Wait for advanced-wave closeout, then dispatch own recipe branch with fixed candidate feature pool; no generated feature proposals or test-driven search."
+    },
+    {
+      "issue": 52,
+      "title": "Recipe 52: Retrieval pipeline evaluation",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/52",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2",
+      "labels": [
+        "type: recipe",
+        "level: 4 advanced",
+        "decision: choice",
+        "decision: score",
+        "decision: combination",
+        "cat: search & retrieval",
+        "priority: p2",
+        "size: L",
+        "status: ready"
+      ],
+      "milestone": "M4 \u00b7 Advanced",
+      "acceptance": "Three-stage filtering/reranking/claim verification Choice+Score pipeline; independent-vs-dependent call boundaries, per-ablation answer support and request counts, adversarial/stateful tests.",
+      "dependencies": [
+        {
+          "issue": 69,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 17,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 20,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 30,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 147,
+          "state": "closed",
+          "kind": "native blocked_by"
+        }
+      ],
+      "decision": "Native listed prerequisites closed except59 for60. Closed state alone is not acceptance/review verification; all recipe live evidence remains subject to #80 owner decisions.",
+      "comments_inspected": 0,
+      "comment_urls": [],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": "recipe/52-retrieval-pipeline-evaluation",
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [],
+      "source_presence": [],
+      "nonruntime_blockers": [
+        {
+          "kind": "live-evidence completion",
+          "detail": "Per-recipe authentic recording required by #80 remains a separate requirement; use only designated credential and reconciled cumulative $25 accounting. No live call performed here."
+        }
+      ],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "After prerequisite acceptance verification and capability restoration, dispatch recipe/52-retrieval-pipeline-evaluation; all ablations use fixed corpus and honest assumed/synthetic measurements."
+    },
+    {
+      "issue": 51,
+      "title": "Recipe 51: Stalled-loop detection",
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/51",
+      "stage": "Ready",
+      "execution_status": "Implementation/review blocked in this runtime",
+      "priority": "P2",
+      "labels": [
+        "type: recipe",
+        "level: 4 advanced",
+        "decision: choice",
+        "cat: agent orchestration",
+        "priority: p2",
+        "size: L",
+        "status: ready"
+      ],
+      "milestone": "M4 \u00b7 Advanced",
+      "acceptance": "Choice advancing/repeating/regressing/complete across transcripts; Python continue/change-strategy/stop, label accuracy and detection delay, stateful/adversarial fixtures and tests independent of model answer.",
+      "dependencies": [
+        {
+          "issue": 69,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 29,
+          "state": "closed",
+          "kind": "native blocked_by"
+        },
+        {
+          "issue": 147,
+          "state": "closed",
+          "kind": "native blocked_by"
+        }
+      ],
+      "decision": "Native listed prerequisites closed except59 for60. Closed state alone is not acceptance/review verification; all recipe live evidence remains subject to #80 owner decisions.",
+      "comments_inspected": 0,
+      "comment_urls": [],
+      "owner": "No assignee/open PR; existing primary retains scheduling; no current branch/worktree owner asserted.",
+      "branch": "recipe/51-stalled-loop-detection",
+      "branch_exists": false,
+      "worktree": null,
+      "head_sha": null,
+      "related_prs": [],
+      "source_presence": [],
+      "nonruntime_blockers": [
+        {
+          "kind": "live-evidence completion",
+          "detail": "Per-recipe authentic recording required by #80 remains a separate requirement; use only designated credential and reconciled cumulative $25 accounting. No live call performed here."
+        }
+      ],
+      "tests": "None executed by this inventory agent.",
+      "review": "No independent code acceptance review/approval.",
+      "merge": "No merge or mutation by this agent.",
+      "next_action": "After prerequisite acceptance verification and capability restoration, dispatch recipe/51-stalled-loop-detection; preserve recipe29 pattern and synthetic transcript provenance."
+    }
+  ]
+}

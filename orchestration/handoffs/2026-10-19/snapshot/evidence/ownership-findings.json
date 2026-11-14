@@ -1,0 +1,361 @@
+{
+  "task": "Read-only ownership and standing-decision evidence for Jev-Engineering/cookbook",
+  "scope": "Intermediate coordination analysis; no repository-code edits, GitHub writes, reviews, provider calls or paid dispatch.",
+  "coverage": {
+    "roadmap_comments_file": "/workspace/scratch/79cc8ca8429b/audit/roadmap-comments.json",
+    "full_body_comments_read": 173,
+    "body_characters": 370080,
+    "unread_comment_bodies": 0,
+    "fresh_issue_80_count": 173,
+    "fresh_issue_80_updated_at": "2026-10-15T09:50:07Z",
+    "prompt_file": "/workspace/scratch/79cc8ca8429b/cookbook/orchestration/PROMPT.md",
+    "prompt_read_in_full": true,
+    "source_date_note": "The normalized 173-comment file omits created/updated dates. Dates in verified_comment_metadata below were independently recovered from GitHub's individual REST comment endpoints. Other dated summaries use dates explicitly stated inside their bodies.",
+    "evidence_limit": "Reading a GitHub assertion of genuine runtime/model evidence does not authenticate native transcripts or prove a supervisor is active now. No such present runtime inspection was performed by this task.",
+    "roadmap_snapshot_sha256": "373877dba885113a91fb3eeef081e5e715deb419c4442caa098ae8ffe02ebd26",
+    "prompt_sha256": "81a7876b2f493b66c19433ac9c3fec7c42a47ead508ca6e81117b4be7b89c76b",
+    "local_checkout_head": "2dd687f858549ee8eeb9c98f83344814dfc7d0b6",
+    "analysis_written_at": "2026-10-19T05:27:33.883464+00:00"
+  },
+  "conclusion": {
+    "required_model_substitution_found": false,
+    "broad_primary_authority_transfer_found": false,
+    "public_ownership_release_found": false,
+    "latest_recorded_primary_run": "Five retained branches finished on 2026-10-15, while dispatch and serial-merge ownership explicitly remained with that primary.",
+    "current_supervisor_activity": "UNVERIFIED. Historical latest ownership reservations remain visible, but this task has no current native runtime/process/session evidence; do not call the supervisor currently active or currently absent.",
+    "safe_current_role": "Read-only inventory, evidence/acceptance reconciliation, precise blocker reporting and the user-requested #80 execution ledger; prepare reviewable issue corrections for the reserved primary. Sonnet/Opus implementation/review/merge roles are not replaced.",
+    "active_model_gap": "Parent reports this runtime exposes GPT collaboration slots and no supported verified Claude Sonnet/Opus dispatch. This task did not independently run model probes."
+  },
+  "ownership": [
+    {
+      "comment_id": 6027163320,
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6027163320",
+      "created_at": "2026-10-06T23:13:58Z",
+      "updated_at": "2026-10-06T23:13:58Z",
+      "author": "CompleteDotTech",
+      "association": "MEMBER",
+      "summary": "Original supervisor and merge-lock identity.",
+      "exact_quote": "The orchestrator is Claude Code session `37d430e7-98ad-4602-9d7c-8c8a869e4e09` (Fable 5.1). It holds the merge lock."
+    },
+    {
+      "comment_id": 6092467630,
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6092467630",
+      "created_at": "2026-10-10T02:00:22Z",
+      "updated_at": "2026-10-10T02:00:22Z",
+      "author": "CompleteDotTech",
+      "association": "MEMBER",
+      "summary": "Later ownership contract distinguishes primary from governance.",
+      "exact_quote": "**One serial-merge/runtime owner remains primary w2:p1**. Governance owns acceptance and receipts only; no competing controller or new governance worker."
+    },
+    {
+      "comment_id": 6093203459,
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6093203459",
+      "created_at": "2026-10-10T03:15:13Z",
+      "updated_at": "2026-10-10T03:15:13Z",
+      "author": "CompleteDotTech",
+      "association": "MEMBER",
+      "summary": "Governance expressly restricted to reconciliation.",
+      "exact_quote": "Sole runtime/serial-merge owner remains primary `w2:p1`; governance owns reconciliation only, with no active workers."
+    },
+    {
+      "comment_id": 6187157003,
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6187157003",
+      "created_at": "2026-10-15T07:46:08Z",
+      "updated_at": "2026-10-15T09:27:20Z",
+      "author": "CompleteDotTech",
+      "association": "MEMBER",
+      "summary": "Latest completed-run receipt retains ownership rather than handing it off.",
+      "exact_quote": "The five-branch primary run is finished; dispatch and serial-merge ownership remain with that same primary. Its unsent input was not submitted."
+    },
+    {
+      "comment_id": 6189282972,
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6189282972",
+      "created_at": "2026-10-15T09:50:07Z",
+      "updated_at": "2026-10-15T09:50:07Z",
+      "author": "CompleteDotTech",
+      "association": "MEMBER",
+      "summary": "Latest #80 comment expressly preserves status and implementation ownership for #213.",
+      "exact_quote": "Primary retains status and implementation ownership; no competing repair or issue-state change was started."
+    }
+  ],
+  "standing_decisions": [
+    {
+      "source": "orchestration/PROMPT.md role table and How the three roles work together",
+      "decision": "Orchestrator may be the session's model, but plans, briefs, adjudicates, merges and records; it does not write repository code or substitute for the reviewer. Builders and integration workers default to verified Claude Sonnet 5.5; reviewers require verified Claude Opus."
+    },
+    {
+      "comment_id": 6070170893,
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6070170893",
+      "created_at": "2026-10-08T22:19:04Z",
+      "updated_at": "2026-10-08T22:19:04Z",
+      "author": "CompleteDotTech",
+      "association": "MEMBER",
+      "summary": "Dated owner substitution is Sonnet 5 builders and Opus 5 reviewers for the existing campaign only; earlier accepted results stand.",
+      "exact_quote": "Where PROMPT.md says Sonnet 5.5 / Opus 5.5, read Sonnet 5 / Opus 5 for this run; no other model substitution, no new controller, no restarts."
+    },
+    {
+      "comment_id": 6070195367,
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6070195367",
+      "created_at": "2026-10-08T22:20:39Z",
+      "updated_at": "2026-10-08T22:20:39Z",
+      "author": "CompleteDotTech",
+      "association": "MEMBER",
+      "summary": "Support relay preserves sole primary ownership and gates.",
+      "exact_quote": "Scope of this relay: it records the owner's answer so the primary (sole dispatcher and serial merger) and governance can act on it; it does not change ownership, gates, budgets, review requirements, or the retained evidence that prior work ran on Sonnet 5 / Opus 5."
+    },
+    {
+      "comment_id": 6067316669,
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6067316669",
+      "created_at": "2026-10-08T19:19:34Z",
+      "updated_at": "2026-10-08T19:19:34Z",
+      "author": "CompleteDotTech",
+      "association": "MEMBER",
+      "summary": "Standing default-tier / no-Fast constraint remains; interrupted review is not an approval.",
+      "exact_quote": "Default tier/noFast, excluded Factorio/Windows/media, shared resource and release/tag gates preserved."
+    },
+    {
+      "source": "orchestration/PROMPT.md Review gate",
+      "decision": "Every PR requires genuine authenticated Opus approval on the exact final full head SHA; any new commit invalidates it. #63, #65, #68, #69 and #1 require two distinct independent approvals on the same final head; stronger per-PR requirements remain. Comment syntax or expected GitHub account alone does not authenticate native model provenance."
+    },
+    {
+      "source": "orchestration/PROMPT.md Run ownership, Rules 6-9 and Merging",
+      "decision": "One writer per owned branch/worktree; recorded handovers; signed merge integration, no rebase/force push; separate serialized Sonnet README integration; squash merge pin; no direct main writes, protection changes or admin bypass."
+    },
+    {
+      "source": "orchestration/PROMPT.md Wave 6 and final audit",
+      "decision": "Release preparation is allowed through reviewed work; release/tag publication and closure of #73/#80 remain owner-only after approval. Linux and Windows fresh-clone validation is still required; historical Linux-only receipts do not satisfy Windows."
+    }
+  ],
+  "live_accounting": [
+    {
+      "comment_id": 6025510672,
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6025510672",
+      "created_at": "2026-10-06T21:10:13Z",
+      "updated_at": "2026-10-06T21:10:13Z",
+      "author": "CompleteDotTech",
+      "association": "MEMBER",
+      "summary": "Owner authorized real Jev recording fixtures for the build at a single cumulative $25 cap, not other providers or a new allowance per resumed session.",
+      "exact_quote": "- **Spending limit:** **$25 total** for the whole build."
+    },
+    {
+      "comment_id": 6028965748,
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6028965748",
+      "created_at": "2026-10-07T01:33:22Z",
+      "updated_at": "2026-10-07T01:33:22Z",
+      "author": "CompleteDotTech",
+      "association": "MEMBER",
+      "summary": "Canonical historical smoke: one request, request_id req_01a113fe1f407f699bbf90c806ff082e, 281 input / 20 output tokens, returned jev-1.13.0, estimated $0.000011802 at then-published rate. This is not accepted recipe recording coverage or a current invoice.",
+      "exact_quote": "**Cumulative live spend: $0.0000118 of $25.00.** Requests made: 1. No reservations."
+    },
+    {
+      "comment_id": 6187157003,
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6187157003",
+      "created_at": "2026-10-15T07:46:08Z",
+      "updated_at": "2026-10-15T09:27:20Z",
+      "author": "CompleteDotTech",
+      "association": "MEMBER",
+      "summary": "Later reconciliation correctly rejects resetting or treating the allowance as untouched.",
+      "exact_quote": "Fresh accounting preserves the original **$25 cumulative** grant and deduplicates the one canonical historical smoke receipt by request ID; current actual charges, uncertain outcomes and reservations are still unverified, so no usable balance or fresh allowance is asserted."
+    },
+    {
+      "comment_id": 6189282972,
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6189282972",
+      "created_at": "2026-10-15T09:50:07Z",
+      "updated_at": "2026-10-15T09:50:07Z",
+      "author": "CompleteDotTech",
+      "association": "MEMBER",
+      "summary": "Actual request-count/duplicate-decision audit remains a prerequisite despite issue #213 being closed.",
+      "exact_quote": "The original six #213 criteria and current-corpus count audit remain required before further recording."
+    },
+    {
+      "source": "orchestration/PROMPT.md rule 4; #80 comment6048346804",
+      "decision": "Only supplied credential source may be used, never search for keys; prior Linux migration explicitly lacked the supplied key. Reconcile provider usage, uncertain outcomes and reservations, verify current applicable pricing and reserve conservatively before any call. Only coordinator or one serialized recorder may make calls; offline work can continue without keys. Current credential availability is not verified by this subtask."
+    }
+  ],
+  "administrative_precedent_not_transfer": [
+    {
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6057835320",
+      "recorded_action": "Governance reopened #1 after #108 auto-closed it without implementing the recipe; explicitly preserved implementation/worker/merge ownership.",
+      "limitation": "One historical correction action, not a general authority transfer. Later receipts reserve status ownership."
+    },
+    {
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6067734292",
+      "recorded_action": "Governance aligned source lists on 45 still-open recipe issues to delivered catalog evidence, retaining all states, acceptance criteria and dependencies.",
+      "limitation": "Narrow source-alignment action, not authority to rewrite arbitrary acceptance criteria or dispatch a competing controller."
+    },
+    {
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6091800549",
+      "recorded_action": "Owner approved deleting exactly three superseded duplicate-run records on one historical main commit after an audit.",
+      "limitation": "One-off action; did not transfer merge ownership, change helper rules, approve other deletion, or clear any future gate."
+    }
+  ],
+  "settled_routine_choices": [
+    {
+      "issue": 267,
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/267#issuecomment-6186573312",
+      "decision": "Add opt-in points-only display, preserve connected default and input order; current caller audit and primary-reviewed implementation remain."
+    },
+    {
+      "issue": 227,
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/227#issuecomment-6186573902",
+      "decision": "Confidence gates remain conditional. Prove claimed executed gate/reason flow; explicitly justify gate-free designs; preserve reviewed recipe 28 and report unknown forms."
+    },
+    {
+      "issue": 228,
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/228#issuecomment-6186574415",
+      "decision": "Withdraw answer-profile overlap ceiling. Audit threshold sensitivity/disclosure on validation; no arbitrary cutoff, test tuning, new merge gate or paid inference. Primary may retitle/reconcile opening body."
+    },
+    {
+      "issue": 214,
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/214#issuecomment-6185983902",
+      "decision": "Explicit primary-owned wave-closeout catalog_audit; no new scheduled workflow or manual Actions dispatch. Capture exit status, exact selection and repair/rerun evidence."
+    },
+    {
+      "issue": 212,
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/212#issuecomment-6186575413",
+      "decision": "Agree #210 side-effect interface before final #212 invocation guard. Do not equate helper availability with notebook invocation or silently pass unknown shapes."
+    },
+    {
+      "issue": 290,
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/290#issuecomment-6186880183",
+      "decision": "Documentation-only constructor guidance: switchable lane uses get_backend; deliberately offline lane directly constructs ReplayBackend. No API change or call-count heuristic."
+    },
+    {
+      "issue": 284,
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/284#issuecomment-6186880768",
+      "decision": "Preserve conditional matrix/deletion behavior. Stated missing-execution scenario unproven; primary may close original defect claim after reconciliation. Any defense-in-depth must prove omitted identities, not merely nonzero counts."
+    },
+    {
+      "issue": 117,
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/117#issuecomment-6186881287",
+      "decision": "Timeout and three-run controlled load-evidence requirements remain on a named eventual final head; load procedure only through primary under current resource constraints."
+    },
+    {
+      "issue": 257,
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/257#issuecomment-6188692458",
+      "decision": "Retain prose/code dash distinction; contextual audit and reviewed correction, no blanket regex or grandfathered cohort. Primary owns scheduling and shared paths."
+    }
+  ],
+  "concrete_work_available_without_builder_or_reviewer": [
+    {
+      "action": "Publish a concise new #80 execution-ledger receipt from this run",
+      "can_finish_without_claiming_primary": true,
+      "scope": "Exact current inventory/HEAD/CI, all-173-body review completion, recorded existing ownership, actual unsupported model/runtime blockers, zero new paid calls, immutable next steps. User explicitly requests GitHub-backed ledger. Do not say new coordinator owns the primary's branches."
+    },
+    {
+      "action": "Refresh and preserve current acceptance/source/dependency/status evidence",
+      "can_finish_without_claiming_primary": true,
+      "scope": "Read-only inventories and evidence files; classify delivered-but-open and closed-but-incomplete issues without silently mutating their reserved state."
+    },
+    {
+      "action": "Prepare #53/#56 amendments and #283 acceptance handoff",
+      "can_finish_without_claiming_primary": true,
+      "scope": "Exact additive text requiring each proposition's positives in threshold-selection split, admitted truth combinations, per-proposition independent outcome consequence. Apply/close only after primary ownership is safely reconciled."
+    },
+    {
+      "action": "Prepare #262 closure and #213 reopen/acceptance correction handoff",
+      "can_finish_without_claiming_primary": true,
+      "scope": "Verify current-main source/PR evidence; root's independent acceptance agent owns that investigation. Current issue states independently fetched here: #262 open; #213 closed; #283 open."
+    },
+    {
+      "action": "Prepare #228 body/title correction and #284 disposition",
+      "can_finish_without_claiming_primary": true,
+      "scope": "The substantive routine choices are already settled in linked decision comments; no user decision is required. Their application/closure remains explicitly primary-owned in those comments."
+    },
+    {
+      "action": "Prepare future briefs using the nine settled follow-up decisions",
+      "can_finish_without_claiming_primary": true,
+      "scope": "No model substitution, implementation or merge required; do not reopen already settled policy questions."
+    }
+  ],
+  "fresh_issue_readbacks": [
+    {
+      "number": 213,
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/213",
+      "state": "closed",
+      "updated_at": "2026-10-15T09:48:27Z",
+      "comments": 6,
+      "labels": [
+        "type: foundation"
+      ]
+    },
+    {
+      "number": 262,
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/262",
+      "state": "open",
+      "updated_at": "2026-10-15T08:50:49Z",
+      "comments": 3,
+      "labels": [
+        "type: foundation",
+        "priority: p2",
+        "status: ready"
+      ]
+    },
+    {
+      "number": 283,
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/283",
+      "state": "open",
+      "updated_at": "2026-10-15T15:15:41Z",
+      "comments": 2,
+      "labels": [
+        "type: foundation",
+        "priority: p1",
+        "size: S",
+        "status: in progress"
+      ]
+    },
+    {
+      "number": 53,
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/53",
+      "state": "open",
+      "updated_at": "2026-10-06T20:19:03Z",
+      "comments": 0,
+      "labels": [
+        "type: recipe",
+        "level: 5 expert",
+        "decision: noul",
+        "decision: score",
+        "decision: combination",
+        "cat: evaluation & optimization",
+        "priority: p3",
+        "size: XL",
+        "status: blocked"
+      ]
+    },
+    {
+      "number": 56,
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/56",
+      "state": "open",
+      "updated_at": "2026-10-09T01:28:30Z",
+      "comments": 0,
+      "labels": [
+        "type: recipe",
+        "level: 5 expert",
+        "decision: noul",
+        "cat: trust & security",
+        "priority: p3",
+        "size: XL",
+        "status: blocked"
+      ]
+    },
+    {
+      "number": 228,
+      "url": "https://github.com/Jev-Engineering/cookbook/issues/228",
+      "state": "open",
+      "updated_at": "2026-10-15T07:09:48Z",
+      "comments": 8,
+      "labels": [
+        "type: foundation"
+      ]
+    }
+  ],
+  "gaps": [
+    "No current native supervisor/session/worker/lock ownership proof; GitHub reservations are historical evidence, not a live-process probe.",
+    "No native Claude model dispatch/review provenance available or verified here; public comment claims never count as a fresh Opus review.",
+    "No credential search, provider ledger/invoice read or balance certification performed.",
+    "No full acceptance review of source PRs #280/#292/#294 etc by this subtask; parent acceptance agent handles those.",
+    "No governance grant to replace primary's issue-state ownership found in all 173 #80 bodies.",
+    "Roadmap/PROMPT and latest roadmap counts are dated sixty-recipe context; parent reports newer current main/catalog. Do not apply historical issue-rank mapping to newer catalog entries.",
+    "Historical claims that the grant was untouched are inconsistent with the canonical smoke receipt and were later expressly corrected; retain the correction rather than zeroing spend."
+  ]
+}

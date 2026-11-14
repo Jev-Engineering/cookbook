@@ -1,0 +1,26 @@
+{
+  "tests_314": {
+    "raw_log_stored": false,
+    "evidence_type": "matching lines extracted from fetched exact-main Actions job log",
+    "lines": [
+      "2026-10-19T01:16:33.3762760Z platform linux -- Python 3.14.8, pytest-9.1.1, pluggy-1.7.0",
+      "2026-10-19T01:18:31.7635073Z === 4982 passed, 44 skipped, 50 deselected, 31 xfailed in 123.92s (0:02:03) ===="
+    ]
+  },
+  "tests_310": {
+    "raw_log_stored": false,
+    "evidence_type": "matching lines extracted from fetched exact-main Actions job log",
+    "lines": [
+      "2026-10-19T01:16:29.2063095Z platform linux -- Python 3.10.22, pytest-9.1.1, pluggy-1.7.0",
+      "2026-10-19T01:19:07.1766818Z === 4919 passed, 46 skipped, 50 deselected, 31 xfailed in 164.63s (0:02:44) ===="
+    ]
+  },
+  "lint": {
+    "raw_log_stored": false,
+    "evidence_type": "matching lines extracted from fetched exact-main Actions job log",
+    "lines": [
+      "2026-10-19T01:16:21.1169115Z All checks passed!",
+      "2026-10-19T01:16:21.2418737Z 393 files already formatted"
+    ]
+  }
+}

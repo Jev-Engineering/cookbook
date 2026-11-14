@@ -1,0 +1,1796 @@
+{
+  "51": {
+    "dependencies": [
+      {
+        "number": 69,
+        "title": "Foundation: CI executes every notebook offline and validates fixtures",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/69",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: foundation",
+          "priority: p0",
+          "size: M",
+          "status: in progress"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 1,
+          "title": "M0 · Foundation",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/1"
+        },
+        "body": "## Goal\n\nThe gate every recipe pull request has to pass. Once this is merged, recipes can start.\n\n## Scope\n\n- A CI job that discovers every `recipes/*/notebook.ipynb`, executes it from a fresh environment with no key and `JEV_COOKBOOK_LIVE` unset, and fails on any error.\n- Fixture validation for every recipe folder.\n- A guard that fails if a notebook attempts a network call to the TypeSafe API during the offline run.\n- A check that committed notebook outputs match a fresh offline execution closely enough to catch stale outputs (define the comparison and document it).\n- A check that a recipe pull request changes only its own `recipes/NN-slug/` folder, reported as a clear message.\n- Per-recipe execution in a matrix or with path filtering, so sixty notebooks do not make every run slow.\n\n## Acceptance criteria\n\n- [ ] The template recipe passes all jobs\n- [ ] A notebook with a failing cell, an invalid fixture, and a stale output each make CI fail, demonstrated in the pull request description\n- [ ] Full run time with one recipe is recorded, with a note on how it scales\n- [ ] Lint and tests pass in CI, or locally with the output pasted in the pull request if CI does not exist yet\n\n## Dependencies\n\n- Blocked by #62 (CI baseline for lint, tests, and the README catalog check)\n- Blocked by #68 (recipe template and scaffolder)\n- Unblocks every recipe issue (#1 to #60)\n- Tracked in #74\n\n## References\n\n- [Recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md)\n- [Catalog](https://github.com/Jev-Engineering/cookbook/blob/main/catalog/recipes.json)\n- TypeSafe documentation index for tools: https://docs.typesafe.ai/llms.txt\n- Python SDK: https://docs.typesafe.ai/sdk/python",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/74",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 2,
+          "blocking": 10,
+          "total_blocking": 60
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 29,
+        "title": "Recipe 29: Tool outcome verification",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/29",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: recipe",
+          "level: 3 intermediate",
+          "decision: choice",
+          "cat: agent orchestration",
+          "priority: p2",
+          "size: M",
+          "status: blocked"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 4,
+          "title": "M3 · Intermediate",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/4"
+        },
+        "body": "> Recipe **29** of 60 · Level 3 (Intermediate) · Agent orchestration · `Choice`\n\n## Use case\n\nClassify recorded tool outcomes as complete, partial, failed, or unverifiable using the original request and observed evidence.\n\n## What to build\n\nThe folder `recipes/29-tool-outcome-verification/` with `notebook.ipynb`, `README.md`, and `fixtures/`, meeting the [recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md). Start from `python tools/new_recipe.py 29` and the template in `recipes/_template/`.\n\n### Build notes\n\n- Outcomes: `complete`, `partial`, `failed`, `unverifiable`.\n- State is the original request plus the recorded evidence from the tool run.\n- Include runs that report success with no supporting evidence.\n\n### Decision design\n\n- **Choice.** Options are a fixed set supplied by Python, including the fallback outcome this use case names. Show the `choice`, the per-option `probabilities`, and the `confidence` for individual examples before aggregating.\n\n### Level 3 scope\n\nMultiple judgments or stages, structured evidence, deterministic composition, and task-level evaluation.\n\n## Acceptance criteria\n\n- [ ] `recipes/29-tool-outcome-verification/notebook.ipynb` runs top to bottom offline, with no key and no network, and its outputs are committed\n- [ ] Live mode is opt-in (`JEV_COOKBOOK_LIVE=1` with `TYPESAFE_API_KEY`) and uses the same question definitions as the offline run\n- [ ] Fixtures are synthetic, include the hard cases named in the build notes, carry gold labels, and pass the fixture validator\n- [ ] Every response fixture records its provenance, and the notebook states which mode it ran in\n- [ ] Evaluation: Confusion matrix, with `unverifiable` discussed on its own.\n- [ ] The deterministic composition lives in a Python function with tests in `tests/`\n- [ ] Evaluation is at task level, not only per question\n- [ ] No statement about Jev's quality, latency, or cost appears without recorded live inference; in a synthetic run, metrics are labelled as pipeline checks\n- [ ] `recipes/29-tool-outcome-verification/README.md` says what the recipe teaches, how to run it, and what was and was not measured live\n- [ ] The pull request changes only `recipes/29-tool-outcome-verification/` and CI is green\n\n## Dependencies\n\n- Blocked by #69 (CI executes every notebook offline and validates fixtures)\n- Tracked in #77\n\n## Sources\n\nRead these before writing the questions.\n\n- S02 · [TypeSafe AI: Primitives (Questions)](https://docs.typesafe.ai/primitives): Choice, Noul, Score, independent questions, and dependent follow-up calls.\n- S03 · [TypeSafe AI: Confidence](https://docs.typesafe.ai/confidence): Distribution-derived confidence and task-specific thresholds informed by observed outcomes.\n- S04 · [TypeSafe AI: How to build with TypeSafe](https://docs.typesafe.ai/concepts/how-to-build-with-system-one): Narrow semantic judgments integrated with workflows, deterministic logic, and side effects controlled by code.\n- S06 · [TypeSafe AI: Cookbooks](https://docs.typesafe.ai/cookbooks): Worked patterns for extraction, citation checking, skill selection, hierarchical classification, and feature discovery.\n\n## Out of scope\n\n- Changes to shared code, the catalog, or the root README. If the shared package is missing something, open a foundation issue and link it here.\n- Real side effects of any kind. Actions are simulated.",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/77",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 2,
+          "blocking": 1,
+          "total_blocking": 2
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 147,
+        "title": "catalog: list S02 (primitives) among the sources of every recipe",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/147",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: foundation",
+          "priority: p2",
+          "size: S"
+        ],
+        "assignees": [],
+        "milestone": null,
+        "body": "## Context\n\nFrom the Opus review of #145 (comment 6071506008): 30 of the 60 catalog rows (ranks 8, 10, 11, 15–17, 19–21, 26–32, 36, 41–46, 49, 51, 52, 56, 58–60) do not list S02 (Primitives), although every recipe asks a typed Choice/Noul/Score question defined on that page, and `tools/new_recipe.py` scaffolds the README source bullets from the catalog list, so those recipes would ship without the page that defines their own primitive. Same shape as #142.\n\n## Acceptance\n\nAdd `S02` to the `sources` of every row lacking it, keeping each list sorted by id and the file formatting (minimal diff, insertions only); `python tools/render_catalog.py --check` passes (README unchanged unless the renderer prints sources); `tests/test_recipe_sources.py` passes. Foundation issue; allowed paths `catalog/recipes.json`, `README.md` (renderer output only). Land before the affected recipes are briefed.\n",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 0,
+          "blocking": 6,
+          "total_blocking": 30
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      }
+    ],
+    "subissues": []
+  },
+  "52": {
+    "dependencies": [
+      {
+        "number": 69,
+        "title": "Foundation: CI executes every notebook offline and validates fixtures",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/69",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: foundation",
+          "priority: p0",
+          "size: M",
+          "status: in progress"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 1,
+          "title": "M0 · Foundation",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/1"
+        },
+        "body": "## Goal\n\nThe gate every recipe pull request has to pass. Once this is merged, recipes can start.\n\n## Scope\n\n- A CI job that discovers every `recipes/*/notebook.ipynb`, executes it from a fresh environment with no key and `JEV_COOKBOOK_LIVE` unset, and fails on any error.\n- Fixture validation for every recipe folder.\n- A guard that fails if a notebook attempts a network call to the TypeSafe API during the offline run.\n- A check that committed notebook outputs match a fresh offline execution closely enough to catch stale outputs (define the comparison and document it).\n- A check that a recipe pull request changes only its own `recipes/NN-slug/` folder, reported as a clear message.\n- Per-recipe execution in a matrix or with path filtering, so sixty notebooks do not make every run slow.\n\n## Acceptance criteria\n\n- [ ] The template recipe passes all jobs\n- [ ] A notebook with a failing cell, an invalid fixture, and a stale output each make CI fail, demonstrated in the pull request description\n- [ ] Full run time with one recipe is recorded, with a note on how it scales\n- [ ] Lint and tests pass in CI, or locally with the output pasted in the pull request if CI does not exist yet\n\n## Dependencies\n\n- Blocked by #62 (CI baseline for lint, tests, and the README catalog check)\n- Blocked by #68 (recipe template and scaffolder)\n- Unblocks every recipe issue (#1 to #60)\n- Tracked in #74\n\n## References\n\n- [Recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md)\n- [Catalog](https://github.com/Jev-Engineering/cookbook/blob/main/catalog/recipes.json)\n- TypeSafe documentation index for tools: https://docs.typesafe.ai/llms.txt\n- Python SDK: https://docs.typesafe.ai/sdk/python",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/74",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 2,
+          "blocking": 10,
+          "total_blocking": 60
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 17,
+        "title": "Recipe 17: Passage reranking",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/17",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: recipe",
+          "level: 2 easy",
+          "decision: score",
+          "cat: search & retrieval",
+          "priority: p1",
+          "size: M",
+          "status: blocked"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 3,
+          "title": "M2 · Easy",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/3"
+        },
+        "body": "> Recipe **17** of 60 · Level 2 (Easy) · Search & retrieval · `Score`\n\n## Use case\n\nScore retrieved passages against a question so Python can rank candidate evidence and retain each passage's source reference.\n\n## What to build\n\nThe folder `recipes/17-passage-reranking/` with `notebook.ipynb`, `README.md`, and `fixtures/`, meeting the [recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md). Start from `python tools/new_recipe.py 17` and the template in `recipes/_template/`.\n\n### Build notes\n\n- One Score per question and passage pair against a relevance rubric.\n- Python sorts by score, breaks ties by retrieval order, and keeps each passage's source reference.\n- Baseline: the original retrieval order from a small lexical scorer written in plain Python.\n- The official TypeSafe re-ranking cookbook is related reading.\n\n### Decision design\n\n- **Score.** Describe every rubric level in words, in order. Show the `score` and the distribution over levels. Mapping, weighting, and arithmetic on scores happen in Python.\n\n### Level 2 scope\n\nContext-sensitive matching, scoring, or verification with candidate sets and explicit uncertain or no-match outcomes.\n\n## Acceptance criteria\n\n- [ ] `recipes/17-passage-reranking/notebook.ipynb` runs top to bottom offline, with no key and no network, and its outputs are committed\n- [ ] Live mode is opt-in (`JEV_COOKBOOK_LIVE=1` with `TYPESAFE_API_KEY`) and uses the same question definitions as the offline run\n- [ ] Fixtures are synthetic, include the hard cases named in the build notes, carry gold labels, and pass the fixture validator\n- [ ] Every response fixture records its provenance, and the notebook states which mode it ran in\n- [ ] Evaluation: nDCG and top-1 accuracy against the baseline order.\n- [ ] Candidate sets are assembled by Python and shown to the reader\n- [ ] The uncertain or no-match outcome is exercised by several fixtures and reported separately in the evaluation\n- [ ] No statement about Jev's quality, latency, or cost appears without recorded live inference; in a synthetic run, metrics are labelled as pipeline checks\n- [ ] `recipes/17-passage-reranking/README.md` says what the recipe teaches, how to run it, and what was and was not measured live\n- [ ] The pull request changes only `recipes/17-passage-reranking/` and CI is green\n\n## Dependencies\n\n- Blocked by #69 (CI executes every notebook offline and validates fixtures)\n- Tracked in #76\n\n## Sources\n\nRead these before writing the questions.\n\n- S02 · [TypeSafe AI: Primitives (Questions)](https://docs.typesafe.ai/primitives): Choice, Noul, Score, independent questions, and dependent follow-up calls.\n- S03 · [TypeSafe AI: Confidence](https://docs.typesafe.ai/confidence): Distribution-derived confidence and task-specific thresholds informed by observed outcomes.\n- S04 · [TypeSafe AI: How to build with TypeSafe](https://docs.typesafe.ai/concepts/how-to-build-with-system-one): Narrow semantic judgments integrated with workflows, deterministic logic, and side effects controlled by code.\n- S06 · [TypeSafe AI: Cookbooks](https://docs.typesafe.ai/cookbooks): Worked patterns for extraction, citation checking, skill selection, hierarchical classification, and feature discovery.\n\n## Out of scope\n\n- Changes to shared code, the catalog, or the root README. If the shared package is missing something, open a foundation issue and link it here.\n- Real side effects of any kind. Actions are simulated.",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/76",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 2,
+          "blocking": 1,
+          "total_blocking": 4
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 20,
+        "title": "Recipe 20: Claim support classification",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/20",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: recipe",
+          "level: 2 easy",
+          "decision: choice",
+          "cat: search & retrieval",
+          "priority: p1",
+          "size: M",
+          "status: blocked"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 3,
+          "title": "M2 · Easy",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/3"
+        },
+        "body": "> Recipe **20** of 60 · Level 2 (Easy) · Search & retrieval · `Choice`\n\n## Use case\n\nClassify whether a provided passage supports, contradicts, or leaves unresolved a specific claim while preserving the passage identifier.\n\n## What to build\n\nThe folder `recipes/20-claim-support-classification/` with `notebook.ipynb`, `README.md`, and `fixtures/`, meeting the [recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md). Start from `python tools/new_recipe.py 20` and the template in `recipes/_template/`.\n\n### Build notes\n\n- Outcomes: `supports`, `contradicts`, `unresolved`.\n- The passage identifier is carried from input to output unchanged.\n- Include passages that are on topic but do not settle the claim.\n\n### Decision design\n\n- **Choice.** Options are a fixed set supplied by Python, including the fallback outcome this use case names. Show the `choice`, the per-option `probabilities`, and the `confidence` for individual examples before aggregating.\n\n### Level 2 scope\n\nContext-sensitive matching, scoring, or verification with candidate sets and explicit uncertain or no-match outcomes.\n\n## Acceptance criteria\n\n- [ ] `recipes/20-claim-support-classification/notebook.ipynb` runs top to bottom offline, with no key and no network, and its outputs are committed\n- [ ] Live mode is opt-in (`JEV_COOKBOOK_LIVE=1` with `TYPESAFE_API_KEY`) and uses the same question definitions as the offline run\n- [ ] Fixtures are synthetic, include the hard cases named in the build notes, carry gold labels, and pass the fixture validator\n- [ ] Every response fixture records its provenance, and the notebook states which mode it ran in\n- [ ] Evaluation: Per-class F1.\n- [ ] Candidate sets are assembled by Python and shown to the reader\n- [ ] The uncertain or no-match outcome is exercised by several fixtures and reported separately in the evaluation\n- [ ] No statement about Jev's quality, latency, or cost appears without recorded live inference; in a synthetic run, metrics are labelled as pipeline checks\n- [ ] `recipes/20-claim-support-classification/README.md` says what the recipe teaches, how to run it, and what was and was not measured live\n- [ ] The pull request changes only `recipes/20-claim-support-classification/` and CI is green\n\n## Dependencies\n\n- Blocked by #69 (CI executes every notebook offline and validates fixtures)\n- Tracked in #76\n\n## Sources\n\nRead these before writing the questions.\n\n- S02 · [TypeSafe AI: Primitives (Questions)](https://docs.typesafe.ai/primitives): Choice, Noul, Score, independent questions, and dependent follow-up calls.\n- S03 · [TypeSafe AI: Confidence](https://docs.typesafe.ai/confidence): Distribution-derived confidence and task-specific thresholds informed by observed outcomes.\n- S04 · [TypeSafe AI: How to build with TypeSafe](https://docs.typesafe.ai/concepts/how-to-build-with-system-one): Narrow semantic judgments integrated with workflows, deterministic logic, and side effects controlled by code.\n- S06 · [TypeSafe AI: Cookbooks](https://docs.typesafe.ai/cookbooks): Worked patterns for extraction, citation checking, skill selection, hierarchical classification, and feature discovery.\n\n## Out of scope\n\n- Changes to shared code, the catalog, or the root README. If the shared package is missing something, open a foundation issue and link it here.\n- Real side effects of any kind. Actions are simulated.",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/76",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 2,
+          "blocking": 1,
+          "total_blocking": 3
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 30,
+        "title": "Recipe 30: Citation verification",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/30",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: recipe",
+          "level: 3 intermediate",
+          "decision: choice",
+          "cat: search & retrieval",
+          "priority: p2",
+          "size: M",
+          "status: blocked"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 4,
+          "title": "M3 · Intermediate",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/4"
+        },
+        "body": "> Recipe **30** of 60 · Level 3 (Intermediate) · Search & retrieval · `Choice`\n\n## Use case\n\nCheck each answer claim against its cited passage and flag unsupported or contradicted claims while Python verifies citation identifiers.\n\n## What to build\n\nThe folder `recipes/30-citation-verification/` with `notebook.ipynb`, `README.md`, and `fixtures/`, meeting the [recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md). Start from `python tools/new_recipe.py 30` and the template in `recipes/_template/`.\n\n### Build notes\n\n- Python first verifies that every citation identifier exists and resolves. That step never reaches the model.\n- One Choice per claim against its cited passage: `supported`, `unsupported`, `contradicted`.\n- Include a correct claim that cites the wrong passage.\n\n### Decision design\n\n- **Choice.** Options are a fixed set supplied by Python, including the fallback outcome this use case names. Show the `choice`, the per-option `probabilities`, and the `confidence` for individual examples before aggregating.\n\n### Level 3 scope\n\nMultiple judgments or stages, structured evidence, deterministic composition, and task-level evaluation.\n\n## Acceptance criteria\n\n- [ ] `recipes/30-citation-verification/notebook.ipynb` runs top to bottom offline, with no key and no network, and its outputs are committed\n- [ ] Live mode is opt-in (`JEV_COOKBOOK_LIVE=1` with `TYPESAFE_API_KEY`) and uses the same question definitions as the offline run\n- [ ] Fixtures are synthetic, include the hard cases named in the build notes, carry gold labels, and pass the fixture validator\n- [ ] Every response fixture records its provenance, and the notebook states which mode it ran in\n- [ ] Evaluation: Claim-level F1 for the unsupported and contradicted classes.\n- [ ] The deterministic composition lives in a Python function with tests in `tests/`\n- [ ] Evaluation is at task level, not only per question\n- [ ] No statement about Jev's quality, latency, or cost appears without recorded live inference; in a synthetic run, metrics are labelled as pipeline checks\n- [ ] `recipes/30-citation-verification/README.md` says what the recipe teaches, how to run it, and what was and was not measured live\n- [ ] The pull request changes only `recipes/30-citation-verification/` and CI is green\n\n## Dependencies\n\n- Blocked by #69 (CI executes every notebook offline and validates fixtures)\n- Builds on #20 (Claim support classification). Merge those first and reuse their patterns; do not copy their fixtures.\n- Tracked in #77\n\n## Sources\n\nRead these before writing the questions.\n\n- S02 · [TypeSafe AI: Primitives (Questions)](https://docs.typesafe.ai/primitives): Choice, Noul, Score, independent questions, and dependent follow-up calls.\n- S03 · [TypeSafe AI: Confidence](https://docs.typesafe.ai/confidence): Distribution-derived confidence and task-specific thresholds informed by observed outcomes.\n- S04 · [TypeSafe AI: How to build with TypeSafe](https://docs.typesafe.ai/concepts/how-to-build-with-system-one): Narrow semantic judgments integrated with workflows, deterministic logic, and side effects controlled by code.\n- S06 · [TypeSafe AI: Cookbooks](https://docs.typesafe.ai/cookbooks): Worked patterns for extraction, citation checking, skill selection, hierarchical classification, and feature discovery.\n\n## Out of scope\n\n- Changes to shared code, the catalog, or the root README. If the shared package is missing something, open a foundation issue and link it here.\n- Real side effects of any kind. Actions are simulated.",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/77",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 3,
+          "blocking": 1,
+          "total_blocking": 1
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 147,
+        "title": "catalog: list S02 (primitives) among the sources of every recipe",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/147",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: foundation",
+          "priority: p2",
+          "size: S"
+        ],
+        "assignees": [],
+        "milestone": null,
+        "body": "## Context\n\nFrom the Opus review of #145 (comment 6071506008): 30 of the 60 catalog rows (ranks 8, 10, 11, 15–17, 19–21, 26–32, 36, 41–46, 49, 51, 52, 56, 58–60) do not list S02 (Primitives), although every recipe asks a typed Choice/Noul/Score question defined on that page, and `tools/new_recipe.py` scaffolds the README source bullets from the catalog list, so those recipes would ship without the page that defines their own primitive. Same shape as #142.\n\n## Acceptance\n\nAdd `S02` to the `sources` of every row lacking it, keeping each list sorted by id and the file formatting (minimal diff, insertions only); `python tools/render_catalog.py --check` passes (README unchanged unless the renderer prints sources); `tests/test_recipe_sources.py` passes. Foundation issue; allowed paths `catalog/recipes.json`, `README.md` (renderer output only). Land before the affected recipes are briefed.\n",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 0,
+          "blocking": 6,
+          "total_blocking": 30
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      }
+    ],
+    "subissues": []
+  },
+  "53": {
+    "dependencies": [
+      {
+        "number": 69,
+        "title": "Foundation: CI executes every notebook offline and validates fixtures",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/69",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: foundation",
+          "priority: p0",
+          "size: M",
+          "status: in progress"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 1,
+          "title": "M0 · Foundation",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/1"
+        },
+        "body": "## Goal\n\nThe gate every recipe pull request has to pass. Once this is merged, recipes can start.\n\n## Scope\n\n- A CI job that discovers every `recipes/*/notebook.ipynb`, executes it from a fresh environment with no key and `JEV_COOKBOOK_LIVE` unset, and fails on any error.\n- Fixture validation for every recipe folder.\n- A guard that fails if a notebook attempts a network call to the TypeSafe API during the offline run.\n- A check that committed notebook outputs match a fresh offline execution closely enough to catch stale outputs (define the comparison and document it).\n- A check that a recipe pull request changes only its own `recipes/NN-slug/` folder, reported as a clear message.\n- Per-recipe execution in a matrix or with path filtering, so sixty notebooks do not make every run slow.\n\n## Acceptance criteria\n\n- [ ] The template recipe passes all jobs\n- [ ] A notebook with a failing cell, an invalid fixture, and a stale output each make CI fail, demonstrated in the pull request description\n- [ ] Full run time with one recipe is recorded, with a note on how it scales\n- [ ] Lint and tests pass in CI, or locally with the output pasted in the pull request if CI does not exist yet\n\n## Dependencies\n\n- Blocked by #62 (CI baseline for lint, tests, and the README catalog check)\n- Blocked by #68 (recipe template and scaffolder)\n- Unblocks every recipe issue (#1 to #60)\n- Tracked in #74\n\n## References\n\n- [Recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md)\n- [Catalog](https://github.com/Jev-Engineering/cookbook/blob/main/catalog/recipes.json)\n- TypeSafe documentation index for tools: https://docs.typesafe.ai/llms.txt\n- Python SDK: https://docs.typesafe.ai/sdk/python",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/74",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 2,
+          "blocking": 10,
+          "total_blocking": 60
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 35,
+        "title": "Recipe 35: Semantic feature extraction",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/35",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: recipe",
+          "level: 3 intermediate",
+          "decision: noul",
+          "cat: evaluation & optimization",
+          "priority: p2",
+          "size: M",
+          "status: blocked"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 4,
+          "title": "M3 · Intermediate",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/4"
+        },
+        "body": "> Recipe **35** of 60 · Level 3 (Intermediate) · Evaluation & optimization · `Noul`\n\n## Use case\n\nConvert text into predefined semantic features with independent judgments and compare a classifier trained on those features with a fixed baseline.\n\n## What to build\n\nThe folder `recipes/35-semantic-feature-extraction/` with `notebook.ipynb`, `README.md`, and `fixtures/`, meeting the [recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md). Start from `python tools/new_recipe.py 35` and the template in `recipes/_template/`.\n\n### Build notes\n\n- A predefined list of semantic features. One independent Noul per feature gives a feature vector per text.\n- Train a simple classifier on the vectors and compare with a fixed baseline on a held-out split.\n- Keep the feature list, the split, and the baseline fixed before looking at test results.\n\n### Decision design\n\n- **Noul.** Write each proposition as a statement that is true or false. One independent question per label or concern, sent together in one request. Noul has no confidence field, so each threshold is chosen from examples and evaluated.\n\n### Level 3 scope\n\nMultiple judgments or stages, structured evidence, deterministic composition, and task-level evaluation.\n\n## Acceptance criteria\n\n- [ ] `recipes/35-semantic-feature-extraction/notebook.ipynb` runs top to bottom offline, with no key and no network, and its outputs are committed\n- [ ] Live mode is opt-in (`JEV_COOKBOOK_LIVE=1` with `TYPESAFE_API_KEY`) and uses the same question definitions as the offline run\n- [ ] Fixtures are synthetic, include the hard cases named in the build notes, carry gold labels, and pass the fixture validator\n- [ ] Every response fixture records its provenance, and the notebook states which mode it ran in\n- [ ] Evaluation: Held-out accuracy of both classifiers, stated as a pipeline check when responses are synthetic.\n- [ ] The deterministic composition lives in a Python function with tests in `tests/`\n- [ ] Evaluation is at task level, not only per question\n- [ ] No statement about Jev's quality, latency, or cost appears without recorded live inference; in a synthetic run, metrics are labelled as pipeline checks\n- [ ] `recipes/35-semantic-feature-extraction/README.md` says what the recipe teaches, how to run it, and what was and was not measured live\n- [ ] The pull request changes only `recipes/35-semantic-feature-extraction/` and CI is green\n\n## Dependencies\n\n- Blocked by #69 (CI executes every notebook offline and validates fixtures)\n- Builds on #6 (Multiple topic labels). Merge those first and reuse their patterns; do not copy their fixtures.\n- Tracked in #77\n\n## Sources\n\nRead these before writing the questions.\n\n- S02 · [TypeSafe AI: Primitives (Questions)](https://docs.typesafe.ai/primitives): Choice, Noul, Score, independent questions, and dependent follow-up calls.\n- S03 · [TypeSafe AI: Confidence](https://docs.typesafe.ai/confidence): Distribution-derived confidence and task-specific thresholds informed by observed outcomes.\n\n## Out of scope\n\n- Changes to shared code, the catalog, or the root README. If the shared package is missing something, open a foundation issue and link it here.\n- Real side effects of any kind. Actions are simulated.",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/77",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 3,
+          "blocking": 1,
+          "total_blocking": 1
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 140,
+        "title": "evaluation: noul_confidence must be |2p − 1| per the confidence page (same scale as Choice); document the Noul three-path pattern",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/140",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: foundation",
+          "priority: p1",
+          "size: S"
+        ],
+        "assignees": [],
+        "milestone": null,
+        "body": "## Context\n\nFrom the Opus review of #136 (recipe 02, the first Noul recipe; comment 6071121590). `src/jev_cookbook/evaluation.py` and `docs/evaluation.md` define `noul_confidence(p) = max(p, 1 − p)` (range 0.5–1). The TypeSafe confidence page (`https://docs.typesafe.ai/confidence.md`, README S03) defines a Noul's confidence as `|2p − 1|` (range 0–1) and states it is the Choice formula `(p_max − 1/n)/(1 − 1/n)` applied with n = 2, so it sits on the same scale as Choice confidence. The toolkit helper therefore disagrees with the source, and a recipe that gates Nouls and Choices with one threshold, as the page recommends, gets wrong answers from it. `docs/evaluation.md` documents the Choice rescaling correctly on the same page.\n\n## Acceptance\n\n1. `noul_confidence(p)` returns `|2p − 1|` per the confidence page (the old `max(p, 1 − p)` is removed or kept under a distinct, documented name such as `noul_majority`); `docs/evaluation.md` and `docs/glossary.md` state the formula with the source link and note the shared scale with Choice.\n2. Tests pin the formula at p ∈ {0, 0.25, 0.5, 0.75, 1} and the identity with `(p_max − 1/n)/(1 − 1/n)` at n = 2; mutation: revert to `max(p, 1 − p)` → tests fail.\n3. Every call site in `src/`, `recipes/_template`, `tools/new_recipe.py` and merged recipes is checked; any notebook whose outputs change is re-executed and committed byte-identically in the same PR (list them).\n4. Add to `docs/evaluation.md` a short \"Noul three-path pattern\" note: a business threshold on p plus a confidence gate `|2p − 1| < c` → review outcome, composed from `threshold_sweep` / `evaluate_threshold`, since no helper selects both together (the Score recipes reported the same gap).\n\nRequired before the remaining Noul recipes (#6, #10, and later waves) are briefed. Foundation issue; allowed paths `src/jev_cookbook/evaluation.py`, `tests/test_evaluation*.py`, `docs/evaluation.md`, `docs/glossary.md`, plus re-executed notebooks only if their outputs change.\n",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 0,
+          "blocking": 6,
+          "total_blocking": 20
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      }
+    ],
+    "subissues": []
+  },
+  "54": {
+    "dependencies": [
+      {
+        "number": 69,
+        "title": "Foundation: CI executes every notebook offline and validates fixtures",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/69",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: foundation",
+          "priority: p0",
+          "size: M",
+          "status: in progress"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 1,
+          "title": "M0 · Foundation",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/1"
+        },
+        "body": "## Goal\n\nThe gate every recipe pull request has to pass. Once this is merged, recipes can start.\n\n## Scope\n\n- A CI job that discovers every `recipes/*/notebook.ipynb`, executes it from a fresh environment with no key and `JEV_COOKBOOK_LIVE` unset, and fails on any error.\n- Fixture validation for every recipe folder.\n- A guard that fails if a notebook attempts a network call to the TypeSafe API during the offline run.\n- A check that committed notebook outputs match a fresh offline execution closely enough to catch stale outputs (define the comparison and document it).\n- A check that a recipe pull request changes only its own `recipes/NN-slug/` folder, reported as a clear message.\n- Per-recipe execution in a matrix or with path filtering, so sixty notebooks do not make every run slow.\n\n## Acceptance criteria\n\n- [ ] The template recipe passes all jobs\n- [ ] A notebook with a failing cell, an invalid fixture, and a stale output each make CI fail, demonstrated in the pull request description\n- [ ] Full run time with one recipe is recorded, with a note on how it scales\n- [ ] Lint and tests pass in CI, or locally with the output pasted in the pull request if CI does not exist yet\n\n## Dependencies\n\n- Blocked by #62 (CI baseline for lint, tests, and the README catalog check)\n- Blocked by #68 (recipe template and scaffolder)\n- Unblocks every recipe issue (#1 to #60)\n- Tracked in #74\n\n## References\n\n- [Recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md)\n- [Catalog](https://github.com/Jev-Engineering/cookbook/blob/main/catalog/recipes.json)\n- TypeSafe documentation index for tools: https://docs.typesafe.ai/llms.txt\n- Python SDK: https://docs.typesafe.ai/sdk/python",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/74",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 2,
+          "blocking": 10,
+          "total_blocking": 60
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 64,
+        "title": "Foundation: opt-in live Jev backend and response recorder",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/64",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: foundation",
+          "priority: p1",
+          "size: M"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 1,
+          "title": "M0 · Foundation",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/1"
+        },
+        "body": "## Goal\n\nLet a reader with their own key run any recipe against Jev, and capture those responses as recorded fixtures.\n\n## Scope\n\n- `LiveBackend` wrapping `typesafe_sdk.TypeSafeClient.system_one`, available only with the `live` extra, `JEV_COOKBOOK_LIVE=1`, and `TYPESAFE_API_KEY`.\n- The model is passed explicitly per run. The `model` string the API returns and the `usage` block are kept on the result.\n- A request budget guard: a maximum number of calls per run, enforced in code, with a clear error when exceeded.\n- A recorder that writes responses into a recipe's fixtures with provenance `recorded`, the returned model string, and the date.\n- A documented path for alternative backends through the System One Adapter (S08), needed by recipes 50 and 55. Decide whether that is an optional extra and write the decision down.\n- The key never appears in logs, exceptions, fixtures, or notebook output.\n\n## Acceptance criteria\n\n- [ ] Tests run with the HTTP layer mocked; CI makes no network call and needs no key\n- [ ] Missing key or missing opt-in gives a clear, actionable error\n- [ ] A test shows the budget guard stops a run\n- [ ] A test shows recorded fixtures replay through `ReplayBackend` byte for byte\n- [ ] The pull request states whether a real live call was made during development. If none was, it says so\n- [ ] Lint and tests pass in CI, or locally with the output pasted in the pull request if CI does not exist yet\n\n## Dependencies\n\n- Blocked by #63 (decision backends with typed answers, replay, and scripted modes)\n- Unblocks #72\n- Unblocks the recipes labelled `needs: live run`\n- Tracked in #74\n\n## References\n\n- [Recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md)\n- [Catalog](https://github.com/Jev-Engineering/cookbook/blob/main/catalog/recipes.json)\n- TypeSafe documentation index for tools: https://docs.typesafe.ai/llms.txt\n- Python SDK: https://docs.typesafe.ai/sdk/python",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/74",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 1,
+          "blocking": 2,
+          "total_blocking": 4
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 38,
+        "title": "Recipe 38: Abstention and review queues",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/38",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: recipe",
+          "level: 3 intermediate",
+          "decision: choice",
+          "cat: evaluation & optimization",
+          "priority: p2",
+          "size: M",
+          "status: in progress"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 4,
+          "title": "M3 · Intermediate",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/4"
+        },
+        "body": "> Recipe **38** of 60 · Level 3 (Intermediate) · Evaluation & optimization · `Choice`\n\n## Use case\n\nRoute uncertain ticket classifications to review using thresholds selected from validation examples and measure accuracy versus coverage on a held-out set.\n\n## What to build\n\nThe folder `recipes/38-abstention-and-review-queues/` with `notebook.ipynb`, `README.md`, and `fixtures/`, meeting the [recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md). Start from `python tools/new_recipe.py 38` and the template in `recipes/_template/`.\n\n### Build notes\n\n- Thresholds on confidence are selected from validation examples, then frozen.\n- Measure accuracy against coverage on a held-out set and plot the curve.\n- Uncertain classifications go to a simulated review queue.\n\n### Decision design\n\n- **Choice.** Options are a fixed set supplied by Python, including the fallback outcome this use case names. Show the `choice`, the per-option `probabilities`, and the `confidence` for individual examples before aggregating.\n\n### Level 3 scope\n\nMultiple judgments or stages, structured evidence, deterministic composition, and task-level evaluation.\n\n## Acceptance criteria\n\n- [ ] `recipes/38-abstention-and-review-queues/notebook.ipynb` runs top to bottom offline, with no key and no network, and its outputs are committed\n- [ ] Live mode is opt-in (`JEV_COOKBOOK_LIVE=1` with `TYPESAFE_API_KEY`) and uses the same question definitions as the offline run\n- [ ] Fixtures are synthetic, include the hard cases named in the build notes, carry gold labels, and pass the fixture validator\n- [ ] Every response fixture records its provenance, and the notebook states which mode it ran in\n- [ ] Evaluation: Risk and coverage on the held-out set at the frozen threshold, and the full curve.\n- [ ] The deterministic composition lives in a Python function with tests in `tests/`\n- [ ] Evaluation is at task level, not only per question\n- [ ] No statement about Jev's quality, latency, or cost appears without recorded live inference; in a synthetic run, metrics are labelled as pipeline checks\n- [ ] `recipes/38-abstention-and-review-queues/README.md` says what the recipe teaches, how to run it, and what was and was not measured live\n- [ ] The pull request changes only `recipes/38-abstention-and-review-queues/` and CI is green\n\n## Dependencies\n\n- Blocked by #69 (CI executes every notebook offline and validates fixtures)\n- Builds on #4 (Support ticket routing). Merge those first and reuse their patterns; do not copy their fixtures.\n- Tracked in #77\n\n## Sources\n\nRead these before writing the questions.\n\n- S02 · [TypeSafe AI: Primitives (Questions)](https://docs.typesafe.ai/primitives): Choice, Noul, Score, independent questions, and dependent follow-up calls.\n- S03 · [TypeSafe AI: Confidence](https://docs.typesafe.ai/confidence): Distribution-derived confidence and task-specific thresholds informed by observed outcomes.\n\n## Out of scope\n\n- Changes to shared code, the catalog, or the root README. If the shared package is missing something, open a foundation issue and link it here.\n- Real side effects of any kind. Actions are simulated.",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/77",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 2,
+          "blocking": 1,
+          "total_blocking": 3
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 140,
+        "title": "evaluation: noul_confidence must be |2p − 1| per the confidence page (same scale as Choice); document the Noul three-path pattern",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/140",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: foundation",
+          "priority: p1",
+          "size: S"
+        ],
+        "assignees": [],
+        "milestone": null,
+        "body": "## Context\n\nFrom the Opus review of #136 (recipe 02, the first Noul recipe; comment 6071121590). `src/jev_cookbook/evaluation.py` and `docs/evaluation.md` define `noul_confidence(p) = max(p, 1 − p)` (range 0.5–1). The TypeSafe confidence page (`https://docs.typesafe.ai/confidence.md`, README S03) defines a Noul's confidence as `|2p − 1|` (range 0–1) and states it is the Choice formula `(p_max − 1/n)/(1 − 1/n)` applied with n = 2, so it sits on the same scale as Choice confidence. The toolkit helper therefore disagrees with the source, and a recipe that gates Nouls and Choices with one threshold, as the page recommends, gets wrong answers from it. `docs/evaluation.md` documents the Choice rescaling correctly on the same page.\n\n## Acceptance\n\n1. `noul_confidence(p)` returns `|2p − 1|` per the confidence page (the old `max(p, 1 − p)` is removed or kept under a distinct, documented name such as `noul_majority`); `docs/evaluation.md` and `docs/glossary.md` state the formula with the source link and note the shared scale with Choice.\n2. Tests pin the formula at p ∈ {0, 0.25, 0.5, 0.75, 1} and the identity with `(p_max − 1/n)/(1 − 1/n)` at n = 2; mutation: revert to `max(p, 1 − p)` → tests fail.\n3. Every call site in `src/`, `recipes/_template`, `tools/new_recipe.py` and merged recipes is checked; any notebook whose outputs change is re-executed and committed byte-identically in the same PR (list them).\n4. Add to `docs/evaluation.md` a short \"Noul three-path pattern\" note: a business threshold on p plus a confidence gate `|2p − 1| < c` → review outcome, composed from `threshold_sweep` / `evaluate_threshold`, since no helper selects both together (the Score recipes reported the same gap).\n\nRequired before the remaining Noul recipes (#6, #10, and later waves) are briefed. Foundation issue; allowed paths `src/jev_cookbook/evaluation.py`, `tests/test_evaluation*.py`, `docs/evaluation.md`, `docs/glossary.md`, plus re-executed notebooks only if their outputs change.\n",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 0,
+          "blocking": 6,
+          "total_blocking": 20
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      }
+    ],
+    "subissues": []
+  },
+  "55": {
+    "dependencies": [
+      {
+        "number": 69,
+        "title": "Foundation: CI executes every notebook offline and validates fixtures",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/69",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: foundation",
+          "priority: p0",
+          "size: M",
+          "status: in progress"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 1,
+          "title": "M0 · Foundation",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/1"
+        },
+        "body": "## Goal\n\nThe gate every recipe pull request has to pass. Once this is merged, recipes can start.\n\n## Scope\n\n- A CI job that discovers every `recipes/*/notebook.ipynb`, executes it from a fresh environment with no key and `JEV_COOKBOOK_LIVE` unset, and fails on any error.\n- Fixture validation for every recipe folder.\n- A guard that fails if a notebook attempts a network call to the TypeSafe API during the offline run.\n- A check that committed notebook outputs match a fresh offline execution closely enough to catch stale outputs (define the comparison and document it).\n- A check that a recipe pull request changes only its own `recipes/NN-slug/` folder, reported as a clear message.\n- Per-recipe execution in a matrix or with path filtering, so sixty notebooks do not make every run slow.\n\n## Acceptance criteria\n\n- [ ] The template recipe passes all jobs\n- [ ] A notebook with a failing cell, an invalid fixture, and a stale output each make CI fail, demonstrated in the pull request description\n- [ ] Full run time with one recipe is recorded, with a note on how it scales\n- [ ] Lint and tests pass in CI, or locally with the output pasted in the pull request if CI does not exist yet\n\n## Dependencies\n\n- Blocked by #62 (CI baseline for lint, tests, and the README catalog check)\n- Blocked by #68 (recipe template and scaffolder)\n- Unblocks every recipe issue (#1 to #60)\n- Tracked in #74\n\n## References\n\n- [Recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md)\n- [Catalog](https://github.com/Jev-Engineering/cookbook/blob/main/catalog/recipes.json)\n- TypeSafe documentation index for tools: https://docs.typesafe.ai/llms.txt\n- Python SDK: https://docs.typesafe.ai/sdk/python",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/74",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 2,
+          "blocking": 10,
+          "total_blocking": 60
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 64,
+        "title": "Foundation: opt-in live Jev backend and response recorder",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/64",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: foundation",
+          "priority: p1",
+          "size: M"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 1,
+          "title": "M0 · Foundation",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/1"
+        },
+        "body": "## Goal\n\nLet a reader with their own key run any recipe against Jev, and capture those responses as recorded fixtures.\n\n## Scope\n\n- `LiveBackend` wrapping `typesafe_sdk.TypeSafeClient.system_one`, available only with the `live` extra, `JEV_COOKBOOK_LIVE=1`, and `TYPESAFE_API_KEY`.\n- The model is passed explicitly per run. The `model` string the API returns and the `usage` block are kept on the result.\n- A request budget guard: a maximum number of calls per run, enforced in code, with a clear error when exceeded.\n- A recorder that writes responses into a recipe's fixtures with provenance `recorded`, the returned model string, and the date.\n- A documented path for alternative backends through the System One Adapter (S08), needed by recipes 50 and 55. Decide whether that is an optional extra and write the decision down.\n- The key never appears in logs, exceptions, fixtures, or notebook output.\n\n## Acceptance criteria\n\n- [ ] Tests run with the HTTP layer mocked; CI makes no network call and needs no key\n- [ ] Missing key or missing opt-in gives a clear, actionable error\n- [ ] A test shows the budget guard stops a run\n- [ ] A test shows recorded fixtures replay through `ReplayBackend` byte for byte\n- [ ] The pull request states whether a real live call was made during development. If none was, it says so\n- [ ] Lint and tests pass in CI, or locally with the output pasted in the pull request if CI does not exist yet\n\n## Dependencies\n\n- Blocked by #63 (decision backends with typed answers, replay, and scripted modes)\n- Unblocks #72\n- Unblocks the recipes labelled `needs: live run`\n- Tracked in #74\n\n## References\n\n- [Recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md)\n- [Catalog](https://github.com/Jev-Engineering/cookbook/blob/main/catalog/recipes.json)\n- TypeSafe documentation index for tools: https://docs.typesafe.ai/llms.txt\n- Python SDK: https://docs.typesafe.ai/sdk/python",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/74",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 1,
+          "blocking": 2,
+          "total_blocking": 4
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 50,
+        "title": "Recipe 50: Model comparison and calibration",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/50",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: recipe",
+          "level: 4 advanced",
+          "decision: choice",
+          "decision: noul",
+          "decision: score",
+          "decision: combination",
+          "cat: evaluation & optimization",
+          "priority: p2",
+          "size: L",
+          "status: ready",
+          "needs: live run"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 5,
+          "title": "M4 · Advanced",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/5"
+        },
+        "body": "> Recipe **50** of 60 · Level 4 (Advanced) · Evaluation & optimization · `Choice` + `Noul` + `Score`\n\n## Use case\n\nCompare Jev and alternative decision backends on identical labeled tasks, calibrating each model separately and measuring held-out quality, latency, and cost.\n\n## What to build\n\nThe folder `recipes/50-model-comparison-and-calibration/` with `notebook.ipynb`, `README.md`, and `fixtures/`, meeting the [recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md). Start from `python tools/new_recipe.py 50` and the template in `recipes/_template/`.\n\n### Build notes\n\n- A harness that runs Jev and alternative decision backends on identical labeled tasks through one typed interface (see S08).\n- Calibrate each backend separately. Measure held-out quality, latency, and cost.\n- The offline run exercises the harness on synthetic responses and draws no comparative conclusion. Real numbers come only from a recorded live run with model versions and date.\n\n### Decision design\n\n- **Choice.** Options are a fixed set supplied by Python, including the fallback outcome this use case names. Show the `choice`, the per-option `probabilities`, and the `confidence` for individual examples before aggregating.\n- **Noul.** Write each proposition as a statement that is true or false. One independent question per label or concern, sent together in one request. Noul has no confidence field, so each threshold is chosen from examples and evaluated.\n- **Score.** Describe every rubric level in words, in order. Show the `score` and the distribution over levels. Mapping, weighting, and arithmetic on scores happen in Python.\n- **Composition.** Independent questions share one request. A question that depends on an earlier answer goes in a later request, and the notebook makes that boundary visible.\n\n### Level 4 scope\n\nStateful workflows, provenance, adversarial cases, model calibration, or several integrated decision stages.\n\n## Acceptance criteria\n\n- [ ] `recipes/50-model-comparison-and-calibration/notebook.ipynb` runs top to bottom offline, with no key and no network, and its outputs are committed\n- [ ] Live mode is opt-in (`JEV_COOKBOOK_LIVE=1` with `TYPESAFE_API_KEY`) and uses the same question definitions as the offline run\n- [ ] Fixtures are synthetic, include the hard cases named in the build notes, carry gold labels, and pass the fixture validator\n- [ ] Every response fixture records its provenance, and the notebook states which mode it ran in\n- [ ] Evaluation: A results table whose every cell is labelled synthetic or recorded, with the test split used once.\n- [ ] The offline run is presented as a harness check. The recipe README has a section on how to produce real results with a live run, and reports none unless one was recorded\n- [ ] State, provenance, or policy rules are enforced in `helpers.py` and covered by tests that hold for any model answer\n- [ ] Fixtures include adversarial, conflicting, or stateful cases, and the notebook walks through at least one\n- [ ] No statement about Jev's quality, latency, or cost appears without recorded live inference; in a synthetic run, metrics are labelled as pipeline checks\n- [ ] `recipes/50-model-comparison-and-calibration/README.md` says what the recipe teaches, how to run it, and what was and was not measured live\n- [ ] The pull request changes only `recipes/50-model-comparison-and-calibration/` and CI is green\n\n## Dependencies\n\n- Blocked by #69 (CI executes every notebook offline and validates fixtures)\n- Blocked by #64 (opt-in live Jev backend and response recorder)\n- Builds on #23 (Pairwise answer evaluation), #38 (Abstention and review queues). Merge those first and reuse their patterns; do not copy their fixtures.\n- Tracked in #78\n\n## Sources\n\nRead these before writing the questions.\n\n- S02 · [TypeSafe AI: Primitives (Questions)](https://docs.typesafe.ai/primitives): Choice, Noul, Score, independent questions, and dependent follow-up calls.\n- S03 · [TypeSafe AI: Confidence](https://docs.typesafe.ai/confidence): Distribution-derived confidence and task-specific thresholds informed by observed outcomes.\n- S08 · [TypeSafe AI: System One Adapter](https://github.com/typesafe-ai/system-one-adapter-python): A typed interface for comparing Jev with decision adapters backed by generative models.\n\n## Out of scope\n\n- Changes to shared code, the catalog, or the root README. If the shared package is missing something, open a foundation issue and link it here.\n- Real side effects of any kind. Actions are simulated.",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/78",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 5,
+          "blocking": 1,
+          "total_blocking": 1
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      }
+    ],
+    "subissues": []
+  },
+  "56": {
+    "dependencies": [
+      {
+        "number": 69,
+        "title": "Foundation: CI executes every notebook offline and validates fixtures",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/69",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: foundation",
+          "priority: p0",
+          "size: M",
+          "status: in progress"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 1,
+          "title": "M0 · Foundation",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/1"
+        },
+        "body": "## Goal\n\nThe gate every recipe pull request has to pass. Once this is merged, recipes can start.\n\n## Scope\n\n- A CI job that discovers every `recipes/*/notebook.ipynb`, executes it from a fresh environment with no key and `JEV_COOKBOOK_LIVE` unset, and fails on any error.\n- Fixture validation for every recipe folder.\n- A guard that fails if a notebook attempts a network call to the TypeSafe API during the offline run.\n- A check that committed notebook outputs match a fresh offline execution closely enough to catch stale outputs (define the comparison and document it).\n- A check that a recipe pull request changes only its own `recipes/NN-slug/` folder, reported as a clear message.\n- Per-recipe execution in a matrix or with path filtering, so sixty notebooks do not make every run slow.\n\n## Acceptance criteria\n\n- [ ] The template recipe passes all jobs\n- [ ] A notebook with a failing cell, an invalid fixture, and a stale output each make CI fail, demonstrated in the pull request description\n- [ ] Full run time with one recipe is recorded, with a note on how it scales\n- [ ] Lint and tests pass in CI, or locally with the output pasted in the pull request if CI does not exist yet\n\n## Dependencies\n\n- Blocked by #62 (CI baseline for lint, tests, and the README catalog check)\n- Blocked by #68 (recipe template and scaffolder)\n- Unblocks every recipe issue (#1 to #60)\n- Tracked in #74\n\n## References\n\n- [Recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md)\n- [Catalog](https://github.com/Jev-Engineering/cookbook/blob/main/catalog/recipes.json)\n- TypeSafe documentation index for tools: https://docs.typesafe.ai/llms.txt\n- Python SDK: https://docs.typesafe.ai/sdk/python",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/74",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 2,
+          "blocking": 10,
+          "total_blocking": 60
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 26,
+        "title": "Recipe 26: Prompt-injection screening",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/26",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: recipe",
+          "level: 3 intermediate",
+          "decision: noul",
+          "cat: trust & security",
+          "priority: p2",
+          "size: M",
+          "status: blocked"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 4,
+          "title": "M3 · Intermediate",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/4"
+        },
+        "body": "> Recipe **26** of 60 · Level 3 (Intermediate) · Trust & security · `Noul`\n\n## Use case\n\nFlag instruction-redirection attempts in retrieved text using adversarial and benign quotation fixtures to measure false positives and missed attacks.\n\n## What to build\n\nThe folder `recipes/26-prompt-injection-screening/` with `notebook.ipynb`, `README.md`, and `fixtures/`, meeting the [recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md). Start from `python tools/new_recipe.py 26` and the template in `recipes/_template/`.\n\n### Build notes\n\n- Fixtures must cover all **four** combinations of the two propositions, not two complementary groups. An earlier wording of this bullet said \"two groups\" and produced a fixture set in which `discusses` was the mechanical complement of `redirect`, so the second `Noul` could not change any composed outcome and scored a perfect F1 by construction (found by the Opus review of PR #206, comment 6092513082). Required: text that **redirects only**; text that **discusses or quotes only**; text where **both** hold at once (for example a passage that discusses injection and also carries a live attempt); and text where **neither** holds (ordinary content that is not about prompt injection at all, the \"no match\" case of `CONTRIBUTING.md` section 5). The both-and-neither cases are the hard cases this recipe is judged on, and they are what justifies two independent `Noul` questions instead of one `Choice`.\n- Report false positives and missed attacks separately.\n- State that screening is one layer of defence and no guarantee. S07 documents the model's limits on adversarial content.\n\n### Decision design\n\n- **Noul.** Write each proposition as a statement that is true or false. One independent question per label or concern, sent together in one request. Noul has no confidence field, so each threshold is chosen from examples and evaluated.\n\n### Level 3 scope\n\nMultiple judgments or stages, structured evidence, deterministic composition, and task-level evaluation.\n\n## Acceptance criteria\n\n- [ ] `recipes/26-prompt-injection-screening/notebook.ipynb` runs top to bottom offline, with no key and no network, and its outputs are committed\n- [ ] Live mode is opt-in (`JEV_COOKBOOK_LIVE=1` with `TYPESAFE_API_KEY`) and uses the same question definitions as the offline run\n- [ ] Fixtures are synthetic, include the hard cases named in the build notes, carry gold labels, and pass the fixture validator\n- [ ] Every response fixture records its provenance, and the notebook states which mode it ran in\n- [ ] Evaluation: Miss rate on the adversarial group and false-positive rate on the benign group at the chosen threshold.\n- [ ] The deterministic composition lives in a Python function with tests in `tests/`\n- [ ] Evaluation is at task level, not only per question\n- [ ] Each of the two propositions is independently consequential: flipping one stored decision changes at least one composed outcome, and a test proves it. A per-label metric that is perfect by construction is reported as such or not reported\n- [ ] No statement about Jev's quality, latency, or cost appears without recorded live inference; in a synthetic run, metrics are labelled as pipeline checks\n- [ ] `recipes/26-prompt-injection-screening/README.md` says what the recipe teaches, how to run it, and what was and was not measured live\n- [ ] The pull request changes only `recipes/26-prompt-injection-screening/` and CI is green\n\n## Dependencies\n\n- Blocked by #69 (CI executes every notebook offline and validates fixtures)\n- Tracked in #77\n\n## Sources\n\nRead these before writing the questions.\n\n- S02 · [TypeSafe AI: Primitives (Questions)](https://docs.typesafe.ai/primitives): Choice, Noul, Score, independent questions, and dependent follow-up calls.\n- S03 · [TypeSafe AI: Confidence](https://docs.typesafe.ai/confidence): Distribution-derived confidence and task-specific thresholds informed by observed outcomes.\n- S04 · [TypeSafe AI: How to build with TypeSafe](https://docs.typesafe.ai/concepts/how-to-build-with-system-one): Narrow semantic judgments integrated with workflows, deterministic logic, and side effects controlled by code.\n- S07 · [TypeSafe AI: Jev 1.13 jaggedness](https://docs.typesafe.ai/model-jaggedness/jev-1.13): Version-specific limitations affecting arithmetic, context selection, adversarial content, and generation.\n\n## Out of scope\n\n- Changes to shared code, the catalog, or the root README. If the shared package is missing something, open a foundation issue and link it here.\n- Real side effects of any kind. Actions are simulated.\n",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/77",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 3,
+          "blocking": 1,
+          "total_blocking": 1
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 41,
+        "title": "Recipe 41: Approval scope review",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/41",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: recipe",
+          "level: 4 advanced",
+          "decision: noul",
+          "cat: trust & security",
+          "priority: p2",
+          "size: L",
+          "status: ready"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 5,
+          "title": "M4 · Advanced",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/5"
+        },
+        "body": "> Recipe **41** of 60 · Level 4 (Advanced) · Trust & security · `Noul`\n\n## Use case\n\nFlag semantic mismatches between an approved task and a proposed tool action while Python enforces exact permissions and approval bindings.\n\n## What to build\n\nThe folder `recipes/41-approval-scope-review/` with `notebook.ipynb`, `README.md`, and `fixtures/`, meeting the [recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md). Start from `python tools/new_recipe.py 41` and the template in `recipes/_template/`.\n\n### Build notes\n\n- A Noul flags a semantic mismatch between the approved task and the proposed tool action.\n- Python enforces exact permissions and approval bindings independently of the model.\n- A test shows the model's answer can add a hold and can never grant an action.\n\n### Decision design\n\n- **Noul.** Write each proposition as a statement that is true or false. One independent question per label or concern, sent together in one request. Noul has no confidence field, so each threshold is chosen from examples and evaluated.\n\n### Level 4 scope\n\nStateful workflows, provenance, adversarial cases, model calibration, or several integrated decision stages.\n\n## Acceptance criteria\n\n- [ ] `recipes/41-approval-scope-review/notebook.ipynb` runs top to bottom offline, with no key and no network, and its outputs are committed\n- [ ] Live mode is opt-in (`JEV_COOKBOOK_LIVE=1` with `TYPESAFE_API_KEY`) and uses the same question definitions as the offline run\n- [ ] Fixtures are synthetic, include the hard cases named in the build notes, carry gold labels, and pass the fixture validator\n- [ ] Every response fixture records its provenance, and the notebook states which mode it ran in\n- [ ] Evaluation: Precision and recall on mismatch fixtures, and the enforcement test.\n- [ ] State, provenance, or policy rules are enforced in `helpers.py` and covered by tests that hold for any model answer\n- [ ] Fixtures include adversarial, conflicting, or stateful cases, and the notebook walks through at least one\n- [ ] No statement about Jev's quality, latency, or cost appears without recorded live inference; in a synthetic run, metrics are labelled as pipeline checks\n- [ ] `recipes/41-approval-scope-review/README.md` says what the recipe teaches, how to run it, and what was and was not measured live\n- [ ] The pull request changes only `recipes/41-approval-scope-review/` and CI is green\n\n## Dependencies\n\n- Blocked by #69 (CI executes every notebook offline and validates fixtures)\n- Builds on #27 (Function selection). Merge those first and reuse their patterns; do not copy their fixtures.\n- Tracked in #78\n\n## Sources\n\nRead these before writing the questions.\n\n- S02 · [TypeSafe AI: Primitives (Questions)](https://docs.typesafe.ai/primitives): Choice, Noul, Score, independent questions, and dependent follow-up calls.\n- S03 · [TypeSafe AI: Confidence](https://docs.typesafe.ai/confidence): Distribution-derived confidence and task-specific thresholds informed by observed outcomes.\n- S04 · [TypeSafe AI: How to build with TypeSafe](https://docs.typesafe.ai/concepts/how-to-build-with-system-one): Narrow semantic judgments integrated with workflows, deterministic logic, and side effects controlled by code.\n- S07 · [TypeSafe AI: Jev 1.13 jaggedness](https://docs.typesafe.ai/model-jaggedness/jev-1.13): Version-specific limitations affecting arithmetic, context selection, adversarial content, and generation.\n\n## Out of scope\n\n- Changes to shared code, the catalog, or the root README. If the shared package is missing something, open a foundation issue and link it here.\n- Real side effects of any kind. Actions are simulated.",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/78",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 4,
+          "blocking": 1,
+          "total_blocking": 1
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 42,
+        "title": "Recipe 42: Outbound disclosure screening",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/42",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: recipe",
+          "level: 4 advanced",
+          "decision: noul",
+          "cat: trust & security",
+          "priority: p2",
+          "size: L",
+          "status: ready"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 5,
+          "title": "M4 · Advanced",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/5"
+        },
+        "body": "> Recipe **42** of 60 · Level 4 (Advanced) · Trust & security · `Noul`\n\n## Use case\n\nScreen proposed outbound messages for disclosure concerns against supplied sharing rules while deterministic controls hold flagged or uncertain samples for review.\n\n## What to build\n\nThe folder `recipes/42-outbound-disclosure-screening/` with `notebook.ipynb`, `README.md`, and `fixtures/`, meeting the [recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md). Start from `python tools/new_recipe.py 42` and the template in `recipes/_template/`.\n\n### Build notes\n\n- One independent Noul per supplied sharing rule for each proposed outbound message.\n- Deterministic controls hold flagged or uncertain samples for review. Nothing is sent.\n- Synthetic messages only.\n\n### Decision design\n\n- **Noul.** Write each proposition as a statement that is true or false. One independent question per label or concern, sent together in one request. Noul has no confidence field, so each threshold is chosen from examples and evaluated.\n\n### Level 4 scope\n\nStateful workflows, provenance, adversarial cases, model calibration, or several integrated decision stages.\n\n## Acceptance criteria\n\n- [ ] `recipes/42-outbound-disclosure-screening/notebook.ipynb` runs top to bottom offline, with no key and no network, and its outputs are committed\n- [ ] Live mode is opt-in (`JEV_COOKBOOK_LIVE=1` with `TYPESAFE_API_KEY`) and uses the same question definitions as the offline run\n- [ ] Fixtures are synthetic, include the hard cases named in the build notes, carry gold labels, and pass the fixture validator\n- [ ] Every response fixture records its provenance, and the notebook states which mode it ran in\n- [ ] Evaluation: Missed-disclosure rate, false-hold rate, and overall hold rate.\n- [ ] State, provenance, or policy rules are enforced in `helpers.py` and covered by tests that hold for any model answer\n- [ ] Fixtures include adversarial, conflicting, or stateful cases, and the notebook walks through at least one\n- [ ] No statement about Jev's quality, latency, or cost appears without recorded live inference; in a synthetic run, metrics are labelled as pipeline checks\n- [ ] `recipes/42-outbound-disclosure-screening/README.md` says what the recipe teaches, how to run it, and what was and was not measured live\n- [ ] The pull request changes only `recipes/42-outbound-disclosure-screening/` and CI is green\n\n## Dependencies\n\n- Blocked by #69 (CI executes every notebook offline and validates fixtures)\n- Builds on #15 (Sensitive text triage). Merge those first and reuse their patterns; do not copy their fixtures.\n- Tracked in #78\n\n## Sources\n\nRead these before writing the questions.\n\n- S02 · [TypeSafe AI: Primitives (Questions)](https://docs.typesafe.ai/primitives): Choice, Noul, Score, independent questions, and dependent follow-up calls.\n- S03 · [TypeSafe AI: Confidence](https://docs.typesafe.ai/confidence): Distribution-derived confidence and task-specific thresholds informed by observed outcomes.\n- S04 · [TypeSafe AI: How to build with TypeSafe](https://docs.typesafe.ai/concepts/how-to-build-with-system-one): Narrow semantic judgments integrated with workflows, deterministic logic, and side effects controlled by code.\n- S07 · [TypeSafe AI: Jev 1.13 jaggedness](https://docs.typesafe.ai/model-jaggedness/jev-1.13): Version-specific limitations affecting arithmetic, context selection, adversarial content, and generation.\n\n## Out of scope\n\n- Changes to shared code, the catalog, or the root README. If the shared package is missing something, open a foundation issue and link it here.\n- Real side effects of any kind. Actions are simulated.",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/78",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 4,
+          "blocking": 1,
+          "total_blocking": 1
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 140,
+        "title": "evaluation: noul_confidence must be |2p − 1| per the confidence page (same scale as Choice); document the Noul three-path pattern",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/140",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: foundation",
+          "priority: p1",
+          "size: S"
+        ],
+        "assignees": [],
+        "milestone": null,
+        "body": "## Context\n\nFrom the Opus review of #136 (recipe 02, the first Noul recipe; comment 6071121590). `src/jev_cookbook/evaluation.py` and `docs/evaluation.md` define `noul_confidence(p) = max(p, 1 − p)` (range 0.5–1). The TypeSafe confidence page (`https://docs.typesafe.ai/confidence.md`, README S03) defines a Noul's confidence as `|2p − 1|` (range 0–1) and states it is the Choice formula `(p_max − 1/n)/(1 − 1/n)` applied with n = 2, so it sits on the same scale as Choice confidence. The toolkit helper therefore disagrees with the source, and a recipe that gates Nouls and Choices with one threshold, as the page recommends, gets wrong answers from it. `docs/evaluation.md` documents the Choice rescaling correctly on the same page.\n\n## Acceptance\n\n1. `noul_confidence(p)` returns `|2p − 1|` per the confidence page (the old `max(p, 1 − p)` is removed or kept under a distinct, documented name such as `noul_majority`); `docs/evaluation.md` and `docs/glossary.md` state the formula with the source link and note the shared scale with Choice.\n2. Tests pin the formula at p ∈ {0, 0.25, 0.5, 0.75, 1} and the identity with `(p_max − 1/n)/(1 − 1/n)` at n = 2; mutation: revert to `max(p, 1 − p)` → tests fail.\n3. Every call site in `src/`, `recipes/_template`, `tools/new_recipe.py` and merged recipes is checked; any notebook whose outputs change is re-executed and committed byte-identically in the same PR (list them).\n4. Add to `docs/evaluation.md` a short \"Noul three-path pattern\" note: a business threshold on p plus a confidence gate `|2p − 1| < c` → review outcome, composed from `threshold_sweep` / `evaluate_threshold`, since no helper selects both together (the Score recipes reported the same gap).\n\nRequired before the remaining Noul recipes (#6, #10, and later waves) are briefed. Foundation issue; allowed paths `src/jev_cookbook/evaluation.py`, `tests/test_evaluation*.py`, `docs/evaluation.md`, `docs/glossary.md`, plus re-executed notebooks only if their outputs change.\n",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 0,
+          "blocking": 6,
+          "total_blocking": 20
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 147,
+        "title": "catalog: list S02 (primitives) among the sources of every recipe",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/147",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: foundation",
+          "priority: p2",
+          "size: S"
+        ],
+        "assignees": [],
+        "milestone": null,
+        "body": "## Context\n\nFrom the Opus review of #145 (comment 6071506008): 30 of the 60 catalog rows (ranks 8, 10, 11, 15–17, 19–21, 26–32, 36, 41–46, 49, 51, 52, 56, 58–60) do not list S02 (Primitives), although every recipe asks a typed Choice/Noul/Score question defined on that page, and `tools/new_recipe.py` scaffolds the README source bullets from the catalog list, so those recipes would ship without the page that defines their own primitive. Same shape as #142.\n\n## Acceptance\n\nAdd `S02` to the `sources` of every row lacking it, keeping each list sorted by id and the file formatting (minimal diff, insertions only); `python tools/render_catalog.py --check` passes (README unchanged unless the renderer prints sources); `tests/test_recipe_sources.py` passes. Foundation issue; allowed paths `catalog/recipes.json`, `README.md` (renderer output only). Land before the affected recipes are briefed.\n",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 0,
+          "blocking": 6,
+          "total_blocking": 30
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      }
+    ],
+    "subissues": []
+  },
+  "57": {
+    "dependencies": [
+      {
+        "number": 69,
+        "title": "Foundation: CI executes every notebook offline and validates fixtures",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/69",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: foundation",
+          "priority: p0",
+          "size: M",
+          "status: in progress"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 1,
+          "title": "M0 · Foundation",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/1"
+        },
+        "body": "## Goal\n\nThe gate every recipe pull request has to pass. Once this is merged, recipes can start.\n\n## Scope\n\n- A CI job that discovers every `recipes/*/notebook.ipynb`, executes it from a fresh environment with no key and `JEV_COOKBOOK_LIVE` unset, and fails on any error.\n- Fixture validation for every recipe folder.\n- A guard that fails if a notebook attempts a network call to the TypeSafe API during the offline run.\n- A check that committed notebook outputs match a fresh offline execution closely enough to catch stale outputs (define the comparison and document it).\n- A check that a recipe pull request changes only its own `recipes/NN-slug/` folder, reported as a clear message.\n- Per-recipe execution in a matrix or with path filtering, so sixty notebooks do not make every run slow.\n\n## Acceptance criteria\n\n- [ ] The template recipe passes all jobs\n- [ ] A notebook with a failing cell, an invalid fixture, and a stale output each make CI fail, demonstrated in the pull request description\n- [ ] Full run time with one recipe is recorded, with a note on how it scales\n- [ ] Lint and tests pass in CI, or locally with the output pasted in the pull request if CI does not exist yet\n\n## Dependencies\n\n- Blocked by #62 (CI baseline for lint, tests, and the README catalog check)\n- Blocked by #68 (recipe template and scaffolder)\n- Unblocks every recipe issue (#1 to #60)\n- Tracked in #74\n\n## References\n\n- [Recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md)\n- [Catalog](https://github.com/Jev-Engineering/cookbook/blob/main/catalog/recipes.json)\n- TypeSafe documentation index for tools: https://docs.typesafe.ai/llms.txt\n- Python SDK: https://docs.typesafe.ai/sdk/python",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/74",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 2,
+          "blocking": 10,
+          "total_blocking": 60
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 70,
+        "title": "Foundation: simulation and state primitives",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/70",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: foundation",
+          "priority: p1",
+          "size: L"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 1,
+          "title": "M0 · Foundation",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/1"
+        },
+        "body": "## Goal\n\nShared building blocks for recipes that keep state or run a loop, so thirteen advanced recipes do not each invent a queue and a simulator.\n\n## Scope\n\n- A deterministic, seeded simulator base: reset, observe, enumerate legal actions, step, and a trajectory log that can be replayed.\n- A simulated review queue and action log, used wherever a recipe says an item goes to review or an action is simulated.\n- A versioned key-value store that keeps provenance and never deletes, with history and rollback.\n- A transactional wrapper: validate, apply, roll back on failure, with a replayable log.\n- A budget helper for retry limits, call budgets, and stop conditions, raising when exceeded.\n- Guidance on using `ScriptedBackend` to run a closed loop offline.\n\n## Acceptance criteria\n\n- [ ] Each primitive has tests, including property-style tests for the invariants (no deletion, budget never exceeded, replay reproduces state)\n- [ ] Same seed gives the same trajectory on Linux and Windows\n- [ ] A short example shows a loop running offline end to end\n- [ ] Lint and tests pass in CI, or locally with the output pasted in the pull request if CI does not exist yet\n\n## Dependencies\n\n- Blocked by #63 (decision backends with typed answers, replay, and scripted modes)\n- Unblocks the recipes labelled `needs: simulator`\n- Tracked in #74\n\n## References\n\n- [Recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md)\n- [Catalog](https://github.com/Jev-Engineering/cookbook/blob/main/catalog/recipes.json)\n- TypeSafe documentation index for tools: https://docs.typesafe.ai/llms.txt\n- Python SDK: https://docs.typesafe.ai/sdk/python",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/74",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 1,
+          "blocking": 4,
+          "total_blocking": 9
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 34,
+        "title": "Recipe 34: Evidence relationship labels",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/34",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: recipe",
+          "level: 3 intermediate",
+          "decision: choice",
+          "cat: data quality & graphs",
+          "priority: p2",
+          "size: M",
+          "status: blocked"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 4,
+          "title": "M3 · Intermediate",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/4"
+        },
+        "body": "> Recipe **34** of 60 · Level 3 (Intermediate) · Data quality & knowledge graphs · `Choice`\n\n## Use case\n\nLabel candidate entity pairs with an allowed relationship type or no-supported-relation using provided evidence passages.\n\n## What to build\n\nThe folder `recipes/34-evidence-relationship-labels/` with `notebook.ipynb`, `README.md`, and `fixtures/`, meeting the [recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md). Start from `python tools/new_recipe.py 34` and the template in `recipes/_template/`.\n\n### Build notes\n\n- State is an entity pair and an evidence passage. Options are the allowed relationship types plus `no_supported_relation`.\n- The evidence passage identifier stays attached to each label.\n- Include pairs that are related in the world but not in the passage.\n\n### Decision design\n\n- **Choice.** Options are a fixed set supplied by Python, including the fallback outcome this use case names. Show the `choice`, the per-option `probabilities`, and the `confidence` for individual examples before aggregating.\n\n### Level 3 scope\n\nMultiple judgments or stages, structured evidence, deterministic composition, and task-level evaluation.\n\n## Acceptance criteria\n\n- [ ] `recipes/34-evidence-relationship-labels/notebook.ipynb` runs top to bottom offline, with no key and no network, and its outputs are committed\n- [ ] Live mode is opt-in (`JEV_COOKBOOK_LIVE=1` with `TYPESAFE_API_KEY`) and uses the same question definitions as the offline run\n- [ ] Fixtures are synthetic, include the hard cases named in the build notes, carry gold labels, and pass the fixture validator\n- [ ] Every response fixture records its provenance, and the notebook states which mode it ran in\n- [ ] Evaluation: Per-relation F1.\n- [ ] The deterministic composition lives in a Python function with tests in `tests/`\n- [ ] Evaluation is at task level, not only per question\n- [ ] No statement about Jev's quality, latency, or cost appears without recorded live inference; in a synthetic run, metrics are labelled as pipeline checks\n- [ ] `recipes/34-evidence-relationship-labels/README.md` says what the recipe teaches, how to run it, and what was and was not measured live\n- [ ] The pull request changes only `recipes/34-evidence-relationship-labels/` and CI is green\n\n## Dependencies\n\n- Blocked by #69 (CI executes every notebook offline and validates fixtures)\n- Tracked in #77\n\n## Sources\n\nRead these before writing the questions.\n\n- S02 · [TypeSafe AI: Primitives (Questions)](https://docs.typesafe.ai/primitives): Choice, Noul, Score, independent questions, and dependent follow-up calls.\n- S03 · [TypeSafe AI: Confidence](https://docs.typesafe.ai/confidence): Distribution-derived confidence and task-specific thresholds informed by observed outcomes.\n- S06 · [TypeSafe AI: Cookbooks](https://docs.typesafe.ai/cookbooks): Worked patterns for extraction, citation checking, skill selection, hierarchical classification, and feature discovery.\n\n## Out of scope\n\n- Changes to shared code, the catalog, or the root README. If the shared package is missing something, open a foundation issue and link it here.\n- Real side effects of any kind. Actions are simulated.",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/77",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 1,
+          "blocking": 1,
+          "total_blocking": 1
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 47,
+        "title": "Recipe 47: Evidence conflict diagnosis",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/47",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: recipe",
+          "level: 4 advanced",
+          "decision: choice",
+          "cat: data quality & graphs",
+          "priority: p2",
+          "size: L",
+          "status: ready"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 5,
+          "title": "M4 · Advanced",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/5"
+        },
+        "body": "> Recipe **47** of 60 · Level 4 (Advanced) · Data quality & knowledge graphs · `Choice`\n\n## Use case\n\nClassify apparent claim conflicts by factual disagreement, time, entity, or scope using source excerpts and temporal relationships already computed by Python.\n\n## What to build\n\nThe folder `recipes/47-evidence-conflict-diagnosis/` with `notebook.ipynb`, `README.md`, and `fixtures/`, meeting the [recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md). Start from `python tools/new_recipe.py 47` and the template in `recipes/_template/`.\n\n### Build notes\n\n- Classify apparent conflicts as factual disagreement, time, entity, or scope.\n- Temporal relationships are computed by Python and supplied in the state.\n- Include a pair that looks contradictory and refers to different entities with the same name.\n\n### Decision design\n\n- **Choice.** Options are a fixed set supplied by Python, including the fallback outcome this use case names. Show the `choice`, the per-option `probabilities`, and the `confidence` for individual examples before aggregating.\n\n### Level 4 scope\n\nStateful workflows, provenance, adversarial cases, model calibration, or several integrated decision stages.\n\n## Acceptance criteria\n\n- [ ] `recipes/47-evidence-conflict-diagnosis/notebook.ipynb` runs top to bottom offline, with no key and no network, and its outputs are committed\n- [ ] Live mode is opt-in (`JEV_COOKBOOK_LIVE=1` with `TYPESAFE_API_KEY`) and uses the same question definitions as the offline run\n- [ ] Fixtures are synthetic, include the hard cases named in the build notes, carry gold labels, and pass the fixture validator\n- [ ] Every response fixture records its provenance, and the notebook states which mode it ran in\n- [ ] Evaluation: Accuracy and a confusion matrix.\n- [ ] State, provenance, or policy rules are enforced in `helpers.py` and covered by tests that hold for any model answer\n- [ ] Fixtures include adversarial, conflicting, or stateful cases, and the notebook walks through at least one\n- [ ] No statement about Jev's quality, latency, or cost appears without recorded live inference; in a synthetic run, metrics are labelled as pipeline checks\n- [ ] `recipes/47-evidence-conflict-diagnosis/README.md` says what the recipe teaches, how to run it, and what was and was not measured live\n- [ ] The pull request changes only `recipes/47-evidence-conflict-diagnosis/` and CI is green\n\n## Dependencies\n\n- Blocked by #69 (CI executes every notebook offline and validates fixtures)\n- Builds on #20 (Claim support classification). Merge those first and reuse their patterns; do not copy their fixtures.\n- Tracked in #78\n\n## Sources\n\nRead these before writing the questions.\n\n- S02 · [TypeSafe AI: Primitives (Questions)](https://docs.typesafe.ai/primitives): Choice, Noul, Score, independent questions, and dependent follow-up calls.\n- S03 · [TypeSafe AI: Confidence](https://docs.typesafe.ai/confidence): Distribution-derived confidence and task-specific thresholds informed by observed outcomes.\n- S06 · [TypeSafe AI: Cookbooks](https://docs.typesafe.ai/cookbooks): Worked patterns for extraction, citation checking, skill selection, hierarchical classification, and feature discovery.\n\n## Out of scope\n\n- Changes to shared code, the catalog, or the root README. If the shared package is missing something, open a foundation issue and link it here.\n- Real side effects of any kind. Actions are simulated.",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/78",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 2,
+          "blocking": 1,
+          "total_blocking": 1
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 140,
+        "title": "evaluation: noul_confidence must be |2p − 1| per the confidence page (same scale as Choice); document the Noul three-path pattern",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/140",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: foundation",
+          "priority: p1",
+          "size: S"
+        ],
+        "assignees": [],
+        "milestone": null,
+        "body": "## Context\n\nFrom the Opus review of #136 (recipe 02, the first Noul recipe; comment 6071121590). `src/jev_cookbook/evaluation.py` and `docs/evaluation.md` define `noul_confidence(p) = max(p, 1 − p)` (range 0.5–1). The TypeSafe confidence page (`https://docs.typesafe.ai/confidence.md`, README S03) defines a Noul's confidence as `|2p − 1|` (range 0–1) and states it is the Choice formula `(p_max − 1/n)/(1 − 1/n)` applied with n = 2, so it sits on the same scale as Choice confidence. The toolkit helper therefore disagrees with the source, and a recipe that gates Nouls and Choices with one threshold, as the page recommends, gets wrong answers from it. `docs/evaluation.md` documents the Choice rescaling correctly on the same page.\n\n## Acceptance\n\n1. `noul_confidence(p)` returns `|2p − 1|` per the confidence page (the old `max(p, 1 − p)` is removed or kept under a distinct, documented name such as `noul_majority`); `docs/evaluation.md` and `docs/glossary.md` state the formula with the source link and note the shared scale with Choice.\n2. Tests pin the formula at p ∈ {0, 0.25, 0.5, 0.75, 1} and the identity with `(p_max − 1/n)/(1 − 1/n)` at n = 2; mutation: revert to `max(p, 1 − p)` → tests fail.\n3. Every call site in `src/`, `recipes/_template`, `tools/new_recipe.py` and merged recipes is checked; any notebook whose outputs change is re-executed and committed byte-identically in the same PR (list them).\n4. Add to `docs/evaluation.md` a short \"Noul three-path pattern\" note: a business threshold on p plus a confidence gate `|2p − 1| < c` → review outcome, composed from `threshold_sweep` / `evaluate_threshold`, since no helper selects both together (the Score recipes reported the same gap).\n\nRequired before the remaining Noul recipes (#6, #10, and later waves) are briefed. Foundation issue; allowed paths `src/jev_cookbook/evaluation.py`, `tests/test_evaluation*.py`, `docs/evaluation.md`, `docs/glossary.md`, plus re-executed notebooks only if their outputs change.\n",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 0,
+          "blocking": 6,
+          "total_blocking": 20
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      }
+    ],
+    "subissues": []
+  },
+  "58": {
+    "dependencies": [
+      {
+        "number": 69,
+        "title": "Foundation: CI executes every notebook offline and validates fixtures",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/69",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: foundation",
+          "priority: p0",
+          "size: M",
+          "status: in progress"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 1,
+          "title": "M0 · Foundation",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/1"
+        },
+        "body": "## Goal\n\nThe gate every recipe pull request has to pass. Once this is merged, recipes can start.\n\n## Scope\n\n- A CI job that discovers every `recipes/*/notebook.ipynb`, executes it from a fresh environment with no key and `JEV_COOKBOOK_LIVE` unset, and fails on any error.\n- Fixture validation for every recipe folder.\n- A guard that fails if a notebook attempts a network call to the TypeSafe API during the offline run.\n- A check that committed notebook outputs match a fresh offline execution closely enough to catch stale outputs (define the comparison and document it).\n- A check that a recipe pull request changes only its own `recipes/NN-slug/` folder, reported as a clear message.\n- Per-recipe execution in a matrix or with path filtering, so sixty notebooks do not make every run slow.\n\n## Acceptance criteria\n\n- [ ] The template recipe passes all jobs\n- [ ] A notebook with a failing cell, an invalid fixture, and a stale output each make CI fail, demonstrated in the pull request description\n- [ ] Full run time with one recipe is recorded, with a note on how it scales\n- [ ] Lint and tests pass in CI, or locally with the output pasted in the pull request if CI does not exist yet\n\n## Dependencies\n\n- Blocked by #62 (CI baseline for lint, tests, and the README catalog check)\n- Blocked by #68 (recipe template and scaffolder)\n- Unblocks every recipe issue (#1 to #60)\n- Tracked in #74\n\n## References\n\n- [Recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md)\n- [Catalog](https://github.com/Jev-Engineering/cookbook/blob/main/catalog/recipes.json)\n- TypeSafe documentation index for tools: https://docs.typesafe.ai/llms.txt\n- Python SDK: https://docs.typesafe.ai/sdk/python",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/74",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 2,
+          "blocking": 10,
+          "total_blocking": 60
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 70,
+        "title": "Foundation: simulation and state primitives",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/70",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: foundation",
+          "priority: p1",
+          "size: L"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 1,
+          "title": "M0 · Foundation",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/1"
+        },
+        "body": "## Goal\n\nShared building blocks for recipes that keep state or run a loop, so thirteen advanced recipes do not each invent a queue and a simulator.\n\n## Scope\n\n- A deterministic, seeded simulator base: reset, observe, enumerate legal actions, step, and a trajectory log that can be replayed.\n- A simulated review queue and action log, used wherever a recipe says an item goes to review or an action is simulated.\n- A versioned key-value store that keeps provenance and never deletes, with history and rollback.\n- A transactional wrapper: validate, apply, roll back on failure, with a replayable log.\n- A budget helper for retry limits, call budgets, and stop conditions, raising when exceeded.\n- Guidance on using `ScriptedBackend` to run a closed loop offline.\n\n## Acceptance criteria\n\n- [ ] Each primitive has tests, including property-style tests for the invariants (no deletion, budget never exceeded, replay reproduces state)\n- [ ] Same seed gives the same trajectory on Linux and Windows\n- [ ] A short example shows a loop running offline end to end\n- [ ] Lint and tests pass in CI, or locally with the output pasted in the pull request if CI does not exist yet\n\n## Dependencies\n\n- Blocked by #63 (decision backends with typed answers, replay, and scripted modes)\n- Unblocks the recipes labelled `needs: simulator`\n- Tracked in #74\n\n## References\n\n- [Recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md)\n- [Catalog](https://github.com/Jev-Engineering/cookbook/blob/main/catalog/recipes.json)\n- TypeSafe documentation index for tools: https://docs.typesafe.ai/llms.txt\n- Python SDK: https://docs.typesafe.ai/sdk/python",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/74",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 1,
+          "blocking": 4,
+          "total_blocking": 9
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 43,
+        "title": "Recipe 43: Failure recovery selection",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/43",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: recipe",
+          "level: 4 advanced",
+          "decision: choice",
+          "cat: agent orchestration",
+          "priority: p2",
+          "size: L",
+          "status: ready",
+          "needs: simulator"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 5,
+          "title": "M4 · Advanced",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/5"
+        },
+        "body": "> Recipe **43** of 60 · Level 4 (Advanced) · Agent orchestration · `Choice`\n\n## Use case\n\nSelect retry, alternative method, or escalation from a bounded recovery catalog using execution history while Python enforces retry budgets and stop conditions.\n\n## What to build\n\nThe folder `recipes/43-failure-recovery-selection/` with `notebook.ipynb`, `README.md`, and `fixtures/`, meeting the [recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md). Start from `python tools/new_recipe.py 43` and the template in `recipes/_template/`.\n\n### Build notes\n\n- Options: `retry`, `alternative_method`, `escalate`, from a bounded recovery catalog, using execution history.\n- Python enforces retry budgets and stop conditions.\n- A property test shows that budgets are never exceeded whatever the model answers.\n\n### Decision design\n\n- **Choice.** Options are a fixed set supplied by Python, including the fallback outcome this use case names. Show the `choice`, the per-option `probabilities`, and the `confidence` for individual examples before aggregating.\n\n### Level 4 scope\n\nStateful workflows, provenance, adversarial cases, model calibration, or several integrated decision stages.\n\n## Acceptance criteria\n\n- [ ] `recipes/43-failure-recovery-selection/notebook.ipynb` runs top to bottom offline, with no key and no network, and its outputs are committed\n- [ ] Live mode is opt-in (`JEV_COOKBOOK_LIVE=1` with `TYPESAFE_API_KEY`) and uses the same question definitions as the offline run\n- [ ] Fixtures are synthetic, include the hard cases named in the build notes, carry gold labels, and pass the fixture validator\n- [ ] Every response fixture records its provenance, and the notebook states which mode it ran in\n- [ ] Evaluation: Agreement with gold recovery choices, and the budget property test.\n- [ ] State, provenance, or policy rules are enforced in `helpers.py` and covered by tests that hold for any model answer\n- [ ] Fixtures include adversarial, conflicting, or stateful cases, and the notebook walks through at least one\n- [ ] No statement about Jev's quality, latency, or cost appears without recorded live inference; in a synthetic run, metrics are labelled as pipeline checks\n- [ ] `recipes/43-failure-recovery-selection/README.md` says what the recipe teaches, how to run it, and what was and was not measured live\n- [ ] The pull request changes only `recipes/43-failure-recovery-selection/` and CI is green\n\n## Dependencies\n\n- Blocked by #69 (CI executes every notebook offline and validates fixtures)\n- Blocked by #70 (simulation and state primitives)\n- Builds on #29 (Tool outcome verification). Merge those first and reuse their patterns; do not copy their fixtures.\n- Tracked in #78\n\n## Sources\n\nRead these before writing the questions.\n\n- S02 · [TypeSafe AI: Primitives (Questions)](https://docs.typesafe.ai/primitives): Choice, Noul, Score, independent questions, and dependent follow-up calls.\n- S03 · [TypeSafe AI: Confidence](https://docs.typesafe.ai/confidence): Distribution-derived confidence and task-specific thresholds informed by observed outcomes.\n- S04 · [TypeSafe AI: How to build with TypeSafe](https://docs.typesafe.ai/concepts/how-to-build-with-system-one): Narrow semantic judgments integrated with workflows, deterministic logic, and side effects controlled by code.\n- S06 · [TypeSafe AI: Cookbooks](https://docs.typesafe.ai/cookbooks): Worked patterns for extraction, citation checking, skill selection, hierarchical classification, and feature discovery.\n\n## Out of scope\n\n- Changes to shared code, the catalog, or the root README. If the shared package is missing something, open a foundation issue and link it here.\n- Real side effects of any kind. Actions are simulated.",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/78",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 4,
+          "blocking": 2,
+          "total_blocking": 2
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 140,
+        "title": "evaluation: noul_confidence must be |2p − 1| per the confidence page (same scale as Choice); document the Noul three-path pattern",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/140",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: foundation",
+          "priority: p1",
+          "size: S"
+        ],
+        "assignees": [],
+        "milestone": null,
+        "body": "## Context\n\nFrom the Opus review of #136 (recipe 02, the first Noul recipe; comment 6071121590). `src/jev_cookbook/evaluation.py` and `docs/evaluation.md` define `noul_confidence(p) = max(p, 1 − p)` (range 0.5–1). The TypeSafe confidence page (`https://docs.typesafe.ai/confidence.md`, README S03) defines a Noul's confidence as `|2p − 1|` (range 0–1) and states it is the Choice formula `(p_max − 1/n)/(1 − 1/n)` applied with n = 2, so it sits on the same scale as Choice confidence. The toolkit helper therefore disagrees with the source, and a recipe that gates Nouls and Choices with one threshold, as the page recommends, gets wrong answers from it. `docs/evaluation.md` documents the Choice rescaling correctly on the same page.\n\n## Acceptance\n\n1. `noul_confidence(p)` returns `|2p − 1|` per the confidence page (the old `max(p, 1 − p)` is removed or kept under a distinct, documented name such as `noul_majority`); `docs/evaluation.md` and `docs/glossary.md` state the formula with the source link and note the shared scale with Choice.\n2. Tests pin the formula at p ∈ {0, 0.25, 0.5, 0.75, 1} and the identity with `(p_max − 1/n)/(1 − 1/n)` at n = 2; mutation: revert to `max(p, 1 − p)` → tests fail.\n3. Every call site in `src/`, `recipes/_template`, `tools/new_recipe.py` and merged recipes is checked; any notebook whose outputs change is re-executed and committed byte-identically in the same PR (list them).\n4. Add to `docs/evaluation.md` a short \"Noul three-path pattern\" note: a business threshold on p plus a confidence gate `|2p − 1| < c` → review outcome, composed from `threshold_sweep` / `evaluate_threshold`, since no helper selects both together (the Score recipes reported the same gap).\n\nRequired before the remaining Noul recipes (#6, #10, and later waves) are briefed. Foundation issue; allowed paths `src/jev_cookbook/evaluation.py`, `tests/test_evaluation*.py`, `docs/evaluation.md`, `docs/glossary.md`, plus re-executed notebooks only if their outputs change.\n",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 0,
+          "blocking": 6,
+          "total_blocking": 20
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 147,
+        "title": "catalog: list S02 (primitives) among the sources of every recipe",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/147",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: foundation",
+          "priority: p2",
+          "size: S"
+        ],
+        "assignees": [],
+        "milestone": null,
+        "body": "## Context\n\nFrom the Opus review of #145 (comment 6071506008): 30 of the 60 catalog rows (ranks 8, 10, 11, 15–17, 19–21, 26–32, 36, 41–46, 49, 51, 52, 56, 58–60) do not list S02 (Primitives), although every recipe asks a typed Choice/Noul/Score question defined on that page, and `tools/new_recipe.py` scaffolds the README source bullets from the catalog list, so those recipes would ship without the page that defines their own primitive. Same shape as #142.\n\n## Acceptance\n\nAdd `S02` to the `sources` of every row lacking it, keeping each list sorted by id and the file formatting (minimal diff, insertions only); `python tools/render_catalog.py --check` passes (README unchanged unless the renderer prints sources); `tests/test_recipe_sources.py` passes. Foundation issue; allowed paths `catalog/recipes.json`, `README.md` (renderer output only). Land before the affected recipes are briefed.\n",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 0,
+          "blocking": 6,
+          "total_blocking": 30
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      }
+    ],
+    "subissues": []
+  },
+  "59": {
+    "dependencies": [
+      {
+        "number": 69,
+        "title": "Foundation: CI executes every notebook offline and validates fixtures",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/69",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: foundation",
+          "priority: p0",
+          "size: M",
+          "status: in progress"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 1,
+          "title": "M0 · Foundation",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/1"
+        },
+        "body": "## Goal\n\nThe gate every recipe pull request has to pass. Once this is merged, recipes can start.\n\n## Scope\n\n- A CI job that discovers every `recipes/*/notebook.ipynb`, executes it from a fresh environment with no key and `JEV_COOKBOOK_LIVE` unset, and fails on any error.\n- Fixture validation for every recipe folder.\n- A guard that fails if a notebook attempts a network call to the TypeSafe API during the offline run.\n- A check that committed notebook outputs match a fresh offline execution closely enough to catch stale outputs (define the comparison and document it).\n- A check that a recipe pull request changes only its own `recipes/NN-slug/` folder, reported as a clear message.\n- Per-recipe execution in a matrix or with path filtering, so sixty notebooks do not make every run slow.\n\n## Acceptance criteria\n\n- [ ] The template recipe passes all jobs\n- [ ] A notebook with a failing cell, an invalid fixture, and a stale output each make CI fail, demonstrated in the pull request description\n- [ ] Full run time with one recipe is recorded, with a note on how it scales\n- [ ] Lint and tests pass in CI, or locally with the output pasted in the pull request if CI does not exist yet\n\n## Dependencies\n\n- Blocked by #62 (CI baseline for lint, tests, and the README catalog check)\n- Blocked by #68 (recipe template and scaffolder)\n- Unblocks every recipe issue (#1 to #60)\n- Tracked in #74\n\n## References\n\n- [Recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md)\n- [Catalog](https://github.com/Jev-Engineering/cookbook/blob/main/catalog/recipes.json)\n- TypeSafe documentation index for tools: https://docs.typesafe.ai/llms.txt\n- Python SDK: https://docs.typesafe.ai/sdk/python",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/74",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 2,
+          "blocking": 10,
+          "total_blocking": 60
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 70,
+        "title": "Foundation: simulation and state primitives",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/70",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: foundation",
+          "priority: p1",
+          "size: L"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 1,
+          "title": "M0 · Foundation",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/1"
+        },
+        "body": "## Goal\n\nShared building blocks for recipes that keep state or run a loop, so thirteen advanced recipes do not each invent a queue and a simulator.\n\n## Scope\n\n- A deterministic, seeded simulator base: reset, observe, enumerate legal actions, step, and a trajectory log that can be replayed.\n- A simulated review queue and action log, used wherever a recipe says an item goes to review or an action is simulated.\n- A versioned key-value store that keeps provenance and never deletes, with history and rollback.\n- A transactional wrapper: validate, apply, roll back on failure, with a replayable log.\n- A budget helper for retry limits, call budgets, and stop conditions, raising when exceeded.\n- Guidance on using `ScriptedBackend` to run a closed loop offline.\n\n## Acceptance criteria\n\n- [ ] Each primitive has tests, including property-style tests for the invariants (no deletion, budget never exceeded, replay reproduces state)\n- [ ] Same seed gives the same trajectory on Linux and Windows\n- [ ] A short example shows a loop running offline end to end\n- [ ] Lint and tests pass in CI, or locally with the output pasted in the pull request if CI does not exist yet\n\n## Dependencies\n\n- Blocked by #63 (decision backends with typed answers, replay, and scripted modes)\n- Unblocks the recipes labelled `needs: simulator`\n- Tracked in #74\n\n## References\n\n- [Recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md)\n- [Catalog](https://github.com/Jev-Engineering/cookbook/blob/main/catalog/recipes.json)\n- TypeSafe documentation index for tools: https://docs.typesafe.ai/llms.txt\n- Python SDK: https://docs.typesafe.ai/sdk/python",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/74",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 1,
+          "blocking": 4,
+          "total_blocking": 9
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 36,
+        "title": "Recipe 36: Card-game action selection",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/36",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: recipe",
+          "level: 3 intermediate",
+          "decision: choice",
+          "cat: games & simulation",
+          "priority: p2",
+          "size: L",
+          "status: in progress",
+          "needs: simulator"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 4,
+          "title": "M3 · Intermediate",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/4"
+        },
+        "body": "> Recipe **36** of 60 · Level 3 (Intermediate) · Games & simulation · `Choice`\n\n## Use case\n\nSelect a legal action in a turn-based card-game simulator using structured state and fixed action descriptions while Python enforces game rules.\n\n## What to build\n\nThe folder `recipes/36-card-game-action-selection/` with `notebook.ipynb`, `README.md`, and `fixtures/`, meeting the [recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md). Start from `python tools/new_recipe.py 36` and the template in `recipes/_template/`.\n\n### Build notes\n\n- A small turn-based card game simulator in Python that enforces the rules.\n- Python enumerates the legal actions each turn. Those are the only options.\n- Baselines: a random legal policy and a simple rule-based policy over seeded games.\n\n### Decision design\n\n- **Choice.** Options are a fixed set supplied by Python, including the fallback outcome this use case names. Show the `choice`, the per-option `probabilities`, and the `confidence` for individual examples before aggregating.\n\n### Level 3 scope\n\nMultiple judgments or stages, structured evidence, deterministic composition, and task-level evaluation.\n\n## Acceptance criteria\n\n- [ ] `recipes/36-card-game-action-selection/notebook.ipynb` runs top to bottom offline, with no key and no network, and its outputs are committed\n- [ ] Live mode is opt-in (`JEV_COOKBOOK_LIVE=1` with `TYPESAFE_API_KEY`) and uses the same question definitions as the offline run\n- [ ] Fixtures are synthetic, include the hard cases named in the build notes, carry gold labels, and pass the fixture validator\n- [ ] Every response fixture records its provenance, and the notebook states which mode it ran in\n- [ ] Evaluation: Win rate or score over seeded games against both baselines, with zero illegal actions.\n- [ ] The deterministic composition lives in a Python function with tests in `tests/`\n- [ ] Evaluation is at task level, not only per question\n- [ ] No statement about Jev's quality, latency, or cost appears without recorded live inference; in a synthetic run, metrics are labelled as pipeline checks\n- [ ] `recipes/36-card-game-action-selection/README.md` says what the recipe teaches, how to run it, and what was and was not measured live\n- [ ] The pull request changes only `recipes/36-card-game-action-selection/` and CI is green\n\n## Dependencies\n\n- Blocked by #69 (CI executes every notebook offline and validates fixtures)\n- Blocked by #70 (simulation and state primitives)\n- Tracked in #77\n\n## Sources\n\nRead these before writing the questions.\n\n- S02 · [TypeSafe AI: Primitives (Questions)](https://docs.typesafe.ai/primitives): Choice, Noul, Score, independent questions, and dependent follow-up calls.\n- S03 · [TypeSafe AI: Confidence](https://docs.typesafe.ai/confidence): Distribution-derived confidence and task-specific thresholds informed by observed outcomes.\n- S04 · [TypeSafe AI: How to build with TypeSafe](https://docs.typesafe.ai/concepts/how-to-build-with-system-one): Narrow semantic judgments integrated with workflows, deterministic logic, and side effects controlled by code.\n- S07 · [TypeSafe AI: Jev 1.13 jaggedness](https://docs.typesafe.ai/model-jaggedness/jev-1.13): Version-specific limitations affecting arithmetic, context selection, adversarial content, and generation.\n\n## Out of scope\n\n- Changes to shared code, the catalog, or the root README. If the shared package is missing something, open a foundation issue and link it here.\n- Real side effects of any kind. Actions are simulated.",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/77",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 3,
+          "blocking": 1,
+          "total_blocking": 1
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 147,
+        "title": "catalog: list S02 (primitives) among the sources of every recipe",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/147",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: foundation",
+          "priority: p2",
+          "size: S"
+        ],
+        "assignees": [],
+        "milestone": null,
+        "body": "## Context\n\nFrom the Opus review of #145 (comment 6071506008): 30 of the 60 catalog rows (ranks 8, 10, 11, 15–17, 19–21, 26–32, 36, 41–46, 49, 51, 52, 56, 58–60) do not list S02 (Primitives), although every recipe asks a typed Choice/Noul/Score question defined on that page, and `tools/new_recipe.py` scaffolds the README source bullets from the catalog list, so those recipes would ship without the page that defines their own primitive. Same shape as #142.\n\n## Acceptance\n\nAdd `S02` to the `sources` of every row lacking it, keeping each list sorted by id and the file formatting (minimal diff, insertions only); `python tools/render_catalog.py --check` passes (README unchanged unless the renderer prints sources); `tests/test_recipe_sources.py` passes. Foundation issue; allowed paths `catalog/recipes.json`, `README.md` (renderer output only). Land before the affected recipes are briefed.\n",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 0,
+          "blocking": 6,
+          "total_blocking": 30
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      }
+    ],
+    "subissues": []
+  },
+  "60": {
+    "dependencies": [
+      {
+        "number": 69,
+        "title": "Foundation: CI executes every notebook offline and validates fixtures",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/69",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: foundation",
+          "priority: p0",
+          "size: M",
+          "status: in progress"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 1,
+          "title": "M0 · Foundation",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/1"
+        },
+        "body": "## Goal\n\nThe gate every recipe pull request has to pass. Once this is merged, recipes can start.\n\n## Scope\n\n- A CI job that discovers every `recipes/*/notebook.ipynb`, executes it from a fresh environment with no key and `JEV_COOKBOOK_LIVE` unset, and fails on any error.\n- Fixture validation for every recipe folder.\n- A guard that fails if a notebook attempts a network call to the TypeSafe API during the offline run.\n- A check that committed notebook outputs match a fresh offline execution closely enough to catch stale outputs (define the comparison and document it).\n- A check that a recipe pull request changes only its own `recipes/NN-slug/` folder, reported as a clear message.\n- Per-recipe execution in a matrix or with path filtering, so sixty notebooks do not make every run slow.\n\n## Acceptance criteria\n\n- [ ] The template recipe passes all jobs\n- [ ] A notebook with a failing cell, an invalid fixture, and a stale output each make CI fail, demonstrated in the pull request description\n- [ ] Full run time with one recipe is recorded, with a note on how it scales\n- [ ] Lint and tests pass in CI, or locally with the output pasted in the pull request if CI does not exist yet\n\n## Dependencies\n\n- Blocked by #62 (CI baseline for lint, tests, and the README catalog check)\n- Blocked by #68 (recipe template and scaffolder)\n- Unblocks every recipe issue (#1 to #60)\n- Tracked in #74\n\n## References\n\n- [Recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md)\n- [Catalog](https://github.com/Jev-Engineering/cookbook/blob/main/catalog/recipes.json)\n- TypeSafe documentation index for tools: https://docs.typesafe.ai/llms.txt\n- Python SDK: https://docs.typesafe.ai/sdk/python",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/74",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 2,
+          "blocking": 10,
+          "total_blocking": 60
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 70,
+        "title": "Foundation: simulation and state primitives",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/70",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: foundation",
+          "priority: p1",
+          "size: L"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 1,
+          "title": "M0 · Foundation",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/1"
+        },
+        "body": "## Goal\n\nShared building blocks for recipes that keep state or run a loop, so thirteen advanced recipes do not each invent a queue and a simulator.\n\n## Scope\n\n- A deterministic, seeded simulator base: reset, observe, enumerate legal actions, step, and a trajectory log that can be replayed.\n- A simulated review queue and action log, used wherever a recipe says an item goes to review or an action is simulated.\n- A versioned key-value store that keeps provenance and never deletes, with history and rollback.\n- A transactional wrapper: validate, apply, roll back on failure, with a replayable log.\n- A budget helper for retry limits, call budgets, and stop conditions, raising when exceeded.\n- Guidance on using `ScriptedBackend` to run a closed loop offline.\n\n## Acceptance criteria\n\n- [ ] Each primitive has tests, including property-style tests for the invariants (no deletion, budget never exceeded, replay reproduces state)\n- [ ] Same seed gives the same trajectory on Linux and Windows\n- [ ] A short example shows a loop running offline end to end\n- [ ] Lint and tests pass in CI, or locally with the output pasted in the pull request if CI does not exist yet\n\n## Dependencies\n\n- Blocked by #63 (decision backends with typed answers, replay, and scripted modes)\n- Unblocks the recipes labelled `needs: simulator`\n- Tracked in #74\n\n## References\n\n- [Recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md)\n- [Catalog](https://github.com/Jev-Engineering/cookbook/blob/main/catalog/recipes.json)\n- TypeSafe documentation index for tools: https://docs.typesafe.ai/llms.txt\n- Python SDK: https://docs.typesafe.ai/sdk/python",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/74",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 1,
+          "blocking": 4,
+          "total_blocking": 9
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 43,
+        "title": "Recipe 43: Failure recovery selection",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/43",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: recipe",
+          "level: 4 advanced",
+          "decision: choice",
+          "cat: agent orchestration",
+          "priority: p2",
+          "size: L",
+          "status: ready",
+          "needs: simulator"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 5,
+          "title": "M4 · Advanced",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/5"
+        },
+        "body": "> Recipe **43** of 60 · Level 4 (Advanced) · Agent orchestration · `Choice`\n\n## Use case\n\nSelect retry, alternative method, or escalation from a bounded recovery catalog using execution history while Python enforces retry budgets and stop conditions.\n\n## What to build\n\nThe folder `recipes/43-failure-recovery-selection/` with `notebook.ipynb`, `README.md`, and `fixtures/`, meeting the [recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md). Start from `python tools/new_recipe.py 43` and the template in `recipes/_template/`.\n\n### Build notes\n\n- Options: `retry`, `alternative_method`, `escalate`, from a bounded recovery catalog, using execution history.\n- Python enforces retry budgets and stop conditions.\n- A property test shows that budgets are never exceeded whatever the model answers.\n\n### Decision design\n\n- **Choice.** Options are a fixed set supplied by Python, including the fallback outcome this use case names. Show the `choice`, the per-option `probabilities`, and the `confidence` for individual examples before aggregating.\n\n### Level 4 scope\n\nStateful workflows, provenance, adversarial cases, model calibration, or several integrated decision stages.\n\n## Acceptance criteria\n\n- [ ] `recipes/43-failure-recovery-selection/notebook.ipynb` runs top to bottom offline, with no key and no network, and its outputs are committed\n- [ ] Live mode is opt-in (`JEV_COOKBOOK_LIVE=1` with `TYPESAFE_API_KEY`) and uses the same question definitions as the offline run\n- [ ] Fixtures are synthetic, include the hard cases named in the build notes, carry gold labels, and pass the fixture validator\n- [ ] Every response fixture records its provenance, and the notebook states which mode it ran in\n- [ ] Evaluation: Agreement with gold recovery choices, and the budget property test.\n- [ ] State, provenance, or policy rules are enforced in `helpers.py` and covered by tests that hold for any model answer\n- [ ] Fixtures include adversarial, conflicting, or stateful cases, and the notebook walks through at least one\n- [ ] No statement about Jev's quality, latency, or cost appears without recorded live inference; in a synthetic run, metrics are labelled as pipeline checks\n- [ ] `recipes/43-failure-recovery-selection/README.md` says what the recipe teaches, how to run it, and what was and was not measured live\n- [ ] The pull request changes only `recipes/43-failure-recovery-selection/` and CI is green\n\n## Dependencies\n\n- Blocked by #69 (CI executes every notebook offline and validates fixtures)\n- Blocked by #70 (simulation and state primitives)\n- Builds on #29 (Tool outcome verification). Merge those first and reuse their patterns; do not copy their fixtures.\n- Tracked in #78\n\n## Sources\n\nRead these before writing the questions.\n\n- S02 · [TypeSafe AI: Primitives (Questions)](https://docs.typesafe.ai/primitives): Choice, Noul, Score, independent questions, and dependent follow-up calls.\n- S03 · [TypeSafe AI: Confidence](https://docs.typesafe.ai/confidence): Distribution-derived confidence and task-specific thresholds informed by observed outcomes.\n- S04 · [TypeSafe AI: How to build with TypeSafe](https://docs.typesafe.ai/concepts/how-to-build-with-system-one): Narrow semantic judgments integrated with workflows, deterministic logic, and side effects controlled by code.\n- S06 · [TypeSafe AI: Cookbooks](https://docs.typesafe.ai/cookbooks): Worked patterns for extraction, citation checking, skill selection, hierarchical classification, and feature discovery.\n\n## Out of scope\n\n- Changes to shared code, the catalog, or the root README. If the shared package is missing something, open a foundation issue and link it here.\n- Real side effects of any kind. Actions are simulated.",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/78",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 4,
+          "blocking": 2,
+          "total_blocking": 2
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 59,
+        "title": "Recipe 59: Observation and action selection",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/59",
+        "state": "open",
+        "state_reason": null,
+        "labels": [
+          "type: recipe",
+          "level: 5 expert",
+          "decision: choice",
+          "cat: games & simulation",
+          "priority: p3",
+          "size: XL",
+          "status: blocked",
+          "needs: simulator"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 6,
+          "title": "M5 · Expert",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/6"
+        },
+        "body": "> Recipe **59** of 60 · Level 5 (Expert) · Games & simulation · `Choice`\n\n## Use case\n\nChoose the next permitted observation and subsequent legal action in a partially observed game, then compare complete trajectories with a rule-based baseline.\n\n## What to build\n\nThe folder `recipes/59-observation-and-action-selection/` with `notebook.ipynb`, `README.md`, and `fixtures/`, meeting the [recipe contract](https://github.com/Jev-Engineering/cookbook/blob/main/CONTRIBUTING.md). Start from `python tools/new_recipe.py 59` and the template in `recipes/_template/`.\n\n### Build notes\n\n- In a partially observed game, choose the next permitted observation, then, in a later request, a legal action.\n- Python enumerates permitted observations and legal actions.\n- Compare complete trajectories with a rule-based baseline over seeded games.\n\n### Decision design\n\n- **Choice.** Options are a fixed set supplied by Python, including the fallback outcome this use case names. Show the `choice`, the per-option `probabilities`, and the `confidence` for individual examples before aggregating.\n\n### Level 5 scope\n\nControlled optimization studies or closed-loop simulations requiring budgets, baselines, and held-out or trajectory evaluation.\n\n## Acceptance criteria\n\n- [ ] `recipes/59-observation-and-action-selection/notebook.ipynb` runs top to bottom offline, with no key and no network, and its outputs are committed\n- [ ] Live mode is opt-in (`JEV_COOKBOOK_LIVE=1` with `TYPESAFE_API_KEY`) and uses the same question definitions as the offline run\n- [ ] Fixtures are synthetic, include the hard cases named in the build notes, carry gold labels, and pass the fixture validator\n- [ ] Every response fixture records its provenance, and the notebook states which mode it ran in\n- [ ] Evaluation: Trajectory outcomes against the baseline over fixed seeds, with zero illegal moves.\n- [ ] Budgets, seeds, and frozen configurations are recorded in the notebook output\n- [ ] A baseline is run under the same conditions, and any held-out split is used exactly once after choices are frozen\n- [ ] Results are reproducible from the committed seeds and fixtures\n- [ ] No statement about Jev's quality, latency, or cost appears without recorded live inference; in a synthetic run, metrics are labelled as pipeline checks\n- [ ] `recipes/59-observation-and-action-selection/README.md` says what the recipe teaches, how to run it, and what was and was not measured live\n- [ ] The pull request changes only `recipes/59-observation-and-action-selection/` and CI is green\n\n## Dependencies\n\n- Blocked by #69 (CI executes every notebook offline and validates fixtures)\n- Blocked by #70 (simulation and state primitives)\n- Builds on #36 (Card-game action selection). Merge those first and reuse their patterns; do not copy their fixtures.\n- Tracked in #79\n\n## Sources\n\nRead these before writing the questions.\n\n- S02 · [TypeSafe AI: Primitives (Questions)](https://docs.typesafe.ai/primitives): Choice, Noul, Score, independent questions, and dependent follow-up calls.\n- S03 · [TypeSafe AI: Confidence](https://docs.typesafe.ai/confidence): Distribution-derived confidence and task-specific thresholds informed by observed outcomes.\n- S04 · [TypeSafe AI: How to build with TypeSafe](https://docs.typesafe.ai/concepts/how-to-build-with-system-one): Narrow semantic judgments integrated with workflows, deterministic logic, and side effects controlled by code.\n- S07 · [TypeSafe AI: Jev 1.13 jaggedness](https://docs.typesafe.ai/model-jaggedness/jev-1.13): Version-specific limitations affecting arithmetic, context selection, adversarial content, and generation.\n\n## Out of scope\n\n- Changes to shared code, the catalog, or the root README. If the shared package is missing something, open a foundation issue and link it here.\n- Real side effects of any kind. Actions are simulated.",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/79",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 4,
+          "blocking": 1,
+          "total_blocking": 1
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 140,
+        "title": "evaluation: noul_confidence must be |2p − 1| per the confidence page (same scale as Choice); document the Noul three-path pattern",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/140",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: foundation",
+          "priority: p1",
+          "size: S"
+        ],
+        "assignees": [],
+        "milestone": null,
+        "body": "## Context\n\nFrom the Opus review of #136 (recipe 02, the first Noul recipe; comment 6071121590). `src/jev_cookbook/evaluation.py` and `docs/evaluation.md` define `noul_confidence(p) = max(p, 1 − p)` (range 0.5–1). The TypeSafe confidence page (`https://docs.typesafe.ai/confidence.md`, README S03) defines a Noul's confidence as `|2p − 1|` (range 0–1) and states it is the Choice formula `(p_max − 1/n)/(1 − 1/n)` applied with n = 2, so it sits on the same scale as Choice confidence. The toolkit helper therefore disagrees with the source, and a recipe that gates Nouls and Choices with one threshold, as the page recommends, gets wrong answers from it. `docs/evaluation.md` documents the Choice rescaling correctly on the same page.\n\n## Acceptance\n\n1. `noul_confidence(p)` returns `|2p − 1|` per the confidence page (the old `max(p, 1 − p)` is removed or kept under a distinct, documented name such as `noul_majority`); `docs/evaluation.md` and `docs/glossary.md` state the formula with the source link and note the shared scale with Choice.\n2. Tests pin the formula at p ∈ {0, 0.25, 0.5, 0.75, 1} and the identity with `(p_max − 1/n)/(1 − 1/n)` at n = 2; mutation: revert to `max(p, 1 − p)` → tests fail.\n3. Every call site in `src/`, `recipes/_template`, `tools/new_recipe.py` and merged recipes is checked; any notebook whose outputs change is re-executed and committed byte-identically in the same PR (list them).\n4. Add to `docs/evaluation.md` a short \"Noul three-path pattern\" note: a business threshold on p plus a confidence gate `|2p − 1| < c` → review outcome, composed from `threshold_sweep` / `evaluate_threshold`, since no helper selects both together (the Score recipes reported the same gap).\n\nRequired before the remaining Noul recipes (#6, #10, and later waves) are briefed. Foundation issue; allowed paths `src/jev_cookbook/evaluation.py`, `tests/test_evaluation*.py`, `docs/evaluation.md`, `docs/glossary.md`, plus re-executed notebooks only if their outputs change.\n",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 0,
+          "blocking": 6,
+          "total_blocking": 20
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      },
+      {
+        "number": 147,
+        "title": "catalog: list S02 (primitives) among the sources of every recipe",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/147",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: foundation",
+          "priority: p2",
+          "size: S"
+        ],
+        "assignees": [],
+        "milestone": null,
+        "body": "## Context\n\nFrom the Opus review of #145 (comment 6071506008): 30 of the 60 catalog rows (ranks 8, 10, 11, 15–17, 19–21, 26–32, 36, 41–46, 49, 51, 52, 56, 58–60) do not list S02 (Primitives), although every recipe asks a typed Choice/Noul/Score question defined on that page, and `tools/new_recipe.py` scaffolds the README source bullets from the catalog list, so those recipes would ship without the page that defines their own primitive. Same shape as #142.\n\n## Acceptance\n\nAdd `S02` to the `sources` of every row lacking it, keeping each list sorted by id and the file formatting (minimal diff, insertions only); `python tools/render_catalog.py --check` passes (README unchanged unless the renderer prints sources); `tests/test_recipe_sources.py` passes. Foundation issue; allowed paths `catalog/recipes.json`, `README.md` (renderer output only). Land before the affected recipes are briefed.\n",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 0,
+          "blocking": 6,
+          "total_blocking": 30
+        },
+        "subissue_summary": {
+          "total": 0,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      }
+    ],
+    "subissues": []
+  },
+  "73": {
+    "dependencies": [
+      {
+        "number": 74,
+        "title": "Epic: Foundation",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/74",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: epic",
+          "priority: p0"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 1,
+          "title": "M0 · Foundation",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/1"
+        },
+        "body": "Everything the recipes are built on: the Python package, decision backends, fixture format, evaluation helpers, notebook style, recipe template, and CI.\n\n## Issues\n\n- [ ] #61 project scaffolding and Python package skeleton · `p0` · `S`\n- [ ] #62 CI baseline for lint, tests, and the README catalog check · `p0` · `S`\n- [ ] #63 decision backends with typed answers, replay, and scripted modes · `p0` · `M`\n- [ ] #64 opt-in live Jev backend and response recorder · `p1` · `M`\n- [ ] #65 fixture specification and validator · `p0` · `M`\n- [ ] #66 evaluation toolkit · `p0` · `L`\n- [ ] #67 notebook style, plotting theme, and run-mode header · `p0` · `S`\n- [ ] #68 recipe template and scaffolder · `p0` · `M`\n- [ ] #69 CI executes every notebook offline and validates fixtures · `p0` · `M`\n- [ ] #70 simulation and state primitives · `p1` · `L`\n- [ ] #71 repository hygiene for secrets, dependencies, and notebook outputs · `p1` · `S`\n- [ ] #72 reader documentation for getting started, offline and live modes, and the glossary · `p2` · `M`\n\n## Order\n\nIssues on the same line can be built in parallel.\n\n1. #61 scaffolding\n2. #62 CI baseline, #63 backends, #66 evaluation, #67 notebook style\n3. #64 live backend, #65 fixtures, #70 simulation, #71 hygiene\n4. #68 recipe template\n5. #69 notebook CI (this unblocks the recipes), #72 reader docs\n\n## Done when\n\n- [ ] All twelve issues are closed\n- [ ] #69 is merged, which unblocks recipes 01 to 60\n- [ ] CI is green on `main`",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/80",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 0,
+          "blocking": 1,
+          "total_blocking": 2
+        },
+        "subissue_summary": {
+          "total": 12,
+          "completed": 12,
+          "percent_completed": 100
+        }
+      },
+      {
+        "number": 75,
+        "title": "Epic: Level 1 · Beginner recipes",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/75",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: epic",
+          "level: 1 beginner",
+          "priority: p1"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 2,
+          "title": "M1 · Beginner",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/2"
+        },
+        "body": "Recipes 01 to 10. One bounded judgment over a short prepared input with direct inspection of typed results.\n\n## Recipes (10)\n\n- [ ] #1 Sentiment classification · `Choice` · Language & content\n- [ ] #2 Refund intent detection · `Noul` · Workflow & service operations\n- [ ] #3 Response clarity scoring · `Score` · Language & content\n- [ ] #4 Support ticket routing · `Choice` · Workflow & service operations\n- [ ] #5 Document classification · `Choice` · Language & content\n- [ ] #6 Multiple topic labels · `Noul` · Language & content\n- [ ] #7 Word sense selection · `Choice` · Language & content\n- [ ] #8 FAQ selection · `Choice` · Search & retrieval\n- [ ] #9 File organization · `Choice` · Workflow & service operations\n- [ ] #10 Answer relevance check · `Noul` · Search & retrieval\n\n## Done when\n\n- [ ] Every recipe above is merged and its issue closed\n- [ ] The README catalog is regenerated (`python tools/render_catalog.py`) and shows these recipes as published\n- [ ] CI is green on `main`\n- [ ] A consistency pass across the level is done: section order, terminology, chart style, run-mode header\n\n## Dependencies\n\n- Blocked by #74.\n- Tracked in #80",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/80",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 1,
+          "blocking": 1,
+          "total_blocking": 1
+        },
+        "subissue_summary": {
+          "total": 10,
+          "completed": 10,
+          "percent_completed": 100
+        }
+      },
+      {
+        "number": 76,
+        "title": "Epic: Level 2 · Easy recipes",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/76",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: epic",
+          "level: 2 easy",
+          "priority: p1"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 3,
+          "title": "M2 · Easy",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/3"
+        },
+        "body": "Recipes 11 to 23. Context-sensitive matching, scoring, or verification with candidate sets and explicit uncertain or no-match outcomes.\n\n## Recipes (13)\n\n- [x] #11 Clarification selection · `Choice` · Agent orchestration\n- [x] #12 Thesaurus word selection · `Choice` · Language & content\n- [x] #13 Candidate rewrite selection · `Choice` · Language & content\n- [x] #14 Source span selection · `Choice` · Data quality & knowledge graphs\n- [x] #15 Sensitive text triage · `Noul` · Trust & security\n- [x] #16 Discord moderation triage · `Choice` · Trust & security\n- [x] #17 Passage reranking · `Score` · Search & retrieval\n- [x] #18 Duplicate incident matching · `Choice` · Workflow & service operations\n- [x] #19 CI failure classification · `Choice` · Software engineering\n- [x] #20 Claim support classification · `Choice` · Search & retrieval\n- [x] #21 Quiz answer adjudication · `Choice` · Games & simulation\n- [x] #22 CMDB asset matching · `Choice` · Data quality & knowledge graphs\n- [x] #23 Pairwise answer evaluation · `Choice` · Evaluation & optimization\n\n## Done when\n\n- [x] Every recipe above is merged and its issue closed\n- [x] The README catalog is regenerated (`python tools/render_catalog.py`) and shows these recipes as published\n- [x] CI is green on `main`\n- [x] A consistency pass across the level is done: section order, terminology, chart style, run-mode header\n\n## Dependencies\n\n- Scheduled after #75. A recipe here may start earlier once its own blockers are closed.\n- Tracked in #80",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/80",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 0,
+          "blocking": 1,
+          "total_blocking": 1
+        },
+        "subissue_summary": {
+          "total": 13,
+          "completed": 13,
+          "percent_completed": 100
+        }
+      },
+      {
+        "number": 77,
+        "title": "Epic: Level 3 · Intermediate recipes",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/77",
+        "state": "closed",
+        "state_reason": "completed",
+        "labels": [
+          "type: epic",
+          "level: 3 intermediate",
+          "priority: p2"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 4,
+          "title": "M3 · Intermediate",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/4"
+        },
+        "body": "Recipes 24 to 39. Multiple judgments or stages, structured evidence, deterministic composition, and task-level evaluation.\n\n## Recipes (16)\n\n- [x] #24 Incident priority composition · `Score` · Workflow & service operations\n- [x] #25 Change evidence review · `Noul` · Workflow & service operations\n- [x] #26 Prompt-injection screening · `Noul` · Trust & security\n- [x] #27 Function selection · `Choice` · Agent orchestration\n- [x] #28 Skill selection · `Score` · Agent orchestration\n- [x] #29 Tool outcome verification · `Choice` · Agent orchestration\n- [x] #30 Citation verification · `Choice` · Search & retrieval\n- [x] #31 Patch risk triage · `Noul` · Software engineering\n- [x] #32 Regression test selection · `Score` · Software engineering\n- [x] #33 Schema field mapping · `Choice` · Data quality & knowledge graphs\n- [x] #34 Evidence relationship labels · `Choice` · Data quality & knowledge graphs\n- [x] #35 Semantic feature extraction · `Noul` · Evaluation & optimization\n- [x] #36 Card-game action selection · `Choice` · Games & simulation\n- [x] #37 Research domain tagging · `Noul` · Data quality & knowledge graphs\n- [x] #38 Abstention and review queues · `Choice` · Evaluation & optimization\n- [x] #39 Document extraction cascade · `Choice` + `Noul` · Data quality & knowledge graphs\n\n## Done when\n\n- [ ] Every recipe above is merged and its issue closed\n- [ ] The README catalog is regenerated (`python tools/render_catalog.py`) and shows these recipes as published\n- [ ] CI is green on `main`\n- [ ] A consistency pass across the level is done: section order, terminology, chart style, run-mode header\n\n## Dependencies\n\n- Scheduled after #76. A recipe here may start earlier once its own blockers are closed.\n- Tracked in #80\n",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/80",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 0,
+          "blocking": 1,
+          "total_blocking": 1
+        },
+        "subissue_summary": {
+          "total": 16,
+          "completed": 16,
+          "percent_completed": 100
+        }
+      },
+      {
+        "number": 78,
+        "title": "Epic: Level 4 · Advanced recipes",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/78",
+        "state": "open",
+        "state_reason": null,
+        "labels": [
+          "type: epic",
+          "level: 4 advanced",
+          "priority: p2"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 5,
+          "title": "M4 · Advanced",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/5"
+        },
+        "body": "Recipes 40 to 52. Stateful workflows, provenance, adversarial cases, model calibration, or several integrated decision stages.\n\n## Recipes (13)\n\n- [ ] #40 Hierarchical classification · `Choice` · Data quality & knowledge graphs\n- [ ] #41 Approval scope review · `Noul` · Trust & security\n- [ ] #42 Outbound disclosure screening · `Noul` · Trust & security\n- [ ] #43 Failure recovery selection · `Choice` · Agent orchestration\n- [ ] #44 Plan constraint assessment · `Noul` · Agent orchestration\n- [ ] #45 Memory reconciliation · `Choice` · Memory & context\n- [ ] #46 Semantic context paging · `Score` · Memory & context\n- [ ] #47 Evidence conflict diagnosis · `Choice` · Data quality & knowledge graphs\n- [ ] #48 Document revision consistency · `Choice` + `Noul` · Language & content\n- [ ] #49 Multi-agent task assignment · `Score` · Agent orchestration\n- [ ] #50 Model comparison and calibration · `Choice` + `Noul` + `Score` · Evaluation & optimization\n- [ ] #51 Stalled-loop detection · `Choice` · Agent orchestration\n- [ ] #52 Retrieval pipeline evaluation · `Choice` + `Score` · Search & retrieval\n\n## Done when\n\n- [ ] Every recipe above is merged and its issue closed\n- [ ] The README catalog is regenerated (`python tools/render_catalog.py`) and shows these recipes as published\n- [ ] CI is green on `main`\n- [ ] A consistency pass across the level is done: section order, terminology, chart style, run-mode header\n\n## Dependencies\n\n- Scheduled after #77. A recipe here may start earlier once its own blockers are closed.\n- Tracked in #80",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/80",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 0,
+          "blocking": 1,
+          "total_blocking": 1
+        },
+        "subissue_summary": {
+          "total": 13,
+          "completed": 11,
+          "percent_completed": 84
+        }
+      },
+      {
+        "number": 79,
+        "title": "Epic: Level 5 · Expert recipes",
+        "url": "https://github.com/Jev-Engineering/cookbook/issues/79",
+        "state": "open",
+        "state_reason": null,
+        "labels": [
+          "type: epic",
+          "level: 5 expert",
+          "priority: p3"
+        ],
+        "assignees": [],
+        "milestone": {
+          "number": 6,
+          "title": "M5 · Expert",
+          "url": "https://github.com/Jev-Engineering/cookbook/milestone/6"
+        },
+        "body": "Recipes 53 to 60. Controlled optimization studies or closed-loop simulations requiring budgets, baselines, and held-out or trajectory evaluation.\n\n## Recipes (8)\n\n- [ ] #53 Semantic feature discovery · `Noul` + `Score` · Evaluation & optimization\n- [ ] #54 Question and policy optimization · `Choice` + `Noul` + `Score` · Evaluation & optimization\n- [ ] #55 Adaptive model routing · `Choice` + `Score` · Evaluation & optimization\n- [ ] #56 Adversarial harness evaluation · `Noul` · Trust & security\n- [ ] #57 Evidence graph updates · `Choice` + `Noul` · Data quality & knowledge graphs\n- [ ] #58 Simulated process supervision · `Choice` + `Noul` · Games & simulation\n- [ ] #59 Observation and action selection · `Choice` · Games & simulation\n- [ ] #60 Factory production control · `Choice` + `Noul` + `Score` · Games & simulation\n\n## Done when\n\n- [ ] Every recipe above is merged and its issue closed\n- [ ] The README catalog is regenerated (`python tools/render_catalog.py`) and shows these recipes as published\n- [ ] CI is green on `main`\n- [ ] A consistency pass across the level is done: section order, terminology, chart style, run-mode header\n\n## Dependencies\n\n- Scheduled after #78. A recipe here may start earlier once its own blockers are closed.\n- Tracked in #80",
+        "parent": "https://api.github.com/repos/Jev-Engineering/cookbook/issues/80",
+        "dependency_summary": {
+          "blocked_by": 0,
+          "total_blocked_by": 0,
+          "blocking": 1,
+          "total_blocking": 1
+        },
+        "subissue_summary": {
+          "total": 8,
+          "completed": 0,
+          "percent_completed": 0
+        }
+      }
+    ],
+    "subissues": []
+  },
+  "117": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "208": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "209": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "210": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "211": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "212": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "214": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "216": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "217": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "218": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "222": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "225": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "227": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "228": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "231": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "232": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "233": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "234": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "238": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "239": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "240": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "243": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "248": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "250": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "252": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "255": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "256": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "257": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "258": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "259": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "261": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "264": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "265": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "267": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "270": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "272": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "274": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "282": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "284": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "287": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "288": {
+    "dependencies": [],
+    "subissues": []
+  },
+  "290": {
+    "dependencies": [],
+    "subissues": []
+  }
+}
