@@ -2458,9 +2458,62 @@ def test_a_shape_at_the_bounds_is_accepted_and_clipped(shape, extra):
 
 
 @pytest.mark.parametrize(("shape", "extra"), SHAPES)
-def test_the_shape_bound_checks_types_first(shape, extra):
+@pytest.mark.parametrize("position", ["x", "y", "w", "h"])
+def test_the_shape_bound_checks_types_first(shape, extra, position):
+    # every other value is out of range, so a range check that ran first would win
     for bad in (1.5, True, "3", None):
-        with pytest.raises(ValueError, match="must be an integer"):
-            _draw(si.Canvas(640, 400), shape, bad, 0, 10, 10, extra)
+        box = {"x": 9000, "y": 9000, "w": 5000, "h": 5000, position: bad}
+        c = si.Canvas(640, 400)
+        before = c.image.copy()
+        with pytest.raises(ValueError, match=f"{position} must be an integer"):
+            _draw(c, shape, box["x"], box["y"], box["w"], box["h"], extra, name="probe")
+        assert changed(before, c.image) is None
+        assert c.objects == {}
+    c = si.Canvas(640, 400)
+    before = c.image.copy()
     with pytest.raises(ValueError, match="w must be at least 1"):
         _draw(si.Canvas(640, 400), shape, 0, 0, 0, 10, extra)
+
+
+def test_an_ellipse_with_an_invalid_fill_and_an_outline_draws_nothing():
+    for kwargs in ({"outline": "ink"}, {"outline": "ink", "outline_width": 2}):
+        c = si.Canvas(640, 400)
+        before = c.image.copy()
+        with pytest.raises(ValueError):
+            c.ellipse(10, 10, 80, 60, "no-such-colour", name="probe", **kwargs)
+        assert changed(before, c.image) is None
+        assert c.objects == {}
+
+
+@pytest.mark.parametrize("direction", ["left", "right", "up", "down"])
+def test_a_triangle_with_an_invalid_fill_draws_nothing(direction):
+    c = si.Canvas(640, 400)
+    before = c.image.copy()
+    with pytest.raises(ValueError):
+        c.triangle(10, 10, 80, 60, "no-such-colour", direction=direction, name="probe")
+    assert changed(before, c.image) is None
+    assert c.objects == {}
+
+
+def test_a_triangle_with_a_bad_direction_draws_nothing():
+    c = si.Canvas(640, 400)
+    before = c.image.copy()
+    with pytest.raises(ValueError, match="direction must be"):
+        c.triangle(10, 10, 80, 60, "teal", direction="sideways", name="probe")
+    assert changed(before, c.image) is None
+    assert c.objects == {}
+
+
+def test_a_composite_whose_inner_shape_is_out_of_bound_draws_nothing():
+    # the valve's inner triangles are 1650 tall (bound 1568) but its lead line is in bound
+    cases = [
+        lambda c: c.schematic_symbol(10, -1000, 100, 2200, "valve", name="probe"),
+        lambda c: c.error_banner(10, 10, 3000, 2000, "hello", name="probe"),
+    ]
+    for case in cases:
+        c = si.Canvas(640, 400)
+        before = c.image.copy()
+        with pytest.raises(ValueError):
+            case(c)
+        assert changed(before, c.image) is None
+        assert c.objects == {}

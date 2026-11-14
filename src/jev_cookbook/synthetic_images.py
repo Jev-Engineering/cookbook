@@ -687,13 +687,17 @@ def _shape_box(x: Any, y: Any, w: Any, h: Any) -> None:
     canvas side.
     """
     for value, label in ((x, "x"), (y, "y")):
-        if abs(_int(value, label)) > _MAX_COORDINATE:
+        _int(value, label)
+    for value, label in ((w, "w"), (h, "h")):
+        _int(value, label, minimum=1)
+    for value, label in ((x, "x"), (y, "y")):
+        if abs(value) > _MAX_COORDINATE:
             raise ValueError(
                 f"{label} is {value}; a shape corner must be from -{_MAX_COORDINATE} "
                 f"to {_MAX_COORDINATE} pixels"
             )
     for value, label in ((w, "w"), (h, "h")):
-        if _int(value, label, minimum=1) > IMAGE_LIMITS["max_side"]:
+        if value > IMAGE_LIMITS["max_side"]:
             raise ValueError(
                 f"{label} is {value}; a shape side must be from 1 to "
                 f"{IMAGE_LIMITS['max_side']} pixels"
@@ -861,13 +865,16 @@ class Canvas:
         _shape_box(x, y, w, h)
         bounds = None
         inner = (x, y, w, h)
+        # Resolve every argument before the first pixel is drawn, so a refusal draws nothing.
+        paint = _colour(fill)
         if outline is not None:
             ow = _int(outline_width, "outline_width", minimum=1)
-            bounds = self._spans(x, y, _ellipse_spans(w, h), _colour(outline))
+            ring = _colour(outline)
+            bounds = self._spans(x, y, _ellipse_spans(w, h), ring)
             inner = (x + ow, y + ow, w - 2 * ow, h - 2 * ow)
         if inner[2] >= 1 and inner[3] >= 1:
             ix, iy, iw, ih = inner
-            got = self._spans(ix, iy, _ellipse_spans(iw, ih), _colour(fill))
+            got = self._spans(ix, iy, _ellipse_spans(iw, ih), paint)
             if got:
                 bounds = got if bounds is None else _merge(bounds, got)
         return self._record(name, kind, bounds, **attrs)
@@ -887,9 +894,11 @@ class Canvas:
     ) -> Drawn:
         """An isosceles triangle in the ``w`` x ``h`` rectangle, apex up, down, left or right."""
         _shape_box(x, y, w, h)
-        spans = list(_triangle_spans(w, h, direction))
+        paint = _colour(fill)
+        # Streamed, not listed; an invalid direction raises before the generator's first span.
+        spans = _triangle_spans(w, h, direction)
         return self._record(
-            name, kind, self._spans(x, y, spans, _colour(fill)), direction=direction, **attrs
+            name, kind, self._spans(x, y, spans, paint), direction=direction, **attrs
         )
 
     def line(
@@ -1138,6 +1147,8 @@ class Canvas:
             ]
         elif symbol == "valve":
             half, tall = w // 4, (h * 3) // 4
+            _shape_box(cx - half, cy - tall // 2, half, tall)
+            _shape_box(cx, cy - tall // 2, half, tall)
             parts = [
                 self.line(x, cy, cx - half, cy, pen, 2),
                 self.triangle(cx - half, cy - tall // 2, half, tall, pen, direction="right"),
@@ -1401,6 +1412,7 @@ class Canvas:
         icon_size = h - 12
         if icon_size < GLYPH_HEIGHT * scale + 4 or text_width(message, scale) > w - icon_size - 36:
             raise ValueError(f"the banner message {message!r} does not fit a {w}x{h} banner")
+        _shape_box(x + 10, y + 6, icon_size, icon_size)
         body = self.rect(x, y, w, h, fill, outline=accent, outline_width=2)
         icon = self.ellipse(x + 10, y + 6, icon_size, icon_size, accent)
         mark = self.centered_text(icon, glyph, "white", scale)
