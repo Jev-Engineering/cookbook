@@ -123,8 +123,6 @@ def test_the_state_carries_no_python_owned_value():
 def test_every_replay_key_in_the_fixtures_matches_what_the_pipeline_asks():
     # Each example lists, in order, the distinct keys of every request the notebook makes for
     # it: every configuration its split runs, stage one then the verdict.
-    from jev_cookbook import replay_key  # noqa: PLC0415
-
     stored = load_responses(RECIPE)
     for example in load_inputs(RECIPE):
         keys = []
@@ -137,7 +135,6 @@ def test_every_replay_key_in_the_fixtures_matches_what_the_pipeline_asks():
         assert list(example.replay_keys) == keys, example.id
         assert all(key in stored for key in keys)
         assert all(len(key) == 64 for key in keys)
-        assert replay_key  # the key function the fixtures were written with
 
 
 def test_the_fixture_sizes():
@@ -471,3 +468,10 @@ def test_raising_the_repeat_cutoff_lets_the_near_copy_crowd_out_the_second_fact(
         "t05-p2",
         "t05-p3",
     ]
+
+
+def test_word_overlap_of_two_passages_with_no_words_is_zero():
+    assert helpers.word_overlap("", "") == 0.0
+    assert helpers.word_overlap("...", "!!") == 0.0
+    assert helpers.word_overlap("a b", "") == 0.0
+    assert helpers.word_overlap("a b", "b c") == pytest.approx(1 / 3)

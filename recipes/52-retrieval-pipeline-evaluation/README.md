@@ -14,15 +14,15 @@ reranks the survivors, and a `Choice` verdict (`supported`, `contradicted` or th
 `not_enough_evidence`) over the evidence that is left. The filter and the rerank question are
 independent, so they share one request per passage; the verdict reads the evidence those answers
 chose, so it is a later request, and the notebook shows that boundary on a hard case where the
-second of two facts a claim needs is a passage the filter leans towards dropping.
+second of two facts a claim needs is a passage the stored filter answer drops.
 
 The evaluation is an ablation over a small labelled corpus of invented examples (3 `demo`, 8
 `validation` and 10 `test`) with decoys that share words with the claim, a claim that only two
 passages show together, contradicting passages, a mirrored pair of passages and claims no passage
 settles. Four configurations (no stages, filter, rerank, filter and rerank) are each scored by
-answer-support rate and evidence recall, with the number of requests each makes counted by the
+answer-support rate (the share of claims whose final outcome is an answered verdict equal to the gold verdict; it does not check that the verifier read any gold passage, so a correct verdict counts even when none reached it) and evidence recall, with the number of requests each makes counted by the
 audited backend. A confidence gate on the verdict, frozen on `validation` with
-`select_confidence_threshold`, sends low-confidence verdicts to review with the reason
+`select_confidence_threshold` from the full pipeline's verdicts only and applied unchanged to the other three configurations, sends low-confidence verdicts to review with the reason
 `confidence below the threshold`; a configuration whose filter leaves no evidence makes no verdict
 request and reports a review instead.
 
@@ -54,7 +54,7 @@ of this repository), or record answers with the recorder described in
 and always runs offline.
 
 <!-- request-budget:begin -->
-In live mode this notebook makes exactly **215** requests, of which 202 are distinct (the other 13 repeat a request on purpose). Set `JEV_COOKBOOK_LIVE_MAX_REQUESTS=215` or higher before running it live (the default cap is 25): the cap is inclusive and every attempt counts against it, retries included, so a lower cap stops the run partway through with `BudgetExceeded` and a run that retries needs more.
+In live mode this notebook makes exactly **215** requests, of which 202 are distinct (the other 13 repeat a request on purpose) when every live answer matches the committed one, and up to **218** when a live answer sends it down a longer path. Set `JEV_COOKBOOK_LIVE_MAX_REQUESTS=218` or higher before running it live (the default cap is 25): the cap is inclusive and every attempt counts against it, retries included, so a lower cap stops the run partway through with `BudgetExceeded` and a run that retries needs more.
 <!-- request-budget:end -->
 
 ## What was and was not measured
@@ -66,7 +66,7 @@ In live mode this notebook makes exactly **215** requests, of which 202 are dist
 
 Not measured live. The committed run replays invented claims and passages with hand-written
 (synthetic) answers, including verdicts written from how much of the gold evidence reached the
-verifier, several wrong on purpose and one wrong *and* confident on `test` (`t08`) so the gate's
+verifier, several wrong on purpose and, in the full pipeline, one wrong *and* confident on `test` (`t08`) so the gate's
 numbers show a real, non-zero risk. Its answer-support rates, evidence recall, coverage and request
 counts check that the pipeline works (the candidate list, the cut, the composition, the gate and
 the counting); they say nothing about how well Jev filters, reranks or verifies, how fast it is,

@@ -178,7 +178,10 @@ def _words(text: str) -> frozenset[str]:
 def word_overlap(a: str, b: str) -> float:
     """Jaccard overlap of the two passages' word sets: shared words over all words used."""
     wa, wb = _words(a), _words(b)
-    return len(wa & wb) / len(wa | wb)
+    union = wa | wb
+    if not union:
+        return 0.0
+    return len(wa & wb) / len(union)
 
 
 @dataclass(frozen=True)
@@ -339,5 +342,6 @@ def evidence_complete(evidence_ids: tuple[str, ...], gold_ids: list[str]) -> boo
 
 def answer_supported(outcome: Outcome, gold_verdict: str) -> bool:
     """The answer-support check for one example: the outcome was answered, not sent to review,
-    and its verdict equals the gold verdict."""
+    and its verdict equals the gold verdict. It does not look at the evidence: a correct verdict
+    counts even when the verifier read none of the gold passages."""
     return outcome.outcome == ANSWERED and outcome.verdict == gold_verdict
