@@ -2451,10 +2451,15 @@ def test_a_shape_at_the_bounds_is_accepted_and_clipped(shape, extra):
     for corner, side in ((-8192, 1568), (8192, 1)):
         with pytest.raises(ValueError, match="lies entirely outside"):
             _draw(si.Canvas(640, 400), shape, corner, corner, side, side, extra)
-    drawn = _draw(si.Canvas(640, 400), shape, -400, -400, 1568, 1568, extra)
-    assert drawn.pixels is not None
-    left, top, right, bottom = drawn.pixels
-    assert 0 <= left < right <= 640 and 0 <= top < bottom <= 400
+    # left/right triangles take one step per pixel of the box, so each side is tested at 1568
+    # on its own (with the other small) rather than as one 1568 x 1568 box
+    slow = extra.get("direction") in ("left", "right")
+    boxes = ((-400, 10, 1568, 8), (10, -400, 8, 1568)) if slow else ((-400, -400, 1568, 1568),)
+    for x, y, w, h in boxes:
+        drawn = _draw(si.Canvas(640, 400), shape, x, y, w, h, extra)
+        assert drawn.pixels is not None
+        left, top, right, bottom = drawn.pixels
+        assert 0 <= left < right <= 640 and 0 <= top < bottom <= 400
 
 
 @pytest.mark.parametrize(("shape", "extra"), SHAPES)
@@ -2526,12 +2531,16 @@ def test_an_outline_only_small_ring_needs_no_fill_colour():
     c = si.Canvas(300, 300)
     drawn = c.ellipse(10, 10, 4, 4, None, outline="ink", outline_width=2, name="ring")
     assert drawn.pixels is not None and c.objects["ring"] is drawn
-    assert (
-        si.Canvas(300, 300)
-        .ellipse(10, 10, 4, 4, "no-such-colour", outline="ink", outline_width=2)
-        .pixels
-        == drawn.pixels
-    )
+    reference = si.Canvas(300, 300)
+    reference.ellipse(10, 10, 4, 4, "ink")  # the same pixels as main drew for the ring
+    assert drawn.pixels == reference.objects.get("x", drawn).pixels
+    assert changed(reference.image, c.image) is None
+    # any fill that is given is resolved, interior or not
+    bad = si.Canvas(300, 300)
+    before = bad.image.copy()
+    with pytest.raises(ValueError, match="unknown colour name"):
+        bad.ellipse(10, 10, 4, 4, "no-such-colour", outline="ink", outline_width=2, name="r")
+    assert changed(before, bad.image) is None and bad.objects == {}
     with pytest.raises(ValueError, match="unknown colour name"):
         si.Canvas(300, 300).ellipse(10, 10, 8, 8, "no-such-colour", outline="ink", outline_width=2)
 
@@ -2543,3 +2552,58 @@ def test_a_triangle_checks_its_direction_before_its_colour():
         c.triangle(10, 10, 40, 40, "nocolour", direction="sideways", name="probe")
     assert changed(before, c.image) is None
     assert c.objects == {}
+
+
+COMPOSITES = {
+    "valve": lambda c, x, y, name=None: c.schematic_symbol(x, y, 100, 80, "valve", name=name),
+    "banner": lambda c, x, y, name=None: c.error_banner(x, y, 400, 40, "HI", name=name),
+}
+
+
+@pytest.mark.parametrize("composite", sorted(COMPOSITES))
+@pytest.mark.parametrize("position", ["x", "y"])
+@pytest.mark.parametrize("bad", ["5", None])
+def test_a_composite_checks_coordinate_types_before_arithmetic(composite, position, bad):
+    # the composite pre-check did ``x + 10`` first, which raised TypeError (main: ValueError)
+    args = {"x": 10, "y": 10, position: bad}
+    c = si.Canvas(640, 400)
+    before = c.image.copy()
+    with pytest.raises(ValueError, match=f"{position} must be an integer"):
+        COMPOSITES[composite](c, args["x"], args["y"], name="probe")
+    assert changed(before, c.image) is None
+    assert c.objects == {}
+
+
+@pytest.mark.parametrize(
+    "draw",
+    [
+        lambda c: c.ellipse(10, 10, 40, 40, "teal", name="dup"),
+        lambda c: c.ellipse(10, 10, 40, 40, "teal", outline="ink", name="dup"),
+        lambda c: c.triangle(10, 10, 40, 40, "teal", name="dup"),
+        lambda c: c.error_banner(10, 10, 400, 40, "HI", name="dup"),
+        lambda c: c.schematic_symbol(10, 10, 100, 80, "valve", name="dup"),
+        lambda c: c.schematic_symbol(10, 10, 100, 80, "resistor", name="dup"),
+    ],
+)
+def test_a_duplicate_name_is_refused_before_anything_is_drawn(draw):
+    c = si.Canvas(640, 400)
+    c.rect(300, 300, 20, 20, "red", name="dup")
+    before, objects = c.image.copy(), dict(c.objects)
+    with pytest.raises(ValueError, match="the name 'dup' is already used on this canvas"):
+        draw(c)
+    assert changed(before, c.image) is None
+    assert c.objects == objects
+
+
+def test_a_composite_refusal_names_the_composite_and_the_callers_argument():
+    c = si.Canvas(640, 400)
+    with pytest.raises(
+        ValueError,
+        match=r"schematic_symbol: h=2200 gives an inner triangle 1650 tall; "
+        r"a shape side must be from 1 to 1568",
+    ):
+        c.schematic_symbol(10, -1000, 100, 2200, "valve")
+    with pytest.raises(
+        ValueError, match=r"error_banner: h=2000 gives an inner icon ellipse 1988 wide"
+    ):
+        c.error_banner(10, 10, 3000, 2000, "hello")

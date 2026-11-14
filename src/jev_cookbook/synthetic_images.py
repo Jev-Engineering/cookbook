@@ -704,6 +704,38 @@ def _shape_box(x: Any, y: Any, w: Any, h: Any) -> None:
             )
 
 
+def _inner_shape_box(
+    composite: str,
+    shape: str,
+    box: tuple[int, int, int, int],
+    caller: dict[str, Any],
+    **source: str,
+) -> None:
+    """``_shape_box`` for a shape a composite derives from its own arguments.
+
+    The refusal names the composite and the caller's argument (``source`` maps an inner box side,
+    ``x``, ``y``, ``w`` or ``h``, to that argument), not the derived value alone.
+    """
+    try:
+        _shape_box(*box)
+    except ValueError as exc:
+        text = str(exc)
+        label, _, rest = text.partition(" is ")
+        if label not in source or "; " not in rest:
+            raise ValueError(f"{composite}: {text}") from exc
+        arg = source[label]
+        value = box["xywh".index(label)]
+        phrase = {
+            "x": f"an inner {shape} whose corner x is {value}",
+            "y": f"an inner {shape} whose corner y is {value}",
+            "w": f"an inner {shape} {value} wide",
+            "h": f"an inner {shape} {value} tall",
+        }[label]
+        raise ValueError(
+            f"{composite}: {arg}={caller[arg]!r} gives {phrase}; {rest.split('; ', 1)[1]}"
+        ) from exc
+
+
 class Canvas:
     """An RGB image plus a ledger of everything drawn on it.
 
@@ -780,6 +812,11 @@ class Canvas:
         if name is not None:
             self.objects[name] = drawn
         return drawn
+
+    def _refuse_used_name(self, name: str | None) -> None:
+        """Refuse a duplicate ``name`` up front (``_record`` says the same after drawing; #539)."""
+        if name is not None and name in self.objects:
+            raise ValueError(f"the name {name!r} is already used on this canvas")
 
     def _union(self, items: Sequence[Drawn]) -> Pixels:
         return (
@@ -866,17 +903,20 @@ class Canvas:
         bounds = None
         inner = (x, y, w, h)
         # Resolve every colour that will be used before the first pixel is drawn, so a bound,
-        # type or colour refusal draws nothing (a duplicate ``name`` is still checked after
-        # drawing, in ``_record``; #537). The fill is resolved only when there is an interior.
+        # type, colour or duplicate-``name`` refusal draws nothing (other drawers still check the
+        # name after drawing; #539). A ring with no interior needs no fill (``None`` is accepted),
+        # but any other fill is resolved, so a bad colour name is refused.
+        self._refuse_used_name(name)
         ring = None
         if outline is not None:
             ow = _int(outline_width, "outline_width", minimum=1)
             ring = _colour(outline)
             inner = (x + ow, y + ow, w - 2 * ow, h - 2 * ow)
-        paint = _colour(fill) if inner[2] >= 1 and inner[3] >= 1 else None
+        interior = inner[2] >= 1 and inner[3] >= 1
+        paint = None if fill is None and not interior else _colour(fill)
         if ring is not None:
             bounds = self._spans(x, y, _ellipse_spans(w, h), ring)
-        if paint is not None:
+        if paint is not None and interior:
             ix, iy, iw, ih = inner
             got = self._spans(ix, iy, _ellipse_spans(iw, ih), paint)
             if got:
@@ -902,6 +942,7 @@ class Canvas:
         if direction not in ("up", "down", "left", "right"):
             raise ValueError("direction must be 'up', 'down', 'left' or 'right'")
         paint = _colour(fill)
+        self._refuse_used_name(name)
         spans = _triangle_spans(w, h, direction)  # streamed, not listed
         return self._record(
             name, kind, self._spans(x, y, spans, paint), direction=direction, **attrs
@@ -1131,8 +1172,12 @@ class Canvas:
         name: str | None = None,
     ) -> Drawn:
         """A line-drawn symbol ('resistor', 'capacitor', 'valve' or 'ground') with leads."""
+        caller = {"x": x, "y": y, "w": w, "h": h}
+        for label, value in caller.items():
+            _int(value, label)
         if w < 40 or h < 24:
             raise ValueError("a symbol needs at least 40x24 pixels")
+        self._refuse_used_name(name)
         cx, cy = x + w // 2, y + h // 2
         pen = _colour(colour)
         parts: list[Drawn]
@@ -1153,12 +1198,17 @@ class Canvas:
             ]
         elif symbol == "valve":
             half, tall = w // 4, (h * 3) // 4
-            _shape_box(cx - half, cy - tall // 2, half, tall)
-            _shape_box(cx, cy - tall // 2, half, tall)
+            top = cy - tall // 2
+            right_box = (cx - half, top, half, tall)
+            left_box = (cx, top, half, tall)
+            for box in (right_box, left_box):
+                _inner_shape_box(
+                    "schematic_symbol", "triangle", box, caller, x="x", y="y", w="w", h="h"
+                )
             parts = [
                 self.line(x, cy, cx - half, cy, pen, 2),
-                self.triangle(cx - half, cy - tall // 2, half, tall, pen, direction="right"),
-                self.triangle(cx, cy - tall // 2, half, tall, pen, direction="left"),
+                self.triangle(*right_box, pen, direction="right"),
+                self.triangle(*left_box, pen, direction="left"),
                 self.line(cx + half, cy, x + w - 1, cy, pen, 2),
             ]
         elif symbol == "ground":
@@ -1415,12 +1465,21 @@ class Canvas:
         if level not in levels:
             raise ValueError(f"level must be one of {sorted(levels)}")
         fill, accent, glyph = levels[level]
+        caller = {"x": x, "y": y, "w": w, "h": h}
+        for label in ("w", "h"):
+            _int(caller[label], label)
         icon_size = h - 12
         if icon_size < GLYPH_HEIGHT * scale + 4 or text_width(message, scale) > w - icon_size - 36:
             raise ValueError(f"the banner message {message!r} does not fit a {w}x{h} banner")
-        _shape_box(x + 10, y + 6, icon_size, icon_size)
+        for label in ("x", "y"):
+            _int(caller[label], label)
+        icon_box = (x + 10, y + 6, icon_size, icon_size)
+        _inner_shape_box(
+            "error_banner", "icon ellipse", icon_box, caller, x="x", y="y", w="h", h="h"
+        )
+        self._refuse_used_name(name)
         body = self.rect(x, y, w, h, fill, outline=accent, outline_width=2)
-        icon = self.ellipse(x + 10, y + 6, icon_size, icon_size, accent)
+        icon = self.ellipse(*icon_box, accent)
         mark = self.centered_text(icon, glyph, "white", scale)
         text = self.text(
             x + 20 + icon_size, y + (h - GLYPH_HEIGHT * scale) // 2, message, "ink", scale

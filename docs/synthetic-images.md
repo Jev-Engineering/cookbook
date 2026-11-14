@@ -167,7 +167,7 @@ Colours are `PALETTE` names (`"ink"`, `"blue"`, ...) or `(r, g, b)`.
 canvas, and is clipped), and its width at most 1568, so a stray number cannot make the rasteriser
 walk billions of pixels. `ellipse` and `triangle` have the same kind of bound: the top-left corner
 `x`, `y` must be within 8192 pixels of the origin, and `w`, `h` from 1 to 1568 (the largest canvas
-side). Anything else raises `ValueError` before anything is drawn. The composite drawers (`schematic_symbol`'s valve, `error_banner`'s icon) apply the same bound to the shapes they draw and refuse before drawing anything. This holds for the bound, type, colour and direction refusals; a duplicate `name` is checked only after the shape is drawn (#537). A shape inside the bound may run
+side). Anything else raises `ValueError` before anything is drawn. The composite drawers (`schematic_symbol`'s valve, `error_banner`'s icon) apply the same bound to the shapes they draw and refuse before drawing anything. This holds for the bound, type, colour and direction refusals; `ellipse`, `triangle`, `error_banner` and `schematic_symbol` check a duplicate `name` first, so a refusal draws nothing, while the other drawers still check it after drawing (#539). A shape inside the bound may run
 off the canvas and is clipped, but one wholly outside it still raises `ValueError` ("lies entirely
 outside"). The rasterisers take one step per row, and a `left` or `right` triangle one per pixel of
 its box, so a shape takes at most 1568 row steps (twice that for an ellipse with an outline),
