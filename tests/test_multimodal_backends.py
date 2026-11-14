@@ -822,6 +822,7 @@ def test_a_backend_config_refusal_before_sending_writes_the_documented_error_lin
     assert line["status"] == "error" and line["error_type"] == "LiveConfigError"
     assert line["http_status"] is None and line["request_id"] is None
     assert line["attempts"] == 0 and line["retried"] == []
+    assert line["latency_seconds"] is None
 
 
 def test_a_request_that_fails_validation_raises_from_record_and_gets_no_sidecar_line(
@@ -865,3 +866,63 @@ def test_the_live_ledger_carries_image_counts_beside_the_token_fields(fake_sdk, 
     assert (summary["images"], summary["distinct_images"]) == (4, 1)
     # The counts say nothing about bytes, content or references.
     assert "data_base64" not in json.dumps([line, summary]) and REF not in json.dumps(line)
+
+
+# -- a configurable long-context workload: fields in inputs.jsonl, the text generated -----------
+
+WORKLOAD_WORDS = (
+    "ledger",
+    "invoice",
+    "shipment",
+    "warranty",
+    "renewal",
+    "audit",
+    "tariff",
+    "carrier",
+)
+WORKLOAD_QUESTIONS = {"renewal": Noul(instructions="Does the document mention a renewal?")}
+
+
+def workload_build_state(fields):
+    """What a recipe's ``helpers.build_state`` does: the long text is generated from ``fields``.
+
+    Only ``fields`` ({seed, target_characters}) is committed in ``inputs.jsonl``. The text comes
+    from SHA-256 of ``"<seed>:<index>"`` rather than from ``random``, so the text depends on
+    nothing but the fields.
+    """
+    seed, target = fields["seed"], fields["target_characters"]
+    sentences, size, index = [], 0, 0
+    while size <= target:
+        digest = hashlib.sha256(f"{seed}:{index}".encode()).digest()
+        sentence = " ".join(WORKLOAD_WORDS[b % len(WORKLOAD_WORDS)] for b in digest[:8]) + "."
+        sentences.append(sentence)
+        size += len(sentence) + 1
+        index += 1
+    return {"document": " ".join(sentences)[:target]}
+
+
+def test_a_seeded_workload_has_a_stable_replay_key_and_a_readable_inputs_row():
+    from jev_cookbook.vision import context_size
+
+    fields = {"seed": 7, "target_characters": 2000}
+    state = workload_build_state(fields)
+    key = replay_key(state, WORKLOAD_QUESTIONS)
+    assert len(state["document"]) == 2000
+    # Equal fields give the same text and the same key, however the fields dictionary is ordered.
+    assert workload_build_state(dict(reversed(fields.items()))) == state
+    # Pinned: the key a recorded response is stored under cannot drift for seed 7.
+    assert key == "e02f7cf95ab3d7f540cfe056b94f9e437a739bc2494a64d86fc694eba4e642c9"
+    # A field that changes the text changes the key.
+    other_seed = workload_build_state({**fields, "seed": 8})
+    assert replay_key(other_seed, WORKLOAD_QUESTIONS) == (
+        "4cc46beae73ac8ba9e89d89b9086d891a00ad88e120ccc063803a1fc35b57a23"
+    )
+    longer = workload_build_state({**fields, "target_characters": 2001})
+    assert replay_key(longer, WORKLOAD_QUESTIONS) == (
+        "6e93217eab9d7fe10da4f960b9b6bdad9cb939ba3d5fe1ffae02032d0058ed5d"
+    )
+    # The row a recipe commits holds the fields and the key, not the 2,000-character text.
+    row = json.dumps({"id": "e1", "split": "test", "fields": fields, "replay_keys": [key]})
+    assert len(row) < 300 and state["document"][:20] not in row
+    # Hand count: "document" 8 + text 2000 + question name "renewal" 7 + its 36-character text.
+    assert context_size(state, WORKLOAD_QUESTIONS) == {"characters": 2051, "utf8_bytes": 2051}
