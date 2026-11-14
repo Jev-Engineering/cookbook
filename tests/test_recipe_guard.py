@@ -4737,6 +4737,10 @@ THRESHOLD_OBJECTIVE_SPELLINGS = {
     "select_confidence_threshold": ("target_accuracy", "min_coverage"),
     "select_threshold": ("f1", "recall_at_precision", "precision_at_recall"),
 }
+# Every spelling of either function, for the extraction route's one-spelling rule.
+ALL_OBJECTIVE_SPELLINGS = frozenset(
+    spelling for spellings in THRESHOLD_OBJECTIVE_SPELLINGS.values() for spelling in spellings
+)
 
 
 def _import_aliases(tree: ast.AST) -> dict[str, str]:
@@ -5894,19 +5898,18 @@ def _locally_defined_function_names(tree: ast.AST) -> set[str]:
     return {node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)}
 
 
-def _extraction_checked(name: str, func: ast.FunctionDef) -> bool:
-    """True if ``name`` is checked, anywhere in ``func``, by the ONE narrow idiom the
-    extraction route (below) trusts: the bare statement ``assert <name> is not None`` (either
-    operand order). One side must be exactly the Name ``name`` and the other exactly the
+def _extraction_checked(name: str, func: ast.FunctionDef, after: int = -1) -> bool:
+    """True if ``func.body`` has, as a top-level statement later than ``func.body[after]``, the
+    bare statement ``assert <name> is not None`` (either operand order: ``name is not None`` or
+    ``None is not name``). One side must be exactly the Name ``name`` and the other exactly the
     constant ``None``; a wrapped operand such as ``(a or b) is not None``, ``(a, b) is not
     None``, ``str(a) is not None`` or ``[a] is not None`` is not the idiom (the last three are
     always true, the first holds whichever name matched). Not merely referenced in some assert,
     which an unrelated ``not in`` comparison or a disconnected ``assert len(x) > 0`` would
-    satisfy. ``is not None`` specifically claims "the extraction for this keyword actually
-    matched something in the real call"; that is the one fact this idiom can honestly stand
-    for. Only an assert that always runs counts (``_unconditional_asserts``)."""
-    for node in _unconditional_asserts(func.body):
-        if not isinstance(node.test, ast.Compare):
+    satisfy. An assert nested under ``if``, ``try``, a loop or ``with`` does not count: it may
+    not run."""
+    for node in func.body[after + 1 :]:
+        if not (isinstance(node, ast.Assert) and isinstance(node.test, ast.Compare)):
             continue
         test = node.test
         if len(test.ops) != 1 or not isinstance(test.ops[0], ast.IsNot):
@@ -5923,25 +5926,86 @@ def _extraction_checked(name: str, func: ast.FunctionDef) -> bool:
     return False
 
 
-def _extraction_literals(call: ast.Call) -> list[str] | None:
-    """The string literals an extracting call names, or ``None`` when the call cannot be read
-    as naming a fixed set. The first positional argument is the source (the tainted value);
-    every other argument, positional or keyword value, must be a plain string ``Constant``. A
-    starred argument, ``**kwargs``, a Name, a concatenation, an f-string, a nested call or any
-    other expression could carry a second objective spelling this check cannot see, so the call
-    then names nothing and is credited nothing. Constants are taken from the direct arguments
-    only, never from expressions nested inside them."""
-    if not call.args:
+def _binding_count(name: str, func: ast.FunctionDef) -> int:
+    """How many times ``name`` is bound anywhere in ``func`` (nested scopes included, which
+    only makes the count higher and the check stricter): every Name in a Store/Del context
+    (assignment, augmented and annotated assignment, tuple unpacking, ``:=``, ``for`` targets,
+    ``with ... as``, comprehension targets), ``except ... as``, nested ``def``/``class`` names,
+    import aliases, ``match`` captures and parameters."""
+    count = 0
+    for node in ast.walk(func):
+        if isinstance(node, ast.Name) and node.id == name:
+            count += isinstance(node.ctx, ast.Store | ast.Del)
+        elif isinstance(node, ast.ExceptHandler):
+            count += node.name == name
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            count += node is not func and node.name == name
+        elif isinstance(node, ast.alias):
+            count += (node.asname or node.name.split(".")[0]) == name
+        elif isinstance(node, ast.MatchAs | ast.MatchStar):
+            count += node.name == name
+        elif isinstance(node, ast.MatchMapping):
+            count += node.rest == name
+        elif isinstance(node, ast.arg):
+            count += node.arg == name
+    return count
+
+
+def _extraction_literals(call: ast.Call, tainted: set[str]) -> list[str] | None:
+    """The string literals an extracting call names, or ``None`` when the call is not the
+    credited shape: the first positional argument must be a tainted Name (the source), every
+    other argument a plain positional string ``Constant``, and there must be no keyword
+    argument at all (not even ``**kwargs``). Anything else, such as a literal first argument, a
+    Name, a concatenation, an f-string, a nested call or a keyword, could carry a second
+    objective spelling this check cannot see."""
+    if call.keywords or not call.args:
         return None
-    extras = [*call.args[1:], *(keyword.value for keyword in call.keywords)]
-    if any(keyword.arg is None for keyword in call.keywords):
+    first = call.args[0]
+    if not (isinstance(first, ast.Name) and first.id in tainted):
         return None
     literals: list[str] = []
-    for extra in extras:
+    for extra in call.args[1:]:
         if not (isinstance(extra, ast.Constant) and isinstance(extra.value, str)):
             return None
         literals.append(extra.value)
     return literals
+
+
+def _extraction_spelling(
+    statement: ast.stmt,
+    index: int,
+    func: ast.FunctionDef,
+    tainted: set[str],
+    locally_defined: set[str],
+) -> str | None:
+    """The one objective spelling ``func.body[index]`` extracts and ties to an
+    ``assert <name> is not None``, or ``None`` when the statement is not credited. See
+    ``_spellings_pinned_by_assertions`` for the three rules."""
+    if not (
+        isinstance(statement, ast.Assign)
+        and len(statement.targets) == 1
+        and isinstance(statement.targets[0], ast.Name)
+        and statement.targets[0].id in tainted
+        and isinstance(statement.value, ast.Call)
+        and isinstance(statement.value.func, ast.Name)
+        and statement.value.func.id in locally_defined
+    ):
+        return None
+    target = statement.targets[0].id
+    # Rule 1: bound exactly once, by this top-level statement, checked by a later top-level assert.
+    if _binding_count(target, func) != 1 or not _extraction_checked(target, func, index):
+        return None
+    # Rule 2: the call's shape.
+    literals = _extraction_literals(statement.value, tainted)
+    if literals is None:
+        return None
+    # Rule 3: the literals name exactly one objective spelling, by the matcher the pin check uses.
+    named = {
+        spelling
+        for spelling in ALL_OBJECTIVE_SPELLINGS
+        if any(_objective_token_present(spelling, literal) for literal in literals)
+    }
+    return next(iter(named)) if len(named) == 1 else None
 
 
 def _spellings_pinned_by_assertions(
@@ -5960,16 +6024,30 @@ def _spellings_pinned_by_assertions(
       44), ``objective == "f1"`` (42), and ``f"min_coverage={MIN_COVERAGE}"`` f-string (46) all
       need, and what the mutation findings in #244 and #276 exist to close: crediting the wrong
       side of a negative claim, and crediting a spelling that merely co-occurs with taint.
-    * **Extraction.** An assignment ``name = <tainted call>`` to a LOCALLY DEFINED function
-      (``locally_defined`` -- never a built-in string/list method such as ``.replace(...)`` or
-      ``.count(...)``, which would otherwise let an unrelated tainted expression, such as a
-      mutation-proof's own ``source.replace(pinned, "target_accuracy=1.0")``, donate its
-      literal argument as if it were a real pin) whose call's own arguments already name the
-      spelling being extracted (recipe 42's ``min_coverage = _call_keyword_value(source,
-      "select_confidence_threshold", "min_coverage")``) -- the keyword being pinned is a Python
-      identifier, never re-stated as a literal in the later assert (``assert min_coverage is
-      not None``), so the direct route alone misses it. Credited only when the extracted name
-      is checked by the one idiom ``_extraction_checked`` trusts."""
+    * **Extraction.** ``name = _helper(source, "lit", ...)`` through a LOCALLY DEFINED function
+      (``locally_defined`` -- never a built-in string/list method such as ``.replace(...)``,
+      which would let a mutation-proof's own ``source.replace(pinned, "target_accuracy=1.0")``
+      donate its literal as if it were a real pin), followed by ``assert name is not None``
+      (either operand order; recipe 42's ``min_coverage = _call_keyword_value(source,
+      "select_confidence_threshold", "min_coverage")``). The keyword being pinned is never
+      re-stated as a literal in the later assert, so the direct route alone misses it. The
+      route fails closed: an extraction is credited only when ALL of these hold.
+
+      1. ``name`` is bound exactly once in the test function (every kind of binding counts),
+         by an unconditional top-level statement of its body, and the ``assert name is not
+         None`` is a later top-level statement. An ``if``/``try`` fallback into the same name,
+         an assignment under ``if False:``, a loop rebinding, or an assert placed before the
+         assignment is therefore not credited.
+      2. The first positional argument is a tainted Name (the source), every other argument is
+         a plain positional string literal, and the call has no keyword argument at all.
+      3. By ``_objective_token_present`` (the matcher ``_objective_pin_violations`` uses), the
+         literals together name exactly ONE distinct objective spelling across every spelling
+         of both threshold functions. Zero or several name nothing, so ``"f1"`` with
+         ``"min_coverage"``, or ``"f1-gate"`` (which contains the token f1) with another
+         spelling, is refused. Only that one spelling is credited, never the raw literals.
+
+      The helper's own body is not read, so a helper that falls back to another spelling
+      inside its body is not detected (#540)."""
     pinned: set[str] = set()
     frozen_taint = _Taint(tainted, _embedded_texts(func, tainted))
     nonempty = _asserted_nonempty_names(func)
@@ -5977,43 +6055,10 @@ def _spellings_pinned_by_assertions(
     for node in _unconditional_asserts(func.body):
         pinned |= _entailed_spellings(node.test, True, frozen_taint, nonempty)
 
-    for node in ast.walk(func):
-        if not (
-            isinstance(node, ast.Assign)
-            and len(node.targets) == 1
-            and isinstance(node.targets[0], ast.Name)
-            and node.targets[0].id in tainted
-            and isinstance(node.value, ast.Call)
-            and isinstance(node.value.func, ast.Name)
-            and node.value.func.id in locally_defined
-        ):
-            continue
-        target = node.targets[0].id
-        if not _extraction_checked(target, func):
-            continue
-        constants = _extraction_literals(node.value)
-        if constants is None:
-            continue
-        # The extraction ties its result to ONE objective spelling only when the call names one:
-        # ``_pull(source, "min_coverage", "target_accuracy")`` followed by ``is not None`` holds
-        # whichever of the two the notebook uses, so it pins neither and is credited nothing
-        # (#338). A constant names a spelling only by exact equality (``"f1-gate"`` names none).
-        # Constants that name no objective (the threshold function's own name) are kept.
-        all_spellings = {
-            spelling
-            for spellings in THRESHOLD_OBJECTIVE_SPELLINGS.values()
-            for spelling in spellings
-        }
-        if len(all_spellings & set(constants)) > 1:
-            continue
-        # A constant that merely contains a spelling as a token (a cell id like "f1-gate") is not
-        # one: it is dropped, so the later token match cannot read it as that spelling.
-        pinned.update(
-            value
-            for value in constants
-            if value in all_spellings
-            or not any(_objective_token_present(spelling, value) for spelling in all_spellings)
-        )
+    for index, statement in enumerate(func.body):
+        spelling = _extraction_spelling(statement, index, func, tainted, locally_defined)
+        if spelling is not None:
+            pinned.add(spelling)
 
     return pinned
 
@@ -6254,38 +6299,10 @@ def test_probe():
     assert "min_coverage" in pinned, "the genuine extraction idiom was not credited"
 
 
-def test_an_extraction_that_names_two_objective_spellings_pins_neither():
-    """#338: the extraction route used to credit every string constant of the extracting call, so
-    ``_pull(source, "min_coverage", "target_accuracy")`` checked by ``is not None`` -- which
-    holds whichever of the two the notebook uses -- credited both. It now credits a call only
-    when its constants name at most one objective spelling."""
-    tainted = {"source", "extracted"}
-    func = _single_test_function(
-        """
-def test_probe():
-    source = read_the_real_notebook()
-    extracted = _pull(source, "min_coverage", "target_accuracy")
-    assert extracted is not None
-"""
-    )
-    pinned = _spellings_pinned_by_assertions(func, tainted, locally_defined={"_pull"})
-    assert not {"min_coverage", "target_accuracy"} & pinned, pinned
-
-    func = _single_test_function(
-        """
-def test_probe():
-    source = read_the_real_notebook()
-    extracted = _pull(source, "select_confidence_threshold", "min_coverage")
-    assert extracted is not None
-"""
-    )
-    pinned = _spellings_pinned_by_assertions(func, tainted, locally_defined={"_pull"})
-    assert "min_coverage" in pinned, "the one-spelling extraction is still credited"
-
-
 @pytest.mark.parametrize(
     ("body", "expected"),
     [
+        # shapes the rule refuses
         (
             'a = _pull(source, "min_coverage")\n    b = _pull(source, "target_accuracy")\n'
             "    assert (a or b) is not None",
@@ -6311,21 +6328,66 @@ def test_probe():
             "    assert a is not None",
             set(),
         ),
+        # rule 3: two spellings, whole-token matches
         (
-            'a = _pull(source, "min_coverage", fallback="select_confidence_threshold")\n'
-            "    assert None is not a",
-            {"min_coverage", "select_confidence_threshold"},
+            'a = _pull(source, "min_coverage", "target_accuracy")\n    assert a is not None',
+            set(),
+        ),
+        ('a = _pull(source, "f1-gate", "min_coverage")\n    assert a is not None', set()),
+        ('a = _pull(source, "f1", "min_coverage")\n    assert a is not None', set()),
+        ('a = _pull(source, "min_coverage", "target_accuracy=")\n    assert a is not None', set()),
+        (
+            'a = _pull(source, "min_coverage", "select_confidence_threshold(target_accuracy")\n'
+            "    assert a is not None",
+            set(),
+        ),
+        ('a = _pull(source, "select_confidence_threshold")\n    assert a is not None', set()),
+        # rule 2: keyword names and a literal first argument
+        ('a = _pull(source, "min_coverage", target_accuracy="")\n    assert a is not None', set()),
+        ('a = _pull("target_accuracy", "min_coverage")\n    assert a is not None', set()),
+        # rule 1: one unconditional top-level binding, then a top-level assert
+        (
+            'a = _pull(source, "min_coverage")\n    if a is None:\n'
+            '        a = _pull(source, "target_accuracy")\n    assert a is not None',
+            set(),
         ),
         (
-            'a = _pull(source, "f1-gate", "min_coverage")\n    assert a is not None',
+            'try:\n        a = _pull(source, "min_coverage")\n    except KeyError:\n'
+            '        a = _pull(source, "target_accuracy")\n    assert a is not None',
+            set(),
+        ),
+        ('if False:\n        a = _pull(source, "min_coverage")\n    assert a is not None', set()),
+        (
+            'a = _pull(source, "min_coverage")\n    for a in OTHERS:\n        pass\n'
+            "    assert a is not None",
+            set(),
+        ),
+        ('assert a is not None\n    a = _pull(source, "min_coverage")', set()),
+        (
+            'a = _pull(source, "min_coverage")\n    if True:\n        assert a is not None',
+            set(),
+        ),
+        # credited: one spelling, either assert order
+        (
+            'a = _pull(source, "select_confidence_threshold", "min_coverage")\n'
+            "    assert a is not None",
             {"min_coverage"},
         ),
+        (
+            'a = _pull(source, "select_confidence_threshold", "min_coverage")\n'
+            "    assert None is not a",
+            {"min_coverage"},
+        ),
+        ('a = _pull(source, "min_coverage")\n    assert a is not None', {"min_coverage"}),
+        ('a = _pull(source, "f1-gate")\n    assert a is not None', {"f1"}),
     ],
 )
 def test_extraction_route_credits_only_one_literal_spelling(body, expected):
-    """#338: the extraction route credits a call only when every argument after the source is a
-    plain string literal naming at most one objective spelling exactly, checked by the bare
-    ``assert name is not None``."""
+    """#338: the extraction route credits ``a = _pull(source, "lit", ...)`` only when ``a`` is
+    bound exactly once by a top-level statement before a top-level bare ``assert a is not None``
+    (either operand order), the first argument is the tainted source and every other argument a
+    plain positional string literal (no keywords), and the literals name exactly one objective
+    spelling by whole-token match; only that spelling is credited."""
     func = _single_test_function(
         f"def test_probe():\n    source = read_the_real_notebook()\n    {body}\n"
     )
@@ -7069,12 +7131,15 @@ def _objective_pin_violations(recipe_dir_: Path) -> list[str] | None:
                 "assertion in tests/ that this check can tie to the real committed call. Credited "
                 "routes: (1) an assert that CLAIMS the spelling is present in a value derived "
                 "from a read of the committed notebook.ipynb / helpers.py (not a tmp_path copy) "
-                "or from inspect.getsource(helpers.<fn>); (2) `name = _your_helper(source, ...)` "
-                "through a function defined in the test file, whose every argument after "
-                "`source` is a plain string literal (no names, `*args`, `**kwargs`, "
-                "concatenation or calls) naming at most one objective spelling exactly, then the "
-                "bare `assert name is not None` (the only check credited there; not a wrapped "
-                "operand); (3) a production call tied by `==` "
+                'or from inspect.getsource(helpers.<fn>); (2) `name = _your_helper(source, "lit", ...)` '
+                "through a function defined in the test file, where `name` is bound exactly once "
+                "in the test, by an unconditional top-level assignment, and a later top-level "
+                "`assert name is not None` (or `None is not name`) follows; the first argument is "
+                "the tainted source Name, every other argument a plain positional string "
+                "literal, and no keyword arguments; and the literals together name exactly ONE "
+                'objective spelling by whole-token match (two spellings, such as "f1" with '
+                '"min_coverage", or "f1-gate" with another spelling, are refused); '
+                "(3) a production call tied by `==` "
                 "to a local re-derivation, with a `!=` assert against a sibling objective. "
                 "`is False`, `.count(...) == 0` and a hand-typed copy of the needle in the "
                 "compared value do not count. Only asserts that run count: directly in a "
