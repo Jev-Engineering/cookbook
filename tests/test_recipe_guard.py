@@ -10443,11 +10443,13 @@ def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     or ``speed`` quote: only a price, a latency or a throughput the output prints with its unit,
     so a printed sample size of 180 does not back "180 ms".
 
-    A number and its unit are read on one output line and never across a line break: an
-    ``price``/``speed`` quote or a percentage is backed only when the number and its unit sit on
-    the same committed output line, so output printed on two lines (or a segment committed with no
-    trailing newline, followed by one that opens with the unit) backs nothing (#380). Prose may
-    wrap a quote across lines; committed output is read line by line.
+    A number and its unit are read on one output line and never across a line break: a
+    ``price``, latency, throughput or seconds figure, and a quoted fraction backed through a
+    printed percentage, are backed only when the number and its unit sit on the same committed
+    output line, so output printed on two lines (or a segment committed with no trailing newline,
+    followed by one that opens with the unit) backs nothing (#380). A quoted percentage is the
+    exception: it is still backed by a bare printed number on any line (see ``_is_printed``). Prose
+    may wrap a quote across lines; committed output is read line by line.
 
     The audited route's one committed ``AUDIT_PREFIX`` line (#213, #376) is a machine-readable
     ledger, not a printed quantity: its 64-character hex replay keys are excluded here, per line,
@@ -12107,8 +12109,10 @@ def test_a_quoted_percentage_is_still_backed_by_a_bare_number_on_another_line(tm
     folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
     _append_unterminated_output(folder, ["rows checked: 93"], "number")
     _append_unterminated_output(folder, ["% of the fixture file was read\n"], "unit")
-    _append_cell(folder, "markdown", "Jev reaches an accuracy of 93% on this task.", cell_id="q")
-    assert [m for m in _unprinted_quantities(folder) if "'93%'" in m or "93%" in m] == []
+    sentence = "Jev reaches an accuracy of 93% on this task."
+    assert ("rate", "93%") in _quoted_quantities(sentence), _quoted_quantities(sentence)
+    _append_cell(folder, "markdown", sentence, cell_id="q")
+    assert [m for m in _unprinted_quantities(folder) if "'93%'" in m] == []
 
 
 def test_a_number_and_its_unit_printed_on_one_line_is_still_backed(tmp_path):
