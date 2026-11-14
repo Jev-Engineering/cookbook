@@ -145,6 +145,28 @@ still be refused:
   it is still supplied. The page says every asset must be referenced and answers `400` otherwise,
   and the preflight does not refuse it.
 
+Only `LiveBackend.decide` runs the preflight. Replay, scripted mode and the recipe guard do not,
+so on their own they cannot catch an over-cap request offline, and without a check of your own
+the first signal is the refusal during a recording run (it spends nothing, but it stops the run).
+This is a decision, not an oversight: a replay of committed answers must not start refusing a
+request it can answer, and the guard does not yet build each recipe's requests. The preflight is
+pure, so a recipe with large or repeated images can check every request it will send in its own
+tests:
+
+```python
+from jev_cookbook.vision import image_request_profile, preflight_image_request
+
+
+# `requests` stands for however the recipe builds its requests: a list of (state, questions,
+# assets) in the form the notebook passes to `decide`.
+def test_every_request_fits_the_image_caps():
+    for state, questions, assets in requests:
+        preflight_image_request(image_request_profile(state, questions, assets))
+```
+
+The refusal message gives the sizes as exact bytes, so a request one byte over the cap is told
+apart from one at it, and it lists only the questions that hold copies.
+
 Image tokens are not separable. They appear only inside the `usage.input_tokens` of a recorded
 response, there is no estimator, and the cookbook does not guess one. What it records is the
 count: `AuditedBackend` entries carry `images` (copies) and `distinct_images` per call (see

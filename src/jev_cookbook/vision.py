@@ -133,6 +133,25 @@ def _image_format(data: bytes) -> str:
     return fmt
 
 
+def _decode_base64(encoded: str) -> bytes:
+    """Decode correctly padded base64, with the same rule on every supported Python version.
+
+    Only the padding is checked, not the unused trailing bits of the last group.
+
+    ``b64decode(validate=True)`` checks the alphabet and allows at most two trailing ``=``. Before
+    Python 3.13 it also accepted excess padding after a complete group (``"="``, ``"AAAA="``),
+    which 3.13 and later refuse. Requiring a length that is a multiple of four removes exactly
+    those strings, so the accepted set is the same everywhere and :func:`_encoded_size`, which
+    counts from the length, agrees with it.
+    """
+    if len(encoded) % 4:
+        raise ValueError("data_base64 must be standard base64 without whitespace")
+    try:
+        return base64.b64decode(encoded, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise ValueError("data_base64 must be standard base64 without whitespace") from exc
+
+
 def validate_image_asset(asset: Mapping[str, Any]) -> bytes:
     """Validate a raw image asset and return its original encoded bytes.
 
@@ -150,10 +169,7 @@ def validate_image_asset(asset: Mapping[str, Any]) -> bytes:
         raise ValueError("data_base64 must be a base64 string")
     if len(encoded) > 4 * ((_MAX_IMAGE_BYTES + 2) // 3):
         raise ValueError("image exceeds the 16 MiB file limit")
-    try:
-        data = base64.b64decode(encoded, validate=True)
-    except (binascii.Error, ValueError) as exc:
-        raise ValueError("data_base64 must be standard base64 without whitespace") from exc
+    data = _decode_base64(encoded)
     detected = _image_format(data)
     if detected != declared:
         raise ValueError("declared image format does not match the image bytes")
@@ -276,6 +292,20 @@ class ImageRequestProfile:
     def __post_init__(self) -> None:
         object.__setattr__(self, "per_question", MappingProxyType(dict(self.per_question)))
 
+    def __hash__(self) -> int:
+        # The generated ``__hash__`` would hash the ``per_question`` proxy, which is unhashable.
+        # Equality compares that mapping without regard to order, so the hash must too.
+        return hash(
+            (
+                self.distinct_assets,
+                self.distinct_bytes,
+                self.copies,
+                self.expanded_bytes,
+                self.state_copies,
+                frozenset(self.per_question.items()),
+            )
+        )
+
 
 class ImageRequestTooLarge(ValueError):
     """A request's images exceed an aggregate cap; raised before anything is sent."""
@@ -287,9 +317,10 @@ def _encoded_size(asset: Mapping[str, Any]) -> int:
         encoded = asset["data_base64"]
     except (KeyError, TypeError):
         raise ValueError("image asset needs data_base64") from None
-    if not isinstance(encoded, str) or len(encoded) % 4:
+    padding = len(encoded) - len(encoded.rstrip("=")) if isinstance(encoded, str) else 0
+    if not isinstance(encoded, str) or len(encoded) % 4 or padding > 2:
         raise ValueError("data_base64 must be a padded base64 string")
-    return len(encoded) // 4 * 3 - (len(encoded) - len(encoded.rstrip("=")))
+    return len(encoded) // 4 * 3 - padding
 
 
 def image_request_profile(
@@ -356,21 +387,60 @@ def preflight_image_request(profile: ImageRequestProfile) -> None:
     not added here, and the request-body cap (JSON, base64 text and multipart framing) is not
     modelled at all.
     """
-    mib = 1024 * 1024
+    # With encoded file sizes every distinct asset counted here is also counted at least once in
+    # ``expanded_bytes``, so ``expanded_bytes >= distinct_bytes`` always holds and this first
+    # check can fire only when the expanded check below would fire too. It decides which message
+    # is shown; it is not independent coverage of the API's distinct-image cap, which the API
+    # measures after processing and this module cannot see.
     if profile.distinct_bytes > REQUEST_IMAGE_LIMITS["distinct_bytes"]:
         raise ImageRequestTooLarge(
             f"the request's {profile.distinct_assets} distinct image(s) are "
-            f"{profile.distinct_bytes / mib:.1f} MiB, over the 32 MiB cap on all images in a "
+            f"{_bytes_text(profile.distinct_bytes)}, over the "
+            f"{_cap_text(REQUEST_IMAGE_LIMITS['distinct_bytes'])} cap on all images in a "
             "request; use fewer or smaller images. Nothing was sent."
         )
     if profile.expanded_bytes > REQUEST_IMAGE_LIMITS["expanded_bytes"]:
         raise ImageRequestTooLarge(
             f"the request expands to {profile.copies} image copies of "
-            f"{profile.expanded_bytes / mib:.1f} MiB, over the 32 MiB cap on the expanded request "
+            f"{_bytes_text(profile.expanded_bytes)}, over the "
+            f"{_cap_text(REQUEST_IMAGE_LIMITS['expanded_bytes'])} cap on the expanded request "
             f"(each use of a reference adds the image again; {profile.state_copies} in the state, "
-            f"per question {dict(profile.per_question)}). Put a shared image in the state once "
-            "and refer to it by path, or use fewer references. Nothing was sent."
+            f"{_question_copies_text(profile.per_question)}). Put a shared image in the state "
+            "once and refer to it by path, or use fewer references. Nothing was sent."
         )
+
+
+def _cap_text(cap: int) -> str:
+    """A cap as exact bytes with its MiB size, both taken from the limit: "33,554,432-byte (32 MiB)"."""
+    return f"{cap:,}-byte ({cap / (1024 * 1024):g} MiB)"
+
+
+def _bytes_text(size: int) -> str:
+    """``size`` as exact bytes with an approximate MiB beside it.
+
+    The exact count is what tells a request one byte over the cap from one at it; a MiB figure
+    alone rounds both to "32.0 MiB".
+    """
+    return f"{size:,} bytes (about {size / (1024 * 1024):.1f} MiB)"
+
+
+_LISTED_QUESTIONS = 10
+
+
+def _question_copies_text(per_question: Mapping[str, int]) -> str:
+    """The questions that hold copies, at most ``_LISTED_QUESTIONS`` of them; zeros are left out.
+
+    The questions with the most copies come first (ties in the request's order), so the ones
+    that push a request over the cap are never the ones cut off into "and N more".
+    """
+    holding = {name: count for name, count in per_question.items() if count}
+    if not holding:
+        return "none in any question"
+    ranked = sorted(holding.items(), key=lambda item: -item[1])
+    shown = dict(ranked[:_LISTED_QUESTIONS])
+    more = len(holding) - len(shown)
+    tail = f" and {more} more question(s) with copies" if more else ""
+    return f"per question {shown}{tail}"
 
 
 def _number(value: Any, name: str, *, unit: bool = False) -> float:
