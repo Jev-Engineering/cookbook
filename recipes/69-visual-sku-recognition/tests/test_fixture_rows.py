@@ -56,17 +56,28 @@ def test_every_committed_query_differs_from_every_reference_image():
     module.check_queries_differ_from_references(module.ROWS)
     reference_row = ("r1", "test", "Q-9", None, None, "studio", 1, ("no_match", 9, "uncertain", 2))
     # A query that is a catalogue image is a fixture mistake, caught here and not in build_request.
-    original = module.query_path
-    module.query_path = lambda ident: module.helpers.CATALOG[0].reference_path
+    original = module.draw
+    module.draw = lambda row: module.draw_reference(module.helpers.CATALOG[0])
     try:
         with pytest.raises(ValueError, match="bytes of the reference"):
             module.check_queries_differ_from_references([reference_row])
     finally:
-        module.query_path = original
+        module.draw = original
+
+
+def test_a_colliding_query_raises_before_any_file_is_written(tmp_path, monkeypatch):
+    module = load_module_at(SCRIPT, "recipe69_build_fixtures_for_test_main_collision")
+    monkeypatch.setattr(module, "HERE", tmp_path)
+    monkeypatch.setattr(
+        module, "draw", lambda row: module.draw_reference(module.helpers.CATALOG[0])
+    )
+    monkeypatch.setattr("sys.argv", ["build_fixtures.py"])
+    with pytest.raises(ValueError, match="bytes of the reference"):
+        module.main()
+    assert list(tmp_path.rglob("*")) == []
 
 
 def test_build_responses_uses_the_keys_it_is_given():
     module = load_module_at(SCRIPT, "recipe69_build_fixtures_for_test_keys")
-    inputs, _labels = module.build_inputs_and_labels(module.ROWS)
-    keys = [row["replay_keys"][0] for row in inputs]
-    assert module.build_responses(module.ROWS, keys) == module.build_responses(module.ROWS)
+    keys = [f"k{index}" for index in range(len(module.ROWS))]
+    assert list(module.build_responses(module.ROWS, keys)) == keys

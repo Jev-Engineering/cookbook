@@ -39,7 +39,6 @@ from jev_cookbook import (
     replay_key,
 )
 from jev_cookbook import synthetic_images as si
-from jev_cookbook.vision import image_asset
 
 HERE = Path(__file__).resolve().parent
 helpers = load_helpers(HERE)
@@ -140,7 +139,9 @@ REFERENCE_SEED = 0
 
 def jitter(seed):
     """The tin's shift in the frame, in pixels, from the picture's seed: the same seed always
-    shifts it the same way, and a query is never the reference's own picture."""
+    shifts it the same way. Both offsets can be 0, so this does not keep a query from being the
+    reference's own picture: ``check_queries_differ_from_references`` does, before anything is
+    written."""
     rng = si.Rng(seed)
     return rng.between(-24, 24), rng.between(-16, 16)
 
@@ -347,16 +348,15 @@ def _fields(row):
 def check_queries_differ_from_references(rows):
     """Raise ValueError if a query picture has the bytes of a reference image. That would be a
     fixture mistake (the query would be the catalogue's own picture), so it is checked here and
-    not in ``helpers.build_request``, which accepts any image a user submits."""
-    references = {
-        asset["data_base64"]: name for name, (_ref, asset) in helpers.reference_assets().items()
-    }
+    not in ``helpers.build_request``, which accepts any image a user submits. It compares the
+    bytes the images would be saved with, drawn here, so ``main`` can run it before it writes
+    anything."""
+    references = {draw_reference(sku).png(): sku.name for sku in helpers.CATALOG}
     for row in rows:
-        asset = image_asset(query_path(row[0]), root=HERE)
-        if asset["data_base64"] in references:
+        data = draw(row).png()
+        if data in references:
             raise ValueError(
-                f"query {row[0]!r} has the bytes of the reference image of "
-                f"{references[asset['data_base64']]}"
+                f"query {row[0]!r} has the bytes of the reference image of {references[data]}"
             )
 
 
@@ -473,6 +473,7 @@ def main() -> None:
             "changed picture changes its replay keys (pass --force too to rewrite both); "
             "nothing was written"
         )
+    check_queries_differ_from_references(ROWS)
     try:
         entries = write_images(ROWS, args.overwrite_assets)
     except si.RegenerationMismatch as error:
@@ -486,7 +487,6 @@ def main() -> None:
     )
     folder = HERE / "fixtures"
     folder.mkdir(exist_ok=True)
-    check_queries_differ_from_references(ROWS)
     inputs, labels = build_inputs_and_labels(ROWS)
     for name, rows in (("inputs.jsonl", inputs), ("labels.jsonl", labels)):
         text = "".join(json.dumps(row) + "\n" for row in rows)

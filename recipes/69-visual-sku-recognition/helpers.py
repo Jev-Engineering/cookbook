@@ -246,7 +246,8 @@ def decide_sku(capture: str, answer: Any, threshold: float) -> Outcome:
         raise ValueError(f"{answer.choice!r} is not one of {OPTIONS}")
     if answer.choice == UNCERTAIN:
         return Outcome(capture, REVIEW, answer.choice, None, "the answer is uncertain", answer)
-    if answer.confidence < threshold:
+    # Written so that a NaN confidence (every comparison with it is False) is a review, not a delivery.
+    if not answer.confidence >= threshold:
         return Outcome(
             capture, REVIEW, answer.choice, None, "confidence below the threshold", answer
         )

@@ -5,6 +5,7 @@ import importlib.util
 import json
 from collections import Counter
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -218,6 +219,14 @@ def test_a_confident_product_or_no_match_is_delivered_and_a_less_confident_one_i
             "confidence below the threshold",
         )
         assert reviewed.choice == choice
+
+
+def test_a_nan_confidence_is_a_review_not_a_delivery():
+    shown = SimpleNamespace(choice="DEGUM", confidence=float("nan"))
+    for threshold in (0.0, 0.5, 1.0):
+        found = helpers.decide_sku("Q-1", shown, threshold)
+        assert (found.kind, found.reason) == ("review", "confidence below the threshold")
+        assert found.label is None
 
 
 def test_uncertain_is_a_review_at_every_confidence_and_threshold():
