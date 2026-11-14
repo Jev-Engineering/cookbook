@@ -247,8 +247,9 @@ Scope decisions (see the pull request body for the full reasoning):
   catalog row; ``next_steps_inbound_links`` asks whether another recipe links to this one, and no
   recipe links to the template; ``simulated_side_effect_invoked`` keys its obligation on a
   published slug (``SIDE_EFFECT_INVENTORY``, ``SIMULATOR_REQUIRED``), and the template declares
-  no side effect, has none detected and needs no simulator, so there it would only skip today. The template
-  already has its own dedicated pins in ``tests/test_template.py``, and including it here gives
+  no side effect, has none detected and needs no simulator, so there it would only skip today.
+  The template already has its own dedicated pins in ``tests/test_template.py``, and including
+  it here gives
   this module's own detection logic a sanity check -- the template is the thing every one of these
   rules is written to match. ``readme_budget_note_matches_request_audit`` runs on the template
   (#381): the template is on the audited route, so its declaration, ledger and README paragraph
