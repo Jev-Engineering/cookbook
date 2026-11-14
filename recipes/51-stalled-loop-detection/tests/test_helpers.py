@@ -266,6 +266,23 @@ def test_a_confident_stall_answer_at_the_budget_turn_counts_for_detection():
     assert helpers.detection(weak, 8).outcome == "missed"
 
 
+def test_checkpoint_answered_agrees_with_every_step_of_multi_checkpoint_runs():
+    """Over every answer sequence on a few turn sets, a step the run reaches is queued or stopped
+    for the budget alone exactly when ``checkpoint_answered`` says it was not answered."""
+    options = [("advancing", 0.84), ("repeating", 0.84), ("regressing", 0.84), ("repeating", 0.3),
+               ("unclear", 0.84), ("complete", 0.84)]  # fmt: skip
+    for turns in ((2, 3, 4), (6, 7, 8), (7, 8)):
+        for picks in itertools.product(options, repeat=len(turns)):
+            answers = [(t, answer(c, top)) for t, (c, top) in zip(turns, picks, strict=True)]
+            run = helpers.supervise("R", answers, 0.5, queue=ReviewQueue(), actions=ActionLog())
+            by_turn = dict(answers)
+            for step in run.steps:
+                not_answered = step.decision == "review" or step.reason == "turn budget reached"
+                assert helpers.checkpoint_answered(by_turn[step.turn], 0.5, step.turn) == (
+                    not not_answered
+                ), (turns, picks, step)
+
+
 def test_checkpoints_must_come_in_turn_order():
     with pytest.raises(ValueError, match="increasing turn order"):
         helpers.label_run("R", [(3, "advancing"), (2, "advancing")])
@@ -383,7 +400,23 @@ def test_the_test_split_supervision_on_the_committed_fixtures():
 
 def test_the_validation_split_supervision_on_the_committed_fixtures():
     """The validation split, the only fixture path through the turn budget stop."""
-    _, runs, queue, actions = _fixture_runs("validation", frozen_threshold())
+    by_ref, runs, queue, actions = _fixture_runs("validation", frozen_threshold())
+    labels = load_labels(RECIPE)
+    found = {
+        ref: helpers.detection(
+            runs[ref], helpers.stall_onset([(e.fields["turn"], labels[e.id]) for e in group])
+        )
+        for ref, group in by_ref.items()
+    }
+    # R-104's stall point is turn 5, where the delete's breakage first shows in the results.
+    assert {ref: (d.onset, d.outcome, d.delay, d.false_alarm) for ref, d in found.items()} == {
+        "R-101": (None, "no stall", None, None),
+        "R-102": (2, "detected", 0, None),
+        "R-103": (4, "detected", 1, None),
+        "R-104": (5, "detected", 0, None),
+        "R-105": (2, "detected", 0, None),
+        "R-106": (None, "no stall", None, None),
+    }
     assert {ref: (r.stopped_at, r.stop_reason) for ref, r in runs.items()} == {
         "R-101": (7, "task complete"),
         "R-102": (3, "still repeating after a strategy change"),
@@ -413,13 +446,86 @@ def test_the_validation_split_supervision_on_the_committed_fixtures():
 
 def test_detection_outcomes():
     run = helpers.label_run("R", [(2, "advancing"), (3, "repeating"), (4, "repeating")])
-    assert helpers.detection(run, 3).outcome == "detected"
-    assert helpers.detection(run, 3).delay == 0
-    assert helpers.detection(run, 4).outcome == "early"
-    assert helpers.detection(run, None).outcome == "early"
+    assert run.stall_interventions == (3, 4)
+    found = helpers.detection(run, 3)
+    assert (found.outcome, found.delay, found.intervened, found.false_alarm) == (
+        "detected",
+        0,
+        3,
+        None,
+    )
+    # An intervention before the onset is a false alarm; a later one at or after the onset is
+    # still the detection, so the early one cannot hide it.
+    found = helpers.detection(run, 4)
+    assert (found.outcome, found.delay, found.intervened, found.false_alarm) == (
+        "detected",
+        0,
+        4,
+        3,
+    )
+    on_clean = helpers.detection(run, None)
+    assert (on_clean.outcome, on_clean.false_alarm) == ("no stall", 3)
     quiet = helpers.label_run("R", [(2, "advancing"), (3, "complete")])
-    assert helpers.detection(quiet, 2).outcome == "missed"
-    assert helpers.detection(quiet, None).outcome == "no stall"
+    assert (helpers.detection(quiet, 2).outcome, helpers.detection(quiet, 2).false_alarm) == (
+        "missed",
+        None,
+    )
+    assert (helpers.detection(quiet, None).outcome, helpers.detection(quiet, None).false_alarm) == (
+        "no stall",
+        None,
+    )
+
+
+def test_an_early_change_of_strategy_does_not_hide_a_later_stop_at_the_onset():
+    """A confident wrong ``repeating`` at turn 3 asks for a change; the run then stops at turn 5
+    with "still repeating after a strategy change". The onset is turn 5: the stop is the
+    detection (delay 0) and the turn-3 request is a false alarm."""
+    answers = [
+        (2, answer("advancing")),
+        (3, answer("repeating")),
+        (4, answer("advancing")),
+        (5, answer("repeating")),
+    ]
+    run = helpers.supervise("R", answers, 0.5, queue=ReviewQueue(), actions=ActionLog())
+    assert run.stall_interventions == (3, 5)
+    assert run.stop_reason == "still repeating after a strategy change"
+    found = helpers.detection(run, 5)
+    assert (found.outcome, found.intervened, found.delay, found.false_alarm) == (
+        "detected",
+        5,
+        0,
+        3,
+    )
+
+
+def test_detected_plus_missed_is_the_number_of_transcripts_with_a_stall_point():
+    labelled = {
+        "A": [(2, "advancing"), (3, "repeating"), (4, "complete")],
+        "B": [(2, "advancing"), (3, "repeating"), (4, "repeating")],
+        "C": [(2, "advancing"), (3, "complete")],
+        "D": [(2, "advancing"), (3, "regressing")],
+    }
+    gold_runs = {ref: helpers.label_run(ref, items) for ref, items in labelled.items()}
+    # Mix in runs built from other labels: one acts early, one never acts, one acts on a
+    # transcript with no stall.
+    other = {
+        "A": helpers.label_run("A", [(2, "repeating"), (3, "advancing"), (4, "complete")]),
+        "B": helpers.label_run("B", [(2, "advancing"), (3, "advancing"), (4, "complete")]),
+        "C": helpers.label_run("C", [(2, "repeating"), (3, "complete")]),
+        "D": gold_runs["D"],
+    }
+    for runs in (gold_runs, other):
+        found = [
+            helpers.detection(runs[ref], helpers.stall_onset(items))
+            for ref, items in labelled.items()
+        ]
+        stalled = sum(d.onset is not None for d in found)
+        detected = sum(d.outcome == "detected" for d in found)
+        missed = sum(d.outcome == "missed" for d in found)
+        assert stalled == 3
+        assert detected + missed == stalled
+        assert all(d.outcome == "no stall" for d in found if d.onset is None)
+    assert [d.false_alarm for d in (helpers.detection(other["C"], None),)] == [2]
 
 
 def test_the_stall_onset_is_the_first_stall_label():
@@ -446,38 +552,57 @@ def test_every_checkpoint_shows_exactly_the_turns_up_to_it():
         assert len(example.fields["turns"]) == example.fields["turn"] >= 2
 
 
-def _validation_pool():
-    """``(correct, confidence, turn)`` lists for the validation answers that name an actionable
-    label (``helpers.choose_threshold`` drops the ones at or after the budget turn)."""
+def _validation_answers():
+    """``(answers, gold, turns)`` for every validation checkpoint, in file order."""
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
     labels = load_labels(RECIPE)
-    pool = []
-    for e in load_inputs(RECIPE):
-        if e.split != "validation":
-            continue
-        a = backend.decide(helpers.build_state(e.fields), questions)["progress"]
-        if a.choice != "unclear":
-            pool.append((a.choice == labels[e.id], a.confidence, e.fields["turn"]))
-    return [ok for ok, _, _ in pool], [c for _, c, _ in pool], [t for _, _, t in pool]
+    rows = [e for e in load_inputs(RECIPE) if e.split == "validation"]
+    answers = [backend.decide(helpers.build_state(e.fields), questions)["progress"] for e in rows]
+    return answers, [labels[e.id] for e in rows], [e.fields["turn"] for e in rows]
 
 
 def frozen_threshold():
     """The frozen gate, derived through the one helper (``helpers.choose_threshold``)."""
-    return helpers.choose_threshold(*_validation_pool())
+    return helpers.choose_threshold(*_validation_answers())
+
+
+def test_the_threshold_pool_drops_unclear_answers_and_budget_turn_checkpoints():
+    """One function decides the selection pool, and neither a confident wrong ``unclear`` nor a
+    wrong answer at the budget turn can raise the gate."""
+    answers = [answer("advancing", 0.9), answer("repeating", 0.5), answer("complete", 0.7)]
+    gold = ["advancing", "advancing", "complete"]
+    assert helpers.threshold_pool(answers, gold, [2, 3, 4]) == (
+        [True, False, True],
+        [
+            answers[0].confidence,
+            answers[1].confidence,
+            answers[2].confidence,
+        ],
+    )
+    # The wrong confident answer at the budget turn is not in the pool.
+    pool = helpers.threshold_pool(answers, gold, [2, helpers.MAX_TURNS, 4])
+    assert pool[0] == [True, True]
+    # A confident wrong ``unclear`` is not in the pool either.
+    unclear = answer("unclear", 0.9)
+    assert helpers.threshold_pool([unclear], ["advancing"], [2]) == ([], [])
+    base = helpers.choose_threshold(answers[:1], gold[:1], [2])
+    assert helpers.choose_threshold(answers[:1] + [unclear], gold[:1] + ["advancing"], [2, 3]) == (
+        base
+    )
+    with pytest.raises(ValueError, match="same length"):
+        helpers.threshold_pool(answers, gold, [2])
 
 
 def test_the_threshold_selection_ignores_checkpoints_at_the_budget_turn():
     """The gate has no effect at the budget turn, so a confident wrong answer there cannot raise
     it; the same answer before the budget turn does."""
-    correct, confidences = [True, False, True], [0.9, 0.3, 0.6]
-    assert helpers.choose_threshold(correct, confidences, [2, 3, 4]) == pytest.approx(0.6)
-    low = helpers.choose_threshold([True, True, False], [0.9, 0.6, 0.8], [2, 3, helpers.MAX_TURNS])
-    assert low == pytest.approx(0.6)
-    high = helpers.choose_threshold([True, True, False], [0.9, 0.6, 0.8], [2, 3, 4])
-    assert high > 0.8
-    with pytest.raises(ValueError, match="same length"):
-        helpers.choose_threshold([True], [0.9], [2, 3])
+    answers = [answer("advancing", 0.9), answer("advancing", 0.6), answer("advancing", 0.8)]
+    gold = ["advancing", "advancing", "complete"]
+    low = helpers.choose_threshold(answers, gold, [2, 3, helpers.MAX_TURNS])
+    assert low == pytest.approx(answers[1].confidence)
+    high = helpers.choose_threshold(answers, gold, [2, 3, 4])
+    assert high > answers[2].confidence
 
 
 def test_the_validation_answered_counts_and_the_forced_values():
@@ -510,20 +635,26 @@ def test_the_validation_answered_counts_and_the_forced_values():
 
 
 def test_stored_answers_are_not_all_right():
-    """Using the frozen threshold, exactly one `test` answer is wrong and still clears the gate:
-    the single mistake the notebook's prose says the gate lets through."""
+    """Using the frozen threshold, exactly one `test` answer is wrong and still decides what the
+    policy does: the single mistake the notebook's prose says the gate lets through. It is
+    counted with ``checkpoint_answered``, the same rule the coverage count uses, and it is also
+    the only wrong answer at or above the gate."""
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
     labels = load_labels(RECIPE)
-    threshold = helpers.choose_threshold(*_validation_pool())
+    threshold = helpers.choose_threshold(*_validation_answers())
     wrong_and_confident = []
+    wrong_and_acted_on = []
     for e in load_inputs(RECIPE):
         if e.split != "test":
             continue
         a = backend.decide(helpers.build_state(e.fields), questions)["progress"]
         if a.choice != labels[e.id] and a.confidence >= threshold:
             wrong_and_confident.append(e.id)
+        if a.choice != labels[e.id] and helpers.checkpoint_answered(a, threshold, e.fields["turn"]):
+            wrong_and_acted_on.append(e.id)
     assert wrong_and_confident == ["t-retry-search-t4"]
+    assert wrong_and_acted_on == ["t-retry-search-t4"]
 
 
 def test_the_notebooks_own_selection_agrees_with_the_helper():

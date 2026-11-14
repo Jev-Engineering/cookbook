@@ -122,24 +122,40 @@ def build_questions() -> dict[str, Choice]:
     }
 
 
-def choose_threshold(correct: list[bool], confidences: list[float], turns: list[int]) -> float:
+def threshold_pool(
+    answers: list[Any], gold: list[str], turns: list[int]
+) -> tuple[list[bool], list[float]]:
+    """``(correct, confidences)`` for the answers that may set the gate.
+
+    ``turns`` is each answer's checkpoint turn. Two kinds of answer are left out, because the
+    gate cannot act on them: an ``unclear`` answer (a confident one goes to review whatever the
+    threshold, so only answers naming one of the four actionable labels can set the bar), and a
+    checkpoint at ``turn >= MAX_TURNS`` (the budget stops the run there whatever the answer, so
+    the gate has no effect on it and its correctness cannot say where the gate should sit).
+
+    This is the one place that decides which answers are in the selection. The notebook, the
+    tests and ``choose_threshold`` all call it.
+    """
+    if not len(answers) == len(gold) == len(turns):
+        raise ValueError("answers, gold and turns must have the same length")
+    correct, confidences = [], []
+    for a, g, t in zip(answers, gold, turns, strict=True):
+        if a.choice != UNCLEAR and t < MAX_TURNS:
+            correct.append(a.choice == g)
+            confidences.append(a.confidence)
+    return correct, confidences
+
+
+def choose_threshold(answers: list[Any], gold: list[str], turns: list[int]) -> float:
     """The frozen gate: the lowest confidence at which every answer that clears it is right.
 
-    ``turns`` is each answer's checkpoint turn. A checkpoint at ``turn >= MAX_TURNS`` is left out
-    of the selection: the budget stops the run there whatever the answer, so the gate has no
-    effect on it and its correctness cannot say where the gate should sit.
-
-    The tests derive the threshold through this one function. The notebook makes the same call
-    to ``select_confidence_threshold`` in its own cell, so that its objective is visible there,
-    and a test checks that the two agree. Pass only the answers that name one of the four
-    actionable labels: a confident ``unclear`` never acts, so it cannot set the bar.
+    The selection pool comes from ``threshold_pool``, so the result does not depend on the
+    caller having filtered anything first. The tests derive the threshold through this function.
+    The notebook calls ``threshold_pool`` and then ``select_confidence_threshold`` in its own
+    cell, so that its objective is visible there, and a test checks that the two agree.
     """
-    if not len(correct) == len(confidences) == len(turns):
-        raise ValueError("correct, confidences and turns must have the same length")
-    pool = [(ok, c) for ok, c, t in zip(correct, confidences, turns, strict=True) if t < MAX_TURNS]
-    return select_confidence_threshold(
-        [ok for ok, _ in pool], [c for _, c in pool], target_accuracy=1.0
-    )
+    correct, confidences = threshold_pool(answers, gold, turns)
+    return select_confidence_threshold(correct, confidences, target_accuracy=1.0)
 
 
 def _answer_decision(
@@ -193,14 +209,20 @@ def transition(
 
 
 def checkpoint_answered(answer: Any, threshold: float, turn: int) -> bool:
-    """Whether the model's answer decides what the policy does at this checkpoint.
+    """Whether the model's answer decides what the policy does at this checkpoint, judged on
+    its own: the answer is passed to ``transition`` as the run's first chance to change strategy
+    (``changes_used=0``), not with the run's actual count of changes so far.
 
-    Built from ``transition`` itself rather than re-typed, so the evaluation counts exactly what
-    the policy does. A checkpoint is not answered when it is sent to review (below the gate, or
-    a confident ``unclear``, whatever its confidence) or when the turn budget decides the
-    outcome (reason "turn budget reached"): the run stops at the budget turn whatever the label,
-    so the label was not acted on. A budget-turn answer that stops the run for its own reason
-    (``complete``, ``regressing``, ``repeating``) is answered.
+    Built from ``transition`` rather than re-typed. A checkpoint is not answered when it is sent
+    to review (below the gate, or a confident ``unclear``, whatever its confidence) or when the
+    turn budget decides the outcome (reason "turn budget reached"): the run stops at the budget
+    turn whatever the label, so the label was not acted on. A budget-turn answer that stops the
+    run for its own reason (``complete``, ``regressing``, ``repeating``) is answered.
+
+    With the current table a confident ``repeating`` is answered whether or not a change was
+    already used (it asks for a change, or stops the run), so this agrees with every run; a test
+    checks that over multi-checkpoint runs. A table that sent the post-change branch to review
+    would make the two differ, and that test would fail.
     """
     decision, reason = transition(answer.choice, answer.confidence, threshold, 0, turn)
     return decision != REVIEW and reason != REASON_BUDGET
@@ -225,7 +247,12 @@ class Run:
     steps: tuple[Step, ...]
     stopped_at: int | None  # the turn of the stop, or None when the transcript ran out first
     stop_reason: str | None
-    first_stall_intervention: int | None  # the turn of the first stall intervention, if any
+    stall_interventions: tuple[int, ...]  # the turn of every stall intervention, in order
+
+    @property
+    def first_stall_intervention(self) -> int | None:
+        """The turn of the first stall intervention, if any."""
+        return self.stall_interventions[0] if self.stall_interventions else None
 
 
 def _run(
@@ -237,20 +264,20 @@ def _run(
         raise ValueError(f"{transcript}: checkpoints must be in strictly increasing turn order")
     steps: list[Step] = []
     changes = 0
-    first_stall = None
+    stalls: list[int] = []
     for turn, choice, confidence in checkpoints:
         decision, reason = transition(choice, confidence, threshold, changes, turn)
         step = Step(transcript, turn, choice, decision, reason)
         steps.append(step)
         if on_step is not None:
             on_step(step)
-        if first_stall is None and reason in STALL_REASONS:
-            first_stall = turn
+        if reason in STALL_REASONS:
+            stalls.append(turn)
         if decision == CHANGE_STRATEGY:
             changes += 1
         if decision == STOP:
-            return Run(transcript, tuple(steps), turn, reason, first_stall)
-    return Run(transcript, tuple(steps), None, None, first_stall)
+            return Run(transcript, tuple(steps), turn, reason, tuple(stalls))
+    return Run(transcript, tuple(steps), None, None, tuple(stalls))
 
 
 def label_run(transcript: str, labelled: list[tuple[int, str]]) -> Run:
@@ -306,32 +333,37 @@ def stall_onset(labelled: list[tuple[int, str]]) -> int | None:
 
 @dataclass(frozen=True)
 class Detection:
-    """How one run's first stall intervention lines up with the gold stall onset."""
+    """How one run's stall interventions line up with the gold stall onset."""
 
     transcript: str
     onset: int | None
-    intervened: int | None
-    outcome: str  # "detected", "missed", "early" or "no stall"
+    intervened: int | None  # the first stall intervention at or after the onset
+    outcome: str  # "detected" or "missed" when there is a stall point, else "no stall"
     delay: int | None  # intervened - onset, for a detected stall only
+    false_alarm: int | None  # the turn of the first stall intervention before the onset, or on a
+    # transcript that never stalls; reported apart from the outcome
 
 
 def detection(run: Run, onset: int | None) -> Detection:
-    """Compare a run's first stall intervention with the gold onset.
+    """Compare a run's stall interventions with the gold onset.
 
-    ``early`` is an intervention before the stall began (or on a transcript that never stalls):
-    a false alarm. ``missed`` is a stall the run never intervened on, including a run that
-    stopped for another reason first.
+    A transcript with a stall point is ``detected`` when the run has a stall intervention at or
+    after the onset (the first one is the detection, and its distance from the onset is the
+    delay) and ``missed`` otherwise, including a run that stopped for another reason first. So
+    detected plus missed is the number of transcripts with a stall point. A stall intervention
+    before the onset, or any on a transcript that never stalls, is a false alarm: it is recorded
+    in ``false_alarm`` and does not change the outcome, so an early false alarm cannot hide a
+    later correct detection.
     """
-    seen = run.first_stall_intervention
+    turns = run.stall_interventions
     if onset is None:
-        return Detection(
-            run.transcript, None, seen, "early" if seen is not None else "no stall", None
-        )
+        return Detection(run.transcript, None, None, "no stall", None, turns[0] if turns else None)
+    early = [t for t in turns if t < onset]
+    false_alarm = early[0] if early else None
+    seen = next((t for t in turns if t >= onset), None)
     if seen is None:
-        return Detection(run.transcript, onset, None, "missed", None)
-    if seen < onset:
-        return Detection(run.transcript, onset, seen, "early", None)
-    return Detection(run.transcript, onset, seen, "detected", seen - onset)
+        return Detection(run.transcript, onset, None, "missed", None, false_alarm)
+    return Detection(run.transcript, onset, seen, "detected", seen - onset, false_alarm)
 
 
 def exact_repeat_baseline(turns: list[dict[str, str]]) -> str:
