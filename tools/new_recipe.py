@@ -1678,7 +1678,9 @@ def main() -> None:
     except si.RegenerationMismatch as error:
         raise SystemExit(
             f"refused: {error}\nnothing else was written; to accept the redrawn picture, run "
-            "python build_fixtures.py --overwrite-assets"
+            "python build_fixtures.py --overwrite-assets (if fixtures/responses.json holds a "
+            "recorded response, that is refused too unless you pass --force as well: "
+            "python build_fixtures.py --overwrite-assets --force)"
         ) from None
     manifest = {"schema": 1, "assets": entries}
     (HERE / "assets-manifest.json").write_text(

@@ -2509,6 +2509,86 @@ def test_a_changed_picture_fails_the_generated_replay_key_test(image_scaffold, t
     assert any("hash-mismatch" in str(problem) for problem in validate_recipe(folder))
 
 
+def _bytes_of_every_file(folder):
+    return {
+        p.relative_to(folder).as_posix(): p.read_bytes()
+        for p in sorted(folder.rglob("*"))
+        if p.is_file() and "__pycache__" not in p.parts
+    }
+
+
+def test_overwrite_assets_with_a_recorded_response_is_refused_before_anything_is_written(
+    image_scaffold, tmp_path
+):
+    """The recorded check must run before ``write_images``: a redrawn picture changes the replay
+    keys of the recorded answers, so a refusal that came after the images were written would
+    leave them orphaned. The refused run leaves every byte of the folder as it was; adding
+    ``--force`` is what accepts the change."""
+    folder = copy_of(image_scaffold, tmp_path)
+    responses = folder / "fixtures" / "responses.json"
+    data = json.loads(responses.read_text("utf-8"))
+    first = sorted(data)[0]
+    data[first]["model"] = "jev-1.14.0"  # what the recorder writes: not "synthetic"
+    responses.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    Image.new("RGB", (640, 400), "white").save(folder / "assets" / "screen-t01.png")
+    before = _bytes_of_every_file(folder)
+    script = folder / "build_fixtures.py"
+
+    refused = subprocess.run(
+        [sys.executable, str(script), "--overwrite-assets"], capture_output=True, text=True
+    )
+    assert refused.returncode != 0
+    assert "refusing --overwrite-assets" in refused.stderr
+    assert "recorded response" in refused.stderr and "nothing was written" in refused.stderr
+    assert _bytes_of_every_file(folder) == before
+
+    forced = subprocess.run(
+        [sys.executable, str(script), "--overwrite-assets", "--force"],
+        capture_output=True,
+        text=True,
+    )
+    assert forced.returncode == 0, forced.stderr
+    assert _bytes_of_every_file(folder) != before
+
+
+def test_the_changed_picture_refusal_names_overwrite_assets_and_force_for_a_recorded_file(
+    image_scaffold, tmp_path
+):
+    folder = copy_of(image_scaffold, tmp_path)
+    Image.new("RGB", (640, 400), "white").save(folder / "assets" / "screen-t01.png")
+    refused = subprocess.run(
+        [sys.executable, str(folder / "build_fixtures.py")], capture_output=True, text=True
+    )
+    assert refused.returncode != 0
+    assert "nothing else was written" in refused.stderr
+    assert "python build_fixtures.py --overwrite-assets " in refused.stderr
+    assert "recorded response" in refused.stderr
+    assert "python build_fixtures.py --overwrite-assets --force" in refused.stderr
+
+
+def test_the_image_scaffold_removes_the_folder_and_propagates_after_an_unexpected_exception(
+    catalog, recipes, monkeypatch
+):
+    """``KeyboardInterrupt`` is not an ``Exception``: the drawing step still removes the
+    half-written folder, and the interrupt reaches the caller."""
+    _, recipe = entry(catalog, 77)
+
+    def interrupted(*args, **kwargs):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(new_recipe.subprocess, "run", interrupted)
+    with pytest.raises(KeyboardInterrupt):
+        new_recipe.scaffold(77, catalog, recipes, mode=IMAGE)
+    assert not (recipes / recipe["slug"]).exists()
+
+    target = recipes / "draw-only"
+    target.mkdir(parents=True)
+    (target / "half.txt").write_text("x", encoding="utf-8")
+    with pytest.raises(KeyboardInterrupt):
+        new_recipe._draw_images(target)
+    assert not target.exists()
+
+
 def test_the_image_build_fixtures_tests_pass_under_a_different_png_encoder_and_the_text_ones_do_not(
     image_scaffold, tmp_path
 ):

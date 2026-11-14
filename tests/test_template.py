@@ -58,8 +58,8 @@ def test_the_template_declaration_audit_and_readme_agree():
     in ``request_budget.json``, the audited ledger the notebook's final code cell committed, and
     the paragraph rendered into the README's ``## Switch to live`` section -- and they must agree.
     ``audit_recipe`` is the function the recipe guard's ``readme_budget_note_matches_request_audit``
-    check loads for every published recipe and, since #381, for ``recipes/_template`` as well, so
-    the guard compares the template's own three too and this test pins them a second time. It
+    check loads for every published recipe; ``recipes/_template`` is not a catalog slug, so the
+    guard does not reach it and this test is where the template's own three are compared. It
     returns the declared total, 22, which pins the count as well as the agreement: a declaration
     that no longer matches the ledger, or a README paragraph edited by hand instead of rendered,
     fails here."""

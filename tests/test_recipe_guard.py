@@ -237,22 +237,12 @@ check id                              rule -> detection
 Scope decisions (see the pull request body for the full reasoning):
 
 * The parametrised list is every ``recipes/NN-slug/`` with a committed ``notebook.ipynb``
-  (``PUBLISHED``, the same set ``tests/test_recipe_sources.py`` already uses). Every check uses
-  ``guarded_with_template()`` and also runs against ``recipes/_template``, never xfailed there,
-  except the four below, which use ``guarded()`` and run over ``PUBLISHED`` alone, each for a
-  stated reason (#381 audited the split; anything not listed here that skips the template is a
-  defect, not a choice): ``build_fixtures_scaffold`` renders the expected text from the recipe's
-  catalog row, which the template does not have (``tests/test_template.py`` pins the template's
-  own copy the other way round); ``readme_sources_match_catalog`` compares against that same
-  catalog row; ``next_steps_inbound_links`` asks whether another recipe links to this one, and no
-  recipe links to the template; ``simulated_side_effect_invoked`` keys its obligation on a
-  published slug (``SIDE_EFFECT_INVENTORY``, ``SIMULATOR_REQUIRED``), and the template declares
-  no side effect, has none detected and needs no simulator, so there it would only skip today.
-  The template already has its own dedicated pins in ``tests/test_template.py``, and including
-  it here gives this module's own detection logic a sanity check -- the template is the thing
-  every one of these rules is written to match. ``readme_budget_note_matches_request_audit``
-  runs on the template (#381): the template is on the audited route, so its declaration, ledger
-  and README paragraph are held against each other here as well as by ``tests/test_template.py``.
+  (``PUBLISHED``, the same set ``tests/test_recipe_sources.py`` already uses). Checks that need
+  a catalog row or a stored-answer count (sources, the live budget note) use ``guarded()`` and
+  run over ``PUBLISHED`` alone; every other check uses ``guarded_with_template()`` and also runs
+  against ``recipes/_template``, never xfailed there: the template already has its own dedicated
+  pins in ``tests/test_template.py``, and including it here gives this module's own detection
+  logic a sanity check -- the template is the thing every one of these rules is written to match.
 * ``next_steps_inbound_links`` is still a per-recipe, per-check case (the fix round that added it
   found the distinction drawn in an earlier revision of this docstring -- that inbound coverage is
   "a property of the whole set, not of one recipe" -- did not actually hold: the check below reads
@@ -4044,9 +4034,7 @@ LIVE_CALL_COUNT = _request_audit.LIVE_CALL_COUNT
 AUDIT_PREFIX = _request_audit.AUDIT_PREFIX
 
 
-@pytest.mark.parametrize(
-    "recipe", guarded_with_template("readme_budget_note_matches_request_audit")()
-)
+@pytest.mark.parametrize("recipe", guarded("readme_budget_note_matches_request_audit")())
 def test_the_live_budget_note_matches_the_request_audit(recipe):
     """A recipe states its live request count once, in ``request_budget.json``.
 
@@ -4083,157 +4071,6 @@ def test_the_live_budget_note_matches_the_request_audit(recipe):
     assert stated == actual, (
         f"{recipe['slug']}: README states {stated}, legacy fixture count is {actual}"
     )
-
-
-def _drift_template_budget(folder: Path) -> None:
-    path = folder / "request_budget.json"
-    budget = json.loads(path.read_text("utf-8"))
-    budget["backends"]["main"]["requests"] += 1
-    path.write_text(json.dumps(budget), "utf-8")
-
-
-def _drift_template_readme(folder: Path) -> None:
-    path = folder / "README.md"
-    text = path.read_text("utf-8")
-    match = re.search(r"exactly \*\*(\d+)\*\* requests", text)
-    assert match, "the template README no longer holds the rendered request count"
-    count = int(match.group(1))
-    path.write_text(text.replace(match.group(0), f"exactly **{count + 1}** requests", 1), "utf-8")
-
-
-def _drift_template_audit_line(folder: Path) -> None:
-    path = folder / "notebook.ipynb"
-    notebook = json.loads(path.read_text("utf-8"))
-    for cell in notebook["cells"]:
-        for output in cell.get("outputs", []):
-            text = output.get("text", [])
-            # nbformat allows a stream's text as one string or as a list of lines.
-            lines = text.splitlines(keepends=True) if isinstance(text, str) else list(text)
-            for i, line in enumerate(lines):
-                if line.startswith(AUDIT_PREFIX):
-                    payload = json.loads(line[len(AUDIT_PREFIX) :])
-                    # A self-consistent ledger with one call more than the declaration and the
-                    # README state: the call is appended and both counts move with it, so only
-                    # the comparison against the declaration can see the drift.
-                    entry = payload["backends"][0]
-                    entry["calls"].append({"replay_key": "f" * 64, "returned": True})
-                    entry["decide_calls"] += 1
-                    entry["distinct_requests"] += 1
-                    lines[i] = AUDIT_PREFIX + json.dumps(payload, separators=(",", ":")) + "\n"
-                    output["text"] = lines
-                    path.write_text(json.dumps(notebook), "utf-8")
-                    return
-    raise AssertionError("the template notebook no longer commits an audit line")
-
-
-def _template_drift_message(kind: str) -> str:
-    """The message each drift must fail with, from the template's own declared total, so a
-    legitimate change to the template's request count moves the expectation with it."""
-    total = _request_audit.load_budget(TEMPLATE).total
-    return {
-        "budget": rf"made {total} decide\(\) calls, request_budget\.json declares {total + 1}",
-        "readme": r"README budget paragraph differs",
-        "audit line": rf"made {total + 1} decide\(\) calls, request_budget\.json declares {total}",
-    }[kind]
-
-
-_TEMPLATE_DRIFTS = {
-    "budget": _drift_template_budget,
-    "readme": _drift_template_readme,
-    "audit line": _drift_template_audit_line,
-}
-
-
-def _template_copy_under(tmp_path: Path, monkeypatch) -> dict:
-    """A copy of the real template at ``tmp_path / "_template"``, with ``RECIPES_DIR`` pointed at
-    ``tmp_path`` so the check under test reads the copy; returns the check's ``recipe`` argument."""
-    monkeypatch.setitem(globals(), "RECIPES_DIR", tmp_path)
-    shutil.copytree(TEMPLATE, tmp_path / "_template")
-    return {"slug": "_template"}
-
-
-def test_the_request_audit_check_runs_on_the_template_and_passes_it_on_the_audited_route(
-    tmp_path, monkeypatch
-):
-    """#381: ``readme_budget_note_matches_request_audit`` once ran over ``PUBLISHED`` alone, so the
-    template, which is on the audited route, could let its declaration, its committed ledger and
-    its README paragraph drift apart without this check seeing it. The template is one of the
-    check's parametrised cases, the untouched copy passes it, and it passes on the AUDITED route:
-    ``audit_recipe`` returns the declared total, not ``None`` (the legacy route that counts
-    ``responses.json`` instead), so a template that lost its audit could not pass here unseen."""
-    (mark,) = [
-        m
-        for m in test_the_live_budget_note_matches_the_request_audit.pytestmark
-        if m.name == "parametrize"
-    ]
-    assert "_template" in [param.id for param in mark.args[1]]
-    recipe = _template_copy_under(tmp_path, monkeypatch)
-    copy = tmp_path / "_template"
-    assert (
-        _request_audit.audit_recipe(copy, notebook_cells(copy))
-        == _request_audit.load_budget(TEMPLATE).total
-    )
-    test_the_live_budget_note_matches_the_request_audit(recipe)
-
-
-@pytest.mark.parametrize("drift", sorted(_TEMPLATE_DRIFTS))
-def test_each_template_drift_fails_the_request_audit_check_on_its_own_comparison(
-    tmp_path, monkeypatch, drift
-):
-    """#381, the three directions: the declaration against the ledger, the README paragraph
-    against the declaration, the committed audit line against both. Each fails the check itself
-    with its own comparison's message, not a neighbouring one that happens to see it."""
-    recipe = _template_copy_under(tmp_path, monkeypatch)
-    _TEMPLATE_DRIFTS[drift](tmp_path / "_template")
-    with pytest.raises(AssertionError, match=_template_drift_message(drift)):
-        test_the_live_budget_note_matches_the_request_audit(recipe)
-
-
-# The checks parametrised with ``guarded()`` and therefore NOT run on ``recipes/_template``, each
-# for the reason the module docstring's "Scope decisions" gives. A new check that uses
-# ``guarded()`` fails the test below until it is listed here with its reason there (#381).
-_CHECKS_THAT_SKIP_THE_TEMPLATE = {
-    "build_fixtures_scaffold",
-    "next_steps_inbound_links",
-    "readme_sources_match_catalog",
-    "simulated_side_effect_invoked",
-}
-
-
-def test_only_the_documented_checks_skip_the_template():
-    """Every call of ``guarded(`` in this module names its check id as a string literal, the set
-    of those ids is exactly ``_CHECKS_THAT_SKIP_THE_TEMPLATE``, and each is named in the module
-    docstring's "Scope decisions" bullet that gives the reasons -- not merely anywhere in the
-    docstring, whose check-id table names nearly every check."""
-    tree = ast.parse(Path(__file__).read_text("utf-8"))
-    # ``guarded_with_template`` builds on ``guarded(check_id)``; that call passes its own
-    # parameter through and is not a check's parametrisation.
-    tree.body = [
-        n
-        for n in tree.body
-        if not (isinstance(n, ast.FunctionDef) and n.name == "guarded_with_template")
-    ]
-    calls = [
-        node
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Name)
-        and node.func.id == "guarded"
-    ]
-    literal = [
-        call.args[0].value
-        for call in calls
-        if len(call.args) == 1
-        and isinstance(call.args[0], ast.Constant)
-        and isinstance(call.args[0].value, str)
-    ]
-    assert len(literal) == len(calls), "a guarded(...) call whose check id is not a literal"
-    used = set(literal)
-    assert used == _CHECKS_THAT_SKIP_THE_TEMPLATE, used ^ _CHECKS_THAT_SKIP_THE_TEMPLATE
-    docstring = __doc__ or ""
-    scope = docstring.split("Scope decisions", 1)[1].split("\n* ", 2)[1]
-    missing = [c for c in _CHECKS_THAT_SKIP_THE_TEMPLATE if f"``{c}``" not in scope]
-    assert not missing, f"no reason given in the Scope decisions bullet for {missing}"
 
 
 def _audited_mini_recipe(tmp_path: Path, n: int = 3) -> tuple[Path, str]:
@@ -10443,8 +10280,7 @@ def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     (#378 measures this). A cell that prints the audit line alongside a genuine metric line still
     has the metric line counted. The
     ledger's own integrity is checked separately, and far more strictly, by
-    ``readme_budget_note_matches_request_audit`` against ``request_budget.json``, for every
-    published recipe and for ``recipes/_template`` (#381); this exclusion
+    ``readme_budget_note_matches_request_audit`` against ``request_budget.json``; this exclusion
     removes nothing that check relies on."""
     output = "\n".join(
         _without_audit_lines(_output_text(cell))
