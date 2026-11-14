@@ -53,3 +53,36 @@ def test_build_fixtures_freezes_the_first_stage_once_per_run(tmp_path, monkeypat
     monkeypatch.setattr(sys, "argv", ["build_fixtures.py"])
     module.main()
     assert len(calls) == 1
+
+
+def test_a_row_with_no_candidate_has_no_request_and_does_not_move_the_frozen_settings(tmp_path):
+    """The notebook sends no request for a mention with no candidate and skips the row when it
+    freezes request 1's settings; the generator must do the same."""
+    copy = _copy(tmp_path)
+    spec = importlib.util.spec_from_file_location(
+        "recipe57_build_fixtures_nocandidate", copy / "build_fixtures.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    extra = (
+        "v99-no-candidate",
+        "validation",
+        module._fields("Lena Smith", "O1", ("Local paper", "Lena Smith joined Brightwater Labs.")),
+        {"entity": "no_match", "conflict": True, "update": module.NOTHING},
+        None,
+    )
+    rows = [*module.ROWS, extra]
+    requests = dict(module.requests_for(rows))
+    assert requests["v99-no-candidate"] == []
+    assert dict(module.requests_for(module.ROWS)).items() <= requests.items()
+    assert module.stage_one_settings(rows) == module.stage_one_settings(module.ROWS)
+    # the helpers path (ask_first, as the notebook runs it) skips the row the same way
+    answered = {**module._first_results(module.ROWS), "v99-no-candidate": module.helpers.UNMATCHED}
+    validation = [r for r in rows if r[1] == "validation"]
+    from_helpers = module.helpers.freeze_stage_one(
+        [answered[r[0]] for r in validation], [r[3] for r in validation]
+    )
+    assert from_helpers == module.stage_one_settings(rows)
+    inputs, labels = module.build_inputs_and_labels(rows)
+    assert [r["replay_keys"] for r in inputs if r["id"] == "v99-no-candidate"] == [[]]
+    assert len(module.build_responses(rows)) == len(module.build_responses(module.ROWS))

@@ -56,7 +56,8 @@ def _replace(person, old, new):
 NOTHING = []
 
 # (id, split, fields, gold label or None for demo, (entity probabilities, conflict noul,
-#  (supported noul, ended noul) or None when request 2 is not asked))
+#  (supported noul, ended noul) or None when request 2 is not asked); the whole spec is None for
+#  a mention with no candidate, which has no request at all)
 ROWS = [
     # ---- validation -------------------------------------------------------------------------
     ("v01", "validation", _fields(
@@ -248,9 +249,15 @@ def second_answers(spec, provenance: Provenance):
 
 
 def _first_results(rows):
+    """Request 1's result per row, as ``ask_first`` stores it: a mention with no candidate has no
+    request and no answer (``UNMATCHED``), and its spec is ``None``."""
     return {
-        ident: DecisionResult(first_answers(spec, Provenance.synthetic()), "synthetic")
-        for ident, _split, _fields, _label, spec in rows
+        ident: (
+            DecisionResult(first_answers(spec, Provenance.synthetic()), "synthetic")
+            if helpers.candidates(fields["mention"])
+            else helpers.UNMATCHED
+        )
+        for ident, _split, fields, _label, spec in rows
     }
 
 
@@ -268,6 +275,11 @@ def requests_for(rows):
     settings = stage_one_settings(rows, first)
     out = []
     for ident, _split, fields, _label, spec in rows:
+        if first[ident] == helpers.UNMATCHED:
+            if spec is not None:
+                raise ValueError(f"{ident}: the mention has no candidate, so it has no answers")
+            out.append((ident, []))
+            continue
         requests = [
             (helpers.build_first_state(fields), helpers.build_first_questions(ident, fields))
         ]

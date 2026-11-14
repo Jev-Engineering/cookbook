@@ -123,7 +123,7 @@ def test_request_one_never_chooses_the_same_person_twice_among_rows_that_reach_r
     assert "t12-low-confidence" not in second
 
 
-def test_a_mention_with_no_candidate_is_settled_in_python_without_a_request():
+def test_a_mention_with_no_candidate_goes_to_review_without_a_request():
     class NoRequests:
         def decide(self, *_):
             raise AssertionError("a request was sent")
@@ -140,8 +140,22 @@ def test_a_mention_with_no_candidate_is_settled_in_python_without_a_request():
     assert budget.used("requests") == 0
     for e in examples:
         d = helpers.decide(e, first[e.id], None, SETTINGS)
-        assert (d.outcome, d.reason, d.answers) == ("no_match", "the mention matches no listed person", {})  # fmt: skip
+        assert (d.outcome, d.reason, d.answers) == ("review", "no candidate in the shortlist", {})  # fmt: skip
+    _, queue, outcomes = helpers.run_updates(
+        [helpers.decide(e, first[e.id], None, SETTINGS) for e in examples], "rule:test"
+    )
+    assert [(o.outcome, o.ops) for o in outcomes] == [("review", ())] * 4
+    assert [i["reason"] for i in queue.to_dicts()] == ["no candidate in the shortlist"] * 4
     assert helpers.ask_second(NoRequests(), budget, examples, first, SETTINGS) == {}
+
+
+def test_candidates_read_the_surname_in_common_mention_forms():
+    okafor = ["P01", "P02"]
+    for mention in ("Okafor's", "Okafor\u2019s", "Mira Okafor Jr.", "Okafor, Mira", "Mira Okafor, Jr.", "Okafor, Mira Jr.", "Dr. Mira Okafor's"):  # fmt: skip
+        assert helpers.candidates(mention) == okafor, mention
+    assert helpers.candidates("Gwen Tallis") == ["P21"]
+    for mention in ("Jr.", "'s", ",", "Lena Smith's"):
+        assert helpers.candidates(mention) == [], mention
 
 
 def test_every_replay_key_matches_the_current_questions():
@@ -172,9 +186,10 @@ def test_every_replay_key_matches_the_current_questions():
 # --- the rule ------------------------------------------------------------------------------
 
 
-def test_decide_first_stops_early_in_four_ways():
+def test_decide_first_stops_early_in_five_ways():
     cases = [
         (None, helpers.REVIEW, "request budget spent"),
+        (helpers.UNMATCHED, helpers.REVIEW, "no candidate in the shortlist"),
         (_first({"P01": 0.4, "P02": 0.35, "no_match": 0.25}, 0.1), helpers.REVIEW, "confidence below the threshold"),
         (_first({"P01": 0.05, "P02": 0.05, "no_match": 0.9}, 0.1), "no_match", "the mention matches no listed person"),
         (_first({"P01": 0.9, "P02": 0.05, "no_match": 0.05}, 0.85), helpers.REVIEW, "the excerpts conflict"),
@@ -248,6 +263,57 @@ def test_freezing_handles_refused_requests_and_an_empty_second_stage():
     calm = _first(probs, 0.0)
     d = helpers.decide(_examples()["t01"], calm, _second(0.99, 0.99), refused)
     assert (d.outcome, d.reason) == ("rejected", "the evidence does not support the relationship")
+
+
+def test_freezing_survives_a_selector_that_finds_no_threshold(monkeypatch):
+    """The gate selector raises when the highest-confidence answer is wrong (no gate reaches
+    accuracy 1.0). The F1 selector is made to raise here (it does not on the stored shapes, which
+    give F1 0.0), because the helpers must not depend on that. Each freezes to infinity (nothing
+    passes), the same as the empty case, and only the threshold that failed."""
+    wrong_on_top = [
+        _first({"P01": 0.95, "P02": 0.03, "no_match": 0.02}, 0.1),
+        _first({"P01": 0.30, "P02": 0.60, "no_match": 0.10}, 0.9),
+    ]
+    gold = [{"entity": "P02", "conflict": False}, {"entity": "P02", "conflict": True}]
+    frozen = helpers.freeze_stage_one(wrong_on_top, gold)
+    assert frozen.gate == math.inf and math.isfinite(frozen.conflict)
+    assert helpers.decide_first(wrong_on_top[0], frozen).reason == "confidence below the threshold"
+
+    def no_threshold(*_args, **_kwargs):
+        raise ValueError("no threshold satisfies the objective on this data")
+
+    monkeypatch.setattr(helpers, "select_threshold", no_threshold)
+    right_on_top = [wrong_on_top[0], wrong_on_top[1]]
+    frozen = helpers.freeze_stage_one(right_on_top, [{**g, "entity": "P01"} for g in gold])
+    assert frozen.conflict == math.inf and math.isfinite(frozen.gate)
+    stage_two = helpers.freeze_stage_two(
+        helpers.Settings(0.1, 0.5),
+        [_second(0.9, 0.2), _second(0.1, 0.8)],
+        [{"supported": True, "ended": False}, {"supported": False, "ended": True}],
+    )
+    assert (stage_two.supported, stage_two.ended) == (math.inf, math.inf)
+    assert (stage_two.gate, stage_two.conflict) == (0.1, 0.5)
+
+
+def test_entity_hits_and_answered_leave_out_unanswered_requests():
+    probs = {"P01": 0.9, "P02": 0.05, "no_match": 0.05}
+    right, low = _first(probs, 0.1), _first({"P01": 0.4, "P02": 0.35, "no_match": 0.25}, 0.1)
+    gold = [{"entity": "P01"}] * 4
+    mixed = [None, right, helpers.UNMATCHED, low]
+    assert helpers.entity_hits(mixed, gold) == [True, True]
+    assert helpers.entity_hits(mixed, gold, right["entity"].confidence) == [True]
+    assert helpers.entity_hits(mixed, gold, 1.0) == []
+    assert helpers.entity_hits([None, helpers.UNMATCHED], gold[:2]) == []
+    examples = [SimpleNamespace(id=str(i)) for i in range(4)]
+    first = {str(i): a for i, a in enumerate(mixed)}
+    assert [e.id for e in helpers.answered(examples, first)] == ["1", "3"]
+
+
+def test_decide_needs_both_stages_of_settings():
+    stage_one = helpers.Settings(0.5, 0.8)
+    first = _first({"P12": 0.9, "P11": 0.05, "no_match": 0.05}, 0.1)
+    with pytest.raises(ValueError, match="freeze_stage_two"):
+        helpers.decide(_examples()["t01"], first, _second(0.9, 0.9), stage_one)
 
 
 # --- settings ------------------------------------------------------------------------------
@@ -385,28 +451,66 @@ def test_a_rolled_back_update_leaves_the_store_unchanged():
     assert [i["reason"] for i in queue.to_dicts()] == ["the transaction was rolled back"] * 2
 
 
-def test_a_replacement_deletes_the_edge_the_live_store_holds_for_that_person():
-    """The second update of one person deletes the edge the first one wrote, not the seed edge."""
-    first = helpers.Decision("a", "propose", "", "P17", "O2", True, None)
-    second = helpers.Decision("b", "propose", "", "P17", "O3", True, None)
+def test_decide_carries_the_edge_request_two_judged():
+    e = _examples()["t01"]
+    first = _first({"P12": 0.9, "P11": 0.05, "no_match": 0.05}, 0.1)
+    assert helpers.decide(e, first, _second(0.9, 0.9), SETTINGS).judged == "edge:P12|works_at|O3"
+    assert helpers.decide(e, first, _second(0.9, 0.1), SETTINGS).judged is None
+    row = SimpleNamespace(
+        id="b",
+        fields={
+            "mention": "Ruth Pell",
+            "target": "O2",
+            "excerpts": [
+                {"source": "s", "text": "Ruth Pell left Tessaly Foundry for Halden Institute."}
+            ],
+        },
+    )
+    assert helpers.baseline_decide(row).judged == "edge:P07|works_at|O4"
+
+
+def test_a_replacement_is_rolled_back_when_an_earlier_update_changed_the_judged_edge():
+    """Two updates of one person, both judged against the seed employer (O1). The first commits;
+    the second's live edge is now O2's, which no answer was about, so it is rolled back and sent
+    to review rather than deleting an employment nobody judged."""
+    seed = "edge:P17|works_at|O1"
+    first = helpers.Decision("a", "propose", "", "P17", "O2", True, None, seed)
+    second = helpers.Decision("b", "propose", "", "P17", "O3", True, None, seed)
     tx, queue, outcomes = helpers.run_updates([first, second], "rule:test")
     assert [(o.outcome, o.ops) for o in outcomes] == [
-        ("applied", (("delete", "edge:P17|works_at|O1"), ("put", "edge:P17|works_at|O2"))),
-        ("applied", (("delete", "edge:P17|works_at|O2"), ("put", "edge:P17|works_at|O3"))),
+        ("applied", (("delete", seed), ("put", "edge:P17|works_at|O2"))),
+        ("review", ()),
     ]
-    assert len(queue) == 0
-    assert [k for k in tx.store.keys() if k.startswith("edge:P17|")] == ["edge:P17|works_at|O3"]
+    assert outcomes[1].reason == "the transaction was rolled back"
+    assert outcomes[1].error == (
+        "ValueError: validate rejected: ['edge:P17|works_at|O2 is not the employment the "
+        "evidence was judged against (edge:P17|works_at|O1)']"
+    )
+    assert [r.status for r in tx.log] == ["committed", "committed", "rolled_back"]
+    assert [k for k in tx.store.keys() if k.startswith("edge:P17|")] == ["edge:P17|works_at|O2"]
+    assert [i["item"]["example"] for i in queue.to_dicts()] == ["b"]
+    # An update whose judged edge is still the live one commits.
+    again = helpers.Decision("c", "propose", "", "P17", "O3", True, None, "edge:P17|works_at|O2")
+    tx2, _, outcomes2 = helpers.run_updates([first, again], "rule:test")
+    assert [o.outcome for o in outcomes2] == ["applied", "applied"]
+    assert [k for k in tx2.store.keys() if k.startswith("edge:P17|")] == ["edge:P17|works_at|O3"]
 
 
 def test_validate_update_rejects_removing_another_persons_edge():
     tx, _, _ = helpers.run_updates([], "rule:test")
     own = {"person": "P12", "org": "O2", "replace": True, "remove": "edge:P12|works_at|O3"}
+    own["judged"] = own["remove"]
     assert helpers.validate_update(tx.store, own) is None
-    other = {**own, "remove": "edge:P11|works_at|O6"}
+    other = {**own, "remove": "edge:P11|works_at|O6", "judged": "edge:P11|works_at|O6"}
     assert helpers.validate_update(tx.store, other) == [
         "edge:P11|works_at|O6 is not P12's current employment"
     ]
-    gone = {**own, "remove": "edge:P12|works_at|O5"}
+    gone = {**own, "remove": "edge:P12|works_at|O5", "judged": "edge:P12|works_at|O5"}
+    stale = {**own, "judged": "edge:P12|works_at|O5"}
+    assert helpers.validate_update(tx.store, stale) == [
+        "edge:P12|works_at|O3 is not the employment the evidence was judged against "
+        "(edge:P12|works_at|O5)"
+    ]
     assert helpers.validate_update(tx.store, gone) is not None
     nothing = {**own, "remove": None}
     assert helpers.validate_update(tx.store, nothing) == [
@@ -483,10 +587,14 @@ def test_the_baseline_ended_cue_starts_at_a_word_in_the_same_excerpt_as_the_empl
     assert helpers.baseline_decide(plain).replace is False
     left = _baseline_row("Ruth Pell left Tessaly Foundry to join Halden Institute.")
     assert helpers.baseline_decide(left).replace is True
+    # "left " inside "cleft " matches without the leading word boundary, and must not match.
     substring = _baseline_row(
-        "Ruth Pell of Tessaly Foundry mapped the cleft, then Halden Institute."
+        "Ruth Pell of the cleft Tessaly Foundry ridge will join Halden Institute."
     )
     assert helpers.baseline_decide(substring).replace is False
+    # A sentence-final "left." is not a leaving cue (a cue needs whitespace after it).
+    final = _baseline_row("Ruth Pell of Tessaly Foundry has not left. Halden Institute hired her.")
+    assert helpers.baseline_decide(final).replace is False
     apart = _baseline_row(
         "Ruth Pell left the choir last spring.",
         "Ruth Pell works at Tessaly Foundry and will join Halden Institute.",

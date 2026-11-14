@@ -51,6 +51,7 @@ REASON_CONFLICT = "the excerpts conflict"
 REASON_ROLLED_BACK = "the transaction was rolled back"
 REASON_BUDGET = "request budget spent"
 REASON_NO_MATCH = "the mention matches no listed person"
+REASON_NO_CANDIDATE = "no candidate in the shortlist"
 REASON_UNSUPPORTED = "the evidence does not support the relationship"
 REASON_COMMITTED = "the transaction committed"
 
@@ -109,12 +110,23 @@ def edge_key(person: str, org: str) -> str:
     return f"edge:{person}|{RELATION}|{org}"
 
 
+_NAME_SUFFIXES = {"jr", "sr", "ii", "iii", "iv"}
+
+
 def candidates(mention: str) -> list[str]:
-    """The people Python shortlists for a mention: everyone whose surname is the mention's last
-    word (ignoring punctuation around it), in id order. An empty or blank mention has no
-    candidates. Jev never adds a candidate; it only chooses among these or ``no_match``."""
-    words = mention.split()
+    """The people Python shortlists for a mention: everyone whose surname is the mention's
+    surname, in id order. The surname is the last word, after dropping punctuation around it, a
+    trailing possessive (``'s`` or ``\u2019s``) and a generational suffix (``Jr.``); in the
+    "Surname, Given" form it is the last word before the comma. An empty or blank mention has no
+    candidates, and ``ask_first`` sends no request for it. Jev never adds a candidate; it only
+    chooses among these or ``no_match``."""
+    words = mention.replace("\u2019", "'").split()
+    while words and words[-1].strip(".,;:!?\"'()").lower() in _NAME_SUFFIXES:
+        words.pop()
+    if words and "," in " ".join(words).rstrip(",;: "):
+        words = " ".join(words).split(",")[0].split()
     surname = words[-1].strip(".,;:!?\"'()").lower() if words else ""
+    surname = surname.removesuffix("'s").strip("'")
     if not surname:
         return []
     return [pid for pid, (name, _, _) in PEOPLE.items() if name.split()[-1].lower() == surname]
@@ -178,10 +190,10 @@ def build_first_questions(example_id: str, fields: dict[str, Any]) -> dict[str, 
 def build_second_state(fields: dict[str, Any], person: str) -> dict[str, Any]:
     """Request 2's state, built from request 1's choice: the matched person's graph record, the
     current employer from the seed graph, the proposed employer, and the same excerpts. Every
-    request is asked before any update is applied, so this state shows the seed graph; the
-    committed fixtures never have request 1 choose the same person twice among the proposals that
-    reach request 2 in one split (a test pins it). The edge an update deletes is not read from
-    here: ``run_updates`` reads it from the live store when the update is applied."""
+    request is asked before any update is applied, so this state shows the seed graph, and the
+    answers about "the current employer" are about that seed edge. ``decide`` records that edge in
+    the Decision (``judged``); ``validate_update`` rolls back a replacement whose live edge is no
+    longer the one judged, for instance after an earlier update to the same person committed."""
     name, role, org = PEOPLE[person]
     return {
         "person": f"{name}, {role}",
@@ -234,31 +246,64 @@ def freeze_stage_one(first: list[Any], gold: list[dict[str, Any]]) -> Settings:
     The gate is the lowest observed confidence at which every validation entity answer at or
     above it is right (``target_accuracy=1.0``); every option, ``no_match`` included, is gated.
     The conflict threshold maximises F1 over the validation conflict answers. Unanswered
-    requests are left out; with none answered, nothing can pass the gate (both are infinite)."""
+    requests are left out. When none are answered, or a selector raises ``ValueError`` because no
+    threshold qualifies (no gate reaches the target accuracy), the matching threshold is
+    infinite, so nothing passes it."""
     first, gold = _answered(first, gold)
     if not first:
         return Settings(gate=math.inf, conflict=math.inf)
     correct = [a["entity"].choice == g["entity"] for a, g in zip(first, gold, strict=True)]
     confidence = [a["entity"].confidence for a in first]
-    gate = select_confidence_threshold(correct, confidence, target_accuracy=1.0)
-    conflict = select_threshold(
-        [g["conflict"] for g in gold], [a["conflict"].noul for a in first], "f1"
-    )
+    try:
+        gate = select_confidence_threshold(correct, confidence, target_accuracy=1.0)
+    except ValueError:
+        gate = math.inf
+    try:
+        conflict = select_threshold(
+            [g["conflict"] for g in gold], [a["conflict"].noul for a in first], "f1"
+        )
+    except ValueError:
+        conflict = math.inf
     return Settings(gate=gate, conflict=conflict)
 
 
 def freeze_stage_two(settings: Settings, second: list[Any], gold: list[dict[str, Any]]) -> Settings:
     """The two business thresholds of request 2, each maximising F1 on validation over the rows
     that reached request 2 with the right person matched. Unanswered requests are left out; with
-    no row left, both thresholds are infinite, so nothing is proposed."""
+    no row left, or a selector raises ``ValueError`` (no threshold
+    satisfies the objective), that threshold is infinite, so nothing passes it."""
     second, gold = _answered(second, gold)
     if not second:
         return Settings(settings.gate, settings.conflict, math.inf, math.inf)
-    supported = select_threshold(
-        [g["supported"] for g in gold], [a["supported"].noul for a in second], "f1"
-    )
-    ended = select_threshold([g["ended"] for g in gold], [a["ended"].noul for a in second], "f1")
+    try:
+        supported = select_threshold(
+            [g["supported"] for g in gold], [a["supported"].noul for a in second], "f1"
+        )
+    except ValueError:
+        supported = math.inf
+    try:
+        ended = select_threshold(
+            [g["ended"] for g in gold], [a["ended"].noul for a in second], "f1"
+        )
+    except ValueError:
+        ended = math.inf
     return Settings(settings.gate, settings.conflict, supported, ended)
+
+
+def answered(examples: list[Any], first: dict[str, Any]) -> list[Any]:
+    """The examples whose request 1 was answered (not ``None``, not ``UNMATCHED``), in order."""
+    return [e for e in examples if first[e.id] is not None and first[e.id] != UNMATCHED]
+
+
+def entity_hits(first: list[Any], gold: list[dict[str, Any]], floor: float = 0.0) -> list[bool]:
+    """Whether each answered request 1 named the gold entity, for the answers whose confidence is
+    at least ``floor``. Unanswered requests are left out, so the list can be empty."""
+    first, gold = _answered(first, gold)
+    return [
+        a["entity"].choice == g["entity"]
+        for a, g in zip(first, gold, strict=True)
+        if a["entity"].confidence >= floor
+    ]
 
 
 # ---------------------------------------------------------------------------------------------
@@ -270,7 +315,7 @@ def freeze_stage_two(settings: Settings, second: list[Any], gold: list[dict[str,
 def ask_first(backend: Any, budget: Any, examples: list[Any]) -> dict[str, Any]:
     """Request 1 for every example, in order: ``{example id: DecisionResult, None or UNMATCHED}``.
     ``None`` is a request the budget could not pay for; ``UNMATCHED`` is a mention with no
-    candidate in the graph, which Python settles as ``no_match`` without a request."""
+    candidate in the graph: no request is sent, and the rule sends it to review."""
     out = {}
     for e in examples:
         if not candidates(e.fields["mention"]):
@@ -321,6 +366,7 @@ class Decision:
     target: str | None = None
     replace: bool = False  # the old employment ended: delete the person's current edge
     answers: Any = None  # plain-JSON answers, carried into the log as provenance
+    judged: str | None = None  # the edge request 2 judged "ended" about (set with ``replace``)
 
 
 PROPOSE = "propose"
@@ -343,7 +389,7 @@ def decide_first(first: Any, settings: Settings, example: str = "") -> Decision 
     if first is None:
         return Decision(example, REVIEW, REASON_BUDGET)
     if first == UNMATCHED:
-        return Decision(example, NOT_MATCHED, REASON_NO_MATCH, answers={})
+        return Decision(example, REVIEW, REASON_NO_CANDIDATE, answers={})
     entity = first["entity"]
     if entity.confidence < settings.gate:
         return Decision(example, REVIEW, REASON_LOW_CONFIDENCE, answers=answers)
@@ -355,7 +401,10 @@ def decide_first(first: Any, settings: Settings, example: str = "") -> Decision 
 
 
 def decide(example: Any, first: Any, second: Any, settings: Settings) -> Decision:
-    """Compose both requests into one Decision for ``example`` (an Example with ``fields``)."""
+    """Compose both requests into one Decision for ``example`` (an Example with ``fields``).
+    ``settings`` must hold both stages (``freeze_stage_two``)."""
+    if settings.supported is None or settings.ended is None:
+        raise ValueError("decide needs settings with supported and ended; call freeze_stage_two")
     early = decide_first(first, settings, example.id)
     if early is not None:
         return early
@@ -367,7 +416,8 @@ def decide(example: Any, first: Any, second: Any, settings: Settings) -> Decisio
     if second["supported"].noul < settings.supported:
         return Decision(example.id, REJECTED, REASON_UNSUPPORTED, person, target, answers=answers)
     replace = second["ended"].noul >= settings.ended
-    return Decision(example.id, PROPOSE, "", person, target, replace, answers)
+    judged = edge_key(person, PEOPLE[person][2]) if replace else None
+    return Decision(example.id, PROPOSE, "", person, target, replace, answers, judged)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -414,7 +464,8 @@ def baseline_decide(example: Any) -> Decision:
         employer in e["text"].lower() and _ENDED_PATTERN.search(e["text"].lower())
         for e in fields["excerpts"]
     )
-    return Decision(example.id, PROPOSE, "", person, target, replace)
+    judged = edge_key(person, current) if replace else None
+    return Decision(example.id, PROPOSE, "", person, target, replace, judged=judged)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -464,6 +515,11 @@ def validate_update(view: Any, params: Any) -> list[str] | None:
     if params["remove"] is not None:
         if params["remove"] not in current_edges(view.snapshot(), params["person"]):
             problems.append(f"{params['remove']} is not {params['person']}'s current employment")
+        if params["remove"] != params["judged"]:
+            problems.append(
+                f"{params['remove']} is not the employment the evidence was judged against "
+                f"({params['judged']})"
+            )
     return problems or None
 
 
@@ -520,8 +576,9 @@ def run_updates(
         if d.outcome != PROPOSE:
             outcomes.append(Outcome(d.example, d.outcome, d.reason))
             continue
-        # The edge to delete is read from the live store now, not from the seed graph, so an
-        # earlier committed update to the same person is respected.
+        # The edge to delete is read from the live store now; validate_update rolls the update
+        # back unless it is the edge request 2 judged (an earlier committed update to the same
+        # person changes it).
         edges = current_edges(tx.store.snapshot(), d.person) if d.replace else []
         params = {
             "example": d.example,
@@ -529,6 +586,7 @@ def run_updates(
             "org": d.target,
             "replace": d.replace,
             "remove": edges[0] if edges else None,
+            "judged": d.judged,
         }
         rule = "replace the employer" if d.replace else "add an employer"
         record = tx.run(
