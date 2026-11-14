@@ -156,8 +156,8 @@ def build_questions() -> dict[str, Any]:
     )
     criteria[UNCERTAIN] = (
         "What the query shows fits two or more of the products above equally well and the image "
-        "does not settle which, usually because a pink SALE tag covers the feature that tells "
-        "them apart. Choose a product, not this, when what is visible already rules out every "
+        "does not settle which, because a feature that tells them apart is hidden or not "
+        "visible. Choose a product, not this, when what is visible already rules out every "
         "other product."
     )
     return {

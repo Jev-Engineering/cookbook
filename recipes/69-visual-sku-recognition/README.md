@@ -57,9 +57,10 @@ In live mode this notebook makes exactly **31** requests, each decided once. Set
 
 Each request carries seven image copies of seven distinct images: the query image once, in the
 state, and the six reference images once each, in the question's criteria (a reference in criteria
-goes with every call). Over all 31 examples that is 217 copies and 217 distinct images, the `images` and
-`distinct_images` totals declared in `request_budget.json` and printed by the audit line at the end
-of the notebook; the notebook counts them with `image_request_profile`.
+goes with every call). Over all 31 requests that is 217 copies, and 217 as the per-request distinct images summed over the
+requests (7 times 31), the `images` and `distinct_images` totals declared in `request_budget.json` and
+printed by the audit line at the end of the notebook. The run itself uses 37 different image files, six
+references and 31 queries, which the notebook counts from the image bytes beside the `image_request_profile` totals.
 
 ## What was and was not measured
 
@@ -75,9 +76,9 @@ The offline run replays synthetic answers written for this recipe, about images 
 of them deliberately wrong or unsure, so its numbers check that the pipeline works (the reference
 images in the criteria, the threshold selection, the rule, the review queue and the request
 accounting) and say nothing about how Jev performs, or about how it reads real product
-photographs. The `validation` figures are a selection step. One `validation` figure cannot come
+photographs. The `validation` figures are a selection step. Two `validation` figures cannot come
 out otherwise, accuracy among the delivered answers, which the selection objective forces to
-1.0000, and the notebook says so beside it. Not measured live.
+1.0000, and its complement, risk 0.0000, and the notebook says so beside them. Not measured live.
 
 ## Pull request rules
 
