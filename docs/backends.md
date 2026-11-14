@@ -30,6 +30,147 @@ result.model, result.usage  # model string and token counts
 result["tone"].provenance.source  # "synthetic" or "recorded"
 ```
 
+## Actual calls and distinct requests
+
+A replay fixture map stores one response per distinct request key. Calling `decide` twice
+with the same state, questions and assets makes two logical calls but uses one fixture key.
+In a live comparison those calls may produce different answers; the audit never deduplicates
+them or changes their state, questions, assets, answers, or replay keys. A live backend
+caches nothing, so each of those calls is one paid request.
+
+Wrap each backend whose live requests a notebook needs counted:
+
+```python
+from jev_cookbook import AuditedBackend, get_backend
+
+backend = AuditedBackend(get_backend(fixtures="fixtures/responses.json"))
+```
+
+Pass this wrapper through every helper that makes decisions. Settings such as `max_retries`,
+mode, returned model, recorded dates, and the live recorder's attributes remain attached to the
+wrapped backend. At the end of the notebook, add a standalone final code cell:
+
+```python
+print(backend.audit_json())
+```
+
+A notebook with more than one audited backend gives each its own `label="..."` (a lowercase
+name; `"main"` when there is one) and prints them together, in the order they were created:
+
+```python
+from jev_cookbook import AuditedBackend, audit_json, get_backend
+
+arm_a = AuditedBackend(get_backend(fixtures="fixtures/a.json"), label="arm-a")
+arm_b = AuditedBackend(get_backend(fixtures="fixtures/b.json"), label="arm-b")
+```
+
+```python
+print(audit_json(arm_a, arm_b))
+```
+
+The live budget belongs to one backend object (`JEV_COOKBOOK_LIVE_MAX_REQUESTS` is the cap of
+each, not of the run), so a second backend is a second budget and is named, counted and declared
+as such rather than merged into one number.
+
+The `JEV_REQUEST_AUDIT ` line is `{"schema": 2, "backends": [...]}`. Each backend entry holds its
+`label`, `decide_calls`, `distinct_requests` and an ordered `calls` list with each `replay_key`
+and whether the delegate `returned`. Counts derive from the list; repeated keys remain repeated.
+A delegated exception propagates unchanged and leaves `returned: false`. A request rejected by the
+wrapper's replay-key validation never reaches the delegate and is not counted.
+`backend.audit()` returns a fresh dictionary snapshot of that backend's entry.
+
+**Adding a counted quantity later** (the images a request carries, for example) does not change
+these fields. A quantity is registered once with `jev_cookbook.accounting.register_profile(name,
+counter)`; a call then carries `"profile": {name: n}` and the entry carries `"profile_totals":
+{name: sum}`. Zeros and empty mappings are omitted, so a notebook that never uses the quantity
+prints byte for byte the line it printed before, and its committed output stays valid. The guard
+accepts exactly the registered names, recomputes every total, and compares it with the recipe's
+declared `profile`. Only a change to a core field bumps `schema`.
+
+The cookbook registers two such quantities itself, when `jev_cookbook` is imported, for requests
+that carry `assets`: `images`, the image copies a request expands to (every place a reference is
+replaced by its image; an image in the instructions counts once per question that has it), and
+`distinct_images`, the distinct assets whose reference is replaced at least once (an asset whose
+reference is never replaced counts none, although it is still supplied). Both are counts: no
+bytes, content or references reach
+the line. A text-only call has neither, so its line is byte for byte unchanged and a text-only
+notebook never loads the image code. Each total is a sum over calls, so `distinct_images` is the
+per-call distinct assets summed across the run, not the number of different files in it. A recipe
+declares them like any profile, `"profile": {"images": 12, "distinct_images": 4}`, and the guard
+also refuses a call that states images without distinct images or fewer copies than distinct
+images, whatever the totals say. See
+[copies and the 32 MiB caps](vision.md#image-copies-and-the-32-mib-caps).
+
+### The declared count: `request_budget.json`
+
+A recipe states its live request count once, in `request_budget.json` beside the notebook:
+
+```text
+{
+  "schema": 1,
+  "backends": {
+    "main": { "requests": 40, "fixtures": "fixtures/responses.json" }
+  }
+}
+```
+
+Per backend: `requests` (the `decide` calls the notebook makes), `fixtures` (the recipe-relative
+replay file whose keys the backend must exercise exactly, or `null` for a scripted backend), and
+optionally `distinct` (when the notebook repeats a request on purpose, such as a simulation that
+reaches the same state again: `requests` calls, `distinct` different ones; the default is
+`requests`), `at_most` (when the count depends on the answers, such as a second stage that runs
+only for some first-stage answers: the audit replays the committed answers and measures `requests`;
+`at_most` is the author's stated bound for every other path, and the cap is sized by it) and
+`profile`.
+
+The README's budget paragraph is rendered from this file, not typed:
+`python -c "from jev_cookbook.accounting import render_recipe_note as r; print(r('recipes/NN-slug'), end='')"`
+prints it between `<!-- request-budget:begin -->` and `<!-- request-budget:end -->`, and the
+guard re-renders it and requires the README to hold it unchanged. It also rejects any other
+sentence in `## Switch to live` that pairs a number with request, call, budget, cap, "raise",
+"set it to", "at least" or "up to" wording (the library default may be named in a sentence that
+says "default"). That is a reach, not a proof: a number spelled out in words, or prose in another
+section, is not read, so a migrating recipe's reviewer still reads the section. The cap it names is the largest single backend's bound, because the cap is inclusive and per
+backend (a run of N requests is allowed by a cap of N, and stopped at request N+1); the total is
+what the run is billed.
+
+The recipe guard (`readme_budget_note_matches_request_audit`) ties the final output to the shared
+wrapper's direct construction and print, recomputes every count, rejects failed calls, and checks
+the execution against the declaration: calls, distinct requests, the exact fixture inventory
+(extra unused and missing fixtures both fail), and any profile. **A request decided twice fails on
+its own and names its replay key**, unless the declaration says how many repeats are intended.
+The declaration, an audited notebook and the rendered paragraph come together or not at all:
+a README holding the paragraph with neither of the others, a declaration with no audit line, and
+an audited notebook with no declaration each fail.
+The separate fresh-kernel notebook check verifies that committed output is current; the unit
+guard does not execute the notebook or prove arbitrary helper behavior. Use the direct imports and
+constructions above, one top-level binding per audited backend, and the final standalone print.
+Rejected, because each is a backend the ledger cannot see: protected-name rebinding; detached
+summary strings; importing `get_backend`, `ReplayBackend`, `ScriptedBackend`, `LiveBackend` or
+`AuditedBackend` under another name; any other use of those names or of `.get_backend` and the like
+as an attribute (so `ReplayBackend.from_json(...)` is rejected as well as `ReplayBackend(...)`);
+a string equal to one of them; a `getattr` whose attribute is not written out as a string literal
+(`getattr(backend, "recorded_dates", ())`, the measured cell's own line, is allowed; `getattr(m, name)`
+and `getattr(m, "get_" + "backend")` are not); and `globals`, `eval`, `exec`, `__import__`,
+`importlib`, `vars`, `__builtins__`, `operator.attrgetter`/`methodcaller`, `.getattr`,
+`__getattr__`, `__getattribute__` and `__dict__`, which can reach one without naming it. That list
+is not exhaustive: a lookup primitive outside it, fed a name assembled at run time, is not seen,
+and nothing here proves otherwise. This is deliberate: a backend of any kind
+that is not wrapped is not counted, so an audited notebook has no unaudited lane yet, including a
+never-live `ReplayBackend` comparison lane (how such a lane is declared is open and belongs to the
+first recipe that needs it). `one_backend_per_budget` separately fails a recipe with more
+`get_backend` call sites than audited backends, counting aliases, attributes, bare references and
+`getattr` strings; a call reached many times through one site is only visible to the ledger.
+
+A recipe with no declaration, no `AuditedBackend` and no rendered paragraph keeps the strict
+`len(responses.json)` check against its hand-written README sentence. That is a proxy: it
+measures distinct fixture keys, so it cannot see a repeated request, a second backend, or an unused
+fixture. An attempted but malformed audit fails instead of falling back to it.
+
+This audit describes logical calls on the executed path. It contains no response contents or
+HTTP-attempt evidence, and is not a measurement of live usage, latency, cost, or model quality.
+See [live request accounting](live.md#budget-guard) for retry budgets.
+
 ## Questions
 
 They mirror `typesafe_sdk`, and every constructor takes keyword arguments only. `instructions` is
@@ -137,8 +278,13 @@ does not, tightens these bounds in its own reviewed pull request. A bound change
 and no stored format.
 
 `DecisionResult(answers, model, usage)` has `answers` (a read-only mapping of answer objects),
-`model`, `usage`, `source` (`"synthetic"` or `"recorded"`), `result[name]`, and the groupings
-`nouls`, `choices`, `scores`. A result never mixes synthetic and recorded answers; a synthetic
+`model`, `usage`, `source` (`"synthetic"` or `"recorded"`), `result[name]`, `name in result` and
+`for name in result` (both by question name; any other value is simply not in the result),
+`result.keys()` (the question names, in answer order), and the groupings `nouls`, `choices`,
+`scores` and `boxes` (each a `dict` of the answers of that class, in answer order).
+`dict(result)` and `{**result}` give `{name: answer}`, the same as `dict(result.answers)`;
+`items()`, `values()`, `get()` and `len()` are not provided, so use `result.answers` for them.
+A result never mixes synthetic and recorded answers; a synthetic
 result's model is always `"synthetic"`; for a recorded result every answer's provenance model
 equals the result's model. Each class has `to_dict()` / `from_dict()` (`answer_from_dict` for
 answers).
@@ -244,7 +390,10 @@ styles (`\r\n`, `\r`, `\n`) differ, and Unicode is not re-normalized. It never u
 What changes the key: the state (including key order), question names, each question's type,
 `instructions`, and `criteria` (Score level order and Choice option order matter; Noul criteria
 with all-`None` values equal no criteria). What does not: question order. The key version `v` is
-bumped if this rule ever changes.
+bumped if this rule changes after a fixture has been recorded under it. The image `assets`
+member (below) was redefined once, before any image fixture existed (its digest moved from the
+base64 text to the decoded file bytes), so `v` stayed 1 and no recorded key moved. Any later
+change that would alter an existing key, text-only or image, bumps `v`.
 
 The state, a question's `instructions`, and each `criteria` value (each Score level, Choice
 option description, Noul outcome) each nest at most **64 levels** of list/object, counting the
@@ -299,6 +448,27 @@ derive their model and provenance from the fixtures or script.
 Values other than unset, empty, `0`, `1` are an error. The environment is read when
 `get_backend` is called, not at import.
 
+### Which lane goes through `get_backend`
+
+Under `JEV_COOKBOOK_LIVE=1`, `get_backend` ignores `fixtures` and `script` and returns a live
+backend for the model in `model` or `JEV_COOKBOOK_LIVE_MODEL`, not the model named in a fixture
+file. Use it for the one lane that is meant to switch with live mode. A lane that must stay
+offline whatever the environment says (the fabricated adapters in a recipe that compares backends,
+for instance) is constructed directly: `ReplayBackend(mapping)`, `ReplayBackend.from_json(path)`
+or `ScriptedBackend(script, seed)`. Built through `get_backend`, that lane would become a live
+backend under live mode and could send a real request for a model that does not exist. Nothing
+offline shows it, because the two branches differ only when `JEV_COOKBOOK_LIVE=1`, which no
+automated check sets. Recipe 50 is the pattern: `get_backend` for `jev` only, `ReplayBackend`
+for the other lanes, and one responses file per lane (see
+[fixtures.md](fixtures.md#comparison-recipes-responses-tagjson)).
+
+Decision (#290): nothing enforces this. A check could count `get_backend` calls in a recipe, but
+a count cannot tell whether a second backend was meant to go live, so it would stand in for
+intent the source does not carry; a recipe may also legitimately call it once or twice. The rule
+is guidance, read here, in the `get_backend` docstring and in [live.md](live.md), and held by
+review. An explicit keyword on `get_backend` that separates "may go live" from "never live" would
+be a public API change and a separately reviewed design.
+
 ## Backend attributes
 
 Every backend has `mode` (`"synthetic"`, `"recorded"`, `"scripted"` or `"live"`) and `model`
@@ -311,10 +481,20 @@ with `mode="live"`.
 
 ## Images and Box
 
+**Experimental.** Upstream labels images and Box "Dreamer-ready" on its
+[images](https://docs.typesafe.ai/images) and [Box](https://docs.typesafe.ai/primitives/box)
+pages (read on 2026-10-31): "Images and Box questions aren’t yet up to our standards to call ready
+for production", and, of those upstream pages, "The request format, the answers, and the limits on
+this page can change between releases, and accuracy will change as we update the models". This
+section describes what this repository does today; the local helpers are in [vision.md](vision.md).
+
 `assets` maps a stable reference string to the official raw image dictionary:
-`{"type": "image", "format": "png", "data_base64": ...}` (`jpg` and `jpeg` also work).
+`{"type": "image", "format": "png", "data_base64": ...}` (`jpg` and any letter case also work;
+the format is canonicalized to `png`/`jpeg` before the replay key is computed, so the same bytes
+key identically however the format is spelled).
 The same keyword is accepted by `replay_key`, replay, scripted and live `decide`.
-The shared `jev_cookbook.vision.image_asset(path)` helper reads and validates an image;
+The shared `jev_cookbook.vision.image_asset(path)` helper reads and validates an image (pass
+`root=` for a path that comes from fixture data, see [fixtures.md](fixtures.md#image-fixtures));
 `image_reference(asset)` derives a stable reference from its bytes. The live adapter converts
 the dictionary into the SDK's `Image` and sends it using the SDK's multipart support.
 
@@ -327,21 +507,32 @@ ref = image_reference(photo)
 assets = {ref: photo}
 state = {"screenshot": ref}
 questions = {
-    "present": Noul(instructions="The Save button is visible in `screenshot`."),
+    "visible": Noul(instructions="The Save button is visible in `screenshot`."),
     "button": Box(instructions="The Save button in `screenshot`."),
 }
-backend = get_backend(
-    fixtures="fixtures/responses.json", model="jev-1.14.0", images=True
-)
+backend = get_backend(fixtures="fixtures/responses.json", model="jev-1.14.0", images=True)
 result = backend.decide(state, questions, assets=assets)
 result.boxes["button"].box
 ```
+
+The presence question is named `visible`, not `present`: a gold label whose top level has a
+`present` key is read as a Box label ([fixtures.md](fixtures.md#box-labels)), so a label that
+stores these answers by question name would not validate with a question called `present`.
 
 References remain strings in cookbook state and questions; the API substitutes images.
 They can occur inside longer strings and nested values in state, instructions or criteria.
 Object keys, including question IDs and Choice option names, remain text. Every supplied
 asset must appear in a value; key-only and unused references fail validation. Use distinctive
 references to avoid accidental substring matches. See the official [image contract](https://docs.typesafe.ai/images).
+
+A reference repeated in state, criteria or several questions' instructions adds a copy of the
+image each time, and the live backend refuses a request whose distinct images or expanded copies
+exceed 32 MiB before spending anything (`ImageRequestTooLarge`, `requests_made` unchanged). That check
+is necessary, not sufficient: it does not model the request-body cap, and a request that passes
+can still be refused. Put a shared image in the state once.
+[Copies and the 32 MiB caps](vision.md#image-copies-and-the-32-mib-caps)
+has the counting rules; image tokens are observable only in a recorded response's
+`usage.input_tokens`, beside which `live.record` writes the `images` and `distinct_images` counts.
 
 Asset dictionaries, base64, image format and image bounds are checked before replay or live
 inference. A Box request needs at least one image. An arbitrary string without an asset entry
@@ -351,7 +542,11 @@ Keep image files under `assets/` beside `fixtures/`, and put their relative path
 
 The text-only replay envelope is unchanged: omitted, `None` and empty assets produce exactly
 the existing keys. A request with images adds an `assets` object sorted by reference, holding
-each asset's `type`, `format` and SHA-256 of its base64 ASCII text. That means changed image
+each asset's `type`, canonical `format` (`png` or `jpeg`) and `sha256`, the lowercase hex
+SHA-256 of the **decoded file bytes** (the same digest `image_reference` embeds), not of the
+base64 text. Base64 that decodes to the same bytes but is spelled differently (for example
+non-canonical trailing bits, `QQ==` and `QR==`) therefore keys once. This is the envelope
+every image fixture binds to; text-only keys are untouched and pinned by a test. Changed image
 bytes or references change the key, while reordering the assets map does not. No image data
 is stored in a response fixture. The scripted random seed includes this key; scripts retain
 their existing `(state, questions, rng)` interface.

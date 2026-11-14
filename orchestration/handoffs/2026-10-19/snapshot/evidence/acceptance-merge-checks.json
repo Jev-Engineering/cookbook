@@ -1,0 +1,1866 @@
+{
+  "112": {
+    "pr": 112,
+    "url": "https://github.com/Jev-Engineering/cookbook/pull/112",
+    "merge_sha": "4e64560ade10f809058b941347081a8e270355ca",
+    "tree": "b6f9b76d25e48fb7f57aa1f71588683cbe26e1eb",
+    "signature": {
+      "verified": true,
+      "reason": "valid"
+    },
+    "checks": {
+      "total": 5,
+      "rows": [
+        {
+          "id": 112701767820,
+          "name": "Catalog (README is current)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/37593916950/job/112701767820",
+          "app": "github-actions"
+        },
+        {
+          "id": 112701767737,
+          "name": "Tests (py3.10)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/37593916950/job/112701767737",
+          "app": "github-actions"
+        },
+        {
+          "id": 112701767619,
+          "name": "Tests (py3.14)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/37593916950/job/112701767619",
+          "app": "github-actions"
+        },
+        {
+          "id": 112701767381,
+          "name": "Lint (ruff)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/37593916950/job/112701767381",
+          "app": "github-actions"
+        },
+        {
+          "id": 112701767117,
+          "name": "Hygiene (secrets and notebook outputs)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/37593917161/job/112701767117",
+          "app": "github-actions"
+        }
+      ]
+    },
+    "status": {
+      "total": 0,
+      "rows": []
+    },
+    "ancestry": {
+      "status": "ahead",
+      "behind": 0,
+      "ahead": 100
+    }
+  },
+  "280": {
+    "pr": 280,
+    "url": "https://github.com/Jev-Engineering/cookbook/pull/280",
+    "merge_sha": "5af4ab56e1411606c459a7fb1be956c871979d65",
+    "tree": "1c2b18fe9d6189a4e1686842838fef68d3e5b225",
+    "signature": {
+      "verified": true,
+      "reason": "valid"
+    },
+    "checks": {
+      "total": 56,
+      "rows": [
+        {
+          "id": 116048642487,
+          "name": "Notebooks (execute)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116048642487",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046622548,
+          "name": "Notebook (_template)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046622548",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046622413,
+          "name": "Notebook (46-semantic-context-paging)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046622413",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046622225,
+          "name": "Notebook (47-evidence-conflict-diagnosis)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046622225",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046622195,
+          "name": "Notebook (43-failure-recovery-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046622195",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046622102,
+          "name": "Notebook (44-plan-constraint-assessment)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046622102",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046621977,
+          "name": "Notebook (41-approval-scope-review)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046621977",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046621929,
+          "name": "Notebook (45-memory-reconciliation)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046621929",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046621728,
+          "name": "Notebook (42-outbound-disclosure-screening)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046621728",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046620470,
+          "name": "Notebook (40-hierarchical-classification)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046620470",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046620390,
+          "name": "Notebook (39-document-extraction-cascade)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046620390",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046620164,
+          "name": "Notebook (38-abstention-and-review-queues)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046620164",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046619663,
+          "name": "Notebook (37-research-domain-tagging)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046619663",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046619449,
+          "name": "Notebook (36-card-game-action-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046619449",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046619420,
+          "name": "Notebook (35-semantic-feature-extraction)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046619420",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046619354,
+          "name": "Notebook (33-schema-field-mapping)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046619354",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046619230,
+          "name": "Notebook (34-evidence-relationship-labels)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046619230",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046619190,
+          "name": "Notebook (32-regression-test-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046619190",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046618861,
+          "name": "Notebook (31-patch-risk-triage)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046618861",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046617544,
+          "name": "Notebook (29-tool-outcome-verification)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046617544",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046617230,
+          "name": "Notebook (27-function-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046617230",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046617223,
+          "name": "Notebook (28-skill-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046617223",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046617191,
+          "name": "Notebook (30-citation-verification)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046617191",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046616942,
+          "name": "Notebook (26-prompt-injection-screening)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046616942",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046616692,
+          "name": "Notebook (24-incident-priority-composition)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046616692",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046616670,
+          "name": "Notebook (25-change-evidence-review)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046616670",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046616609,
+          "name": "Notebook (23-pairwise-answer-evaluation)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046616609",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046616378,
+          "name": "Notebook (21-quiz-answer-adjudication)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046616378",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046616302,
+          "name": "Notebook (22-cmdb-asset-matching)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046616302",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046613972,
+          "name": "Notebook (07-word-sense-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046613972",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046613952,
+          "name": "Notebook (17-passage-reranking)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046613952",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046613913,
+          "name": "Notebook (02-refund-intent-detection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046613913",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046613864,
+          "name": "Notebook (08-faq-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046613864",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046613863,
+          "name": "Notebook (18-duplicate-incident-matching)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046613863",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046613841,
+          "name": "Notebook (14-source-span-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046613841",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046613835,
+          "name": "Notebook (05-document-classification)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046613835",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046613823,
+          "name": "Notebook (03-response-clarity-scoring)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046613823",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046613801,
+          "name": "Notebook (06-multiple-topic-labels)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046613801",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046613790,
+          "name": "Notebook (11-clarification-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046613790",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046613779,
+          "name": "Notebook (09-file-organization)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046613779",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046613775,
+          "name": "Notebook (15-sensitive-text-triage)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046613775",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046613762,
+          "name": "Notebook (12-thesaurus-word-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046613762",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046613745,
+          "name": "Notebook (16-discord-moderation-triage)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046613745",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046613737,
+          "name": "Notebook (20-claim-support-classification)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046613737",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046613731,
+          "name": "Notebook (10-answer-relevance-check)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046613731",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046613717,
+          "name": "Notebook (01-sentiment-classification)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046613717",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046613713,
+          "name": "Notebook (04-support-ticket-routing)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046613713",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046613667,
+          "name": "Notebook (13-candidate-rewrite-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046613667",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046613665,
+          "name": "Notebook (19-ci-failure-classification)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046613665",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046519164,
+          "name": "Lint (ruff)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514156/job/116046519164",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046519144,
+          "name": "Tests (py3.10)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514156/job/116046519144",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046518992,
+          "name": "Tests (py3.14)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514156/job/116046518992",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046518646,
+          "name": "Catalog (README is current)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514156/job/116046518646",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046518403,
+          "name": "Fixtures (validate)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046518403",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046518009,
+          "name": "Notebooks (discover)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514186/job/116046518009",
+          "app": "github-actions"
+        },
+        {
+          "id": 116046517968,
+          "name": "Hygiene (secrets and notebook outputs)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38620514238/job/116046517968",
+          "app": "github-actions"
+        }
+      ]
+    },
+    "status": {
+      "total": 0,
+      "rows": []
+    },
+    "ancestry": {
+      "status": "ahead",
+      "behind": 0,
+      "ahead": 11
+    }
+  },
+  "292": {
+    "pr": 292,
+    "url": "https://github.com/Jev-Engineering/cookbook/pull/292",
+    "merge_sha": "bad1bf2997a7e8f0811d5b9719dd9fb6643efbdb",
+    "tree": "d5c241361421d21c3bd1ded43e63285ef748df3c",
+    "signature": {
+      "verified": true,
+      "reason": "valid"
+    },
+    "checks": {
+      "total": 58,
+      "rows": [
+        {
+          "id": 116285390941,
+          "name": "Notebooks (execute)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116285390941",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284026138,
+          "name": "Notebook (_template)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284026138",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284025596,
+          "name": "Notebook (49-multi-agent-task-assignment)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284025596",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284025485,
+          "name": "Notebook (48-document-revision-consistency)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284025485",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284025419,
+          "name": "Notebook (47-evidence-conflict-diagnosis)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284025419",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284025339,
+          "name": "Notebook (46-semantic-context-paging)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284025339",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284025157,
+          "name": "Notebook (45-memory-reconciliation)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284025157",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284025007,
+          "name": "Notebook (44-plan-constraint-assessment)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284025007",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284025003,
+          "name": "Notebook (43-failure-recovery-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284025003",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284024731,
+          "name": "Notebook (42-outbound-disclosure-screening)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284024731",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284024695,
+          "name": "Notebook (41-approval-scope-review)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284024695",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284024162,
+          "name": "Notebook (40-hierarchical-classification)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284024162",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284023706,
+          "name": "Notebook (39-document-extraction-cascade)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284023706",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284023639,
+          "name": "Notebook (36-card-game-action-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284023639",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284023631,
+          "name": "Notebook (37-research-domain-tagging)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284023631",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284023618,
+          "name": "Notebook (34-evidence-relationship-labels)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284023618",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284023493,
+          "name": "Notebook (38-abstention-and-review-queues)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284023493",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284023474,
+          "name": "Notebook (33-schema-field-mapping)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284023474",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284023360,
+          "name": "Notebook (35-semantic-feature-extraction)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284023360",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284023289,
+          "name": "Notebook (32-regression-test-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284023289",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284023245,
+          "name": "Notebook (31-patch-risk-triage)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284023245",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284022142,
+          "name": "Notebook (30-citation-verification)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284022142",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284021953,
+          "name": "Notebook (29-tool-outcome-verification)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284021953",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284021950,
+          "name": "Notebook (28-skill-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284021950",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284021918,
+          "name": "Notebook (27-function-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284021918",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284021753,
+          "name": "Notebook (24-incident-priority-composition)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284021753",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284021722,
+          "name": "Notebook (26-prompt-injection-screening)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284021722",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284021688,
+          "name": "Notebook (25-change-evidence-review)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284021688",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284021654,
+          "name": "Notebook (22-cmdb-asset-matching)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284021654",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284021643,
+          "name": "Notebook (21-quiz-answer-adjudication)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284021643",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284021541,
+          "name": "Notebook (23-pairwise-answer-evaluation)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284021541",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284020200,
+          "name": "Notebook (07-word-sense-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284020200",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284020175,
+          "name": "Notebook (16-discord-moderation-triage)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284020175",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284020131,
+          "name": "Notebook (06-multiple-topic-labels)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284020131",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284020130,
+          "name": "Notebook (14-source-span-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284020130",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284020119,
+          "name": "Notebook (10-answer-relevance-check)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284020119",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284020112,
+          "name": "Notebook (18-duplicate-incident-matching)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284020112",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284020102,
+          "name": "Notebook (04-support-ticket-routing)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284020102",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284020099,
+          "name": "Notebook (19-ci-failure-classification)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284020099",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284020098,
+          "name": "Notebook (17-passage-reranking)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284020098",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284020097,
+          "name": "Notebook (12-thesaurus-word-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284020097",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284020074,
+          "name": "Notebook (01-sentiment-classification)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284020074",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284020063,
+          "name": "Notebook (15-sensitive-text-triage)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284020063",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284020060,
+          "name": "Notebook (05-document-classification)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284020060",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284020054,
+          "name": "Notebook (11-clarification-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284020054",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284020048,
+          "name": "Notebook (09-file-organization)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284020048",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284020032,
+          "name": "Notebook (08-faq-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284020032",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284020012,
+          "name": "Notebook (02-refund-intent-detection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284020012",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284020002,
+          "name": "Notebook (13-candidate-rewrite-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284020002",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284019993,
+          "name": "Notebook (20-claim-support-classification)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284019993",
+          "app": "github-actions"
+        },
+        {
+          "id": 116284019977,
+          "name": "Notebook (03-response-clarity-scoring)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116284019977",
+          "app": "github-actions"
+        },
+        {
+          "id": 116283965472,
+          "name": "Hygiene (secrets and notebook outputs)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299487/job/116283965472",
+          "app": "github-actions"
+        },
+        {
+          "id": 116283964774,
+          "name": "Fixtures (validate)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116283964774",
+          "app": "github-actions"
+        },
+        {
+          "id": 116283964212,
+          "name": "Notebooks (discover)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299422/job/116283964212",
+          "app": "github-actions"
+        },
+        {
+          "id": 116283963829,
+          "name": "Catalog (README is current)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299348/job/116283963829",
+          "app": "github-actions"
+        },
+        {
+          "id": 116283963819,
+          "name": "Tests (py3.10)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299348/job/116283963819",
+          "app": "github-actions"
+        },
+        {
+          "id": 116283963748,
+          "name": "Tests (py3.14)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299348/job/116283963748",
+          "app": "github-actions"
+        },
+        {
+          "id": 116283963552,
+          "name": "Lint (ruff)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38693299348/job/116283963552",
+          "app": "github-actions"
+        }
+      ]
+    },
+    "status": {
+      "total": 0,
+      "rows": []
+    },
+    "ancestry": {
+      "status": "ahead",
+      "behind": 0,
+      "ahead": 8
+    }
+  },
+  "293": {
+    "pr": 293,
+    "url": "https://github.com/Jev-Engineering/cookbook/pull/293",
+    "merge_sha": "b4aa3ec7f4cf93c326aa9d72f57c7c07ea1999bd",
+    "tree": "4359e32e26d17fa6159190ade2ad58a82cc3aa4f",
+    "signature": {
+      "verified": true,
+      "reason": "valid"
+    },
+    "checks": {
+      "total": 24,
+      "rows": [
+        {
+          "id": 116323210215,
+          "name": "Notebooks (execute)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38705091570/job/116323210215",
+          "app": "github-actions"
+        },
+        {
+          "id": 116322500963,
+          "name": "Notebook (35-semantic-feature-extraction)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38705091570/job/116322500963",
+          "app": "github-actions"
+        },
+        {
+          "id": 116322500896,
+          "name": "Notebook (32-regression-test-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38705091570/job/116322500896",
+          "app": "github-actions"
+        },
+        {
+          "id": 116322500894,
+          "name": "Notebook (34-evidence-relationship-labels)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38705091570/job/116322500894",
+          "app": "github-actions"
+        },
+        {
+          "id": 116322500883,
+          "name": "Notebook (05-document-classification)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38705091570/job/116322500883",
+          "app": "github-actions"
+        },
+        {
+          "id": 116322500880,
+          "name": "Notebook (43-failure-recovery-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38705091570/job/116322500880",
+          "app": "github-actions"
+        },
+        {
+          "id": 116322500840,
+          "name": "Notebook (33-schema-field-mapping)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38705091570/job/116322500840",
+          "app": "github-actions"
+        },
+        {
+          "id": 116322500832,
+          "name": "Notebook (19-ci-failure-classification)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38705091570/job/116322500832",
+          "app": "github-actions"
+        },
+        {
+          "id": 116322500831,
+          "name": "Notebook (47-evidence-conflict-diagnosis)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38705091570/job/116322500831",
+          "app": "github-actions"
+        },
+        {
+          "id": 116322500828,
+          "name": "Notebook (48-document-revision-consistency)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38705091570/job/116322500828",
+          "app": "github-actions"
+        },
+        {
+          "id": 116322500819,
+          "name": "Notebook (44-plan-constraint-assessment)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38705091570/job/116322500819",
+          "app": "github-actions"
+        },
+        {
+          "id": 116322500792,
+          "name": "Notebook (30-citation-verification)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38705091570/job/116322500792",
+          "app": "github-actions"
+        },
+        {
+          "id": 116322500723,
+          "name": "Notebook (03-response-clarity-scoring)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38705091570/job/116322500723",
+          "app": "github-actions"
+        },
+        {
+          "id": 116322500708,
+          "name": "Notebook (29-tool-outcome-verification)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38705091570/job/116322500708",
+          "app": "github-actions"
+        },
+        {
+          "id": 116322500696,
+          "name": "Notebook (45-memory-reconciliation)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38705091570/job/116322500696",
+          "app": "github-actions"
+        },
+        {
+          "id": 116322500689,
+          "name": "Notebook (31-patch-risk-triage)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38705091570/job/116322500689",
+          "app": "github-actions"
+        },
+        {
+          "id": 116322500616,
+          "name": "Notebook (28-skill-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38705091570/job/116322500616",
+          "app": "github-actions"
+        },
+        {
+          "id": 116322423549,
+          "name": "Fixtures (validate)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38705091570/job/116322423549",
+          "app": "github-actions"
+        },
+        {
+          "id": 116322423367,
+          "name": "Tests (py3.14)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38705091566/job/116322423367",
+          "app": "github-actions"
+        },
+        {
+          "id": 116322423251,
+          "name": "Tests (py3.10)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38705091566/job/116322423251",
+          "app": "github-actions"
+        },
+        {
+          "id": 116322423200,
+          "name": "Lint (ruff)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38705091566/job/116322423200",
+          "app": "github-actions"
+        },
+        {
+          "id": 116322423124,
+          "name": "Notebooks (discover)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38705091570/job/116322423124",
+          "app": "github-actions"
+        },
+        {
+          "id": 116322423091,
+          "name": "Hygiene (secrets and notebook outputs)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38705091543/job/116322423091",
+          "app": "github-actions"
+        },
+        {
+          "id": 116322422836,
+          "name": "Catalog (README is current)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38705091566/job/116322422836",
+          "app": "github-actions"
+        }
+      ]
+    },
+    "status": {
+      "total": 0,
+      "rows": []
+    },
+    "ancestry": {
+      "status": "ahead",
+      "behind": 0,
+      "ahead": 6
+    }
+  },
+  "294": {
+    "pr": 294,
+    "url": "https://github.com/Jev-Engineering/cookbook/pull/294",
+    "merge_sha": "a25f6038c9935006b004222f998b8583968c4c38",
+    "tree": "36c6a6db061f320da31ddfb482a19aa854aeb108",
+    "signature": {
+      "verified": true,
+      "reason": "valid"
+    },
+    "checks": {
+      "total": 13,
+      "rows": [
+        {
+          "id": 116332424812,
+          "name": "Notebooks (execute)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38707956338/job/116332424812",
+          "app": "github-actions"
+        },
+        {
+          "id": 116332023723,
+          "name": "Notebook (22-cmdb-asset-matching)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38707956338/job/116332023723",
+          "app": "github-actions"
+        },
+        {
+          "id": 116332023686,
+          "name": "Notebook (15-sensitive-text-triage)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38707956338/job/116332023686",
+          "app": "github-actions"
+        },
+        {
+          "id": 116332023677,
+          "name": "Notebook (18-duplicate-incident-matching)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38707956338/job/116332023677",
+          "app": "github-actions"
+        },
+        {
+          "id": 116332023674,
+          "name": "Notebook (42-outbound-disclosure-screening)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38707956338/job/116332023674",
+          "app": "github-actions"
+        },
+        {
+          "id": 116332023621,
+          "name": "Notebook (06-multiple-topic-labels)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38707956338/job/116332023621",
+          "app": "github-actions"
+        },
+        {
+          "id": 116331953297,
+          "name": "Fixtures (validate)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38707956338/job/116331953297",
+          "app": "github-actions"
+        },
+        {
+          "id": 116331953185,
+          "name": "Tests (py3.14)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38707956261/job/116331953185",
+          "app": "github-actions"
+        },
+        {
+          "id": 116331953078,
+          "name": "Tests (py3.10)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38707956261/job/116331953078",
+          "app": "github-actions"
+        },
+        {
+          "id": 116331953009,
+          "name": "Notebooks (discover)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38707956338/job/116331953009",
+          "app": "github-actions"
+        },
+        {
+          "id": 116331952935,
+          "name": "Lint (ruff)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38707956261/job/116331952935",
+          "app": "github-actions"
+        },
+        {
+          "id": 116331952615,
+          "name": "Catalog (README is current)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38707956261/job/116331952615",
+          "app": "github-actions"
+        },
+        {
+          "id": 116331952467,
+          "name": "Hygiene (secrets and notebook outputs)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38707956197/job/116331952467",
+          "app": "github-actions"
+        }
+      ]
+    },
+    "status": {
+      "total": 0,
+      "rows": []
+    },
+    "ancestry": {
+      "status": "ahead",
+      "behind": 0,
+      "ahead": 5
+    }
+  },
+  "298": {
+    "pr": 298,
+    "url": "https://github.com/Jev-Engineering/cookbook/pull/298",
+    "merge_sha": "68f7de69af42d4f561a338c8050fd65033c36d24",
+    "tree": "7e7971a536da3528df055bdd30affbd7bb04e258",
+    "signature": {
+      "verified": true,
+      "reason": "valid"
+    },
+    "checks": {
+      "total": 59,
+      "rows": [
+        {
+          "id": 116718322762,
+          "name": "Notebooks (execute)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116718322762",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716664594,
+          "name": "Notebook (_template)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716664594",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716664373,
+          "name": "Notebook (50-model-comparison-and-calibration)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716664373",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716664256,
+          "name": "Notebook (49-multi-agent-task-assignment)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716664256",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716663707,
+          "name": "Notebook (47-evidence-conflict-diagnosis)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716663707",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716663649,
+          "name": "Notebook (48-document-revision-consistency)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716663649",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716663511,
+          "name": "Notebook (45-memory-reconciliation)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716663511",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716663460,
+          "name": "Notebook (46-semantic-context-paging)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716663460",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716663408,
+          "name": "Notebook (44-plan-constraint-assessment)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716663408",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716663035,
+          "name": "Notebook (43-failure-recovery-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716663035",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716662837,
+          "name": "Notebook (42-outbound-disclosure-screening)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716662837",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716662672,
+          "name": "Notebook (41-approval-scope-review)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716662672",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716662502,
+          "name": "Notebook (40-hierarchical-classification)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716662502",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716662099,
+          "name": "Notebook (39-document-extraction-cascade)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716662099",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716662011,
+          "name": "Notebook (38-abstention-and-review-queues)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716662011",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716661688,
+          "name": "Notebook (37-research-domain-tagging)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716661688",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716661659,
+          "name": "Notebook (35-semantic-feature-extraction)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716661659",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716661631,
+          "name": "Notebook (36-card-game-action-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716661631",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716661565,
+          "name": "Notebook (34-evidence-relationship-labels)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716661565",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716661276,
+          "name": "Notebook (33-schema-field-mapping)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716661276",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716661094,
+          "name": "Notebook (32-regression-test-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716661094",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716661005,
+          "name": "Notebook (31-patch-risk-triage)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716661005",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716660831,
+          "name": "Notebook (27-function-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716660831",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716660426,
+          "name": "Notebook (29-tool-outcome-verification)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716660426",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716660233,
+          "name": "Notebook (30-citation-verification)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716660233",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716660166,
+          "name": "Notebook (26-prompt-injection-screening)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716660166",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716660112,
+          "name": "Notebook (28-skill-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716660112",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716659847,
+          "name": "Notebook (25-change-evidence-review)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716659847",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716659827,
+          "name": "Notebook (24-incident-priority-composition)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716659827",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716659763,
+          "name": "Notebook (21-quiz-answer-adjudication)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716659763",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716659679,
+          "name": "Notebook (23-pairwise-answer-evaluation)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716659679",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716659674,
+          "name": "Notebook (22-cmdb-asset-matching)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716659674",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716658393,
+          "name": "Notebook (17-passage-reranking)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716658393",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716658385,
+          "name": "Notebook (14-source-span-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716658385",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716658378,
+          "name": "Notebook (10-answer-relevance-check)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716658378",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716658370,
+          "name": "Notebook (12-thesaurus-word-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716658370",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716658362,
+          "name": "Notebook (16-discord-moderation-triage)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716658362",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716658359,
+          "name": "Notebook (03-response-clarity-scoring)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716658359",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716658338,
+          "name": "Notebook (06-multiple-topic-labels)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716658338",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716658304,
+          "name": "Notebook (15-sensitive-text-triage)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716658304",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716658289,
+          "name": "Notebook (04-support-ticket-routing)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716658289",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716658261,
+          "name": "Notebook (13-candidate-rewrite-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716658261",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716658243,
+          "name": "Notebook (18-duplicate-incident-matching)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716658243",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716658242,
+          "name": "Notebook (19-ci-failure-classification)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716658242",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716658235,
+          "name": "Notebook (20-claim-support-classification)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716658235",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716658234,
+          "name": "Notebook (02-refund-intent-detection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716658234",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716658225,
+          "name": "Notebook (07-word-sense-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716658225",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716658224,
+          "name": "Notebook (11-clarification-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716658224",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716658200,
+          "name": "Notebook (09-file-organization)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716658200",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716658186,
+          "name": "Notebook (01-sentiment-classification)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716658186",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716658179,
+          "name": "Notebook (05-document-classification)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716658179",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716658173,
+          "name": "Notebook (08-faq-selection)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716658173",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716595914,
+          "name": "Lint (ruff)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786258/job/116716595914",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716595853,
+          "name": "Tests (py3.10)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786258/job/116716595853",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716595701,
+          "name": "Tests (py3.14)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786258/job/116716595701",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716595637,
+          "name": "Fixtures (validate)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716595637",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716595635,
+          "name": "Catalog (README is current)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786258/job/116716595635",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716595420,
+          "name": "Hygiene (secrets and notebook outputs)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786259/job/116716595420",
+          "app": "github-actions"
+        },
+        {
+          "id": 116716595382,
+          "name": "Notebooks (discover)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/Jev-Engineering/cookbook/actions/runs/38820786269/job/116716595382",
+          "app": "github-actions"
+        }
+      ]
+    },
+    "status": {
+      "total": 0,
+      "rows": []
+    },
+    "ancestry": {
+      "status": "ahead",
+      "behind": 0,
+      "ahead": 1
+    }
+  }
+}

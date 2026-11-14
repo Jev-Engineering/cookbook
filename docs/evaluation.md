@@ -38,9 +38,12 @@ out-of-range probabilities and invalid settings. No metric returns a number for 
 so an unused label does not lower the mean. Within a present class, an undefined precision or
 recall counts as 0.0.
 
-**Ties in rankings** are resolved in expectation: tied items share the average gain (nDCG,
-recall at a budget) or the fraction of the tied group that fits (top-k, `top_k_query_accuracy`'s
-hit probability). Results never depend on input order.
+**Ties in rankings** are resolved in expectation over the orderings consistent with the scores:
+tied items share the average gain (nDCG, recall at a budget); `top_k_accuracy` gives the gold
+option the fraction of its tied group that fits in the top `k`; `top_k_query_accuracy` gives the
+probability that a uniformly random tie-break puts at least one relevant item in the slots left
+open (four tied items, two relevant, `k=2`: `5/6`, not the `2/4` fraction that fits). Results
+never depend on input order.
 
 **Randomness** takes a required `seed` and uses `numpy.random.default_rng(seed)`.
 
@@ -229,7 +232,7 @@ still count as an acceptable choice for `set_agreement`): the fallback class her
 | `mean_absolute_error(gold, predicted)` | mean `abs(score - gold)`, using the expected score |
 | `ndcg(gold_relevance, scores, k=None, gain="linear")`, `mean_ndcg(queries, ...)` | ranking quality, `DCG / IDCG`, discount `1 / log2(i + 1)`; linear or `2^r - 1` gain |
 | `top_k_accuracy(gold, probabilities, k)` | gold among the k most probable options (tie-aware) |
-| `recall_at_budget(gold_relevant, scores, budget)`, `mean_recall_at_budget(queries, budget)` | relevant found in the top `budget` by score over all relevant; the mean over several queries |
+| `recall_at_budget(gold_relevant, scores, budget, *, eligible=None)`, `mean_recall_at_budget(queries, budget)` | relevant found in the top `budget` by score over all relevant; the mean over several queries. A rule that excludes candidates before ranking must pass `eligible` (below) |
 | `top_k_query_accuracy(queries, k=1)` | is any relevant item among the top `k` scored items of a query (a *different* question from `recall_at_budget`, below) |
 
 **`top_k_query_accuracy` is not `recall_at_budget` under another name.** The two differ whenever
@@ -248,6 +251,59 @@ lists, whether any gold-relevant item is among the `k` top-scored items of that 
 names stay separate because the existing `top_k_accuracy` signature is frozen (its callers
 already rely on it); do not confuse the two from the name alone.
 
+**What `top_k_query_accuracy` does in the cases a ranking metric has to decide**
+(each is a test in `tests/test_evaluation.py`):
+
+| Case | Result |
+| --- | --- |
+| **Ties** | Ranked by score, descending; the order items are listed in never matters. A tie wholly inside the top `k` costs nothing. A tie that straddles the cut-off scores the chance that a uniformly random tie-break puts a relevant item in the open slots: `1 - C(g - r, s) / C(g, s)` for `g` tied items, `r` of them relevant and `s` open slots (`r / g` at `k=1`). Four items tied with two relevant: `1/2` at `k=1`, `5/6` at `k=2`, `1.0` at `k=3` |
+| **`k` larger than the list** | The whole list: any query with a relevant item is a hit (`1.0`) |
+| **Several relevant items** | Interchangeable. The query is a hit if any one is in the top `k`, worth `1` however many are (not a share, which is what `recall_at_budget` reports) |
+| **Duplicate gold** | There is no gold id to repeat: relevance is a `1` per item in `gold_relevant`, so two items marked `1` are two relevant items. Graded relevance (anything but `0`/`1`/booleans) raises |
+| **A query with no relevant item** | Undefined: left out of the mean, in the numerator and the denominator. If no query has one the result is NaN |
+| **Empty input** | `ValueError`: no queries, a query with no items, or `k < 1` |
+| **A rule that excludes candidates before ranking** | **Not expressible: there is no `eligible` argument.** The helper ranks every item it is given, so a relevant item the rule excluded counts as a hit the rule's own pick can never produce. Dropping the excluded items before the call is not a fix either (below) |
+
+**`top_k_query_accuracy` cannot score a rule that excludes candidates before ranking.** It has no
+`eligible` argument (the one `recall_at_budget` has, below), so the mandatory rule below does not
+make it safe: the same trap as #231, in binary form. Take a query whose relevant item scores
+highest but is excluded by a gate, so the rule's own pick is a different, irrelevant item. The
+helper answers `1.0` (the top item is relevant) where the rule's pick gives `0.0`, a hit the rule
+can never produce. Filtering the excluded items out before the call changes the question instead of
+fixing it: the query now has no relevant item, so it is undefined and silently leaves the
+denominator. With that query and one ordinary hit, the rule's own composition scores `0.5`; the
+helper on the full lists scores `1.0`; the helper on the pre-filtered lists scores `1.0` over one
+query. What to do instead: when every query has exactly one relevant item,
+`mean_recall_at_budget(queries, k)` with each query's `eligible` mask is exactly the top-`k`
+accuracy of the rule's pick (a relevant item that is ineligible scores `0.0`, not undefined). With
+several relevant items per query no shared helper expresses it: compute the metric from the item or
+items the rule actually picked, assert it on every committed example, and report both the number of
+queries and how many the gate excluded. A recipe must never hand gated lists to
+`top_k_query_accuracy` and report the result.
+
+The result is a plain mean, so it does not say how many queries it averaged or how many were left
+out for having no relevant item. Report that count next to the number (it is
+`len(queries)` minus the queries whose `gold_relevant` has no `1`), the same rule this guide gives
+for selective accuracy: say which denominator a reported accuracy has.
+
+**A rule that excludes candidates before ranking must pass `eligible`.** `recall_at_budget` fills
+its budget purely from the list it is given, so a candidate the rule excluded (a confidence gate,
+a foreign-option check, a type or permission filter) is credited for any slot the eligible
+candidates do not fill. The number is a plausible one the rule's own pick never produces: with one
+eligible candidate and a budget of 2, the second slot went to whichever excluded candidate had the
+next-highest stand-in score, and the reported recall was `0.6667` where the rule's own pick gives
+`0.5`. Pass `eligible=[...]` (one bool per item; `mean_recall_at_budget` takes a third tuple
+element per query): an ineligible item never occupies a slot, at most `min(budget, eligible
+count)` items are reviewed, a relevant item that is ineligible still counts in the denominator
+(it is missed, not dropped), and no eligible item at all gives `0.0`, not NaN. Ties among eligible
+items are still credited in expectation, so a rule that breaks ties deterministically can differ
+from the helper on a tie; if it does, report the rule's own pick. Stand-in scores for excluded
+candidates and a hand-capped budget are not a substitute: the careful version of that workaround
+still diverged on a tie and on zero eligible candidates. Whatever you pass, the invariant is the
+real check: **a task-level metric must equal what the rule's own composition produces, asserted on
+every committed example.** `eligible=None` (the default) is the behaviour before the argument
+existed.
+
 ### Selective prediction
 
 `selective_curve(correct, confidence)` gives accuracy, risk (`1 - accuracy`) and coverage at
@@ -257,6 +313,20 @@ confidence, threshold)` reports coverage, accuracy, risk. Abstentions are not er
 `confidence` here must lie in `[0, 1]`; all three functions raise `ValueError` otherwise, so a
 sentinel (`-1.0`, `2.0`, ...) cannot leak through `select_confidence_threshold` into a threshold
 and reach a rule's own `min_confidence` check.
+
+**The gate comes from `select_confidence_threshold`, never from a constant.** A recipe whose rule
+compares a confidence with a bound freezes that bound with `select_confidence_threshold`, imported by
+name (`from jev_cookbook.evaluation import select_confidence_threshold`) and used: in the notebook, or
+in a thin wrapper in `helpers.py` that the notebook calls. A bare `GATE = 0.85`, a hand-picked number,
+a call written through a module attribute (`evaluation.select_confidence_threshold(...)`) and a look-alike
+function defined in the recipe are not the shared helper: the guard's objective-pin and strong-form
+checks look for a call to it and skip when they find none, so a recipe that hides its gate from them
+would pass them without being checked. The guard's `confidence_gate_from_shared_helper` check fails such
+a recipe with this requirement. A gate that is only a diagnostic (it reports how many answers a
+confidence would withhold and withholds nothing, as recipe 35's feature extraction does) is still a
+gate and is frozen the same way. A recipe whose decision compares no confidence with a bound it
+chooses has no gate to freeze and the check does not apply to it; checking that a `min_confidence`
+argument lies between 0 and 1 is not such a comparison.
 
 **`select_confidence_threshold` freezes the max-coverage cut that still meets the target, not the
 candidate nearest the target.** With `target_accuracy=...`, the value returned is the *lowest*
@@ -269,6 +339,60 @@ and the next distinct confidence below the perfect cut is `0.06`, so there is no
 for a looser target to land on. The code runs without error either way; only looking at the
 candidate confidences themselves (or at `selective_curve` on the same data) shows why loosening
 the target did not move the frozen value until it crossed that gap.
+
+**Which way `min_coverage` moves the threshold.** `target_accuracy` and `min_coverage` are not
+symmetric alternatives, and the name of the second describes coverage while the value returned is
+a threshold, which relates to coverage inversely: a lower threshold answers more examples.
+
+| You change | The frozen threshold can only |
+| --- | --- |
+| raise `min_coverage` | stay the same or go **down** (a bigger share must be answered, so the gate loosens) |
+| lower `min_coverage` | stay the same or go **up** |
+| raise `target_accuracy` | stay the same or go **up** (or the call raises, when no threshold reaches it) |
+| lower `target_accuracy` | stay the same or go **down** |
+
+Stricter does not mean a higher threshold: a stricter coverage floor is a more permissive gate.
+
+**Both objectives are about the answered subset, not the whole split.** `target_accuracy`
+constrains accuracy over the **answered** examples only (the denominator is the examples at or
+above the threshold); `min_coverage` maximises that same answered-subset accuracy subject to a
+floor on the share answered. Neither constrains whole-split per-question accuracy, which is what
+a reader usually means by "accuracy" and which also counts every abstained example as a miss
+(or ignores it, depending on how it is scored). Use `target_accuracy` to say how right the
+answers you give must be; use `min_coverage` to say how many answers you must give. A recipe that
+reports an accuracy next to either objective says which denominator it is.
+The docstring of `select_confidence_threshold` states the same table beside the parameters, and
+`tests/test_evaluation.py` pins both directions on a pool.
+
+**The response is piecewise constant, so a parameter can move a long way and change nothing.** The
+result is always one of the observed validation confidences, so a sweep returns only as many
+distinct thresholds as the pool has points that can win. A gap in the confidence distribution
+makes it worse: a bimodal pool (a cluster of low confidences, a cluster of high ones, nothing
+between) returns the same threshold for every parameter value whose answer falls in the gap. The
+pool pinned in `tests/test_evaluation.py` has confidences `0.04, 0.11, 0.15, 0.20` and then
+`0.79, 0.80, 0.84, 0.88, 0.92, 0.96`; `min_coverage` from `0.1` to `0.5` all return `0.80`, then
+`0.6` returns `0.79`, `0.7` and `0.8` return `0.15`, `0.9` returns `0.11` and `1.0` returns `0.04`.
+A flat region is the normal case, not the exception, and it has produced two different defects in
+the published set: a **false direction** (three recipes stated the relationship backwards) and a
+**true claim attached to an exercise that demonstrates nothing** (a recipe 40 exercise sent a reader to a
+floor that moved the frozen branch margin from `0.7867` to `0.1600`, yet on the `test` split the
+branching set, the disagreement rows, leaf accuracy and the review queue were the same, so
+nothing the reader was told to watch moved there; on recipe 38's pool, lowering
+`min_coverage` from `0.75` to `0.10` left the threshold at `0.7067`). Such a sentence
+usually contains no numeral, so a numeral sweep over the committed output cannot catch it.
+
+There is a degenerate end to this. If the errors sit at the top of the confidence ordering
+(accuracy rises as the threshold falls), the lowest observed confidence is always feasible and
+always the most accurate, so `min_coverage` returns it for **every** value: the call returns a
+number and selects nothing. The pool in `test_min_coverage_selects_nothing_when_errors_sit_at_the_top_of_the_confidence_order` (one wrong answer, the most confident) is
+the shape. Check for it by sweeping the parameter across its range on your own validation pool
+and counting the distinct thresholds returned; one means the frozen number is not a choice, and
+the recipe should say so rather than present it as one.
+
+**Verify any reader exercise by running it, never by reasoning about the parameter.** Run the
+sweep on the recipe's own pool, confirm the value you send a reader to returns a different
+threshold than the frozen one, and confirm the quantity you tell them to watch moves; either can
+fail while the direction sentence is true.
 
 **A rule whose review branch is more than a confidence gate needs `evaluate_outcomes`, not a
 sentinel.** `evaluate_selective` reapplies `confidence >= threshold` itself; it never calls the
@@ -551,6 +675,64 @@ exempt a qualifying option at all, gating it like everything else, needs none of
 `evaluate_outcomes` and `evaluate_selective` already agree, exactly as in "when the single numbers
 coincide" above.)
 
+### Rules with a deterministic branch
+
+Some rules let a Python check fix the outcome of most of the rows the recipe counts as answered,
+without using the model's answer on them: a permission check, an approval binding that refuses an
+action outright, a spent budget, a retry limit, a stop condition, an interlock. The test is that the
+notebook can name the share ("7 of the 10 answered rows"); a check that overrides only a minority of
+rows is outside this trigger ([CONTRIBUTING.md](../CONTRIBUTING.md), section 4, states it the same
+way). The model's answer is used only on the rows the check lets through; the request may still be
+sent for every row. Coverage, accuracy and risk over the whole set are then dominated by the Python
+check. Nothing in them is false, but they describe the guard and not the decision, and a reader
+cannot tell from them what the model contributed.
+
+Recipe 41 (`recipes/41-approval-scope-review/`) is the worked example for the second and third
+reports below, and it shows the shape: on its `test` split it sends a request for all 15 actions
+(its `eval-baseline` cell prints `requests 15`), yet `decide` reads no answer on a row whose binding
+the check refuses. It prints `denied: 7  review: 5  executed: 3` and coverage 0.6667, so, derived
+from those printed counts (the notebook does not print this figure), of the 10 actions answered, 7
+are denials that are correct because `check_binding` says so, not because any answer was good
+(`always_review`'s printed coverage of 0.4667 is those same 7 of 15). It does not print the first
+report below. Recipe 43, built on a retry budget and a stop condition, is the other published recipe
+with such a check; #366 tracks bringing recipes 41 and 43 into line and settles whether 43 is in
+scope. This section is the rule new recipes are held to.
+
+A recipe with such a branch reports three things beside the whole-set figures. They add to the
+composed coverage, accuracy and risk and do not replace them.
+
+1. **The metric over the rows the model decided, beside the whole-set figure.** Filter `accepted`
+   and `correct` to the rows whose outcome the model's answer decided, which are the rows the
+   Python check did not already fix (for recipe 41, those where `check_binding` holds), whether or
+   not a request was sent for the others, and pass those to `evaluate_outcomes`. Print the two
+   results on adjacent lines, say which is which, and print N for each: the whole set and the
+   rows the model decided.
+2. **A decision-level comparison against each baseline.** Not "accuracy differs by X", but "these N
+   rows are decided differently, and M of them are right". Recipe 41's `eval-baseline` cell does
+   this: beyond what `always_review` would auto-execute (nothing), the mechanism auto-executes 3
+   actions, 2 right and 1 wrong, and against `permission_only` it cuts wrong auto-executions from
+   5 to 1, at the cost of one correct auto-execution held back for review. Those differences are
+   informative exactly where the aggregate triple is not.
+3. **Disclosure of every figure that cannot move.** A baseline whose accuracy, risk or coverage is
+   fixed by how the rule and the gold are defined says so beside the number. "1.0000, structural
+   for any gold labelling at all" is a far more useful sentence than "1.0000"; recipe 41's
+   `eval-baseline-md` cell does this for `always_review` (accuracy and risk) and `permission_only`
+   (coverage). Name the cause, as for any metric that cannot come out another way
+   ([CONTRIBUTING.md](../CONTRIBUTING.md), section 2).
+
+None of this is checked mechanically. A guard cannot tell which rows a recipe's rule settles in
+Python (that is the recipe's own function, not something its source declares), so it cannot find
+the rows for the first item; the second is a comparison between a rule and its baselines, which no
+check reads; and the third is true or false of the recipe's data, not of its source. The reviewer checks
+all three ([offline-and-live.md](offline-and-live.md#what-none-of-this-covers-the-reviewers-alone)).
+A recipe can pin a structural claim for itself with a test that recomputes the baseline under
+several gold labellings and asserts the figure does not move.
+
+This is one way among several that a headline metric can fail to support the lesson a recipe draws.
+Others are a metric the fixtures pin at its bound, which is reported as such (CONTRIBUTING.md
+section 2), and a cheaper baseline that matches the mechanism on the figures, which a recipe
+states and does not hide. Here the figure is dominated by the Python guard.
+
 ### Noul three-path pattern
 
 A Noul-gated decision often needs three outcomes, not two: answer yes, answer no, or send the
@@ -603,11 +785,129 @@ reported result rather than as an input to the choice of `c`.) (The confidence p
 paths for using confidence in your code" are three confidence *bands*; this pattern's three paths
 are a cookbook convention, not that one.)
 
+**A Noul confidence gate is a two-sided band, and what it changes depends on your composition.**
+Because `noul_confidence(p) = |2p - 1|` is symmetric about `0.5`, a gate `g` passes exactly when
+`p >= (1 + g) / 2` (confidently true) or `p <= (1 - g) / 2` (confidently false), and the item goes
+to review exactly when `(1 - g) / 2 < p < (1 + g) / 2`. That statement is exact in real
+arithmetic and holds for every Noul rule; it is specific to `Noul`, because a `Choice` confidence
+is the top probability rescaled by the option count and has no such closed form. In floating point a
+value that coincides with an edge can land either side of it, so the band and the real comparison
+`noul_confidence([p])[0] >= g` can disagree for that value (see "At an edge" below). That happens for
+a gate typed as the decimal `2t - 1`, and also for a gate frozen by `select_confidence_threshold`,
+whose own validation item sits on the edge by construction. Two things look like consequences and
+are not:
+
+* **"The gate is inert" and "the gate is just a stricter business threshold" are not facts about
+  `t` and `g`.** They are facts about one rule's composition. Gating both branches, gating only
+  the accept branch, gating only one flagged proposition, and consulting the gate before the
+  threshold give different answers at identical `t` and `g`: at `t = 0.8, g = 0.5` the gate
+  changes no outcome when it guards only acceptance (everything at or above `0.8` is already above
+  `0.75`), and turns every rejection with `0.25 < p < 0.75` into a review when it
+  guards both branches (199 of the 401 grid points in `tests/test_evaluation.py`). For a rule
+  that gates only acceptance **and has `t > 0.5`**, a gate at or below `2t - 1` cannot withhold
+  anything the threshold admits (`p >= t > 0.5` gives `|2p - 1| >= 2t - 1`) and one above it
+  behaves like a stricter threshold at `(1 + g) / 2`. The condition is load-bearing: at
+  `t = 0.3, g = 0.4` (`= |2t - 1|`) the threshold admits `p = 0.5`, whose confidence is `0.0`,
+  so the gate withholds it, and for `t < 0.5` an accept-only gate withholds the whole interval of
+  admitted `p` around `0.5`, not a lower tail (`tests/test_evaluation.py` pins this
+  counterexample). Mirror the statement for a rule that gates only rejection with `t < 0.5`. All
+  of this is about that wiring and that side only. **At an edge it is true only in real
+  arithmetic, on both sides.**
+  *Accept side, a gate typed as `2t - 1`:* it can withhold `p = t` itself. At `t = 0.6, g = 0.2`
+  the value `noul_confidence([0.6])` is `0.19999999999999996`, two ULPs under `0.2`, so the "inert"
+  gate withholds the one admitted value at the threshold. 16 of the 49 two-decimal thresholds
+  `0.51 ... 0.99` do this with `g = round(2t - 1, 2)`, by 1 to 4 ULPs (`0.57` by 4, `0.58` by 3,
+  `0.59`, `0.60`, `0.69` and `0.70` by 2, the other ten by 1); `tests/test_evaluation.py` pins
+  these, and composes the gate with `p = t` to show the withheld item. Recipe 39's
+  `t = 0.85, g = 0.70` is a case that happens to be exact (`noul_confidence([0.85])` is `0.7`), so
+  its gate withholds nothing the threshold admits; what the gate changes in that recipe's own
+  composition is what its notebook prints (0 changed outcomes and 699 changed review reasons over
+  1001 swept values), not something this arithmetic decides. *Accept side, a frozen gate:* a gate
+  frozen at the confidence of a validation item `p_i` with `0.5 <= p_i <= t` never withholds
+  `p = t`, because `noul_confidence` is monotone non-decreasing on `[0.5, 1]` (there it is exactly
+  `2p - 1` of the stored double, so the shortfall at `0.6` comes from the decimal `0.6` having no
+  exact double, not from the arithmetic). *Reject side, a frozen gate:*
+  `select_confidence_threshold` returns an observed confidence, so every frozen gate has its own
+  item on an edge, and below `0.5` the computed edge `(1 - g) / 2` can sit above that item. At
+  `p = 0.1` the frozen gate is `g = 0.8` and `(1 - g) / 2` is `0.09999999999999998`, so the band
+  statement sends `p = 0.1` to review while the real comparison passes it; 16 of the 50 two-decimal
+  `p` in `0.00 ... 0.49` do this (`0.08 ... 0.11`, `0.18 ... 0.23`, `0.41 ... 0.46`) and none of the
+  two-decimal `p` above `0.5` do (`tests/test_evaluation.py` pins both). So the band is the
+  statement to reason with, and the recipe's own `noul_confidence(p) >= g` is the statement to
+  report with: if you print a band from a frozen gate, do not use it to classify the item the
+  gate was frozen from. A gate within a few ULPs of an edge is neither "inert" nor "not inert" by
+  the algebra: measure it (below). Never write "the gate cannot act" without
+  saying on which side, and never write it at all before measuring.
+* **Choosing `g` above `|2t - 1|` is not adding an independent control** in a rule that gates only
+  acceptance: it silently chooses a stricter threshold. The gate's one distinct function on the
+  accept side is then which reason label a withheld item carries, which is presentation.
+
+So the rule for a recipe with a confidence gate is procedural, not algebraic: **state the band,
+then measure your own composition.** Run the recipe's own `decide` over a grid of `p` values (a
+401-point grid is instant) with the gate and with the gate removed, print the number of outcomes
+that differ, split by side (items at or above `t`, items below it), and say in prose which side
+the gate is doing work on. A rule with three paths states this for both sides and prints a
+counterfactual for each. An algebraic shortcut is a claim about every rule of that shape; you only
+ever have evidence about yours. The measurement also catches a gate that changes zero outcomes
+over its whole swept range, the degenerate case in "Selective prediction" seen from the other end.
+
+**Scope of the measurement.** The sketch above assumes one Noul answer, one business threshold `t`
+and a decision function of that one probability `p`. Most recipes differ from it in one of three
+ways, and each still measures its own composition:
+
+* **Several gated Nouls** (one per label or per proposition, combined by the rule; recipe 06 is
+  the multi-label case): sweep each gated Noul over its grid with the others held at their
+  committed values, one at a time, or run the rule over the committed examples with the gate on
+  and off; report the changed count per gate, not one pooled number, and say which gate acts on
+  which side.
+* **No business threshold** other than `0.5` (the rule accepts when the proposition is more
+  likely true than not): take `t = 0.5`, so "at or above `t`" is the accepted side and "below
+  `t`" the rejected side, and note that `2t - 1 = 0`, so an accept-only gate has no inert region
+  to claim.
+* **A decision function that takes an answer object, not `p`**: build a synthetic answer for each
+  grid value with the same type the rule receives (`NoulAnswer` in `jev_cookbook.answers`,
+  with its `noul` field set to `p`) and call the rule's real decision function on it. Do not
+  re-derive the rule inside the measurement; the point is to measure the code that ships.
+
 For a multi-label recipe whose only review branch *is* this confidence gate (no fallback label,
 no membership check), the pooled confidence-only view and the pooled outcomes view give the same
 numbers, for the reason "Outcomes versus the confidence-only view" gives generally: `correct` and
 `confidence` from `pool_label_decisions` fed to `evaluate_selective` agree with `accepted` and
 `correct` from `pool_label_outcomes` fed to `evaluate_outcomes`, on every field but `threshold`.
+
+### Box localization
+
+Box answers are scored in `jev_cookbook.vision`, not here, because they need rectangle
+geometry. `vision.localization_report(gold, outcomes, iou_threshold=0.5)` takes the gold Box
+labels (`{"present": true, "box": {...}}` or `{"present": false}`, see
+[fixtures](fixtures.md#box-labels)) and one `("located", box)`, `("absent", None)` or
+`("review", None)` outcome per example. Like every evaluation in this toolkit it states its
+denominators and lets no case disappear: reviews and absent targets are counted, never
+dropped from the report.
+
+| Number | Denominator |
+| --- | --- |
+| mean IoU over located present targets | present targets with a returned box |
+| mean IoU over all present targets (missed and reviewed count 0) | all present targets |
+| hit rate at the IoU threshold | all present targets |
+| false positive rate (a box for an absent target) | all absent targets |
+| correct absent rate | all absent targets |
+
+A present target sent to review therefore counts as 0 in the second mean and as a miss in
+the hit rate, and is simply not one of the first mean's located targets: the printed report
+shows both denominators. Only
+located boxes on present targets contribute an IoU; a box returned for an absent target is a
+false positive, because a rectangle never proves the target exists. The worked example, and
+the test that runs it, are in [vision](vision.md#the-localization-report).
+Use `evaluate_outcomes` above for the review rate of the presence question alone.
+
+In a tiled or hierarchical recipe the headline report is per image: gold is the full-image
+Box label and each outcome is the final rectangle after `tile_to_image` (or, when the recipe
+also cropped or padded inside the tile, after `ImageTransform.to_original` on the chain of
+steps), with a stage-1 "no match" on present gold reported as `absent`, an uncertain choice as
+`review` and a mapped-back answer that is only padding (`None`) as `review`. A per-tile
+report counts tiles, is a stage diagnostic and says so, and states its rule for a target a
+tile edge cuts; see [vision](vision.md#tiled-and-hierarchical-recipes).
 
 ### Calibration
 
@@ -629,6 +929,95 @@ percentile interval as `BootstrapResult`. Examples must be aligned.
 possibly `None` or absent) into `UsageTotals`. Requests that did not report a count are tallied
 in `requests_missing_input` / `requests_missing_output`, so a partial total is visible.
 
+### Transitions
+
+`transition_metrics(gold, predicted, *, tolerance_seconds, uncertain_labels=("uncertain",),
+max_sampling_interval_seconds=None)` scores event or transition detection over labelled frame
+sequences (the multiframe row of [What an evaluation must show](multimodal-track.md)). Each
+example is `(label, seconds)`, as a tuple or a two-element list (what JSON loads): the
+transition label and its time in **elapsed seconds since the start of the sequence** (never
+Unix time), or `None` when the label has no time (such as `"unchanged"`).
+
+**One convention for the time.** A transition's time is the `timestamp_seconds` of **the first
+frame in which the new state is visible**. Gold labellers mark that frame on the full-rate
+sequence; Python takes the same frame from the frames it sampled. Jev's `Choice` and `Noul`
+answers carry no time, so Python finds the pair: it asks one question per adjacent sampled pair
+(for example "did the door change between these two frames?") and
+`frames.earliest_transition(sampled, changed)` returns the first flagged pair with
+`transition_seconds` set by this convention (`frames.transition_time(frames, i)` is the same
+rule for a known index). A pair the model left uncertain, or Python's gate sent to review, is
+passed as `None`, never `False`: if it comes before the first `True`, the helper returns
+`{"review": True, ...}` with no time, because the earliest transition is not established. Score
+that example with one of the `uncertain_labels` as its predicted label. Do not substitute the pair's start or midpoint: the three give
+different scores for the same answers.
+
+Because Python only sees the sampled frames, a *correct* detection can only be **late**, by
+less than the gap to the previous sampled frame (a false early flag is early, and shows as a
+negative signed error). Set `tolerance_seconds` to at least the largest sampled gap,
+and pass that gap as `max_sampling_interval_seconds`: the result records it and sets
+`tolerance_below_sampling_interval` when the tolerance is smaller, meaning the score mostly
+measures the sampling grid, not the model. Quote the gap beside the metric.
+
+```python
+from jev_cookbook.evaluation import transition_metrics
+from jev_cookbook.frames import earliest_transition, frame_intervals
+
+# a door first visibly open at 2.5 s in the full-rate labels; frames sampled every 1 s
+sampled = [{"timestamp_seconds": float(t), "image": f"image-{t}"} for t in range(4)]
+found = earliest_transition(sampled, [False, False, True])  # the pair (2.0 s, 3.0 s) fired
+gap = max(frame_intervals(sampled))
+gold = [("opened", 2.5), ("closed", 5.0), ("unchanged", None), ("opened", 1.0)]
+predicted = [
+    ("opened", found["transition_seconds"]),  # 3.0 s: 0.5 s late
+    ("closed", 5.0),
+    ("unchanged", None),
+    ("uncertain", None),
+]
+metrics = transition_metrics(
+    gold, predicted, tolerance_seconds=gap, max_sampling_interval_seconds=gap
+)
+assert (metrics.n_examples, metrics.n_uncertain, metrics.n_resolved) == (4, 1, 3)
+assert (metrics.exact_correct, metrics.tolerance_correct) == (2, 3)
+assert metrics.tolerance_accuracy == 1.0  # over the 3 resolved examples
+assert metrics.tolerance_accuracy_all == 0.75  # over all 4 examples
+assert metrics.outcomes == ("within", "exact", "exact", "review")
+assert metrics.mean_signed_error_seconds == 0.25  # (+0.5 and 0.0) over n_timed = 2
+```
+
+**Review outcomes.** A predicted label in `uncertain_labels` is a review outcome; pass several
+(`("unknown", "inconsistent")` for rank 90). Map both the model's own "uncertain" option and
+Python's confidence or consistency gate to one of these labels before calling. Reviews are
+counted in `n_uncertain` and `uncertain_rate` (over all examples) and are excluded from the
+resolved denominator, so both views are stated: `exact_accuracy` / `tolerance_accuracy` divide
+by `n_resolved` (NaN if every example is a review), and `exact_accuracy_all` /
+`tolerance_accuracy_all` divide by `n_examples`, counting a review as not correct. Gold may not
+be a review label.
+
+**Scoring.** A resolved example is *exact* when the label matches and the times are equal
+(both `None`, or within 1e-9 s of float slack); *within tolerance* when the label matches and
+the times are both `None` or differ by at most `tolerance_seconds` (inclusive, same slack).
+`outcomes` lists `"exact"`, `"within"`, `"wrong"` or `"review"` for every example in input
+order, so a README can name the sequences that went to review or missed.
+
+**Timing error.** The headline `mean_absolute_error_seconds` and `mean_signed_error_seconds`
+(predicted minus gold; positive means late) cover only the `n_timed` resolved examples whose
+**label matches gold** and where both sides give a time; a different transition at the right
+second is not good timing. `timing_errors_seconds` holds the per-example value. The
+`*_any_label` fields (`n_timed_any_label`, `mean_absolute_error_any_label_seconds`,
+`mean_signed_error_any_label_seconds`) drop the label condition for readers who want that view.
+Means are NaN when their count is 0; report `n_timed` beside them. `n_missed_time` and
+`n_spurious_time` count a resolved prediction that omits a gold time, or invents one, whatever
+its label.
+
+**Several transitions in one sequence** (rank 87's phase history): the function scores one
+`(label, time)` per example. Split a sequence into one example per transition (for example
+`"combat->menu"` at its time), each with its own gold and its own detection window, and pool
+the examples. Do not invent a sequence-alignment metric; a transition Python found but the
+labels do not contain is a separate example with the gold label `"unchanged"`.
+
+Empty or unequal inputs, a malformed pair, a negative or non-finite time, tolerance or
+interval, and a review label in gold raise `ValueError`.
+
 ## Result types
 
 Every result type is a frozen dataclass whose fields are plain attributes, so other modules
@@ -643,6 +1032,7 @@ Every result type is a frozen dataclass whose fields are plain attributes, so ot
 | `SelectiveResult` | `threshold`, `n_total`, `n_answered`, `coverage`, `accuracy`, `risk`; returned by both `evaluate_selective` and `evaluate_outcomes` (`threshold` is NaN from the latter) |
 | `ReliabilityBin` | `lower`, `upper`, `count`, `mean_probability`, `observed_rate` (the last two are NaN for an empty bin); `reliability_table` returns `list[ReliabilityBin]` |
 | `BootstrapResult` | `difference`, `lower`, `upper`, `confidence_level`, `n`, `n_resamples`, `seed` |
+| `TransitionMetrics` | `n_examples`, `n_uncertain`, `n_resolved`, `exact_correct`, `tolerance_correct`, `exact_accuracy`, `tolerance_accuracy`, `exact_accuracy_all`, `tolerance_accuracy_all`, `uncertain_rate`, `tolerance_seconds`, `n_timed`, `mean_absolute_error_seconds`, `mean_signed_error_seconds`, `n_timed_any_label`, `mean_absolute_error_any_label_seconds`, `mean_signed_error_any_label_seconds`, `n_missed_time`, `n_spurious_time`, `max_sampling_interval_seconds`, `tolerance_below_sampling_interval`, `outcomes`, `timing_errors_seconds` |
 | `UsageTotals` | `requests`, `input_tokens`, `output_tokens`, `total_tokens`, `requests_missing_input`, `requests_missing_output` |
 
 Every metric computed on synthetic fixtures is a check that the pipeline works, not a measure

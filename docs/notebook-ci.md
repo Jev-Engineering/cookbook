@@ -113,7 +113,31 @@ track (01–60) or the multimodal track (61–100).
   notebook; false runs the recipe folders changed by the latest commit, by the same rule.
 - **A pull request** runs only the recipe folders it changes, provided every changed path is inside
   a `recipes/<folder>/` or is exactly `README.md`. A recipe pull request is limited to that by the
-  scope check, so one recipe's pull request does not re-run every published notebook.
+  scope check, so one recipe's pull request does not re-run every published notebook. **The diff
+  is taken against the first parent of the pull request's merge commit, not against
+  `pull_request.base.sha`** (`matrix --merge-ref`, #248). `actions/checkout` on a `pull_request`
+  event checks out `refs/pull/N/merge`; `base.sha` is the tip of the base branch from when the pull
+  request was *opened*, so once the base branch has moved on it is an ancestor of the merge commit
+  and `base.sha...merge` degenerates into "everything the base branch gained since": a recipe that
+  merged meanwhile was re-executed on every later push (a `Notebook (<other recipe>)` row the
+  branch does not contain), and a single later commit to `src/`, `tools/`, `tests/`, `docs/` or
+  `pyproject.toml` selected every notebook on every open pull request. The first parent is the
+  base the tree on disk was actually built on, so the diff is exactly what the pull request
+  changes, and every rule above (shared code selects everything, `README.md` is exempt, a deleted
+  notebook runs nothing) applies to that diff unchanged. `--merge-ref` always comes with
+  `--pr-head` (the event's `pull_request.head.sha`), and `--head` is trusted to be the merge commit
+  only if it has exactly two parents **and its second parent is that commit** (#316); for anything
+  else the tool keeps `--base` and says why on stderr (that can select more than needed, never
+  less). An empty `--pr-head` is a usage error (exit 2), and a `--pr-head` the clone does not have
+  is reported as exactly that ("is not a commit in this clone"), not as a merge ref of the wrong
+  shape: a shallow clone is the realistic way this optimisation would stop applying unnoticed. Two parents alone would not do: a pull request branch whose tip merged `main` into it has
+  two as well, and its first parent is the branch's own previous commit, so the diff would leave
+  out most of the change. This is also why the discover job's checkout names no `ref:` (it gets the
+  merge ref), which `tests/test_notebook_ci_workflows.py` pins. To reproduce a selection locally,
+  rebuild the merge: from a clone, `git checkout --detach origin/main && git merge --no-ff
+  <pr-head>`, then `python tools/notebook_ci.py matrix --base <the PR's base.sha> --head HEAD
+  --merge-ref --pr-head <pr-head>`;
+  `tests/test_notebook_ci_gates.py` does exactly this against a temporary repository.
 - A pull request that changes anything else (shared code, tools, docs, workflows, the template's
   neighbours) runs every notebook, because shared code can change any recipe's result. **That
   includes a docs-only foundation pull request**: any path outside `recipes/` and `README.md`
@@ -134,9 +158,13 @@ Each job installs the package with the `ml` extra (core dependencies plus scikit
 recipes that train a baseline; Python 3.14) under `.github/constraints-notebooks.txt`, and then runs
 `tools/execute_notebook.py` on a copy of the recipe folder, so the committed file is never
 rewritten. Installation is the last step that may use the network, so installing an extra does not
-weaken the sandbox. The `live` extra is never installed: a recipe runs offline. A recipe whose README
-names any other extra needs a foundation change to the install line first, because a recipe pull
-request cannot touch `.github/`. Three layers keep the run offline, and the third is the one that
+weaken the sandbox. The `Tests (py3.10)` and `Tests (py3.14)` jobs install the same `ml` extra
+(without the constraints, which the 3.10 floor cannot install), so a recipe's `helpers.py` and
+`tests/` may import scikit-learn too; [development.md](development.md#continuous-integration)
+says what the test jobs install and what that means for a test's assertions. The `live` extra is
+never installed in a notebook job: a recipe runs offline. A recipe whose README names any other
+extra needs a foundation change to the install line first, because a recipe pull request cannot
+touch `.github/`. Three layers keep the run offline, and the third is the one that
 enforces it:
 
 1. **No key, no live switch.** The executor strips every `JEV_COOKBOOK_*` and `TYPESAFE_*` variable
@@ -367,6 +395,36 @@ and can point `fixtures=` at any file on disk they own, validated or not. The sh
 runtime check that `get_backend` refuses a fixtures path outside the recipe's own `fixtures/`)
 belongs to the fixtures backend itself (#65/#66), not to this workflow.
 
+### The first code cell and matplotlib's font cache (#287)
+
+`Notebook (<recipe>)` used to fail now and then with "cell 2 (setup) wrote to stderr", on
+unrelated pull requests and on `main`, on identical inputs (recipes 37, 17 and 46 were seen). Cell
+2 is the first code cell, whose imports load matplotlib. The kernel's `$HOME` in the sandbox is a
+new, empty directory on every job, so matplotlib has no font cache and builds one at that first
+import; while it builds, it arms a 5-second timer that logs "Matplotlib is building the font
+cache; this may take a moment." to stderr if the build is still running (`font_manager.py`,
+`FontManager.__init__`). Whether the build outlasts five seconds depends on how loaded the runner
+is, which is why the outcome varied. The notice is accurate and the cell did nothing wrong, so the
+stderr rule is unchanged and nothing is allowlisted. `tools/execute_notebook.py` instead builds
+the cache before the kernel starts (`warm_font_cache`: a separate process with exactly the
+kernel's environment, hence the same cache directory), so no cell ever builds it.
+`tests/test_new_recipe.py` reproduces the failure with the timer shortened to zero and an empty
+cache (the control), and shows the same notebook passing once the executor warms the cache first.
+
+The warm-up never fails the run, but it is not silent: if it times out, cannot start or exits
+non-zero, the executor prints one line on its own stderr saying so ("font-cache warm-up exited
+with status 1: ...", with the last line the child wrote, redacted), so a cache that did not get
+built is visible in the log the next time this flakes (#316). Its interpreter runs with `-s`, like
+the sandbox's own `python -s tools/execute_notebook.py`.
+
+When a cell does write to stderr the executor now prints what it wrote, redacted (POSIX, Windows
+and UNC absolute paths, including ones with spaces, and long unbroken runs replaced) and bounded
+(8 lines, 600 characters), so the log is enough to diagnose it. Every line of that excerpt starts
+with `  | `: the text is a cell's, the log is scanned by the Actions runner for `::` workflow
+commands, and the runner ignores leading whitespace, so indenting alone would not stop a line such
+as `::warning::...` from being run (#316). The text is a diagnosis aid, never a licence: it is not
+matched against anything.
+
 ## The staleness check
 
 `python tools/check_notebook_fresh.py <committed> <fresh>` compares the notebook in the repository
@@ -380,14 +438,13 @@ with the one the job just produced from scratch. Exit 0 means they agree. The ru
    tag is never executed at all, so whatever it commits (fabricated or merely stale) survives
    unchanged into the "fresh" copy and a presence-only, or an equality-only, comparison would call
    the two sides a match. The tag is rejected outright, whether or not the cell has any output.
-2. **One normalisation.** Every `outputs[*].data["image/png"]` value is replaced by a marker, so a
-   figure must be present on both sides in the same place. Nothing else is normalised. The rest of
+2. **One normalisation.** Every `outputs[*].data["image/png"]` and `["image/jpeg"]` value is replaced
+   by a marker, so a figure must be present on both sides in the same place. Nothing else is normalised. The rest of
    the two notebooks, parsed as JSON, must be equal: sources, ids, metadata, execution counts,
-   `text/plain`, streams, tables, every other output type (including `image/jpeg` and
-   `image/svg+xml`). The executor makes these byte-stable (`coalesce_streams`, no timings, fixed
+   `text/plain`, streams, tables, every other output type (including `image/svg+xml`). The executor makes these byte-stable (`coalesce_streams`, no timings, fixed
    metadata, LF); differences are reported as `notebook.cells[i].outputs[j]...: committed X, fresh
    Y`, at most a dozen.
-3. **The figures are compared by what they show.** PNG bytes differ with the matplotlib version, the
+3. **The figures are compared by what they show.** PNG and JPEG bytes differ with the matplotlib version, the
    platform even at one version, and the pixel size, so equal bytes are not required, but ignoring the
    images would let a changed teaching chart pass. Each pair is therefore compared as follows
    (`compare_png`):
@@ -448,6 +505,43 @@ were measured with probe charts (an independent review, across four environments
 The check is a second line behind the text outputs: a number shown in a table or a printed line is
 compared exactly, so a stale chart usually comes with stale text too.
 
+4. **Output size.** The outputs of all the cells together, each serialised as compact JSON with its
+   base64 images, may weigh at most `MAX_OUTPUT_BYTES` (2 MiB = 2,097,152 bytes) per notebook,
+   checked on both files (this runs in the `Notebook (<recipe>)` job, not in Hygiene). The
+   notebooks on `main` weigh at most about 0.2 MiB. The cap stops a recipe from embedding
+   full-resolution inputs, which would also bloat every diff. **What a displayed fixture weighs
+   depends on its pixels, not on its file.** Displaying a `PIL.Image` makes IPython re-encode the
+   decoded pixels as both a PNG and a JPEG, and a lossless PNG of photographic or noisy pixels is
+   large. Measured (base64, both encodings): a 384x320 flat-shape JPEG of 10.6 KB displays as
+   91.7 KB (8.6x); a 1280x720 flat PNG of 7.2 KB as 89 KB (12x); a 1024x768 photo-like JPEG of
+   52 KB as 1.13 MB (22x); a 1280x720 noisy JPEG of 120 KB as 1.98 MB (16.5x, almost the whole cap
+   for one frame). `IPython.display.Image(filename=path)` embeds the file's own bytes once under
+   its own MIME type: 160 KB for that 120 KB frame. So **display a fixture with
+   `IPython.display.Image(filename=path)`**, or call `Image.thumbnail((640, 640))` on a copy of a
+   `PIL.Image` first (the same frame is then 495 KB). `tools/check_recipe_assets.py` limits the
+   fixture files themselves; see [fixtures.md](fixtures.md#image-fixtures).
+5. **Embedded images obey the metadata rules.** Pixels are compared by what they show, which cannot
+   see EXIF, GPS or a local path in the bytes, and a committed output made from an unstripped
+   source would otherwise survive a fresh run on the stripped asset. So every `image/png` and
+   `image/jpeg` output in either file, and every `data:image/...;base64` URI in an output, is held
+   to the rules of `tools/check_recipe_assets.py` (`embedded_image_problems`): a JPEG may hold only a
+   plain JFIF header, a PNG only the chunks listed in [fixtures.md](fixtures.md#image-fixtures) plus
+   a short `tEXt` `Software` line, which matplotlib writes. Size and pixel limits do not apply.
+   An output image of any other type (`image/gif`, ...) is a problem. A Markdown or raw cell with an
+   attachment or a `data:image` URI is a problem; link `assets/x.png` instead.
+
+**JPEG outputs are normalised, not rejected.** A JPEG's bytes depend on the libjpeg that Pillow
+bundles, so comparing them byte for byte would make the check depend on the runner. And Pillow
+displays every `PIL.Image` as both `image/png` and `image/jpeg`, so rejecting `image/jpeg` would
+forbid showing a fixture at all. Rule 2 therefore replaces `image/jpeg` values with a marker just as
+it does `image/png`, and rule 3 compares each pair of JPEGs by what they show (`compare_png` decodes
+either format). The markers are `<image/png: present>` and `<image/jpeg: present>`: an image of
+each type must be present on both sides in the same place. `image/svg+xml` and every other image
+type remain compared byte for byte.
+
+`tests/test_notebook_ci_fresh.py` covers JPEG normalisation (a re-encoded JPEG passes, a changed one
+is stale, a missing one is stale) and the output cap (a notebook just under and just over it).
+
 When the check fails, run `python tools/execute_notebook.py recipes/NN-slug` and commit the result.
 
 ## Fixture validation
@@ -499,7 +593,7 @@ ref, an unreadable body, an unreadable diff); it fails closed.
   pull request. Only one: rejected. Closing any other issue of this repository as well, or closing
   two recipe issues: rejected. The branch slug must exist in the base catalog, have an assigned
   issue, and match the sole closing reference. Unknown or unassigned slugs fail closed, including
-  a `recipe/` branch for a planned multimodal entry with `issue: null`. Assignments in the head
+  a `recipe/` branch for any entry with `issue: null`. Assignments in the head
   catalog do not authorize a recipe pull request. A foundation branch with `Closes #61` remains
   foundation work while issue 61 is not assigned to a catalog recipe; a rank of 61 does not assign
   that issue.
@@ -509,6 +603,14 @@ ref, an unreadable body, an unreadable diff); it fails closed.
   an addition must be `100644`; a modification and both sides of a rename must be `100644`; a type
   change, symlink (`120000`), submodule (`160000`), mode change or any other status is rejected.
   `README.md` may only be modified from `100644` to `100644`.
+- **Images.** An addition, modification or rename whose resulting path ends in an image suffix
+  (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.svg` and the other image suffixes listed in
+  `IMAGE_SUFFIXES`, in any case) must be under `recipes/<slug>/assets/`. Anywhere else in the
+  recipe folder (`helpers/`, `fixtures/`, `tests/`, the root, a nested `.../assets/` that is not
+  directly the recipe's) is rejected; deleting a misplaced image is allowed. The path is all this
+  check can see (it reads no file contents): format, size, metadata and an image hidden under
+  another name are `tools/check_recipe_assets.py`'s job, in the `Hygiene (secrets and notebook
+  outputs)` check ([fixtures.md](fixtures.md#image-fixtures)).
 - **README content**, only once no path was outside the allowlist (so a malformed catalog edit gets the
   path diagnostic, not a crash): the head `README.md` must equal
   `render(<base README.md>, <head catalog/recipes.json>)` byte for byte, using `render` from

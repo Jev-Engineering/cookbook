@@ -1,15 +1,15 @@
 <p align="center">
-  <img src="assets/banner.png" alt="Pink banner in the style of a retro desktop: the title Jev Cookbook, the line 60 notebook recipes for typed decisions, and three small windows labelled Choice, Noul and Score showing an option list, a probability bar and a rubric chart." width="100%">
+  <img src="assets/banner.png" alt="Pink banner in the style of a retro desktop: the title Jev Cookbook, the line 100 notebook recipes for typed decisions, five small chips reading +choice, +noul, +score, +box and +python in control, and windows labelled Choice, Noul, Score and Box showing an option list, a probability bar, a rubric chart and a rectangle drawn around a target, plus a Text + vision window reading 100 planned recipes, Offline first. Live opt-in." width="100%">
 </p>
 
 <div align="center">
 
 # Jev Cookbook
 
-**One hundred planned notebook recipes for typed decisions with Jev: the original 01–60 curriculum and a separate multimodal track, 61–100.**
+**100 notebook recipes for typed decisions with Jev, covering text and images, starting from a first `Choice` question.**
 
 <!-- catalog:progress:start -->
-![Recipes: 49 of 100 published](https://img.shields.io/badge/Recipes-49%20of%20100%20published-F386A1?style=flat-square&labelColor=1E1E1E) ![Status: in progress](https://img.shields.io/badge/Status-in%20progress-E551BA?style=flat-square&labelColor=1E1E1E) ![Categories: 15](https://img.shields.io/badge/Categories-15-F386A1?style=flat-square&labelColor=1E1E1E) ![Levels: 5](https://img.shields.io/badge/Levels-5-F386A1?style=flat-square&labelColor=1E1E1E)
+![Recipes: 50 of 100 published](https://img.shields.io/badge/Recipes-50%20of%20100%20published-F386A1?style=flat-square&labelColor=1E1E1E) ![Status: in progress](https://img.shields.io/badge/Status-in%20progress-E551BA?style=flat-square&labelColor=1E1E1E) ![Categories: 15](https://img.shields.io/badge/Categories-15-F386A1?style=flat-square&labelColor=1E1E1E) ![Levels: 5](https://img.shields.io/badge/Levels-5-F386A1?style=flat-square&labelColor=1E1E1E)
 <!-- catalog:progress:end -->
 ![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-F386A1?style=flat-square&labelColor=1E1E1E) [![License: MIT](https://img.shields.io/badge/License-MIT-DEDEDE?style=flat-square&labelColor=1E1E1E)](LICENSE)
 
@@ -22,12 +22,7 @@
 Jev is TypeSafe AI's System One model. It does not write text. You send it a **state** and a set of **typed questions**, and it returns structured answers your code can branch on, sort by, and route with. This cookbook is a curriculum of Jupyter notebooks that teach that way of building, one bounded decision at a time.
 
 > [!NOTE]
-> **The generated badge and recipes table show what has shipped.** The catalog lists the planned use cases, categories, and difficulty levels, and it can be revised as recipes are built. A recipe counts as published once its `notebook.ipynb` is in the repository, and its row then links to the notebook. Every other row is marked coming soon, with an issue link only when a real recipe issue has been assigned. Recipe ranks are not issue numbers; the new multimodal entries start unassigned. Each published recipe states in its notebook and README which mode it ran in (synthetic fixtures or recorded responses), and for recorded responses the model version the API returned and the date. Metrics from synthetic runs check that the pipeline behaves as designed. They are not Jev results. Any number reported as a Jev result states the number of examples it was measured on and the model version, comes from recorded inference on a held-out set, and makes no general claim about Jev's quality, latency, or cost. Where a recipe has no such run, its README says "not measured live".
-
-The [multimodal track guide](docs/multimodal-track.md) describes the planned image, spatial,
-ordered-frame and long-context work, its evaluation requirements, and eight suggested first
-additions. Catalog entries describe the intended lessons; they do not imply a notebook or shared
-backend capability has shipped.
+> **The generated badge and recipes table show what has shipped.** The catalog lists the planned use cases, categories, and difficulty levels, and it can be revised as recipes are built. A recipe counts as published once its `notebook.ipynb` is in the repository, and its row then links to the notebook. Every other row is marked coming soon. It links to the issue tracking the recipe when the catalog records one; a row for an entry with no issue yet is marked coming soon with no link. Each published recipe states in its notebook and README which mode it ran in (synthetic fixtures or recorded responses), and for recorded responses the model version the API returned and the date. Metrics from synthetic runs check that the pipeline behaves as designed. They are not Jev results. Any number reported as a Jev result states the number of examples it was measured on and the model version, comes from recorded inference on a held-out set, and makes no general claim about Jev's quality, latency, or cost. Where a recipe has no such run, its README says "not measured live".
 
 ## Quick start
 
@@ -43,12 +38,14 @@ python tools/execute_notebook.py recipes/_template   # run the template notebook
 ```
 
 The template in `recipes/_template/` is a small, complete recipe, and every recipe works the same
-way; recipe 01 is the start of the curriculum once its row below links to a notebook. Three pages
+way; recipe 01 is the start of the curriculum once its row below links to a notebook. These pages
 take it from here:
 
 - [Getting started](docs/getting-started.md): install, open a notebook, run it offline, run a recipe's tests, switch to live.
 - [Offline and live](docs/offline-and-live.md): what each mode is, what provenance says, why synthetic metrics are pipeline checks, and what "not measured live" means.
 - [Glossary](docs/glossary.md): state, question, `Choice`, `Noul`, `Score`, criteria, probabilities, confidence, threshold, replay key, fixture, provenance, and run mode, each linked to its source.
+- [Images, boxes and ordered frames](docs/vision.md): the local helpers in `jev_cookbook.vision` for image assets, Box coordinates, tiles and loading timestamped frames, and in `jev_cookbook.frames` for sampling and windowing them.
+- [Multimodal track](docs/multimodal-track.md): the forty planned recipes 61–100, what must hold before one is ready, and what its evaluation must show.
 
 ## How a recipe works
 
@@ -105,17 +102,14 @@ The catalog uses Jev's own vocabulary. Every recipe is tagged with the primitive
 | `Choice` | Select one option | Select one item from supplied alternatives, including none, other, or uncertain outcomes when the task needs them. Returns the choice, a probability per option, and a confidence. |
 | `Noul` | Judge a proposition | Return the probability that a stated proposition holds. Tasks that allow several labels ask one independent question per label. There is no separate confidence field. |
 | `Score` | Evaluate a rubric | Return a position and a distribution over ordered rubric levels you define. Exact measurements and arithmetic stay in code. |
-| `Box` | Locate an object in an image | Return one bounding rectangle and confidence. Planned spatial recipes pair localization with explicit presence and review gates; a rectangle alone does not prove the target exists. See [Box documentation](https://docs.typesafe.ai/primitives/box). |
+| `Box` | Locate one target | Return one bounding rectangle for one target, with four edges as fractions of the image's width and height and a confidence. It is never a mask and never a set of detections, and it always returns a rectangle, even when the target is absent, so check presence separately, for example with a paired `Noul`. Requires the Jev 1.14 preview and the experimental images header. |
 | Combination | Compose judgments | Combine independent questions in Python, and make a later request when one judgment depends on an earlier answer. |
 
 A single label can stand for several independent questions of that type. Thresholds are a property of the task, so each recipe that uses one chooses it from examples and evaluates it.
 
 ## Difficulty levels
 
-The original 01–60 curriculum progresses from a first question to advanced simulations. The
-multimodal track, 61–100, groups related visual use cases and has its own difficulty assignments;
-its numbers do not extend that difficulty ordering. Follow the original sequence, choose a level,
-or pick one of the multimodal groups.
+In the original track (ranks 1 to 60) the levels rise with rank: rank 1 is the easiest recipe and rank 60 the most demanding, so follow those ranks for a full learning sequence. The multimodal track (ranks 61 to 100) is ordered by category block, not by difficulty, so its levels rise and fall as the rank increases; use each recipe's level, or pick a category, to choose a path through it.
 
 <!-- catalog:levels:start -->
 | Level | Name | What a notebook at this level involves | Recipes |
@@ -127,8 +121,7 @@ or pick one of the multimodal groups.
 | **5** | [Expert](#level-5--expert) | Controlled optimization studies or closed-loop simulations requiring budgets, baselines, and held-out or trajectory evaluation. | 9<br><sub>53 to 60, 98</sub> |
 <!-- catalog:levels:end -->
 
-Levels are editorial estimates of implementation and evaluation effort. Listed number ranges
-include only recipes actually assigned to that level; gaps separate groups across the two tracks.
+Ranks are editorial estimates of implementation and evaluation effort. Neighbouring recipes are ordered for learning, not by a measured difference in difficulty.
 
 ## Browse by category
 
@@ -235,7 +228,7 @@ Stateful workflows, provenance, adversarial cases, model calibration, or several
 | 47 | **Evidence conflict diagnosis**<br>Classify apparent claim conflicts by factual disagreement, time, entity, or scope using source excerpts and temporal relationships already computed by Python. | Data quality & knowledge graphs | `Choice` | [Open notebook](recipes/47-evidence-conflict-diagnosis/notebook.ipynb) |
 | 48 | **Document revision consistency**<br>Select among externally supplied sentence revisions and check their consistency with paragraph context as Python assembles a versioned document. | Language & content | `Choice` + `Noul` | [Open notebook](recipes/48-document-revision-consistency/notebook.ipynb) |
 | 49 | **Multi-agent task assignment**<br>Score each agent's suitability for a subtask so a deterministic scheduler can assign work under capability, dependency, and budget constraints. | Agent orchestration | `Score` | [Open notebook](recipes/49-multi-agent-task-assignment/notebook.ipynb) |
-| 50 | **Model comparison and calibration**<br>Compare Jev and alternative decision backends on identical labeled tasks, calibrating each model separately and measuring held-out quality, latency, and cost. | Evaluation & optimization | `Choice` + `Noul` + `Score` | Coming soon · [#50](https://github.com/Jev-Engineering/cookbook/issues/50) |
+| 50 | **Model comparison and calibration**<br>Compare Jev and alternative decision backends on identical labeled tasks, calibrating each model separately and measuring held-out quality, latency, and cost. | Evaluation & optimization | `Choice` + `Noul` + `Score` | [Open notebook](recipes/50-model-comparison-and-calibration/notebook.ipynb) |
 | 51 | **Stalled-loop detection**<br>Classify progress across recorded agent turns as advancing, repeating, regressing, or complete so Python can apply a continue, change-strategy, or stop policy. | Agent orchestration | `Choice` | Coming soon · [#51](https://github.com/Jev-Engineering/cookbook/issues/51) |
 | 52 | **Retrieval pipeline evaluation**<br>Combine passage filtering, reranking, and claim verification in a retrieval pipeline and measure each stage's effect on answer support using a fixed labeled corpus. | Search & retrieval | `Choice` + `Score` | Coming soon · [#52](https://github.com/Jev-Engineering/cookbook/issues/52) |
 
@@ -264,7 +257,7 @@ One bounded judgment over a short prepared input with direct inspection of typed
 
 | # | Recipe | Category | Decision | Status |
 | :---: | --- | --- | --- | --- |
-| 61 | **Screenshot error-state recognition**<br>Classify an application screenshot as a crash, loading state, authentication failure, normal operation, or unknown using fixed visual categories. | Image understanding & visual judgments | `Choice` | Coming soon |
+| 61 | **Screenshot error-state recognition**<br>Classify an application screenshot as a crash, loading state, authentication failure, normal operation, or unknown using fixed visual categories. | Image understanding & visual judgments | `Choice` | Coming soon · [#411](https://github.com/Jev-Engineering/cookbook/issues/411) |
 
 #### Multimodal level 2 · Easy
 
@@ -272,17 +265,17 @@ Context-sensitive matching, scoring, or verification with candidate sets and exp
 
 | # | Recipe | Category | Decision | Status |
 | :---: | --- | --- | --- | --- |
-| 66 | **Technical schematic recognition**<br>Identify a predefined circuit, wiring, or infrastructure symbol from a cropped schematic image, retaining an unknown outcome for ambiguous or unlisted symbols. | Image understanding & visual judgments | `Choice` | Coming soon |
-| 69 | **Visual SKU recognition**<br>Select a product variant from a fixed SKU catalog whose choice criteria contain reference photographs, with no-match and uncertain outcomes. | Visual criteria & reference matching | `Choice` | Coming soon |
-| 70 | **Brand identity verification**<br>Compare a displayed logo or marketing asset with an approved reference image using bounded visual conformity checks and route uncertain results to review. | Visual criteria & reference matching | `Noul` | Coming soon |
-| 71 | **Golden-sample assembly checks**<br>Score an assembly photograph against rubric levels illustrated by good and defective reference examples so Python can identify candidates for inspection. | Visual criteria & reference matching | `Score` | Coming soon |
-| 72 | **Board-game piece recognition**<br>Identify a token, tile, figurine, or card from fixed categories defined by reference images, including an unknown outcome for unseen or ambiguous pieces. | Visual criteria & reference matching | `Choice` | Coming soon |
-| 73 | **Visual UI state identification**<br>Classify a cropped UI component as selected, disabled, active, hovered, error, or unknown using visual examples in each choice criterion. | Visual criteria & reference matching | `Choice` | Coming soon |
-| 74 | **Material swatch matching**<br>Match a textile, paint, flooring, or material photograph to a controlled collection of visual swatches, with no-match and uncertain outcomes for appearance ambiguity. | Visual criteria & reference matching | `Choice` | Coming soon |
-| 75 | **Generated-art style consistency**<br>Score a generated illustration against separate art-direction criteria illustrated by a supplied moodboard, using explicit rubric levels and retaining each criterion score. | Visual criteria & reference matching | `Score` | Coming soon |
-| 76 | **Plant appearance matching**<br>Compare a plant photograph with labeled visual examples to suggest a candidate appearance group, including unknown for unsupported or ambiguous matches. | Visual criteria & reference matching | `Choice` | Coming soon |
-| 85 | **Door state transition detection**<br>Classify a door as opened, closed, unchanged, or uncertain across chronologically ordered PNG or JPEG frames sampled by Python. | Multiframe & temporal understanding | `Choice` | Coming soon |
-| 86 | **Object arrival/departure detection**<br>Determine whether a specified package, vehicle, or other object appeared, disappeared, remained, or is uncertain across ordered still frames of a scene. | Multiframe & temporal understanding | `Choice` | Coming soon |
+| 66 | **Technical schematic recognition**<br>Identify a predefined circuit, wiring, or infrastructure symbol from a cropped schematic image, retaining an unknown outcome for ambiguous or unlisted symbols. | Image understanding & visual judgments | `Choice` | Coming soon · [#415](https://github.com/Jev-Engineering/cookbook/issues/415) |
+| 69 | **Visual SKU recognition**<br>Select a product variant from a fixed SKU catalog whose choice criteria contain reference photographs, with no-match and uncertain outcomes. | Visual criteria & reference matching | `Choice` | Coming soon · [#402](https://github.com/Jev-Engineering/cookbook/issues/402) |
+| 70 | **Brand identity verification**<br>Compare a displayed logo or marketing asset with an approved reference image using bounded visual conformity checks and route uncertain results to review. | Visual criteria & reference matching | `Noul` | Coming soon · [#418](https://github.com/Jev-Engineering/cookbook/issues/418) |
+| 71 | **Golden-sample assembly checks**<br>Score an assembly photograph against rubric levels illustrated by good and defective reference examples so Python can identify candidates for inspection. | Visual criteria & reference matching | `Score` | Coming soon · [#419](https://github.com/Jev-Engineering/cookbook/issues/419) |
+| 72 | **Board-game piece recognition**<br>Identify a token, tile, figurine, or card from fixed categories defined by reference images, including an unknown outcome for unseen or ambiguous pieces. | Visual criteria & reference matching | `Choice` | Coming soon · [#420](https://github.com/Jev-Engineering/cookbook/issues/420) |
+| 73 | **Visual UI state identification**<br>Classify a cropped UI component as selected, disabled, active, hovered, error, or unknown using visual examples in each choice criterion. | Visual criteria & reference matching | `Choice` | Coming soon · [#421](https://github.com/Jev-Engineering/cookbook/issues/421) |
+| 74 | **Material swatch matching**<br>Match a textile, paint, flooring, or material photograph to a controlled collection of visual swatches, with no-match and uncertain outcomes for appearance ambiguity. | Visual criteria & reference matching | `Choice` | Coming soon · [#422](https://github.com/Jev-Engineering/cookbook/issues/422) |
+| 75 | **Generated-art style consistency**<br>Score a generated illustration against separate art-direction criteria illustrated by a supplied moodboard, using explicit rubric levels and retaining each criterion score. | Visual criteria & reference matching | `Score` | Coming soon · [#423](https://github.com/Jev-Engineering/cookbook/issues/423) |
+| 76 | **Plant appearance matching**<br>Compare a plant photograph with labeled visual examples to suggest a candidate appearance group, including unknown for unsupported or ambiguous matches. | Visual criteria & reference matching | `Choice` | Coming soon · [#424](https://github.com/Jev-Engineering/cookbook/issues/424) |
+| 85 | **Door state transition detection**<br>Classify a door as opened, closed, unchanged, or uncertain across chronologically ordered PNG or JPEG frames sampled by Python. | Multiframe & temporal understanding | `Choice` | Coming soon · [#404](https://github.com/Jev-Engineering/cookbook/issues/404) |
+| 86 | **Object arrival/departure detection**<br>Determine whether a specified package, vehicle, or other object appeared, disappeared, remained, or is uncertain across ordered still frames of a scene. | Multiframe & temporal understanding | `Choice` | Coming soon · [#430](https://github.com/Jev-Engineering/cookbook/issues/430) |
 
 #### Multimodal level 3 · Intermediate
 
@@ -290,24 +283,24 @@ Multiple judgments or stages, structured evidence, deterministic composition, an
 
 | # | Recipe | Category | Decision | Status |
 | :---: | --- | --- | --- | --- |
-| 62 | **Visual regression detection**<br>Compare before-and-after screenshots for missing elements, misalignment, clipping, and other predefined visual changes, then score each change against an explicit severity rubric. | Image understanding & visual judgments | `Noul` + `Score` | Coming soon |
-| 63 | **Manufacturing defect inspection**<br>Check synthetic product photographs for scratches, dents, missing components, and incorrect assembly with independent judgments and a defined defect-severity rubric. | Image understanding & visual judgments | `Noul` + `Score` | Coming soon |
-| 64 | **Field maintenance photo triage**<br>Classify predefined equipment conditions in maintenance photographs and independently flag visible corrosion, leaks, or disconnected cabling for a simulated review queue. | Image understanding & visual judgments | `Choice` + `Noul` | Coming soon |
-| 65 | **Retail shelf compliance**<br>Compare shelf photographs with an approved planogram image using independent checks for misplaced or missing product groups while Python combines the findings. | Image understanding & visual judgments | `Noul` | Coming soon |
-| 67 | **Product finish verification**<br>Compare a product photograph with a visual reference using separate color, material, and finish checks and explicit similarity rubrics under controlled imaging conditions. | Image understanding & visual judgments | `Noul` + `Score` | Coming soon |
-| 68 | **Visual accessibility screening**<br>Flag apparent text clipping, low contrast, crowding, and overlapping UI components with independent screenshot judgments to identify candidates for further accessibility testing. | Image understanding & visual judgments | `Noul` | Coming soon |
-| 77 | **Visual browser element locator**<br>Locate a named button, form input, or menu item in a screenshot and check target presence before Python draws the rectangle and previews a simulated browser action. | Bounding boxes & spatial reasoning | `Box` + `Noul` | Coming soon |
-| 78 | **Signature and stamp localization**<br>Check whether a synthetic scanned document contains a requested signature or approval stamp and locate one matching region for Python to crop and evaluate. | Bounding boxes & spatial reasoning | `Box` + `Noul` | Coming soon |
-| 79 | **Engineering diagram component locator**<br>Check for and locate a specified valve, connector, or symbol on an engineering diagram while Python converts normalized box edges into a visible annotation. | Bounding boxes & spatial reasoning | `Box` + `Noul` | Coming soon |
-| 81 | **Defect localization**<br>Check for one specified visible scratch, dent, or broken component, then draw and evaluate its bounding rectangle while suppressing boxes for absent targets. | Bounding boxes & spatial reasoning | `Box` + `Noul` | Coming soon |
-| 82 | **Reference-guided object search**<br>Locate a particular product on a cluttered shelf or workbench using its reference photo in the instructions, with an independent presence check before accepting the rectangle. | Bounding boxes & spatial reasoning | `Box` + `Noul` | Coming soon |
-| 87 | **Game phase transition detection**<br>Recognize transitions between combat, menus, map selection, and rewards from ordered game screenshots while Python records the phase history and handles uncertain transitions. | Multiframe & temporal understanding | `Choice` | Coming soon |
-| 88 | **Visual action verification**<br>Compare screenshots before and after a simulated browser action to judge whether the intended UI change is visible while Python preserves the action and frame records. | Multiframe & temporal understanding | `Noul` | Coming soon |
-| 89 | **Conveyor jam detection**<br>Evaluate ordered synthetic factory frames for visible blockage or halted conveyor movement and score the evidence using a fixed rubric while Python controls sampling and timing. | Multiframe & temporal understanding | `Noul` + `Score` | Coming soon |
-| 90 | **Assembly progression recognition**<br>Identify the predefined assembly stage reached in a chronological photograph sequence, retaining unknown or inconsistent outcomes for review. | Multiframe & temporal understanding | `Choice` | Coming soon |
-| 91 | **Sports action phase recognition**<br>Classify a short ordered still-image sequence as preparation, execution, recovery, or an unrecognized movement using supplied phase definitions. | Multiframe & temporal understanding | `Choice` | Coming soon |
-| 92 | **Video highlight candidate detection**<br>Score frame sequences for separately defined highlight signals such as visible reactions or unusual scene changes while Python samples video and maps candidate windows to timestamps. | Multiframe & temporal understanding | `Score` | Coming soon |
-| 93 | **Image-grounded bug report verification**<br>Check whether a screenshot supports each claimed bug symptom using the description, error logs, and expected behavior, preserving evidence links for a simulated review queue. | Multimodal & long context | `Noul` | Coming soon |
+| 62 | **Visual regression detection**<br>Compare before-and-after screenshots for missing elements, misalignment, clipping, and other predefined visual changes, then score each change against an explicit severity rubric. | Image understanding & visual judgments | `Noul` + `Score` | Coming soon · [#405](https://github.com/Jev-Engineering/cookbook/issues/405) |
+| 63 | **Manufacturing defect inspection**<br>Check synthetic product photographs for scratches, dents, missing components, and incorrect assembly with independent judgments and a defined defect-severity rubric. | Image understanding & visual judgments | `Noul` + `Score` | Coming soon · [#412](https://github.com/Jev-Engineering/cookbook/issues/412) |
+| 64 | **Field maintenance photo triage**<br>Classify predefined equipment conditions in maintenance photographs and independently flag visible corrosion, leaks, or disconnected cabling for a simulated review queue. | Image understanding & visual judgments | `Choice` + `Noul` | Coming soon · [#413](https://github.com/Jev-Engineering/cookbook/issues/413) |
+| 65 | **Retail shelf compliance**<br>Compare shelf photographs with an approved planogram image using independent checks for misplaced or missing product groups while Python combines the findings. | Image understanding & visual judgments | `Noul` | Coming soon · [#414](https://github.com/Jev-Engineering/cookbook/issues/414) |
+| 67 | **Product finish verification**<br>Compare a product photograph with a visual reference using separate color, material, and finish checks and explicit similarity rubrics under controlled imaging conditions. | Image understanding & visual judgments | `Noul` + `Score` | Coming soon · [#416](https://github.com/Jev-Engineering/cookbook/issues/416) |
+| 68 | **Visual accessibility screening**<br>Flag apparent text clipping, low contrast, crowding, and overlapping UI components with independent screenshot judgments to identify candidates for further accessibility testing. | Image understanding & visual judgments | `Noul` | Coming soon · [#417](https://github.com/Jev-Engineering/cookbook/issues/417) |
+| 77 | **Visual browser element locator**<br>Locate a named button, form input, or menu item in a screenshot and check target presence before Python draws the rectangle and previews a simulated browser action. | Bounding boxes & spatial reasoning | `Box` + `Noul` | Coming soon · [#403](https://github.com/Jev-Engineering/cookbook/issues/403) |
+| 78 | **Signature and stamp localization**<br>Check whether a synthetic scanned document contains a requested signature or approval stamp and locate one matching region for Python to crop and evaluate. | Bounding boxes & spatial reasoning | `Box` + `Noul` | Coming soon · [#425](https://github.com/Jev-Engineering/cookbook/issues/425) |
+| 79 | **Engineering diagram component locator**<br>Check for and locate a specified valve, connector, or symbol on an engineering diagram while Python converts normalized box edges into a visible annotation. | Bounding boxes & spatial reasoning | `Box` + `Noul` | Coming soon · [#426](https://github.com/Jev-Engineering/cookbook/issues/426) |
+| 81 | **Defect localization**<br>Check for one specified visible scratch, dent, or broken component, then draw and evaluate its bounding rectangle while suppressing boxes for absent targets. | Bounding boxes & spatial reasoning | `Box` + `Noul` | Coming soon · [#427](https://github.com/Jev-Engineering/cookbook/issues/427) |
+| 82 | **Reference-guided object search**<br>Locate a particular product on a cluttered shelf or workbench using its reference photo in the instructions, with an independent presence check before accepting the rectangle. | Bounding boxes & spatial reasoning | `Box` + `Noul` | Coming soon · [#428](https://github.com/Jev-Engineering/cookbook/issues/428) |
+| 87 | **Game phase transition detection**<br>Recognize transitions between combat, menus, map selection, and rewards from ordered game screenshots while Python records the phase history and handles uncertain transitions. | Multiframe & temporal understanding | `Choice` | Coming soon · [#431](https://github.com/Jev-Engineering/cookbook/issues/431) |
+| 88 | **Visual action verification**<br>Compare screenshots before and after a simulated browser action to judge whether the intended UI change is visible while Python preserves the action and frame records. | Multiframe & temporal understanding | `Noul` | Coming soon · [#408](https://github.com/Jev-Engineering/cookbook/issues/408) |
+| 89 | **Conveyor jam detection**<br>Evaluate ordered synthetic factory frames for visible blockage or halted conveyor movement and score the evidence using a fixed rubric while Python controls sampling and timing. | Multiframe & temporal understanding | `Noul` + `Score` | Coming soon · [#432](https://github.com/Jev-Engineering/cookbook/issues/432) |
+| 90 | **Assembly progression recognition**<br>Identify the predefined assembly stage reached in a chronological photograph sequence, retaining unknown or inconsistent outcomes for review. | Multiframe & temporal understanding | `Choice` | Coming soon · [#433](https://github.com/Jev-Engineering/cookbook/issues/433) |
+| 91 | **Sports action phase recognition**<br>Classify a short ordered still-image sequence as preparation, execution, recovery, or an unrecognized movement using supplied phase definitions. | Multiframe & temporal understanding | `Choice` | Coming soon · [#434](https://github.com/Jev-Engineering/cookbook/issues/434) |
+| 92 | **Video highlight candidate detection**<br>Score frame sequences for separately defined highlight signals such as visible reactions or unusual scene changes while Python samples video and maps candidate windows to timestamps. | Multiframe & temporal understanding | `Score` | Coming soon · [#435](https://github.com/Jev-Engineering/cookbook/issues/435) |
+| 93 | **Image-grounded bug report verification**<br>Check whether a screenshot supports each claimed bug symptom using the description, error logs, and expected behavior, preserving evidence links for a simulated review queue. | Multimodal & long context | `Noul` | Coming soon · [#436](https://github.com/Jev-Engineering/cookbook/issues/436) |
 
 #### Multimodal level 4 · Advanced
 
@@ -315,15 +308,15 @@ Stateful workflows, provenance, adversarial cases, model calibration, or several
 
 | # | Recipe | Category | Decision | Status |
 | :---: | --- | --- | --- | --- |
-| 80 | **Game HUD perception**<br>Identify and locate a requested energy meter, card, action button, or enemy indicator in a synthetic Slay the Spire 2-style screenshot, with absent and ambiguous outcomes before any simulated action. | Bounding boxes & spatial reasoning | `Box` + `Choice` | Coming soon |
-| 83 | **Hierarchical visual search**<br>Select among Python-generated image tiles, retaining no-match and uncertain outcomes, then progressively localize a small target while Python maps the final rectangle back to the full image. | Bounding boxes & spatial reasoning | `Choice` + `Box` | Coming soon |
-| 84 | **Bounding-box self-verification**<br>Check target presence, localize it, and ask independent questions about whether it continues past each crop edge so Python can adjust the rectangle within fixed retry and size limits. | Bounding boxes & spatial reasoning | `Box` + `Noul` | Coming soon |
-| 94 | **Long-form visual evidence audit**<br>Compare inspection photographs with individual statements in an extended report or maintenance history using opt-in long context while Python preserves evidence provenance and review outcomes. | Multimodal & long context | `Noul` | Coming soon |
-| 95 | **AI livestream overlay verification**<br>Compare gameplay frames and recorded agent state with displayed strategy, phase, and action overlays to flag unsupported status claims in a simulated livestream review. | Multimodal & long context | `Noul` | Coming soon |
-| 96 | **Multilingual visual instruction verification**<br>Classify whether photographs and signage support instructions across languages, comparing pinned Jev 1.13 and 1.14 versions on identical labeled tasks with an uncertain outcome. | Multimodal & long context | `Choice` | Coming soon |
-| 97 | **Photo-based equipment troubleshooting**<br>Combine a photographed symptom, equipment model information, and a long troubleshooting manual to select candidate diagnostic checks from a supplied catalog for simulated review. | Multimodal & long context | `Choice` | Coming soon |
-| 99 | **Historical screenshot sequence analysis**<br>Check candidate state transitions against a long sequence of screenshots and textual test logs so Python can identify the earliest supported visible transition associated with a defect. | Multimodal & long context | `Noul` | Coming soon |
-| 100 | **Multimodal agent handoff verification**<br>Classify a reported agent result and independently check its claims against screenshots and tool records before deterministic policy permits a simulated handoff or requests review. | Multimodal & long context | `Choice` + `Noul` | Coming soon |
+| 80 | **Game HUD perception**<br>Identify and locate a requested energy meter, card, action button, or enemy indicator in a synthetic screenshot of an invented, unbranded deck-building game HUD, with absent and ambiguous outcomes before any simulated action. | Bounding boxes & spatial reasoning | `Box` + `Choice` | Coming soon · [#406](https://github.com/Jev-Engineering/cookbook/issues/406) |
+| 83 | **Hierarchical visual search**<br>Select among Python-generated image tiles, retaining no-match and uncertain outcomes, then progressively localize a small target while Python maps the final rectangle back to the full image. | Bounding boxes & spatial reasoning | `Choice` + `Box` | Coming soon · [#407](https://github.com/Jev-Engineering/cookbook/issues/407) |
+| 84 | **Bounding-box self-verification**<br>Check target presence, localize it, and ask independent questions about whether it continues past each crop edge so Python can adjust the rectangle within fixed retry and size limits. | Bounding boxes & spatial reasoning | `Box` + `Noul` | Coming soon · [#429](https://github.com/Jev-Engineering/cookbook/issues/429) |
+| 94 | **Long-form visual evidence audit**<br>Compare inspection photographs with individual statements in an extended report or maintenance history using opt-in long context while Python preserves evidence provenance and review outcomes. | Multimodal & long context | `Noul` | Coming soon · [#437](https://github.com/Jev-Engineering/cookbook/issues/437) |
+| 95 | **AI livestream overlay verification**<br>Compare gameplay frames and recorded agent state with displayed strategy, phase, and action overlays to flag unsupported status claims in a simulated livestream review. | Multimodal & long context | `Noul` | Coming soon · [#409](https://github.com/Jev-Engineering/cookbook/issues/409) |
+| 96 | **Multilingual visual instruction verification**<br>Classify whether synthetic drawings of signage support instructions across languages, comparing pinned Jev 1.13 and 1.14 versions on identical labeled tasks with an uncertain outcome. | Multimodal & long context | `Choice` | Coming soon · [#438](https://github.com/Jev-Engineering/cookbook/issues/438) |
+| 97 | **Photo-based equipment troubleshooting**<br>Combine a photographed symptom, equipment model information, and a long troubleshooting manual to select candidate diagnostic checks from a supplied catalog for simulated review. | Multimodal & long context | `Choice` | Coming soon · [#439](https://github.com/Jev-Engineering/cookbook/issues/439) |
+| 99 | **Historical screenshot sequence analysis**<br>Check candidate state transitions against a long sequence of screenshots and textual test logs so Python can identify the earliest supported visible transition associated with a defect. | Multimodal & long context | `Noul` | Coming soon · [#440](https://github.com/Jev-Engineering/cookbook/issues/440) |
+| 100 | **Multimodal agent handoff verification**<br>Classify a reported agent result and independently check its claims against screenshots and tool records before deterministic policy permits a simulated handoff or requests review. | Multimodal & long context | `Choice` + `Noul` | Coming soon · [#441](https://github.com/Jev-Engineering/cookbook/issues/441) |
 
 #### Multimodal level 5 · Expert
 
@@ -331,7 +324,7 @@ Controlled optimization studies or closed-loop simulations requiring budgets, ba
 
 | # | Recipe | Category | Decision | Status |
 | :---: | --- | --- | --- | --- |
-| 98 | **Long-context versus focused-context evaluation**<br>Compare judgments using contexts up to the opt-in 262k-token limit with retrieval and staged decisions across all four decision types on identical labeled tasks, with frozen policies, held-out evaluation, and measured resource use. | Multimodal & long context | `Choice` + `Noul` + `Score` + `Box` | Coming soon |
+| 98 | **Long-context versus focused-context evaluation**<br>Compare judgments using contexts up to the opt-in 262k-token limit with retrieval and staged decisions across all four decision types on identical labeled tasks, with frozen policies, held-out evaluation, and measured resource use. | Multimodal & long context | `Choice` + `Noul` + `Score` + `Box` | Coming soon · [#410](https://github.com/Jev-Engineering/cookbook/issues/410) |
 <!-- catalog:recipes:end -->
 
 ## Repository layout
@@ -340,8 +333,8 @@ The layout the recipes are being built into. `catalog/recipes.json` is the sourc
 
 ```text
 cookbook/
-├── catalog/recipes.json      100 planned recipes in two tracks, machine readable
-├── recipes/NN-slug/          one folder per recipe (100 uses 100-slug): notebook, README, fixtures/
+├── catalog/recipes.json      the 100 planned recipes, machine readable
+├── recipes/NN-slug/          one folder per recipe: notebook.ipynb, README.md, fixtures/
 ├── src/jev_cookbook/         shared helpers: backends, fixtures, evaluation, plotting
 ├── tools/render_catalog.py   regenerates the tables in this README
 ├── orchestration/PROMPT.md   the multi-agent build plan for this repository
@@ -350,7 +343,7 @@ cookbook/
 
 ## Sources
 
-The use cases are proposed applications. Their ranks are curriculum judgments, not ratings published by the sources. The references below were reviewed on 6 October 2026, and each recipe issue lists the ones that apply to it. S07 describes limitations of the documented Jev 1.13 model specifically.
+The use cases are proposed applications. Their ranks are curriculum judgments, not ratings published by the sources. The references below were reviewed on 6 October 2026 (S01 to S08) and 15 October 2026 (S09 to S12). Each reference's review date is recorded in `catalog/recipes.json`, and the references that apply to a recipe are listed in that recipe's catalog entry. S07 describes limitations of the documented Jev 1.13 model specifically.
 
 <!-- catalog:sources:start -->
 | ID | Reference | What it supports |
@@ -371,7 +364,7 @@ The use cases are proposed applications. Their ranks are curriculum judgments, n
 
 ## Contributing
 
-Recipes are built against one contract, described in [CONTRIBUTING.md](CONTRIBUTING.md): offline by default, synthetic fixtures, Python in control of every side effect, and no quality claim without a measured run. Progress is tracked in [issues](https://github.com/Jev-Engineering/cookbook/issues) and [milestones](https://github.com/Jev-Engineering/cookbook/milestones), one issue per recipe, where issue number and recipe number match.
+Recipes are built against one contract, described in [CONTRIBUTING.md](CONTRIBUTING.md): offline by default, synthetic fixtures, Python in control of every side effect, and no quality claim without a measured run. Progress is tracked in [issues](https://github.com/Jev-Engineering/cookbook/issues) and [milestones](https://github.com/Jev-Engineering/cookbook/milestones), with each recipe's assigned issue recorded in its catalog entry (`issue` is null until one is assigned). A recipe's rank is not its issue number; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 <p align="center">
 <sub>An independent project by <a href="https://github.com/Jev-Engineering">Jev-Engineering</a> · Steward: Complete Tech LLC · MIT licensed<br>

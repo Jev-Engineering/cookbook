@@ -15,7 +15,12 @@ python -m venv .venv
 #   Windows, Git Bash:    source .venv/Scripts/activate
 #   Windows, PowerShell:  .venv\Scripts\Activate.ps1
 #   Windows, cmd:         .venv\Scripts\activate.bat
-pip install -e ".[dev]"
+pip install -e ".[dev,ml]"
+#    ml is scikit-learn: CI installs it, and pytest below collects every recipe's helpers.py,
+#    which may import it. Add ,live to also run tests/test_live_sdk.py (CI does on Python 3.14).
+#    The `optional live extra` block is printed after the failure and warning sections and before
+#    pytest's short test summary and its totals line. It says which set was measured; see
+#    "Comparing runs with and without the live extra" below.
 
 # 2. Lint and format check
 ruff check .
@@ -37,9 +42,9 @@ How a recipe's tests import its `helpers.py` is defined in #68 (every recipe has
 (61–100). In paths such as `recipes/NN-slug/`, the prefix is zero-padded through `99` and is
 three digits for `100`. `python tools/new_recipe.py NN` accepts ranks 1–100 and uses the catalog
 slug. A rank is not an issue number: the `issue` field records the assigned repository issue.
-The new multimodal entries have `issue: null`; the scaffolder prints a notice and creates a local
-skeleton, but opening a recipe pull request must wait for a real issue assignment in the trusted
-base catalog. See [recipe-template.md](recipe-template.md) for the workflow.
+The multimodal entries record their recipe issues #402–#441; for an entry with `issue: null` the
+scaffolder prints a notice and creates a local skeleton, but opening a recipe pull request must
+wait for a real issue assignment in the trusted base catalog. See [recipe-template.md](recipe-template.md) for the workflow.
 
 The README tables are generated: after a catalog change run
 `python tools/render_catalog.py`, and `python tools/render_catalog.py --check` to verify.
@@ -74,11 +79,33 @@ Both are described below and in [notebook-ci.md](notebook-ci.md).
 | `Catalog (README is current)` | `python tools/render_catalog.py --check` |
 | `Tests (py3.10)` | `pytest` on the package floor |
 | `Tests (py3.14)` | `pytest` on the newest interpreter contributors use |
-| `Hygiene (secrets and notebook outputs)` | `python tools/check_hygiene.py` (workflow `Hygiene`, `.github/workflows/hygiene.yml`) |
+| `Hygiene (secrets and notebook outputs)` | `python tools/check_hygiene.py` and `python tools/check_recipe_assets.py` (workflow `Hygiene`, `.github/workflows/hygiene.yml`) |
 
-The two test jobs differ on purpose: `Tests (py3.14)` installs `.[dev,live]` so the SDK-backed
-tests in `tests/test_live_sdk.py` run, while `Tests (py3.10)` installs `.[dev]` only and proves
-the package and every offline test work with the SDK absent (that one module is skipped).
+The two test jobs differ on purpose: `Tests (py3.14)` installs `.[dev,ml,live]` so the SDK-backed
+tests in `tests/test_live_sdk.py` run, while `Tests (py3.10)` installs `.[dev,ml]` and proves
+the package and every offline test work with the SDK absent. There the SDK-backed tests are
+skipped one by one: each test and each parametrized case counts as its own skip, not one skip
+for the module. The `-rs` short summary folds skips that share a location and reason into one
+line, so count the skips from the totals or the `skipped=` figure, not from that list. One more
+test, in `tests/test_notebook_ci_netguard.py`, skips inside its body when the SDK is absent. The
+two `Tests` legs also differ by interpreter and by the resolved package versions, because other
+tests skip depending on those, so their totals are not a like-for-like pair; compare runs on the
+same interpreter.
+
+Both install the `ml` extra, because the test jobs import every recipe's `helpers.py` and
+`tests/`, and `ml` is the extra a recipe is told it may use. Neither applies
+`.github/constraints-notebooks.txt`, and no single pin could serve both legs: `numpy==2.5.3` and
+`scipy==1.18.1` need Python 3.12 or newer and `scikit-learn==1.9.1` needs 3.11 or newer, so none of
+them installs on the 3.10 floor. Each leg takes the newest release its interpreter supports. Today
+the 3.14 leg gets scikit-learn 1.9.1, the release the notebook job pins, but nothing holds it
+there, so it moves when a newer release is published (numpy already differs: 2.5.4 against the
+pin 2.5.3); the 3.10 leg gets 1.7.2, an older release than the other leg, and will always lag it.
+A recipe test that exercises a trained model therefore asserts properties that hold on every
+version (the shape of the output, that it beats the baseline, determinism under a fixed seed) and
+never a trained number or a printed `repr` that depends on the scikit-learn version; those belong
+in the notebook, whose outputs the pinned `Notebook (<recipe>)` job checks. The package itself
+never imports scikit-learn, SciPy or the SDK at import time: `tests/test_import.py` imports
+every `jev_cookbook` module with all three blocked.
 
 Run the lint, test and hygiene commands from this document locally before opening a pull
 request. Third-party actions are pinned to full commit SHAs with the version in a
@@ -92,6 +119,57 @@ request can never satisfy it, because no recipe on `main` may link forward to on
 yet published and a recipe pull request may change only its own folder. Run it by hand at each
 wave close-out, after the close-out sweep has added the missing backlinks:
 `pytest -m catalog_audit tests/test_recipe_guard.py`.
+
+### Comparing runs with and without the live extra
+
+Two honest runs of the same tree can differ in their passed and skipped totals, depending on
+whether the `live` extra (`typesafe_sdk` and `httpx2`) is installed. Neither total is wrong, so
+never quote a pytest total without the summary line described below.
+
+Every run that collects `tests/` says which case it is. `tests/conftest.py` prints a header line,
+either `live extra (typesafe_sdk, httpx2): INSTALLED ...` or `NOT INSTALLED (missing: ...)`, which
+`-q` hides. It also always prints one summary line, in a block headed `optional live extra`, even
+under `-q`, after the failure and warning sections and before pytest's short test summary and its
+totals line. With the extra it reads `live extra INSTALLED: SDK-gated tests in this
+run: ran=N skipped=0 deselected=0`. Without it it reads `live extra NOT INSTALLED (missing:
+typesafe_sdk, httpx2): SDK-gated tests in this run: ran=0 skipped=M deselected=0 -- install with
+pip install -e ".[live]" to run them; counts are not comparable with a run that has it`. A run of a
+recipe's own tests directory (for example `pytest recipes/<slug>/tests`) does not load
+`tests/conftest.py`, so it prints neither the header nor the summary line.
+
+Each dynamic count has the same scope, and none of them is a whole-suite total. It is counted
+per test node id, so a parametrized case is its own test, and it covers only the SDK-gated
+tests of this one invocation. A test is SDK-gated if it carries the `live_sdk` marker or is
+skipped with a reason that names `typesafe_sdk` or `httpx2`. `ran` counts the gated tests
+executed (passed, failed, errored, xfailed or xpassed), `skipped` counts the gated tests
+skipped, and `deselected` counts the gated tests removed by `-k`, `-m` or `--deselect`. Under
+pytest-xdist, deselection happens on the workers, so `deselected` can read 0 even when tests were
+deselected (xdist is not a project dependency). A test's setup, call and teardown reports are
+counted once. The counts move with every test
+added and with the SDK version, so none of them is frozen in the repository.
+
+The skip is per test. The `live_sdk` marker is applied by `pytestmark` in
+`tests/test_live_sdk.py` and registered in `tests/conftest.py`, so each skip is one test, and
+the skip count equals the number of SDK-gated tests not run.
+
+To compare two runs, run the same command, with the same paths and the same `-k` or `-m`, once
+with `pip install -e ".[dev,ml]"` and once with `pip install -e ".[dev,ml,live]"`. In a
+like-for-like pair, `skipped` in the run without the extra equals `ran` in the run with it,
+and pytest's own totals differ by that amount: `passed` is higher with the extra and `skipped`
+is lower. There is one honest exception. A test that skips inside its body, through an
+in-test `pytest.importorskip` such as the one in `tests/test_notebook_ci_netguard.py`, carries
+no marker, so it is counted only when it skips. Such a test makes `skipped` without the extra
+exceed `ran` with the extra by the number of such tests. A difference beyond that is a real
+difference, not the extra. CI's two `Tests` legs also differ by interpreter and by the resolved
+package versions, because other tests skip depending on those, so their totals are not a
+like-for-like pair; compare runs on the same interpreter. For example, measured at commit 16bfda5
+the two legs reported 7843 passed and 7791 passed, a difference of 52 rather than the 63 the extra
+accounts for. That is one measurement, not an expected baseline.
+
+To run only the SDK-backed tests, use `pytest -m live_sdk`. To leave them out, use
+`pytest -m "not live_sdk and not catalog_audit"`. A command-line `-m` replaces the
+`-m 'not catalog_audit'` in `addopts`, so keep `and not catalog_audit` whenever you exclude
+by marker, or the `catalog_audit` test runs too.
 
 ### Notebook checks (workflow `Notebooks`)
 
@@ -115,7 +193,9 @@ set -e   # #108 fix round 7, B8 suggestion 4: without this, a failed execute_not
          # on a notebook that never actually ran -- the same shape as the execute step's own `|
          # tee` exit-masking gap in .github/workflows/notebooks.yml, in a shell with no pipe
          # involved at all.
-pip install -e ".[ml]" -c .github/constraints-notebooks.txt   # CI's install (Python 3.14)
+# CI's install, Python 3.14 only: the constraints pin numpy==2.5.3, which needs Python >= 3.12,
+# so this line cannot be used on the Python 3.10 floor (pip fails to resolve it there).
+pip install -e ".[ml]" -c .github/constraints-notebooks.txt
 BEFORE=$(git status --porcelain)   # see below for why this is a snapshot, not just "is it clean"
 # #108 fix round 8, B9 M1: rm -rf first. /tmp/run/NN-slug survives between runs (nothing in this
 # block ever removes it), and `cp -R src dst` copies INTO an existing dst rather than replacing
@@ -271,7 +351,9 @@ it cannot see, is in [notebook-ci.md](notebook-ci.md).
 ## Repository hygiene
 
 `python tools/check_hygiene.py` scans every tracked file (or only the files you name) in a
-few seconds, with the standard library only. Run it before pushing a notebook.
+few seconds, with the standard library only. Run it before pushing a notebook. It skips image
+files; a recipe's images (location, format, size, metadata) are checked by the sibling
+`python tools/check_recipe_assets.py`, described in [fixtures.md](fixtures.md#image-fixtures).
 
 It covers, in every text file and in every notebook string (source, markdown, all text
 outputs such as stream, `text/plain`, `text/html`, error values and tracebacks, and
@@ -334,7 +416,7 @@ header, bearer and assignment rules. Notebooks of any size are parsed, ANSI colo
 tracebacks are stripped, UTF-16 files are decoded, and a file that cannot be scanned (an
 unknown notebook layout, an undecodable or oversized non-image file) is reported as an
 `unscanned-file` or `unrecognized-notebook-layout` finding, never skipped silently. Git SHAs, content hashes, URL and
-file-path segments, `data:` URIs, and a bare `name=VALUE` assignment (both sides runs of letters of one case or of digits joined by `_`, the value also by `.`, no quotes, and a name that does not contain api key, secret, token, password, access key or credential), such as the keyword argument `startup_timeout=KERNEL_START_TIMEOUT`, are not treated as entropy findings. If a real credential
+file-path segments, `data:` URIs, and a bare `name=VALUE` assignment (both sides runs joined by `_`, the value also by `.`, where a run is letters of one case optionally followed by digits, as in `STAGE1` or `SHA256`, or digits alone; no quotes, and a name that does not contain api key, secret, token, password, access key or credential, read with its digits and underscores removed and with any letters allowed between `api` or `access` and `key`, so `api1_key`, `api__key`, `api_v2_key` and `pass_word` still name a secret; bare `key`, `key_id`, `signature`, `session`, `nonce` and `salt` do not), such as the keyword arguments `startup_timeout=KERNEL_START_TIMEOUT` and `instructions=_STAGE1_INSTRUCTIONS`, are not treated as entropy findings. If a real credential
 is ever committed, revoke it; removing it from the branch is not enough.
 
 The fixture validator (#65) checks fixtures separately; this scan also reads fixture files
@@ -347,7 +429,7 @@ account-name and notebook-layout rules, which have no meaning in fixture text. A
 ### Optional pre-commit
 
 `.pre-commit-config.yaml` mirrors the CI checks (`ruff check`, `ruff format --check`, the
-hygiene script, the catalog check). `pytest` runs only at push time, so commits stay fast.
+hygiene script, the recipe image-asset check, the catalog check). `pytest` runs only at push time, so commits stay fast.
 `ruff format --check` also covers Python code blocks in `*.md` files, as in CI. `ruff check`
 does not lint Markdown, so that hook is unchanged, and `.markdown` and `.mdx` files are left
 out because `ruff format .` ignores them. It is optional:
@@ -361,7 +443,8 @@ pre-commit run --all-files --hook-stage pre-push   # include pytest
 
 The hooks are local (`language: system`) and use the tools from your virtual environment,
 so the pinned ruff version is the one CI uses. Run `pre-commit` with the project virtual
-environment activated so the pinned `ruff==0.16.10` is first on `PATH`: a stale global ruff (0.14.0 was
+environment activated so the ruff pinned in `pyproject.toml` (the `dev` extra, the single source of
+that version) is first on `PATH`: a stale global ruff (0.14.0 was
 seen) reports `Failed to parse <file>.md` on Markdown files and, when run on `.`, silently skips
 Markdown altogether, which gives a false pass. CI is unaffected because it installs the pinned ruff.
 
@@ -384,7 +467,10 @@ with at most three of its update pull requests open at once for each.
   `live` extra is not installed. A test enforces this for the package import.
 - Recipes run offline with the core dependencies and the `ml` extra. CI installs `.[ml]` in the
   notebook job (before the network is cut), with the plotting stack pinned by
-  `.github/constraints-notebooks.txt`; the `live` extra is never installed there. A recipe that
-  needs any other extra needs the workflow's install line changed first (a foundation change; a
+  `.github/constraints-notebooks.txt`; the `live` extra is never installed there. The `Tests` jobs
+  install `ml` too (unpinned), so `helpers.py`, `build_fixtures.py` and a recipe's `tests/` may
+  import scikit-learn, and `pytest` on a checkout needs `pip install -e ".[dev,ml]"` for the
+  recipes that do. A recipe that needs any other extra needs the workflow's install line changed
+  first (a foundation change; a
   recipe pull request cannot touch `.github/`). Bumping the constraints is a foundation change
   that re-executes every notebook ([notebook-ci.md](notebook-ci.md#pinned-plotting-stack)).

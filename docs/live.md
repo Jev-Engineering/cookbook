@@ -42,6 +42,14 @@ export JEV_COOKBOOK_LIVE_MAX_REQUESTS=20         # optional, default 25
 `get_backend(fixtures=...)` then returns a `LiveBackend` and ignores `fixtures`/`script`, because
 in live mode the backend is the only thing that changes.
 
+**Only the lane meant to go live is built through `get_backend`.** A recipe that compares
+backends and has a lane that must stay offline (a fabricated adapter, a baseline replayed from its
+own file) builds that lane directly with `ReplayBackend(...)`, `ReplayBackend.from_json(...)` or
+`ScriptedBackend(...)`. Through `get_backend` it would become a live backend, on the model from
+`JEV_COOKBOOK_LIVE_MODEL`, in live mode. Offline runs and CI cannot show the difference. Read
+[backends.md](backends.md#which-lane-goes-through-get_backend) before writing a multi-backend
+harness.
+
 ### Model
 
 **Recordings must pin a versioned model: use `jev-1.13.0`, not an alias.** The model is passed
@@ -57,8 +65,17 @@ sent). The returned string is what goes on `DecisionResult.model` and into every
 
 Pass `images=True` and/or `long_context=True` to `LiveBackend` or `get_backend`.
 These booleans add exactly `TypeSafe-Danger-Zone-Images: true` and
-`TypeSafe-Danger-Zone-Long-Context: true`, respectively, to each request.
-Their defaults are false and ordinary text calls add neither header.
+`TypeSafe-Danger-Zone-Long-Context: true`, respectively. The header belongs to the backend, not to
+the call: a backend built with `images=True` sends the images header on every call it makes,
+including a call with no image or Box question, and a backend built with `long_context=True`
+does the same with the long-context header. Upstream asks for the images header "with each
+request that contains an image or a Box question" ([images](https://docs.typesafe.ai/images)).
+Both defaults are false, and a backend built without a flag sends no header for it. Only
+`images=True` admits image assets and Box questions: a backend built without it refuses them
+(below), whatever `long_context` is. A text-only call that should carry no images header therefore
+goes through a backend built without `images=True`. That is a second instance with its own request
+budget, ledger and records (see [Budget guard](#budget-guard)): each instance enforces its own
+`max_requests`, so the caller budgets and accounts for both.
 The existing restriction on arbitrary `request_kwargs["extra_headers"]` still holds.
 
 Pass raw image dictionaries using `decide(state, questions, assets=assets)` as described in
@@ -86,10 +103,22 @@ latency or cost. See [images](https://docs.typesafe.ai/images),
   ordinary answer classes, so it gets the same consistency checks as any stored fixture.
 - Usage: the API's `input_tokens`/`output_tokens` become `Usage`; each may be `null`. A count that
   is not a non-negative integer or null is a `LiveResponseError`, not a guess.
+- Compression: the backend builds its own client without a `compression=` argument, so the SDK's
+  default applies. SDK 0.7.5 made it zstd
+  ([changelog](https://docs.typesafe.ai/sdk/python/changelog): "enable request body compression
+  with zstd by default (non-official APIs may not support this immediately)"). The clients
+  compress request bodies of 1 KiB or more with zstd when zstd is available: the standard library
+  provides it from Python 3.14 (`compression.zstd`, present only when the interpreter was built
+  with zstd), and `typesafe-sdk[zstd]` provides it on earlier versions
+  ([SDK advanced usage](https://docs.typesafe.ai/sdk/python/usage/advanced)). Without zstd the SDK
+  sends bodies uncompressed, and `jev_cookbook[live]` does not install that extra. A client you
+  pass with `client=` keeps the compression you built it with. Compression does not raise the
+  32 MiB request-body limit ([images](https://docs.typesafe.ai/images)).
 - The `request_id` (the `x-typesafe-request-id` header, when present) is not part of the stored
   response format, and `DecisionResult` rejects unknown fields, so it is kept beside the result:
   `backend.last_request_id`, `backend.request_ids`, `backend.records` (one `CallRecord` per
-  successful call: replay key, model, request id, usage, date) and the recorder's optional sidecar.
+  successful call: replay key, model, request id, usage, date, and `images` and `distinct_images`,
+  both 0 unless the call carried image assets) and the recorder's optional sidecar.
 
 ## Budget guard
 
@@ -118,8 +147,36 @@ images=False, long_context=False)`.
 - For a ledger: `requests_made`, `requests_remaining`, `max_requests`, `usage_total` (a `Usage`
   summing the counts the API reported; `None` until a call reports one), `records`, and
   `ledger()`, a plain dictionary (requested and returned model, budget, requests made, successes,
-  failed attempts, token sums, calls that did not report both counts, request ids). It holds no
-  key, state or answers.
+  failed attempts, token sums, calls that did not report both counts, request ids). When any
+  successful call carried image assets it also holds `images` (image copies) and `distinct_images`,
+  each summed over the successful calls; a text-only ledger has neither key. It holds no key,
+  state or answers.
+
+- The cap is inclusive and per backend. With `JEV_COOKBOOK_LIVE_MAX_REQUESTS=N` a backend sends
+  N attempts and refuses the (N+1)th, so a recipe that makes N requests on one backend runs to the
+  end at a cap of N, and at N-1 it stops at its last request. `get_backend` reads the variable for
+  each backend it builds, so a notebook with two backends sends up to N through each: the cap is
+  never a limit on the run. A recipe's README therefore names the largest single backend's count
+  as the cap and its total as what the run spends, and a cap that is met exactly leaves no room for
+  a retry.
+
+`AuditedBackend` can wrap the same instance to count logical `decide()` invocations and emit
+offline execution evidence for a recipe's README budget note; see
+[actual calls and distinct requests](backends.md#actual-calls-and-distinct-requests).
+Its count includes repeated identical requests and failed delegated calls. It is separate from
+`requests_made`: one logical call can retry several HTTP attempts, or spend zero attempts when
+the budget is already exhausted. Distinct fixture keys count neither of those quantities.
+The wrapper forwards the live recorder's attributes and settings to this same backend instance.
+
+**A recipe's request count is declared once** in `request_budget.json`; the README's budget
+paragraph is rendered from it and the recipe guard compares both with the audited offline
+execution, so the count the README promises, the `JEV_COOKBOOK_LIVE_MAX_REQUESTS` it tells you to
+set and the requests the notebook makes cannot drift apart for a recipe that has adopted the
+declaration (the others keep the older check, which cannot see a repeated request)
+([the declaration](backends.md#the-declared-count-request_budgetjson)). The audit replays the
+committed answers; a recipe whose later requests depend on earlier answers declares the longest
+path it can take, and the README's cap follows that bound. Totals for budget arithmetic are the
+sum over a recipe's backends (what is billed); the cap is the largest single backend.
 
 An injected `client` is yours: any object with `system_one(state=..., questions=..., model=...)`
 returning an SDK-style response. The backend requires no opt-in or key for it (it reads
@@ -155,6 +212,14 @@ report = record(
   with the returned model string and the date. It is written with sorted keys, two-space indent,
   UTF-8, LF and a final newline, atomically (temp file then replace). A recorded fixture replays
   byte for byte: `json.dumps(replay.decide(...).to_dict())` equals the stored value.
+- `jev_cookbook.dump_responses(data)` returns exactly that text for a `{replay_key: response}`
+  mapping and writes nothing. A scaffolded `build_fixtures.py` writes `responses.json` with it, and
+  the scaffolded `tests/test_build_fixtures.py` asserts the committed file equals
+  `dump_responses(build_responses(ROWS))`: what the synthetic generator would write, serialized
+  exactly as the recorder serializes. (That test describes a synthetic fixture set; once a recipe
+  merges a recorded answer it no longer holds.) `jev_cookbook.live._dump` is the same function
+  under its old, private name, kept only as a transitional alias for code outside `recipes/`;
+  no recipe may use it.
 - Merging: an existing file is read and extended. A key already in the file is skipped without a
   call (no budget spent) unless `overwrite=True`. `merge_responses(path, additions, *,
   overwrite=False)` is the underlying merge: a key present with a different response raises
@@ -177,7 +242,11 @@ report = record(
   race.
 - `RecordReport` lists `written`, `skipped` and `unchanged` keys, the number of attempts the
   backend made, and the returned model.
-- `ledger_path`: a JSON sidecar with one line for every paid call made in this run. It is separate
+- `ledger_path`: a JSON sidecar with one line for each call `record` makes to `decide` in this
+  run: a call that produced a response, and a call that raised, including one refused before
+  anything was sent, which spends nothing. A request that fails validation (for example an asset
+  that no state, instruction or criteria value names) never becomes a `decide` call: `record`
+  raises before any call and writes no line for it. The sidecar is separate
   from the responses file because the stored-response format has no field for the request id. It
   is optional, and **it must live outside `fixtures/`**: `record` refuses (`ValueError`, before any
   call) a path inside a `fixtures/` directory, because the fixture validator rejects stray files
@@ -190,17 +259,28 @@ report = record(
     nothing was retried). `retried` lists the failed attempts it retried past, oldest first, as
     `{error_type, http_status, request_id}` (`http_status` and `request_id` are null when the
     attempt got no response, for example a timeout); it is `[]` when nothing was retried.
+    `images` and `distinct_images` (the image copies and the distinct assets, counts only, never
+    bytes or references) are added only when the call carried image assets; a text-only call's
+    line has neither.
   - A call that produced nothing to record is written before the error is re-raised, as
     `{replay_key + "!failed-N": {status, error_type, http_status, request_id, model, date,
     attempts, retried}}`. `status` is `invalid_response` (the API answered but the result failed
-    validation, or contained the key), `error` (an HTTP or connection error), `timeout` or
-    `budget_stopped`. `error_type`, `http_status` and `request_id` describe the last attempt (the
-    one that ended the call; a timeout has no request id; for `budget_stopped` `error_type` is
-    `BudgetExceeded` and the other two are null). `attempts` is the HTTP attempts this call spent: 0 only when the
-    budget was already spent before the call sent anything, and otherwise includes any attempts
-    made before the budget stopped it. `retried` is as above. The same last-attempt id is on the
-    exception (`LiveResponseError.request_id`, `LiveCallError.request_id`). A failed line never
-    replaces the entry of an earlier call for the same key.
+    validation, or contained the key), `error` (an HTTP or connection error, or any other
+    exception that ended the call, including a request refused before anything was sent),
+    `timeout` or `budget_stopped`. `error_type`, `http_status` and `request_id` describe the last
+    attempt (the one that ended the call; a timeout has no request id; for `budget_stopped`
+    `error_type` is `BudgetExceeded` and the other two are null). A `decide` call refused before
+    anything was sent (`ImageRequestTooLarge` for an image request over a 32 MiB cap, or
+    `LiveConfigError` for a request the backend is not set up for, such as image assets without
+    `images=True`) is `status: "error"` with `error_type` the exception's class name,
+    `http_status` and `request_id` null, `attempts: 0` and `retried: []`; it is not a paid call.
+    A request that fails validation is not one of these: it raises from `record` before `decide`
+    is called and gets no line. `attempts` is the HTTP attempts this call spent: 0 when
+    nothing was sent (a budget already spent, or a refusal as above), and otherwise includes any
+    attempts made before the call failed or the budget stopped it. `retried` is as above. A failed
+    line carries no `images` or `distinct_images`. The same last-attempt id is on the exception
+    (`LiveResponseError.request_id`, `LiveCallError.request_id`). A failed line never replaces the
+    entry of an earlier call for the same key.
   - Reconciling: within one fresh sidecar, the sum of `attempts` over its lines (including any
     `superseded` entries, below) equals `backend.ledger()["requests_made"]` for the backend that
     ran. Every request id the backend saw is on disk: as `request_id` or inside `retried`.

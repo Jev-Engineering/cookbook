@@ -1267,7 +1267,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 411
     },
     {
       "rank": 62,
@@ -1288,7 +1288,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 405
     },
     {
       "rank": 63,
@@ -1309,7 +1309,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 412
     },
     {
       "rank": 64,
@@ -1330,7 +1330,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 413
     },
     {
       "rank": 65,
@@ -1350,7 +1350,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 414
     },
     {
       "rank": 66,
@@ -1370,7 +1370,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 415
     },
     {
       "rank": 67,
@@ -1391,7 +1391,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 416
     },
     {
       "rank": 68,
@@ -1411,7 +1411,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 417
     },
     {
       "rank": 69,
@@ -1431,7 +1431,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 402
     },
     {
       "rank": 70,
@@ -1451,7 +1451,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 418
     },
     {
       "rank": 71,
@@ -1471,7 +1471,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 419
     },
     {
       "rank": 72,
@@ -1491,7 +1491,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 420
     },
     {
       "rank": 73,
@@ -1511,7 +1511,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 421
     },
     {
       "rank": 74,
@@ -1531,7 +1531,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 422
     },
     {
       "rank": 75,
@@ -1551,7 +1551,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 423
     },
     {
       "rank": 76,
@@ -1571,7 +1571,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 424
     },
     {
       "rank": 77,
@@ -1593,7 +1593,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 403
     },
     {
       "rank": 78,
@@ -1615,7 +1615,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 425
     },
     {
       "rank": 79,
@@ -1637,7 +1637,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 426
     },
     {
       "rank": 80,
@@ -1650,7 +1650,7 @@
         "Box",
         "Choice"
       ],
-      "use_case": "Identify and locate a requested energy meter, card, action button, or enemy indicator in a synthetic Slay the Spire 2-style screenshot, with absent and ambiguous outcomes before any simulated action.",
+      "use_case": "Identify and locate a requested energy meter, card, action button, or enemy indicator in a synthetic screenshot of an invented, unbranded deck-building game HUD, with absent and ambiguous outcomes before any simulated action.",
       "sources": [
         "S02",
         "S03",
@@ -1659,7 +1659,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 406
     },
     {
       "rank": 81,
@@ -1681,7 +1681,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 427
     },
     {
       "rank": 82,
@@ -1703,7 +1703,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 428
     },
     {
       "rank": 83,
@@ -1725,7 +1725,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 407
     },
     {
       "rank": 84,
@@ -1747,7 +1747,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 429
     },
     {
       "rank": 85,
@@ -1767,7 +1767,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 404
     },
     {
       "rank": 86,
@@ -1787,7 +1787,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 430
     },
     {
       "rank": 87,
@@ -1807,7 +1807,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 431
     },
     {
       "rank": 88,
@@ -1827,7 +1827,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 408
     },
     {
       "rank": 89,
@@ -1848,7 +1848,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 432
     },
     {
       "rank": 90,
@@ -1868,7 +1868,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 433
     },
     {
       "rank": 91,
@@ -1888,7 +1888,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 434
     },
     {
       "rank": 92,
@@ -1908,7 +1908,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 435
     },
     {
       "rank": 93,
@@ -1928,7 +1928,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 436
     },
     {
       "rank": 94,
@@ -1948,7 +1948,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 437
     },
     {
       "rank": 95,
@@ -1968,7 +1968,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 409
     },
     {
       "rank": 96,
@@ -1980,7 +1980,7 @@
       "decision_types": [
         "Choice"
       ],
-      "use_case": "Classify whether photographs and signage support instructions across languages, comparing pinned Jev 1.13 and 1.14 versions on identical labeled tasks with an uncertain outcome.",
+      "use_case": "Classify whether synthetic drawings of signage support instructions across languages, comparing pinned Jev 1.13 and 1.14 versions on identical labeled tasks with an uncertain outcome.",
       "sources": [
         "S02",
         "S03",
@@ -1988,7 +1988,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 438
     },
     {
       "rank": 97,
@@ -2008,7 +2008,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 439
     },
     {
       "rank": 98,
@@ -2032,7 +2032,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 410
     },
     {
       "rank": 99,
@@ -2052,7 +2052,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 440
     },
     {
       "rank": 100,
@@ -2073,7 +2073,7 @@
         "S11",
         "S12"
       ],
-      "issue": null
+      "issue": 441
     }
   ]
 }

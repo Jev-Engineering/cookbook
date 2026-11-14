@@ -52,8 +52,9 @@ work; they are not the tickets for these recipes.
 
 ## Before a recipe is ready
 
-The [scaffolder](recipe-template.md) accepts ranks 1–100. A new multimodal entry starts with
-`issue: null`; scaffolding it prints a notice and creates a local skeleton. Keep that work local
+The [scaffolder](recipe-template.md) accepts ranks 1–100. Each multimodal entry records its
+recipe issue (#402–#441, assigned by issue title, not by rank) in the trusted base catalog. An entry
+with `issue: null` prints a notice when scaffolded and creates a local skeleton; keep such work local
 until a real repository issue is assigned to the slug in the trusted base catalog. A recipe pull
 request must use that assigned issue as its sole closing reference. The
 [scope guard](notebook-ci.md#the-scope-check) fails closed for an unknown or unassigned slug, and
@@ -69,7 +70,8 @@ tests. Shared code and workflow changes belong in foundation work under the
 The generic template supplies nine notebook sections and an offline workflow. Each visual recipe
 still needs its own bounded questions, labeled visual inputs, Python policy, baseline and
 evaluation. Keep fixtures synthetic and readable under the current
-[fixture contract](fixtures.md); record image provenance and any applicable license. Include
+[fixture contract](fixtures.md); record every image's provenance, licence and attestations in `assets-manifest.json`
+([Image provenance manifest](fixtures.md#image-provenance-manifest)). Include
 ambiguous examples, negative examples and absent targets. A returned rectangle by itself cannot
 establish that a target exists. Python controls all permissions, budgets, retries and simulated
 effects.

@@ -1,0 +1,692 @@
+{
+  "74": {
+    "url": "https://github.com/Jev-Engineering/cookbook/issues/74",
+    "title": "Epic: Foundation",
+    "issue_number": 74,
+    "body": "Everything the recipes are built on: the Python package, decision backends, fixture format, evaluation helpers, notebook style, recipe template, and CI.\n\n## Issues\n\n- [ ] #61 project scaffolding and Python package skeleton · `p0` · `S`\n- [ ] #62 CI baseline for lint, tests, and the README catalog check · `p0` · `S`\n- [ ] #63 decision backends with typed answers, replay, and scripted modes · `p0` · `M`\n- [ ] #64 opt-in live Jev backend and response recorder · `p1` · `M`\n- [ ] #65 fixture specification and validator · `p0` · `M`\n- [ ] #66 evaluation toolkit · `p0` · `L`\n- [ ] #67 notebook style, plotting theme, and run-mode header · `p0` · `S`\n- [ ] #68 recipe template and scaffolder · `p0` · `M`\n- [ ] #69 CI executes every notebook offline and validates fixtures · `p0` · `M`\n- [ ] #70 simulation and state primitives · `p1` · `L`\n- [ ] #71 repository hygiene for secrets, dependencies, and notebook outputs · `p1` · `S`\n- [ ] #72 reader documentation for getting started, offline and live modes, and the glossary · `p2` · `M`\n\n## Order\n\nIssues on the same line can be built in parallel.\n\n1. #61 scaffolding\n2. #62 CI baseline, #63 backends, #66 evaluation, #67 notebook style\n3. #64 live backend, #65 fixtures, #70 simulation, #71 hygiene\n4. #68 recipe template\n5. #69 notebook CI (this unblocks the recipes), #72 reader docs\n\n## Done when\n\n- [ ] All twelve issues are closed\n- [ ] #69 is merged, which unblocks recipes 01 to 60\n- [ ] CI is green on `main`",
+    "state": "closed",
+    "user": {
+      "login": "CompleteDotTech",
+      "name": "CompleteDotTech",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/5861166?v=4",
+      "id": 5861166
+    },
+    "assignees": null,
+    "labels": [
+      {
+        "name": "type: epic",
+        "color": "E551BA",
+        "description": "Tracking issue that groups other issues"
+      },
+      {
+        "name": "priority: p0",
+        "color": "1E1E1E",
+        "description": "Blocks everything else; do first"
+      }
+    ],
+    "milestone": 1,
+    "state_reason": "completed",
+    "comments": 5,
+    "created_at": "2026-10-06T20:19:49Z",
+    "updated_at": "2026-10-08T10:37:45Z",
+    "closed_at": "2026-10-08T10:37:45Z",
+    "display_url": "https://github.com/Jev-Engineering/cookbook/issues/74",
+    "display_title": "Epic: Foundation"
+  },
+  "75": {
+    "url": "https://github.com/Jev-Engineering/cookbook/issues/75",
+    "title": "Epic: Level 1 · Beginner recipes",
+    "issue_number": 75,
+    "body": "Recipes 01 to 10. One bounded judgment over a short prepared input with direct inspection of typed results.\n\n## Recipes (10)\n\n- [ ] #1 Sentiment classification · `Choice` · Language & content\n- [ ] #2 Refund intent detection · `Noul` · Workflow & service operations\n- [ ] #3 Response clarity scoring · `Score` · Language & content\n- [ ] #4 Support ticket routing · `Choice` · Workflow & service operations\n- [ ] #5 Document classification · `Choice` · Language & content\n- [ ] #6 Multiple topic labels · `Noul` · Language & content\n- [ ] #7 Word sense selection · `Choice` · Language & content\n- [ ] #8 FAQ selection · `Choice` · Search & retrieval\n- [ ] #9 File organization · `Choice` · Workflow & service operations\n- [ ] #10 Answer relevance check · `Noul` · Search & retrieval\n\n## Done when\n\n- [ ] Every recipe above is merged and its issue closed\n- [ ] The README catalog is regenerated (`python tools/render_catalog.py`) and shows these recipes as published\n- [ ] CI is green on `main`\n- [ ] A consistency pass across the level is done: section order, terminology, chart style, run-mode header\n\n## Dependencies\n\n- Blocked by #74.\n- Tracked in #80",
+    "state": "closed",
+    "user": {
+      "login": "CompleteDotTech",
+      "name": "CompleteDotTech",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/5861166?v=4",
+      "id": 5861166
+    },
+    "assignees": null,
+    "labels": [
+      {
+        "name": "type: epic",
+        "color": "E551BA",
+        "description": "Tracking issue that groups other issues"
+      },
+      {
+        "name": "level: 1 beginner",
+        "color": "FBD5DF",
+        "description": "One bounded judgment over a short prepared input"
+      },
+      {
+        "name": "priority: p1",
+        "color": "565255",
+        "description": "Next up once unblocked"
+      }
+    ],
+    "milestone": 2,
+    "state_reason": "completed",
+    "comments": 2,
+    "created_at": "2026-10-06T20:19:52Z",
+    "updated_at": "2026-10-09T05:01:10Z",
+    "closed_at": "2026-10-09T05:01:10Z",
+    "display_url": "https://github.com/Jev-Engineering/cookbook/issues/75",
+    "display_title": "Epic: Level 1 · Beginner recipes"
+  },
+  "76": {
+    "url": "https://github.com/Jev-Engineering/cookbook/issues/76",
+    "title": "Epic: Level 2 · Easy recipes",
+    "issue_number": 76,
+    "body": "Recipes 11 to 23. Context-sensitive matching, scoring, or verification with candidate sets and explicit uncertain or no-match outcomes.\n\n## Recipes (13)\n\n- [x] #11 Clarification selection · `Choice` · Agent orchestration\n- [x] #12 Thesaurus word selection · `Choice` · Language & content\n- [x] #13 Candidate rewrite selection · `Choice` · Language & content\n- [x] #14 Source span selection · `Choice` · Data quality & knowledge graphs\n- [x] #15 Sensitive text triage · `Noul` · Trust & security\n- [x] #16 Discord moderation triage · `Choice` · Trust & security\n- [x] #17 Passage reranking · `Score` · Search & retrieval\n- [x] #18 Duplicate incident matching · `Choice` · Workflow & service operations\n- [x] #19 CI failure classification · `Choice` · Software engineering\n- [x] #20 Claim support classification · `Choice` · Search & retrieval\n- [x] #21 Quiz answer adjudication · `Choice` · Games & simulation\n- [x] #22 CMDB asset matching · `Choice` · Data quality & knowledge graphs\n- [x] #23 Pairwise answer evaluation · `Choice` · Evaluation & optimization\n\n## Done when\n\n- [x] Every recipe above is merged and its issue closed\n- [x] The README catalog is regenerated (`python tools/render_catalog.py`) and shows these recipes as published\n- [x] CI is green on `main`\n- [x] A consistency pass across the level is done: section order, terminology, chart style, run-mode header\n\n## Dependencies\n\n- Scheduled after #75. A recipe here may start earlier once its own blockers are closed.\n- Tracked in #80",
+    "state": "closed",
+    "user": {
+      "login": "CompleteDotTech",
+      "name": "CompleteDotTech",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/5861166?v=4",
+      "id": 5861166
+    },
+    "assignees": null,
+    "labels": [
+      {
+        "name": "type: epic",
+        "color": "E551BA",
+        "description": "Tracking issue that groups other issues"
+      },
+      {
+        "name": "level: 2 easy",
+        "color": "F7AEC0",
+        "description": "Candidate sets and explicit uncertain or no-match outcomes"
+      },
+      {
+        "name": "priority: p1",
+        "color": "565255",
+        "description": "Next up once unblocked"
+      }
+    ],
+    "milestone": 3,
+    "state_reason": "completed",
+    "comments": 2,
+    "created_at": "2026-10-06T20:19:54Z",
+    "updated_at": "2026-10-09T10:54:05Z",
+    "closed_at": "2026-10-09T10:54:07Z",
+    "display_url": "https://github.com/Jev-Engineering/cookbook/issues/76",
+    "display_title": "Epic: Level 2 · Easy recipes"
+  },
+  "77": {
+    "url": "https://github.com/Jev-Engineering/cookbook/issues/77",
+    "title": "Epic: Level 3 · Intermediate recipes",
+    "issue_number": 77,
+    "body": "Recipes 24 to 39. Multiple judgments or stages, structured evidence, deterministic composition, and task-level evaluation.\n\n## Recipes (16)\n\n- [x] #24 Incident priority composition · `Score` · Workflow & service operations\n- [x] #25 Change evidence review · `Noul` · Workflow & service operations\n- [x] #26 Prompt-injection screening · `Noul` · Trust & security\n- [x] #27 Function selection · `Choice` · Agent orchestration\n- [x] #28 Skill selection · `Score` · Agent orchestration\n- [x] #29 Tool outcome verification · `Choice` · Agent orchestration\n- [x] #30 Citation verification · `Choice` · Search & retrieval\n- [x] #31 Patch risk triage · `Noul` · Software engineering\n- [x] #32 Regression test selection · `Score` · Software engineering\n- [x] #33 Schema field mapping · `Choice` · Data quality & knowledge graphs\n- [x] #34 Evidence relationship labels · `Choice` · Data quality & knowledge graphs\n- [x] #35 Semantic feature extraction · `Noul` · Evaluation & optimization\n- [x] #36 Card-game action selection · `Choice` · Games & simulation\n- [x] #37 Research domain tagging · `Noul` · Data quality & knowledge graphs\n- [x] #38 Abstention and review queues · `Choice` · Evaluation & optimization\n- [x] #39 Document extraction cascade · `Choice` + `Noul` · Data quality & knowledge graphs\n\n## Done when\n\n- [ ] Every recipe above is merged and its issue closed\n- [ ] The README catalog is regenerated (`python tools/render_catalog.py`) and shows these recipes as published\n- [ ] CI is green on `main`\n- [ ] A consistency pass across the level is done: section order, terminology, chart style, run-mode header\n\n## Dependencies\n\n- Scheduled after #76. A recipe here may start earlier once its own blockers are closed.\n- Tracked in #80\n",
+    "state": "closed",
+    "user": {
+      "login": "CompleteDotTech",
+      "name": "CompleteDotTech",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/5861166?v=4",
+      "id": 5861166
+    },
+    "assignees": null,
+    "labels": [
+      {
+        "name": "type: epic",
+        "color": "E551BA",
+        "description": "Tracking issue that groups other issues"
+      },
+      {
+        "name": "level: 3 intermediate",
+        "color": "F386A1",
+        "description": "Multiple judgments or stages with deterministic composition"
+      },
+      {
+        "name": "priority: p2",
+        "color": "A5A0A4",
+        "description": "Scheduled after p1 work"
+      }
+    ],
+    "milestone": 4,
+    "state_reason": "completed",
+    "comments": 2,
+    "created_at": "2026-10-06T20:19:56Z",
+    "updated_at": "2026-10-14T07:30:06Z",
+    "closed_at": "2026-10-13T23:32:52Z",
+    "display_url": "https://github.com/Jev-Engineering/cookbook/issues/77",
+    "display_title": "Epic: Level 3 · Intermediate recipes"
+  },
+  "78": {
+    "url": "https://github.com/Jev-Engineering/cookbook/issues/78",
+    "title": "Epic: Level 4 · Advanced recipes",
+    "issue_number": 78,
+    "body": "Recipes 40 to 52. Stateful workflows, provenance, adversarial cases, model calibration, or several integrated decision stages.\n\n## Recipes (13)\n\n- [ ] #40 Hierarchical classification · `Choice` · Data quality & knowledge graphs\n- [ ] #41 Approval scope review · `Noul` · Trust & security\n- [ ] #42 Outbound disclosure screening · `Noul` · Trust & security\n- [ ] #43 Failure recovery selection · `Choice` · Agent orchestration\n- [ ] #44 Plan constraint assessment · `Noul` · Agent orchestration\n- [ ] #45 Memory reconciliation · `Choice` · Memory & context\n- [ ] #46 Semantic context paging · `Score` · Memory & context\n- [ ] #47 Evidence conflict diagnosis · `Choice` · Data quality & knowledge graphs\n- [ ] #48 Document revision consistency · `Choice` + `Noul` · Language & content\n- [ ] #49 Multi-agent task assignment · `Score` · Agent orchestration\n- [ ] #50 Model comparison and calibration · `Choice` + `Noul` + `Score` · Evaluation & optimization\n- [ ] #51 Stalled-loop detection · `Choice` · Agent orchestration\n- [ ] #52 Retrieval pipeline evaluation · `Choice` + `Score` · Search & retrieval\n\n## Done when\n\n- [ ] Every recipe above is merged and its issue closed\n- [ ] The README catalog is regenerated (`python tools/render_catalog.py`) and shows these recipes as published\n- [ ] CI is green on `main`\n- [ ] A consistency pass across the level is done: section order, terminology, chart style, run-mode header\n\n## Dependencies\n\n- Scheduled after #77. A recipe here may start earlier once its own blockers are closed.\n- Tracked in #80",
+    "state": "open",
+    "user": {
+      "login": "CompleteDotTech",
+      "name": "CompleteDotTech",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/5861166?v=4",
+      "id": 5861166
+    },
+    "assignees": null,
+    "labels": [
+      {
+        "name": "type: epic",
+        "color": "E551BA",
+        "description": "Tracking issue that groups other issues"
+      },
+      {
+        "name": "level: 4 advanced",
+        "color": "E551BA",
+        "description": "Stateful workflows, provenance, adversarial cases, calibration"
+      },
+      {
+        "name": "priority: p2",
+        "color": "A5A0A4",
+        "description": "Scheduled after p1 work"
+      }
+    ],
+    "milestone": 5,
+    "state_reason": null,
+    "comments": 1,
+    "created_at": "2026-10-06T20:19:58Z",
+    "updated_at": "2026-10-15T08:45:13Z",
+    "closed_at": null,
+    "display_url": "https://github.com/Jev-Engineering/cookbook/issues/78",
+    "display_title": "Epic: Level 4 · Advanced recipes"
+  },
+  "79": {
+    "url": "https://github.com/Jev-Engineering/cookbook/issues/79",
+    "title": "Epic: Level 5 · Expert recipes",
+    "issue_number": 79,
+    "body": "Recipes 53 to 60. Controlled optimization studies or closed-loop simulations requiring budgets, baselines, and held-out or trajectory evaluation.\n\n## Recipes (8)\n\n- [ ] #53 Semantic feature discovery · `Noul` + `Score` · Evaluation & optimization\n- [ ] #54 Question and policy optimization · `Choice` + `Noul` + `Score` · Evaluation & optimization\n- [ ] #55 Adaptive model routing · `Choice` + `Score` · Evaluation & optimization\n- [ ] #56 Adversarial harness evaluation · `Noul` · Trust & security\n- [ ] #57 Evidence graph updates · `Choice` + `Noul` · Data quality & knowledge graphs\n- [ ] #58 Simulated process supervision · `Choice` + `Noul` · Games & simulation\n- [ ] #59 Observation and action selection · `Choice` · Games & simulation\n- [ ] #60 Factory production control · `Choice` + `Noul` + `Score` · Games & simulation\n\n## Done when\n\n- [ ] Every recipe above is merged and its issue closed\n- [ ] The README catalog is regenerated (`python tools/render_catalog.py`) and shows these recipes as published\n- [ ] CI is green on `main`\n- [ ] A consistency pass across the level is done: section order, terminology, chart style, run-mode header\n\n## Dependencies\n\n- Scheduled after #78. A recipe here may start earlier once its own blockers are closed.\n- Tracked in #80",
+    "state": "open",
+    "user": {
+      "login": "CompleteDotTech",
+      "name": "CompleteDotTech",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/5861166?v=4",
+      "id": 5861166
+    },
+    "assignees": null,
+    "labels": [
+      {
+        "name": "type: epic",
+        "color": "E551BA",
+        "description": "Tracking issue that groups other issues"
+      },
+      {
+        "name": "level: 5 expert",
+        "color": "A42D71",
+        "description": "Optimization studies or closed-loop simulations"
+      },
+      {
+        "name": "priority: p3",
+        "color": "D5D0D3",
+        "description": "Last wave"
+      }
+    ],
+    "milestone": 6,
+    "state_reason": null,
+    "comments": 0,
+    "created_at": "2026-10-06T20:20:01Z",
+    "updated_at": "2026-10-06T20:20:01Z",
+    "closed_at": null,
+    "display_url": "https://github.com/Jev-Engineering/cookbook/issues/79",
+    "display_title": "Epic: Level 5 · Expert recipes"
+  },
+  "113": {
+    "url": "https://github.com/Jev-Engineering/cookbook/issues/113",
+    "title": "Docs: reconcile delivered prompt status in merge-readiness guide after #106",
+    "issue_number": 113,
+    "body": "Independent Opus review of #112 identifies one post-delivery consistency follow-up: https://github.com/Jev-Engineering/cookbook/pull/112#issuecomment-6033338488 (finding1).\n\nDependency: delivered and exact-postmerge-verified #106/#112. Do not start a competing writer while the original supervisor holds scheduling/shared-doc ownership.\n\nBounded scope: docs/merge-readiness.md only, the subsection that says orchestration/PROMPT.md 'has not been amended' and 'Until it lands the texts differ'. Once #112 is delivered, replace the prospective statement with accurate delivered-state wording and immutable source/merge receipts. Preserve every operative foundation-only evidence gate, the unchanged helper NOT READY semantics, signed material/recipe current-main integration requirements, and honest historical #96/#98 evidence gaps. Do not rewrite past approvals or imply the documented ruling universally covers later main advances.\n\nAcceptance:\n- State #106's actual delivered status accurately, with source receipts and main/merge identity verified.\n- Remove the stale pending/contradictory cross-document status; links from PROMPT resolve to correct current guidance.\n- Only the relevant doc subsection changes; no policy relaxation or unrelated history rewrite.\n- Sonnet5.5 signed implementation; independent genuine Opus final-head review; complete current head/main checks and exact postmerge CI under the sole existing supervisor.\r\n",
+    "state": "open",
+    "user": {
+      "login": "CompleteDotTech",
+      "name": "CompleteDotTech",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/5861166?v=4",
+      "id": 5861166
+    },
+    "assignees": null,
+    "labels": [
+      {
+        "name": "type: foundation",
+        "color": "1E1E1E",
+        "description": "Shared code, tooling, CI, or docs that recipes depend on"
+      },
+      {
+        "name": "priority: p3",
+        "color": "D5D0D3",
+        "description": "Last wave"
+      },
+      {
+        "name": "size: S",
+        "color": "ABBAB9",
+        "description": "About half a day for one agent or person"
+      },
+      {
+        "name": "status: ready",
+        "color": "03AA5C",
+        "description": "No open blockers; can be picked up"
+      }
+    ],
+    "milestone": null,
+    "state_reason": null,
+    "comments": 0,
+    "created_at": "2026-10-07T07:42:12Z",
+    "updated_at": "2026-10-15T15:14:56Z",
+    "closed_at": null,
+    "display_url": "https://github.com/Jev-Engineering/cookbook/issues/113",
+    "display_title": "Docs: reconcile delivered prompt status in merge-readiness guide after #106"
+  },
+  "161": {
+    "url": "https://github.com/Jev-Engineering/cookbook/issues/161",
+    "title": "evaluation: multi-label pooling and outcome-tally helpers; three-path docs caveats; hygiene generic username 'agent'",
+    "issue_number": 161,
+    "body": "## Context\n\nFrom the Opus review of #158 (recipe 06, the first multi-label Noul recipe; comment 6073874449). The recipe hand-rolled two helpers in the notebook — `pooled_correct_and_confidence` (pool (example, label) pairs into the correctness/confidence arrays the three-path pattern needs) and `tally_outcomes` (tally a multi-label rule's own outcomes) — which every later multi-label Noul recipe will re-implement.\n\n## Acceptance\n\n1. `jev_cookbook.evaluation` gains documented helpers for multi-label Noul recipes: pooling (example, label) decisions into flat `correct`/`confidence` arrays (with label attribution kept, e.g. returning a list of (example_id, label) keys alongside), and an outcomes tally compatible with `evaluate_outcomes` (#155) — both tested, with an identity check against the hand-rolled versions in recipe 06 once merged.\n2. `docs/evaluation.md` \"Noul three-path pattern\": state that when the confidence gate is the rule's only review branch, `evaluate_selective` and an outcome tally give the same numbers; promote the \"distance from 0.5, not margin at the threshold\" caveat for per-label-threshold recipes (the gate is structurally blind to errors just below a high threshold).\n3. `tools/check_hygiene.py`: `_GENERIC_USERNAMES` lacks `agent` (this container's account name), so ordinary English words trip the local-username rule in printed notebook output; add it (and any other common-word account names) without weakening the rule for real usernames; test.\n4. Docs note for `noul_confidence`: two decimal literals that are mathematical mirrors (0.42 / 0.58) differ by 1 ULP, so `selective_curve` can yield two adjacent candidates for one nominal confidence; mention it where mirrored hand-written probabilities are discussed.\n\nFoundation issue; allowed paths `src/jev_cookbook/evaluation.py`, `tests/test_evaluation*.py`, `docs/evaluation.md`, `tools/check_hygiene.py`, `tests/test_check_hygiene*.py`. Starts after #160 merges; required before the later multi-label recipes (#25 and others) are briefed.\n",
+    "state": "open",
+    "user": {
+      "login": "CompleteDotTech",
+      "name": "CompleteDotTech",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/5861166?v=4",
+      "id": 5861166
+    },
+    "assignees": null,
+    "labels": [
+      {
+        "name": "type: foundation",
+        "color": "1E1E1E",
+        "description": "Shared code, tooling, CI, or docs that recipes depend on"
+      },
+      {
+        "name": "priority: p2",
+        "color": "A5A0A4",
+        "description": "Scheduled after p1 work"
+      },
+      {
+        "name": "size: M",
+        "color": "ABBAB9",
+        "description": "About a day"
+      },
+      {
+        "name": "status: blocked",
+        "color": "F78C6C",
+        "description": "Waiting on the issues listed under Dependencies"
+      }
+    ],
+    "milestone": null,
+    "state_reason": "reopened",
+    "comments": 13,
+    "created_at": "2026-10-09T03:50:07Z",
+    "updated_at": "2026-10-09T14:17:41Z",
+    "closed_at": null,
+    "display_url": "https://github.com/Jev-Engineering/cookbook/issues/161",
+    "display_title": "evaluation: multi-label pooling and outcome-tally helpers; three-path docs caveats; hygiene generic username 'agent'"
+  },
+  "163": {
+    "url": "https://github.com/Jev-Engineering/cookbook/issues/163",
+    "title": "Wave 1 recipe-side follow-ups: selection labels, evaluate_outcomes swap, guard-test assertion, dead bindings, README alignment",
+    "issue_number": 163,
+    "body": "## Context\n\nRecipe-side follow-ups accumulated by the Wave 1 reviews (#162 comment 6074150951, #160 comment 6074086622, #136 comment 6074138836, #156 comment 6074140144) for recipes already merged. None blocks a merge; all change merged recipe folders, so this is one foundation pull request per the allowlist (foundation PRs are not subject to it) or several small recipe PRs.\n\n## Acceptance (each recipe's notebook is re-executed twice byte-identically when its cells change)\n\n1. Validation numbers print `{selection}{check}` in synthetic mode (decision on #137) in recipes 01, 03, 04, 05, 07 (and 08, 09 if they print `{selection}` only).\n2. Recipe 07: switch its surrogate-confidence selective block to `jev_cookbook.evaluation.evaluate_outcomes` (after #160 merges) and drop the \"`evaluate_selective` reports the same split\" sentence; recipe 04: note that `evaluate_selective` reports the confidence-gate split only, or switch to `evaluate_outcomes`.\n3. Each merged recipe's `tests/test_build_fixtures.py` gains the inputs/labels-regeneration assertion the template now carries (after #162 merges), or imports the template's test module if a shared form lands.\n4. Remove the dead `val_results`/`test_results`/`*_reasons` bindings in recipes 01, 03, 04, 07 (or use them).\n5. Recipe 01's README gains the byte-for-byte-reproduction paragraph the template README carries; recipe 03's notebook: align the one `.md`-variant TypeSafe URL with the README form; the merged recipes' README install lines read as `docs/recipe-template.md` step 6.\n6. Recipe 01's notebook: the \"Pull request rules\" paragraph (README fixed in #162) — check the notebook carries no copy.\n\nFoundation follow-up; allowed paths `recipes/0{1,3,4,5,7,8,9}-*/**`. Starts after #160 and #162 merge.\n\n## Scope widened (orchestrator, 2026-10-09)\n\nThis issue is the recipe-side sweep for ALL published recipes (01–23), allowed paths `recipes/*/**` for the recipes named by a routed finding. The authoritative, executable work list is the known-failure allowlist `tests/recipe_guard_known_failures.py` landing with #165 (PR #189); every sweep PR removes the entries it fixes. In addition to the Wave 1 items above, the comments on this issue route: the Wave 2 consistency review R1–R23; contract alignment after #164/#186 (recipe 18's missing gated counterfactual; recipe 19's accepted-and-queued `unknown` must count as review, not coverage — 0.7895 → 0.6316; recipes 14/16/22 wording on the three-part §4 test; `##` sibling sections and off-convention cell ids in 11/16/17/18/22; recipe 14's figure title); the #172 regeneration of recipes 10 and 15 (lands with the #172 code PR); migrations to `stable_permutation` in recipes 12 and 23 (not drop-in; see comment 6081206492); `evaluate_outcomes` in recipe 08; recipe 18's real \"Slack\" reference; recipe 12/14 docstrings after #175; recipe 02's missing `test_build_fixtures.py`.",
+    "state": "open",
+    "user": {
+      "login": "CompleteDotTech",
+      "name": "CompleteDotTech",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/5861166?v=4",
+      "id": 5861166
+    },
+    "assignees": null,
+    "labels": [
+      {
+        "name": "type: foundation",
+        "color": "1E1E1E",
+        "description": "Shared code, tooling, CI, or docs that recipes depend on"
+      },
+      {
+        "name": "priority: p2",
+        "color": "A5A0A4",
+        "description": "Scheduled after p1 work"
+      },
+      {
+        "name": "size: M",
+        "color": "ABBAB9",
+        "description": "About a day"
+      },
+      {
+        "name": "status: blocked",
+        "color": "F78C6C",
+        "description": "Waiting on the issues listed under Dependencies"
+      }
+    ],
+    "milestone": null,
+    "state_reason": null,
+    "comments": 20,
+    "created_at": "2026-10-09T04:20:20Z",
+    "updated_at": "2026-10-15T07:39:36Z",
+    "closed_at": null,
+    "display_url": "https://github.com/Jev-Engineering/cookbook/issues/163",
+    "display_title": "Wave 1 recipe-side follow-ups: selection labels, evaluate_outcomes swap, guard-test assertion, dead bindings, README alignment"
+  },
+  "213": {
+    "url": "https://github.com/Jev-Engineering/cookbook/issues/213",
+    "title": "Foundation: no check that a recipe's live request count matches its README, or that no example is decided twice",
+    "issue_number": 213,
+    "body": "Nothing checks that a recipe's live request count matches what its README promises, or that a notebook does not decide the same example twice. Found by the Opus review of PR #205 (recipe 27), comment 6092760430, as must-change finding 1 — but the class of defect is repository-wide and this issue is for the guard, not that recipe's fix.\n\n## Why this one is not cosmetic\n\nIt spends the owner's money and then fails. In recipe 27 the notebook decides `demo-02` in both the `answer` cell and the `python-rule` cell, so a live run makes **41** requests. Its README states \"exactly 40 … each decided once\" and instructs the reader to set `JEV_COOKBOOK_LIVE_MAX_REQUESTS=40`. Follow that instruction and the budget guard raises `BudgetExceeded` on the final `test` request — **after** forty requests have already been paid for. The reviewer verified it by instrumenting `ReplayBackend.decide`: 41 calls, 40 distinct keys, `demo-02` twice. `LiveBackend.decide` has no cache, so replay hides what live would charge for.\n\nThis lands directly on the $25 cumulative recording grant ([#80 comment 6025510672](https://github.com/Jev-Engineering/cookbook/issues/80#issuecomment-6025510672)). A recipe whose stated request count understates its real one makes the whole budget arithmetic wrong, and the error is invisible offline, which is precisely where every recipe is built and reviewed. With sixty recipes to record, a per-recipe undercount is a systematic overspend, not a rounding error.\n\nThe discipline currently exists only as prose: the template tells authors \"the first answer is the one shown above, so it is not requested a second time\". Recipe 27's builder read that and still shipped the duplicate, which is what prose rather than a check gets you.\n\n## What to do\n\n1. Add a check that counts the decisions a notebook actually makes per recipe — instrumenting the backend during the offline execution CI already performs is the cheap route, since replay and live take the same path through `decide` — and compares it against a single declared number for that recipe.\n2. Decide where the declared number lives so it is one value, not prose repeated in the README and the notebook that can drift apart. Whatever is chosen, the README's stated count and its suggested `JEV_COOKBOOK_LIVE_MAX_REQUESTS` must be derived from it rather than written by hand.\n3. Fail on a duplicate decision of the same example as its own condition, with the offending key named, since that is the specific mistake here and it is cheaper to detect than a count mismatch.\n4. Confirm the arithmetic the guard protects: that `JEV_COOKBOOK_LIVE_MAX_REQUESTS` as documented is an inclusive cap the stated count does not exceed, so following the README cannot abort a run mid-way.\n5. Audit every published recipe for both conditions and record the counts here. Any recipe whose README overstates or understates its real request count is a live-budget correction, so this audit should finish before any further live recording is authorized.\n6. Fix the drift found through the normal reviewed pipeline, not inside recipe pull requests open for other purposes.\n\n## Acceptance criteria\n\n- [ ] A per-recipe check counts actual decisions during offline notebook execution and fails on a mismatch with the declared number.\n- [ ] A duplicate decision of the same example fails the check on its own, naming the key.\n- [ ] The declared count has exactly one source, and the README's count and budget instruction are derived from it.\n- [ ] Following a recipe README's documented budget cannot abort that recipe's own run.\n- [ ] Every published recipe is audited for both conditions, with the counts recorded here.\n- [ ] Any correction needed to the $25 budget arithmetic is stated on #80 before further live recording.\n",
+    "state": "closed",
+    "user": {
+      "login": "CompleteDotTech",
+      "name": "CompleteDotTech",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/5861166?v=4",
+      "id": 5861166
+    },
+    "assignees": null,
+    "labels": [
+      {
+        "name": "type: foundation",
+        "color": "1E1E1E",
+        "description": "Shared code, tooling, CI, or docs that recipes depend on"
+      }
+    ],
+    "milestone": null,
+    "state_reason": "completed",
+    "comments": 6,
+    "created_at": "2026-10-10T02:31:43Z",
+    "updated_at": "2026-10-15T09:48:27Z",
+    "closed_at": "2026-10-14T19:04:00Z",
+    "display_url": "https://github.com/Jev-Engineering/cookbook/issues/213",
+    "display_title": "Foundation: no check that a recipe's live request count matches its README, or that no example is decided twice"
+  },
+  "244": {
+    "url": "https://github.com/Jev-Engineering/cookbook/issues/244",
+    "title": "Foundation: nothing pins a notebook's threshold OBJECTIVE — a keyword swap ships a byte-identical notebook with a false printed objective line, all checks green",
+    "issue_number": 244,
+    "body": "Nothing mechanical pins a notebook's threshold **objective**. A recipe can swap `min_coverage=0.75` for `target_accuracy=1.0`, leave its hand-written printed `objective:` line untouched, and ship a **byte-identical notebook whose printed objective line is false** — with the full suite, the recipe guard and the notebook freshness check all green.\n\nFound by the Opus review of PR #241 (recipe 38), which demonstrated it three ways rather than arguing it.\n\n## The three mutations, all green\n\nOn recipe 38 at `ab235252fe511237bf7f3660dfc56cb5e3710d0f`:\n\n1. **Change the objective's value and re-execute.** `min_coverage` 0.75 → 0.85 freezes a different threshold (`0.7067` → `0.1200`), moves coverage `0.6500` → `0.7500`, moves risk `0.0769` → `0.0667`, and flips a demo ticket's outcome. **All 524 tests pass.**\n2. **Swap the keyword, keep the printed literal.** `min_coverage=0.75` → `target_accuracy=1.0` while the hand-written `objective:` f-string stays as it was. On this pool both objectives return the same threshold, so the notebook is **byte-identical** — and its printed claim about which objective ran is now false. **Suite, guard and freshness all green.**\n3. **Change the pinned value in the test.** Replacing `0.75` with 0.60, 0.85 or 0.95 in `tests/` is **also inert**.\n\nThe only mutation that gets caught is an edit the author does **not** re-execute, caught by freshness — which is precisely the case a careful builder never produces.\n\n## Why the usual pin does not work\n\nTwo things that look like pins are not:\n\n- **A printed f-string literal** (`print(f\"objective: select_confidence_threshold(..., min_coverage=0.75)\")`) is written by hand beside the call, and **nothing compares the two**. It is a decoration that happens to look like evidence, and it is worse than nothing because it reads as a trace to committed output.\n- **A test asserting the resulting threshold value.** The value is a *consequence* of the objective, so pinning it constrains the objective only if no other objective can produce that value — which is exactly what has not been checked, and on this pool two objectives produce the same value.\n\nThis is the same family as several findings already tracked here: a check keyed on an idiom standing in for a property it cannot observe. See #222 for the strong-form guard, #227 for the reason-string guard, #234 for the validation-metric-line guard.\n\n## What does work\n\nParse the **committed notebook cell source** and assert the objective's spelling appears in it — the route recipes 31, 32, 34 and 37 took. A keyword swap changes the cell source, so the assertion fails. Pair it with the value assertion: the spelling pins *which objective*, the value pins *which answer*, and neither alone is sufficient.\n\n## Scope — likely set-wide, and deliberately not quantified here\n\nA crude scan of the published set suggests only a minority of recipes assert the objective's **keyword** at all, and only a handful parse the notebook's own cell source. **I am not putting a number on it**, because the scan is an approximate regex over test files and multi-line assertions defeat it — the same class of approximation that has produced two wrong conclusions in this repository today. The audit has to be done by **mutation, per recipe**, which is the only instrument that has given a trustworthy answer so far.\n\nWhat is established: recipe 38's pin is inert, demonstrated three ways; and the mechanism that makes it inert (a hand-written printed literal plus a value-only assertion) is not specific to that recipe.\n\n## What to do\n\n1. Add a guard that, for any recipe whose notebook selects a confidence threshold, requires the **objective keyword** as spelled in the committed cell source to be asserted somewhere in that recipe's `tests/`. Fail closed.\n2. Audit the published set **by mutation**: for each recipe, swap the objective keyword, re-execute, and record whether anything goes red. Record the per-recipe result here.\n3. Fix the drift found through the normal reviewed pipeline, not inside recipe pull requests open for other purposes.\n4. Update `docs/recipe-template.md` and the template's own test so the working form is what new recipes inherit — the template is what every rule here is written to match, and a builder following it should get a real pin for free.\n\n## Acceptance criteria\n\n- [ ] A keyword swap on any published recipe's threshold objective turns something red, proved by mutation on each.\n- [ ] The guard fails closed and names the recipe and the expected spelling.\n- [ ] The template ships a working pin, so the default is correct rather than optional.\n- [ ] The per-recipe mutation audit is recorded here, including any recipe where the two objectives coincide on its pool (those are the ones where a value-only assertion is most misleading).\n",
+    "state": "open",
+    "user": {
+      "login": "CompleteDotTech",
+      "name": "CompleteDotTech",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/5861166?v=4",
+      "id": 5861166
+    },
+    "assignees": null,
+    "labels": [
+      {
+        "name": "type: foundation",
+        "color": "1E1E1E",
+        "description": "Shared code, tooling, CI, or docs that recipes depend on"
+      },
+      {
+        "name": "priority: p1",
+        "color": "565255",
+        "description": "Next up once unblocked"
+      },
+      {
+        "name": "status: ready",
+        "color": "03AA5C",
+        "description": "No open blockers; can be picked up"
+      }
+    ],
+    "milestone": null,
+    "state_reason": null,
+    "comments": 4,
+    "created_at": "2026-10-13T20:17:23Z",
+    "updated_at": "2026-10-14T16:56:28Z",
+    "closed_at": null,
+    "display_url": "https://github.com/Jev-Engineering/cookbook/issues/244",
+    "display_title": "Foundation: nothing pins a notebook's threshold OBJECTIVE — a keyword swap ships a byte-identical notebook with a false printed objective line, all checks green"
+  },
+  "245": {
+    "url": "https://github.com/Jev-Engineering/cookbook/issues/245",
+    "title": "Foundation: docs/evaluation.md does not document how min_coverage moves the frozen threshold (direction is inverse, and flat over a wide range)",
+    "issue_number": 245,
+    "body": "`docs/evaluation.md` documents `target_accuracy`'s selection behaviour at length and says **nothing** about how the frozen threshold responds when `min_coverage` moves. The direction is counter-intuitive, and recipe 38's builder got it backwards in shipped prose — stating it in a \"Next steps\" exercise it invited readers to run.\n\nFound by the Opus review of PR #241.\n\n## The behaviour, measured\n\n**Raising `min_coverage` pushes the frozen threshold DOWN**, because a higher coverage floor forces the selector to admit more answers, which means accepting lower-confidence ones. So the relationship between the parameter and the threshold is *inverse*, while the relationship between the parameter and coverage is direct.\n\nThe reviewer established it on a 3-point pool through the real `select_confidence_threshold`:\n\n- `min_coverage=0.6` → threshold `0.7`\n- `min_coverage=0.3` → threshold `0.9`\n\nAnd on recipe 38's own pool the behaviour has a flat region that makes the direction even easier to get wrong: lowering `min_coverage` from 0.75 all the way to **0.10** leaves the threshold unchanged at `0.7067`, and only raising it to 0.80+ moves it, to `0.1200`. A builder experimenting downward from the default would see **nothing happen** and could reasonably conclude the parameter barely matters.\n\n## Why this is worth documenting rather than leaving to discovery\n\n- **A builder already got it backwards in shipped prose**, and wrote a reader exercise around the wrong direction. The prose contained **no numeral**, so the standing numeral-versus-output sweep was blind to it; only a reviewer deriving the behaviour caught it.\n- The two parameters read as symmetric alternatives in the API, and `docs/evaluation.md` reinforces that by describing one carefully and the other barely. A reader's natural inference — that `min_coverage` relates to the threshold the way `target_accuracy` does — is wrong.\n- The **flat region** is the part no amount of care substitutes for documentation: a parameter that provably does nothing across a wide range, then moves the threshold sharply, is exactly the shape that teaches a wrong lesson to anyone who probes it casually.\n\n## What to do\n\n- Document `min_coverage`'s direction explicitly in `docs/evaluation.md`, beside the existing `target_accuracy` material, stating that raising the coverage floor lowers the threshold.\n- Note that the response can be **flat over a wide range of the parameter** for a given pool, with recipe 38's pool as the worked example if a concrete one helps.\n- Say plainly what the two objectives are for, since this is the second recipe to reach for one and argue for it on grounds that do not hold: `target_accuracy` constrains the accuracy of the **answered subset**, which is a different denominator from whole-split per-question accuracy, and the two are easy to confuse because both are called accuracy. That confusion is itself the substance of one of recipe 38's must-changes.\n- Add the 3-point counterexample above (or an equivalent) as a test beside the helper, so the documented direction cannot silently drift from the implementation.\n\n## Acceptance criteria\n\n- [ ] `docs/evaluation.md` states `min_coverage`'s direction and notes the possible flat region.\n- [ ] The answered-subset-versus-whole-split distinction is stated where a reader choosing between the two objectives will see it.\n- [ ] A test pins the documented direction, so prose and implementation cannot diverge.\n",
+    "state": "open",
+    "user": {
+      "login": "CompleteDotTech",
+      "name": "CompleteDotTech",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/5861166?v=4",
+      "id": 5861166
+    },
+    "assignees": null,
+    "labels": [
+      {
+        "name": "type: foundation",
+        "color": "1E1E1E",
+        "description": "Shared code, tooling, CI, or docs that recipes depend on"
+      },
+      {
+        "name": "priority: p1",
+        "color": "565255",
+        "description": "Next up once unblocked"
+      },
+      {
+        "name": "status: ready",
+        "color": "03AA5C",
+        "description": "No open blockers; can be picked up"
+      }
+    ],
+    "milestone": null,
+    "state_reason": null,
+    "comments": 2,
+    "created_at": "2026-10-13T20:17:57Z",
+    "updated_at": "2026-10-14T06:23:13Z",
+    "closed_at": null,
+    "display_url": "https://github.com/Jev-Engineering/cookbook/issues/245",
+    "display_title": "Foundation: docs/evaluation.md does not document how min_coverage moves the frozen threshold (direction is inverse, and flat over a wide range)"
+  },
+  "247": {
+    "url": "https://github.com/Jev-Engineering/cookbook/issues/247",
+    "title": "Foundation: a Noul confidence gate at or below |2t-1| can never block an accept, and docs/evaluation.md never names the case",
+    "issue_number": 247,
+    "body": "`docs/evaluation.md` describes the three-path pattern (accept / review / reject) and warns that a Noul's confidence is **distance from 0.5**, not margin at the business threshold — but it stops short of the consequence, which is that **a confidence gate at or below `|2t − 1|` can never block an accept.** A recipe can therefore ship a confidence gate that is mathematically incapable of changing any outcome, with every check green and a by-reason table implying a role the gate did not earn.\n\nFound by the Opus review of PR #242 (recipe 39), which measured it rather than inferring it.\n\n## The mathematics\n\nFor a Noul, `confidence = |2·noul − 1|`. An answer is accepted when `noul >= t` for a business threshold `t > 0.5`. Then:\n\n```\nnoul >= t  >  0.5   ⟹   2·noul − 1 >= 2t − 1 > 0   ⟹   confidence >= 2t − 1 = |2t − 1|\n```\n\nSo **every accepted answer already has confidence at least `|2t − 1|`**. A gate set at or below that value is satisfied by construction for everything the business threshold admits. It cannot defer a single accept; it can only choose the *reason* attached to answers the threshold already rejected.\n\n## The instance\n\nRecipe 39 froze `t = 0.85` and a gate of `0.70`, and `|2(0.85) − 1| = 0.70` **exactly** — the degenerate boundary, hit precisely rather than approached. Measured consequences:\n\n- A sweep of 1001 noul values: **0 outcome differences**, 699 reason-only differences.\n- **Removing the gate entirely** leaves `test` at an identical `0.9286 / 0.9615 / 0.0385`.\n\nBoth numbers were produced by the reviewer, and the second is the decisive one: a branch whose deletion changes no reported metric is not doing the work the notebook says it does.\n\n## Why this is a documentation gap rather than only a recipe defect\n\n- **The two thresholds are selected by different helpers against different quantities**, so a builder picking a plausible `t` and a plausible gate has no reason to notice they have collided. Nothing in the API or the docs connects them.\n- **It is not a near-miss condition.** The failure is an inequality over a whole region, not a coincidence at one value: *any* gate `<= |2t − 1|` is degenerate. A builder who picks `t = 0.9` and a gate of `0.75` has the same dead branch and the same misleading by-reason table.\n- **Every Noul three-path recipe can land here**, and the symptom is invisible: the notebook runs, the metrics are real, the table has rows. Only a counterfactual — delete the branch and see whether anything moves — exposes it, and nothing currently asks for one.\n- This repository has already paid for the adjacent defect twice: a gate selected against a correctness criterion that was constant across thresholds, and a \"diagnostic\" gate whose function was never called, where deleting 2,414 characters left the notebook byte-identical.\n\n## What to do\n\n1. **State the consequence in `docs/evaluation.md`**, beside the existing distance-from-0.5 warning: for a Noul, a confidence gate must **exceed `|2t − 1|`** to be capable of deferring an accept, and give the derivation above so a reader can check it.\n2. **Add a mechanical check**: for a recipe that freezes both a Noul business threshold and a confidence gate, fail when `gate <= |2t − 1|`. This is exactly computable from two committed constants, needs no execution, and is the rare case where a guard can test the property rather than an idiom standing in for it.\n3. Consider requiring, for any confidence gate, a **printed counterfactual** showing what changes when the branch is removed. That generalises beyond this degeneracy to every dead branch, and it is the check that would have caught both prior instances as well as this one.\n4. Audit the published Noul three-path recipes for `gate <= |2t − 1|` and record the result here.\n\n## Acceptance criteria\n\n- [ ] `docs/evaluation.md` states the `|2t − 1|` floor with its derivation.\n- [ ] A check fails closed when a frozen gate cannot block an accept, proved by mutation on a recipe whose gate is currently valid.\n- [ ] The published set is audited and the per-recipe result recorded here.\n- [ ] A decision is recorded on item 3 — implemented, or rejected with a reason.\n",
+    "state": "open",
+    "user": {
+      "login": "CompleteDotTech",
+      "name": "CompleteDotTech",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/5861166?v=4",
+      "id": 5861166
+    },
+    "assignees": null,
+    "labels": [
+      {
+        "name": "type: foundation",
+        "color": "1E1E1E",
+        "description": "Shared code, tooling, CI, or docs that recipes depend on"
+      },
+      {
+        "name": "priority: p1",
+        "color": "565255",
+        "description": "Next up once unblocked"
+      },
+      {
+        "name": "status: ready",
+        "color": "03AA5C",
+        "description": "No open blockers; can be picked up"
+      }
+    ],
+    "milestone": null,
+    "state_reason": null,
+    "comments": 3,
+    "created_at": "2026-10-13T20:36:59Z",
+    "updated_at": "2026-10-14T08:03:35Z",
+    "closed_at": null,
+    "display_url": "https://github.com/Jev-Engineering/cookbook/issues/247",
+    "display_title": "Foundation: a Noul confidence gate at or below |2t-1| can never block an accept, and docs/evaluation.md never names the case"
+  },
+  "249": {
+    "url": "https://github.com/Jev-Engineering/cookbook/issues/249",
+    "title": "Foundation: three recipe-guard checks skip for a scripted recipe, one of which would FAIL — and the skips are keyed on responses.json rather than on the property each check means",
+    "issue_number": 249,
+    "body": "Recipe 36 (#246) will be the **first scripted recipe published** — one with no `fixtures/responses.json`. Three recipe-guard checks **skip** for such a recipe rather than run, and `tests/test_recipe_guard.py`'s own module docstring still says *\"a scripted recipe; none are published yet\"*, which goes stale the moment it merges. A green guard run therefore means materially less on a scripted recipe than on any other, and it reads exactly like a pass.\n\nFound while reviewing PR #246, which verified each skipped check **by hand** and reported what it substituted — so this issue carries measurements, not predictions.\n\n## The three skips, and what the review established about each\n\n| check | line | status when verified by hand |\n|---|---|---|\n| `build_fixtures_scaffold` byte-identity | 270 | **Skip is correct.** Genuinely vacuous: there is no `build_fixtures.py`-generated `test_build_fixtures.py` to hold byte-identical. |\n| `readme_budget_note_matches_stored_answers` | 1044 | **Would PASS.** The reviewer instrumented `decide` and measured **290** calls, matching the README including its per-cell breakdown. So the check is skipped on a recipe that satisfies it — a lost confirmation rather than a hidden defect, but lost silently. |\n| **strong-form `G1(c)` threshold guard** | 463 | **Would FAIL.** With the skip removed, 36 recipes pass and recipe 36 alone fails. The cause was a test **name** rather than its shape (tracked separately as the anchor problem), but the point stands: the skip concealed a real guard failure. |\n\nThat third row is the one that matters. The skip is keyed on the wrong thing: `G1(c)` is about whether a recipe that **freezes a confidence threshold** re-derives it independently, and that property has nothing to do with whether the recipe's answers were stored or scripted. Recipe 36 **does** freeze a confidence gate — so the check was applicable, skipped, and would have failed.\n\n## Suggested fix, per check\n\n1. **`G1(c)` (line 463): key the skip on whether the recipe has a confidence gate, not on whether `responses.json` exists.** That is the property the check is about. A scripted recipe with a gate should be checked; a recipe without a gate should be skipped whatever its fixtures look like.\n2. **`readme_budget_note_matches_stored_answers` (line 1044): derive the count from the notebook's actual `decide` calls** rather than from `len(responses.json)`, which would make it applicable to scripted recipes and simultaneously close the much more serious gap tracked in #213 (a doubly-decided example is invisible in a dict keyed by request state). The reviewer's hand-instrumentation is the working prototype.\n3. **`build_fixtures_scaffold` (line 270): leave the skip.** It is genuinely vacuous and a skip is the honest outcome.\n4. **Update the module docstring**, which will be false on merge, and say in it which checks do not apply to a scripted recipe and why — so the next reviewer of a scripted recipe starts from the list rather than deriving it.\n\n## The general point, which is worth more than the three fixes\n\n**A skipped check is the quietest kind of gap.** It produces a green run, contributes a line of `s` to pytest output nobody reads, and is indistinguishable from coverage unless someone goes looking. Two of these three skips were keyed on a proxy (`responses.json` exists) for a property they actually care about (does this recipe store answers / does it freeze a gate / does it make live requests), which is the same pattern already tracked in #222, #227, #234 and #244 — a check keyed on an idiom standing in for the thing it means.\n\nIt would be worth a standing rule that **a skip condition must name the property, not a correlate of it**, and that any new skip is accompanied by a test proving the check does something on a recipe where it *does* apply.\n\n## Acceptance criteria\n\n- [ ] `G1(c)` runs on a scripted recipe that freezes a confidence gate, proved by mutation on recipe 36.\n- [ ] The README live-call check applies to scripted recipes, or a recorded decision explains why it cannot.\n- [ ] The module docstring is true after recipe 36 merges and enumerates the scripted-recipe skips with reasons.\n- [ ] The published set is re-run with each skip condition temporarily removed, and any newly-failing recipe recorded here.\n",
+    "state": "open",
+    "user": {
+      "login": "CompleteDotTech",
+      "name": "CompleteDotTech",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/5861166?v=4",
+      "id": 5861166
+    },
+    "assignees": null,
+    "labels": [
+      {
+        "name": "type: foundation",
+        "color": "1E1E1E",
+        "description": "Shared code, tooling, CI, or docs that recipes depend on"
+      },
+      {
+        "name": "priority: p1",
+        "color": "565255",
+        "description": "Next up once unblocked"
+      },
+      {
+        "name": "status: ready",
+        "color": "03AA5C",
+        "description": "No open blockers; can be picked up"
+      }
+    ],
+    "milestone": null,
+    "state_reason": null,
+    "comments": 1,
+    "created_at": "2026-10-13T21:16:20Z",
+    "updated_at": "2026-10-14T18:38:51Z",
+    "closed_at": null,
+    "display_url": "https://github.com/Jev-Engineering/cookbook/issues/249",
+    "display_title": "Foundation: three recipe-guard checks skip for a scripted recipe, one of which would FAIL — and the skips are keyed on responses.json rather than on the property each check means"
+  },
+  "262": {
+    "url": "https://github.com/Jev-Engineering/cookbook/issues/262",
+    "title": "Foundation: recipe files refer readers to \"the build note\" on a GitHub issue — 8 published recipes, and section 6 bans only #NNN and \"the issue\"",
+    "issue_number": 262,
+    "body": "Recipe files refer a reader to **\"the build note\"** — a section of the recipe's GitHub issue. A reader of the shipped repository cannot open it, which is exactly what `CONTRIBUTING.md` section 6 forbids for `#NNN` and \"the issue\", and for the same stated reason: *\"a reader cannot see either.\"* The rule's illustrative list does not name this spelling, so it has spread.\n\nFound by the Opus review of PR #260 (recipe 42), which also noted it had **missed the same thing in its own first round** on that recipe.\n\n## Measured, with the criterion stated\n\nCriterion: the case-insensitive substring **`build note`** (singular or plural, with or without a preceding \"the\") in any `.py`, `.md` or `.ipynb` under `recipes/` on `main` at `0ee89d8`, with notebooks searched by **cell source** only. Pattern self-tested against a planted sentence first.\n\n**8 recipes, 9 files, 12 occurrences**: `03`, `05`, `06`, `15`, `18`, `19`, `22`, `29`.\n\nNarrower spellings for comparison, since the criterion is what the count turns on:\n\n| pattern | recipes | files | occurrences |\n|---|---|---|---|\n| `build note` (any form) | **8** | **9** | **12** |\n| `the build note` | 5 | 6 | 7 |\n| `build notes` (plural) | 4 | 5 | 5 |\n\nI first measured the narrow form, got 5 recipes, and disagreed with the review's 8 — the difference was entirely the pattern, and the review's figure is the right one. Recording all three so nobody re-opens the question, which has already cost this project time on #250 where three counts disagreed until the criterion was fixed.\n\n## Why it is worth a sweep rather than leaving\n\n- It is a **reader-facing dead pointer** in published material, in the same class the contract already bans. A reader who goes looking for \"the build note\" finds nothing in the repository.\n- It is **pre-existing and spreading**: 8 of 41 published recipes, and recipe 42 added two more before its review caught them. Each new recipe inherits the phrasing by reading its neighbours.\n- The guard that enforces section 6 matches `#NNN` and \"the issue\" only — tracked as **#225** — so this spelling passes every check, as the other unlisted spellings have (`(M3)` finding labels, brief rule numbers, \"the pull request's own report\").\n\n## What to do\n\nTwo pieces, and they are independent:\n\n1. **A sweep PR** over the 9 files, replacing each reference with the property it stands for. These are mostly justifications for a fixture or a design choice, and the honest replacement is the reason itself — which is what a future reader needs anyway and what the recipe should have said.\n2. **Add the spelling to `CONTRIBUTING.md` section 6**, or better, restate the rule by its reason rather than by a list of spellings. The list has now been evaded four times by different phrasings, which is strong evidence that enumerating spellings is the wrong shape for this rule.\n\nIf #225's guard is widened at the same time, this becomes mechanically enforced rather than a recurring review finding.\n\n## Acceptance criteria\n\n- [ ] The 9 files no longer refer to a build note; each states the property instead.\n- [ ] `CONTRIBUTING.md` section 6 covers the class rather than only `#NNN` and \"the issue\" — by reason, not by a longer list.\n- [ ] The published set is re-measured under a written criterion and the result recorded here.\n- [ ] If a check lands (see #225), it is proved by mutation on a planted reference and on a legitimate in-tree citation such as `CONTRIBUTING.md` section 6 or `docs/glossary.md`, which must keep passing.\n",
+    "state": "open",
+    "user": {
+      "login": "CompleteDotTech",
+      "name": "CompleteDotTech",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/5861166?v=4",
+      "id": 5861166
+    },
+    "assignees": null,
+    "labels": [
+      {
+        "name": "type: foundation",
+        "color": "1E1E1E",
+        "description": "Shared code, tooling, CI, or docs that recipes depend on"
+      },
+      {
+        "name": "priority: p2",
+        "color": "A5A0A4",
+        "description": "Scheduled after p1 work"
+      },
+      {
+        "name": "status: ready",
+        "color": "03AA5C",
+        "description": "No open blockers; can be picked up"
+      }
+    ],
+    "milestone": null,
+    "state_reason": null,
+    "comments": 3,
+    "created_at": "2026-10-14T10:19:03Z",
+    "updated_at": "2026-10-15T08:50:49Z",
+    "closed_at": null,
+    "display_url": "https://github.com/Jev-Engineering/cookbook/issues/262",
+    "display_title": "Foundation: recipe files refer readers to \"the build note\" on a GitHub issue — 8 published recipes, and section 6 bans only #NNN and \"the issue\""
+  },
+  "276": {
+    "url": "https://github.com/Jev-Engineering/cookbook/issues/276",
+    "title": "Foundation: the objective-pin check enumerates polarity instead of deriving it, so a spelling asserted ABSENT is credited as present",
+    "issue_number": 276,
+    "body": "## The remaining axis: polarity is enumerated, not derived\n\n#273's objective-pin check now ties a credited spelling to a **tainted operand** — a value traced to a read of the real committed source — which is a property and closed the three spellings tracked in #275. It also tracks polarity through an enclosing `not` and through `and`/`or`.\n\n**But the comparison walk yields an `ast.Compare` node and never descends into its operands.** So negation expressed as a **value** or by **context** is invisible, and a spelling asserted *absent* is credited as *present*. Measured in the review of `4db7722a`:\n\n```python\nassert (\"target_accuracy\" in source) is False      # credited\nassert source.count(\"target_accuracy\") == 0        # credited\nassert len([m for m in … if \"target_accuracy\" in m]) == 0   # credited\nassert (\"target_accuracy\" in source) if cond else True       # IfExp, credited\n```\n\nEach of those says the spelling is **not** there, and each is read as evidence that it is.\n\n## Reachability, measured rather than assumed\n\n- **`== False` is lint-blocked** by ruff **E712**, and an assert on a tuple by **F631** — both confirmed against this repository's own ruff configuration, so those two spellings cannot reach `main`.\n- **`is False` and `count(…) == 0` are not blocked by any lint rule.** And `is False` is **already house idiom** here — recipes 14 and 15 use it repeatedly, just not yet on a membership test.\n- **No live instance across all 46 published recipes.** This is latent, not active.\n\nSo the hazard is a spelling that is idiomatic in this repository, carries no lint protection, and would be read backwards by the guard the first time someone writes it on a membership test.\n\n## The under-match side of the same gap\n\nTaint does not reach a comprehension variable, so legitimate pins are **refused**:\n\n```python\nassert all(\"min_coverage\" in s for s in sources)   # refused\nassert any(…)                                       # refused\n```\n\nThat is the same shape as the original blocking finding on #273 — a real pin rejected for how it is spelled — and it is the reason this issue is worth fixing properly rather than by adding `Is`-against-`False` to a blacklist.\n\n## The fix\n\nDerive polarity rather than enumerate it: evaluate the **effective truth sense** of the comparison in the context where its result is used, descending into operands so that a `Compare` nested inside another comparison, a `count(…) == 0`, an `IfExp` branch or a comprehension's `all`/`any` wrapper each contribute their sign. Equivalently: ask what the assert claims about the spelling, not which operators appear on the way there.\n\nA blacklist of negative spellings is the wrong shape and this repository has the evidence: `CONTRIBUTING.md` section 6's spelling list has been evaded **five** times by different wordings, `_citation_hits` runs only two patterns (which is how six recipes drifted past it), and #273 itself went through three rounds precisely because each revision recognised one more idiom rather than the property.\n\n## Acceptance criteria\n\n- [ ] Each of the four spellings above is **rejected**, proved by planting it in a recipe that currently passes and watching the check go red.\n- [ ] `all(…)` and `any(…)` pins over a tainted source are **accepted**, proved by mutation on a recipe written that way.\n- [ ] All shapes in use today still pass, proved by mutation on each rather than by inspection.\n- [ ] The rejections and acceptances are covered by **committed tests** that fail when the fix is reverted — not hand-run probes.\n\n## Provenance\n\nFound by the Opus review of PR #273 at `4db7722a`, which approved that head while flagging this as a separate axis — on the reasoning that folding it in would make #275's title false about its contents, which was that issue's own subject. Filed separately for the same reason.\n\nFamily: #222, #227, #234, #270, #272 — a check keyed on a source idiom certifying the letter of a rule it cannot observe.\n",
+    "state": "open",
+    "user": {
+      "login": "CompleteDotTech",
+      "name": "CompleteDotTech",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/5861166?v=4",
+      "id": 5861166
+    },
+    "assignees": null,
+    "labels": [
+      {
+        "name": "type: foundation",
+        "color": "1E1E1E",
+        "description": "Shared code, tooling, CI, or docs that recipes depend on"
+      },
+      {
+        "name": "priority: p2",
+        "color": "A5A0A4",
+        "description": "Scheduled after p1 work"
+      },
+      {
+        "name": "size: M",
+        "color": "ABBAB9",
+        "description": "About a day"
+      },
+      {
+        "name": "status: ready",
+        "color": "03AA5C",
+        "description": "No open blockers; can be picked up"
+      }
+    ],
+    "milestone": null,
+    "state_reason": null,
+    "comments": 1,
+    "created_at": "2026-10-14T16:25:23Z",
+    "updated_at": "2026-10-15T15:15:50Z",
+    "closed_at": null,
+    "display_url": "https://github.com/Jev-Engineering/cookbook/issues/276",
+    "display_title": "Foundation: the objective-pin check enumerates polarity instead of deriving it, so a spelling asserted ABSENT is credited as present"
+  },
+  "283": {
+    "url": "https://github.com/Jev-Engineering/cookbook/issues/283",
+    "title": "Foundation: multi-proposition Noul issues do not require positives, truth combinations, or an outcome-determining row — the requirement only reaches builders via briefs",
+    "issue_number": 283,
+    "body": "## The gap\n\nRecipe 48's issue (#48) asks for a `Noul` that \"checks each selection for consistency with the paragraph context\", and lists two propositions by implication. **It does not ask for the four truth combinations**, nor for positives of each proposition in the split used to select thresholds, nor for a row where each proposition's tag determines an outcome.\n\nThat requirement reached the builder **only through an orchestration brief**. The issue itself is silent, so a builder working from the issue alone — which is what the contract asks — has no reason to construct them.\n\nWhat the review of #281 measured as a result:\n\n- `introduces_new_fact`'s positives were **two slot-for-slot paraphrases of one hand-written sentence**, which leaked the label into surface form: a bare `\"%\" in text` scored **1.0000 with zero false positives on validation** and transferred to test.\n- `breaks_reference` had **zero gold positives in validation**, one in test that the stored answer misses, **no row where its tag determines an outcome**, and **no both-true row anywhere**.\n- So the recipe's declared limitation — that `select_threshold` could not choose a threshold from examples because an F1 sweep was degenerate — was a **symptom** of the fixture gap rather than an independent limitation.\n\nNone of that is a builder error. Every one of those properties follows from what the issue did not say.\n\n## Why this is the #26 pattern in a new form\n\n#26's amendment recorded the inverse: *listing as many fixture groups as there are labels produces labels that cannot disagree*, so an issue must **name the mixed and neither cases explicitly**. That guidance currently lives in #26's history and in an orchestration brief.\n\nThis is the same defect with **no** fixture groups listed rather than too few. An issue that names the propositions but not their combinations leaves the hardest and most informative rows — both true, both false, each true alone — to chance.\n\n## It will recur, and the recipes are already scheduled\n\nTwo unbuilt recipes have a multi-proposition `Noul` in their design: **#53** and **#56**. Both will reach their builders the same way #48 did, and the same gap will reproduce unless the requirement is in the issue.\n\n## What to do\n\n1. **Amend #53 and #56 now**, before they are built, to require: a positive example of **every** proposition in the split used for threshold selection; at least one row per truth **combination** that the use case admits; and at least one row where **each** proposition's tag changes the composed outcome. The last is what makes a battery a battery rather than two questions that happen to share a request.\n2. **Put the guidance where issues are written**, not only in a brief — the recipe-template or issue-template docs, so the next multi-proposition issue inherits it. The orchestration brief is the wrong home because it reaches builders rather than issue authors, and because an issue outlives the brief that supplemented it.\n3. Consider whether a **guard** can express it: \"for each `Noul` proposition in a recipe, at least one gold-true and one gold-false row in each scored split\" is a mechanical property of `labels.jsonl` plus the question definitions. Note the usual caution — a check keyed on a proposition's **name** would be the seventh instance of the idiom-keyed family in this repository, so it must key on the question definitions the recipe actually builds.\n\n## Acceptance criteria\n\n- [ ] #53 and #56 carry the requirement before a builder is dispatched.\n- [ ] The guidance lives in a document an issue author reads.\n- [ ] A decision is recorded on whether a guard enforces it, with reasons either way.\n\n## Provenance\n\nRaised by the Opus review of PR #281 as an out-of-scope finding, with every figure above measured on the committed fixtures rather than predicted.\n",
+    "state": "open",
+    "user": {
+      "login": "CompleteDotTech",
+      "name": "CompleteDotTech",
+      "email": null,
+      "avatar_url": "https://avatars.githubusercontent.com/u/5861166?v=4",
+      "id": 5861166
+    },
+    "assignees": null,
+    "labels": [
+      {
+        "name": "type: foundation",
+        "color": "1E1E1E",
+        "description": "Shared code, tooling, CI, or docs that recipes depend on"
+      },
+      {
+        "name": "priority: p1",
+        "color": "565255",
+        "description": "Next up once unblocked"
+      },
+      {
+        "name": "size: S",
+        "color": "ABBAB9",
+        "description": "About half a day for one agent or person"
+      },
+      {
+        "name": "status: in progress",
+        "color": "4B5FD6",
+        "description": "Claimed; a branch or pull request exists"
+      }
+    ],
+    "milestone": null,
+    "state_reason": "reopened",
+    "comments": 2,
+    "created_at": "2026-10-14T19:25:09Z",
+    "updated_at": "2026-10-15T15:15:41Z",
+    "closed_at": null,
+    "display_url": "https://github.com/Jev-Engineering/cookbook/issues/283",
+    "display_title": "Foundation: multi-proposition Noul issues do not require positives, truth combinations, or an outcome-determining row — the requirement only reaches builders via briefs"
+  }
+}

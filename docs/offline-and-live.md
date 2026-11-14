@@ -107,6 +107,174 @@ A recipe that does carry recorded fixtures states, for every number it reports, 
 API returned, the capture date and N. Those numbers describe that sample and nothing wider: not
 Jev's quality in general, and not latency or cost unless those were measured and recorded.
 
+## What the recipe guard checks about section 2
+
+[CONTRIBUTING.md](../CONTRIBUTING.md), section 2, is a rule about meaning: no notebook, README or
+pull request may state or imply anything about Jev's quality, latency or cost except as measured on
+N examples with the returned model version and capture date. No test can judge meaning, so a green
+guard is **not** a guarantee that a recipe is honest. `tests/test_recipe_guard.py` enforces a
+floor, built only from what is decidable from the files. Each check below runs over every
+published recipe and the template, and its failure message points here.
+
+| Check | A recipe fails it when |
+| --- | --- |
+| `reported_provenance_matches_fixtures` | The mode the committed output reports (the `Mode:` header, a `Provenance:` line, the measured cell's offline disclosure, a `Captured:` line) is not the provenance the stored answers carry. All-synthetic fixtures must report `synthetic` and the disclosure. Recorded fixtures must report `recorded` and state exactly the model and the capture dates the fixtures carry, in both directions: the header says `on D` or `between FIRST and LAST`, every `Provenance: recorded` line names that model (and, per answer, one of those dates), the `Captured:` lines list exactly those dates, no other `jev-N.N.N` model string appears in the output, and no pipeline-check label does. A date or a model the output states beyond the fixtures', or a line of those forms the check cannot read, is a failure, as is a missing one. A header, a provenance line or a fixture the check cannot read is a failure, not a pass. |
+| `readme_states_fixture_provenance` | The README's `**Mode:**` line names another mode than the fixtures carry, a recipe with no live run never says "not measured live", or a recorded recipe's README omits its model or capture dates, or states a date or a `jev-N.N.N` model string the fixtures do not carry. The mode must be the first word after `**Mode:**` (`synthetic`, `scripted` or `recorded`); only the first `**Mode:**` is read. |
+| `metric_output_lines_carry_pipeline_check` | In a synthetic or scripted run, a committed output line names a metric (coverage, accuracy, risk, precision, recall, F1, nDCG, agreement, AUC, MRR, Brier, error rate, hit rate) and prints a decimal or a percentage without `(a pipeline check, not a Jev result)` on the same line. It reads the printed line, so `{x:.2f}` versus `{x:.4f}`, an aligned spec, or a format hoisted into a variable does not change the result, as long as a metric word is on the same line as the number: an aligned table whose header names the metrics and whose rows carry only numbers, a word on one line and its number on the next, and a metric named by none of the words above are not seen. |
+| `prose_quantities_are_printed` | The README or a notebook markdown cell quotes a percentage or decimal next to a metric word, a price, a latency or a throughput, and no committed output prints that number (or, for a metric, the recipe's own tests type it). A quote of `0.92` is backed by a printed `0.9167`; `97.4%` by `0.974`; `1,250` by `1250`. Risk and accuracy back each other, but only through a printed rate: a quoted risk or accuracy is also backed by one minus a decimal (two or more places, between 0 and 1) or by 100 minus a percentage that was printed on a line naming accuracy, risk or error rate, so a printed `accuracy 0.9474` backs a quoted risk of `0.0526`, and a printed confidence or a count does not. A printed percentage also backs its fraction. A price or a latency is backed only by a printed price or latency, so a printed sample size does not back "180 ms". A duration is read as a claim about Jev only when its sentence says latency or response time, or says slow, fast, speed or takes together with Jev, the model, the API, inference or a live run; "the notebook takes about 2 minutes" is not. A quote is read when it sits next to the metric word through only a connective ("is", "of", "at", "reaches", "about" and a few more). |
+| `no_unhedged_quality_claim_about_jev` | In a synthetic or scripted recipe, a README or markdown sentence has Jev or the model as the subject of an evaluative adverb or adjective (correctly, reliably, well, accurate, fast, cheap, right) or says it outperforms something, and the sentence has no negation, hypothetical or attribution ("not measured live", "would", "according to", "TypeSafe's notes say"). Naming a source is not a hedge: "TypeSafe's Jev judges these correctly", a link to the docs and a cited `(S07)` do not excuse a sentence, only a verb of saying (`says`, `said`, `according`) does. The span from Jev to the adverb may cross a decimal point or a version number ("Jev handles 97.4% of these messages reliably" is flagged). A sentence here is a heading, a table row, a list item (with its wrapped lines) or one sentence of a paragraph: a hedge word in a neighbouring bullet, or in the heading above, does not excuse it. The failure message prints the sentence. |
+
+A fabricated "97.4% accuracy, 180 ms median latency, $0.0004 a call" fails
+`prose_quantities_are_printed` in the README and in a notebook cell alike.
+
+`prose_quantities_are_printed` excludes exactly one thing from the pool of numbers a quote may be
+backed by: a line starting with the `JEV_REQUEST_AUDIT ` prefix (the audited route's ledger line,
+#213, [backends.md](backends.md#actual-calls-and-distinct-requests)) -- from **both** of the
+pool's sources, not only the one. The direct source is committed output: any line a code cell
+prints starting with the prefix. The second is the recipe's own `tests/*.py` text (CONTRIBUTING.md
+section 6's "a test re-derives it" route is a second way a quoted figure enters the pool), where
+an audited recipe pinning the ledger line as an expected value would otherwise put its hex back in
+play; both sources are filtered by the one shared helper, `_without_audit_lines`. In either source,
+the matched line's content is replaced by a literal `"\n"`, line by line, before the digit scan
+sees it, not per cell: a cell that prints a prefixed line alongside another, genuine output line
+still has that other line's own numbers counted. The line itself is kept, with only its content
+replaced -- that is what makes this safe: the text before the matched line and the text after it
+stay separated rather than becoming adjacent, which deleting the line outright would not
+guarantee. That is defensive scope for any cell of any recipe that prints the prefix, not a
+description of a real audited recipe's final cell specifically -- `tests/request_audit.py`'s
+`audited_evidence` requires that final cell to hold exactly one statement, printing either
+`backend.audit_json()` (only when exactly one backend is audited) or `audit_json(<every audited
+backend, in creation order>)` (the only accepted form for a multi-backend recipe), and requires
+that cell's entire **stdout** to equal the one shared audit line -- stdout specifically, not
+every stream the cell might commit: a stream committed as stderr in that same final cell is a
+different channel this particular check does not look at, and is still just another printed line
+as far as this exclusion's own digit scan is concerned. A `replay_key` is 64 hex
+characters; left in the pool, one such line supplies many spurious digit runs. Measured on
+`tests/test_recipe_guard.py`'s own synthetic `_real_audit_line(22)` (2,267 characters): 346 digit
+runs at all lengths, 133 of them two or three digits (73 two-digit, 60 three-digit), backing 56 of
+the integers 0-100 and 12 of their 21 multiples of five. A different, real line of the same
+length -- #375's migrated template, which is what #376 itself measured -- supplied a different
+count: 342 digit runs and 71 of 0-100 backed; the hex depends on the requests behind it, so the two
+lines' figures do not match and neither should be read as the other's. Nothing else a notebook
+prints is excluded by this rule: a hash, a UUID or any other hex token committed outside that one
+prefixed line still enters the pool as numbers (see the limits list below; #378 tracks excluding
+hash-like tokens generally).
+
+The exclusion costs no other check: the ledger's own content is verified far more strictly by
+`readme_budget_note_matches_request_audit`
+(see [backends.md](backends.md#actual-calls-and-distinct-requests)) -- every count recomputed from
+the ordered ledger and checked against `request_budget.json`, the key set against the declared
+fixture inventory, and the line itself against the shared canonical form -- though a `replay_key`'s
+own value is pinned only when the backend declares a fixture inventory; a backend with none
+declared does not have its keys checked (#379). That check also reads stdout only, and not every
+code cell's: it builds its scan from code cells whose source is non-blank, so a prefixed line
+parked in the committed output of a blank-source code cell is invisible to it, while this
+exclusion still finds and blanks that same line regardless of what the cell's source contains.
+Among the cells it does scan, it requires the shared audit line to be the final one's entire
+stdout and fails closed if a prefixed line turns up anywhere else among them. That is still
+narrower than the channels this exclusion reads (stream output under either name, plus
+`text/plain` and `text/html`), so a prefixed line delivered through one of those other channels has
+its numbers excluded from the prose pool without the audited-route check ever seeing it at all.
+Either way the direction is harmless: excluding a line can only shrink the prose pool, never grow
+it.
+
+### What none of this covers: the reviewer's alone
+
+These parts of section 2 have no mechanical check. The reviewer is the only enforcement, and reads
+the README and every markdown cell for them:
+
+- A claim about what Jev does that has no number and no evaluative word ("Jev judges from the
+  evidence as a whole"). The claim check above flags `Jev judges these correctly`, and passes a
+  synonym ("flawless"), a plain assertion, and a claim whose subject is a model string such as
+  `jev-1.13.0` rather than Jev or the model.
+- An attributed quality claim ("TypeSafe says Jev is accurate"). The claim check reads an
+  attribution as a hedge, but section 2 holds even when a figure is attributed to someone else.
+- A true number given a false interpretation. The prose check confirms a quoted number was
+  printed somewhere, not that it is the right number in the right place: a quoted `1.0000` is
+  backed by any printed `1.0000`. Backing is by existence, so it is strong for a four-decimal
+  quote and weak for a round one: in a recipe that prints many numbers, a fabricated two-decimal
+  value is often already printed by coincidence (measured across the published set, roughly a
+  third to four fifths of all two-decimal values per recipe, against a few percent at four
+  decimals). The check also reads no latency written `0.18 s` or in words, no price with neither a
+  cost word nor a unit of work ("Jev at $0.0004 is affordable"), and no number spelled in words.
+  A quoted parameter or target ("coverage stays at 0.70 by construction") is read as a quote, so
+  it must be printed.
+- A hash, UUID or other hex token committed anywhere other than the one `JEV_REQUEST_AUDIT ` line:
+  only that one line's digit runs are excluded (above), so another high-entropy token a recipe
+  commits to output -- a replay-key table, a cache id column -- still enters the pool and can
+  coincidentally back a fabricated round figure, the same way the audit line itself did before
+  #376. Excluding hash-like tokens generally is #378. The match itself is also narrower than "the
+  line contains the prefix": `line.startswith(AUDIT_PREFIX)` requires the prefix at the line's
+  very first character, on both arms, so an indented occurrence (`    assert "<ledger line>" in
+  out`, the idiomatic Python shape) or a one-line assignment where a quote character precedes the
+  prefix (`EXPECTED = "<ledger line>"`) is unreached by either filter -- only the ledger
+  reproduced alone on its own physical line is caught. #378 now carries the measured table for
+  this and the design question of whether to widen the match (and, if so, on which arm: a
+  substring match is safe for `tests/*.py`, where the ledger is only ever a quoted string value,
+  but not obviously safe for committed output, where a notebook could legitimately print prose
+  that happens to mention the prefix).
+- A stale or inflated N ("20 examples" printed where the fixtures hold 22), and a header line that
+  claims real measurement while the mode word is unchanged: the mode and the disclosure are
+  checked, N is only required to be printed.
+- A fixture-derived statistic offered as evidence about the model, such as the share of
+  comparisons whose first-listed option was chosen, which offline measures only the person who wrote
+  the fixtures. A fixed-order `Choice` prints no position statistic at all
+  ([fixtures.md](fixtures.md#per-item-option-order); [CONTRIBUTING.md](../CONTRIBUTING.md), section 2).
+- A metric that is perfect by construction, printed with its pipeline-check label and without
+  saying that the fixtures or the selection force it. [CONTRIBUTING.md](../CONTRIBUTING.md), section 2,
+  defines "cannot come out otherwise" and lists the three signs to look for by hand.
+- A composed coverage, accuracy or risk that a Python check dominates (it fixes the outcome of most
+  of the rows counted as answered), reported with no split over the rows whose outcome the model's
+  answer decided, no decision-level comparison with its baselines, or a baseline figure that cannot
+  move and is not said to be fixed ([evaluation.md](evaluation.md#rules-with-a-deterministic-branch)).
+  The rule binds new recipes; recipes 41 and 43 are tracked by #366.
+- A prose quantity about the committed structure written as a word ("nine leaves"). The prose check
+  reads digits, so the reviewer reads the number words in the README and every markdown cell and
+  checks each against the committed data: such a quantity is asserted by a test, whatever spelling
+  the number uses, or printed by a committed cell as that very number
+  ([CONTRIBUTING.md](../CONTRIBUTING.md), section 6). The rule binds recipes written or touched
+  after it; the published recipes predate it, and #367 sweeps the phrases that are neither printed
+  nor pinned.
+- A sentence that misdescribes the notebook's own committed output ("each misses one record",
+  "every answer is on the correct side of its threshold") without quoting a number the output did
+  not print.
+- A count with no decimal, such as `15 of 15`, which is not a metric line to the label check.
+- Any statement in a pull request description or comment: the guard reads files, not pull requests.
+- A quality, latency or cost figure attributed to TypeSafe or a third party that the check above does not
+  see (it quotes no number beside a metric word, a price or a latency). Section 2 forbids
+  it without the same recorded, held-out evidence.
+
+### The older metric-line checks
+
+`validation_lines_carry_selection_and_check` and `metric_lines_carry_check` look for a `print(`
+that spells a rounded-float format (`{x:.4f}`, or aligned, `{x:>13.4f}`) beside the word
+"validation" or a metric word. They cover that one formatting convention. The validation check
+also follows a float formatted one line up, in a string the `print(` interpolates, and takes the
+word "validation" from the call or from a string literal of that string; the other does not follow
+a hoisted format. A metric printed through a helper, `round()` or `%` formatting, a nested
+precision (`{x:.{p}f}`), a printer that is not literally `print(`, and any prose are outside them.
+The validation check also does not see a validation line whose word reaches it only through a loop
+variable or a name bound to `"validation"`. That region is not empty: when this was written, 26
+committed `print(` lines of that shape (a rounded float inside a `for` over a literal that holds
+`"validation"`, the word reaching the line only through the loop target) sat in 12 cells across 8
+recipes. Twenty-five of them carry both labels, because the loop's own tuple supplies the label the
+`print(` interpolates, so it is the author's care and not this check that holds them. One does not:
+recipe 39's `evaluation-t86`, which has `{check}` and no selection label (#363).
+Their existence is not evidence that section 2 is enforced;
+`metric_output_lines_carry_pipeline_check` is the check that reads what was printed.
+
+### Ideas considered and rejected
+
+- A notebook that says `recorded` must have a non-synthetic response: every recipe, the template
+  included, says `recorded` in its prose, to state what a recorded recipe would add. The structural
+  form above compares what the output reports with what the fixtures carry.
+- Any evaluative word in a sentence that mentions Jev: most of those sentences are disclosures that
+  name accuracy, cost or latency in order to deny them, comparisons between a recipe's own baselines
+  on its own fixtures, or quotations of TypeSafe's documentation. Only the narrow form above is
+  checked.
+- A warning the author answers in the pull request: a recipe pull request can change only its own
+  folder, so it has no place to answer one.
+
 ## The live path
 
 Three things are needed: the SDK (`pip install -e ".[live]"` from a checkout), `JEV_COOKBOOK_LIVE=1`
@@ -123,7 +291,8 @@ A live backend counts every attempt it sends and refuses to send more than a lim
 yourself). The next attempt past the limit raises `BudgetExceeded` before anything is sent.
 Retries count against the limit, so a limit of N can give fewer than N responses. The guard belongs
 to one backend object: starting a new one starts a new count, so keeping a running total across runs
-is up to you. The backend's `ledger()` gives a plain record of what was sent, with no key and no
+is up to you, and a notebook with two backends has two budgets (a recipe's README cap is the
+largest single backend; what it spends is the sum, declared once in `request_budget.json`). The backend's `ledger()` gives a plain record of what was sent, with no key and no
 state in it ([live.md](live.md#budget-guard)).
 
 ### The recorder

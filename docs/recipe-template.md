@@ -8,6 +8,7 @@ folder for it. This page is the reference and the walkthrough; the template's ow
 ```bash
 python tools/new_recipe.py NN                 # create recipes/NN-slug/ from the catalog (NN is 1 to 100)
 python tools/new_recipe.py NN --mode scripted # the same for a scripted or simulator recipe
+python tools/new_recipe.py NN --mode replay-images # the same for a recipe whose requests carry images
 python tools/execute_notebook.py recipes/X    # run X/notebook.ipynb offline, write the outputs back
 ```
 
@@ -38,9 +39,13 @@ live inference explicitly opt-in under the [contract](../CONTRIBUTING.md).
 | `README.md` | The one-page recipe README, plus the builder's walkthrough (a real recipe's README has only the first part). |
 | `helpers.py` | `build_state`, `build_questions`, and the rule Python enforces (`route`). |
 | `build_fixtures.py` | Writes `fixtures/`; the replay keys come from `helpers.py`, so they cannot drift from the questions. It lives next to the notebook, outside `fixtures/` ([fixtures.md](fixtures.md)). Generating inputs and labels is separate from generating responses: `--force` is needed to overwrite a `responses.json` that already holds a `recorded` answer. |
+| `assets/` | Multimodal recipes only (absent from the template): the image files the recipe sends to Jev, PNG or baseline JPEG, each at most 1 MiB, 8 MiB in all, with no metadata, and nowhere else in the recipe. The contract and the check that enforces it are in [fixtures.md](fixtures.md#image-fixtures); how a recipe loads them is in [vision.md](vision.md). `python tools/new_recipe.py NN --mode replay-images` creates it with generated example images ([Image recipes](#image-recipes)). |
+| `assets-manifest.json` | Multimodal recipes only, beside `assets/`: one entry per image with its hash, size, generator and parameters, licence and the attestations that it is synthetic and holds no real photograph, brand, person or third-party content. Required exactly when `assets/` exists; `build_fixtures.py` should write it with the images. Format, worked example and rules: [fixtures.md](fixtures.md#image-provenance-manifest). `--mode replay-images` writes it through the scaffolded `build_fixtures.py`. |
 | `fixtures/` | `inputs.jsonl`, `labels.jsonl`, `responses.json`: 22 examples (10 `validation`, 10 `test`, 2 `demo`), synthetic and deliberately imperfect. |
-| `tests/test_helpers.py` | Tests for the rule, a check that the stored keys match the current question, `test_stored_answers_are_not_all_right` (replay recipes only): re-derives the frozen threshold from `validation` and requires a wrong `test` answer at or above it, so a fixture set that is merely "not all correct" (but has every mistake caught by the gate) still fails, and a test that pins the threshold-selection call's own **objective** keyword against the committed cell source (see "Pin the threshold's OBJECTIVE" above) — a value-only re-derivation does not pin which objective ran. `tools/new_recipe.py` scaffolds a working copy of the stored-answers test, so no recipe has to hand-write it from scratch; the objective pin is adapted per recipe from the template's own worked example. |
-| `tests/test_build_fixtures.py` | Guards `build_fixtures.py` (replay recipes only): refusal without `--force`, `inputs.jsonl`/`labels.jsonl` regenerated from `ROWS` even on a refused run, and the committed `responses.json` byte-identical to `jev_cookbook.live`'s recorder. A scripted recipe has no `responses.json` and nothing for these tests to guard, so the scaffolder does not emit this file for `--mode scripted`. |
+| `request_budget.json` | The recipe's declared live request count (#213, #368), the one place it is stated: one audited backend, `main`, declaring `requests: 22` and `fixtures: "fixtures/responses.json"`. The setup cell's one `get_backend(...)` is wrapped in `AuditedBackend(..., label="main")`, and a final standalone cell (nested under "What was and was not measured" as a `###` subsection, never a new `##` heading) prints `backend.audit_json()`. The README's `## Switch to live` paragraph is *rendered* from this file by `jev_cookbook.accounting.render_recipe_note`, never typed by hand, and the recipe guard's `readme_budget_note_matches_request_audit` check (#213) compares the declaration, the audited execution and the rendered paragraph against each other for every published recipe. The template's own agreement is checked by `tests/test_template.py` using the same audit. [backends.md](backends.md#the-declared-count-request_budgetjson) is the full contract; this is the one route a recipe's live request count is stated through. |
+| `tests/test_helpers.py` | Tests for the rule, a check that the stored keys match the current question, `test_stored_answers_are_not_all_right` (replay recipes only): re-derives the frozen threshold from `validation` (the `select_confidence_threshold` call written out, or `gate = helpers.<fn>(...)` through a function of the recipe's own `helpers.py` that calls it; the guard finds the test by its name, so keep `test_stored_answers_are_not_all_right` as the prefix) and requires a wrong `test` answer at or above it, so a fixture set that is merely "not all correct" (but has every mistake caught by the gate) still fails, and a test that pins the threshold-selection call's own **objective** keyword against the committed cell source (see "Pin the threshold's OBJECTIVE" above) — a value-only re-derivation does not pin which objective ran. `tools/new_recipe.py` scaffolds a working copy of the stored-answers test, so no recipe has to hand-write it from scratch; the objective pin is adapted per recipe from the template's own worked example. |
+| `side_effects.json` | The recipe's statement of its simulated side effects (a `ReviewQueue`, `ActionLog`, `Store`, `Transactor` or `Simulator` write): `{"schema": 1, "sites": {"helpers.submit_reviews": 2}}`, the exact number of places the notebook calls each side-effect function or method, or `{"schema": 1, "none": "why"}`. `tools/new_recipe.py` scaffolds it as a `none` declaration whose reason is a `TODO` placeholder (the template recipe has no simulated side effect, so `none` is what it would declare): rewrite the reason, or replace the file with `sites`, before the recipe is done. The recipe guard rejects a reason that still carries the `TODO`, rejects `none` for a recipe that has a side effect or needs a simulator, and fails a notebook that calls fewer, more or none of what it declares. Schema, keys, `not_side_effects` (bookkeeping only, with a reason per entry), factory-built simulators, the guard's known limits and the two function shapes (a batch fill, a decide-and-apply function) with their test rules: [simulation.md](simulation.md). |
+| `tests/test_build_fixtures.py` | Guards `build_fixtures.py` (replay recipes only): refusal without `--force`, `inputs.jsonl`/`labels.jsonl` regenerated from `ROWS` even on a refused run, and the committed `responses.json` byte-identical to what `jev_cookbook.dump_responses` returns (the public form of the serialization the recorder writes with; `jev_cookbook.live._dump` is kept only as a transitional alias, and recipes do not import it). A scripted recipe has no `responses.json` and nothing for these tests to guard, so the scaffolder does not emit this file for `--mode scripted`. `--mode replay-images` emits a variant of it that also copies `assets/` into the temporary folder it rebuilds in ([Image recipes](#image-recipes)). |
 
 The notebook sections, in order: **What you will build**, **Setup and run mode**, **The state**,
 **The questions**, **One answer up close**, **Python's part**, **Evaluation**, **What was and was not
@@ -71,6 +76,17 @@ own first use the same way.
 
 ### Choices the template makes for you
 
+- **The live request count is declared once, audited, and never hand-typed.** `request_budget.json`
+  declares `requests: 22` for the one backend the setup cell builds, wrapped
+  `AuditedBackend(get_backend(fixtures=responses_path()), label="main")`. A final standalone code
+  cell (`### Live request audit`, a `###` subsection of "What was and was not measured", never a
+  new `##` heading) prints `backend.audit_json()`, and the README's `## Switch to live` paragraph,
+  between `<!-- request-budget:begin -->` and `<!-- request-budget:end -->`, is *rendered* from
+  the declaration by `jev_cookbook.accounting.render_recipe_note` — never typed, never a hand-written
+  count or cap. This is the one route a recipe states its live request count through; see
+  [backends.md](backends.md#the-declared-count-request_budgetjson) and
+  [live.md](live.md#budget-guard) for the contract and `readme_budget_note_matches_request_audit`
+  (#213) in `tests/test_recipe_guard.py` for the check.
 - **Mode-neutral cells.** The notebook prints `check`, a suffix that says "a pipeline check, not a
   Jev result" in an offline run and is empty otherwise. `run_header(..., backend=backend)` states
   the mode, and the setup cell passes `n_examples=len(scored)` in every mode.
@@ -83,6 +99,20 @@ own first use the same way.
   prose.
 - **Validation chooses, test reports.** The one setting (a confidence threshold) is selected on
   `validation` with `select_confidence_threshold` and frozen before `test` is touched.
+- **The gate comes from the shared helper, and its reason comes from a live branch.** A rule that
+  compares a confidence with a bound freezes the bound with `select_confidence_threshold`, imported
+  by name and used (in the notebook, or in a `helpers.py` wrapper the notebook calls), never a
+  constant; the guard check `confidence_gate_from_shared_helper` fails a recipe that does not. The
+  reason string `confidence below the threshold` is produced by the branch that comparison controls
+  (not a comment, a docstring or an unused constant), that branch's function is reachable from the
+  notebook, and a committed output shows a review the rule produced: print the result's `.reason` for
+  an example the gate sends to review, not the words (words typed into the cell, or bound to a name in
+  any cell and printed from another, are not evidence). Keep the reason in the comparison's own
+  function, on the branch it controls or behind a flag derived from it; a private helper the branch
+  calls to build the reason is not seen. A rule with no confidence-gated review at all (a margin, a
+  budget, a top-k cut; validating that an argument lies between 0 and 1 is not a gate) does not add
+  one to satisfy the guard; the guard's `GATE_FREE_DESIGNS` list names the recipes that have none, a
+  new entry is a foundation decision, and both checks are not applicable to a recipe on it.
 - **Pin the threshold's OBJECTIVE, not only the value it lands on.** `select_confidence_threshold`
   takes exactly one of `target_accuracy` or `min_coverage`; `select_threshold` takes an `objective`
   of `"f1"`, `"recall_at_precision"`, or `"precision_at_recall"`. Neither a printed f-string beside
@@ -99,7 +129,49 @@ own first use the same way.
   a `helpers.py` wrapper rather than inline in the notebook cell, pin the wrapper function's own
   source instead (`inspect.getsource(helpers.<wrapper>)`), for the same reason. The guard check
   `threshold_objective_pin` enforces this, fail closed, over every recipe with a threshold
-  selection.
+  selection. What the check credits is what an unconditional `assert` *claims*, derived rather
+  than enumerated. Three routes are credited, and only these:
+
+  1. **A direct pin.** The assertion says the spelling is **present** in a value derived from
+     the committed source: a read of the committed `notebook.ipynb` or `helpers.py` (by
+     `read_text()`, `read_bytes()`, `open(...).read()`, `with open(...)`, any other `open` /
+     `.open` / `.read` / `.readlines` call that names the file, or a function in the same test
+     file that does one of those), or `inspect.getsource(helpers.<fn>)`, or a call to a
+     `helpers.py` function whose own body makes the selection call. A path under `tmp_path` is a
+     copy, not the committed file, so a read of it does not count.
+  2. **An extraction.** `name = _your_helper(source, ...)`, through a function defined in the
+     test file, followed by `assert name is not None`. That is the only truthiness check
+     credited here: a bare `assert name`, or any other check, is not. The strings in the call
+     are what is pinned.
+  3. **A production tie** (recipe 28's shape, which reads no file). A `helpers.py` function
+     whose body makes the real selection call is compared with `==` to a local re-derivation
+     computed with an explicit keyword, and a separate `!=` assert shows that re-derivation
+     differs from a sibling computed with a different objective.
+
+  For a direct pin, `not`, `is False`, `.count(...) == 0`, an `if`/`else` branch that asserts
+  nothing, and an `or` with a vacuous operand are read for what they claim, so none of them
+  counts as a pin. So is a needle that is also *typed into the test function* as part of the
+  value it is compared with: inline (`source + " min_coverage"`, `kws.get("objective",
+  "min_coverage")`), as a `+` of adjacent literals (`"min" + "_coverage"`), through a variable
+  the value was built from, or put into a container with `.append(...)`, `.extend(...)`,
+  `.update(...)` or `name[key] = ...`. The check looks at text typed in the function; it does not
+  follow a needle that reaches the value any other way (a module-level name, a parameter, a
+  computed string). A name counts as the read only if every binding of it is the read (or wholly
+  derived from it): once it is also bound by `+=`, a `for` target, unpacking, `:=` or a
+  hand-typed value, it does not. `all(...)`/`any(...)`/`len([...]) > 0`/`sum(...) > 0` over the
+  committed source do count (an `all(...)` needs an iterable that is visibly non-empty and bound
+  once, since it is vacuously true over nothing).
+
+  Only asserts that really run count. They are the top-level statements of a `test_` function
+  that pytest collects: a module-level function, or a method of a top-level class named `Test*`
+  that defines no `__init__`, none of them marked `skip`/`skipif`/`xfail` (on the function, on the
+  class, or by a `pytestmark` in the class body or the module), in a file with no top-level
+  `pytest.importorskip(...)` or `pytest.skip(..., allow_module_level=True)`, and not nested in
+  another function. Within it they are the statements directly in the function body, those inside
+  `with open(...)`, and those in a `for` over a non-empty literal tuple/list/set (no `else`, no
+  `break`/`continue`/`return`), only up to the first `return`, `raise` or
+  `pytest.skip`/`xfail`/`exit`/`fail` call. An assert under `if`, `try`, any other loop, or a
+  context manager such as `pytest.raises` is not credited.
 - **`evaluate_selective` reports the same split as the rule only when the rule's only review
   branch is that confidence gate — `route` here has three, so it is not that rule.**
   `helpers.py::route` sends a ticket to `review` for any of three reasons, in this order:
@@ -180,16 +252,54 @@ own first use the same way.
   — each of which summarises a whole split; it does not reach `plot_answer_probabilities` shown
   for one answer up close (the template's own `title="One Choice answer"`), which is neither a
   pipeline check nor a selection step on an aggregate and so need not carry one.
+- **A number the selection forces says so.** A `validation` number that is fixed by how the threshold was chosen cannot come out otherwise, and labelling it "a selection step" says where it came from, not that. With `target_accuracy=1.0` the threshold is chosen so every answer that names a queue and clears it is right, so "right among those routed automatically" is all of them on `validation` by construction (and a risk of 0.0000 likewise). The template's `evaluation-md` says so in a short passage written for this template's objective; a recipe replaces it with what its own selection forces and does not copy it verbatim (under `min_coverage=x`, for example, coverage of at least x on `validation` is forced, and a different sentence is true), naming every `validation` number so forced, or saying that none is. (#222 gap 3; the published recipes that carry an undisclosed forced metric are swept separately.)
+- **A confusion-matrix column is as wide as the widest label or the widest count.** The template's `evaluation-matrix` cell sizes the columns with `max(width, len(str(matrix.matrix.max())))`, because a format spec never truncates and a count with more digits than the longest label would otherwise push its row out of line with the header. `tests/test_template_matrix_alignment.py` runs that cell on counts wider than every label.
 - **Nothing path-like is printed.** The hygiene scan fails notebook outputs that contain absolute
   paths, usernames or environment dumps.
 - **`Noul` propositions are statements** that can be true or false. The contract is stricter than
-  TypeSafe's documentation, which also shows questions.
+  TypeSafe's documentation, which also shows questions. **A recipe that asks more than one `Noul`
+  proposition about the same state needs its fixture set to carry three more things, beyond what
+  a single proposition needs:**
+  - a gold-true row **and** a gold-false row for **every** proposition, in **every** scored
+    split — `validation` and `test`, the two scored splits in
+    [fixtures.md](fixtures.md#splits) — not only the one used to select a threshold. Without one
+    in `validation`, `select_threshold` has no example of that value to choose a threshold from;
+    without one in `test`, the frozen threshold is reported on a split with no positive (or no
+    negative) for that proposition. Either way the result is degenerate before any model ever
+    answers, which is a fixture gap wearing the costume of a model limitation.
+    `tests/test_recipe_guard.py` checks this per split and per proposition, so a `test` split
+    left one-sided fails CI even when `validation` is fully covered;
+  - at least one row for **every truth combination** the use case admits — both propositions
+    true, both false, and each true alone — because a group of propositions only shows its own
+    composition in the states that distinguish it from asking the same questions one at a time,
+    and a fixture set built from complementary groups alone can never reach them;
+  - at least one row, for **each** proposition, where that proposition's own tag is what changes
+    the composed outcome — a proposition no committed row depends on is decorative rather than
+    load-bearing, however many labels the question carries.
+
+  The first two do not imply the third: a fixture set can carry a positive and a negative example
+  of every proposition and cover every combination, and still never let one proposition's tag
+  decide anything.
 - **Per-item order comes from a seed key, never from `random.shuffle` or list position.** This
   template's one `Choice` lists its options in a fixed, meaningful order, so it needs none of
-  this. A recipe that ranks or compares several candidates, and does not want their shown order to
+  this, and it prints no first-option or other position statistic either: offline, the share of
+  gold answers on the first listed option measures the fixture author and not any model, so it
+  is never offered as a check on a model's first-option lean (CONTRIBUTING.md section 2). A
+  recipe that ranks or compares several candidates, and does not want their shown order to
   come from the data itself (which one is listed first, which side of a pairwise comparison an
   item sits on), derives it from `jev_cookbook.fixtures.stable_permutation` /
-  `stable_shuffle` ([fixtures.md](fixtures.md#per-item-option-order)) instead.
+  `stable_shuffle` ([fixtures.md](fixtures.md#per-item-option-order)) instead: a seeded
+  Fisher-Yates permutation built from nothing but `random()`, so the same seed key gives the same
+  order on every Python version.
+- **A fixture builder uses only exactly-specified float operations.** `build_fixtures.py` is
+  asserted byte for byte against the committed `responses.json` (`tests/test_build_fixtures.py`),
+  on Python 3.10 and 3.14. Accumulate floats with a left-to-right loop, not `sum()` (CPython 3.12
+  changed `sum()` over floats to compensated summation, so the two legs can differ in the last
+  bit), and build a power by repeated multiplication, not `float ** int` (the C library's
+  `pow()` is not pinned across builds). Rounding the stored value also hides a difference, but
+  prefer a construction that is deterministic to one that truncates its output. The measured
+  example, and the other operations to avoid, are in [fixtures.md](fixtures.md#floats-in-a-generator).
+  The template's own `build_fixtures.py` stores hand-typed probabilities and does neither.
 - **Neighbour links are folder links, and every linked neighbour already exists on `main`.**
   "Next steps" links a neighbouring recipe as `../NN-slug/`. `tools/render_catalog.py` renders
   each catalog row as a bare `| NN | **title**<br>use_case | category | decision | status |` with
@@ -197,6 +307,26 @@ own first use the same way.
   Link only a recipe whose `notebook.ipynb` is already committed on `main`: a folder link to one
   that is not yet published would 404 on GitHub, and that forward link is not allowed — pick a
   different, already-published neighbour, or name none and say so in one sentence.
+- **A "Next steps" exercise names a verified value and quotes no counterfactual number.** Tell the
+  reader which parameter to change, to a value you ran and confirmed moves the quantity you ask
+  them to watch (recipes 38 and 40 each shipped a floor that moved nothing), which quantity to
+  watch, and which way it moves; do not quote the resulting figures, which describe a run the
+  notebook never performs and so are pinned by nothing. If a figure is worth quoting, print it
+  from a labelled side-computation cell or assert it in a test (no published recipe is the model
+  for this yet; recipe 40's Next steps prints one illustrative figure but its prose still quotes
+  others that no committed cell prints, and is being brought into line under #259), so it is in committed output or under a
+  test. The direction sentence follows the helper, not the parameter's name: raising
+  `select_confidence_threshold`'s `min_coverage` can only lower the threshold or leave it
+  unchanged, and the response is piecewise constant, so test the exercise by running it
+  ([evaluation.md](evaluation.md#selective-prediction)).
+- **A Noul confidence gate is measured on your own composition, split by side.** The gate is a
+  two-sided band, `(1 - g)/2 < p < (1 + g)/2` goes to review; whether it changes any outcome of
+  your rule is not derivable from `t` and `g`. Run the rule's own decision function over a grid
+  with and without the gate, print the count of changed outcomes at or above and below the
+  business threshold, and state in prose which side the gate acts on.
+  This assumes one Noul and one threshold; several gated Nouls (recipe 06), a rule with no
+  threshold but 0.5, and a decision function that takes an answer object rather than `p` are
+  covered by "Scope of the measurement" ([evaluation.md](evaluation.md#noul-three-path-pattern)).
 - **Every validation number in an offline run carries both labels, `{selection}{check}`.**
   CONTRIBUTING.md section 2 requires the pipeline-check disclosure beside every synthetic or
   scripted number, and separately requires the selection-step label on every `validation` number
@@ -273,12 +403,30 @@ writes) is accepted.
 `NN`, and creates `recipes/<slug>/` with:
 
 - `notebook.ipynb`: no outputs; the first cell has the title, recipe number, level and difficulty,
-  decision types, use case and sources from the catalog, and the nine sections follow with a
-  `TODO` in each markdown cell;
+  decision types, use case and sources from the catalog, and the nine sections follow, each with a
+  `TODO` in its own markdown cell. The setup cell's one `get_backend(...)` is already wrapped
+  `AuditedBackend(..., label="main")`, and under "What was and was not measured" a
+  `### Live request audit` markdown cell and the final standalone code cell that prints
+  `backend.audit_json()` are already complete, so neither carries a `TODO`.
 - `README.md`: the recipe README with the same fields, the run commands for this slug, and a `TODO`
-  where you write what it teaches;
+  where you write what it teaches. Its `## Switch to live` section already holds the rendered
+  budget paragraph for `request_budget.json`'s declaration, between the
+  `<!-- request-budget:begin -->` / `<!-- request-budget:end -->` markers, plus a `TODO` that says
+  how to keep the two in step as you add `decide()` calls while writing Evaluation (step 5).
 - `helpers.py`, `build_fixtures.py`: skeletons that raise `NotImplementedError("TODO ...")` until
   you write them.
+- `request_budget.json`: declares exactly the one `decide()` call the skeleton notebook's own
+  `answer` cell makes (`requests: 1`, `fixtures: "fixtures/responses.json"`, or `fixtures: null`
+  for `--mode scripted`) — already self-consistent with the audited setup cell and the rendered
+  README paragraph above, with nothing to edit yet. As `decide()` calls are added while writing
+  Evaluation (step 5), update this file's declared count (and `distinct`/`at_most` where they
+  apply) to match, then regenerate the README paragraph the same way
+  ([backends.md](backends.md#the-declared-count-request_budgetjson)); step 8's checks fail a
+  mismatch, so this cannot be forgotten.
+- `side_effects.json`: a `none` declaration whose reason is a `TODO` placeholder. A recipe with no
+  simulated side effect rewrites the reason; a recipe that writes to a `ReviewQueue`, `ActionLog`,
+  `Store`, `Transactor` or `Simulator` (every recipe flagged `needs: simulator`) replaces the file
+  with `sites`. See the `side_effects.json` row of the table above and [simulation.md](simulation.md).
 - `tests/test_helpers.py`: a `TODO` skeleton for the rule's own test, plus two guards that already
   work once `helpers.py`, `build_fixtures.py` and the fixtures exist, with no `TODO` of their own:
   the replay-key test (which assumes one request per example — `example.replay_keys` holds a
@@ -307,6 +455,12 @@ catalog is insufficient; the scope guard reads assignments from the base.
 2. `python tools/new_recipe.py NN`.
 3. Write `helpers.py`: the state, the questions (options built by Python), and the rules Python
    enforces. Write a test for each rule in `tests/test_helpers.py`; run `pytest recipes/NN-slug`.
+   If `helpers.py` trains a baseline with scikit-learn (the `ml` extra), install the extra too
+   (`pip install -e ".[dev,ml]"`): the `Tests` jobs install it, so it is available in `helpers.py`,
+   `build_fixtures.py` and `tests/`, as well as in notebook cells. Those jobs do not use the
+   notebook constraints (Python 3.10 cannot install them), so a test asserts properties of the
+   trained model, never numbers that depend on the scikit-learn version
+   ([development.md](development.md#continuous-integration)).
 4. Fill `ROWS` and `answers_for` in `build_fixtures.py`, run
    `python recipes/NN-slug/build_fixtures.py`, then
    `python -m jev_cookbook.fixtures validate recipes/NN-slug`. Generating `inputs.jsonl` and
@@ -314,7 +468,15 @@ catalog is insufficient; the scope guard reads assignments from the base.
    rerunning the script refuses to overwrite it unless you pass `--force`.
 5. Work through `notebook.ipynb` section by section. The scaffold's setup, state, question and
    answer cells already run once steps 3 and 4 are done; replace each `TODO` and fill the
-   `# TODO` code cells. Copy the template's evaluation cells as a starting point.
+   `# TODO` code cells. Copy the template's evaluation cells as a starting point. As Evaluation
+   adds more `decide()` calls, update `request_budget.json`'s declared `requests` (and `distinct`
+   or `at_most` where they apply) to match, then regenerate the README's rendered paragraph with
+   `python -c "from jev_cookbook.accounting import render_recipe_note as r; print(r('recipes/NN-slug'), end='')"`
+   and replace the whole README block,
+   including the `<!-- request-budget:begin -->` / `<!-- request-budget:end -->` markers,
+   with its output
+   ([backends.md](backends.md#the-declared-count-request_budgetjson)). Leave the final
+   `print(backend.audit_json())` cell as the scaffold wrote it.
 6. Committable outputs require Python 3.14 with the constraints file: the floor, Python 3.10,
    cannot even install it (`numpy==2.5.3` needs Python 3.12 or newer), and CI compares text output
    byte for byte against its pinned stack. Install the way the `Notebook (<recipe>)` job does,
@@ -349,7 +511,8 @@ scripted scaffold changes:
 | - | - | - |
 | `helpers.py` | `build_state`, `build_questions` | also `SEED` and `script(state, questions, rng)`, a `TODO` that returns `{question name: spec}` (see `Spec` in [backends.md](backends.md)) |
 | `build_fixtures.py` | `ROWS` of 5 fields, `answers_for`; `--force` is needed to overwrite a `recorded` `responses.json` | `ROWS` of 4 fields (no spec), no `answers_for`; writes `inputs.jsonl` and `labels.jsonl` with `"replay_keys": []`, and removes a stale `responses.json`; no `responses.json` ever exists, so there is nothing `--force` would protect |
-| setup cell | `get_backend(fixtures=responses_path())` | `get_backend(script=helpers.script, seed=helpers.SEED)`; `run_header(..., backend=backend, n_examples=len(scored))` is the same |
+| setup cell | `AuditedBackend(get_backend(fixtures=responses_path()), label="main")` | `AuditedBackend(get_backend(script=helpers.script, seed=helpers.SEED), label="main")`; `run_header(..., backend=backend, n_examples=len(scored))` is the same |
+| `request_budget.json` | `"fixtures": "fixtures/responses.json"` | `"fixtures": null` (nothing to replay); `requests: 1` either way at scaffold time |
 | `measured` cell | follows `backend.mode` | the same line: `Provenance: scripted. Not measured live: a pipeline check, not a Jev result.` |
 | `tests/test_helpers.py` | asserts every example's keys equal `replay_key(state, questions)` | asserts the keys are empty and that a fresh `ScriptedBackend(helpers.script, helpers.SEED)` answers the same request identically twice; the scaffolder writes the one test file that fits `--mode`, so neither carries the other's machinery |
 | `tests/test_build_fixtures.py` | emitted: guards the refusal, inputs/labels regeneration and the writer | not emitted: no `responses.json` and no refusal logic for these tests to guard |
@@ -362,6 +525,85 @@ describes, with the simulator owning the state and the script standing in for th
 a pipeline check, not a Jev result; the README and notebook say so under their `TODO`s. A scripted
 recipe that later records real answers becomes a replay recipe: add the keys and `responses.json`.
 
+## Image recipes
+
+A recipe whose requests carry images (the multimodal track, ranks 61–100:
+[multimodal-track.md](multimodal-track.md)) is a replay recipe with an `assets/` folder. Scaffold it
+with:
+
+```bash
+python tools/new_recipe.py NN --mode replay-images
+```
+
+`--mode` is the option that already chooses a variant of the scaffold, so the image variant is one
+more value of it (read it as "replay, with images") rather than a separate flag; a flag could be
+combined with `--mode scripted`, and no value of `--mode` can ask for an image recipe that is not a
+replay recipe. Everything in [vision.md](vision.md) applies to what it writes.
+
+**It writes a working example, not a skeleton.** The text scaffold raises `NotImplementedError`
+until you write `helpers.py` and `ROWS`; the image scaffold ships a small recipe that runs end to
+end, so that the image plumbing (the files, the references, the budget) is correct before you change
+anything, and `TODO` markers say what to replace. The example asks of fourteen drawings of an
+invented sign-in window (`jev_cookbook.synthetic_images.login_screen`; 6 `validation`, 7 `test` and
+1 `demo` example) whether an error banner is shown (a `Noul`) and where (a `Box`).
+
+The command writes the files of the replay scaffold, then runs the new folder's own
+`build_fixtures.py` once. That script draws the images, saves them under the byte policy of
+[synthetic-images.md](synthetic-images.md#byte-stability-and-regeneration), and writes
+`assets-manifest.json` and `fixtures/`. `tools/new_recipe.py` itself needs only the standard
+library; that one step needs the installed package and Pillow, which the scaffolded
+`build_fixtures.py` imports (`pip install -e ".[dev]"`). If it fails, the folder is removed and the
+command exits with status 1.
+
+| File | What the image scaffold adds to the replay scaffold |
+| - | - |
+| `assets/`, `assets-manifest.json` | Fourteen PNG files, `assets/screen-<id>.png`, and their manifest ([fixtures.md](fixtures.md#image-provenance-manifest)): `origin: generated`, the generator `jev_cookbook.synthetic_images:login_screen` with the arguments that redraw each file, licence `CC0-1.0` and the five attestations. |
+| `fixtures/` | Complete. A fixture row's `fields` hold a `capture` identifier (Python keeps it) and the image's path, `assets/screen-<id>.png`, as [fixtures.md](fixtures.md#image-fixtures) requires. Gold labels are Box labels ([fixtures.md](fixtures.md#box-labels)) derived from what was drawn: the banner's `Drawn.label()` where the screen has one, `{"present": false}` where not. The stored answers are synthetic and deliberately imperfect (a rectangle that misses the banner, two wrong yes answers and one wrong no, one rectangle without a confidence). |
+| `helpers.py` | `build_request(fields)` returns `(state, assets)`: it loads the image with `image_asset(path, root=ROOT)` because the path comes from fixture data, derives `image_reference`, and puts the reference in the state once (every place a reference appears adds a copy of the image to the request: [vision.md](vision.md#image-copies-and-the-32-mib-caps)). `build_questions()` asks `present` (a `Noul`) and `location` (a `Box`). `locate(...)` is the rule that holds whatever the model answers: a presence answer below the threshold is a review, not an absence; a probability of yes above one half means the target is there; a rectangle with no confidence, or below its threshold, is a review. `open_image` and `png_bytes` serve the notebook's drawing cell. |
+| `build_fixtures.py` | `ROWS`, then `draw`, `write_images`, `build_inputs_and_labels`, `answers_for` and `build_responses`. Images are written first, then the keys are computed with `replay_key(state, questions, assets=assets)` from the files on disk. `--force` behaves as in the text scaffold; `--overwrite-assets` accepts a picture that differs from the committed file, which changes its replay keys. Without it, a changed picture stops the script before anything else is written. |
+| notebook | The cells of the replay notebook, with `get_backend(fixtures=responses_path(), images=True)` in the audited setup cell, and: `state` (builds the request for the demo example and shows its image), `answer` and `answer-boxes` (one answer up close, and `draw_boxes` on the image with the returned rectangle), `python-rule` (freezes the presence and rectangle-confidence thresholds on `validation` with `select_confidence_threshold`, then applies `locate` to the demo answer), `gate-effect` (runs `locate` over a grid of probabilities with the frozen presence gate and with none, and counts the outcomes that change on each side of one half), `evaluation` (every `test` example once through `localization_report`, printed with `check` beside each line) and `evaluation-review` (what was not located, and why). Every `decide()` passes `assets=assets`. The setup cell defines `selection`, because these cells print `validation` numbers. |
+| `request_budget.json` | `requests: 14`, `fixtures: "fixtures/responses.json"`, and `profile: {"images": 14, "distinct_images": 14}` ([backends.md](backends.md#actual-calls-and-distinct-requests)): the notebook decides each of the 14 examples once, and the reference sits once in each state, so each request is one copy of one distinct image. A recipe that repeats a reference or sends more than one image per request changes these two numbers with the count. The README's paragraph is rendered from this file, as for every scaffold. |
+| `tests/test_helpers.py` | Tests of `locate` (each outcome and each reason, and a grid of probabilities and thresholds), the replay-key test with `assets=`, a test that redraws every shared-scene image from its manifest entry (`check_reproducible`), `test_stored_answers_are_not_all_right`, which re-derives the presence threshold and requires a wrong `test` answer at or above it, and a test that pins both thresholds' objective (`target_accuracy=1.0`) in the committed `python-rule` cell source. |
+| `tests/test_build_fixtures.py` | The text scaffold's three guards, run in a temporary folder that also holds a copy of `assets/` (the third also checks that the images and `assets-manifest.json` come back unchanged), and a fourth: a picture that differs from the committed file is refused, not rewritten. |
+
+**Why `tests/test_build_fixtures.py` differs.** A PNG's bytes depend on the Pillow and zlib that
+wrote them, and the bytes are part of the replay key of each request that carries a picture. The
+text scaffold's test copies only
+`helpers.py` and `build_fixtures.py` into a temporary folder and runs the script there; for an
+image recipe that would draw every picture afresh with the encoder of whatever environment runs the
+test, and the regenerated fixtures could disagree with the committed ones although the pixels are
+the same. The image variant copies the committed `assets/` too, so the script compares each picture
+it draws with the committed file under that byte policy. That file must stay byte-identical to the
+scaffold's, so the choice cannot be left to the builder:
+`build_fixtures_test_text(recipe)` returns the text variant and
+`build_fixtures_test_text(recipe, "replay-images")` the image one, which is the file an image
+recipe commits. The recipe guard's byte-identity check on this file (G1(a) in
+`tests/test_recipe_guard.py`) holds a recipe that has an `assets/` folder to the image variant and
+every other replay recipe to the text variant.
+
+**What the scaffold passes offline.** `python -m jev_cookbook.fixtures validate`,
+`python tools/check_recipe_assets.py`, `python tools/check_hygiene.py`, `ruff check`,
+`ruff format --check`, and its own tests (`pytest recipes/NN-slug`), with no network, no key and no
+hand-edit. `tests/test_new_recipe.py` checks that its declaration, with the two image quantities, agrees with
+the request audit of the calls its notebook makes. The notebook has no outputs when it is
+scaffolded: execute it with `tools/execute_notebook.py` (step 6 above) before the freshness check
+can compare anything.
+
+**From scaffold to your recipe.** Replace the sign-in windows, the two questions and the answers
+with your own, keeping the pattern: draw with `jev_cookbook.synthetic_images` (a scene of your own
+calls `canvas.provenance("build_fixtures.py:your_function", {...})`, so the manifest names a
+generator that exists), derive every gold Box label from a `Drawn`, put the image path in `fields`,
+and keep the reference out of the questions. Grow `ROWS` to the size your level needs
+([fixtures.md](fixtures.md)), update `request_budget.json` and its README paragraph together as
+Evaluation adds `decide()` calls, and recreate the images under the notebook constraints pin
+(`pip install -e ".[ml]" -c .github/constraints-notebooks.txt`) with
+`python build_fixtures.py --overwrite-assets` before you commit them, so that the committed bytes
+are the pin's (without the flag the script refuses a file whose bytes differ, even with the same
+pixels). With a recorded `responses.json`, `--overwrite-assets` is refused unless `--force` is
+passed too, because a changed picture changes the replay keys of the recorded answers. The checklist in
+[synthetic-images.md](synthetic-images.md#a-checklist-for-a-recipe) is the same list from the
+drawing side. A frame sequence (ranks 85–92) has no scaffold of its own yet.
+
 ## Executing a notebook
 
 `tools/execute_notebook.py <recipe-dir>` runs `notebook.ipynb` with `nbclient` in a fresh kernel and
@@ -370,9 +612,10 @@ the recipe folder as working directory, and writes the outputs back in place.
 - It builds a copy of the environment without any `JEV_COOKBOOK_*` or `TYPESAFE_*` variable and
   passes it to the kernel explicitly; this process's own environment is never changed, so notebooks
   can be executed in parallel. Starting several kernels at once on Windows can fail with a ZMQ
-  "Address in use" error, so the tool starts a fresh kernel once more when the first one does not
-  start (never when a cell fails) and waits up to 180 seconds for a kernel to answer. A shell that
-  is set up for live calls still runs offline.
+  "Address in use" error, so the tool starts a fresh kernel again when one does not start (never
+  when a cell fails): up to four starts for a kernel that exits at once, two for one that is alive
+  but silent, which is waited for up to 180 seconds. Each retry prints a line to stderr, and a start
+  that keeps failing fails the run. A shell that is set up for live calls still runs offline.
 - The kernel is the interpreter running the tool (`sys.executable`). The name `python3` is
   resolved to that interpreter, not to whichever `python3` kernelspec Jupyter finds first, so a
   user-level kernelspec cannot change what the committed outputs were made with. The tool needs
