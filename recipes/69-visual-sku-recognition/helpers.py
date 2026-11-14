@@ -19,8 +19,10 @@ No ``from __future__ import annotations`` here: ``load_helpers`` removes this mo
 ``sys.modules``, so ``typing.get_type_hints`` cannot resolve postponed annotations on a dataclass.
 """
 
+import copy
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -106,15 +108,28 @@ def gold_label(visible: Mapping[str, str | None] | None) -> str:
     return found[0] if len(found) == 1 else UNCERTAIN
 
 
-def reference_assets() -> dict[str, tuple[str, dict[str, Any]]]:
-    """``{product name: (reference, asset)}`` for every product, in catalogue order."""
+@lru_cache(maxsize=1)
+def _load_reference_assets() -> tuple[tuple[str, str, dict[str, Any]], ...]:
+    """Load, encode, validate and hash the six reference images once."""
     found = {}
     for sku in CATALOG:
         asset = image_asset(sku.reference_path, root=ROOT)
         found[sku.name] = (image_reference(asset), asset)
     if len({reference for reference, _ in found.values()}) != len(found):
         raise ValueError("two products share one reference image, which cannot tell them apart")
-    return found
+    return tuple((name, reference, asset) for name, (reference, asset) in found.items())
+
+
+def reference_assets() -> dict[str, tuple[str, dict[str, Any]]]:
+    """``{product name: (reference, asset)}`` for every product, in catalogue order.
+
+    The images are read once; every call returns fresh dictionaries, so a caller cannot change
+    what a later call sees.
+    """
+    return {
+        name: (reference, copy.deepcopy(asset))
+        for name, reference, asset in _load_reference_assets()
+    }
 
 
 def build_request(fields: dict[str, Any]) -> tuple[dict[str, str], dict[str, dict[str, str]]]:
@@ -128,8 +143,6 @@ def build_request(fields: dict[str, Any]) -> tuple[dict[str, str], dict[str, dic
     asset = image_asset(fields["image"], root=ROOT)
     reference = image_reference(asset)
     assets = {ref: found for ref, found in reference_assets().values()}
-    if reference in assets:
-        raise ValueError("the query image has the bytes of a reference image")
     assets[reference] = asset
     return {"query": reference}, assets
 

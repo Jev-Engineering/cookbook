@@ -30,7 +30,7 @@ python tools/execute_notebook.py recipes/69-visual-sku-recognition
 pytest recipes/69-visual-sku-recognition
 ```
 
-The notebook runs from this folder with no network and no API key, replaying `fixtures/` and reading the images in `assets/`: six reference images, one per product, and 31 query images. `build_fixtures.py` draws those images and writes `assets-manifest.json`, which records where each came from, its licence and what it is attested not to be ([docs/fixtures.md](../../docs/fixtures.md#image-provenance-manifest)); [docs/vision.md](../../docs/vision.md) covers loading images and Box answers.
+The notebook runs from this folder with no network and no API key, replaying `fixtures/` and reading the images in `assets/`: six reference images, one per product, and 31 query images. `build_fixtures.py` draws those images and writes `assets-manifest.json`, which records where each came from, its licence and what it is attested not to be ([docs/fixtures.md](../../docs/fixtures.md#image-provenance-manifest)); [docs/vision.md](../../docs/vision.md) covers what applies here, loading images with `image_asset` and `image_reference` and counting the image copies a request carries; its Box and coordinate sections do not, because this recipe asks only a `Choice` question.
 
 The committed images were written under the notebook constraints pin (the install in the paragraph below). Their bytes are part of the replay key of each request that carries them, the six references in the criteria included, so `build_fixtures.py` refuses a picture whose bytes differ from the committed file unless `--overwrite-assets` accepts the change ([docs/synthetic-images.md](../../docs/synthetic-images.md#byte-stability-and-regeneration)).
 

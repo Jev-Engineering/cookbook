@@ -39,6 +39,7 @@ from jev_cookbook import (
     replay_key,
 )
 from jev_cookbook import synthetic_images as si
+from jev_cookbook.vision import image_asset
 
 HERE = Path(__file__).resolve().parent
 helpers = load_helpers(HERE)
@@ -149,7 +150,10 @@ def design_of(design):
     if design is None:
         return None
     if isinstance(design, str):
-        return next(sku for sku in helpers.CATALOG if sku.name == design).design()
+        for sku in helpers.CATALOG:
+            if sku.name == design:
+                return sku.design()
+        raise ValueError(f"unknown product {design!r}: not in helpers.CATALOG")
     return dict(design)
 
 
@@ -270,10 +274,6 @@ def draw_tin(
     )
 
 
-def reference_path(sku):
-    return sku.reference_path
-
-
 def query_path(ident):
     """Where the query image of example ``ident`` is saved, relative to the recipe."""
     return f"assets/query-{ident}.png"
@@ -303,7 +303,10 @@ def describe(row):
     _ident, _split, _capture, design, hidden, condition, seed, _answer = row
     drawn = design_of(design)
     if drawn is None:
-        return f"An invented shelf frame under {condition!r} conditions with no tin in it (seed {seed})."
+        scene = "shelf frame" if condition == "shelf" else "frame"
+        return (
+            f"An invented {scene} under {condition!r} conditions with no tin in it (seed {seed})."
+        )
     tag = f", a pink SALE tag covering the {hidden}" if hidden else ""
     return (
         f"An invented tea tin with a {drawn['body']} body, {drawn['lid']} lid and "
@@ -319,7 +322,7 @@ def write_images(rows, overwrite):
     ``overwrite`` is true."""
     entries = []
     for sku in helpers.CATALOG:
-        path = reference_path(sku)
+        path = sku.reference_path
         canvas = draw_reference(sku)
         status = canvas.write(HERE, path, overwrite=overwrite)
         print(f"{status}: {path}")
@@ -339,6 +342,22 @@ def write_images(rows, overwrite):
 
 def _fields(row):
     return {"capture": row[2], "image": query_path(row[0]), "condition": row[5]}
+
+
+def check_queries_differ_from_references(rows):
+    """Raise ValueError if a query picture has the bytes of a reference image. That would be a
+    fixture mistake (the query would be the catalogue's own picture), so it is checked here and
+    not in ``helpers.build_request``, which accepts any image a user submits."""
+    references = {
+        asset["data_base64"]: name for name, (_ref, asset) in helpers.reference_assets().items()
+    }
+    for row in rows:
+        asset = image_asset(query_path(row[0]), root=HERE)
+        if asset["data_base64"] in references:
+            raise ValueError(
+                f"query {row[0]!r} has the bytes of the reference image of "
+                f"{references[asset['data_base64']]}"
+            )
 
 
 def build_inputs_and_labels(rows):
@@ -361,23 +380,36 @@ def build_inputs_and_labels(rows):
 def answers_for(row, provenance: Provenance):
     """{question name: answer} for one row, from the integer weights ``row`` names."""
     top, top_weight, second, second_weight = row[-1]
+    for option in (top, second):
+        if option not in helpers.OPTIONS:
+            raise ValueError(f"row {row[0]!r}: {option!r} is not one of {helpers.OPTIONS}")
+    if top == second:
+        raise ValueError(f"row {row[0]!r}: the top and runner-up options are both {top!r}")
+    if top_weight <= second_weight:
+        raise ValueError(
+            f"row {row[0]!r}: the top weight {top_weight} must exceed the runner-up's {second_weight}"
+        )
     weights = dict.fromkeys(helpers.OPTIONS, 1)
     weights[top], weights[second] = top_weight, second_weight
-    total = 0
-    for weight in weights.values():  # integers, so any order gives the same total
-        total += weight
+    total = sum(weights.values())  # integers, so any order gives the same total
     probabilities = {option: weight / total for option, weight in weights.items()}
     return {"sku": ChoiceAnswer.from_probabilities(probabilities, provenance)}
 
 
-def build_responses(rows):
+def build_responses(rows, keys=None):
     """``{replay_key: stored response}`` from ``rows``, with the images already saved. Always
-    synthetic: this script never calls Jev, so it can never produce a recorded response."""
-    questions = helpers.build_questions()
+    synthetic: this script never calls Jev, so it can never produce a recorded response.
+
+    ``keys`` is each row's replay key, in order, when the caller already computed them (``main``
+    takes them from the inputs it just built); without it they are computed here."""
+    if keys is None:
+        questions = helpers.build_questions()
+        keys = []
+        for row in rows:
+            state, assets = helpers.build_request(_fields(row))
+            keys.append(replay_key(state, questions, assets=assets))
     responses = {}
-    for row in rows:
-        state, assets = helpers.build_request(_fields(row))
-        key = replay_key(state, questions, assets=assets)
+    for row, key in zip(rows, keys, strict=True):
         answers = answers_for(row, Provenance.synthetic())
         responses[key] = DecisionResult(answers, "synthetic").to_dict()
     return responses
@@ -454,11 +486,11 @@ def main() -> None:
     )
     folder = HERE / "fixtures"
     folder.mkdir(exist_ok=True)
+    check_queries_differ_from_references(ROWS)
     inputs, labels = build_inputs_and_labels(ROWS)
     for name, rows in (("inputs.jsonl", inputs), ("labels.jsonl", labels)):
         text = "".join(json.dumps(row) + "\n" for row in rows)
         (folder / name).write_text(text, encoding="utf-8", newline="\n")
-    responses_file = folder / "responses.json"
     if _is_recorded(responses_file) and not args.force:
         message = (
             f"refusing to overwrite {responses_file}: it holds a recorded response "
@@ -472,7 +504,7 @@ def main() -> None:
                 "--force a rewrite or record the missing answers."
             )
         raise SystemExit(message)
-    responses = build_responses(ROWS)
+    responses = build_responses(ROWS, [row["replay_keys"][0] for row in inputs])
     # dump_responses is the serialization the recorder writes with (top-level keys sorted, each
     # response keeping the field order DecisionResult.to_dict() emits), so a recording's diff
     # stays limited to the values that actually changed.

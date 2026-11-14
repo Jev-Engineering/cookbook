@@ -136,10 +136,24 @@ def test_every_replay_key_in_the_fixtures_matches_the_current_question():
         assert example.replay_keys == (replay_key(state, questions, assets=assets),)
 
 
-def test_a_query_with_the_bytes_of_a_reference_is_refused():
+def test_the_request_builder_accepts_the_catalogue_image_as_a_query():
+    # A real user may submit the catalogue's own picture; only the fixtures forbid it.
     reference = helpers.CATALOG[0].reference_path
-    with pytest.raises(ValueError, match="bytes of a reference"):
-        helpers.build_request({"image": reference, "capture": "Q-0", "condition": "studio"})
+    state, assets = helpers.build_request(
+        {"image": reference, "capture": "Q-0", "condition": "studio"}
+    )
+    assert state["query"] in assets
+    assert len(assets) == 6
+
+
+def test_reference_assets_returns_fresh_copies_each_call():
+    first = helpers.reference_assets()
+    name = helpers.CATALOG[0].name
+    first[name][1]["data_base64"] = "changed"
+    first.pop(helpers.CATALOG[1].name)
+    again = helpers.reference_assets()
+    assert again[name][1]["data_base64"] != "changed"
+    assert list(again) == [sku.name for sku in helpers.CATALOG]
 
 
 # --- the gold label ----------------------------------------------------------------------------
