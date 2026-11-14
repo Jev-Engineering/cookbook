@@ -18,16 +18,23 @@ with the ``[rule]`` that failed; ``validate_recipe`` turns them into ``Problem``
 ``hash-mismatch``         ``sha256`` is not the digest of the file
 ``format-mismatch``       ``format`` is not what the bytes are (or they are neither PNG nor JPEG)
 ``size-mismatch``         ``width``/``height`` are not the image's
-``generator``             the generator script does not exist in the recipe, or does not mention the function
+``generator``             the generator script does not exist in the recipe, or does not mention the function;
+                          or a ``jev_cookbook.<module>`` is not a module of the package, or does not
+                          mention the function
 ``split-leak``            the same image bytes are named by examples of different splits
 
-Only the standard library is used, so reading an image is a header parse, not a decode. What this
+Reading an image is a header parse with the standard library, not a decode, and a package
+generator is found by reading its module's source, not by importing it. ``jev_cookbook.vision``
+(which imports Pillow) is imported only for its path check, and only when the recipe has a manifest
+entry or a ``fields`` image path to check, so a text-only recipe with no ``assets/`` path in
+its fields never imports it. What this
 does not do: decode pixels, so the same picture saved twice with different bytes is two hashes;
 or judge that a description is true.
 """
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import os
 import re
@@ -52,6 +59,8 @@ _ASSET_PATH = re.compile(
 _GENERATOR = re.compile(
     r"^([A-Za-z0-9_][A-Za-z0-9_.-]*[.]py|jev_cookbook([.][a-z_][a-z0-9_]*)+):([A-Za-z_][A-Za-z0-9_]*)$"
 )
+# In a recipe without images, an assets/ value made only of word segments is text, not a path.
+_ASSETS_WORD = re.compile(r"^assets(/[A-Za-z0-9_-]+)+$")
 _MISSING = re.compile(r"missing required field '([^']+)'")
 _INDEX = re.compile(r"assets\[(\d+)\]")
 
@@ -96,18 +105,20 @@ def inspect_image(data: bytes) -> tuple[str, int, int] | None:
 def looks_like_image_path(value: str, *, has_images: bool = True) -> bool:
     """Is a ``fields`` string meant as an image path?
 
-    The convention: a string with no whitespace that starts with ``assets/``; and, in a recipe
-    that has images (``has_images``), also one that ends in ``.png``, ``.jpg`` or ``.jpeg`` (any
-    case) and contains a ``/`` or a backslash, which catches ``../x.png``, ``C:/x.png`` and
-    ``assets\\x.png`` written as a typo for ``assets/x.png``. A bare file name ("IMG_2041.JPG")
-    or a prose mention ("see chart.png") is not a path, and a recipe without images never has
-    suffix-only strings treated as paths. Keys and nesting do not matter. The answer does not
-    depend on the operating system.
+    The convention: a string with no whitespace that starts with ``assets/``, except, in a
+    recipe without images, a plain word path such as ``assets/equity`` or ``assets/v2/draft``
+    (segments of letters, digits, ``_`` and ``-`` only, see ``_ASSETS_WORD``), which is text
+    there; and, in a recipe that has images (``has_images``), also one that ends in ``.png``,
+    ``.jpg`` or ``.jpeg`` (any case) and contains a ``/`` or a backslash, which catches
+    ``../x.png``, ``C:/x.png`` and ``assets\\x.png`` written as a typo for ``assets/x.png``. A
+    bare file name ("IMG_2041.JPG") or a prose mention ("see chart.png") is not a path, and a
+    recipe without images never has suffix-only strings treated as paths. Keys and nesting do
+    not matter. The answer does not depend on the operating system.
     """
     if not value or any(c.isspace() for c in value):
         return False
     if value.startswith(f"{ASSETS_DIR}/"):
-        return True
+        return has_images or not _ASSETS_WORD.fullmatch(value)
     return has_images and value.lower().endswith(IMAGE_SUFFIXES) and ("/" in value or "\\" in value)
 
 
@@ -125,6 +136,47 @@ def image_path_strings(fields: Any, *, has_images: bool = True) -> list[str]:
         elif isinstance(item, list):
             pending.extend(reversed(item))
     return found
+
+
+_PACKAGE_DIR = Path(__file__).resolve().parent.parent  # src/jev_cookbook
+
+
+@functools.lru_cache(maxsize=64)
+def _module_text(source: str, mtime_ns: int, size: int) -> str | None:
+    """A package module's source text; cached on its path, mtime and size, so a manifest of 200
+    frames from one generator reads its module once."""
+    del mtime_ns, size  # only part of the cache key
+    try:
+        return Path(source).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+
+
+def package_generator_problem(module: str, function: str) -> str | None:
+    """Why ``module:function`` (``module`` = ``jev_cookbook.<...>``) is not a package generator.
+
+    The module must be part of the installed package: a package's ``__init__.py`` is looked
+    for before a ``.py`` file of the same name, the order ``import`` uses. Its source must
+    mention ``function`` as a word, the rule a recipe's own generator script has. The module is
+    read, never imported, so a generator module that needs Pillow costs nothing here; whether
+    the name is a function that really drew the image is for the reviewer. ``None`` when both
+    hold.
+    """
+    parts = module.split(".")[1:]
+    base = _PACKAGE_DIR.joinpath(*parts)
+    source = next((p for p in (base / "__init__.py", base.with_suffix(".py")) if p.is_file()), None)
+    if source is None:
+        return f"{module} is not a module of the jev_cookbook package"
+    try:
+        stat = source.stat()
+    except OSError:
+        stat = None
+    text = None if stat is None else _module_text(str(source), stat.st_mtime_ns, stat.st_size)
+    if text is None:
+        return f"{module} is not a readable Python module"
+    if not re.search(rf"\b{re.escape(function)}\b", text):
+        return f"{module} does not mention {function!r}"
+    return None
 
 
 def _listed_files(assets: Path) -> set[str]:
@@ -164,8 +216,6 @@ def check_assets(
     ``examples`` are the recipe's ``Example`` rows (``id``, ``split``, ``fields``); ``read_json``
     is ``(path) -> (value, problem message | None)``, the package's strict reader.
     """
-    from ..vision import AssetPathError, resolve_asset_path  # PIL: import only when needed
-
     out: list[Finding] = []
     shown = lambda rel: (recipe / rel).as_posix()  # noqa: E731
     assets_dir = recipe / ASSETS_DIR
@@ -235,11 +285,25 @@ def check_assets(
             )
             out.append((shown(path), msg, None))
 
-    # Each entry against its file.
+    has_images = bool(actual) or manifest_path.is_file()
+    field_paths = [
+        (example, image_path_strings(example.fields, has_images=has_images))
+        for example in examples
+        if example.fields is not None
+    ]
+
+    if not entries and not any(paths for _, paths in field_paths):
+        return out  # nothing below needs a path check; a text-only recipe never imports vision
+    from ..vision import AssetPathError, resolve_asset_path  # Pillow: import only when needed
+
+    # Each entry against its file, then its generator, entry by entry.
     hashes: dict[str, str] = {}
-    for path, entry in sorted(entries.items()):
+
+    def file_findings(path: str, entry: dict[str, Any]) -> list[Finding]:
+        """The entry against its file: path, size, hash, format and pixel size."""
+        found: list[Finding] = []
         if path not in actual:
-            continue
+            return found
         file = shown(path)
         try:
             real = resolve_asset_path(path, root=recipe)
@@ -248,33 +312,41 @@ def check_assets(
             with real.open("rb") as handle:
                 data = handle.read(_MAX_READ + 1)
         except (AssetPathError, OSError) as exc:
-            out.append((file, f"[asset-path] {exc}", None))
-            continue
+            found.append((file, f"[asset-path] {exc}", None))
+            return found
         if len(data) > _MAX_READ:
-            out.append((file, "[size-mismatch] larger than 16 MiB; cannot be a fixture", None))
-            continue
+            found.append((file, "[size-mismatch] larger than 16 MiB; cannot be a fixture", None))
+            return found
         digest = hashlib.sha256(data).hexdigest()
         hashes[path] = digest
         if digest != entry["sha256"]:
             msg = f"[hash-mismatch] sha256 is {digest}, the manifest says {entry['sha256']}"
-            out.append((file, msg, None))
+            found.append((file, msg, None))
         seen = inspect_image(data)
         if seen is None:
             msg = "[format-mismatch] the bytes are neither a PNG nor a JPEG"
-            out.append((file, msg, None))
+            found.append((file, msg, None))
         else:
             fmt, width, height = seen
             if fmt != entry["format"]:
                 msg = f"[format-mismatch] the bytes are {fmt}, the manifest says {entry['format']}"
-                out.append((file, msg, None))
+                found.append((file, msg, None))
             if (width, height) != (entry["width"], entry["height"]):
                 msg = (
                     f"[size-mismatch] the image is {width} x {height}, the manifest says "
                     f"{entry['width']} x {entry['height']}"
                 )
-                out.append((file, msg, None))
+                found.append((file, msg, None))
+        return found
+
+    def generator_findings(path: str, entry: dict[str, Any]) -> list[Finding]:
+        """The entry's generator: it needs no file, so it is checked even when the file is missing."""
+        found: list[Finding] = []
         generator = _GENERATOR.fullmatch(entry["generator"])
-        if generator and generator.group(1).endswith(".py"):
+        if generator is None:
+            return found
+        file = shown(path)
+        if generator.group(1).endswith(".py"):
             script = recipe / generator.group(1)
             try:
                 text = script.read_text(encoding="utf-8") if script.is_file() else None
@@ -283,23 +355,29 @@ def check_assets(
             func = generator.group(3)
             if text is None:
                 msg = f"[generator] {generator.group(1)} is not a readable file in the recipe"
-                out.append((file, msg, None))
+                found.append((file, msg, None))
             elif not re.search(rf"\b{re.escape(func)}\b", text):
                 msg = f"[generator] {generator.group(1)} does not mention {func!r}"
-                out.append((file, msg, None))
+                found.append((file, msg, None))
+        else:
+            problem = package_generator_problem(generator.group(1), generator.group(3))
+            if problem:
+                found.append((file, f"[generator] {problem}", None))
+        return found
+
+    for path, entry in sorted(entries.items()):
+        out.extend(file_findings(path, entry))
+        out.extend(generator_findings(path, entry))
 
     # fields: every image path names a manifest entry; no image crosses splits.
     # A path is judged by its text alone (_ASSET_PATH), never by what this operating system makes
     # of it, so "C:/x.png" is the same finding on Windows and on Linux. When the manifest could not
     # be read, that is already reported once, and a line per reference would only bury it.
     users: dict[str, dict[str, list[tuple[str, str]]]] = defaultdict(lambda: defaultdict(list))
-    has_images = bool(actual) or manifest_path.is_file()
     manifest_reported = manifest is None and bool(out)
     reported: set[tuple[str | None, str]] = set()
-    for example in examples:
-        if example.fields is None:
-            continue
-        for value in image_path_strings(example.fields, has_images=has_images):
+    for example, paths in field_paths:
+        for value in paths:
             if (example.id, value) in reported:
                 continue
             reported.add((example.id, value))
@@ -355,4 +433,5 @@ __all__ = [
     "image_path_strings",
     "inspect_image",
     "looks_like_image_path",
+    "package_generator_problem",
 ]
