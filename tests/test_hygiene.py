@@ -1571,6 +1571,18 @@ RECIPE_PATH_FORMS = (
     "python tools/execute_notebook.py recipes/{slug}",
     "python -m jev_cookbook.fixtures validate recipes/{slug}",
     "tests/recipes/{slug}/tests",
+    "recipes/{slug}.",
+    "see recipes/{slug}: done",
+    "recipes/{slug}!",
+    "recipes/{slug}?",
+    "**recipes/{slug}**",
+    "recipes/{slug}|x",
+    "recipes/{slug}#L3",
+    "recipes/{slug}:12",
+    "recipes/{slug}_",
+    "recipes/{slug},",
+    "(recipes/{slug})",
+    "recipes/{slug}/README.md:12",
 )
 
 
@@ -1593,9 +1605,9 @@ def test_these_slugs_were_findings_without_the_recipe_path_rule(monkeypatch, slu
     # the rule is what lets them through: with recipe paths not path-shaped, each slug's folder
     # path (or its fixtures folder) is one long mixed token again
     slug = next(s for s in _catalog_slugs() if s.startswith(f"{slug_rank}-"))
-    without = hygiene._PATH_SHAPED.pattern.split("|(?:^|/)recipes/")[0]
-    monkeypatch.setattr(hygiene, "_PATH_SHAPED", re.compile(without))
-    assert any(hygiene.scan_text(form.format(slug=slug)) for form in RECIPE_PATH_FORMS)
+    for module in (hygiene, packaged_scan):
+        monkeypatch.setattr(module, "_RECIPE_PATH", re.compile(r"(?!)"))
+        assert any(module.scan_text(form.format(slug=slug)) for form in RECIPE_PATH_FORMS)
 
 
 def test_a_scaffold_of_every_catalog_recipe_passes_the_scanner():
@@ -1625,3 +1637,21 @@ def test_a_key_after_a_recipes_prefix_that_is_not_a_slug_is_still_caught():
     for key in keys:
         for text in (f"recipes/{key}", f"see recipes/{key} here", f"recipes/1-x/{key}"):
             assert "high-entropy-token" in {r for _, r, _ in hygiene.scan_text(text)}, text
+
+
+def test_a_slash_key_glued_to_a_recipe_path_is_still_caught_and_a_bare_path_is_not():
+    # the recipe path is cut out of the word and the rest scored as any word, so a key with "/"
+    # before or after the path is found, in both copies; the path alone is not a finding
+    slug = _catalog_slugs()[83]
+    keys = [k for k in _base64_keys(200, seed=508) if "/" in k and len(k) >= 40][:20]
+    assert len(keys) == 20
+    for module in (hygiene, packaged_scan):
+        assert module.scan_text(f"recipes/{slug}") == []
+        for key in keys:
+            for text in (
+                f"{key}recipes/{slug}",
+                f"recipes/{slug}{key}",
+                f"{key}recipes/{slug}{key}",
+            ):
+                found = {r for _, r, _ in module.scan_text(text)}
+                assert "high-entropy-token" in found, (module.__name__, text)
