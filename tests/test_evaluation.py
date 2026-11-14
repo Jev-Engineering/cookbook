@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import itertools
 import math
 import subprocess
@@ -2694,22 +2695,36 @@ def test_accepted_when_and_acts_when_must_return_a_bool_not_a_truthy_value():
 # ---------------------------------------------------------------- transitions: #340 frames follow-ups
 
 
+@functools.cache
 def _load_private_name_scanner():
     # The #209 scanner (tests/test_no_private_shared_names.py) is the one definition of "a private
-    # name of jev_cookbook"; pytest runs with --import-mode=importlib, so load it by path.
+    # name of jev_cookbook"; pytest runs with --import-mode=importlib, so load it by path (once).
     import importlib.util
 
     path = Path(__file__).with_name("test_no_private_shared_names.py")
     spec = importlib.util.spec_from_file_location("private_names_scanner_for_evaluation", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module.private_shared_uses
+    return module
+
+
+def _own_private_modules() -> frozenset[str]:
+    """The package's own underscore-prefixed modules and subpackages (``_canonical``)."""
+    package = Path(ev.__file__).parent
+    return frozenset(
+        {p.stem for p in package.glob("_*.py")}
+        | {p.parent.name for p in package.glob("_*/__init__.py")}
+    ) - {"__init__"}
 
 
 def _private_names_imported(source: str) -> list[str]:
-    """Private jev_cookbook names a module's source reaches into, by the #209 scanner. The package
-    is flat, so a relative ``from .m import x`` / ``from . import x`` is rewritten to its absolute
-    ``jev_cookbook`` form first; the scanner then sees every spelling it already knows."""
+    """Private NAMES of another jev_cookbook module that a module's source reaches into: an
+    imported ``_x`` or ``module._x`` through a bound module. The package is flat, so a relative
+    ``from .m import x`` / ``from . import x`` is rewritten to its absolute ``jev_cookbook`` form
+    first and the #209 recipe scanner runs on it. That scanner also bans private module PATHS
+    (rule a), which is for recipes: importing public names from the package's own underscore
+    modules (``from ._canonical import plain_json``) is how the package shares internals, so
+    exactly those module-path entries are dropped, and only for modules that exist here."""
     import ast
 
     tree = ast.parse(source)
@@ -2717,7 +2732,21 @@ def _private_names_imported(source: str) -> list[str]:
         if isinstance(node, ast.ImportFrom) and node.level >= 1:
             node.module = ".".join(["jev_cookbook", *([node.module] if node.module else [])])
             node.level = 0
-    return _load_private_name_scanner()(ast.unparse(tree))
+    scanner = _load_private_name_scanner()
+    own = _own_private_modules()
+
+    def own_module_path(entry: str) -> bool:
+        path = None
+        if entry.startswith("from ") and entry.endswith(" import ..."):
+            path = entry[len("from ") : -len(" import ...")]
+        elif entry.startswith("import "):
+            path = entry[len("import ") :]
+        if path is None or path.split(".")[0] != "jev_cookbook":
+            return False
+        private = [seg for seg in path.split(".")[1:] if scanner.is_private(seg)]
+        return len(private) == 1 and private[0] in own and path.split(".")[1] == private[0]
+
+    return [e for e in scanner.private_shared_uses(ast.unparse(tree)) if not own_module_path(e)]
 
 
 def test_evaluation_imports_no_private_name_from_another_module():
@@ -2732,36 +2761,27 @@ def test_evaluation_imports_no_private_name_from_another_module():
 @pytest.mark.parametrize(
     ("source", "expected"),
     [
+        # relative spellings, rewritten to the absolute form the scanner knows
         ("from .frames import _seconds", ["from jev_cookbook.frames import _seconds"]),
-        (
-            "from jev_cookbook.frames import _seconds",
-            ["from jev_cookbook.frames import _seconds"],
-        ),
         ("from . import frames\nframes._seconds(1, 'x')", ["frames._seconds"]),
-        ("import jev_cookbook\njev_cookbook._x", ["jev_cookbook._x"]),
-        # a dotted chain from a plain package import
-        (
-            "import jev_cookbook.frames\njev_cookbook.frames._seconds(1, 'x')",
-            ["jev_cookbook.frames._seconds"],
-        ),
-        # private module paths, absolute and relative
-        (
-            "from jev_cookbook._canonical import plain_json",
-            ["from jev_cookbook._canonical import ..."],
-        ),
-        ("from ._canonical import plain_json", ["from jev_cookbook._canonical import ..."]),
-        ("import jev_cookbook._canonical", ["import jev_cookbook._canonical"]),
+        ("from . import frames\nframes.TIME_EPSILON._x", ["frames.TIME_EPSILON._x"]),
         ("from . import _canonical", ["from jev_cookbook import _canonical"]),
-        # not private uses: a constant's attribute, a dunder, a foreign name
+        # the package's own underscore modules: public names allowed, private names not
+        ("from ._canonical import plain_json", []),
+        ("import jev_cookbook._canonical", []),
+        (
+            "from ._canonical import _private_thing",
+            ["from jev_cookbook._canonical import _private_thing"],
+        ),
+        # not private uses: a constant's attribute, a dunder, a public name
         ("from .frames import TIME_EPSILON\nTIME_EPSILON._x", []),
         ("from .frames import __all__", []),
         ("from .frames import TIME_EPSILON", []),
-        ("import math\nmath._private", []),
-        ("import os\nos._exit_hooks", []),
     ],
 )
 def test_the_private_import_guard_catches_every_spelling(source, expected):
-    # the guard the test above relies on, run on planted sources so it cannot pass vacuously
+    # the guard the test above relies on, run on planted sources so it cannot pass vacuously; the
+    # absolute spellings are tests/test_no_private_shared_names.py's own cases
     assert _private_names_imported(source) == expected
 
 
