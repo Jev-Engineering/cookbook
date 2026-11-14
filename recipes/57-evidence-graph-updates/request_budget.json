@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "backends": {
+    "main": {
+      "requests": 45,
+      "at_most": 52,
+      "fixtures": "fixtures/responses.json"
+    }
+  }
+}
