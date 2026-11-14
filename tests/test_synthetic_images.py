@@ -2413,8 +2413,8 @@ SHAPES = [
 ]
 
 
-def _draw(canvas, shape, x, y, w, h, extra):
-    return getattr(canvas, shape)(x, y, w, h, "teal", **extra)
+def _draw(canvas, shape, x, y, w, h, extra, name=None):
+    return getattr(canvas, shape)(x, y, w, h, "teal", name=name, **extra)
 
 
 @pytest.mark.parametrize(("shape", "extra"), SHAPES)
@@ -2440,7 +2440,7 @@ def test_an_out_of_range_shape_is_refused_before_anything_is_drawn(
     c = si.Canvas(640, 400)
     before = c.image.copy()
     with pytest.raises(ValueError, match=fragment):
-        _draw(c, shape, box["x"], box["y"], box["w"], box["h"], extra)
+        _draw(c, shape, box["x"], box["y"], box["w"], box["h"], extra, name="probe")
     assert changed(before, c.image) is None
     assert c.objects == {}
 
