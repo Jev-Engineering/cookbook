@@ -140,11 +140,12 @@ repository can call), so a live run of this recipe can only ever produce a recor
     `helpers.MemoisingBackend`, each distinct request is forwarded to the backend exactly once,
     so this is also the number of `decide()` calls a live run would bill -- as a floor, with
     retried and timed-out attempts on top and up to 46 if the live gate asks request B more
-    often than the stored design does (see "Switch to live"). The notebook's `request-count`
-    cell prints and asserts both counts; this bullet quotes that cell rather than standing on
-    its own. `atlas-compact` and `northstar-7b` each also have 41 *stored* responses (the
-    comparison format requires every backend to answer the same requests), but neither backend
-    is ever billed against a live budget, because neither is ever called live.
+    often than the stored design does (see "Switch to live"). The notebook's cell under
+    "What a live run of this notebook would cost" prints and asserts both counts; this bullet
+    quotes that cell rather than standing on its own. `atlas-compact` and `northstar-7b` each also
+    have 41 *stored* responses (the comparison format requires every backend to answer the same
+    requests), but neither backend is ever billed against a live budget, because neither is
+    ever called live.
   - **Questions:** 3 in every request A (`category`, `verifiable`, `names_control`) plus 1 in
     every request B (`specificity`). The gold design asks request B on 8 of 10 rows in each
     scored split, for 10 × 3 + 8 × 1 = 38 questions per split under gold, but a backend's own
