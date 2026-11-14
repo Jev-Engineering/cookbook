@@ -8,6 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 RECIPE = Path(__file__).resolve().parent.parent
 
 
@@ -86,3 +88,35 @@ def test_a_row_with_no_candidate_has_no_request_and_does_not_move_the_frozen_set
     inputs, labels = module.build_inputs_and_labels(rows)
     assert [r["replay_keys"] for r in inputs if r["id"] == "v99-no-candidate"] == [[]]
     assert len(module.build_responses(rows)) == len(module.build_responses(module.ROWS))
+
+
+def _module(tmp_path, name):
+    copy = _copy(tmp_path)
+    spec = importlib.util.spec_from_file_location(name, copy / "build_fixtures.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _with_spec(module, ident, replace):
+    rows = []
+    for row in module.ROWS:
+        if row[0] == ident:
+            probs, conflict, second = row[4]
+            row = (*row[:4], (probs, conflict, replace(second)))
+        rows.append(row)
+    return rows
+
+
+def test_a_second_answer_present_when_request_two_is_not_asked_is_refused(tmp_path):
+    module = _module(tmp_path, "recipe57_build_fixtures_present")
+    rows = _with_spec(module, "v07-conflict", lambda _second: (0.5, 0.5))
+    with pytest.raises(ValueError, match=r"v07-conflict: request 2 is not asked .* absent"):
+        module.requests_for(rows)
+
+
+def test_a_second_answer_missing_when_request_two_is_asked_is_refused(tmp_path):
+    module = _module(tmp_path, "recipe57_build_fixtures_missing")
+    rows = _with_spec(module, "v01", lambda _second: None)
+    with pytest.raises(ValueError, match=r"v01: request 2 is asked .* present"):
+        module.requests_for(rows)

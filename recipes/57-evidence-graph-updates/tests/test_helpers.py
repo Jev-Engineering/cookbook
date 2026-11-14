@@ -52,13 +52,7 @@ def _run(split):
     first = helpers.ask_first(backend, budget, val)
     stage_one = helpers.freeze_stage_one([first[e.id] for e in val], [labels[e.id] for e in val])
     second = helpers.ask_second(backend, budget, val, first, stage_one)
-    reached = [
-        e
-        for e in val
-        if e.id in second
-        and first[e.id]["entity"].choice == labels[e.id]["entity"]
-        and "supported" in labels[e.id]
-    ]
+    reached = helpers.reached_second(val, first, second, labels)
     settings = helpers.freeze_stage_two(
         stage_one, [second[e.id] for e in reached], [labels[e.id] for e in reached]
     )
@@ -191,7 +185,7 @@ def test_decide_first_stops_early_in_five_ways():
         (None, helpers.REVIEW, "request budget spent"),
         (helpers.UNMATCHED, helpers.REVIEW, "no candidate in the shortlist"),
         (_first({"P01": 0.4, "P02": 0.35, "no_match": 0.25}, 0.1), helpers.REVIEW, "confidence below the threshold"),
-        (_first({"P01": 0.05, "P02": 0.05, "no_match": 0.9}, 0.1), "no_match", "the mention matches no listed person"),
+        (_first({"P01": 0.05, "P02": 0.05, "no_match": 0.9}, 0.1), "not_matched", "the mention matches no listed person"),
         (_first({"P01": 0.9, "P02": 0.05, "no_match": 0.05}, 0.85), helpers.REVIEW, "the excerpts conflict"),
     ]  # fmt: skip
     for first, outcome, reason in cases:
@@ -332,6 +326,21 @@ def test_the_threshold_objectives_are_pinned_in_the_committed_helpers():
     assert '"f1"' in first_source
     second_source = inspect.getsource(helpers.freeze_stage_two)
     assert second_source.count('"f1"') == 2
+    assert [helpers.objective_label(n) for n in ("conflict", "supported", "ended")] == ["F1"] * 3
+
+
+def test_the_objective_label_is_read_from_the_call_in_the_source():
+    """The printed label follows the call in the source, so editing the call changes it."""
+    source = inspect.getsource(helpers.freeze_stage_two)
+    assert helpers.objective_in(source, "ended") == "F1"
+    edited = source.replace(
+        '[a["ended"].noul for a in second], "f1"',
+        '[a["ended"].noul for a in second], "precision_at_recall", target=0.8',
+    )
+    assert edited != source
+    assert helpers.objective_in(edited, "ended") == "precision_at_recall, target 0.8"
+    assert helpers.objective_in(edited, "supported") == "F1"
+    assert helpers.objective_in(edited, "conflict") is None
 
 
 def test_stored_answers_are_not_all_right():
@@ -385,7 +394,7 @@ def test_run_updates_on_test_matches_the_fixtures():
         ("t04-invariant", "review", "the transaction was rolled back"),
         ("t05-unsupported", "review", "the transaction was rolled back"),
         ("t06-conflict", "review", "the excerpts conflict"),
-        ("t07-no-match", "no_match", "the mention matches no listed person"),
+        ("t07-no-match", "not_matched", "the mention matches no listed person"),
         ("t08-wrong-match", "applied", "the transaction committed"),
         ("t09", "applied", "the transaction committed"),
         ("t10-missed", "rejected", "the evidence does not support the relationship"),
@@ -526,6 +535,52 @@ def test_removing_an_employment_without_adding_one_is_not_what_the_invariant_che
     assert helpers.graph_invariant(view) is None
 
 
+def test_an_edge_that_joins_an_entity_not_in_the_graph_is_rejected():
+    """Deleting an organisation (or a person) that an edge still joins breaks the invariant."""
+    tx, _, _ = helpers.run_updates([], "rule:test")
+    full = tx.store.snapshot()
+    no_org = {k: v for k, v in full.items() if k != helpers.org_key("O1")}
+    assert helpers.graph_invariant(SimpleNamespace(snapshot=lambda: no_org)) == [
+        "edge:P01|works_at|O1 joins an entity that is not in the graph",
+        "edge:P10|works_at|O1 joins an entity that is not in the graph",
+        "edge:P17|works_at|O1 joins an entity that is not in the graph",
+    ]
+    no_person = {k: v for k, v in full.items() if k != helpers.person_key("P12")}
+    assert helpers.graph_invariant(SimpleNamespace(snapshot=lambda: no_person)) == [
+        "edge:P12|works_at|O3 joins an entity that is not in the graph"
+    ]
+
+
+def test_a_refused_request_two_is_left_out_and_the_row_goes_to_review():
+    """A budget that runs out between the two requests stores None for request 2. The helpers
+    that filter the rows must skip it (no TypeError), and decide() sends it to review."""
+    examples = load_inputs(RECIPE)
+    labels = load_labels(RECIPE)
+    val = select_split(examples, "validation")
+    backend = _backend()
+    budget = Budget(requests=14)  # request 1 for 12 rows, then room for two of the nine request 2s
+    first = helpers.ask_first(backend, budget, val)
+    stage_one = helpers.freeze_stage_one([first[e.id] for e in val], [labels[e.id] for e in val])
+    second = helpers.ask_second(backend, budget, val, first, stage_one)
+    refused = [i for i, answer in second.items() if answer is None]
+    assert len(second) == 9 and len(refused) == 7
+    reached = helpers.reached_second(val, first, second, labels)
+    assert {e.id for e in reached}.isdisjoint(refused)
+    assert all(second[e.id] is not None for e in reached)
+    settings = helpers.freeze_stage_two(
+        stage_one, [second[e.id] for e in reached], [labels[e.id] for e in reached]
+    )
+    decisions = [helpers.decide(e, first[e.id], second.get(e.id), settings) for e in val]
+    by_id = {d.example: d for d in decisions}
+    for ident in refused:
+        assert (by_id[ident].outcome, by_id[ident].reason) == (
+            helpers.REVIEW,
+            "request budget spent",
+        )
+    _, queue, outcomes = helpers.run_updates(decisions, "rule:apply_update")
+    assert {o.example for o in outcomes if o.reason == "request budget spent"} == set(refused)
+
+
 def test_the_log_replays_to_an_identical_graph():
     *_, decisions, _ = _run("test")
     tx, _, _ = helpers.run_updates(decisions, "rule:apply_update")
@@ -602,11 +657,29 @@ def test_the_baseline_ended_cue_starts_at_a_word_in_the_same_excerpt_as_the_empl
     assert helpers.baseline_decide(apart).replace is False
 
 
+def test_the_baseline_matches_a_name_as_whole_words_within_one_excerpt():
+    cleo = _baseline_row("Cleo Haddad joined Halden Institute.")
+    cleo.fields["mention"] = "L. Haddad"
+    assert helpers.baseline_decide(cleo).outcome == helpers.NOT_MATCHED
+    leo = _baseline_row("Leo Haddad joined Halden Institute.")
+    leo.fields["mention"] = "L. Haddad"
+    decision = helpers.baseline_decide(leo)
+    assert (decision.outcome, decision.person) == (helpers.PROPOSE, "P10")
+    split = _baseline_row("A note about Mira", "Okafor joined Halden Institute.")
+    split.fields["mention"] = "M. Okafor"
+    assert helpers.baseline_decide(split).outcome == helpers.NOT_MATCHED
+
+
+def test_a_decision_outcome_is_not_the_choice_option():
+    assert helpers.NOT_MATCHED == "not_matched" and helpers.NO_MATCH == "no_match"
+    assert helpers.NOT_MATCHED != helpers.NO_MATCH
+
+
 def test_the_baseline_on_test():
     rows = select_split(load_inputs(RECIPE), "test")
     decisions = [helpers.baseline_decide(e) for e in rows]
     _, _, outcomes = helpers.run_updates(decisions, "rule:baseline")
     assert [o.outcome for o in outcomes] == [
-        "applied", "no_match", "rejected", "review", "review", "review",
-        "no_match", "no_match", "applied", "review", "review", "no_match",
+        "applied", "not_matched", "rejected", "review", "review", "review",
+        "not_matched", "not_matched", "applied", "review", "review", "not_matched",
     ]  # fmt: skip

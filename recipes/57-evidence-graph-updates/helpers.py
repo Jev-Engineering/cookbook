@@ -21,8 +21,11 @@ writes, so a failing update is rolled back and leaves the store untouched. Every
 ``tx.log`` with its provenance, and ``replay_transactions(tx.log)`` rebuilds the graph.
 """
 
+import ast
+import inspect
 import math
 import re
+import textwrap
 from dataclasses import dataclass
 from typing import Any
 
@@ -41,7 +44,7 @@ UNMATCHED = "unmatched"  # what ask_first stores when the mention has no candida
 
 # Outcomes Python can reach for one proposal.
 APPLIED = "applied"  # the transaction committed
-NOT_MATCHED = "no_match"  # the mention is none of the listed people: nothing is written
+NOT_MATCHED = "not_matched"  # the mention is none of the listed people: nothing is written
 REJECTED = "rejected"  # the evidence does not support the relationship: nothing is written
 REVIEW = "review"  # docs/glossary.md#review: a person decides; nothing is written
 
@@ -260,7 +263,9 @@ def freeze_stage_one(first: list[Any], gold: list[dict[str, Any]]) -> Settings:
         gate = math.inf
     try:
         conflict = select_threshold(
-            [g["conflict"] for g in gold], [a["conflict"].noul for a in first], "f1"
+            [g["conflict"] for g in gold],
+            [a["conflict"].noul for a in first],
+            "f1",
         )
     except ValueError:
         conflict = math.inf
@@ -277,7 +282,9 @@ def freeze_stage_two(settings: Settings, second: list[Any], gold: list[dict[str,
         return Settings(settings.gate, settings.conflict, math.inf, math.inf)
     try:
         supported = select_threshold(
-            [g["supported"] for g in gold], [a["supported"].noul for a in second], "f1"
+            [g["supported"] for g in gold],
+            [a["supported"].noul for a in second],
+            "f1",
         )
     except ValueError:
         supported = math.inf
@@ -293,6 +300,49 @@ def freeze_stage_two(settings: Settings, second: list[Any], gold: list[dict[str,
 def answered(examples: list[Any], first: dict[str, Any]) -> list[Any]:
     """The examples whose request 1 was answered (not ``None``, not ``UNMATCHED``), in order."""
     return [e for e in examples if first[e.id] is not None and first[e.id] != UNMATCHED]
+
+
+def objective_in(source: str, name: str) -> str | None:
+    """The objective of the ``select_threshold`` call in ``source`` whose gold is ``g["<name>"]``
+    (``None`` when ``source`` has no such call), spelled as the notebook prints it."""
+    for node in ast.walk(ast.parse(textwrap.dedent(source))):
+        if not (isinstance(node, ast.Call) and getattr(node.func, "id", "") == "select_threshold"):
+            continue
+        if f"g['{name}']" not in ast.unparse(node.args[0]):
+            continue
+        objective = ast.literal_eval(node.args[2]) if len(node.args) > 2 else "f1"
+        label = "F1" if objective == "f1" else objective
+        for keyword in node.keywords:
+            if keyword.arg == "target":
+                label += f", target {ast.literal_eval(keyword.value)}"
+        return label
+    return None
+
+
+def objective_label(name: str) -> str:
+    """The objective the ``name`` threshold is chosen with, read from the ``select_threshold``
+    call in ``freeze_stage_one`` / ``freeze_stage_two`` itself, so the notebook prints what the
+    committed call uses (and not a string typed beside it)."""
+    for freeze in (freeze_stage_one, freeze_stage_two):
+        label = objective_in(inspect.getsource(freeze), name)
+        if label is not None:
+            return label
+    raise KeyError(name)
+
+
+def reached_second(
+    examples: list[Any], first: dict[str, Any], second: dict[str, Any], labels: dict[str, Any]
+) -> list[Any]:
+    """The examples whose request 2 was actually answered (not refused by the budget, so not
+    ``None``), whose request 1 named the gold person, and whose gold has request-2 labels. A
+    refused row has no probabilities, so it is left out here and goes to review in ``decide``."""
+    return [
+        e
+        for e in examples
+        if second.get(e.id) is not None
+        and first[e.id]["entity"].choice == labels[e.id]["entity"]
+        and "supported" in labels[e.id]
+    ]
 
 
 def entity_hits(first: list[Any], gold: list[dict[str, Any]], floor: float = 0.0) -> list[bool]:
@@ -444,14 +494,24 @@ _ENDED_PATTERN = re.compile(
 )
 
 
+def _names(name: str, excerpt: str) -> bool:
+    """Whether ``name`` appears in one excerpt as whole words (so ``Leo Haddad`` is not found in
+    ``Cleo Haddad``, and a name cannot be assembled across two excerpts)."""
+    return re.search(r"\b" + re.escape(name.lower()) + r"\b", excerpt.lower()) is not None
+
+
 def baseline_decide(example: Any) -> Decision:
-    """Keyword baseline. Entity: the one candidate whose full name appears in an excerpt, else
-    ``no_match``. No conflict check. Supported: the proposed organisation's name appears in an
+    """Keyword baseline. Entity: the one candidate whose full name appears as whole words in one
+    excerpt, else ``not_matched``. No conflict check. Supported: the proposed organisation's name appears in an
     excerpt. Ended: the current employer's name and one of ``ENDED_CUES`` (from a word boundary) both
     appear in the same excerpt."""
     fields = example.fields
     text = " ".join(e["text"] for e in fields["excerpts"]).lower()
-    named = [p for p in candidates(fields["mention"]) if PEOPLE[p][0].lower() in text]
+    named = [
+        p
+        for p in candidates(fields["mention"])
+        if any(_names(PEOPLE[p][0], e["text"]) for e in fields["excerpts"])
+    ]
     if len(named) != 1:
         return Decision(example.id, NOT_MATCHED, REASON_NO_MATCH)
     person = named[0]
@@ -540,7 +600,7 @@ def run_updates(
     """Seed a fresh graph, then act on every Decision in order; return the Transactor (its store
     and log), the review queue and one Outcome per Decision.
 
-    ``no_match`` and ``rejected`` write nothing. A ``review`` decision is submitted to the queue.
+    ``not_matched`` and ``rejected`` write nothing. A ``review`` decision is submitted to the queue.
     A ``propose`` decision runs one transaction (``validate_update`` first, then the staged
     writes, then ``graph_invariant``); if it commits, the outcome is ``applied`` with the
     committed operations, and if it is rolled back, the store is unchanged and the proposal goes
