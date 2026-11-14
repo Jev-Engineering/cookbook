@@ -42,7 +42,6 @@ from .backends import (
     replay_key,
 )
 from .questions import Box, Question
-from .style import _is_iso_date
 
 __all__ = [
     "API_KEY_ENV",
@@ -1277,6 +1276,9 @@ def load_ledger_latency(
         raise KeyError(f"{path} has no line for replay key {replay_key}")
     if not isinstance(line, dict) or line.get("status") != "recorded":
         return None
+    # Imported here: jev_cookbook.style loads matplotlib, and importing live must stay light.
+    from .style import _is_iso_date
+
     date, model = line.get("date"), line.get("model")
     if not (_is_iso_date(date) and isinstance(model, str) and model):
         raise ValueError(
