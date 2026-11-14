@@ -556,32 +556,88 @@ def _check_examples(
     return problems
 
 
+_LabelPath = tuple[str | int, ...]
+
+
+def _label_path(path: _LabelPath) -> str:
+    """``label.target.boxes[1]``: the dotted form the schema messages use, keys as written."""
+    out = "label"
+    for part in path:
+        out += f"[{part}]" if isinstance(part, int) else f".{part}"
+    return out
+
+
+_BOX_KEYS = frozenset({"present", "box"})
+
+
+def _box_label_places(label: Any) -> list[tuple[_LabelPath, Any]]:
+    """``(path, object)`` for every Box label in ``label``, in document order.
+
+    The label itself is one when it is an object with a ``present`` key. Below the top, an
+    object is one when it has a ``present`` key and no key other than ``present`` and ``box``,
+    so an object that merely has a ``present`` field among others (a per-class count, an
+    answer named ``present``) is searched, not decoded. The search does not look inside a Box
+    label. Iterative; each node keeps a link to its parent, so a path is built only for a Box
+    label found.
+    """
+    if isinstance(label, Mapping) and "present" in label:
+        return [((), label)]
+    found: list[tuple[_LabelPath, Any]] = []
+    pending: list[tuple[Any, Any]] = [(label, None)]  # (node, (parent link, key) or None)
+    while pending:
+        node, link = pending.pop()
+        if isinstance(node, Mapping):
+            if link is not None and "present" in node and _BOX_KEYS.issuperset(node):
+                parts: list[str | int] = []
+                while link is not None:
+                    link, key = link
+                    parts.append(key)
+                found.append((tuple(reversed(parts)), node))
+                continue
+            children = list(node.items())
+        elif isinstance(node, list):
+            children = list(enumerate(node))
+        else:
+            continue
+        pending.extend((child, (link, key)) for key, child in reversed(children))
+    return found
+
+
 def _check_box_labels(
     labels: dict[str, Any], label_lines: dict[str, int], name: str
 ) -> list[Problem]:
-    """A recipe whose labels are Box labels must use the gold Box label format everywhere.
+    """Box labels, at the top of a label or nested inside one, must use the gold Box format.
 
-    A top-level label object with a ``present`` key declares the format (``docs/fixtures.md``,
-    "Box labels"): every such label must decode with ``vision.gold_box``, and once one label
-    declares it, a label that does not (a bare box, a string) is an error, not a quiet skip.
-    A label that nests a Box label under another key is not seen here.
+    A label that is an object with a ``present`` key is a Box label, and so is a nested object
+    with a ``present`` key and no key but ``present`` and ``box`` (``docs/fixtures.md``, "Box
+    labels"); each must decode with ``vision.gold_box``. A top-level Box label also declares
+    the format for the file: once one label is a Box label, a label that is not one is an
+    error, reported once for that label. Where a recipe nests its Box labels is not compared
+    across labels; the recipe's own test decodes the key it reads.
     """
-    declared = {i for i, v in labels.items() if isinstance(v, Mapping) and "present" in v}
-    if not declared:
+    places = {ident: _box_label_places(label) for ident, label in labels.items()}
+    if not any(places.values()):
         return []
-    from ..vision import gold_box  # deferred: validating other recipes needs no Pillow
+    from ..vision import gold_box  # deferred: a recipe without Box labels does not import it
 
+    top = {i for i, found in places.items() if found and not found[0][0]}
+    declared = next((i for i in labels if i in top), None)  # the first, in file order
     problems: list[Problem] = []
-    for ident, label in labels.items():
-        if ident not in declared:
-            msg = "label is not a Box label ({'present': ...}) but this recipe's other labels are"
-        else:
+    for ident in labels:
+        line = label_lines[ident]
+        if declared is not None and ident not in top:
+            msg = (
+                "label is not a Box label ({'present': ...}) but other labels in this file "
+                f"are (for example id {declared!r})"
+            )
+            problems.append(Problem(name, msg, line, ident))
+            continue
+        for path, box_label in places[ident]:
             try:
-                gold_box(label)
-                continue
+                gold_box(box_label)
             except ValueError as exc:
-                msg = f"malformed Box label: {exc}"
-        problems.append(Problem(name, msg, label_lines[ident], ident))
+                where = f" at {_label_path(path)}" if path else ""
+                problems.append(Problem(name, f"malformed Box label{where}: {exc}", line, ident))
     return problems
 
 
