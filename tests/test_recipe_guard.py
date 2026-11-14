@@ -10419,6 +10419,20 @@ def _without_audit_lines(text: str) -> str:
     )
 
 
+def _scanned_output(recipe_dir_: Path) -> str:
+    """The exact text ``_printed_numbers`` scans: every code cell's committed output
+    (``_output_text``) with its audit lines blanked by ``_without_audit_lines``, the cells joined
+    by one ``"\\n"`` between their texts. Line structure is kept (a blanked audit line is still a
+    line), and a cell's own trailing newline is kept, so two cells are separated by a newline and
+    never run together. Kept as one function so the tests can pin the join and the blanking
+    directly."""
+    return "\n".join(
+        _without_audit_lines(_output_text(cell))
+        for cell in notebook_cells(recipe_dir_)
+        if cell["cell_type"] == "code"
+    )
+
+
 def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     """The numbers a quote of each kind can be backed by. A ``metric`` quote: any number a code
     cell's committed output prints, or the recipe's own ``tests/`` type (CONTRIBUTING.md section
@@ -10429,11 +10443,17 @@ def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     or ``speed`` quote: only a price, a latency or a throughput the output prints with its unit,
     so a printed sample size of 180 does not back "180 ms".
 
+    A number and its unit are read on one output line and never across a line break: an
+    ``price``/``speed`` quote or a percentage is backed only when the number and its unit sit on
+    the same committed output line, so output printed on two lines (or a segment committed with no
+    trailing newline, followed by one that opens with the unit) backs nothing (#380). Prose may
+    wrap a quote across lines; committed output is read line by line.
+
     The audited route's one committed ``AUDIT_PREFIX`` line (#213, #376) is a machine-readable
     ledger, not a printed quantity: its 64-character hex replay keys are excluded here, per line,
     before any digit scan sees them, so they cannot back a fabricated prose figure --
     ``_without_audit_lines`` blanks a matched line's content rather than deleting it, so the line
-    stays and the text on either side of it is never spliced together. This is symmetric across
+    stays a line (``_scanned_output`` keeps that structure, pinned directly by a test). This is symmetric across
     both sources of the ``metric`` pool: the same blanking is applied to the committed output and
     to the recipe's own ``tests/*.py`` text, matching ``line.startswith(AUDIT_PREFIX)`` on each
     physical line of either source. That match requires the prefix at the very first character of
@@ -10446,24 +10466,15 @@ def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     ``readme_budget_note_matches_request_audit`` against ``request_budget.json``, for every
     published recipe and for ``recipes/_template`` (#381); this exclusion
     removes nothing that check relies on."""
-    output = "\n".join(
-        _without_audit_lines(_output_text(cell))
-        for cell in notebook_cells(recipe_dir_)
-        if cell["cell_type"] == "code"
-    )
+    output = _scanned_output(recipe_dir_)
     metric = _decimals(output)
     tests_dir = recipe_dir_ / "tests"
     if tests_dir.is_dir():
         for path in sorted(tests_dir.glob("*.py")):
             metric += _decimals(_without_audit_lines(path.read_text("utf-8")))
-    # A number and its unit are read off one committed output line, never across a line break:
-    # the unit patterns bind a number to its unit with ``\s?``, which a newline satisfies, and the
-    # joins above put exactly one newline between two output segments, so a segment committed
-    # without its own trailing newline (``print(..., end="")``, ``sys.stdout.write``, a displayed
-    # value) would otherwise fuse its last number to the unit opening the next segment, in the
-    # next cell or in the same cell's next output part, and back a latency, price, throughput or
-    # percentage the notebook never printed (#380). Prose may wrap a quote across lines; output
-    # that is printed on two lines is two lines.
+    # A number and its unit are read off one committed output line, never across a line break
+    # (#380): the unit patterns bind them with ``\s?``, which a newline satisfies, and a segment
+    # committed without its own trailing newline would otherwise fuse to the next one.
     output_lines = output.splitlines()
     price = [
         n
@@ -11899,8 +11910,10 @@ def test_a_number_and_its_unit_split_by_the_ledger_inside_one_cell_still_catches
     in its cell rather than between two lines. Dropping the whole line (rather than blanking its
     content) used to splice "180" and "ms" together across the one optional whitespace
     character ``_LATENCY_MS`` (and ``_PERCENT``, ``_SECONDS``, ``_THROUGHPUT``, ``_PRICE_AMOUNT``)
-    allow, backing a latency the recipe never printed. This is the same adjacency defect the
-    cell-boundary fix repaired, one layer in."""
+    allow, backing a latency the recipe never printed. Since #380 the units are also read per
+    line, so this test alone no longer fails for a mutant that deletes the audit line; the
+    scanned text is therefore pinned directly too: the blanked line must remain a line between
+    its neighbours (``_scanned_output``), and the end-to-end result must still catch the claim."""
     audit_line = _real_audit_line()
     folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
     _append_cell(
@@ -11908,6 +11921,9 @@ def test_a_number_and_its_unit_split_by_the_ledger_inside_one_cell_still_catches
         "code",
         "median latency 180\n" + audit_line + "\nms over the sample\n",
         cell_id="number-ledger-unit",
+    )
+    assert "median latency 180\n\nms over the sample\n" in _scanned_output(folder), (
+        "the audit line must be blanked in place, not deleted"
     )
     _append_cell(
         folder,
@@ -11931,13 +11947,16 @@ def test_a_number_and_its_unit_split_across_two_cells_still_catches_a_fabricatio
     (cell texts, not lines) for exactly this, terminated, shape, but nothing before this test
     pinned that repair as a regression test: a mutant that keeps this round's per-line blanking
     exactly as shipped and only collapses the inter-cell gap (``.rstrip("\\n")`` on each filtered
-    cell's text before the outer join) passes the rest of this module's suite untouched. This
-    does not pin the *unterminated* shape (a cell whose committed stdout carries no trailing
+    cell's text before the outer join) is caught by the direct assertion on ``_scanned_output``
+    below (the per-line scan of #380 no longer notices it end to end). This does not pin the *unterminated* shape (a cell whose committed stdout carries no trailing
     newline at all, e.g. ``print(..., end="")``): that one was pre-existing, and #380's own test,
     ``test_an_unterminated_output_segment_does_not_fuse_a_number_to_the_next_unit``, pins it."""
     folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
     _append_cell(folder, "code", "median latency 180", cell_id="ends-with-number")
     _append_cell(folder, "code", "ms over the sample", cell_id="begins-with-unit")
+    assert "median latency 180\n\nms over the sample\n" in _scanned_output(folder), (
+        "two cells must stay separated by their own trailing newline plus the join's newline"
+    )
     _append_cell(
         folder,
         "markdown",
@@ -11983,10 +12002,15 @@ _UNTERMINATED_SHAPES = {
 }
 
 
-def _append_unterminated_output(folder: Path, segments: list[str], cell_id: str) -> None:
+def _append_unterminated_output(
+    folder: Path, segments: list[str], cell_id: str, outputs: list[dict] | None = None
+) -> None:
     """A code cell whose committed outputs are ``segments`` exactly as given: one stdout stream
     each, with no trailing newline added (unlike ``_append_cell``), the shape a cell that ends in
-    ``print(..., end="")`` or ``sys.stdout.write(...)`` commits."""
+    ``print(..., end="")`` or ``sys.stdout.write(...)`` commits. ``outputs`` replaces them with
+    explicit nbformat output dicts."""
+    if outputs is None:
+        outputs = [{"name": "stdout", "output_type": "stream", "text": [seg]} for seg in segments]
     path = folder / "notebook.ipynb"
     notebook = json.loads(path.read_text("utf-8"))
     notebook["cells"].append(
@@ -11996,16 +12020,45 @@ def _append_unterminated_output(folder: Path, segments: list[str], cell_id: str)
             "metadata": {},
             "execution_count": None,
             "source": ["import sys\n", "sys.stdout.write('probe')\n"],
-            "outputs": [
-                {"name": "stdout", "output_type": "stream", "text": [segment]}
-                for segment in segments
-            ],
+            "outputs": outputs,
         }
     )
     path.write_text(json.dumps(notebook), "utf-8")
 
 
-@pytest.mark.parametrize("where", ["across two cells", "inside one cell"])
+def _stdout(text: str) -> dict:
+    return {"name": "stdout", "output_type": "stream", "text": [text]}
+
+
+def _stderr(text: str) -> dict:
+    return {"name": "stderr", "output_type": "stream", "text": [text]}
+
+
+def _execute_result(text: str) -> dict:
+    return {
+        "output_type": "execute_result",
+        "execution_count": 1,
+        "metadata": {},
+        "data": {"text/plain": [text]},
+    }
+
+
+def _display_data(text: str) -> dict:
+    return {"output_type": "display_data", "metadata": {}, "data": {"text/plain": [text]}}
+
+
+# Shapes Jupyter really saves for one cell (it merges consecutive streams of one name, so two
+# stdout streams alone are not realistic): a stdout stream then a displayed value, a stdout then a
+# stderr stream, a stdout stream then display_data.
+_SECOND_OUTPUT = {
+    "execute-result": _execute_result,
+    "stderr": _stderr,
+    "display-data": _display_data,
+    "stdout": _stdout,
+}
+
+
+@pytest.mark.parametrize("where", ["across two cells", *sorted(_SECOND_OUTPUT)])
 @pytest.mark.parametrize("shape", sorted(_UNTERMINATED_SHAPES))
 def test_an_unterminated_output_segment_does_not_fuse_a_number_to_the_next_unit(
     tmp_path, shape, where
@@ -12022,10 +12075,13 @@ def test_an_unterminated_output_segment_does_not_fuse_a_number_to_the_next_unit(
         _append_unterminated_output(folder, [ends_with_number], "ends-with-number")
         _append_unterminated_output(folder, [begins_with_unit + "\n"], "begins-with-unit")
     else:
-        _append_unterminated_output(folder, [ends_with_number, begins_with_unit + "\n"], "split")
-    fused = "\n".join(
-        _output_text(cell) for cell in notebook_cells(folder) if cell["cell_type"] == "code"
-    )
+        _append_unterminated_output(
+            folder,
+            [],
+            "split",
+            outputs=[_stdout(ends_with_number), _SECOND_OUTPUT[where](begins_with_unit + "\n")],
+        )
+    fused = _scanned_output(folder)
     pattern = {
         "latency": _LATENCY_MS,
         "throughput": _THROUGHPUT,
