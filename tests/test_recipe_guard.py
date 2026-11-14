@@ -10419,6 +10419,40 @@ def _without_audit_lines(text: str) -> str:
     )
 
 
+# A hash-like token: a UUID (8-4-4-4-12) or a run of at least 16 hexadecimal characters, in either
+# case a mix of at least one letter and, for a UUID, at least one digit (a replay key, a SHA-256
+# or SHA-1 content hash, a full git SHA, a cache key). Its digit runs are not quantities, but read
+# as numbers they back almost any figure: 22 replay keys offered 71 of the integers 0 to 100
+# (#376, #378). The token is bounded by hex characters, not by word characters, so a digest glued
+# to ``_``, ``0x``, ``.`` or a non-hex letter (``cache_<sha>.json``) is still found. A run of 16 or
+# more digits alone has no letter and stays: it is a number. A hex run of only letters carries no
+# digit to back anything, so replacing it changes no pool and needs no digit requirement. One
+# exception: the digits and trailing ``e`` of a float printed in scientific notation
+# (``1.2345678901234567e-05``) are a quantity, so a run that is only digits plus that ``e``, with
+# a signed exponent after it, is kept. A shorter digest (a 7-character git short SHA) and
+# base64-style identifiers are not recognised.
+_HASH_LIKE = re.compile(
+    r"(?<![0-9a-f])(?=[0-9a-f-]{0,35}[a-f])(?=[0-9a-f-]{0,35}[0-9])"
+    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?![0-9a-f])"
+    r"|(?<![0-9a-f])(?!\d+e[+-]\d)(?=[0-9a-f]*[a-f])[0-9a-f]{16,}(?![0-9a-f])",
+    re.IGNORECASE,
+)
+
+
+def _without_hash_like_tokens(text: str) -> str:
+    """``text`` with every hash-like token replaced by ``<hash>``, which holds no digit: the
+    token's own digit runs leave the pool, and every other character of its line, a genuine
+    number beside it included, stays exactly where it was (#378)."""
+    return _HASH_LIKE.sub("<hash>", text)
+
+
+def _pool_text(text: str) -> str:
+    """``text`` as the metric pool reads it: audit-prefix lines blanked, then hash-like tokens
+    replaced. Both pool sources (committed output and the recipe's own tests) go through this one
+    chain."""
+    return _without_hash_like_tokens(_without_audit_lines(text))
+
+
 def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     """The numbers a quote of each kind can be backed by. A ``metric`` quote: any number a code
     cell's committed output prints, or the recipe's own ``tests/`` type (CONTRIBUTING.md section
@@ -10440,14 +10474,17 @@ def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     the line, so it only reaches the ledger reproduced alone on its own line (e.g. a triple-quoted
     ``EXPECTED`` assignment); an indented occurrence or a one-line assignment where a quote
     character precedes the prefix is a different shape this match does not reach on either arm
-    (#378 measures this). A cell that prints the audit line alongside a genuine metric line still
-    has the metric line counted. The
+    (#378 measures this). Since #378, every hash-like token (``_HASH_LIKE``) is replaced by a
+    digit-free placeholder in both sources as well, wherever it sits on a line, which also takes
+    the replay keys of an indented or mid-line ledger out of the pool; the line-prefix exclusion
+    stays, for the ledger's other fields. A cell that prints the audit line alongside a genuine
+    metric line still has the metric line counted. The
     ledger's own integrity is checked separately, and far more strictly, by
     ``readme_budget_note_matches_request_audit`` against ``request_budget.json``, for every
     published recipe and for ``recipes/_template`` (#381); this exclusion
     removes nothing that check relies on."""
     output = "\n".join(
-        _without_audit_lines(_output_text(cell))
+        _pool_text(_output_text(cell))
         for cell in notebook_cells(recipe_dir_)
         if cell["cell_type"] == "code"
     )
@@ -10455,7 +10492,7 @@ def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     tests_dir = recipe_dir_ / "tests"
     if tests_dir.is_dir():
         for path in sorted(tests_dir.glob("*.py")):
-            metric += _decimals(_without_audit_lines(path.read_text("utf-8")))
+            metric += _decimals(_pool_text(path.read_text("utf-8")))
     price = [
         n for m in re.finditer(_PRICE_AMOUNT, output, re.IGNORECASE) for n in _decimals(m.group(0))
     ]
@@ -11933,6 +11970,164 @@ def test_a_number_and_its_unit_split_across_two_cells_still_catches_a_fabricatio
     )
     unbacked = _unprinted_quantities(folder)
     assert any("180" in message for message in unbacked), unbacked
+
+
+# #378: a digest whose only "93" is a digit run inside the hex, so before the fix it alone backed
+# "The accuracy is 93%."; and a UUID with the same property.
+_DIGEST_WITH_93 = "f" * 30 + "a93b" + "e" * 30
+_UUID_WITH_93 = "deadbeef-cafe-4a93-bead-facefacefeed"
+
+
+@pytest.mark.parametrize(
+    ("where", "line"),
+    [
+        ("output", f"fixture digest (sha256): {_DIGEST_WITH_93}"),
+        ("output", f"run id: {_UUID_WITH_93}"),
+        ("output", f"cache key {_DIGEST_WITH_93.upper()}"),
+        # A digest glued to a word character, ``0x`` or a dot is still a digest.
+        ("output", f"fixture cache file: cache_{_DIGEST_WITH_93}.json"),
+        ("output", f"replay key: 0x{_DIGEST_WITH_93}"),
+        ("output", f"artifact: model-v2_{_DIGEST_WITH_93}"),
+        ("output", f"fixture_{_DIGEST_WITH_93}.json"),
+        ("output", f"file.{_DIGEST_WITH_93}"),
+        # An indented ledger pinned in the recipe's own tests: the line-prefix exclusion does not
+        # reach it (#378's second comment), the hash filter does.
+        ("tests", f'    assert \'"replay_key":"{_DIGEST_WITH_93}"\' in out\n'),
+        ("tests", f'EXPECTED = "{AUDIT_PREFIX}{{\\"replay_key\\":\\"{_DIGEST_WITH_93}\\"}}"\n'),
+    ],
+)
+def test_a_hash_like_token_does_not_back_a_fabricated_figure(tmp_path, where, line):
+    """#378 option A. A recipe has ordinary reasons to print a digest (a fixture hash, a run id, a
+    cache key) or to pin one in its tests; its hex digit runs are not quantities. Before: the
+    token's own digits hold the quoted 93 (asserted on the raw text, which is what the pool read).
+    After: the fabricated sentence is reported."""
+    assert Decimal("93") in _decimals(line)
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
+    if where == "output":
+        _append_cell(folder, "code", line, cell_id="prints-a-digest")
+    else:
+        (folder / "tests").mkdir(exist_ok=True)
+        (folder / "tests" / "test_digest.py").write_text(line, "utf-8")
+    _append_cell(folder, "markdown", "The accuracy is 93%.", cell_id="fabricated")
+    unbacked = _unprinted_quantities(folder)
+    assert any("fabricated" in message for message in unbacked), unbacked
+
+
+def test_a_genuine_number_beside_a_hash_like_token_still_backs_its_quote(tmp_path):
+    """The false-positive direction of #378: only the token is replaced, so a real figure on the
+    same line stays in the pool, and so does a figure the recipe's own tests derive beside a
+    pinned key."""
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
+    _append_cell(
+        folder,
+        "code",
+        f"digest {_DIGEST_WITH_93} validation accuracy: 0.8800 (a pipeline check, not a Jev result)",
+        cell_id="digest-and-metric",
+    )
+    (folder / "tests").mkdir(exist_ok=True)
+    (folder / "tests" / "test_digest.py").write_text(
+        f'    assert "{_DIGEST_WITH_93}" in out and total == 41\n', "utf-8"
+    )
+    for i, sentence in enumerate(
+        (
+            "The accuracy is 0.88 (a pipeline check, not a Jev result).",
+            "The suite recomputes an accuracy of 41% from the fixtures.",
+        )
+    ):
+        _append_cell(folder, "markdown", sentence, cell_id=f"genuine-{i}")
+    assert [m for m in _unprinted_quantities(folder) if "genuine-" in m] == []
+
+
+def test_a_long_pure_digit_number_is_not_hash_like_and_still_backs_its_quote(tmp_path):
+    """A run of 16 or more digits has no letter, so it is a number and stays in the pool. The
+    quotes below are in a form ``_AMOUNT`` reads (a decimal with 16 or more digits in a part):
+    without the letter lookahead of ``_HASH_LIKE`` the run is replaced and the quote is reported."""
+    assert _without_hash_like_tokens("12345678901234567.25 0.1234567890123456789") == (
+        "12345678901234567.25 0.1234567890123456789"
+    )
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
+    _append_cell(folder, "code", "total rows read: 12345678901234567.25", cell_id="long-int")
+    _append_cell(folder, "code", "validation accuracy 0.1234567890123456789", cell_id="long-frac")
+    for i, sentence in enumerate(
+        (
+            "It read 12345678901234567.25 rows.",
+            "The accuracy is 0.1234567890123456789 (a pipeline check, not a Jev result).",
+        )
+    ):
+        _append_cell(folder, "markdown", sentence, cell_id=f"genuine-{i}")
+    assert [m for m in _unprinted_quantities(folder) if "genuine-" in m] == []
+
+
+def test_a_digit_free_hex_run_has_no_effect_on_the_pool():
+    """``_HASH_LIKE`` needs no digit requirement: a run of 16 or more letters from a to f holds no
+    digit, so replacing it (as the pattern does) or keeping it leaves every number of the text,
+    and its neighbours (a hex run cannot touch a digit, the lookarounds forbid it), unchanged."""
+    text = "n 7 deadbeefdeadbeef 8.5 cafebabecafebabe.9 x1"
+    assert _decimals(_without_hash_like_tokens(text)) == _decimals(text)
+
+
+@pytest.mark.parametrize(
+    "mantissa_and_exponent",
+    [
+        "1.0416666666666667e-05",
+        "0.8347222222222222e+00",
+        "1.2345678901234567e-05",
+        "1.2345678901234567e+16",
+        "12345678901234567e+3",
+    ],
+)
+def test_a_float_in_scientific_notation_keeps_its_mantissa(tmp_path, mantissa_and_exponent):
+    """A float printed with 16 or more mantissa digits and an exponent is a quantity: the
+    mantissa digits and the ``e`` after them look like a hex run, but ``_HASH_LIKE`` leaves
+    them. A prose quote of the printed value stays backed, and ``name.<digest>`` (a dot before a
+    real digest) is still replaced."""
+    assert (
+        _without_hash_like_tokens(f"p = {mantissa_and_exponent}") == f"p = {mantissa_and_exponent}"
+    )
+    mantissa = mantissa_and_exponent.split("e")[0]
+    if "." not in mantissa:
+        return
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
+    _append_cell(folder, "code", f"validation error rate: {mantissa_and_exponent}", cell_id="sci")
+    _append_cell(
+        folder,
+        "markdown",
+        f"The error rate is {mantissa} (a pipeline check, not a Jev result).",
+        cell_id="genuine",
+    )
+    assert [m for m in _unprinted_quantities(folder) if "genuine" in m] == []
+
+
+def test_a_pure_digit_dashed_id_is_not_a_uuid_and_stays_in_the_pool():
+    """The UUID branch needs a letter and a digit, like the hex branch: a pure-digit 8-4-4-4-12
+    id (a date-and-sequence batch id) is a run of numbers and stays."""
+    batch = "batch 20261114-0236-1000-0000-000000000042"
+    assert _without_hash_like_tokens(batch) == batch
+    assert _without_hash_like_tokens("run id: deadbeef-cafe-4a93-bead-facefacefeed") == (
+        "run id: <hash>"
+    )
+    assert _without_hash_like_tokens("id deadbeef-cafe-dead-beef-facefacefeed") == (
+        "id deadbeef-cafe-dead-beef-facefacefeed"
+    )
+
+
+@pytest.mark.parametrize("where", ["output", "tests"])
+def test_a_plain_number_on_an_audit_line_does_not_back_a_figure(tmp_path, where):
+    """The line-prefix rule still has a job once hash-like tokens are replaced: the ledger's other
+    fields, here a plain, non-hash number, stay out of the pool. Removing ``_without_audit_lines``
+    from ``_pool_text`` makes this fail, on either pool source."""
+    line = AUDIT_PREFIX + '{"requests":2,"spend_ratio":0.5123}'
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
+    if where == "output":
+        _append_cell(folder, "code", line, cell_id="ledger")
+    else:
+        (folder / "tests").mkdir(exist_ok=True)
+        (folder / "tests" / "test_ledger.py").write_text(
+            'EXPECTED = """\n' + line + '\n"""\n', "utf-8"
+        )
+    _append_cell(folder, "markdown", "The error rate is 0.5123.", cell_id="fabricated")
+    unbacked = _unprinted_quantities(folder)
+    assert any("0.5123" in message for message in unbacked), unbacked
 
 
 def test_the_audit_line_pinned_in_the_recipes_own_tests_does_not_back_a_fabrication(tmp_path):
