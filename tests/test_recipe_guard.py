@@ -32,7 +32,28 @@ check id                              rule -> detection
 ``no_issue_citations``                G1(b), CONTRIBUTING.md section 6: no ``#NNN`` or
                                        "the issue" in a recipe file's prose (docstrings and
                                        comments in ``.py`` files, full text of ``README.md``
-                                       and notebook markdown cells).
+                                       and notebook markdown cells), and none of the other
+                                       spellings of a document a reader cannot open (#225):
+                                       a pull request's description,
+                                       body or text, a bare ``PR`` (not "PR curve", "PR AUC"
+                                       or "recall (PR)", the metric), a wave or batch number,
+                                       a house rule number ("rule 12", unless it is followed
+                                       by of/in/from and a path from the repository root that
+                                       exists), "the orchestrator", "the brief", "the
+                                       reviewer's finding", a review finding label ``(M3)``,
+                                       "acceptance criteria" (not "acceptance test", ordinary
+                                       vocabulary), a review or fix round, and a recipe
+                                       number or ``../NN-slug/`` link that is not published.
+                                       Quoted fixture text is stripped as before. Not seen:
+                                       any other way to cite a document outside the tree.
+``no_cell_id_citations``              CONTRIBUTING.md section 6 (#250): no backticked span
+                                       in a markdown cell or ``README.md`` that is exactly a
+                                       hyphenated cell id of that recipe's notebook (a cell id
+                                       is in the ``.ipynb`` JSON only). Not seen: a single-word
+                                       id (``state``, ``setup``), which is English and cannot be
+                                       told from prose; an id that is not backticked; a
+                                       code cell's comments and a test's lookup of a cell by
+                                       id, which are machinery, not prose to a reader.
 ``stored_answers_strong_form``        G1(c): ``test_stored_answers_are_not_all_right``
                                        re-derives the frozen threshold (preferring the
                                        confidence gate over a plain business threshold when
@@ -216,12 +237,22 @@ check id                              rule -> detection
 Scope decisions (see the pull request body for the full reasoning):
 
 * The parametrised list is every ``recipes/NN-slug/`` with a committed ``notebook.ipynb``
-  (``PUBLISHED``, the same set ``tests/test_recipe_sources.py`` already uses). Checks that need
-  a catalog row or a stored-answer count (sources, the live budget note) use ``guarded()`` and
-  run over ``PUBLISHED`` alone; every other check uses ``guarded_with_template()`` and also runs
-  against ``recipes/_template``, never xfailed there: the template already has its own dedicated
-  pins in ``tests/test_template.py``, and including it here gives this module's own detection
-  logic a sanity check -- the template is the thing every one of these rules is written to match.
+  (``PUBLISHED``, the same set ``tests/test_recipe_sources.py`` already uses). Every check uses
+  ``guarded_with_template()`` and also runs against ``recipes/_template``, never xfailed there,
+  except the four below, which use ``guarded()`` and run over ``PUBLISHED`` alone, each for a
+  stated reason (#381 audited the split; anything not listed here that skips the template is a
+  defect, not a choice): ``build_fixtures_scaffold`` renders the expected text from the recipe's
+  catalog row, which the template does not have (``tests/test_template.py`` pins the template's
+  own copy the other way round); ``readme_sources_match_catalog`` compares against that same
+  catalog row; ``next_steps_inbound_links`` asks whether another recipe links to this one, and no
+  recipe links to the template; ``simulated_side_effect_invoked`` keys its obligation on a
+  published slug (``SIDE_EFFECT_INVENTORY``, ``SIMULATOR_REQUIRED``), and the template declares
+  no side effect, has none detected and needs no simulator, so there it would only skip today.
+  The template already has its own dedicated pins in ``tests/test_template.py``, and including
+  it here gives this module's own detection logic a sanity check -- the template is the thing
+  every one of these rules is written to match. ``readme_budget_note_matches_request_audit``
+  runs on the template (#381): the template is on the audited route, so its declaration, ledger
+  and README paragraph are held against each other here as well as by ``tests/test_template.py``.
 * ``next_steps_inbound_links`` is still a per-recipe, per-check case (the fix round that added it
   found the distinction drawn in an earlier revision of this docstring -- that inbound coverage is
   "a property of the whole set, not of one recipe" -- did not actually hold: the check below reads
@@ -533,8 +564,9 @@ def extract_calls(source: str, name: str) -> list[str]:
 
 @pytest.mark.parametrize("recipe", guarded("build_fixtures_scaffold")())
 def test_build_fixtures_guard_matches_the_current_scaffold(recipe):
-    """G1(a): byte-identical to ``tools/new_recipe.py::build_fixtures_test_text(recipe)``, the
-    exact text ``python tools/new_recipe.py`` would emit for this recipe today. Byte identity
+    """G1(a): byte-identical to ``tools/new_recipe.py::build_fixtures_test_text(recipe, mode)``
+    for the recipe's scaffold mode (below), the exact text ``python tools/new_recipe.py`` would
+    emit for this recipe today. Byte identity
     (rather than, say, checking for the regeneration assertion alone) is the precise signature:
     it also catches a stray issue number in the docstring (R9) and any other drift in the same
     motion, and it is exactly what ``tests/test_template.py`` already proves for the template
@@ -545,22 +577,69 @@ def test_build_fixtures_guard_matches_the_current_scaffold(recipe):
     (``build_scripted_fixtures_text``) never writes ``responses.json`` and never writes a
     ``tests/test_build_fixtures.py`` for this check to hold byte-identical to anything, so the
     skip below is genuinely vacuous for one, not a proxy standing in for a different property
-    (#249)."""
+    (#249).
+
+    A recipe with an ``assets/`` folder is an image recipe, and its scaffold is
+    ``--mode replay-images``, whose ``tests/test_build_fixtures.py`` also copies ``assets/``
+    (``build_fixtures_test_text(recipe, "replay-images")``); every other replay recipe is held to
+    the text variant (#452)."""
     path = recipe_dir(recipe) / "fixtures" / "responses.json"
     if not path.is_file():
         pytest.skip(
             "scripted recipe: replay-mode scaffold does not apply, no test_build_fixtures.py "
             "to guard (see #249)"
         )
+    folder = recipe_dir(recipe)
     new_recipe = load_tool("new_recipe.py")
-    expected = new_recipe.build_fixtures_test_text(recipe)
-    actual_path = recipe_dir(recipe) / "tests" / "test_build_fixtures.py"
+    mode = new_recipe.IMAGE_MODE if (folder / "assets").is_dir() else "replay"
+    expected = new_recipe.build_fixtures_test_text(recipe, mode)
+    actual_path = folder / "tests" / "test_build_fixtures.py"
     assert actual_path.is_file(), f"{recipe['slug']}: no tests/test_build_fixtures.py"
     assert actual_path.read_text("utf-8") == expected
 
 
+@pytest.mark.parametrize(
+    "kind,committed,passes",
+    [
+        ("text", "text", True),
+        ("image", "image", True),
+        ("image", "text", False),
+        ("text", "image", False),
+    ],
+)
+def test_build_fixtures_guard_holds_an_image_recipe_to_the_image_variant(
+    tmp_path, monkeypatch, kind, committed, passes
+):
+    """G1(a) itself, run on a recipe folder built here: an image recipe (``assets/`` present) that
+    commits the text variant fails, and so does a text recipe that commits the image variant;
+    each committing its own variant passes (#452)."""
+    new_recipe = load_tool("new_recipe.py")
+    recipes = [r for r in CATALOG["recipes"] if r["rank"] == 77]
+    assert len(recipes) == 1, "catalog rank 77 is the image recipe this test scaffolds against"
+    recipe = recipes[0]
+    variants = {
+        "text": new_recipe.build_fixtures_test_text(recipe),
+        "image": new_recipe.build_fixtures_test_text(recipe, new_recipe.IMAGE_MODE),
+    }
+    assert variants["text"] != variants["image"]
+    monkeypatch.setitem(globals(), "RECIPES_DIR", tmp_path)
+    folder = recipe_dir(recipe)
+    (folder / "fixtures").mkdir(parents=True)
+    (folder / "fixtures" / "responses.json").write_text("{}\n", "utf-8")
+    (folder / "tests").mkdir()
+    (folder / "tests" / "test_build_fixtures.py").write_text(variants[committed], "utf-8")
+    if kind == "image":
+        (folder / "assets").mkdir()
+        (folder / "assets" / "screen.png").write_bytes(b"not read by G1(a)")
+    if passes:
+        test_build_fixtures_guard_matches_the_current_scaffold(recipe)
+    else:
+        with pytest.raises(AssertionError):
+            test_build_fixtures_guard_matches_the_current_scaffold(recipe)
+
+
 # --------------------------------------------------------------------------------------------
-# check 2: no "#NNN" issue numbers or "the issue" in a recipe file
+# check 2: no "#NNN", "the issue" or any other pointer a reader cannot open in a recipe file
 # --------------------------------------------------------------------------------------------
 
 ISSUE_NUMBER = re.compile(r"#\d+\b")
@@ -601,10 +680,89 @@ def _prose_of_python(source: str) -> str:
     return "\n".join(parts)
 
 
+# CONTRIBUTING.md section 6 forbids citing anything "a reader cannot see", and the reason it gives
+# governs every spelling, not just the two above (#225). These are the other spellings that have
+# reached a committed file or a review: a pointer to a pull request's description, a wave or batch
+# number, a house review-brief rule number, the orchestration roles, a review finding label, a
+# private issue's acceptance criteria. Each is a SHAPE, not a topic: a recipe about a review queue
+# says "a reviewer" freely, and only "the reviewer's finding", "the brief" and the like are
+# pointers at a document the reader cannot open.
+PROCESS_CITATIONS: dict[str, re.Pattern[str]] = {
+    # A bare ``PR`` is a pointer ("as the PR says"), but "PR curve", "PR AUC" and "precision-recall
+    # (PR)" are the metric, ordinary evaluation vocabulary, so a ``PR`` that is followed by one of
+    # the metric's own words, or introduced by "recall (", is not one.
+    "pull request pointer": re.compile(
+        r"(?<!recall \()\b(?-i:PRs?)\b"
+        r"(?!\)?[\s-]*(?:curves?|AUC|AP\b|areas?|plots?|precision|recall|scores?|points?|metrics?))"
+        r"|\bpull[- ]request(?:'s)?\s+(?:description|body|text)\b",
+        re.IGNORECASE,
+    ),
+    "wave or batch number": re.compile(r"\b(?:wave|batch)\s+\d+\b", re.IGNORECASE),
+    "review round": re.compile(r"\b(?:review|fix)\s+round\b", re.IGNORECASE),
+    "house rule number": re.compile(r"\brules?\s+\d+\b", re.IGNORECASE),
+    "orchestration role": re.compile(
+        r"\bthe\s+(?:orchestrator|brief)\b"
+        r"|\b(?:the|this)\s+(?:independent\s+)?reviewers?(?:'s)?\s+"
+        r"(?:found|finding|findings|noted|asked|comments?|said|required|flagged)\b",
+        re.IGNORECASE,
+    ),
+    "review finding label": re.compile(r"\(\s*[MSBN][1-9]\s*\)"),
+    # "Acceptance criteria" is a private issue's checklist. "Acceptance test" is NOT in this list:
+    # it is ordinary vocabulary for a recipe about CI failures or test selection (19, 32) and
+    # cites nothing the reader cannot open.
+    "acceptance criteria": re.compile(r"\bacceptance\s+criteri(?:a|on)\b", re.IGNORECASE),
+}
+# A rule number whose target is a committed file is a citation a reader CAN open ("rule 4 of
+# docs/x.md"), the one carve-out #225 asks for. The identifiers the repository itself defines
+# (G1(c), R21, CONTRIBUTING.md section 6, S07) match none of the shapes above, so they need no
+# allowlist; this is only for a numbered rule that names where it is written. The target is
+# `of`/`in`/`from` (any case) and a path from the repository root that looks like one (it has a
+# "/" or a ".") and EXISTS in this repository's checkout: any committed file qualifies, a
+# neighbouring recipe's README included, and a path that names nothing, climbs out with "..", or
+# is absolute (so names a file outside the repository) does not.
+COMMITTED_RULE_TARGET = re.compile(r"\s*(?i:of|in|from)\s+`?([\w./-]*[/.][\w./-]*[\w])")
+# A recipe reference ("recipe 30", "../30-citation-verification/") the reader cannot follow
+# because that recipe is not published (#225's second comment). Pointing at a published
+# neighbour is what section 6 asks for. Ranks run to 100, so a number or slug prefix has two or
+# three digits, and a slug link must name the published folder itself: a published number with a
+# slug that is not that recipe's (``../30-not-a-real-slug/``) leads nowhere either.
+RECIPE_NUMBER = re.compile(r"\brecipes?\s+(\d{1,3})\b", re.IGNORECASE)
+RECIPE_SLUG_LINK = re.compile(r"\.\./((\d{2,3})-[a-z0-9-]*[a-z0-9])")
+
+
+def _published_recipe_numbers() -> set[int]:
+    return {int(r["slug"].split("-", 1)[0]) for r in PUBLISHED}
+
+
+def _published_recipe_slugs() -> set[str]:
+    return {r["slug"] for r in PUBLISHED}
+
+
+def _names_a_committed_file(text: str, end: int) -> bool:
+    """Whether the text right after position ``end`` names a file or folder that exists."""
+    found = COMMITTED_RULE_TARGET.match(text, end)
+    if not found or found.group(1).startswith("/") or ".." in found.group(1).split("/"):
+        return False
+    return (REPO / found.group(1)).exists()
+
+
 def _citation_hits(text: str, location: str) -> list[str]:
     text = _strip_quoted(text)
     hits = [f"{location}: {m.group(0)!r} (issue number)" for m in ISSUE_NUMBER.finditer(text)]
     hits += [f'{location}: {m.group(0)!r} ("the issue")' for m in THE_ISSUE.finditer(text)]
+    for kind, pattern in PROCESS_CITATIONS.items():
+        for m in pattern.finditer(text):
+            if kind == "house rule number" and _names_a_committed_file(text, m.end()):
+                continue
+            hits.append(f"{location}: {m.group(0)!r} ({kind}: a reader cannot open it)")
+    published = _published_recipe_numbers()
+    for m in RECIPE_NUMBER.finditer(text):
+        if int(m.group(1)) not in published:
+            hits.append(f"{location}: {m.group(0)!r} (a recipe that is not published)")
+    slugs = _published_recipe_slugs()
+    for m in RECIPE_SLUG_LINK.finditer(text):
+        if m.group(1) not in slugs:
+            hits.append(f"{location}: {m.group(0)!r} (a recipe that is not published)")
     return hits
 
 
@@ -639,9 +797,362 @@ def test_no_issue_numbers_or_the_issue_in_recipe_files(recipe):
     'the issue' -- a reader cannot see either." Scans the prose of helpers.py, build_fixtures.py,
     every tests/*.py file, README.md and every notebook cell (code cells: docstrings and comments
     only; markdown cells and README.md: full text, minus quoted fixture text -- see
-    ``_strip_quoted``'s docstring for why)."""
+    ``_strip_quoted``'s docstring for why). The reason section 6 gives governs every spelling, so
+    the check also reads ``PROCESS_CITATIONS`` and the unpublished-recipe pointers (#225)."""
     hits = _recipe_citation_hits(recipe_dir(recipe))
     assert not hits, "; ".join(hits)
+
+
+# --------------------------------------------------------------------------------------------
+# check 2b: no cell id cited in reader-facing prose (#250)
+# --------------------------------------------------------------------------------------------
+
+CODE_SPAN = re.compile(r"`([^`\n]+)`")
+CODE_FENCE = re.compile(r"^(```|~~~).*?^\1[ \t]*$", re.MULTILINE | re.DOTALL)
+
+
+def _hyphenated_cell_ids(recipe_dir_: Path) -> set[str]:
+    """The ids of the notebook's cells that contain a hyphen. A single-word id (``state``,
+    ``setup``, ``answer``) is also an ordinary English word, so a backticked ``state`` is more
+    often prose than a pointer, and counting those made every count taken before this one
+    wrong (13 across 9 recipes, then 9 across 5 with ``state`` in it, then 13 in recipe 36 alone,
+    every one of those 13 a coincidence); they cannot be told apart mechanically and are not checked."""
+    return {c["id"] for c in notebook_cells(recipe_dir_) if "-" in str(c.get("id", ""))}
+
+
+def _cell_id_citations(text: str, ids: set[str], location: str) -> list[str]:
+    """Every backticked span of ``text`` that is exactly one of ``ids``. Fenced blocks are
+    code, not prose addressed to the reader, and are skipped (a fence of three backticks or three
+    tildes at the start of a line; a longer fence or an indented block is not recognised)."""
+    text = CODE_FENCE.sub(" ", text)
+    return [
+        f"{location}: `{m.group(1)}` is a cell id, which only the .ipynb JSON shows"
+        for m in CODE_SPAN.finditer(text)
+        if m.group(1) in ids
+    ]
+
+
+def _recipe_cell_id_citations(recipe_dir_: Path) -> list[str]:
+    """A cell id cited in this recipe's markdown cells or README.md. Out of scope by design: a
+    code cell's comments, and the tests that find a cell by its id (``c.get("id") == "..."``),
+    which are machinery reading the JSON, not prose a reader is pointed through."""
+    ids = _hyphenated_cell_ids(recipe_dir_)
+    hits = []
+    readme = recipe_dir_ / "README.md"
+    if readme.is_file():
+        hits += _cell_id_citations(readme.read_text("utf-8"), ids, "README.md")
+    for cell in notebook_cells(recipe_dir_):
+        if cell["cell_type"] == "markdown":
+            location = f"notebook.ipynb cell {cell.get('id', '?')}"
+            hits += _cell_id_citations(cell_source(cell), ids, location)
+    return hits
+
+
+@pytest.mark.parametrize("recipe", guarded_with_template("no_cell_id_citations")())
+def test_no_cell_id_is_cited_in_reader_facing_prose(recipe):
+    """#250, CONTRIBUTING.md section 6: a cell id exists only in the ``.ipynb`` JSON, so a reader
+    of the rendered notebook (Jupyter, nbviewer, GitHub) never sees it, and "the ``python-rule``
+    cell below" points at nothing. Quote the section heading or say what the cell prints. Fails
+    on a backticked span in a markdown cell or README.md that equals a hyphenated cell id of that
+    notebook; see ``_hyphenated_cell_ids`` for why single-word ids are not checked."""
+    hits = _recipe_cell_id_citations(recipe_dir(recipe))
+    assert not hits, "; ".join(hits)
+
+
+# --- #225: the citation check reads every spelling of "something a reader cannot see" ----------
+
+
+def _legacy_citation_hits(text: str, location: str) -> list[str]:
+    """The check before #225, kept as red-before evidence in the repository rather than only in
+    a pull request body: it ran exactly these two patterns, so every case below that is not an
+    issue number or "the issue" passed it."""
+    text = _strip_quoted(text)
+    return [
+        f"{location}: {m.group(0)!r}" for p in (ISSUE_NUMBER, THE_ISSUE) for m in p.finditer(text)
+    ]
+
+
+# Prose that cites a document the reader cannot open, with the shape the message must name. The
+# PR-description, wave/batch and rule-number lines are what PR #223 and PR #224 committed with
+# every check green; the finding labels are what recipe 37's fix round committed (#225).
+_UNREADABLE_CITATIONS = {
+    "pr-description": ("the PR description proves against the unmasked run", "pull request"),
+    "pr-description-proved": ("proved in the PR description by a mutation", "pull request"),
+    "pull-request-description": ("see the pull request description", "pull request"),
+    "pull-request-body": ("the pull request body has the numbers", "pull request"),
+    "the-pr": ("as the PR says, this is a floor", "pull request"),
+    "possessive-pr": ("the PR's description proves it", "pull request"),
+    "possessive-pull-request-description": (
+        "the pull request's description proves it",
+        "pull request",
+    ),
+    "possessive-pull-request-body": ("the pull-request's body has the mutation", "pull request"),
+    "pr-then-pr-curve": ("see the PR, then the PR curve", "pull request"),
+    "this-pr": ("this PR changes the gate", "pull request"),
+    "wave-and-batch": ("Fixture-generation consistency (Wave 3 batch 1)", "wave or batch"),
+    "wave-alone": ("it fixes something a Wave 1 review noted", "wave or batch"),
+    "batch-alone": ("the batch 2 sweep moved this", "wave or batch"),
+    "rule-capitalised": ("Rule 12: nothing in this file pins the output", "house rule"),
+    "rule-lowercase": ("which is what rule 19 is about", "house rule"),
+    "rule-of-a-file-that-does-not-exist": ("rule 4 of docs/not-a-file.md", "house rule"),
+    "rule-of-a-path-that-climbs-out": ("rule 4 of docs/../CONTRIBUTING.md", "house rule"),
+    "rule-of-a-file-not-at-the-root": ("rule 4 of helpers.py", "house rule"),
+    "rule-of-a-policy": ("rule 4 of the policy", "house rule"),
+    "the-orchestrator": ("the orchestrator asked for this order", "orchestration role"),
+    "the-brief": ("as the brief says, keep it short", "orchestration role"),
+    "the-reviewers-finding": ("the reviewer's finding was that it is circular", "orchestration"),
+    "the-reviewer-found": ("the reviewer found a wrong label here", "orchestration role"),
+    "finding-label-m": ("the objective is pinned (M3): a swap that keeps", "review finding label"),
+    "finding-label-s": ("a per-domain F1 actually moves (S1): the", "review finding label"),
+    "acceptance-criteria": ("what the acceptance criteria call accuracy", "acceptance criteria"),
+    "acceptance-criterion": ("the acceptance criterion also asks for it", "acceptance criteria"),
+    "review-round": ("after its first review round", "review round"),
+    "fix-round": ("in the recipe's first fix round", "review round"),
+    "unpublished-recipe-number": ("Rule 11 (recipe 99 lineage)", "not published"),
+    "unpublished-recipe-link": ("see ../99-not-a-recipe/ for the shape", "not published"),
+    "unpublished-recipe-100": ("the recipe 100 pattern", "not published"),
+    "unpublished-recipe-100-link": ("see ../100-not-a-recipe/ for the shape", "not published"),
+    "published-number-wrong-slug": ("see ../30-not-a-real-slug/ for the shape", "not published"),
+    "rule-of-an-absolute-path": ("rule 4 of /etc/hosts", "house rule"),
+}
+
+# Prose that must keep passing: a target that is committed, an identifier the repository itself
+# defines, and ordinary words a recipe about review queues or retrieval uses freely.
+_READABLE_CITATIONS = {
+    "a-committed-section": "CONTRIBUTING.md section 6 forbids it",
+    "a-committed-doc": "see docs/evaluation.md for the selection rule",
+    "the-guards-own-anchor": "strong-form guard (G1(c)), defined in tests/test_recipe_guard.py",
+    "a-defined-requirement-id": "R21 asks for a printed count",
+    "a-catalog-source": "TypeSafe's notes on Jev 1.13 (S07) document it",
+    "a-numbered-rule-that-names-its-file": "rule 4 of docs/glossary.md says so",
+    "a-numbered-rule-in-contributing": "rule 4 in CONTRIBUTING.md says so",
+    "a-numbered-rule-capitalised-of": "Rule 4 Of docs/glossary.md says so",
+    "a-numbered-rule-of-a-neighbours-readme": (
+        "rule 4 of recipes/38-abstention-and-review-queues/README.md says so"
+    ),
+    "a-numbered-rule-of-the-package": "rule 4 of src/jev_cookbook/evaluation.py says so",
+    "a-pr-curve": "the PR curve and PR AUC are reported",
+    "the-metric-abbreviated": "precision-recall (PR) curves and precision and recall (PR) at k",
+    "pr-auc-hyphenated": "PR-AUC and PR AP, not PR scores",
+    "an-acceptance-test": "an acceptance test the customer signs off, and the acceptance tests",
+    "a-published-neighbour": "see recipe 30 and ../30-citation-verification/ for the shape",
+    "a-human-reviewer": "a reviewer decides what the model could not",
+    "reviewers-in-the-queue": "the reviewers who work the review queue see the reason",
+    "the-review-queue": "the review queue is the second half of the recipe",
+    "a-rule-without-a-number": "a rule of thumb, and the rule the code applies",
+    "an-f1-and-r-squared-in-parentheses": "macro F1 (F1) and (R2) are reported",
+    "a-batch-and-a-wave": "a batch of tickets and a wave of requests arrive together",
+    "a-round-of-play": "round 2 of the game follows round 1",
+    "words-that-contain-pr": "the PRIOR and a PROMPT are not pull requests",
+    "a-quoted-fixture-line": 'the ticket reads "see PR 12 and rule 7 for the wave 3 batch"',
+}
+
+
+@pytest.mark.parametrize("case", sorted(_UNREADABLE_CITATIONS))
+def test_a_citation_of_something_a_reader_cannot_open_is_a_hit(case):
+    text, shape = _UNREADABLE_CITATIONS[case]
+    hits = _citation_hits(text, "prose")
+    assert any(shape in hit for hit in hits), f"{case}: {text!r} -> {hits}"
+    # The red-before: none of these spellings is an issue number or "the issue".
+    assert _legacy_citation_hits(text, "prose") == [], case
+
+
+@pytest.mark.parametrize("case", sorted(_READABLE_CITATIONS))
+def test_a_citation_a_reader_can_open_is_not_a_hit(case):
+    hits = _citation_hits(_READABLE_CITATIONS[case], "prose")
+    assert hits == [], f"{case}: {hits}"
+
+
+def test_the_hit_message_names_the_place_the_shape_and_the_words():
+    (hit,) = _citation_hits("see the pull request body", "README.md")
+    assert hit == "README.md: 'pull request body' (pull request pointer: a reader cannot open it)"
+
+
+def test_a_committed_target_is_looked_up_in_the_tree_not_trusted_by_its_spelling():
+    # The carve-out is for a rule whose target a reader can open, a path that exists; a path-shaped
+    # string that names nothing is the same dangling pointer as a bare "rule 4".
+    assert _citation_hits("rule 4 of docs/glossary.md", "x") == []
+    assert _citation_hits("rule 4 of docs/glossary-of-nothing.md", "x") != []
+
+
+# The same spelling in each place the check reads: a comment or docstring in a .py file, the
+# README, a markdown cell and a code cell's comment all count.
+_PLANT = "see the PR description"
+
+
+def _append_code_cell(folder: Path, source: str, cell_id: str = "honesty-probe") -> None:
+    path = folder / "notebook.ipynb"
+    notebook = json.loads(path.read_text("utf-8"))
+    notebook["cells"].append(
+        {
+            "cell_type": "code",
+            "id": cell_id,
+            "metadata": {},
+            "execution_count": None,
+            "outputs": [],
+            "source": source.splitlines(keepends=True),
+        }
+    )
+    path.write_text(json.dumps(notebook), "utf-8")
+
+
+def _plant_a_pull_request_pointer(folder: Path, where: str) -> None:
+    if where in ("README.md", "helpers.py", "build_fixtures.py", "tests/test_helpers.py"):
+        path = folder / where
+        line = _PLANT if where == "README.md" else f"# {_PLANT}"
+        path.write_text(path.read_text("utf-8") + f"\n{line}\n", "utf-8")
+    elif where == "markdown cell":
+        _append_cell(folder, "markdown", _PLANT)
+    else:
+        assert where == "code cell comment"
+        _append_code_cell(folder, f"# {_PLANT}\nx = 1\n")
+
+
+@pytest.mark.parametrize(
+    "where",
+    [
+        "README.md",
+        "helpers.py",
+        "build_fixtures.py",
+        "tests/test_helpers.py",
+        "markdown cell",
+        "code cell comment",
+    ],
+)
+def test_a_pull_request_pointer_is_found_wherever_the_check_reads(tmp_path, where):
+    folder = _copy_recipe(tmp_path, "_template")
+    assert _recipe_citation_hits(folder) == []
+    _plant_a_pull_request_pointer(folder, where)
+    hits = _recipe_citation_hits(folder)
+    assert len(hits) == 1 and "pull request pointer" in hits[0], hits
+    named = where if where.endswith((".md", ".py")) else "honesty-probe"
+    assert named in hits[0], hits
+
+
+def test_prose_in_a_string_literal_is_fixture_data_not_a_citation(tmp_path):
+    # Unchanged by #225: a fabricated "PR 12" or "Wave 3" inside a fixture row is in-fiction text.
+    folder = _copy_recipe(tmp_path, "_template")
+    _append_code_cell(folder, 'ROW = "see the PR description for the Wave 3 rule 11"\n')
+    assert _recipe_citation_hits(folder) == []
+
+
+def test_a_recipe_that_cites_an_unpublished_recipe_fails_where_a_published_one_passes(tmp_path):
+    folder = _copy_recipe(tmp_path, "_template")
+    published = "Same shape as [recipe 30](../30-citation-verification/)."
+    _append_cell(folder, "markdown", published)
+    assert _recipe_citation_hits(folder) == []
+    _append_cell(folder, "markdown", "Rule 11 (recipe 99 lineage).", cell_id="lineage")
+    hits = _recipe_citation_hits(folder)
+    assert any("not published" in h and "lineage" in h for h in hits), hits
+
+
+# --- #250: the cell-id check ---------------------------------------------------------------------
+
+_CELL_ID_CASES_THAT_FAIL = {
+    "the-cell-below": "The `python-rule` cell below freezes the gate.",
+    "as-it-shows": "As `python-rule` shows, nothing moves.",
+    "in-a-list-item": "- Rerun `evaluation-validation` and compare.",
+    "in-bold": "**`python-rule`** is the cell to change.",
+    "two-in-one-sentence": "Rerun `evaluation-test` and `evaluation-validation` afterward.",
+}
+_CELL_ID_CASES_THAT_PASS = {
+    "a-single-word-id": "The `state` cell below builds the store.",
+    "another-single-word-id": "Run the `setup` cell first.",
+    "unbackticked": "The python-rule cell below freezes the gate.",
+    "not-the-whole-span": "Set `python-rule-2` or `my.python-rule` and see.",
+    "a-hyphenated-token-that-is-no-cell": "The label `needs-review` is the review value.",
+    "a-heading-instead": 'Change it in the cell under "Python\'s part" that prints the gate.',
+    # A backticked span INSIDE a fence: only the fence strip keeps these from being hits (the same
+    # text outside a fence is "the-cell-below" in the cases that fail).
+    "inside-a-backtick-fence": "```text\nthe `python-rule` cell\n```",
+    "inside-a-tilde-fence": "~~~\nthe `python-rule` cell below\n~~~",
+    "a-quoted-lookup-not-backticked": 'The tests find it with c.get("id") == "python-rule".',
+}
+
+
+@pytest.mark.parametrize("where", ["markdown cell", "README.md"])
+@pytest.mark.parametrize("case", sorted(_CELL_ID_CASES_THAT_FAIL))
+def test_a_cited_hyphenated_cell_id_fails(tmp_path, case, where):
+    folder = _copy_recipe(tmp_path, "_template")
+    assert {"python-rule", "evaluation-validation", "evaluation-test"} <= _hyphenated_cell_ids(
+        folder
+    )
+    assert _recipe_cell_id_citations(folder) == []
+    text = _CELL_ID_CASES_THAT_FAIL[case]
+    if where == "README.md":
+        readme = folder / "README.md"
+        readme.write_text(readme.read_text("utf-8") + "\n" + text + "\n", "utf-8")
+    else:
+        _append_cell(folder, "markdown", text)
+    hits = _recipe_cell_id_citations(folder)
+    assert hits, f"{case}: nothing noticed"
+    # Every cited id is reported, not only the first one in the sentence.
+    cited = re.findall(r"`([a-z0-9]+(?:-[a-z0-9]+)+)`", text)
+    assert len(hits) == len(cited) and all(any(i in h for h in hits) for i in cited), hits
+    assert all(("README.md" if where == "README.md" else "honesty-probe") in h for h in hits)
+
+
+@pytest.mark.parametrize("where", ["markdown cell", "README.md"])
+@pytest.mark.parametrize("case", sorted(_CELL_ID_CASES_THAT_PASS))
+def test_prose_that_is_not_a_hyphenated_cell_id_citation_passes(tmp_path, case, where):
+    folder = _copy_recipe(tmp_path, "_template")
+    text = _CELL_ID_CASES_THAT_PASS[case]
+    if where == "README.md":
+        readme = folder / "README.md"
+        readme.write_text(readme.read_text("utf-8") + "\n" + text + "\n", "utf-8")
+    else:
+        _append_cell(folder, "markdown", text)
+    assert _recipe_cell_id_citations(folder) == [], case
+
+
+def test_single_word_ids_are_not_checked_because_they_are_english(tmp_path):
+    # The negative #250 asks for, so that a future strengthening cannot bring the noise back: the
+    # template has the ids `state`, `setup`, `answer` and `questions`, and prose backticks them.
+    folder = _copy_recipe(tmp_path, "_template")
+    all_ids = {c["id"] for c in notebook_cells(folder)}
+    assert {"state", "setup", "answer", "questions"} <= all_ids
+    assert not ({"state", "setup", "answer", "questions"} & _hyphenated_cell_ids(folder))
+    _append_cell(
+        folder, "markdown", "The `state` and `answer` cells use the `setup` and `questions` ones."
+    )
+    assert _recipe_cell_id_citations(folder) == []
+
+
+def test_a_cell_id_in_code_and_in_a_test_lookup_is_machinery_not_a_citation(tmp_path):
+    folder = _copy_recipe(tmp_path, "_template")
+    _append_code_cell(folder, "# the `python-rule` cell sets this\nx = 1\n")
+    lookup = '\n\ndef test_the_rule_cell_exists(cells):\n    assert any(c.get("id") == "python-rule" for c in cells)\n'
+    path = folder / "tests" / "test_helpers.py"
+    path.write_text(path.read_text("utf-8") + lookup, "utf-8")
+    assert _recipe_cell_id_citations(folder) == []
+
+
+def test_a_cell_id_of_another_notebook_is_not_this_notebooks_citation(tmp_path):
+    folder = _copy_recipe(tmp_path, "_template")
+    assert "evaluation-curve" not in {c["id"] for c in notebook_cells(folder)}
+    _append_cell(folder, "markdown", "Recipe 28's `evaluation-curve` cell prints the sweep.")
+    assert _recipe_cell_id_citations(folder) == []
+
+
+def test_the_citations_recipe_17_carried_are_found_where_they_were_written(tmp_path):
+    """#250's first instance, put back by hand into a copy of recipe 17: the paragraph that said
+    ``selective-discuss`` and the next-steps item that said the ``python-rule`` cell."""
+    folder = _copy_recipe(tmp_path, "17-passage-reranking")
+    assert _recipe_cell_id_citations(folder) == []
+    _edit_markdown(
+        folder,
+        "The paragraph above about `t06-adversarial-wrong` already said",
+        "`selective-discuss` already said",
+    )
+    _edit_markdown(
+        folder,
+        'in the cell under "Python\'s part" that prints `chosen confidence gate, frozen from here on` (',
+        'in the `python-rule` cell, under "Python\'s part" (',
+    )
+    hits = _recipe_cell_id_citations(folder)
+    assert len(hits) == 2, hits
+    assert "ranking-discuss" in hits[0] and "`selective-discuss`" in hits[0]
+    assert "next-md" in hits[1] and "`python-rule`" in hits[1]
 
 
 # --------------------------------------------------------------------------------------------
@@ -3533,7 +4044,9 @@ LIVE_CALL_COUNT = _request_audit.LIVE_CALL_COUNT
 AUDIT_PREFIX = _request_audit.AUDIT_PREFIX
 
 
-@pytest.mark.parametrize("recipe", guarded("readme_budget_note_matches_request_audit")())
+@pytest.mark.parametrize(
+    "recipe", guarded_with_template("readme_budget_note_matches_request_audit")()
+)
 def test_the_live_budget_note_matches_the_request_audit(recipe):
     """A recipe states its live request count once, in ``request_budget.json``.
 
@@ -3570,6 +4083,157 @@ def test_the_live_budget_note_matches_the_request_audit(recipe):
     assert stated == actual, (
         f"{recipe['slug']}: README states {stated}, legacy fixture count is {actual}"
     )
+
+
+def _drift_template_budget(folder: Path) -> None:
+    path = folder / "request_budget.json"
+    budget = json.loads(path.read_text("utf-8"))
+    budget["backends"]["main"]["requests"] += 1
+    path.write_text(json.dumps(budget), "utf-8")
+
+
+def _drift_template_readme(folder: Path) -> None:
+    path = folder / "README.md"
+    text = path.read_text("utf-8")
+    match = re.search(r"exactly \*\*(\d+)\*\* requests", text)
+    assert match, "the template README no longer holds the rendered request count"
+    count = int(match.group(1))
+    path.write_text(text.replace(match.group(0), f"exactly **{count + 1}** requests", 1), "utf-8")
+
+
+def _drift_template_audit_line(folder: Path) -> None:
+    path = folder / "notebook.ipynb"
+    notebook = json.loads(path.read_text("utf-8"))
+    for cell in notebook["cells"]:
+        for output in cell.get("outputs", []):
+            text = output.get("text", [])
+            # nbformat allows a stream's text as one string or as a list of lines.
+            lines = text.splitlines(keepends=True) if isinstance(text, str) else list(text)
+            for i, line in enumerate(lines):
+                if line.startswith(AUDIT_PREFIX):
+                    payload = json.loads(line[len(AUDIT_PREFIX) :])
+                    # A self-consistent ledger with one call more than the declaration and the
+                    # README state: the call is appended and both counts move with it, so only
+                    # the comparison against the declaration can see the drift.
+                    entry = payload["backends"][0]
+                    entry["calls"].append({"replay_key": "f" * 64, "returned": True})
+                    entry["decide_calls"] += 1
+                    entry["distinct_requests"] += 1
+                    lines[i] = AUDIT_PREFIX + json.dumps(payload, separators=(",", ":")) + "\n"
+                    output["text"] = lines
+                    path.write_text(json.dumps(notebook), "utf-8")
+                    return
+    raise AssertionError("the template notebook no longer commits an audit line")
+
+
+def _template_drift_message(kind: str) -> str:
+    """The message each drift must fail with, from the template's own declared total, so a
+    legitimate change to the template's request count moves the expectation with it."""
+    total = _request_audit.load_budget(TEMPLATE).total
+    return {
+        "budget": rf"made {total} decide\(\) calls, request_budget\.json declares {total + 1}",
+        "readme": r"README budget paragraph differs",
+        "audit line": rf"made {total + 1} decide\(\) calls, request_budget\.json declares {total}",
+    }[kind]
+
+
+_TEMPLATE_DRIFTS = {
+    "budget": _drift_template_budget,
+    "readme": _drift_template_readme,
+    "audit line": _drift_template_audit_line,
+}
+
+
+def _template_copy_under(tmp_path: Path, monkeypatch) -> dict:
+    """A copy of the real template at ``tmp_path / "_template"``, with ``RECIPES_DIR`` pointed at
+    ``tmp_path`` so the check under test reads the copy; returns the check's ``recipe`` argument."""
+    monkeypatch.setitem(globals(), "RECIPES_DIR", tmp_path)
+    shutil.copytree(TEMPLATE, tmp_path / "_template")
+    return {"slug": "_template"}
+
+
+def test_the_request_audit_check_runs_on_the_template_and_passes_it_on_the_audited_route(
+    tmp_path, monkeypatch
+):
+    """#381: ``readme_budget_note_matches_request_audit`` once ran over ``PUBLISHED`` alone, so the
+    template, which is on the audited route, could let its declaration, its committed ledger and
+    its README paragraph drift apart without this check seeing it. The template is one of the
+    check's parametrised cases, the untouched copy passes it, and it passes on the AUDITED route:
+    ``audit_recipe`` returns the declared total, not ``None`` (the legacy route that counts
+    ``responses.json`` instead), so a template that lost its audit could not pass here unseen."""
+    (mark,) = [
+        m
+        for m in test_the_live_budget_note_matches_the_request_audit.pytestmark
+        if m.name == "parametrize"
+    ]
+    assert "_template" in [param.id for param in mark.args[1]]
+    recipe = _template_copy_under(tmp_path, monkeypatch)
+    copy = tmp_path / "_template"
+    assert (
+        _request_audit.audit_recipe(copy, notebook_cells(copy))
+        == _request_audit.load_budget(TEMPLATE).total
+    )
+    test_the_live_budget_note_matches_the_request_audit(recipe)
+
+
+@pytest.mark.parametrize("drift", sorted(_TEMPLATE_DRIFTS))
+def test_each_template_drift_fails_the_request_audit_check_on_its_own_comparison(
+    tmp_path, monkeypatch, drift
+):
+    """#381, the three directions: the declaration against the ledger, the README paragraph
+    against the declaration, the committed audit line against both. Each fails the check itself
+    with its own comparison's message, not a neighbouring one that happens to see it."""
+    recipe = _template_copy_under(tmp_path, monkeypatch)
+    _TEMPLATE_DRIFTS[drift](tmp_path / "_template")
+    with pytest.raises(AssertionError, match=_template_drift_message(drift)):
+        test_the_live_budget_note_matches_the_request_audit(recipe)
+
+
+# The checks parametrised with ``guarded()`` and therefore NOT run on ``recipes/_template``, each
+# for the reason the module docstring's "Scope decisions" gives. A new check that uses
+# ``guarded()`` fails the test below until it is listed here with its reason there (#381).
+_CHECKS_THAT_SKIP_THE_TEMPLATE = {
+    "build_fixtures_scaffold",
+    "next_steps_inbound_links",
+    "readme_sources_match_catalog",
+    "simulated_side_effect_invoked",
+}
+
+
+def test_only_the_documented_checks_skip_the_template():
+    """Every call of ``guarded(`` in this module names its check id as a string literal, the set
+    of those ids is exactly ``_CHECKS_THAT_SKIP_THE_TEMPLATE``, and each is named in the module
+    docstring's "Scope decisions" bullet that gives the reasons -- not merely anywhere in the
+    docstring, whose check-id table names nearly every check."""
+    tree = ast.parse(Path(__file__).read_text("utf-8"))
+    # ``guarded_with_template`` builds on ``guarded(check_id)``; that call passes its own
+    # parameter through and is not a check's parametrisation.
+    tree.body = [
+        n
+        for n in tree.body
+        if not (isinstance(n, ast.FunctionDef) and n.name == "guarded_with_template")
+    ]
+    calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "guarded"
+    ]
+    literal = [
+        call.args[0].value
+        for call in calls
+        if len(call.args) == 1
+        and isinstance(call.args[0], ast.Constant)
+        and isinstance(call.args[0].value, str)
+    ]
+    assert len(literal) == len(calls), "a guarded(...) call whose check id is not a literal"
+    used = set(literal)
+    assert used == _CHECKS_THAT_SKIP_THE_TEMPLATE, used ^ _CHECKS_THAT_SKIP_THE_TEMPLATE
+    docstring = __doc__ or ""
+    scope = docstring.split("Scope decisions", 1)[1].split("\n* ", 2)[1]
+    missing = [c for c in _CHECKS_THAT_SKIP_THE_TEMPLATE if f"``{c}``" not in scope]
+    assert not missing, f"no reason given in the Scope decisions bullet for {missing}"
 
 
 def _audited_mini_recipe(tmp_path: Path, n: int = 3) -> tuple[Path, str]:
@@ -9876,7 +10540,8 @@ def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     (#378 measures this). A cell that prints the audit line alongside a genuine metric line still
     has the metric line counted. The
     ledger's own integrity is checked separately, and far more strictly, by
-    ``readme_budget_note_matches_request_audit`` against ``request_budget.json``; this exclusion
+    ``readme_budget_note_matches_request_audit`` against ``request_budget.json``, for every
+    published recipe and for ``recipes/_template`` (#381); this exclusion
     removes nothing that check relies on."""
     output = "\n".join(
         _without_audit_lines(_output_text(cell))
