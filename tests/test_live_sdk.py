@@ -498,3 +498,47 @@ def test_an_http_error_over_the_real_sdk_is_in_the_sidecar(env_backend, tmp_path
     (line,) = json.loads(ledger.read_text("utf-8")).values()
     assert (line["status"], line["http_status"], line["attempts"]) == ("error", 429, 2)
     assert line["request_id"] == "req-429"
+
+
+# docs/live.md ("Compression") says the backend builds its client without ``compression=``, so
+# the SDK default applies: zstd, for request bodies of 1 KiB or more. These pin that statement
+# to the installed SDK's own objects (#496); no request leaves the process.
+def test_sdk_compression_default_is_zstd_from_one_kib():
+    import inspect
+    import typing
+
+    from typesafe_sdk._core import compression as sdk_compression
+
+    for client_class in (sdk.TypeSafeClient, sdk.AsyncTypeSafeClient):
+        default = inspect.signature(client_class).parameters["compression"].default
+        assert default is None, client_class
+    assert typing.get_args(sdk_compression.Compression) == ("zstd", False)
+    assert sdk_compression.MIN_COMPRESSED_BODY_LENGTH == 1024
+    # `None` means "zstd when this interpreter can do it", the only encoding the SDK knows.
+    assert set(sdk_compression.COMPRESSORS) <= {"zstd"}
+    assert sdk_compression.resolve_compression(None) == (
+        "zstd" if "zstd" in sdk_compression.COMPRESSORS else None
+    )
+
+
+def test_a_default_client_zstd_compresses_a_body_of_one_kib_or_more_only():
+    from typesafe_sdk._core import compression as sdk_compression
+
+    if "zstd" not in sdk_compression.COMPRESSORS:
+        pytest.skip("zstd unavailable here (Python < 3.14 without typesafe-sdk[zstd])")
+    seen = []
+
+    def handler(request):
+        seen.append(request)
+        return httpx2.Response(200, json=BODY)
+
+    client = sdk.TypeSafeClient(
+        api_key=KEY,
+        transport=httpx2.MockTransport(handler),
+        retry=sdk.RetryPolicy(max_retries=0),
+    )
+    LiveBackend("jev-latest", client=client).decide("short", QUESTIONS)
+    LiveBackend("jev-latest", client=client).decide("long " * 400, QUESTIONS)
+    small, large = seen
+    assert "content-encoding" not in small.headers
+    assert large.headers["content-encoding"] == "zstd"
