@@ -162,6 +162,25 @@ def test_a_counter_that_counts_another_request_in_the_same_pass_gets_that_reques
     assert profile == {"aa_other": 1, "distinct_images": 1, "images": 3}
 
 
+def test_counters_that_build_fresh_temporary_requests_never_share_a_reused_id(monkeypatch):
+    images = accounting.PROFILE_COUNTERS["images"]
+
+    def only(names):
+        def counter(state, questions, assets):
+            # A fresh subset on every call, freed when the counter returns (nothing keeps it).
+            subset = {k: v for k, v in questions.items() if k in names}
+            return images(state, subset, assets)
+
+        return counter
+
+    monkeypatch.setitem(accounting.PROFILE_COUNTERS, "a_first_images", only({"one"}))
+    monkeypatch.setitem(accounting.PROFILE_COUNTERS, "b_second_images", only({"one", "two"}))
+    questions = {"one": Noul(instructions="See <a>."), "two": Noul(instructions="<a> <a> <a>")}
+    profile = accounting._profile("no refs in state", questions, {"<a>": sized(4)})
+    assert profile["a_first_images"] == 1
+    assert profile["b_second_images"] == 4
+
+
 def test_a_counter_called_outside_an_audit_still_counts():
     count = accounting.PROFILE_COUNTERS["images"]
     assert count("<a> <a>", {"q": Noul()}, {"<a>": sized(4)}) == 2

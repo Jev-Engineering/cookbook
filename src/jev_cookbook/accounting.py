@@ -116,12 +116,17 @@ def _image_counter(field: str) -> ProfileCounter:
         shared = _ONE_REQUEST.get()
         if shared is None:
             return getattr(image_request_profile(state, questions, assets), field)
-        # Keyed by the request objects themselves, so a counter that counts some other request
-        # during the same pass gets that request's profile, never this one's.
-        key = ("image_profile", id(state), id(questions), id(assets))
-        if key not in shared:
-            shared[key] = image_request_profile(state, questions, assets)
-        return getattr(shared[key], field)
+        # Matched by identity on the request objects themselves, so a counter that counts some
+        # other request during the same pass gets that request's profile, never this one's. The
+        # entries hold the objects, which keeps them alive for the pass: an ``id()`` freed by a
+        # counter's temporary request can then never be handed to the next counter's.
+        entries = shared.setdefault("image_profile", [])
+        for seen_state, seen_questions, seen_assets, profile in entries:
+            if seen_state is state and seen_questions is questions and seen_assets is assets:
+                return getattr(profile, field)
+        profile = image_request_profile(state, questions, assets)
+        entries.append((state, questions, assets, profile))
+        return getattr(profile, field)
 
     return count
 
