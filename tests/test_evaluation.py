@@ -2724,7 +2724,9 @@ def _private_names_imported(source: str) -> list[str]:
     first and the #209 recipe scanner runs on it. That scanner also bans private module PATHS
     (rule a), which is for recipes: importing public names from the package's own underscore
     modules (``from ._canonical import plain_json``) is how the package shares internals, so
-    exactly those module-path entries are dropped, and only for modules that exist here."""
+    exactly those module-path entries are dropped, and only for modules that exist here, as is
+    the entry for binding such a module itself (``from . import _canonical``). A private name
+    imported from it (``from ._canonical import _x``) or reached as ``_canonical._x`` is reported."""
     import ast
 
     tree = ast.parse(source)
@@ -2736,6 +2738,8 @@ def _private_names_imported(source: str) -> list[str]:
     own = _own_private_modules()
 
     def own_module_path(entry: str) -> bool:
+        if entry.removeprefix("from jev_cookbook import ") in own:
+            return True  # `from . import _canonical`: binds the shared module itself
         path = None
         if entry.startswith("from ") and entry.endswith(" import ..."):
             path = entry[len("from ") : -len(" import ...")]
@@ -2765,7 +2769,8 @@ def test_evaluation_imports_no_private_name_from_another_module():
         ("from .frames import _seconds", ["from jev_cookbook.frames import _seconds"]),
         ("from . import frames\nframes._seconds(1, 'x')", ["frames._seconds"]),
         ("from . import frames\nframes.TIME_EPSILON._x", ["frames.TIME_EPSILON._x"]),
-        ("from . import _canonical", ["from jev_cookbook import _canonical"]),
+        ("from . import _canonical", []),
+        ("from . import _canonical\n_canonical._x", ["_canonical._x"]),
         # the package's own underscore modules: public names allowed, private names not
         ("from ._canonical import plain_json", []),
         ("import jev_cookbook._canonical", []),
