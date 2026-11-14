@@ -507,13 +507,17 @@ ref = image_reference(photo)
 assets = {ref: photo}
 state = {"screenshot": ref}
 questions = {
-    "present": Noul(instructions="The Save button is visible in `screenshot`."),
+    "visible": Noul(instructions="The Save button is visible in `screenshot`."),
     "button": Box(instructions="The Save button in `screenshot`."),
 }
 backend = get_backend(fixtures="fixtures/responses.json", model="jev-1.14.0", images=True)
 result = backend.decide(state, questions, assets=assets)
 result.boxes["button"].box
 ```
+
+The presence question is named `visible`, not `present`: a gold label whose top level has a
+`present` key is read as a Box label ([fixtures.md](fixtures.md#box-labels)), so a label that
+stores these answers by question name would not validate with a question called `present`.
 
 References remain strings in cookbook state and questions; the API substitutes images.
 They can occur inside longer strings and nested values in state, instructions or criteria.
