@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "backends": {
+    "main": {
+      "requests": 215,
+      "distinct": 202,
+      "fixtures": "fixtures/responses.json"
+    }
+  }
+}
