@@ -4059,7 +4059,9 @@ def _drift_template_audit_line(folder: Path) -> None:
     for cell in notebook["cells"]:
         for output in cell.get("outputs", []):
             text = output.get("text", [])
-            for i, line in enumerate(text):
+            # nbformat allows a stream's text as one string or as a list of lines.
+            lines = text.splitlines(keepends=True) if isinstance(text, str) else list(text)
+            for i, line in enumerate(lines):
                 if line.startswith(AUDIT_PREFIX):
                     payload = json.loads(line[len(AUDIT_PREFIX) :])
                     # A self-consistent ledger with one call more than the declaration and the
@@ -4069,42 +4071,93 @@ def _drift_template_audit_line(folder: Path) -> None:
                     entry["calls"].append({"replay_key": "f" * 64, "returned": True})
                     entry["decide_calls"] += 1
                     entry["distinct_requests"] += 1
-                    text[i] = AUDIT_PREFIX + json.dumps(payload, separators=(",", ":")) + "\n"
+                    lines[i] = AUDIT_PREFIX + json.dumps(payload, separators=(",", ":")) + "\n"
+                    output["text"] = lines
                     path.write_text(json.dumps(notebook), "utf-8")
                     return
     raise AssertionError("the template notebook no longer commits an audit line")
 
 
-def test_the_request_audit_check_runs_on_the_template_and_bites_there(tmp_path, monkeypatch):
+def _template_drift_message(kind: str) -> str:
+    """The message each drift must fail with, from the template's own declared total, so a
+    legitimate change to the template's request count moves the expectation with it."""
+    total = _request_audit.load_budget(TEMPLATE).total
+    return {
+        "budget": rf"made {total} decide\(\) calls, request_budget\.json declares {total + 1}",
+        "readme": r"README budget paragraph differs",
+        "audit line": rf"made {total + 1} decide\(\) calls, request_budget\.json declares {total}",
+    }[kind]
+
+
+_TEMPLATE_DRIFTS = {
+    "budget": _drift_template_budget,
+    "readme": _drift_template_readme,
+    "audit line": _drift_template_audit_line,
+}
+
+
+def _template_copy_under(tmp_path: Path, monkeypatch) -> dict:
+    """A copy of the real template at ``tmp_path / "_template"``, with ``RECIPES_DIR`` pointed at
+    ``tmp_path`` so the check under test reads the copy; returns the check's ``recipe`` argument."""
+    monkeypatch.setitem(globals(), "RECIPES_DIR", tmp_path)
+    shutil.copytree(TEMPLATE, tmp_path / "_template")
+    return {"slug": "_template"}
+
+
+def test_the_request_audit_check_runs_on_the_template_and_passes_it_on_the_audited_route(
+    tmp_path, monkeypatch
+):
     """#381: ``readme_budget_note_matches_request_audit`` once ran over ``PUBLISHED`` alone, so the
     template, which is on the audited route, could let its declaration, its committed ledger and
-    its README paragraph drift apart without this check seeing it. Pinned two ways: the template
-    is one of the check's parametrised cases, and on a copy of the real template each of the three
-    drifts -- the declaration against the ledger, the README paragraph against the declaration, the
-    committed audit line against both -- fails the check itself, while the untouched copy passes."""
+    its README paragraph drift apart without this check seeing it. The template is one of the
+    check's parametrised cases, the untouched copy passes it, and it passes on the AUDITED route:
+    ``audit_recipe`` returns the declared total, not ``None`` (the legacy route that counts
+    ``responses.json`` instead), so a template that lost its audit could not pass here unseen."""
     (mark,) = [
         m
         for m in test_the_live_budget_note_matches_the_request_audit.pytestmark
         if m.name == "parametrize"
     ]
     assert "_template" in [param.id for param in mark.args[1]]
-    template = RECIPES_DIR / "_template"
-    monkeypatch.setitem(globals(), "RECIPES_DIR", tmp_path)
-    recipe = {"slug": "_template"}
-    shutil.copytree(template, tmp_path / "_template")
-    test_the_live_budget_note_matches_the_request_audit(recipe)
-    # Each drift must fail on its own comparison, not on a neighbouring one that happens to see it.
-    drifts = (
-        (_drift_template_budget, r"made 22 decide\(\) calls, request_budget\.json declares 23"),
-        (_drift_template_readme, r"README budget paragraph differs"),
-        (_drift_template_audit_line, r"made 23 decide\(\) calls, request_budget\.json declares 22"),
+    recipe = _template_copy_under(tmp_path, monkeypatch)
+    copy = tmp_path / "_template"
+    assert (
+        _request_audit.audit_recipe(copy, notebook_cells(copy))
+        == _request_audit.load_budget(TEMPLATE).total
     )
-    for drift, message in drifts:
-        shutil.rmtree(tmp_path / "_template")
-        shutil.copytree(template, tmp_path / "_template")
-        drift(tmp_path / "_template")
-        with pytest.raises(AssertionError, match=message):
-            test_the_live_budget_note_matches_the_request_audit(recipe)
+    test_the_live_budget_note_matches_the_request_audit(recipe)
+
+
+@pytest.mark.parametrize("drift", sorted(_TEMPLATE_DRIFTS))
+def test_each_template_drift_fails_the_request_audit_check_on_its_own_comparison(
+    tmp_path, monkeypatch, drift
+):
+    """#381, the three directions: the declaration against the ledger, the README paragraph
+    against the declaration, the committed audit line against both. Each fails the check itself
+    with its own comparison's message, not a neighbouring one that happens to see it."""
+    recipe = _template_copy_under(tmp_path, monkeypatch)
+    _TEMPLATE_DRIFTS[drift](tmp_path / "_template")
+    with pytest.raises(AssertionError, match=_template_drift_message(drift)):
+        test_the_live_budget_note_matches_the_request_audit(recipe)
+
+
+# The checks parametrised with ``guarded()`` and therefore NOT run on ``recipes/_template``, each
+# for the reason the module docstring's "Scope decisions" gives. A new check that uses
+# ``guarded()`` fails the test below until it is listed here with its reason there (#381).
+_CHECKS_THAT_SKIP_THE_TEMPLATE = {
+    "build_fixtures_scaffold",
+    "next_steps_inbound_links",
+    "readme_sources_match_catalog",
+    "simulated_side_effect_invoked",
+}
+
+
+def test_only_the_documented_checks_skip_the_template():
+    source = Path(__file__).read_text("utf-8")
+    used = set(re.findall(r"\bguarded\(\s*\"([a-z0-9_]+)\"\s*\)", source))
+    assert used == _CHECKS_THAT_SKIP_THE_TEMPLATE, used ^ _CHECKS_THAT_SKIP_THE_TEMPLATE
+    docstring = __doc__ or ""
+    assert all(f"``{check}``" in docstring for check in _CHECKS_THAT_SKIP_THE_TEMPLATE)
 
 
 def _audited_mini_recipe(tmp_path: Path, n: int = 3) -> tuple[Path, str]:
