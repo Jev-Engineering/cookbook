@@ -56,3 +56,9 @@ def test_a_spec_whose_remainder_would_tie_the_second_option_is_refused():
     with pytest.raises(ValueError, match="second option must lead the rest"):
         module._percentages(("advancing", 86, "repeating", 4))
     assert sum(module._percentages(("advancing", 80, "repeating", 11)).values()) == 100
+
+
+def test_a_spec_whose_top_two_shares_exceed_100_is_refused():
+    module = _load(RECIPE / "build_fixtures.py", "recipe51_build_fixtures_for_overflow")
+    with pytest.raises(ValueError, match="sum to at most 100"):
+        module._percentages(("advancing", 84, "repeating", 20))

@@ -91,15 +91,20 @@ STALL_REASONS = frozenset(
 
 
 def render_turns(turns: list[dict[str, str]]) -> str:
-    """The turns as the text Jev reads, oldest first, the latest one marked."""
+    """The turns as the text Jev reads, oldest first, the latest one marked.
+
+    Every line of a turn's text after the first is indented under its field.
+    """
     lines = []
     last = len(turns)
     for number, turn in enumerate(turns, start=1):
         marker = " (latest)" if number == last else ""
         lines.append(f"Turn {number}{marker}")
-        lines.append(f"  action: {turn['action']}")
-        lines.append(f"  result: {turn['result']}")
-        lines.append(f"  note: {turn['note']}")
+        for name in ("action", "result", "note"):
+            # An embedded newline continues the field on an indented line, so text the agent
+            # wrote can never begin a line of its own, least of all a "Turn N" header.
+            text = "\n    ".join(turn[name].splitlines() or [""])
+            lines.append(f"  {name}: {text}")
     return "\n".join(lines)
 
 
@@ -122,16 +127,37 @@ def build_questions() -> dict[str, Choice]:
     }
 
 
+def _acted_on(choice: str, confidence: float, threshold: float, turn: int) -> bool:
+    """Whether the policy acts on the label at this confidence: it is neither sent to review nor
+    stopped by the turn budget alone."""
+    decision, reason = transition(choice, confidence, threshold, 0, turn)
+    return decision != REVIEW and reason != REASON_BUDGET
+
+
+def _gate_matters(choice: str, turn: int) -> bool:
+    """Whether the confidence gate changes what the policy does with this label at this turn.
+
+    Any threshold above 0 separates confidence 1.0 (clears it) from 0.0 (fails it). The outcomes
+    are compared as acted on or not, so ``unclear`` stays out: it goes to review either way,
+    and only the reason text differs.
+    """
+    return _acted_on(choice, 1.0, 1.0, turn) != _acted_on(choice, 0.0, 1.0, turn)
+
+
 def threshold_pool(
     answers: list[Any], gold: list[str], turns: list[int]
 ) -> tuple[list[bool], list[float]]:
     """``(correct, confidences)`` for the answers that may set the gate.
 
-    ``turns`` is each answer's checkpoint turn. Two kinds of answer are left out, because the
-    gate cannot act on them: an ``unclear`` answer (a confident one goes to review whatever the
-    threshold, so only answers naming one of the four actionable labels can set the bar), and a
-    checkpoint at ``turn >= MAX_TURNS`` (the budget stops the run there whatever the answer, so
-    the gate has no effect on it and its correctness cannot say where the gate should sit).
+    ``turns`` is each answer's checkpoint turn. An answer is in the pool exactly when the gate
+    changes what the policy does with it at that turn: ``transition`` with the gate cleared
+    (confidence 1.0) acts on the label, and with the gate failed (confidence 0.0) it does not.
+    An ``unclear`` answer is out, since a confident one goes to review whatever the threshold.
+    A label before the budget turn is in, since the gate decides between acting on it and review.
+    At the budget turn the run stops whatever the answer, so ``advancing`` is out (the budget
+    decides, with or without the gate), while ``complete``, ``regressing`` and ``repeating`` are
+    in: below the gate they stop with the reason "turn budget reached", above it with a reason of
+    their own.
 
     This is the one place that decides which answers are in the selection. The notebook, the
     tests and ``choose_threshold`` all call it.
@@ -140,7 +166,7 @@ def threshold_pool(
         raise ValueError("answers, gold and turns must have the same length")
     correct, confidences = [], []
     for a, g, t in zip(answers, gold, turns, strict=True):
-        if a.choice != UNCLEAR and t < MAX_TURNS:
+        if _gate_matters(a.choice, t):
             correct.append(a.choice == g)
             confidences.append(a.confidence)
     return correct, confidences
@@ -224,8 +250,7 @@ def checkpoint_answered(answer: Any, threshold: float, turn: int) -> bool:
     checks that over multi-checkpoint runs. A table that sent the post-change branch to review
     would make the two differ, and that test would fail.
     """
-    decision, reason = transition(answer.choice, answer.confidence, threshold, 0, turn)
-    return decision != REVIEW and reason != REASON_BUDGET
+    return _acted_on(answer.choice, answer.confidence, threshold, turn)
 
 
 @dataclass(frozen=True)

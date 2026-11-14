@@ -51,7 +51,7 @@ TRANSCRIPTS = [
     # --- validation -------------------------------------------------------------------------
     ("v-date-tests", "validation", "R-101", "Make the failing date-parsing tests pass.", [
         _turn("run_tests tests/test_dates.py",
-              "3 failed, 9 passed: test_parse_date, test_parse_time, test_round_trip",
+              "3 failed, 9 passed: test_parse_date, test_parse_iso, test_round_trip",
               "Three tests fail; starting with parse_date."),
         _turn("open src/dates.py lines 10-40",
               "parse_date uses the format '%d/%m/%Y'; the failing test passes '2026-10-04'",
@@ -266,6 +266,8 @@ def _percentages(spec):
         raise ValueError(f"bad spec {spec!r}: the top option must lead the second")
     rest = [name for name in helpers.OPTIONS if name not in (top, second)]
     remainder = 100 - p_top - p_second
+    if remainder < 0:
+        raise ValueError(f"bad spec {spec!r}: the top two shares must sum to at most 100")
     share, extra = divmod(remainder, len(rest))
     # The earliest ``extra`` rest options get one more than ``share``.
     if share + (1 if extra else 0) >= p_second:
