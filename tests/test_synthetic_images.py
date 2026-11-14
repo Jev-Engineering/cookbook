@@ -2527,22 +2527,22 @@ def test_a_composite_whose_inner_shape_is_out_of_bound_draws_nothing():
 
 
 def test_an_outline_only_small_ring_needs_no_fill_colour():
-    # main resolved the fill only when there is an interior to paint; a ring with none has no fill
-    c = si.Canvas(300, 300)
-    drawn = c.ellipse(10, 10, 4, 4, None, outline="ink", outline_width=2, name="ring")
-    assert drawn.pixels is not None and c.objects["ring"] is drawn
+    # main resolved the fill only when there is an interior to paint; a ring with none has no
+    # fill, so any value is accepted (as on main) and the pixels are the same
     reference = si.Canvas(300, 300)
-    reference.ellipse(10, 10, 4, 4, "ink")  # the same pixels as main drew for the ring
-    assert drawn.pixels == reference.objects.get("x", drawn).pixels
-    assert changed(reference.image, c.image) is None
-    # any fill that is given is resolved, interior or not
+    ref = reference.ellipse(10, 10, 4, 4, "ink", name="ref")  # the ring's pixels, fully inked
+    for fill in (None, "no-such-colour", "teal"):
+        c = si.Canvas(300, 300)
+        drawn = c.ellipse(10, 10, 4, 4, fill, outline="ink", outline_width=2, name="ring")
+        assert drawn.pixels is not None and c.objects["ring"] is drawn
+        assert drawn.pixels == ref.pixels
+        assert changed(reference.image, c.image) is None
+    # with a real interior the fill is resolved before the first pixel
     bad = si.Canvas(300, 300)
     before = bad.image.copy()
     with pytest.raises(ValueError, match="unknown colour name"):
-        bad.ellipse(10, 10, 4, 4, "no-such-colour", outline="ink", outline_width=2, name="r")
+        bad.ellipse(10, 10, 8, 8, "no-such-colour", outline="ink", outline_width=2, name="r")
     assert changed(before, bad.image) is None and bad.objects == {}
-    with pytest.raises(ValueError, match="unknown colour name"):
-        si.Canvas(300, 300).ellipse(10, 10, 8, 8, "no-such-colour", outline="ink", outline_width=2)
 
 
 def test_a_triangle_checks_its_direction_before_its_colour():
@@ -2595,15 +2595,31 @@ def test_a_duplicate_name_is_refused_before_anything_is_drawn(draw):
     assert c.objects == objects
 
 
-def test_a_composite_refusal_names_the_composite_and_the_callers_argument():
+def test_a_composite_refusal_is_the_plain_shape_message_and_draws_nothing():
+    for draw in (
+        lambda c: c.schematic_symbol(10, -1000, 100, 2200, "valve", name="p"),
+        lambda c: c.error_banner(10, 10, 3000, 2000, "hello", name="p"),
+    ):
+        c = si.Canvas(640, 400)
+        before = c.image.copy()
+        with pytest.raises(ValueError, match="a shape side must be from 1 to 1568"):
+            draw(c)
+        assert changed(before, c.image) is None and c.objects == {}
+
+
+@pytest.mark.parametrize("shape", ["ellipse", "triangle"])
+def test_a_duplicate_name_is_refused_before_a_bad_colour(shape):
     c = si.Canvas(640, 400)
-    with pytest.raises(
-        ValueError,
-        match=r"schematic_symbol: h=2200 gives an inner triangle 1650 tall; "
-        r"a shape side must be from 1 to 1568",
-    ):
-        c.schematic_symbol(10, -1000, 100, 2200, "valve")
-    with pytest.raises(
-        ValueError, match=r"error_banner: h=2000 gives an inner icon ellipse 1988 wide"
-    ):
-        c.error_banner(10, 10, 3000, 2000, "hello")
+    c.rect(300, 300, 20, 20, "red", name="dup")
+    before = c.image.copy()
+    with pytest.raises(ValueError, match="the name 'dup' is already used on this canvas"):
+        getattr(c, shape)(10, 10, 40, 40, "no-such-colour", name="dup")
+    assert changed(before, c.image) is None
+
+
+def test_error_banner_checks_every_integer_before_the_fit():
+    c = si.Canvas(640, 400)
+    before = c.image.copy()
+    with pytest.raises(ValueError, match="x must be an integer"):
+        c.error_banner("5", 10, 50, 40, "LONG MESSAGE", name="p")
+    assert changed(before, c.image) is None and c.objects == {}
