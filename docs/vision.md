@@ -36,10 +36,27 @@ photo = image_asset(row["fields"]["image"], root=RECIPE_DIR)
 
 `root=` resolves symbolic links and requires the real file to be inside the real root. An
 absolute path, a URL, a `..` that leaves the folder or a symlink that points outside it raises
-`AssetPathError` (a `ValueError`) before anything is opened; `assets/../assets/a.png`
-stays inside and works. `image_assets(paths, root=...)` and `load_frames(frames, root=...)`
-apply the same check to every path, and `resolve_asset_path(path, root=...)` returns the
-contained real path for code that opens files itself.
+`AssetPathError` (a `ValueError`) before anything is opened. This check is about containment
+only: `image_asset("assets/../assets/a.png", root=...)` stays inside the folder and loads, but
+that spelling is not allowed in a fixture. The fixture validator requires every image path in
+`fields` to be written as `assets/` followed by file names joined with forward slashes
+(subfolders are allowed), ending in `.png`, `.jpg` or `.jpeg` in lower case, with each name
+starting with a letter or digit and using only letters, digits, `_`, `.` and `-`. A path spelled
+any other way, such as `assets/../assets/a.png` or `./assets/a.png`, fails validation as
+`asset-path`. A well-formed path that the recipe's `assets-manifest.json` does not list fails as
+`unlisted-asset` ([fixtures.md](fixtures.md#image-provenance-manifest)).
+`image_assets(paths, root=...)` and `load_frames(frames, root=...)` apply the same check to every
+path, and `resolve_asset_path(path, root=...)` returns the contained real path for code that opens
+files itself.
+
+Every file under a recipe's `assets/` (not only images) needs an entry in `assets-manifest.json`,
+and an entry's path must be a well-formed image path as above, so a non-image file there cannot
+pass validation. The manifest sits beside `assets/` (not inside it) and records each file's
+provenance, licence and attestations, and its SHA-256, format and pixel size,
+which `python -m jev_cookbook.fixtures validate` compares against the file.
+[fixtures.md](fixtures.md#image-provenance-manifest) gives the format and every failure code, and
+[synthetic-images.md](synthetic-images.md#saving-and-the-manifest) shows a generator writing the
+manifest beside the images it draws.
 
 `validate_image_asset(asset)` validates an existing raw descriptor and returns its
 decoded, still-encoded PNG/JPEG file bytes. Neither function changes those bytes.
@@ -229,8 +246,9 @@ def localization_outcome(answer, presence, threshold):
 
 Choose the presence and confidence thresholds on validation examples and freeze
 them before evaluating the test split. Keep reviews in the recipe's review queue
-and account for them in `localization_report` (and, for the overall review rate,
-`evaluation.evaluate_outcomes`); a review is not a claim that the target is absent.
+and account for them in `localization_report`: `report.review_rate` (`n_review` over `n_total`)
+is the overall review rate, counting presence reviews and rectangle-gate reviews over all
+examples. `evaluation.evaluate_outcomes` covers only the presence question's reviews; a review is not a claim that the target is absent.
 
 ### Gold labels
 
@@ -266,7 +284,9 @@ false positive, never an IoU. A review is never an absent prediction. The report
 - `hit_rate`: located present targets with IoU at or above `iou_threshold` (default 0.5),
   over `n_present`;
 - `false_positives` and `false_positive_rate` (over `n_absent`), `correct_absents` and
-  `correct_absent_rate` (over `n_absent`), `absent_review`.
+  `correct_absent_rate` (over `n_absent`), `absent_review`;
+- `n_review` (`present_review + absent_review`) and `review_rate`, `n_review` over `n_total`:
+  the share of every example sent to review, present and absent gold together.
 
 A mean or rate whose denominator is zero is NaN (and prints `n/a`), never 0. `str(report)`
 names every denominator, and `report.denominators` returns them by metric name.
@@ -296,6 +316,7 @@ assert report.absent_table == {"located": 1, "absent": 1, "review": 1}
 assert report.mean_iou_located == 0.75  # (1.0 + 0.5) / 2 located present targets
 assert report.mean_iou_present == 0.375  # (1.0 + 0.5) / 4 present targets
 assert report.hit_rate == 0.5  # 2 of 4 present targets at IoU >= 0.5
+assert (report.n_review, report.review_rate) == (2, 2 / 7)  # 1 present + 1 absent, of all 7
 print(report)
 ```
 
@@ -308,6 +329,7 @@ Present targets (n = 4): box returned 2, said absent (missed) 1, sent to review 
 Absent targets (n = 3): box returned (false positive) 1, correct absent 1, sent to review 1
   false positive rate: 1/3 = 0.3333 (denominator 3: all absent targets)
   correct absent rate: 1/3 = 0.3333 (denominator 3: all absent targets)
+Sent to review, present and absent together: 2/7 = 0.2857 (denominator 7: all examples)
 ```
 
 `tests/test_vision.py` runs this example and compares the printed text. Malformed gold,
