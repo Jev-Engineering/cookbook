@@ -294,6 +294,17 @@ def test_the_command_line_works_and_exit_status_is_visible(catalog, recipes):
     assert "refusing to overwrite" in second.stderr
 
 
+@pytest.mark.parametrize("mode", new_recipe.ALL_MODES)
+def test_the_scaffolded_readme_installs_dev_and_ml_in_every_mode(catalog, recipes, mode):
+    """Issue #466: the baselines need the `ml` extra, so the README's offline install line is
+    `.[dev,ml]` whatever the scaffold mode, never the bare `.[dev]`."""
+    assert run(1, catalog, recipes, mode) == 0
+    (folder,) = recipes.iterdir()
+    readme = (folder / "README.md").read_text(encoding="utf-8")
+    assert 'pip install -e ".[dev,ml]"' in readme
+    assert 'pip install -e ".[dev]"' not in readme
+
+
 @pytest.mark.parametrize("mode", new_recipe.MODES)
 def test_every_catalog_recipe_scaffolds_to_lint_clean_files(catalog, recipes, mode):
     """Every catalog recipe, scaffolded in this mode, must already pass `ruff format --check`
@@ -1792,8 +1803,9 @@ def test_the_scaffold_readme_install_rule_accepts_the_tests_install_and_refuses_
     _, recipe = entry(catalog, 1)
     run(1, catalog, recipes)
     readme = (recipes / recipe["slug"] / "README.md").read_text("utf-8")
-    documented = readme_install.with_documented_test_install(readme)
-    assert readme_install.combined_reproduction_installs(documented) == []
+    # Since #466 the scaffold itself says `.[dev,ml]` for the tests' install (no rewrite needed).
+    assert readme_install.COMBINED in readme
+    assert readme_install.combined_reproduction_installs(readme) == []
     old = readme_install.with_pre_162_reproduction_install(readme)
     assert len(readme_install.combined_reproduction_installs(old)) == 1
 
