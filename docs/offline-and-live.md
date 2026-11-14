@@ -127,9 +127,9 @@ published recipe and the template, and its failure message points here.
 A fabricated "97.4% accuracy, 180 ms median latency, $0.0004 a call" fails
 `prose_quantities_are_printed` in the README and in a notebook cell alike.
 
-`prose_quantities_are_printed` excludes exactly one thing from the pool of numbers a quote may be
-backed by: a line starting with the `JEV_REQUEST_AUDIT ` prefix (the audited route's ledger line,
-#213, [backends.md](backends.md#actual-calls-and-distinct-requests)) -- from **both** of the
+`prose_quantities_are_printed` excludes two things from the pool of numbers a quote may be
+backed by: audit lines and hash-like tokens. The first is a line starting with the `JEV_REQUEST_AUDIT ` prefix (the audited route's
+ledger line, #213, [backends.md](backends.md#actual-calls-and-distinct-requests)) -- from **both** of the
 pool's sources, not only the one. The direct source is committed output: any line a code cell
 prints starting with the prefix. The second is the recipe's own `tests/*.py` text (CONTRIBUTING.md
 section 6's "a test re-derives it" route is a second way a quoted figure enters the pool), where
@@ -157,16 +157,23 @@ length -- #375's migrated template, which is what #376 itself measured -- suppli
 count: 342 digit runs and 71 of 0-100 backed; the hex depends on the requests behind it, so the two
 lines' figures do not match and neither should be read as the other's.
 
-A second, narrower exclusion applies to both sources as well: every **hash-like token** is
-replaced by a placeholder that holds no digit, wherever it sits on a line, before the digit scan
-(`_without_hash_like_tokens`). A hash-like token is a UUID, or a run of at least 16 hexadecimal
-characters that mixes letters and digits: a replay key, a SHA-256 or SHA-1 content hash, a full
-git SHA, a cache key. Only the token goes; a genuine number on the same line stays in the pool, as
-do a pure-digit number of any length and a hex-looking word with no digit. This also takes the
-replay keys of a ledger the line-prefix rule cannot reach (indented, or after a quote character)
-out of the pool. No published recipe's pool changes by it.
+The second exclusion applies to both sources as well: every **hash-like token** is replaced by a
+placeholder that holds no digit before the digit scan (`_without_hash_like_tokens`). A hash-like
+token is a UUID (8-4-4-4-12 hexadecimal characters) or a run of at least 16 hexadecimal characters
+(`0-9`, `a-f`, either case), and in both cases it must contain at least one letter, and a UUID at
+least one digit as well: a replay key, a SHA-256 or SHA-1 content hash, a full git SHA, a cache
+key. The token is bounded by hexadecimal characters, not by word characters, so it is found
+wherever it sits on a line, including glued to `_`, a `.`, `0x` or a non-hex letter
+(`cache_<sha>.json`, `0x<sha>`, `model-v2_<sha>`). Only the token is replaced; the rest of its
+line stays in the pool. Two kinds of run are kept because they are quantities, not identifiers: a
+run of digits alone (a 16-digit count or a long decimal, and a pure-digit dashed id such as
+`20261114-0236-1000-0000-000000000042`), and the mantissa digits of a float printed in scientific
+notation (`1.0416666666666667e-05`: the digits plus the `e`, with a signed exponent after them).
+A run of letters only holds no digit, so it is replaced or kept with the same result for the
+pool. This also takes the replay keys of a ledger the line-prefix rule cannot reach (indented, or
+after a quote character) out of the pool. No published recipe's pool changes by it.
 
-The exclusion costs no other check: the ledger's own content is verified far more strictly by
+Neither exclusion costs another check: the ledger's own content is verified far more strictly by
 `readme_budget_note_matches_request_audit`
 (see [backends.md](backends.md#actual-calls-and-distinct-requests)) -- every count recomputed from
 the ordered ledger and checked against `request_budget.json`, the key set against the declared
@@ -207,8 +214,11 @@ the README and every markdown cell for them:
   it must be printed.
 - A high-entropy token that is not hash-like by the definition above still enters the pool and can
   coincidentally back a fabricated figure: a hex digest shorter than 16 characters (a 7-character
-  git short SHA), an all-letter or all-digit hex run, a base64 or base32 identifier, an
-  uppercase-and-lowercase mixed id that is not hexadecimal. The line-prefix rule for the
+  git short SHA), a digest that is only digits, a base64 or base32 identifier, an
+  uppercase-and-lowercase mixed id that is not hexadecimal. A digit run is also read when it sits
+  inside any such token, so a tokenizer-level fix (one that does not read digits embedded in
+  alphanumeric identifiers) would close these together; it is tracked in
+  [#542](https://github.com/Jev-Engineering/cookbook/issues/542). The line-prefix rule for the
   `JEV_REQUEST_AUDIT ` line still matches only a line that starts with the prefix, so an indented or
   mid-line ledger keeps its non-key fields (call counts and the like, small integers) in the pool;
   its replay keys are removed by the hash-like rule. Widening the prefix match itself was not done,
