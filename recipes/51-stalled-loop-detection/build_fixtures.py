@@ -267,7 +267,8 @@ def _percentages(spec):
     rest = [name for name in helpers.OPTIONS if name not in (top, second)]
     remainder = 100 - p_top - p_second
     share, extra = divmod(remainder, len(rest))
-    if share >= p_second:
+    # The earliest ``extra`` rest options get one more than ``share``.
+    if share + (1 if extra else 0) >= p_second:
         raise ValueError(f"bad spec {spec!r}: the second option must lead the rest")
     percent = {top: p_top, second: p_second}
     for index, name in enumerate(rest):

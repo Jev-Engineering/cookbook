@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from jev_cookbook import ChoiceAnswer, Provenance, get_backend, load_helpers, replay_key
+from jev_cookbook.evaluation import evaluate_outcomes
 from jev_cookbook.fixtures import load_inputs, load_labels, responses_path
 from jev_cookbook.simulation import ActionLog, ReviewQueue
 
@@ -86,7 +87,7 @@ def test_the_decision_table(choice, confidence, changes, expected):
         ("advancing", 0.9, 0, ("stop", "turn budget reached")),
         ("advancing", 0.1, 0, ("stop", "turn budget reached")),
         ("unclear", 0.9, 0, ("stop", "turn budget reached")),
-        ("repeating", 0.9, 0, ("stop", "turn budget reached")),
+        ("repeating", 0.9, 0, ("stop", "repeating at the turn budget")),
         ("repeating", 0.1, 0, ("stop", "turn budget reached")),
         ("complete", 0.1, 0, ("stop", "turn budget reached")),
         ("complete", 0.9, 0, ("stop", "task complete")),
@@ -123,16 +124,33 @@ def test_a_confident_unclear_is_never_answered():
 @pytest.mark.parametrize("top", [0.3, 0.84])
 @pytest.mark.parametrize("turn", [3, 7, 8])
 def test_checkpoint_answered_agrees_with_what_the_run_does(choice, top, turn):
-    """A checkpoint counts as answered exactly when the run does not queue it, at the budget
-    turn included (where the run stops, so the answer is acted on)."""
+    """A checkpoint counts as answered exactly when the run neither queues it nor stops it for
+    the budget alone: at the budget turn the budget decides unless the label stops the run for
+    its own reason."""
     a = answer(choice, top)
     queue, actions = ReviewQueue(), ActionLog()
     helpers.supervise("R", [(turn, a)], 0.5, queue=queue, actions=actions)
-    assert helpers.checkpoint_answered(a, 0.5, turn) == (len(queue) == 0)
+    rules = [e["rule"] for e in actions.to_dicts()]
+    assert helpers.checkpoint_answered(a, 0.5, turn) == (
+        len(queue) == 0 and "turn budget reached" not in rules
+    )
     if turn == helpers.MAX_TURNS:
-        assert helpers.checkpoint_answered(a, 0.5, turn)
         assert len(queue) == 0
         assert len(actions) == 1
+
+
+def test_a_checkpoint_the_turn_budget_decides_is_not_answered():
+    """Below the gate, or a confident advancing, at the budget turn: stopped by the budget, so
+    the model's label decided nothing. A confident stop of its own is answered."""
+    for choice, top in (
+        ("advancing", 0.84),
+        ("advancing", 0.3),
+        ("unclear", 0.84),
+        ("complete", 0.3),
+    ):
+        assert not helpers.checkpoint_answered(answer(choice, top), 0.5, helpers.MAX_TURNS)
+    for choice in ("complete", "regressing", "repeating"):
+        assert helpers.checkpoint_answered(answer(choice, 0.84), 0.5, helpers.MAX_TURNS)
 
 
 @pytest.mark.parametrize(
@@ -176,7 +194,12 @@ def test_the_turn_budget_stops_whatever_the_answer():
             run = helpers._run("R", list(zip(turns, labels, confidences, strict=True)), 0.5)
             assert run.stopped_at == helpers.MAX_TURNS
             if last in ("complete", "regressing") and cleared:
-                assert run.stop_reason != "turn budget reached"
+                assert run.stop_reason not in (
+                    "turn budget reached",
+                    "repeating at the turn budget",
+                )
+            elif last == "repeating" and cleared:
+                assert run.stop_reason == "repeating at the turn budget"
             else:
                 assert run.stop_reason == "turn budget reached"
 
@@ -205,9 +228,32 @@ def test_a_confident_stall_answer_at_the_budget_turn_counts_for_detection():
     queue, actions = ReviewQueue(), ActionLog()
     answers = [(7, answer("advancing", 0.84)), (8, answer("repeating", 0.84))]
     run = helpers.supervise("R", answers, 0.5, queue=queue, actions=actions)
-    assert (run.stopped_at, run.stop_reason) == (8, "turn budget reached")
+    assert (run.stopped_at, run.stop_reason) == (8, "repeating at the turn budget")
+    assert [(e["kind"], e["step"], e["rule"]) for e in actions.to_dicts()] == [
+        ("stop", 8, "repeating at the turn budget")
+    ]
     assert run.first_stall_intervention == 8
     assert helpers.detection(run, 8).outcome == "detected"
+    # A confident regressing keeps its own stall reason; an advancing one is only the budget.
+    regress = helpers.supervise(
+        "R",
+        [(7, answer("advancing")), (8, answer("regressing", 0.84))],
+        0.5,
+        queue=ReviewQueue(),
+        actions=ActionLog(),
+    )
+    assert (regress.stop_reason, regress.first_stall_intervention) == (
+        "regressing: progress was lost",
+        8,
+    )
+    calm = helpers.supervise(
+        "R",
+        [(7, answer("advancing")), (8, answer("advancing", 0.84))],
+        0.5,
+        queue=ReviewQueue(),
+        actions=ActionLog(),
+    )
+    assert (calm.stop_reason, calm.first_stall_intervention) == ("turn budget reached", None)
     # A below-threshold repeat at the budget turn is stopped but is not a stall intervention.
     weak = helpers.supervise(
         "R",
@@ -401,7 +447,8 @@ def test_every_checkpoint_shows_exactly_the_turns_up_to_it():
 
 
 def _validation_pool():
-    """``(correct, confidence)`` for the validation answers that name an actionable label."""
+    """``(correct, confidence, turn)`` lists for the validation answers that name an actionable
+    label (``helpers.choose_threshold`` drops the ones at or after the budget turn)."""
     backend = get_backend(fixtures=responses_path(RECIPE))
     questions = helpers.build_questions()
     labels = load_labels(RECIPE)
@@ -411,13 +458,55 @@ def _validation_pool():
             continue
         a = backend.decide(helpers.build_state(e.fields), questions)["progress"]
         if a.choice != "unclear":
-            pool.append((a.choice == labels[e.id], a.confidence))
-    return [ok for ok, _ in pool], [c for _, c in pool]
+            pool.append((a.choice == labels[e.id], a.confidence, e.fields["turn"]))
+    return [ok for ok, _, _ in pool], [c for _, c, _ in pool], [t for _, _, t in pool]
 
 
 def frozen_threshold():
     """The frozen gate, derived through the one helper (``helpers.choose_threshold``)."""
     return helpers.choose_threshold(*_validation_pool())
+
+
+def test_the_threshold_selection_ignores_checkpoints_at_the_budget_turn():
+    """The gate has no effect at the budget turn, so a confident wrong answer there cannot raise
+    it; the same answer before the budget turn does."""
+    correct, confidences = [True, False, True], [0.9, 0.3, 0.6]
+    assert helpers.choose_threshold(correct, confidences, [2, 3, 4]) == pytest.approx(0.6)
+    low = helpers.choose_threshold([True, True, False], [0.9, 0.6, 0.8], [2, 3, helpers.MAX_TURNS])
+    assert low == pytest.approx(0.6)
+    high = helpers.choose_threshold([True, True, False], [0.9, 0.6, 0.8], [2, 3, 4])
+    assert high > 0.8
+    with pytest.raises(ValueError, match="same length"):
+        helpers.choose_threshold([True], [0.9], [2, 3])
+
+
+def test_the_validation_answered_counts_and_the_forced_values():
+    """What the notebook prints for ``validation``: 24 of 29 checkpoints answered (coverage
+    0.8276). The one checkpoint at the budget turn (v-table-migration-t8, stored answer
+    ``complete`` at 0.30, gold ``advancing``) is decided by the budget, so the model did not
+    answer it; every other answered checkpoint is before the budget turn and cleared the
+    frozen gate, which was chosen so that each such answer is right. So accuracy among the
+    answered is 1.0 and risk 0.0 on validation, forced by that selection."""
+    backend = get_backend(fixtures=responses_path(RECIPE))
+    questions = helpers.build_questions()
+    labels = load_labels(RECIPE)
+    threshold = frozen_threshold()
+    examples = [e for e in load_inputs(RECIPE) if e.split == "validation"]
+    answers = [
+        backend.decide(helpers.build_state(e.fields), questions)["progress"] for e in examples
+    ]
+    took = [
+        helpers.checkpoint_answered(a, threshold, e.fields["turn"])
+        for a, e in zip(answers, examples, strict=True)
+    ]
+    right = [a.choice == labels[e.id] for a, e in zip(answers, examples, strict=True)]
+    result = evaluate_outcomes(took, right)
+    assert (result.n_answered, result.n_total) == (24, 29)
+    assert f"{result.coverage:.4f}" == "0.8276"
+    assert (result.accuracy, result.risk) == (1.0, 0.0)
+    at_budget = [e.id for e in examples if e.fields["turn"] >= helpers.MAX_TURNS]
+    assert at_budget == ["v-table-migration-t8"]
+    assert not any(t for t, e in zip(took, examples, strict=True) if e.id in at_budget)
 
 
 def test_stored_answers_are_not_all_right():
