@@ -554,8 +554,9 @@ def extract_calls(source: str, name: str) -> list[str]:
 
 @pytest.mark.parametrize("recipe", guarded("build_fixtures_scaffold")())
 def test_build_fixtures_guard_matches_the_current_scaffold(recipe):
-    """G1(a): byte-identical to ``tools/new_recipe.py::build_fixtures_test_text(recipe)``, the
-    exact text ``python tools/new_recipe.py`` would emit for this recipe today. Byte identity
+    """G1(a): byte-identical to ``tools/new_recipe.py::build_fixtures_test_text(recipe, mode)``
+    for the recipe's scaffold mode (below), the exact text ``python tools/new_recipe.py`` would
+    emit for this recipe today. Byte identity
     (rather than, say, checking for the regeneration assertion alone) is the precise signature:
     it also catches a stray issue number in the docstring (R9) and any other drift in the same
     motion, and it is exactly what ``tests/test_template.py`` already proves for the template
@@ -566,18 +567,65 @@ def test_build_fixtures_guard_matches_the_current_scaffold(recipe):
     (``build_scripted_fixtures_text``) never writes ``responses.json`` and never writes a
     ``tests/test_build_fixtures.py`` for this check to hold byte-identical to anything, so the
     skip below is genuinely vacuous for one, not a proxy standing in for a different property
-    (#249)."""
+    (#249).
+
+    A recipe with an ``assets/`` folder is an image recipe, and its scaffold is
+    ``--mode replay-images``, whose ``tests/test_build_fixtures.py`` also copies ``assets/``
+    (``build_fixtures_test_text(recipe, "replay-images")``); every other replay recipe is held to
+    the text variant (#452)."""
     path = recipe_dir(recipe) / "fixtures" / "responses.json"
     if not path.is_file():
         pytest.skip(
             "scripted recipe: replay-mode scaffold does not apply, no test_build_fixtures.py "
             "to guard (see #249)"
         )
+    folder = recipe_dir(recipe)
     new_recipe = load_tool("new_recipe.py")
-    expected = new_recipe.build_fixtures_test_text(recipe)
-    actual_path = recipe_dir(recipe) / "tests" / "test_build_fixtures.py"
+    mode = new_recipe.IMAGE_MODE if (folder / "assets").is_dir() else "replay"
+    expected = new_recipe.build_fixtures_test_text(recipe, mode)
+    actual_path = folder / "tests" / "test_build_fixtures.py"
     assert actual_path.is_file(), f"{recipe['slug']}: no tests/test_build_fixtures.py"
     assert actual_path.read_text("utf-8") == expected
+
+
+@pytest.mark.parametrize(
+    "kind,committed,passes",
+    [
+        ("text", "text", True),
+        ("image", "image", True),
+        ("image", "text", False),
+        ("text", "image", False),
+    ],
+)
+def test_build_fixtures_guard_holds_an_image_recipe_to_the_image_variant(
+    tmp_path, monkeypatch, kind, committed, passes
+):
+    """G1(a) itself, run on a recipe folder built here: an image recipe (``assets/`` present) that
+    commits the text variant fails, and so does a text recipe that commits the image variant;
+    each committing its own variant passes (#452)."""
+    new_recipe = load_tool("new_recipe.py")
+    recipes = [r for r in CATALOG["recipes"] if r["rank"] == 77]
+    assert len(recipes) == 1, "catalog rank 77 is the image recipe this test scaffolds against"
+    recipe = recipes[0]
+    variants = {
+        "text": new_recipe.build_fixtures_test_text(recipe),
+        "image": new_recipe.build_fixtures_test_text(recipe, new_recipe.IMAGE_MODE),
+    }
+    assert variants["text"] != variants["image"]
+    monkeypatch.setitem(globals(), "RECIPES_DIR", tmp_path)
+    folder = recipe_dir(recipe)
+    (folder / "fixtures").mkdir(parents=True)
+    (folder / "fixtures" / "responses.json").write_text("{}\n", "utf-8")
+    (folder / "tests").mkdir()
+    (folder / "tests" / "test_build_fixtures.py").write_text(variants[committed], "utf-8")
+    if kind == "image":
+        (folder / "assets").mkdir()
+        (folder / "assets" / "screen.png").write_bytes(b"not read by G1(a)")
+    if passes:
+        test_build_fixtures_guard_matches_the_current_scaffold(recipe)
+    else:
+        with pytest.raises(AssertionError):
+            test_build_fixtures_guard_matches_the_current_scaffold(recipe)
 
 
 # --------------------------------------------------------------------------------------------
