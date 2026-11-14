@@ -554,10 +554,10 @@ file name (`IMG_2041.JPG`), a URL in a recipe without images, and a prose senten
 `chart.png` are not paths. In a text-only recipe a value such as `assets/equity` is therefore not a
 path, while `assets/ghost.png` still is, and fails as `unlisted-asset` because there is no manifest
 to list it; `assets/diagram.svg`, `assets/v1.2` and `assets/../x` are paths too, and fail as
-`asset-path` because they are not written `assets/<name>.png` (or `.jpg`, `.jpeg`). In a recipe that has images, `assets/equity` is a path and fails as `asset-path`. In a
-recipe that has images, a value that
-ends in an image suffix and contains a `/` or a backslash (an upload path, an attachment URL)
-cannot be kept in `fields` as written; keep only the bare file name, put whitespace in the value,
+`asset-path` because they are not written `assets/<name>.png` (or `.jpg`, `.jpeg`). In a recipe
+that has images, `assets/equity` is a path and fails as `asset-path`, and a value that ends in an
+image suffix and contains a `/` or a backslash (an upload path, an attachment URL) cannot be
+kept in `fields` as written; keep only the bare file name, put whitespace in the value,
 or leave it out. `state` examples are not scanned,
 so an image recipe puts its image paths in `fields`, or the reference and leak checks never see
 them. `demo` examples are exempt from the leak rule, as they are from the label rule. An
