@@ -566,18 +566,48 @@ def test_build_fixtures_guard_matches_the_current_scaffold(recipe):
     (``build_scripted_fixtures_text``) never writes ``responses.json`` and never writes a
     ``tests/test_build_fixtures.py`` for this check to hold byte-identical to anything, so the
     skip below is genuinely vacuous for one, not a proxy standing in for a different property
-    (#249)."""
+    (#249).
+
+    A recipe with an ``assets/`` folder is an image recipe, and its scaffold is
+    ``--mode replay-images``, whose ``tests/test_build_fixtures.py`` also copies ``assets/``
+    (``build_fixtures_test_text(recipe, "replay-images")``); every other replay recipe is held to
+    the text variant (#452)."""
     path = recipe_dir(recipe) / "fixtures" / "responses.json"
     if not path.is_file():
         pytest.skip(
             "scripted recipe: replay-mode scaffold does not apply, no test_build_fixtures.py "
             "to guard (see #249)"
         )
-    new_recipe = load_tool("new_recipe.py")
-    expected = new_recipe.build_fixtures_test_text(recipe)
+    expected = _expected_build_fixtures_test(recipe_dir(recipe), recipe)
     actual_path = recipe_dir(recipe) / "tests" / "test_build_fixtures.py"
     assert actual_path.is_file(), f"{recipe['slug']}: no tests/test_build_fixtures.py"
     assert actual_path.read_text("utf-8") == expected
+
+
+def _expected_build_fixtures_test(folder: Path, recipe: dict) -> str:
+    """The ``tests/test_build_fixtures.py`` text G1(a) requires of the replay recipe in ``folder``:
+    the image variant when the recipe has an ``assets/`` folder, the text variant otherwise."""
+    new_recipe = load_tool("new_recipe.py")
+    mode = new_recipe.IMAGE_MODE if (folder / "assets").is_dir() else "replay"
+    return new_recipe.build_fixtures_test_text(recipe, mode)
+
+
+def test_build_fixtures_guard_holds_an_image_recipe_to_the_image_variant(tmp_path):
+    """G1(a) on both kinds of replay recipe: an image recipe (``assets/`` present) that commits the
+    text variant fails, and a text recipe that commits the image variant fails (#452)."""
+    new_recipe = load_tool("new_recipe.py")
+    recipe = next(r for r in CATALOG["recipes"] if r["rank"] == 77)
+    text = new_recipe.build_fixtures_test_text(recipe)
+    image = new_recipe.build_fixtures_test_text(recipe, new_recipe.IMAGE_MODE)
+    assert text != image
+    text_recipe = tmp_path / "text"
+    text_recipe.mkdir()
+    image_recipe = tmp_path / "image"
+    (image_recipe / "assets").mkdir(parents=True)
+    assert _expected_build_fixtures_test(text_recipe, recipe) == text
+    assert _expected_build_fixtures_test(image_recipe, recipe) == image
+    assert _expected_build_fixtures_test(image_recipe, recipe) != text  # text variant committed
+    assert _expected_build_fixtures_test(text_recipe, recipe) != image  # image variant committed
 
 
 # --------------------------------------------------------------------------------------------
