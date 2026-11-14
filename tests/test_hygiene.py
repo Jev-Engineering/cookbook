@@ -1552,3 +1552,76 @@ def test_the_exemption_regex_does_not_backtrack_catastrophically():
     assert hygiene._IDENT_ASSIGNMENT.fullmatch(f"{word}={word}") is None
     near = "A1_" * 5000 + "!"
     assert hygiene._IDENT_ASSIGNMENT.fullmatch(f"x={near}") is None
+
+
+# --- #504: recipe folder paths are path-shaped -----------------------------------------------
+def _catalog_slugs() -> list[str]:
+    catalog = json.loads((ROOT / "catalog" / "recipes.json").read_text(encoding="utf-8"))
+    rows = catalog if isinstance(catalog, list) else catalog["recipes"]
+    return [row["slug"] for row in rows]
+
+
+RECIPE_PATH_FORMS = (
+    "recipes/{slug}",
+    "recipes/{slug}/",
+    "`recipes/{slug}`",
+    "recipes/{slug}/fixtures",
+    "recipes/{slug}/fixtures/responses.json",
+    "pytest recipes/{slug}",
+    "python tools/execute_notebook.py recipes/{slug}",
+    "python -m jev_cookbook.fixtures validate recipes/{slug}",
+    "tests/recipes/{slug}/tests",
+)
+
+
+def test_no_catalog_recipe_path_is_a_finding():
+    # every slug in the catalog, in the forms READMEs, docs and commands write it, both copies
+    slugs = _catalog_slugs()
+    assert len(slugs) == 100
+    flagged = [
+        text
+        for slug in slugs
+        for form in RECIPE_PATH_FORMS
+        for text in [form.format(slug=slug)]
+        if hygiene.scan_text(text) or packaged_scan.scan_text(text)
+    ]
+    assert flagged == []
+
+
+@pytest.mark.parametrize("slug_rank", [84, 97, 100])
+def test_these_slugs_were_findings_without_the_recipe_path_rule(monkeypatch, slug_rank):
+    # the rule is what lets them through: with recipe paths not path-shaped, each slug's folder
+    # path (or its fixtures folder) is one long mixed token again
+    slug = next(s for s in _catalog_slugs() if s.startswith(f"{slug_rank}-"))
+    without = hygiene._PATH_SHAPED.pattern.split("|(?:^|/)recipes/")[0]
+    monkeypatch.setattr(hygiene, "_PATH_SHAPED", re.compile(without))
+    assert any(hygiene.scan_text(form.format(slug=slug)) for form in RECIPE_PATH_FORMS)
+
+
+def test_a_scaffold_of_every_catalog_recipe_passes_the_scanner():
+    spec = importlib.util.spec_from_file_location(
+        "new_recipe_for_hygiene", ROOT / "tools" / "new_recipe.py"
+    )
+    new_recipe = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = new_recipe
+    spec.loader.exec_module(new_recipe)
+    catalog = new_recipe._load_catalog(ROOT / "catalog" / "recipes.json")
+    findings = {}
+    for slug in _catalog_slugs():
+        recipe = new_recipe.find_recipe(catalog, int(slug.split("-", 1)[0]))
+        for mode in new_recipe.MODES:
+            for name, text in new_recipe.files_for(catalog, recipe, mode).items():
+                found = hygiene.scan_text(text)
+                if found:
+                    findings[(slug, mode, name)] = found
+    assert findings == {}
+
+
+def test_a_key_after_a_recipes_prefix_that_is_not_a_slug_is_still_caught():
+    # the rule needs the slug shape (digits, then lowercase words joined by "-"); a base64 key
+    # after "recipes/" does not have it and is still scored whole, "/" included
+    keys = _base64_keys(200, seed=504)
+    assert sum("/" in k for k in keys) > 50
+    for key in keys:
+        for text in (f"recipes/{key}", f"see recipes/{key} here", f"recipes/1-x/{key}"):
+            assert "high-entropy-token" in {r for _, r, _ in hygiene.scan_text(text)}, text

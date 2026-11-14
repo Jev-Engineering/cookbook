@@ -88,14 +88,22 @@ _ASSIGNMENT = re.compile(
 # per "/"-separated segment, so a commit permalink or fixtures/replay/<hash>.json is not one
 # long "random" token. Any other word is scored whole, "/" included, because base64 keys
 # contain "/". Path-shaped: contains "://", starts with a real-looking absolute directory
-# (/home, /usr, ...), "./", "../" or a drive letter, or ends in a file-like suffix.
+# (/home, /usr, ...), "./", "../" or a drive letter, ends in a file-like suffix, or contains a
+# recipe folder path, ``recipes/`` then the catalog's ``NN-words-joined-by-hyphens`` slug shape
+# (``recipes/84-bounding-box-self-verification``, ``recipes/NN-slug/fixtures``): a slug is two
+# or more lowercase words or digit runs joined by "-", which no base64 key is. As for every
+# path-shaped word, a key after such a path is scored per segment, so one containing "/" is
+# scored in pieces.
 # Hexadecimal strings never reach the entropy threshold (16 symbols give at most 4.0 bits per
 # character), which is why they are not flagged; it also means a hex-format key is NOT caught
 # by this rule, only by the header, bearer and assignment rules.
 _WORD = re.compile(r"""[^\s"'<>()\[\]{},;`]+""")
 _TOKEN = re.compile(r"[A-Za-z0-9_+=-]{32,}")
 _TOKEN_SLASH = re.compile(r"[A-Za-z0-9_+=/-]{32,}")
-_PATH_SHAPED = re.compile(r"://|^/[a-z_.-]+/|^\.{1,2}/|^[A-Za-z]:[\/]|\.[A-Za-z0-9]{1,5}$")
+_PATH_SHAPED = re.compile(
+    r"://|^/[a-z_.-]+/|^\.{1,2}/|^[A-Za-z]:[\/]|\.[A-Za-z0-9]{1,5}$"
+    r"|(?:^|/)recipes/[0-9]{1,3}-[a-z0-9]+(?:-[a-z0-9]+)+(?:/|$)"
+)
 _DATA_URI = re.compile(r"data:[\w./+-]+;base64,[A-Za-z0-9+/=]+")
 _ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 _ENTROPY_THRESHOLD = 4.2
