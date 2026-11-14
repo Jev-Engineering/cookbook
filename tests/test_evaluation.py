@@ -2694,54 +2694,70 @@ def test_accepted_when_and_acts_when_must_return_a_bool_not_a_truthy_value():
 # ---------------------------------------------------------------- transitions: #340 frames follow-ups
 
 
+def _load_private_name_scanner():
+    # The #209 scanner (tests/test_no_private_shared_names.py) is the one definition of "a private
+    # name of jev_cookbook"; pytest runs with --import-mode=importlib, so load it by path.
+    import importlib.util
+
+    path = Path(__file__).with_name("test_no_private_shared_names.py")
+    spec = importlib.util.spec_from_file_location("private_names_scanner_for_evaluation", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.private_shared_uses
+
+
 def _private_names_imported(source: str) -> list[str]:
-    """Private names a module's source takes from another jev_cookbook module: by a relative
-    or absolute ``from ... import _x``, or as ``module._x`` after importing that module."""
+    """Private jev_cookbook names a module's source reaches into, by the #209 scanner. The package
+    is flat, so a relative ``from .m import x`` / ``from . import x`` is rewritten to its absolute
+    ``jev_cookbook`` form first; the scanner then sees every spelling it already knows."""
     import ast
 
     tree = ast.parse(source)
-    modules = set()
-    private = []
     for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and (
-            node.level >= 1 or (node.module or "").startswith("jev_cookbook")
-        ):
-            for alias in node.names:
-                if alias.name.startswith("_"):
-                    private.append(f"{node.module}.{alias.name}")
-                else:
-                    modules.add(alias.asname or alias.name)
-        elif isinstance(node, ast.Import):
-            for alias in node.names:
-                if alias.name.startswith("jev_cookbook"):
-                    modules.add(alias.asname or alias.name.split(".")[0])
-    for node in ast.walk(tree):
-        if (
-            isinstance(node, ast.Attribute)
-            and node.attr.startswith("_")
-            and not node.attr.startswith("__")
-            and isinstance(node.value, ast.Name)
-            and node.value.id in modules
-        ):
-            private.append(f"{node.value.id}.{node.attr}")
-    return private
+        if isinstance(node, ast.ImportFrom) and node.level >= 1:
+            node.module = ".".join(["jev_cookbook", *([node.module] if node.module else [])])
+            node.level = 0
+    return _load_private_name_scanner()(ast.unparse(tree))
 
 
 def test_evaluation_imports_no_private_name_from_another_module():
     # #340: evaluation.py imported the private `frames._seconds`. A private name is not an
     # interface between modules; the seconds rule is now this module's own private check.
-    assert _private_names_imported(Path(ev.__file__).read_text(encoding="utf-8")) == []
+    source = Path(ev.__file__).read_text(encoding="utf-8")
+    assert _private_names_imported(source) == []
+    # and the same source with the old import put back is caught, so this cannot pass vacuously
+    assert _private_names_imported(source + "\nfrom .frames import _seconds\n")
 
 
 @pytest.mark.parametrize(
     ("source", "expected"),
     [
-        ("from .frames import _seconds", ["frames._seconds"]),
-        ("from jev_cookbook.frames import _seconds", ["jev_cookbook.frames._seconds"]),
+        ("from .frames import _seconds", ["from jev_cookbook.frames import _seconds"]),
+        (
+            "from jev_cookbook.frames import _seconds",
+            ["from jev_cookbook.frames import _seconds"],
+        ),
         ("from . import frames\nframes._seconds(1, 'x')", ["frames._seconds"]),
         ("import jev_cookbook\njev_cookbook._x", ["jev_cookbook._x"]),
+        # a dotted chain from a plain package import
+        (
+            "import jev_cookbook.frames\njev_cookbook.frames._seconds(1, 'x')",
+            ["jev_cookbook.frames._seconds"],
+        ),
+        # private module paths, absolute and relative
+        (
+            "from jev_cookbook._canonical import plain_json",
+            ["from jev_cookbook._canonical import ..."],
+        ),
+        ("from ._canonical import plain_json", ["from jev_cookbook._canonical import ..."]),
+        ("import jev_cookbook._canonical", ["import jev_cookbook._canonical"]),
+        ("from . import _canonical", ["from jev_cookbook import _canonical"]),
+        # not private uses: a constant's attribute, a dunder, a foreign name
+        ("from .frames import TIME_EPSILON\nTIME_EPSILON._x", []),
+        ("from .frames import __all__", []),
         ("from .frames import TIME_EPSILON", []),
         ("import math\nmath._private", []),
+        ("import os\nos._exit_hooks", []),
     ],
 )
 def test_the_private_import_guard_catches_every_spelling(source, expected):
