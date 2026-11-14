@@ -21,13 +21,13 @@ dependencies = [
 # Live inference only. Never imported at module import time by jev_cookbook.
 live = ["typesafe-sdk>=0.7.5,<0.8"]
 ml = ["scikit-learn"]
-dev = ["ruff==0.16.10", "pytest"]
+dev = ["ruff==0.17.4", "pytest"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-"jev_cookbook.fixtures" = ["schema.json"]
+"jev_cookbook.fixtures" = ["schema.json", "assets-manifest.schema.json"]
 
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib -m 'not catalog_audit'"
