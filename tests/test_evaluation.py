@@ -2689,3 +2689,74 @@ def test_accepted_when_and_acts_when_must_return_a_bool_not_a_truthy_value():
             RES, GOLD_BY_ID, accepted_when=lambda r, f=flag: f, **kw
         )
         assert accepted == [True] * len(RES)
+
+
+# ---------------------------------------------------------------- transitions: #340 frames follow-ups
+
+
+def test_evaluation_imports_no_private_name_from_another_module():
+    # #340: evaluation.py imported the private `frames._seconds`. A private name is not an
+    # interface between modules; the seconds rule is now this module's own private check.
+    import ast
+
+    tree = ast.parse(Path(ev.__file__).read_text(encoding="utf-8"))
+    private = [
+        f"{node.module}.{alias.name}"
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.level >= 1
+        for alias in node.names
+        if alias.name.startswith("_")
+    ]
+    assert private == []
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        0,
+        0.0,
+        1,
+        2.5,
+        10**6,
+        np.float64(0.25),
+        np.int64(3),
+        -0.0,
+        -1,
+        -1e-12,
+        True,
+        False,
+        float("nan"),
+        float("inf"),
+        -float("inf"),
+        "1.0",
+        None,
+        10**400,
+        [1.0],
+    ],
+)
+def test_the_seconds_rule_in_evaluation_matches_the_one_in_frames(value):
+    from jev_cookbook import frames
+
+    def outcome(check):
+        try:
+            return ("ok", check(value, "t"))
+        except ValueError as exc:
+            return ("error", str(exc))
+
+    assert outcome(ev._seconds) == outcome(frames._seconds)
+
+
+def test_tolerance_correct_is_cumulative_while_the_within_outcome_is_exclusive():
+    gold = [("opened", 2.5), ("closed", 5.0), ("unchanged", None), ("opened", 1.0), ("x", 1.0)]
+    predicted = [
+        ("opened", 3.0),  # within tolerance, not exact
+        ("closed", 5.0),  # exact
+        ("unchanged", None),  # exact
+        ("uncertain", None),  # review
+        ("x", 9.0),  # wrong: too late
+    ]
+    m = ev.transition_metrics(gold, predicted, tolerance_seconds=1.0)
+    assert m.outcomes == ("within", "exact", "exact", "review", "wrong")
+    assert m.exact_correct == m.outcomes.count("exact") == 2
+    assert m.outcomes.count("within") == 1
+    assert m.tolerance_correct == m.outcomes.count("exact") + m.outcomes.count("within") == 3

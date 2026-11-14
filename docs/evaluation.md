@@ -1059,6 +1059,14 @@ the times are both `None` or differ by at most `tolerance_seconds` (inclusive, s
 `outcomes` lists `"exact"`, `"within"`, `"wrong"` or `"review"` for every example in input
 order, so a README can name the sequences that went to review or missed.
 
+**Cumulative count, exclusive outcome.** `tolerance_correct` (and so `tolerance_accuracy`) counts
+every resolved example within tolerance, **including the exact ones**; the per-example outcome
+`"within"` means within tolerance **but not exact**. So `tolerance_correct` equals
+`outcomes.count("exact") + outcomes.count("within")`, not `outcomes.count("within")` (in the
+example above, 3 = 2 + 1). A README that quotes "within tolerance" says which one it means:
+the cumulative count beside `tolerance_accuracy`, or the exclusive `"within"` outcomes when it
+lists the late-but-accepted sequences.
+
 **Timing error.** The headline `mean_absolute_error_seconds` and `mean_signed_error_seconds`
 (predicted minus gold; positive means late) cover only the `n_timed` resolved examples whose
 **label matches gold** and where both sides give a time; a different transition at the right

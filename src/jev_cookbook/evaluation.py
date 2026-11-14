@@ -33,7 +33,7 @@ from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 
-from .frames import TIME_EPSILON, _seconds
+from .frames import TIME_EPSILON
 
 __all__ = [
     "BootstrapResult",
@@ -2324,12 +2324,36 @@ def sum_usage(usages: Iterable[Mapping[str, Any] | None]) -> UsageTotals:
 # --------------------------------------------------------------------------- Transitions
 
 
+def _seconds(value: Any, name: str) -> float:
+    """A finite, non-negative number of seconds, or ``ValueError`` naming ``name``.
+
+    The same rule ``jev_cookbook.frames`` applies to its own timestamps, kept here as this
+    module's own private check rather than imported from the private name in ``frames`` (a
+    private name is not an interface between modules; ``tests/test_evaluation.py`` pins that the
+    two rules agree)."""
+    if isinstance(value, bool) or not isinstance(value, numbers.Real):
+        raise ValueError(f"{name} must be a finite number of seconds")
+    try:
+        number = float(value)
+    except OverflowError as exc:
+        raise ValueError(f"{name} must be a finite number of seconds") from exc
+    if not math.isfinite(number):
+        raise ValueError(f"{name} must be a finite number of seconds")
+    if number < 0:
+        raise ValueError(f"{name} must be non-negative")
+    return number
+
+
 @dataclass(frozen=True)
 class TransitionMetrics:
     """Event or transition accuracy over labelled frame sequences, denominators explicit.
 
     ``n_examples`` = ``n_uncertain`` + ``n_resolved``. ``exact_correct`` and
-    ``tolerance_correct`` count resolved examples only; ``*_accuracy`` divides by
+    ``tolerance_correct`` count resolved examples only. ``tolerance_correct`` is
+    **cumulative**: it counts every example within tolerance, the exact ones included, so
+    ``tolerance_correct == outcomes.count("exact") + outcomes.count("within")``, while the
+    per-example outcome ``"within"`` is **exclusive** (within tolerance but not exact). A README
+    quoting "within tolerance" says which of the two it means; ``*_accuracy`` divides by
     ``n_resolved`` and ``*_accuracy_all`` by ``n_examples`` (a review outcome counts as not
     correct there). ``uncertain_rate`` is ``n_uncertain / n_examples``.
 
