@@ -319,7 +319,7 @@ def rebuild_store_from_writes(writes: list[WriteRecord]) -> Store:
 # scores exactly 1/k by arithmetic alone -- that is a structural floor, true of any above-chance
 # mechanism on a balanced pool, not a comparison that could go the other way. A floor worth
 # printing is not the same thing as a guard against a baseline that matches or beats the
-# mechanism, which is what rule 19's "dominated headline" concern is actually about: it needs a
+# mechanism, which is what the "dominated headline" concern is actually about: it needs a
 # baseline whose score is NOT fixed by the pool's balance, so it could in principle tie or beat
 # Jev. keyword_overlap_baseline below is that comparison: still zero requests, but its accuracy
 # is earned from the statements' own text, not fixed by how the labels happen to be distributed.
