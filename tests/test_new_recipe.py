@@ -243,12 +243,15 @@ def test_a_number_outside_1_to_100_is_a_usage_error(bad, catalog, recipes):
     assert not recipes.exists()
 
 
+NO_ISSUE_NOTICE = "No assigned recipe issue"
+
+
 def test_recipe_100_scaffolds_without_inventing_an_issue(catalog, recipes, capsys):
     data, recipe = entry(catalog, 100)
     recipe["issue"] = None  # the real catalog records one; this test is about an unassigned entry
     catalog.write_text(json.dumps(data), encoding="utf-8")
     assert run(100, catalog, recipes) == 0
-    assert "No assigned recipe issue" in capsys.readouterr().out
+    assert NO_ISSUE_NOTICE in capsys.readouterr().out
     folder = recipes / "100-multimodal-agent-handoff-verification"
     nb = nbformat.read(folder / "notebook.ipynb", as_version=4)
     nbformat.validate(nb)
@@ -259,6 +262,13 @@ def test_recipe_100_scaffolds_without_inventing_an_issue(catalog, recipes, capsy
     assert "issues/100" not in readme
     assert "Closes #100" not in readme
     assert all(not c.outputs for c in nb.cells if c.cell_type == "code")
+
+
+def test_an_assigned_rank_scaffolds_without_the_no_assigned_issue_notice(catalog, recipes, capsys):
+    _, recipe = entry(catalog, 100)
+    assert recipe["issue"] == 441  # the real catalog records it
+    assert run(100, catalog, recipes) == 0
+    assert NO_ISSUE_NOTICE not in capsys.readouterr().out
 
 
 @pytest.mark.parametrize("slug", ["../escape", "0100-test", "101-test", "99-wrong-rank"])

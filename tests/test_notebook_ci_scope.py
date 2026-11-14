@@ -807,6 +807,32 @@ def test_head_catalog_cannot_assign_itself_a_recipe_issue(repo):
     )
 
 
+def test_head_catalog_swapping_two_assigned_issues_cannot_move_one_to_its_recipe(repo):
+    # The base catalog (synthetic here) assigns 99 -> #901 and 100 -> #902. The head catalog swaps
+    # them, so that #902 would belong to recipe 99. The check reads only the base catalog, so the
+    # branch of recipe 99 is refused for closing recipe 100's issue; were the head catalog read,
+    # that check would pass and only the catalog/ path rejection would remain. The branch
+    # mismatch must be the only rejection reason.
+    base = json.loads(json.dumps(CATALOG))
+    by_rank = {r["rank"]: r for r in base["recipes"]}
+    moved, owner = by_rank[99]["slug"], by_rank[100]["slug"]
+    by_rank[99]["issue"], by_rank[100]["issue"] = 901, 902
+    repo.put("catalog/recipes.json", json.dumps(base))
+    repo.commit("synthetic assigned base")
+    repo.git("branch", "-f", "main", "HEAD")
+    swapped = json.loads(json.dumps(base))
+    for recipe in swapped["recipes"]:
+        if recipe["rank"] == 99:
+            recipe["issue"] = 902
+        elif recipe["rank"] == 100:
+            recipe["issue"] = 901
+    repo.put("catalog/recipes.json", json.dumps(swapped, indent=2) + "\n")
+    result = run_check(repo, branch=f"recipe/{moved}", body="Closes #902")
+    fragment = f"is not recipe/{owner}, the recipe closed by #902"
+    assert len(result[0]) == 1, result[0]
+    assert fragment in result[0][0], result[0]
+
+
 @pytest.mark.parametrize("issue", [1, True, 0, -1, "401"])
 def test_ambiguous_or_invalid_base_assignments_fail_closed(repo, issue):
     assign_in_base(repo, 100, issue)
