@@ -42,6 +42,7 @@ from .backends import (
     replay_key,
 )
 from .questions import Box, Question
+from .style import _is_iso_date
 
 __all__ = [
     "API_KEY_ENV",
@@ -689,9 +690,11 @@ class LiveBackend:
         """Wall-clock seconds of the latest HTTP attempt of the latest ``decide`` call.
 
         That is the answering attempt when the call succeeded, and otherwise the attempt that
-        ended it. ``None`` when that call sent nothing (it was refused, or the budget was spent)
-        or when the clock gave no usable reading. Reset at the start of every ``decide`` call and
-        again before each attempt.
+        ended it. ``None`` when that call sent nothing (it was refused, or the budget was spent),
+        when the clock gave no usable reading, and when the budget ran out before a retry: the
+        value is reset at the start of every ``decide`` call and again before each attempt, so a
+        call stopped by the budget after earlier attempts reports ``None``, as its ledger line
+        does; those earlier attempts keep their seconds in ``last_retried``.
         """
         return self._last_latency
 
@@ -837,7 +840,7 @@ class LiveBackend:
                 else:
                     failure = _describe_failure(exc, self._secrets)
             else:
-                latency = _elapsed_seconds(started, self._read_clock())
+                latency = None if started is None else _elapsed_seconds(started, self._read_clock())
                 with self._lock:
                     self._last_latency = latency
                 break
@@ -1251,13 +1254,15 @@ def load_ledger_latency(
     Raises ``FileNotFoundError`` when ``ledger_path`` does not exist; ``KeyError`` when the ledger
     has no line at all for ``replay_key`` (neither the key nor a ``!failed-N`` line for it), which
     is a wrong ledger file or a stale key rather than a call that was not measured; and
-    ``ValueError`` when a ``recorded`` line lacks a text ``date`` or ``model`` or holds a latency
-    that is not a finite, non-negative number.
+    ``ValueError`` when a ``recorded`` line lacks a ``YYYY-MM-DD`` ``date`` or a text ``model``, or
+    holds a latency that is not a finite, non-negative number.
 
     Pass the ``DecisionResult`` replayed for the key as ``result`` to check that the ledger line
     describes that response: its ``model`` must equal ``result.model`` and its ``date`` the date
     of the result's recorded answers, otherwise ``ValueError`` (an old ledger kept after the
-    response was recorded again). The check runs whether or not the line holds a latency. Pass
+    response was recorded again). The check runs whether or not the line holds a latency. Two
+    recordings of one request with the same model on the same day share a replay key and cannot be
+    told apart, so keep one ledger per arm. Pass
     the latency to ``vision.run_record`` as ``measured_latency_seconds`` with ``capture_date=``
     the returned ``date``.
     """
@@ -1273,8 +1278,10 @@ def load_ledger_latency(
     if not isinstance(line, dict) or line.get("status") != "recorded":
         return None
     date, model = line.get("date"), line.get("model")
-    if not (isinstance(date, str) and date and isinstance(model, str) and model):
-        raise ValueError(f"{path}: the recorded line for {replay_key} needs a text date and model")
+    if not (_is_iso_date(date) and isinstance(model, str) and model):
+        raise ValueError(
+            f"{path}: the recorded line for {replay_key} needs a YYYY-MM-DD date and a text model"
+        )
     if result is not None:
         from .vision import _recorded_dates
 

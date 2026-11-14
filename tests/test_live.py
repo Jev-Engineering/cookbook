@@ -1460,6 +1460,9 @@ def test_only_the_line_under_the_key_is_read_not_its_history(tmp_path):
         {"latency_seconds": float("inf")},
         {"latency_seconds": 1.0, "date": None},
         {"latency_seconds": 1.0, "model": ""},
+        {"latency_seconds": 1.0, "date": "yesterday"},
+        {"latency_seconds": 1.0, "date": "2026-02-30"},
+        {"latency_seconds": None, "date": "20261031"},
     ],
 )
 def test_load_ledger_latency_rejects_a_malformed_recorded_line(tmp_path, change):

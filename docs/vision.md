@@ -787,6 +787,8 @@ from jev_cookbook.vision import run_record
 # the request, and `result` the recorded DecisionResult replayed for that key.
 # `result=` checks that the ledger line describes this response (same model, same date).
 measured = load_ledger_latency(ledger, key, result=result)
+if measured is None:  # the key has only failed attempts: no response was recorded
+    raise LookupError(f"no recorded response for {key}")
 row = run_record(
     result,
     mode="recorded",

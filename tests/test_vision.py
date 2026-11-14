@@ -22,7 +22,7 @@ import pytest
 from PIL import Image
 
 from jev_cookbook import Choice, Noul, Score, live, vision
-from jev_cookbook._canonical import canonical_image_format
+from jev_cookbook._canonical import MAX_DEPTH, canonical_image_format
 from jev_cookbook.fixtures._scan import scan_text
 
 FULL = {"top": 0.0, "bottom": 1.0, "left": 0.0, "right": 1.0}
@@ -941,6 +941,16 @@ def test_a_capture_date_must_be_the_date_on_the_recorded_answers(mode):
     assert "capture_date" not in vision.run_record(result, mode=mode)
 
 
+def _deep(levels):
+    value = "x"
+    for _ in range(levels):
+        value = [value]
+    return value
+
+
+DEEP = _deep(MAX_DEPTH + 1)
+
+
 CONTEXT_CASES = [
     # (state, questions, characters, utf8_bytes), each counted by hand in the comment beside it
     ("abc", {"q": Noul(instructions="Is it?")}, 10, 10),  # 3 + name 1 + instructions 6
@@ -1003,11 +1013,19 @@ def test_context_size_rejects_a_lone_surrogate_and_a_non_mapping_of_questions():
         ({"a", "b"}, {"q": Noul(instructions="Is it?")}),  # a set is not a JSON state
         ({1: "x"}, {"q": Noul(instructions="Is it?")}),  # a non-string key
         ("abc", {}),  # a request needs a question
+        ("abc", {"q": Noul(instructions=DEEP)}),  # deeper than a request allows
+        ("abc", {"s": Score(criteria=[DEEP, "x"])}),  # an over-deep criteria level
+        ("abc", {"c": Choice(criteria={"a": DEEP, "b": "x"})}),  # an over-deep option
     ],
 )
 def test_context_size_refuses_what_a_request_refuses_instead_of_counting_it_short(state, questions):
     with pytest.raises((TypeError, ValueError)):
         vision.context_size(state, questions)
+
+
+def test_context_size_counts_a_part_at_the_depth_limit():
+    # One level shallower than the refused cases above is still counted.
+    assert vision.context_size("abc", {"q": Noul(instructions=_deep(MAX_DEPTH))})["characters"] == 5
 
 
 def _row(result, label, **kwargs):

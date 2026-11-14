@@ -23,7 +23,7 @@ from typing import Any
 
 from PIL import Image, ImageDraw, UnidentifiedImageError
 
-from ._canonical import canonical_image_format
+from ._canonical import MAX_DEPTH, canonical_image_format, check_depth
 from .backends import _check_request, _string_values
 from .evaluation import sum_usage
 from .style import INK, PAPER, PINK, _is_iso_date
@@ -1415,6 +1415,14 @@ def context_size(state: Any, questions: Mapping[str, Any]) -> dict[str, int]:
     # The same checks as a request: a state or question that ``decide`` would refuse is refused
     # here too, rather than counted as fewer characters than it has.
     state, questions = _check_request(state, questions)
+    for name, question in questions.items():
+        # The per-part depth limit replay_key applies, so an over-deep part raises here too.
+        content = question.to_dict()
+        check_depth(content.get("instructions"), f"question {name!r} instructions", MAX_DEPTH)
+        criteria = content.get("criteria")
+        parts = criteria.items() if isinstance(criteria, dict) else enumerate(criteria or ())
+        for label, part in parts:
+            check_depth(part, f"question {name!r} criteria[{label!r}]", MAX_DEPTH)
     parts = list(_strings(state))
     for name, question in questions.items():
         parts.extend(_strings(name))

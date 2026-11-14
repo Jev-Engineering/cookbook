@@ -243,20 +243,22 @@ elapsed time.
 
 ### Reading a captured latency back
 
-`load_ledger_latency(ledger_path, replay_key, result=...)` returns a
-`LedgerLatency(latency_seconds, date, model)` for the `recorded` line stored under the key.
-`latency_seconds` is `None`, meaning "not measured", when that line has no latency (a ledger
-written before latency was captured has none); the date and model are still returned. The call
-returns `None` when the ledger holds the key only as `!failed-N` lines, since no response was
-recorded. It reads only the line under the key itself: not a `!failed-N` line, not a `superseded` history
-entry, and nothing from a replay. It raises `FileNotFoundError` for a ledger file that does not
-exist; `KeyError` when the ledger has no line at all for the key, which means a wrong ledger file
-or a stale key rather than an unmeasured call; and `ValueError` for a latency that is not a
-finite, non-negative number, or a line without a text date or model. The replay key does not
-include the model, so pass the replayed `DecisionResult` as `result`: the call raises
-`ValueError` unless the line's model equals `result.model` and its date is the date of the
-result's recorded answers, whether or not the line holds a latency. That catches an old ledger kept after the response was recorded again,
-or one ledger shared by two arms.
+`load_ledger_latency(ledger_path, replay_key, result=...)` returns a `LedgerLatency(latency_seconds,
+date, model)` for the `recorded` line stored under the key. `latency_seconds` is `None`, meaning
+"not measured", when that line has no latency (a ledger written before latency was captured has
+none); the date and model are still returned. The call returns `None` when the ledger holds the key
+only as `!failed-N` lines, since no response was recorded. It reads only the line under the key
+itself: not a `!failed-N` line, not a `superseded` history entry, and nothing from a replay. It
+raises `FileNotFoundError` for a ledger file that does not exist; `KeyError` when the ledger has no
+line at all for the key, which means a wrong ledger file or a stale key rather than an unmeasured
+call; and `ValueError` for a latency that is not a finite, non-negative number, or a line without a
+YYYY-MM-DD date or a text model. The replay key does not include the model, so pass the replayed
+`DecisionResult` as `result`: the call raises `ValueError` unless the line's model equals
+`result.model` and its date is the date of the result's recorded answers, whether or not the line
+holds a latency. That catches an old ledger kept after the response was recorded again with another
+model or on another day, and one ledger shared by arms that differ in model or date. It cannot tell
+apart two recordings of the same request with the same model on the same day, which share a replay
+key, so keep one ledger per arm.
 [vision.md](vision.md#honest-accounting) shows the result feeding `run_record`.
 
 ## Recorder
