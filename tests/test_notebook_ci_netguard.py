@@ -5,6 +5,7 @@ is sent, and the one test that needs a reachable address uses loopback.
 """
 
 import importlib.util
+import inspect
 import json
 import os
 import subprocess
@@ -188,8 +189,28 @@ def test_offline_notebook_runs_clean_under_the_guard(tmp_path):
     assert nb["cells"][0]["outputs"][0]["text"] == ["offline\n"]
 
 
+# The live extra's modules as tests/conftest.py sees them (loaded by path, never imported as
+# ``conftest``), so this test skips exactly when the run summary says the extra is missing.
+_CONFTEST = _load("_netguard_conftest", Path(__file__).with_name("conftest.py"))
+_MISSING_LIVE_MODULES = _CONFTEST.missing_live_modules()
+
+
+# Marked live_sdk and skipped before it runs, like every test in tests/test_live_sdk.py, so the
+# run summary in tests/conftest.py counts it as ran with the live extra and as skipped without
+# it (#389). It skips only when typesafe_sdk or httpx2 cannot be found; an installed SDK that
+# cannot import is not skipped: the test imports both first and fails with that import error.
+@pytest.mark.live_sdk
+@pytest.mark.skipif(
+    bool(_MISSING_LIVE_MODULES),
+    reason=(
+        f"optional live extra not installed ({', '.join(_MISSING_LIVE_MODULES)}): "
+        f"{_CONFTEST.INSTALL_HINT}"
+    ),
+)
 def test_live_backend_call_is_blocked_with_the_sdk_installed(tmp_path):
-    pytest.importorskip("typesafe_sdk")
+    import httpx2  # noqa: F401  (a broken install fails here, with its own error)
+    import typesafe_sdk  # noqa: F401
+
     folder = make_recipe(
         tmp_path,
         f"""
@@ -209,3 +230,17 @@ def test_live_backend_call_is_blocked_with_the_sdk_installed(tmp_path):
     result = execute(folder, guarded_env())
     assert result.returncode == 1, result.stdout + result.stderr
     assert "LiveCallError" in result.stderr or "network access is blocked" in result.stderr
+
+
+def test_the_sdk_backed_netguard_test_is_gated_like_the_live_sdk_tests():
+    """#389: the run summary counts this file's SDK-backed test as SDK-gated, and it skips on the
+    same condition the summary reports (either live-extra module missing), not on one module."""
+    test = test_live_backend_call_is_blocked_with_the_sdk_installed
+    marks = {mark.name: mark for mark in test.pytestmark}
+    assert _CONFTEST.LIVE_SDK_MARKER in marks
+    assert marks["skipif"].args == (bool(_MISSING_LIVE_MODULES),)
+    # the condition is the conftest list itself (both modules), not a lookup of one of them
+    source = inspect.getsource(test)
+    assert "bool(_MISSING_LIVE_MODULES)" in source
+    assert "find_spec" not in source
+    assert _CONFTEST.LIVE_SDK_MODULES == ("typesafe_sdk", "httpx2")

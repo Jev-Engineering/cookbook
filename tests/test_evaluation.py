@@ -1193,7 +1193,7 @@ def test_min_coverage_response_is_flat_across_a_wide_range():
     assert ev.select_confidence_threshold(_BIMODAL_CORRECT, _BIMODAL_CONF, min_coverage=0.7) == 0.15
 
 
-def test_min_coverage_selects_nothing_when_errors_sit_at_the_top_of_the_confidence_order():
+def test_min_coverage_is_not_a_choice_when_errors_sit_at_the_top_of_the_confidence_order():
     # accuracy rises as the threshold falls (the one error is the most confident answer), so the
     # lowest observed confidence is always feasible and always the most accurate: every
     # min_coverage returns it, and a frozen number is not a choice.
@@ -1946,6 +1946,11 @@ EMPTY_CALLS = {
     ),
     "evaluate_selective": lambda: ev.evaluate_selective([], [], 0.5),
     "evaluate_outcomes": lambda: ev.evaluate_outcomes([], []),
+    "accepted_and_correct": lambda: ev.accepted_and_correct(
+        [], [], accepted_when=bool, label_of=str
+    ),
+    "action_error_rate": lambda: ev.action_error_rate([], [], acts_when=bool, label_of=str),
+    "outcome_breakdown": lambda: ev.outcome_breakdown([], []),
     "outcome_curve": lambda: ev.outcome_curve([], []),
     "reliability_table": lambda: ev.reliability_table([], []),
     "expected_calibration_error": lambda: ev.expected_calibration_error([], []),
@@ -2252,3 +2257,435 @@ def test_transition_metrics_rejects_bad_interval():
 def test_transition_metrics_requires_a_keyword_tolerance():
     with pytest.raises(TypeError):
         ev.transition_metrics([("a", 1.0)], [("a", 1.0)])  # type: ignore[call-arg]
+
+
+# ---------------------------------------------------------------- ranking family: one input contract (#356)
+
+
+def test_ndcg_takes_noul_answers_exactly_as_the_other_ranking_helpers_do():
+    # rel [1, 0], scores 0.9 > 0.1: best order -> 1.0 ; reversed scores: DCG = 0 + 1/log2(3),
+    # IDCG = 1. Before #356 a Noul answer raised TypeError here (only .score was extracted).
+    good = [NoulStub(0.9), NoulStub(0.1)]
+    bad = [NoulStub(0.1), NoulStub(0.9)]
+    assert ev.ndcg([1, 0], good) == pytest.approx(1.0)
+    assert ev.ndcg([1, 0], bad) == pytest.approx(1 / math.log2(3))
+    prov = ans.Provenance.synthetic()
+    real = [ans.NoulAnswer(0.9, prov), ans.NoulAnswer(0.1, prov)]
+    assert ev.ndcg([1, 0], real) == pytest.approx(1.0)
+    # a mixed list of Noul and Score answers is the same call on the plain numbers
+    mixed = [NoulStub(0.2), ScoreStub(0.9, confidence=0.5), NoulStub(0.4)]
+    plain = [0.2, 0.9, 0.4]
+    assert ev.ndcg([0, 1, 1], mixed) == ev.ndcg([0, 1, 1], plain)
+    assert ev.mean_ndcg([([0, 1, 1], mixed), ([1, 0], good)]) == ev.mean_ndcg(
+        [([0, 1, 1], plain), ([1, 0], [0.9, 0.1])]
+    )
+    # the ranking-family helpers take one Noul/Score list identically
+    rel = [0, 1, 1]
+    assert ev.recall_at_budget(rel, mixed, 1) == ev.recall_at_budget(rel, plain, 1)
+
+
+def test_mean_recall_at_budget_is_the_fsum_mean_and_independent_of_query_order():
+    # Three queries of 12 items with 10 relevant, budget 3, scores descending by position: the
+    # top 3 hold 1, 2 and 3 relevant items, so the per-query recalls are 1/10, 2/10, 3/10, i.e.
+    # 0.1, 0.2, 0.3. Summed left to right those give 0.6000000000000001 (np.mean: 0.2000...04);
+    # math.fsum gives 0.6, so the mean is 0.6 / 3 = 0.19999999999999998, in every query order.
+    sc = [1.0 - 0.01 * i for i in range(12)]
+    qs = [
+        ([1, 0, 0] + [1] * 9, sc),
+        ([1, 1, 0] + [1] * 8 + [0], sc),
+        ([1, 1, 1] + [1] * 7 + [0, 0], sc),
+    ]
+    assert [ev.recall_at_budget(r, s, 3) for r, s in qs] == [0.1, 0.2, 0.3]
+    expected = math.fsum([0.1, 0.2, 0.3]) / 3
+    assert expected == 0.19999999999999998
+    for perm in itertools.permutations(qs):
+        assert ev.mean_recall_at_budget(list(perm), 3) == expected
+
+
+def test_mean_ndcg_is_the_fsum_mean_and_independent_of_query_order():
+    # per-list nDCG 0.8599797111848092, 0.9158928585785953, 0.9224945116765986 (each from a
+    # 4-item list below): the left-to-right np.mean is 0.8994556938133345, the exactly rounded
+    # sum over 3 is 0.8994556938133343, which is also what every query order must give.
+    qs = [
+        (
+            [1, 0, 1, 2],
+            [0.9967268145367039, 0.16152946442461624, 0.04855216354845626, 0.9866991087842674],
+        ),
+        (
+            [3, 0, 1, 2],
+            [0.8262955117986266, 0.45566510149066475, 0.42175728191158934, 0.05570723100789343],
+        ),
+        (
+            [0, 3, 2, 1],
+            [0.13057182715312, 0.7316644233766765, 0.9497985626218988, 0.6303992934263946],
+        ),
+    ]
+    each = [ev.ndcg(r, s) for r, s in qs]
+    expected = math.fsum(each) / 3
+    assert expected == 0.8994556938133343
+    for perm in itertools.permutations(qs):
+        assert ev.mean_ndcg(list(perm)) == expected
+
+
+def test_mean_recall_at_budget_reads_each_query_once_so_a_one_shot_iterable_still_works():
+    # Before #356 `len(q)` made a generator query raise TypeError where unpacking had worked,
+    # and a four-item one raised TypeError rather than the documented ValueError.
+    one_shot = iter([[1, 0], [0.9, 0.1]])
+    assert ev.mean_recall_at_budget([one_shot], 1) == 1.0
+    gated = iter([[1, 1, 0], [0.9, 0.8, 0.1], [1, 0, 1]])
+    assert ev.mean_recall_at_budget([gated], 2) == 0.5
+    with pytest.raises(ValueError, match="each query must be"):
+        ev.mean_recall_at_budget([iter([[1], [0.5], [1], [1]])], 1)
+    with pytest.raises(ValueError, match="each query must be"):
+        ev.mean_recall_at_budget([([1],)], 1)
+
+
+def test_mean_ndcg_reads_each_query_once_and_names_a_bad_length():
+    # mean_ndcg now shares the ranking family's one input contract (#356): a three-tuple used
+    # to die with the bare "too many values to unpack".
+    assert ev.mean_ndcg([iter([[1, 0], [0.9, 0.1]])]) == 1.0
+    with pytest.raises(ValueError, match="each query must be"):
+        ev.mean_ndcg([([1, 0], [0.9, 0.1], [1, 1])])
+    with pytest.raises(ValueError, match="each query must be"):
+        ev.mean_ndcg([([1, 0],)])
+    with pytest.raises(ValueError, match="each query must be"):
+        ev.mean_ndcg([5])
+
+
+def test_top_k_query_accuracy_three_tuple_message_does_not_offer_recall_as_the_same_metric():
+    with pytest.raises(ValueError, match="exactly one relevant item") as err:
+        ev.top_k_query_accuracy([([1, 1, 0], [0.9, 0.5, 0.1], [1, 1, 1])])
+    assert "recall" in str(err.value)
+
+
+def test_top_k_query_accuracy_names_the_missing_eligible_argument_for_a_three_tuple():
+    # The docstring says this helper has no `eligible`; the three-tuple mean_recall_at_budget
+    # takes used to die with "too many values to unpack (expected 2)".
+    with pytest.raises(ValueError, match="no eligible argument"):
+        ev.top_k_query_accuracy([([1, 0], [0.9, 0.1], [1, 1])])
+    with pytest.raises(ValueError, match="pair"):
+        ev.top_k_query_accuracy([([1, 0],)])
+    with pytest.raises(ValueError, match="pair"):
+        ev.top_k_query_accuracy([([1], [0.5], [1], [1])])
+    # a one-shot pair is still a pair
+    assert ev.top_k_query_accuracy([iter([[1, 0], [0.9, 0.1]])]) == 1.0
+
+
+# ---------------------------------------------------------------- (accepted, correct) pair, action error rate, breakdown (#161)
+
+
+@dataclass
+class Res:
+    ticket_id: str
+    outcome: str
+    label: str
+
+
+# t1 linked A (gold A: right) ; t2 review B (gold Z: wrong, not accepted) ;
+# t3 no_match none (gold none: right) ; t4 linked C (gold D: wrong)
+RES = [
+    Res("t1", "linked", "A"),
+    Res("t2", "review", "B"),
+    Res("t3", "no_match", "none"),
+    Res("t4", "linked", "C"),
+]
+GOLD_BY_ID = {"t1": "A", "t2": "Z", "t3": "none", "t4": "D"}
+
+
+def _answered(r):
+    return r.outcome != "review"
+
+
+def test_accepted_and_correct_is_the_pair_evaluate_outcomes_takes():
+    accepted, correct = ev.accepted_and_correct(
+        RES,
+        GOLD_BY_ID,
+        accepted_when=_answered,
+        label_of=lambda r: r.label,
+        key_of=lambda r: r.ticket_id,
+    )
+    # accepted: t1 yes, t2 no (review), t3 yes, t4 yes ; correct is computed for EVERY result,
+    # the review one included (B != Z): right, wrong, right, wrong
+    assert accepted == [True, False, True, True]
+    assert correct == [True, False, True, False]
+    r = ev.evaluate_outcomes(accepted, correct)
+    # 3 of 4 answered; of those t1 and t3 right -> accuracy 2/3
+    assert (r.n_total, r.n_answered, r.coverage) == (4, 3, 0.75)
+    assert r.accuracy == pytest.approx(2 / 3)
+    # a parallel gold sequence is the same call, with no key_of
+    seq = ev.accepted_and_correct(
+        RES, ["A", "Z", "none", "D"], accepted_when=_answered, label_of=lambda r: r.label
+    )
+    assert seq == (accepted, correct)
+
+
+def test_accepted_and_correct_rejects_a_bad_gold_or_empty_results():
+    kw = {"accepted_when": lambda r: True, "label_of": lambda r: r.label}
+    with pytest.raises(ValueError, match="needs key_of"):
+        ev.accepted_and_correct(RES, GOLD_BY_ID, **kw)
+    with pytest.raises(ValueError, match="no gold label for key 't2'"):
+        ev.accepted_and_correct(RES, {"t1": "A"}, key_of=lambda r: r.ticket_id, **kw)
+    with pytest.raises(ValueError, match="key_of only applies"):
+        ev.accepted_and_correct(RES, ["A"] * 4, key_of=lambda r: r.ticket_id, **kw)
+    with pytest.raises(ValueError, match="same length"):
+        ev.accepted_and_correct(RES, ["A"], **kw)
+    with pytest.raises(ValueError, match="empty"):
+        ev.accepted_and_correct([], ["A"], **kw)
+
+
+def test_action_error_rate_counts_only_wrong_results_that_acted():
+    kw = {
+        "acts_when": lambda r: r.outcome == "linked",
+        "label_of": lambda r: r.label,
+        "key_of": lambda r: r.ticket_id,
+    }
+    # linked results are t1 (right) and t4 (wrong): 1 of 2
+    assert ev.action_error_rate(RES, GOLD_BY_ID, **kw) == 0.5
+    # a wrong no_match (accepted, wrong, but no side effect) lowers accuracy and not this rate
+    extra = [*RES, Res("t5", "no_match", "none")]
+    gold = {**GOLD_BY_ID, "t5": "X1"}
+    assert ev.action_error_rate(extra, gold, **kw) == 0.5
+    acc, ok = ev.accepted_and_correct(
+        extra, gold, accepted_when=_answered, label_of=lambda r: r.label, key_of=kw["key_of"]
+    )
+    # answered: t1, t3, t4, t5; right: t1, t3 -> 2 of 4
+    assert ev.evaluate_outcomes(acc, ok).accuracy == pytest.approx(2 / 4)
+    # nothing acted: undefined is NaN, never 0.0
+    assert nan(ev.action_error_rate(RES, GOLD_BY_ID, **{**kw, "acts_when": lambda r: False}))
+    with pytest.raises(ValueError, match="empty"):
+        ev.action_error_rate([], {}, **kw)
+    with pytest.raises(ValueError, match="needs key_of"):
+        ev.action_error_rate(RES, GOLD_BY_ID, **{k: v for k, v in kw.items() if k != "key_of"})
+
+
+def test_outcome_breakdown_tallies_each_outcome_by_right_and_wrong():
+    outcomes = ["ans", "rev", "ans", "none", "ans", "rev"]
+    correct = [1, 0, 0, 1, 1, 1]
+    tally = ev.outcome_breakdown(outcomes, correct)
+    # first-occurrence order; ans: examples 0, 2, 4 -> right, wrong, right ; rev: 1, 5 ->
+    # wrong, right ; none: 3 -> right
+    assert list(tally) == ["ans", "rev", "none"]
+    assert tally["ans"] == ev.OutcomeTally(right=2, wrong=1)
+    assert tally["rev"] == ev.OutcomeTally(right=1, wrong=1)
+    assert tally["none"] == ev.OutcomeTally(right=1, wrong=0)
+    assert sum(t.total for t in tally.values()) == len(outcomes)
+    assert tally["ans"].accuracy == pytest.approx(2 / 3)
+    # a stable table shape: an outcome that never happened is listed with zero counts and NaN
+    ordered = ev.outcome_breakdown(outcomes, correct, order=["none", "ans", "rev", "absent"])
+    assert list(ordered) == ["none", "ans", "rev", "absent"]
+    assert ordered["absent"] == ev.OutcomeTally(0, 0)
+    assert nan(ordered["absent"].accuracy)
+    with pytest.raises(ValueError, match="not among the order"):
+        ev.outcome_breakdown(outcomes, correct, order=["ans", "rev"])
+    with pytest.raises(ValueError, match="listed twice"):
+        ev.outcome_breakdown(outcomes, correct, order=["ans", "rev", "none", "ans"])
+    with pytest.raises(ValueError):
+        ev.outcome_breakdown([], [])
+    with pytest.raises(ValueError):
+        ev.outcome_breakdown(["a"], [1, 0])
+    with pytest.raises(ValueError):
+        ev.outcome_breakdown(["a"], [2])
+
+
+def test_outcome_breakdown_refuses_equal_labels_of_different_types():
+    # True == 1 and 1 == 1.0: as dictionary keys they would silently share one tally
+    with pytest.raises(ValueError, match="different kinds"):
+        ev.outcome_breakdown([True, 1], [1, 0])
+    with pytest.raises(ValueError, match="different kinds"):
+        ev.outcome_breakdown([1, 1.0], [1, 0])
+    with pytest.raises(ValueError, match="listed twice"):
+        ev.outcome_breakdown([True], [1], order=[True, 1])
+    with pytest.raises(ValueError, match="different kinds"):
+        ev.outcome_breakdown([1.0], [1], order=[1])
+    # equal labels of one kind are one outcome as before: one type, a str subclass, or a numpy
+    # scalar beside the Python value it stands for
+    assert ev.outcome_breakdown([1, 1], [1, 0]) == {1: ev.OutcomeTally(1, 1)}
+    assert ev.outcome_breakdown(["a", np.str_("a")], [1, 1]) == {"a": ev.OutcomeTally(2, 0)}
+    codes = ev.outcome_breakdown(np.array([0, 1, 0]), [1, 0, 1], order=[0, 1])
+    assert codes == {0: ev.OutcomeTally(2, 0), 1: ev.OutcomeTally(0, 1)}
+    flags = ev.outcome_breakdown([np.bool_(True), True], [1, 0])
+    assert flags == {True: ev.OutcomeTally(1, 1)}
+    with pytest.raises(ValueError, match="different kinds"):
+        ev.outcome_breakdown(np.array([1.0]), [1], order=[1])
+    # an unhashable label is a ValueError, like every other input error here
+    with pytest.raises(ValueError, match="not hashable"):
+        ev.outcome_breakdown([["a"]], [1])
+    with pytest.raises(ValueError, match="not hashable"):
+        ev.outcome_breakdown(["a"], [1], order=[["a"]])
+
+
+def test_accepted_and_correct_reads_the_held_back_label_of_a_review_result():
+    # A review result whose held-back label is right must be correct=True: outcome_curve,
+    # selective_curve and evaluate_selective select it below the gate. Forcing it to False
+    # reported accuracy 2/3 here instead of 1.0.
+    results = [Res("t1", "linked", "A"), Res("t2", "review", "B"), Res("t3", "no_match", "none")]
+    gold = {"t1": "A", "t2": "B", "t3": "none"}
+    accepted, correct = ev.accepted_and_correct(
+        results,
+        gold,
+        accepted_when=_answered,
+        label_of=lambda r: r.label,
+        key_of=lambda r: r.ticket_id,
+    )
+    assert accepted == [True, False, True]
+    assert correct == [True, True, True]
+    conf = [0.9, 0.5, 0.3]
+    curve = ev.outcome_curve(conf, correct, exempt=[False, False, True])
+    assert curve.accuracy.tolist() == [1.0, 1.0, 1.0]
+    assert ev.evaluate_selective(correct, conf, 0.5).accuracy == 1.0
+    assert ev.evaluate_outcomes(accepted, correct).accuracy == 1.0
+
+
+def test_action_error_rate_calls_label_of_only_for_results_that_acted():
+    def label_of(r):
+        if r.outcome != "linked":
+            raise AttributeError("only a linked result carries a link target")
+        return r.label
+
+    rate = ev.action_error_rate(
+        RES,
+        GOLD_BY_ID,
+        acts_when=lambda r: r.outcome == "linked",
+        label_of=label_of,
+        key_of=lambda r: r.ticket_id,
+    )
+    assert rate == 0.5
+
+
+def test_accepted_and_correct_and_action_error_rate_unwrap_choice_answers_like_accuracy():
+    class ChoiceStub:
+        def __init__(self, choice):
+            self.choice = choice
+
+    results = [Res("t1", "linked", "A"), Res("t3", "linked", "none")]
+    gold = {"t1": "A", "t3": ChoiceStub("X")}
+    kw = {"label_of": lambda r: ChoiceStub(r.label), "key_of": lambda r: r.ticket_id}
+    acc, ok = ev.accepted_and_correct(results, gold, accepted_when=lambda r: True, **kw)
+    assert ok == [True, False]
+    assert ev.accuracy(["A", "X"], [ChoiceStub("A"), ChoiceStub("none")]) == 0.5
+    assert ev.action_error_rate(results, gold, acts_when=lambda r: True, **kw) == 0.5
+
+    class NoulStub:
+        noul = 0.7
+
+    with pytest.raises(ValueError, match="compares Choice options"):
+        ev.accepted_and_correct(
+            results,
+            gold,
+            accepted_when=lambda r: True,
+            label_of=lambda r: NoulStub(),
+            key_of=kw["key_of"],
+        )
+
+
+def test_accepted_and_correct_names_an_unhashable_key_with_a_value_error():
+    with pytest.raises(ValueError, match="unhashable key"):
+        ev.accepted_and_correct(
+            RES,
+            GOLD_BY_ID,
+            accepted_when=_answered,
+            label_of=lambda r: r.label,
+            key_of=lambda r: [r.ticket_id],
+        )
+
+
+# ---------------------------------------------------------------- outcome_curve with a REJECT branch (#161)
+
+
+def test_outcome_curve_rejected_examples_are_never_selected_whatever_their_confidence():
+    # confidences 0.9 0.8 0.7 0.6, correct 1 1 0 1, example 1 (0.8) is rejected outright, so
+    # its 0.8 is not a threshold (it could only repeat the 0.9 row).
+    # t=0.9: {0}: coverage 1/4, accuracy 1 ; t=0.7: {0,2}: 2/4, accuracy 1/2 ;
+    # t=0.6: {0,2,3}: 3/4, accuracy 2/3
+    conf = [0.9, 0.8, 0.7, 0.6]
+    c = ev.outcome_curve(conf, [1, 1, 0, 1], rejected=[False, True, False, False])
+    assert c.thresholds.tolist() == [0.9, 0.7, 0.6]
+    assert c.coverage.tolist() == [0.25, 0.5, 0.75]
+    assert c.accuracy.tolist() == pytest.approx([1.0, 0.5, 2 / 3])
+    assert c.risk.tolist() == pytest.approx([0.0, 0.5, 1 / 3])
+    # the frozen-gate row is what the rule's own accounting gives (the point of the curve)
+    gate = 0.7
+    accepted = [cf >= gate and not rj for cf, rj in zip(conf, [0, 1, 0, 0], strict=True)]
+    own = ev.evaluate_outcomes(accepted, [1, 1, 0, 1])
+    row = list(c.thresholds).index(gate)
+    assert (c.coverage[row], c.accuracy[row]) == (own.coverage, own.accuracy)
+    # without the rejected mask the same call reports the confidence-only numbers instead
+    plain = ev.outcome_curve(conf, [1, 1, 0, 1])
+    assert plain.coverage[list(plain.thresholds).index(gate)] == 0.75 and c.coverage[1] == 0.5
+
+
+def test_outcome_curve_rejected_combines_with_exempt_and_matches_evaluate_outcomes_per_row():
+    conf = [0.95, 0.90, 0.60, 0.50, 0.40, 0.30]
+    correct = [1, 1, 0, 1, 0, 1]
+    exempt = [False, False, False, False, False, True]
+    rejected = [False, True, False, False, True, False]
+    c = ev.outcome_curve(conf, correct, exempt=exempt, rejected=rejected)
+    for t, cov, acc in zip(c.thresholds, c.coverage, c.accuracy, strict=True):
+        accepted = [
+            (not rj) and (ex or cf >= t) for cf, ex, rj in zip(conf, exempt, rejected, strict=True)
+        ]
+        own = ev.evaluate_outcomes(accepted, correct)
+        assert cov == own.coverage
+        assert acc == own.accuracy or (nan(acc) and nan(own.accuracy))
+    # by hand at t=0.5: confident enough and not rejected are 0 (0.95), 2 (0.60), 3 (0.50) ;
+    # the exempt 5 is always in -> {0, 2, 3, 5}: coverage 4/6, correct 1 0 1 1 -> accuracy 3/4
+    row = list(c.thresholds).index(0.5)
+    assert c.coverage[row] == pytest.approx(4 / 6)
+    assert c.accuracy[row] == pytest.approx(3 / 4)
+
+
+def test_outcome_curve_threshold_grid_skips_rejected_confidences_so_no_row_is_nan():
+    # A rejected 0.95 above every other confidence used to give a top row that selected
+    # nothing (coverage 0, NaN accuracy), so risk.min() and np.max(accuracy) were NaN.
+    c = ev.outcome_curve([0.95, 0.5], [1, 0], rejected=[True, False])
+    assert c.thresholds.tolist() == [0.5]
+    assert c.coverage.tolist() == [0.5]
+    assert c.accuracy.tolist() == [0.0]
+    assert not np.isnan(c.risk.min()) and not np.isnan(np.max(c.accuracy))
+    # every row of a mixed call selects something, so no row is NaN
+    mixed = ev.outcome_curve(
+        [0.99, 0.9, 0.8, 0.7, 0.3],
+        [1, 0, 1, 0, 1],
+        exempt=[False, False, False, False, True],
+        rejected=[True, False, True, False, False],
+    )
+    assert mixed.thresholds.tolist() == [0.9, 0.7, 0.3]
+    assert not any(nan(a) for a in mixed.accuracy)
+    # t=0.9: {1, exempt 4} -> 2/5, 1 of 2 ; t=0.7 and t=0.3: {1, 3, 4} -> 3/5, 1 of 3
+    assert mixed.coverage.tolist() == pytest.approx([0.4, 0.6, 0.6])
+    assert mixed.accuracy.tolist() == pytest.approx([0.5, 1 / 3, 1 / 3])
+
+
+def test_outcome_curve_with_everything_rejected_selects_nothing_and_is_nan_not_zero():
+    c = ev.outcome_curve([0.9, 0.5], [1, 0], rejected=[True, True])
+    assert c.coverage.tolist() == [0.0, 0.0]
+    assert all(nan(a) for a in c.accuracy) and all(nan(r) for r in c.risk)
+
+
+def test_outcome_curve_rejected_validation():
+    with pytest.raises(ValueError, match="both exempt and rejected"):
+        ev.outcome_curve([0.9, 0.5], [1, 0], exempt=[True, False], rejected=[True, False])
+    with pytest.raises(ValueError, match="same length"):
+        ev.outcome_curve([0.9, 0.5], [1, 0], rejected=[True])
+    with pytest.raises(ValueError):
+        ev.outcome_curve([0.9, 0.5], [1, 0], rejected=[2, 0])
+    with pytest.raises(TypeError):  # keyword-only
+        ev.outcome_curve([0.9, 0.5], [1, 0], None, [True, False])  # type: ignore[misc]
+
+
+def test_accepted_when_and_acts_when_must_return_a_bool_not_a_truthy_value():
+    # An outcome string is truthy: `lambda r: r.outcome` used to count every result as
+    # answered (coverage 1.0) with no error, where evaluate_outcomes refuses such values.
+    kw = {"label_of": lambda r: r.label, "key_of": lambda r: r.ticket_id}
+    with pytest.raises(ValueError, match="accepted_when must return a bool"):
+        ev.accepted_and_correct(RES, GOLD_BY_ID, accepted_when=lambda r: r.outcome, **kw)
+    with pytest.raises(ValueError, match="acts_when must return a bool"):
+        ev.action_error_rate(RES, GOLD_BY_ID, acts_when=lambda r: r.outcome, **kw)
+    with pytest.raises(ValueError, match="accepted_when must return a bool"):
+        ev.accepted_and_correct(RES, GOLD_BY_ID, accepted_when=lambda r: 2, **kw)
+    # bool, numpy bool and 0/1 are accepted as before
+    for flag in (True, np.bool_(True), 1):
+        accepted, _ = ev.accepted_and_correct(
+            RES, GOLD_BY_ID, accepted_when=lambda r, f=flag: f, **kw
+        )
+        assert accepted == [True] * len(RES)
