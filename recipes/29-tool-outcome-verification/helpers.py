@@ -124,11 +124,11 @@ _RETRY_REASONS = {
     FAILED: "reported failure: the evidence shows the request was not fulfilled",
 }
 
-# The next step CONTRIBUTING.md section 4 and this use case's build notes compose from the
-# verified outcome, read off the gold label alone (ignoring what Jev answered): what the system
-# *should* do once the true outcome is known. ``next_step_agreement`` below compares this
-# against what the rule actually did, which is the task-level metric this recipe's own
-# "Evaluation" reports alongside per-question accuracy.
+# The next step CONTRIBUTING.md section 4 composes from the verified outcome, read off the gold
+# label alone (ignoring what Jev answered): what the system *should* do once the true outcome is
+# known. ``next_step_agreement`` below compares this against what the rule actually did, which
+# is the task-level metric this recipe's own "Evaluation" reports alongside per-question
+# accuracy.
 NEXT_STEP = {
     COMPLETE: ACTION_HANDOFF,
     PARTIAL: ACTION_RETRY,

@@ -804,7 +804,7 @@ def main() -> None:
             )
         raise SystemExit(message)
     responses = build_responses(ROWS)
-    # The same serialization jev_cookbook.live._dump writes: only the top-level keys are
+    # The same serialization jev_cookbook.dump_responses writes: only the top-level keys are
     # sorted; each response keeps the field order DecisionResult.to_dict() emits. Matching the
     # recorder exactly, rather than json.dumps(..., sort_keys=True) (which also sorts every
     # nested dict alphabetically), keeps a recording's diff to the values that actually changed.
