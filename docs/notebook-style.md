@@ -166,6 +166,14 @@ reader (and a diff) can see the numbers a figure draws without reading pixels. S
 [recipe-template.md](recipe-template.md), "Choices the template makes for you", for the worked
 example.
 
+**Where a figure appears.** A chart helper's figure reaches the notebook as the cell's result when
+the cell ends with the `plot_*` call. When it does not (a `print` after the call), `apply_style()`
+shows the figure once at the end of the cell, below the cell's printed output, so statement order
+can no longer drop a committed figure. Put the `print` before the `plot_*` call anyway: the
+numbers then read above the figure that draws them, and the cell's output order matches its source.
+A figure is shown in the cell that drew it; to draw several panels into one figure, pass `ax=`
+and end the cell with that figure.
+
 **Title convention.** A figure's `title=` carries the pipeline-check disclosure, `{check}`, when
 it is plotted in a synthetic or scripted run, and no other disclosure label: a figure is read
 once, as a pipeline check or as a result, never additionally re-labelled as a selection step the
