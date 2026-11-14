@@ -89,6 +89,12 @@ _ASSIGNMENT = re.compile(
 # long "random" token. Any other word is scored whole, "/" included, because base64 keys
 # contain "/". Path-shaped: contains "://", starts with a real-looking absolute directory
 # (/home, /usr, ...), "./", "../" or a drive letter, or ends in a file-like suffix.
+# A recipe folder path, ``recipes/`` then the catalog's ``NN-words-joined-by-hyphens`` slug
+# shape (``recipes/84-bounding-box-self-verification``), is cut out of the word first: a slug
+# is two or more lowercase words or digit runs joined by "-", which no base64 key is, and it
+# ends at the first character that is not a lowercase letter, digit or "-", so any
+# punctuation, "/" or end of word may follow it. What is left of the word, a key before or
+# after such a path included, is scored as any other word, "/" and all.
 # Hexadecimal strings never reach the entropy threshold (16 symbols give at most 4.0 bits per
 # character), which is why they are not flagged; it also means a hex-format key is NOT caught
 # by this rule, only by the header, bearer and assignment rules.
@@ -96,6 +102,7 @@ _WORD = re.compile(r"""[^\s"'<>()\[\]{},;`]+""")
 _TOKEN = re.compile(r"[A-Za-z0-9_+=-]{32,}")
 _TOKEN_SLASH = re.compile(r"[A-Za-z0-9_+=/-]{32,}")
 _PATH_SHAPED = re.compile(r"://|^/[a-z_.-]+/|^\.{1,2}/|^[A-Za-z]:[\/]|\.[A-Za-z0-9]{1,5}$")
+_RECIPE_PATH = re.compile(r"recipes/[0-9]{1,3}-[a-z0-9]+(?:-[a-z0-9]+)+(?![a-z0-9-])")
 _DATA_URI = re.compile(r"data:[\w./+-]+;base64,[A-Za-z0-9+/=]+")
 _ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 _ENTROPY_THRESHOLD = 4.2
@@ -160,12 +167,13 @@ def _scan_secrets_line(line: str) -> Iterator[tuple[str, str]]:
         name = _NAME_GLUE.sub("", word.partition("=")[0])
         if _IDENT_ASSIGNMENT.fullmatch(word) and not _is_secret_name(name):
             continue
-        pattern = _TOKEN if _PATH_SHAPED.search(word) else _TOKEN_SLASH
-        for t in pattern.findall(word):
-            # Random base64 sometimes has no digit; "+", "/" or "=" then marks it as non-prose.
-            mixed = any(c.isalpha() for c in t) and any(c.isdigit() or c in "+/=" for c in t)
-            if mixed and _entropy(t) >= _ENTROPY_THRESHOLD:
-                yield "high-entropy-token", _mask(t)
+        for part in _RECIPE_PATH.sub(" ", word).split():
+            pattern = _TOKEN if _PATH_SHAPED.search(part) else _TOKEN_SLASH
+            for t in pattern.findall(part):
+                # Random base64 sometimes has no digit; "+", "/" or "=" then marks it as non-prose.
+                mixed = any(c.isalpha() for c in t) and any(c.isdigit() or c in "+/=" for c in t)
+                if mixed and _entropy(t) >= _ENTROPY_THRESHOLD:
+                    yield "high-entropy-token", _mask(t)
 
 
 def scan_text(text: str) -> list[tuple[int, str, str]]:
