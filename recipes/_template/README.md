@@ -52,8 +52,8 @@ In live mode this notebook makes exactly **22** requests, each decided once. Set
 The count above is declared once, in [`request_budget.json`](request_budget.json), and rendered
 here by `jev_cookbook.accounting.render_recipe_note`, never typed by hand. The recipe guard's
 `readme_budget_note_matches_request_audit` check compares the declaration, the notebook's own
-audited execution and this rendered paragraph against each other for every published recipe, and
-the template's own agreement is checked by `tests/test_template.py` using the same audit. The
+audited execution and this rendered paragraph against each other for every published recipe and
+for `recipes/_template`, whose agreement `tests/test_template.py` also pins with the same audit. The
 setup, the budget limit and the recorder are in [docs/live.md](../../docs/live.md). Never put a
 key in a notebook, fixture or committed file.
 
