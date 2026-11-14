@@ -902,25 +902,43 @@ def test_transition_label_examples_follow_the_stated_format_and_decode_for_the_m
     assert scored.exact_correct == len(pairs)
 
 
-def test_the_validator_checks_nothing_specific_to_transition_labels(tmp_path):
+def test_the_validator_accepts_the_documented_transition_labels(tmp_path):
     _, examples = _transition_label_section()
     shown = [row["label"] for row in examples]
     assert _validator_problems(tmp_path / "ok", shown) == []
-    malformed = [
-        {"transition": "opened", "seconds": -1.0},
-        {"transition": "opened", "seconds": "2.5"},
-        {"transition": "opened", "seconds": True},
-        {"transition": "opened", "seconds": None},
-        {"seconds": 2.5},
-        {"transition": "", "seconds": 1.0},
-        {"transition": "opened", "seconds": 2.5, "note": "x"},
-        {"transition": "uncertain"},
-    ]
-    for n, label in enumerate(malformed):
-        assert _validator_problems(tmp_path / f"bad{n}", [label]) == [], label
+    edge = [{"transition": "opened", "seconds": 0}, {"transition": "closed", "seconds": 7}]
+    assert _validator_problems(tmp_path / "edge", edge) == []
+
+
+@pytest.mark.parametrize(
+    ("label", "fragment"),
+    [
+        ({"transition": "opened", "seconds": -1.0}, "'seconds' must be a finite number, 0 or more"),
+        ({"transition": "opened", "seconds": "2.5"}, "'seconds' must be a number"),
+        ({"transition": "opened", "seconds": True}, "'seconds' must be a number"),
+        ({"transition": "opened", "seconds": None}, "leave the key out for a label with no time"),
+        ({"seconds": 2.5}, "label is not a transition label"),
+        ({"transition": "", "seconds": 1.0}, "'transition' must be a non-empty string"),
+        ({"transition": 3}, "'transition' must be a non-empty string"),
+        ({"transition": "opened", "seconds": 2.5, "note": "x"}, "a key other than"),
+        ({"transition": "uncertain"}, "the review label 'uncertain'"),
+        ("opened", "label is not a transition label"),
+    ],
+)
+def test_the_validator_rejects_each_malformed_transition_label(tmp_path, label, fragment):
+    problems = _validator_problems(tmp_path, [label])
+    assert len(problems) == 1 and fragment in problems[0], problems
+    assert "(id 's00')" in problems[0], problems
+
+
+def test_the_validator_rejects_a_non_finite_transition_time(tmp_path):
     # JSON reads 1e400 as inf, which json.dumps cannot write, so the text is replaced
     huge = [{"transition": "opened", "seconds": "huge"}]
-    assert _validator_problems(tmp_path / "huge", huge, raw=('"huge"', "1e400")) == []
+    problems = _validator_problems(tmp_path, huge, raw=('"huge"', "1e400"))
+    assert len(problems) == 1 and "finite number" in problems[0], problems
+
+
+def test_transition_and_box_labels_do_not_mix(tmp_path):
     # `present` is the Box format's marker: the validator reads the object as a Box label
     marked = {"transition": "opened", "seconds": 2.5, "present": True}
     problems = _validator_problems(tmp_path / "present", [marked])

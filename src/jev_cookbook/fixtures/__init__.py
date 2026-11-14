@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import codecs
 import json
+import math
 import os
 import re
 from collections import defaultdict
@@ -677,6 +678,60 @@ def _check_provenance_agreement(parsed: Mapping[str, DecisionResult], name: str)
     return problems
 
 
+# The review label `evaluation.transition_metrics` refuses as gold by default.
+_TRANSITION_REVIEW_LABEL = "uncertain"
+
+
+def _transition_label_problem(label: Any) -> str | None:
+    """Why ``label`` is not a gold transition label (``docs/fixtures.md``, "Transition labels")."""
+    if not isinstance(label, Mapping) or "transition" not in label:
+        return "label is not a transition label ({'transition': ...})"
+    extra = sorted(set(label) - {"transition", "seconds"})
+    if extra:
+        return f"transition label has a key other than 'transition' and 'seconds': {extra}"
+    name = label["transition"]
+    if not isinstance(name, str) or not name:
+        return f"'transition' must be a non-empty string, found {name!r}"
+    if name == _TRANSITION_REVIEW_LABEL:
+        return f"'transition' is the review label {name!r}; a gold label is a resolved transition"
+    if "seconds" in label:
+        seconds = label["seconds"]
+        if isinstance(seconds, bool) or not isinstance(seconds, int | float):
+            return (
+                f"'seconds' must be a number (leave the key out for a label with no time), "
+                f"found {seconds!r}"
+            )
+        if not math.isfinite(seconds) or seconds < 0:
+            return f"'seconds' must be a finite number, 0 or more, found {seconds!r}"
+    return None
+
+
+def _check_transition_labels(
+    labels: dict[str, Any], label_lines: dict[str, int], name: str
+) -> list[Problem]:
+    """A file whose labels are transition labels must use the gold format everywhere.
+
+    A top-level label object with a ``transition`` key declares the format, as ``present``
+    declares a Box label: every label of the file must then be a well-formed transition label.
+    A label that is also a top-level Box label is left to the Box check.
+    """
+    declared = next(
+        (i for i, v in labels.items() if isinstance(v, Mapping) and "transition" in v), None
+    )
+    if declared is None:
+        return []
+    problems: list[Problem] = []
+    for ident, label in labels.items():
+        if isinstance(label, Mapping) and "present" in label:
+            continue  # a Box label: the Box check reports this file's mix of formats
+        problem = _transition_label_problem(label)
+        if problem is not None:
+            if problem.startswith("label is not"):
+                problem += f" but other labels in this file are (for example id {declared!r})"
+            problems.append(Problem(name, problem, label_lines[ident], ident))
+    return problems
+
+
 def _strings(node: Any) -> list[str]:
     """Every string in a decoded JSON value, keys included (iterative: depth cannot overflow)."""
     out: list[str] = []
@@ -801,6 +856,7 @@ def validate_recipe(recipe_dir: PathLike | None = None) -> Report:
         problems += _check_examples(examples, labels if labels_ok else None, label_lines, names)
         if labels_ok:
             problems += _check_box_labels(labels, label_lines, names[1])
+            problems += _check_transition_labels(labels, label_lines, names[1])
     if replays and None not in responses_files:
         # Listed keys need the default file; with no key listed it is simply not needed.
         problems.append(Problem(_display(folder / RESPONSES_FILE), "file is missing"))

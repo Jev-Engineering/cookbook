@@ -502,10 +502,17 @@ def test_box_label_paths_keep_keys_as_written(recipe, key, where):
     expect(recipe, f"labels.jsonl:1 (id 't0'): malformed Box label at {where}: ")
 
 
-def test_transition_labels_beside_nested_box_labels_are_valid(recipe):
+def test_transition_labels_and_other_labels_do_not_mix(recipe):
+    """Once a label is a transition label, every label of the file must be one."""
     transition = {"transition": "opened", "seconds": 2.5}
     write(recipe, box_set({"target": BOX_LABEL}, transition, {"transition": "unchanged"}, "z"))
-    assert messages(recipe) == []
+    expect(
+        recipe,
+        "labels.jsonl:1 (id 't0'): label is not a transition label",
+        "labels.jsonl:4 (id 't3'): label is not a transition label ({'transition': ...}) but "
+        "other labels in this file are (for example id 't1')",
+    )
+    assert len(messages(recipe)) == 2
 
 
 def test_the_box_label_search_is_iterative():
