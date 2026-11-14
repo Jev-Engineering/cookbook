@@ -157,8 +157,10 @@ tests:
 from jev_cookbook.vision import image_request_profile, preflight_image_request
 
 
+# `requests` stands for however the recipe builds its requests: a list of (state, questions,
+# assets) in the form the notebook passes to `decide`.
 def test_every_request_fits_the_image_caps():
-    for state, questions, assets in helpers.requests():  # however the recipe builds them
+    for state, questions, assets in requests:
         preflight_image_request(image_request_profile(state, questions, assets))
 ```
 

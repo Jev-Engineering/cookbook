@@ -106,6 +106,21 @@ def test_a_long_question_list_is_cut_to_ten_with_a_count_of_the_rest():
     assert "and 15 more question(s) with copies" in text
 
 
+def test_the_questions_with_the_most_copies_are_listed_first():
+    per_question = {f"q{n:02d}": 1 for n in range(12)} | {"heavy": 40}
+    with pytest.raises(ImageRequestTooLarge) as caught:
+        preflight_image_request(ImageRequestProfile(1, MIB, 52, CAP + 1, 0, per_question))
+    text = str(caught.value)
+    assert "per question {'heavy': 40, 'q00': 1," in text  # ties keep the request's order
+    assert "and 3 more question(s) with copies" in text
+
+
+@pytest.mark.parametrize("encoded", ["====", "A===", "AAAA===="])
+def test_more_than_two_padding_characters_is_refused_not_counted_negative(encoded):
+    with pytest.raises(ValueError, match="padded base64"):
+        vision._encoded_size({"data_base64": encoded})
+
+
 # --- one profile per audited request ----------------------------------------------------------
 
 
@@ -135,6 +150,18 @@ def test_the_shared_profile_is_cleared_when_a_counter_raises(monkeypatch):
     assert accounting._ONE_REQUEST.get() is None
 
 
+def test_a_counter_that_counts_another_request_in_the_same_pass_gets_that_requests_profile(
+    monkeypatch,
+):
+    images = accounting.PROFILE_COUNTERS["images"]
+    other = ("<a>", {"q": Noul()}, {"<a>": sized(4)})  # one copy, unlike the request audited
+    # Sorted before "distinct_images" and "images", so it runs first in the pass.
+    monkeypatch.setitem(accounting.PROFILE_COUNTERS, "aa_other", lambda *args: images(*other))
+    state, questions, assets = "<a> <a> <a>", {"q": Noul()}, {"<a>": sized(4)}
+    profile = accounting._profile(state, questions, assets)
+    assert profile == {"aa_other": 1, "distinct_images": 1, "images": 3}
+
+
 def test_a_counter_called_outside_an_audit_still_counts():
     count = accounting.PROFILE_COUNTERS["images"]
     assert count("<a> <a>", {"q": Noul()}, {"<a>": sized(4)}) == 2
@@ -152,18 +179,18 @@ def _validator_length(encoded: str) -> int | None:
         return None
 
 
-# Canonical padded base64: whole groups of four, the last one optionally ending "==" or "=".
-_CANONICAL_BASE64 = re.compile(r"(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?")
+# Correctly padded base64 (trailing bits are not checked): whole groups of four, the last one optionally ending "==" or "=".
+_PADDED_BASE64 = re.compile(r"(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?")
 
 
-def test_the_validator_accepts_exactly_canonical_base64_on_every_python_version():
+def test_the_validator_accepts_exactly_correctly_padded_base64_on_every_python_version():
     # Before Python 3.13, b64decode(validate=True) also accepted excess padding such as "=" or
     # "AAAA="; the validator must refuse it everywhere, as 3.13 and later do.
     for length in range(0, 9):
         for chars in itertools.product("Aw+=", repeat=length):
             encoded = "".join(chars)
             accepted = _validator_length(encoded) is not None
-            assert accepted == bool(_CANONICAL_BASE64.fullmatch(encoded)), encoded
+            assert accepted == bool(_PADDED_BASE64.fullmatch(encoded)), encoded
     for excess in ("=", "==", "AAAA=", "AAAA==", "Aw==="):
         with pytest.raises(ValueError, match="standard base64"):
             vision._decode_base64(excess)

@@ -132,7 +132,9 @@ def _image_format(data: bytes) -> str:
 
 
 def _decode_base64(encoded: str) -> bytes:
-    """Decode canonical padded base64, with the same rule on every supported Python version.
+    """Decode correctly padded base64, with the same rule on every supported Python version.
+
+    Only the padding is checked, not the unused trailing bits of the last group.
 
     ``b64decode(validate=True)`` checks the alphabet and allows at most two trailing ``=``. Before
     Python 3.13 it also accepted excess padding after a complete group (``"="``, ``"AAAA="``),
@@ -313,9 +315,10 @@ def _encoded_size(asset: Mapping[str, Any]) -> int:
         encoded = asset["data_base64"]
     except (KeyError, TypeError):
         raise ValueError("image asset needs data_base64") from None
-    if not isinstance(encoded, str) or len(encoded) % 4:
+    padding = len(encoded) - len(encoded.rstrip("=")) if isinstance(encoded, str) else 0
+    if not isinstance(encoded, str) or len(encoded) % 4 or padding > 2:
         raise ValueError("data_base64 must be a padded base64 string")
-    return len(encoded) // 4 * 3 - (len(encoded) - len(encoded.rstrip("=")))
+    return len(encoded) // 4 * 3 - padding
 
 
 def image_request_profile(
@@ -391,18 +394,23 @@ def preflight_image_request(profile: ImageRequestProfile) -> None:
         raise ImageRequestTooLarge(
             f"the request's {profile.distinct_assets} distinct image(s) are "
             f"{_bytes_text(profile.distinct_bytes)}, over the "
-            f"{REQUEST_IMAGE_LIMITS['distinct_bytes']:,}-byte (32 MiB) cap on all images in a "
+            f"{_cap_text(REQUEST_IMAGE_LIMITS['distinct_bytes'])} cap on all images in a "
             "request; use fewer or smaller images. Nothing was sent."
         )
     if profile.expanded_bytes > REQUEST_IMAGE_LIMITS["expanded_bytes"]:
         raise ImageRequestTooLarge(
             f"the request expands to {profile.copies} image copies of "
             f"{_bytes_text(profile.expanded_bytes)}, over the "
-            f"{REQUEST_IMAGE_LIMITS['expanded_bytes']:,}-byte (32 MiB) cap on the expanded request "
+            f"{_cap_text(REQUEST_IMAGE_LIMITS['expanded_bytes'])} cap on the expanded request "
             f"(each use of a reference adds the image again; {profile.state_copies} in the state, "
             f"{_question_copies_text(profile.per_question)}). Put a shared image in the state "
             "once and refer to it by path, or use fewer references. Nothing was sent."
         )
+
+
+def _cap_text(cap: int) -> str:
+    """A cap as exact bytes with its MiB size, both taken from the limit: "33,554,432-byte (32 MiB)"."""
+    return f"{cap:,}-byte ({cap / (1024 * 1024):g} MiB)"
 
 
 def _bytes_text(size: int) -> str:
@@ -418,11 +426,16 @@ _LISTED_QUESTIONS = 10
 
 
 def _question_copies_text(per_question: Mapping[str, int]) -> str:
-    """The questions that hold copies, at most ``_LISTED_QUESTIONS`` of them; zeros are left out."""
+    """The questions that hold copies, at most ``_LISTED_QUESTIONS`` of them; zeros are left out.
+
+    The questions with the most copies come first (ties in the request's order), so the ones
+    that push a request over the cap are never the ones cut off into "and N more".
+    """
     holding = {name: count for name, count in per_question.items() if count}
     if not holding:
         return "none in any question"
-    shown = dict(list(holding.items())[:_LISTED_QUESTIONS])
+    ranked = sorted(holding.items(), key=lambda item: -item[1])
+    shown = dict(ranked[:_LISTED_QUESTIONS])
     more = len(holding) - len(shown)
     tail = f" and {more} more question(s) with copies" if more else ""
     return f"per question {shown}{tail}"
