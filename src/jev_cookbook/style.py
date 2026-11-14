@@ -27,7 +27,6 @@ import io
 import json
 import math
 import textwrap
-import weakref
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -139,9 +138,12 @@ def _register_cmap() -> None:
 
 
 # Figures a chart helper returned in the current notebook cell that have not been displayed yet,
-# by id. Filled only while the notebook display is registered (see _register_notebook_display);
-# emptied at the end of every cell.
-_UNSHOWN: dict[int, weakref.ref[Figure]] = {}
+# by id. Each entry holds the figure itself, not a weak reference: a chart from an unassigned
+# ``plot_*(...)`` statement has no other owner, so the garbage collector could free it before
+# the end of the cell and the cell would show nothing. Holding it also keeps its id from being
+# reused by a later figure. Filled only while the notebook display is registered (see
+# _register_notebook_display); emptied at the end of every cell, so nothing outlives its cell.
+_UNSHOWN: dict[int, Figure] = {}
 _DISPLAY_ACTIVE = False
 
 
@@ -151,7 +153,7 @@ def _track(fig: Any) -> Any:
     if _DISPLAY_ACTIVE:
         root = _root_figure_of(fig)
         if isinstance(root, Figure):
-            _UNSHOWN[id(root)] = weakref.ref(root)
+            _UNSHOWN[id(root)] = root
     return fig
 
 
@@ -173,9 +175,8 @@ def _show_unshown() -> None:
     the cell's printed output; a figure that was the cell's result was already formatted and is
     not shown again.
     """
-    pending = [ref() for ref in _UNSHOWN.values()]
+    figures = list(_UNSHOWN.values())
     _UNSHOWN.clear()
-    figures = [fig for fig in pending if fig is not None]
     if not figures:
         return
     from IPython.display import display

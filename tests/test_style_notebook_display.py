@@ -165,6 +165,14 @@ def test_a_chart_that_is_the_cell_result_is_not_shown_twice(kernel_name, tmp_pat
     assert len(_images(outputs)) == 1
 
 
+def test_an_unassigned_chart_survives_garbage_collection_before_the_end_of_the_cell(
+    kernel_name, tmp_path
+):
+    cell = CHART + '\nimport gc\ngc.collect()\nprint("done")'
+    outputs = _run(SETUP, cell, kernel_name, tmp_path)
+    assert len(_images(outputs)) == 1
+
+
 def test_an_explicitly_displayed_chart_is_not_shown_again(kernel_name, tmp_path):
     cell = "from IPython.display import display\ndisplay(" + CHART + ')\nprint("done")'
     outputs = _run(SETUP, cell, kernel_name, tmp_path)
