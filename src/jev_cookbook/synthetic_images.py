@@ -654,21 +654,28 @@ def _triangle_up_columns(w: int, h: int) -> Iterable[tuple[int, int, int]]:
             yield r, first, last
 
 
+_TRIANGLE_DIRECTIONS = ("up", "down", "left", "right")
+
+
+def _check_direction(direction: Any) -> None:
+    if direction not in _TRIANGLE_DIRECTIONS:
+        raise ValueError("direction must be 'up', 'down', 'left' or 'right'")
+
+
 def _triangle_spans(w: int, h: int, direction: str) -> Iterable[tuple[int, int, int]]:
+    _check_direction(direction)
     if direction == "up":
         yield from _triangle_up_columns(w, h)
     elif direction == "down":
         for r, first, last in _triangle_up_columns(w, h):
             yield h - 1 - r, first, last
-    elif direction in ("left", "right"):
+    else:
         # Rotate an up-pointing triangle of width h and height w: its row r becomes column r.
         # The result is spans of one row each.
         for r, first, last in _triangle_up_columns(h, w):
             x = r if direction == "left" else w - 1 - r
             for y in range(first, last + 1):
                 yield y, x, x
-    else:
-        raise ValueError("direction must be 'up', 'down', 'left' or 'right'")
 
 
 _EMBLEMS = ("disc", "ring", "triangle", "bars", "stack")
@@ -677,6 +684,31 @@ _SHAPES = ("rect", "ellipse", "triangle", "triangle-down", "triangle-left", "tri
 # A line endpoint further than this from the origin is refused: a Bresenham line takes one step
 # per pixel of its length, so an unbounded endpoint would take unbounded time.
 _MAX_COORDINATE = 8192
+
+
+def _shape_box(x: Any, y: Any, w: Any, h: Any) -> None:
+    """Refuse an ``ellipse`` or ``triangle`` box the rasterisers could take unbounded time on.
+
+    They take one step per row (a ``left`` or ``right`` triangle, one per pixel of its box), so
+    the corner is held to ``_MAX_COORDINATE``, like a line endpoint, and each side to the largest
+    canvas side.
+    """
+    for value, label in ((x, "x"), (y, "y")):
+        _int(value, label)
+    for value, label in ((w, "w"), (h, "h")):
+        _int(value, label, minimum=1)
+    for value, label in ((x, "x"), (y, "y")):
+        if abs(value) > _MAX_COORDINATE:
+            raise ValueError(
+                f"{label} is {value}; a shape corner must be from -{_MAX_COORDINATE} "
+                f"to {_MAX_COORDINATE} pixels"
+            )
+    for value, label in ((w, "w"), (h, "h")):
+        if value > IMAGE_LIMITS["max_side"]:
+            raise ValueError(
+                f"{label} is {value}; a shape side must be from 1 to "
+                f"{IMAGE_LIMITS['max_side']} pixels"
+            )
 
 
 class Canvas:
@@ -755,6 +787,11 @@ class Canvas:
         if name is not None:
             self.objects[name] = drawn
         return drawn
+
+    def _refuse_used_name(self, name: str | None) -> None:
+        """Refuse a duplicate ``name`` up front (``_record`` says the same after drawing; #539)."""
+        if name is not None and name in self.objects:
+            raise ValueError(f"the name {name!r} is already used on this canvas")
 
     def _union(self, items: Sequence[Drawn]) -> Pixels:
         return (
@@ -837,16 +874,26 @@ class Canvas:
         **attrs: Any,
     ) -> Drawn:
         """An ellipse inscribed in the ``w`` x ``h`` rectangle at ``(x, y)``."""
-        _int(x, "x"), _int(y, "y"), _int(w, "w", minimum=1), _int(h, "h", minimum=1)
+        _shape_box(x, y, w, h)
         bounds = None
         inner = (x, y, w, h)
+        # Resolve every colour that will be used before the first pixel is drawn, so a bound,
+        # type, colour or duplicate-``name`` refusal draws nothing (other drawers still check the
+        # name after drawing; #539). A ring with no interior needs no fill (``None`` is accepted),
+        # but any other fill is resolved, so a bad colour name is refused.
+        self._refuse_used_name(name)
+        ring = None
         if outline is not None:
             ow = _int(outline_width, "outline_width", minimum=1)
-            bounds = self._spans(x, y, _ellipse_spans(w, h), _colour(outline))
+            ring = _colour(outline)
             inner = (x + ow, y + ow, w - 2 * ow, h - 2 * ow)
-        if inner[2] >= 1 and inner[3] >= 1:
+        interior = inner[2] >= 1 and inner[3] >= 1
+        paint = _colour(fill) if interior else None  # no interior: fill unresolved, as main
+        if ring is not None:
+            bounds = self._spans(x, y, _ellipse_spans(w, h), ring)
+        if paint is not None:
             ix, iy, iw, ih = inner
-            got = self._spans(ix, iy, _ellipse_spans(iw, ih), _colour(fill))
+            got = self._spans(ix, iy, _ellipse_spans(iw, ih), paint)
             if got:
                 bounds = got if bounds is None else _merge(bounds, got)
         return self._record(name, kind, bounds, **attrs)
@@ -865,10 +912,14 @@ class Canvas:
         **attrs: Any,
     ) -> Drawn:
         """An isosceles triangle in the ``w`` x ``h`` rectangle, apex up, down, left or right."""
-        _int(x, "x"), _int(y, "y"), _int(w, "w", minimum=1), _int(h, "h", minimum=1)
-        spans = list(_triangle_spans(w, h, direction))
+        _shape_box(x, y, w, h)
+        # Bound/type, direction, name, then colour (as ``ellipse``), all before any drawing.
+        _check_direction(direction)
+        self._refuse_used_name(name)
+        paint = _colour(fill)
+        spans = _triangle_spans(w, h, direction)  # streamed, not listed
         return self._record(
-            name, kind, self._spans(x, y, spans, _colour(fill)), direction=direction, **attrs
+            name, kind, self._spans(x, y, spans, paint), direction=direction, **attrs
         )
 
     def line(
@@ -1095,8 +1146,11 @@ class Canvas:
         name: str | None = None,
     ) -> Drawn:
         """A line-drawn symbol ('resistor', 'capacitor', 'valve' or 'ground') with leads."""
+        for value, label in ((x, "x"), (y, "y"), (w, "w"), (h, "h")):
+            _int(value, label)
         if w < 40 or h < 24:
             raise ValueError("a symbol needs at least 40x24 pixels")
+        self._refuse_used_name(name)
         cx, cy = x + w // 2, y + h // 2
         pen = _colour(colour)
         parts: list[Drawn]
@@ -1117,10 +1171,15 @@ class Canvas:
             ]
         elif symbol == "valve":
             half, tall = w // 4, (h * 3) // 4
+            top = cy - tall // 2
+            right_box = (cx - half, top, half, tall)
+            left_box = (cx, top, half, tall)
+            for box in (right_box, left_box):
+                _shape_box(*box)
             parts = [
                 self.line(x, cy, cx - half, cy, pen, 2),
-                self.triangle(cx - half, cy - tall // 2, half, tall, pen, direction="right"),
-                self.triangle(cx, cy - tall // 2, half, tall, pen, direction="left"),
+                self.triangle(*right_box, pen, direction="right"),
+                self.triangle(*left_box, pen, direction="left"),
                 self.line(cx + half, cy, x + w - 1, cy, pen, 2),
             ]
         elif symbol == "ground":
@@ -1377,11 +1436,16 @@ class Canvas:
         if level not in levels:
             raise ValueError(f"level must be one of {sorted(levels)}")
         fill, accent, glyph = levels[level]
+        for value, label in ((x, "x"), (y, "y"), (w, "w"), (h, "h")):
+            _int(value, label)
         icon_size = h - 12
         if icon_size < GLYPH_HEIGHT * scale + 4 or text_width(message, scale) > w - icon_size - 36:
             raise ValueError(f"the banner message {message!r} does not fit a {w}x{h} banner")
+        icon_box = (x + 10, y + 6, icon_size, icon_size)
+        _shape_box(*icon_box)
+        self._refuse_used_name(name)
         body = self.rect(x, y, w, h, fill, outline=accent, outline_width=2)
-        icon = self.ellipse(x + 10, y + 6, icon_size, icon_size, accent)
+        icon = self.ellipse(*icon_box, accent)
         mark = self.centered_text(icon, glyph, "white", scale)
         text = self.text(
             x + 20 + icon_size, y + (h - GLYPH_HEIGHT * scale) // 2, message, "ink", scale

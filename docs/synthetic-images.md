@@ -165,7 +165,13 @@ Colours are `PALETTE` names (`"ink"`, `"blue"`, ...) or `(r, g, b)`.
 
 `line` endpoints must be within 8192 pixels of the origin in each coordinate (a line may run off the
 canvas, and is clipped), and its width at most 1568, so a stray number cannot make the rasteriser
-walk billions of pixels.
+walk billions of pixels. `ellipse` and `triangle` have the same kind of bound: the top-left corner
+`x`, `y` must be within 8192 pixels of the origin, and `w`, `h` from 1 to 1568 (the largest canvas
+side). Anything else raises `ValueError` before anything is drawn. The composite drawers (`schematic_symbol`'s valve, `error_banner`'s icon) apply the same bound to the shapes they draw and refuse before drawing anything. This holds for the bound, type, colour and direction refusals; `ellipse`, `triangle`, `error_banner` and `schematic_symbol` check a duplicate `name` first, so a refusal draws nothing, while the other drawers still check it after drawing (#539). A shape inside the bound may run
+off the canvas and is clipped, but one wholly outside it still raises `ValueError` ("lies entirely
+outside"). The rasterisers take one step per row, and a `left` or `right` triangle one per pixel of
+its box, so a shape takes at most 1568 row steps (twice that for an ellipse with an outline),
+and a `left` or `right` triangle at most 1568 x 1568 pixel steps.
 
 **Text** uses a 5 by 7 bitmap font drawn for this module (MIT, like the repository), at an integer
 `scale`. It draws upper case Latin `A-Z`, digits `0-9`, space, the punctuation
@@ -175,7 +181,7 @@ typed as a base letter and a combining mark is one letter (Cyrillic Й, typed as
 breve, is the single letter Й). Lower case is then folded to upper case, and the folded text is what
 `attrs["text"]` reports. Any other character raises `ValueError` ("no glyph") instead of drawing a
 blank, and text with no visible character (only spaces) raises `ValueError` too ("no visible
-character"). In `text_block`, a line that is only spaces is not drawn but still takes its row, so it works as a blank separator line (`["TOTAL", " ", "42"]`), and the line after it keeps its pitch and its index in the part name (`name.line2`). `parts` holds one entry per visible line, `attrs["lines"]` counts every input line, and the block's box is the extent of the visible lines. A block with no visible character at all raises `ValueError` ("no visible character"), like a single text of only spaces; an empty string is still an error. `lines` must be a sequence, not a one-shot iterator: an iterator that yields a visible line raises `TypeError` before anything is drawn. There is no system font and no FreeType involved, which is what makes the pixels the
+character"). In `text_block`, a line that is only spaces is not drawn but still takes its row, so it works as a blank separator line (`["TOTAL", " ", "42"]`), and the line after it keeps its pitch and its index in the part name (`name.line2`). `parts` holds one entry per visible line, `attrs["lines"]` counts every input line, and the block's box is the extent of the visible lines. A block with no visible character at all raises `ValueError` ("no visible character"), like a single text of only spaces; an empty string is still an error. `lines` must be a sequence, not a one-shot iterator: when every line and argument is otherwise valid, an iterator that yields a visible line raises `TypeError`; with an invalid line or `scale`, the `ValueError` for that is raised first. Nothing is drawn either way. There is no system font and no FreeType involved, which is what makes the pixels the
 same everywhere.
 
 **Randomness** comes from `Rng`, splitmix64 written in integer arithmetic (`Rng(0).u64()` is
@@ -363,7 +369,13 @@ for entry in manifest["assets"]:
         assert si.check_reproducible(RECIPE_DIR, entry) in ("unchanged", "kept-committed-bytes")
 ```
 
-`reproduce` and `check_reproducible` raise `ValueError` for a generator string that names none of the scenes, for parameters that are not a mapping, for a missing or unexpected keyword, for a value the scene rejects, for a value of the wrong type that makes the scene raise a `TypeError` (an integer `object_size`, say), and for a manifest entry that is not a mapping or lacks `generator`, `parameters` or `path`. A value the scene does not validate can still raise another exception: an empty or one-element `start` raises `IndexError` and a dict `start` raises `KeyError`. A non-string `generator` raises `AttributeError`, a non-string `path` raises `TypeError`, and a missing committed file raises `FileNotFoundError`.
+`reproduce` and `check_reproducible` raise `ValueError` for a generator string that names none of the scenes, for parameters that are not a mapping, for a missing or unexpected keyword, for a value the scene rejects, for a value of the wrong type that makes the scene raise a `TypeError` (an integer `object_size`, say), and for a manifest entry that is not a mapping or lacks `generator`, `parameters` or `path`. A value the scene does not validate can still raise another exception. Each case below is stated for the values a JSON manifest can carry (Python's `json` module also reads `Infinity`, `-Infinity` and `NaN`), and where a Python caller can pass more, that is said too:
+
+- An empty or one-element `start` raises `IndexError`. A JSON object `start` (string keys, `{}` included) raises `KeyError`. From Python, a dict with the integer keys `0` and `1` is read like a list and draws.
+- An infinite value in `start`, `end` or `travel_seconds` raises `OverflowError` or `ValueError`; which one depends on the value and on `t` (for example `start` or `end` of `[Infinity, 110]` raises `ValueError` ("cannot convert float NaN to integer") at `t` of 0 and `OverflowError` ("cannot convert float infinity to integer") at `t` of 1 to 5, `travel_seconds` of `[0, Infinity]` raises `OverflowError` at any of those `t`, and `[Infinity, 4]` raises `ValueError` ("t1 must be after t0")). NaN, which Python's `json` module also reads, raises `ValueError`: `end` of `[NaN, 110]` ("cannot convert float NaN to integer"), `travel_seconds` of `[0, NaN]` ("t1 must be after t0"). A manifest written by `manifest_entry` cannot hold an infinity or NaN, because parameters are written with `allow_nan=False`.
+- A `generator` that is a JSON number, boolean, `null`, array or object raises `AttributeError`. From Python, `bytes` and `bytearray` raise `TypeError`.
+- A `path` that is a JSON number, boolean, `null`, array or object raises `TypeError`, and so does `bytes`. From Python, a `pathlib.Path` is accepted like the string.
+- A `path` that is empty (`''`) or names a directory (`assets`) raises `IsADirectoryError` on Linux and macOS and `PermissionError` on Windows (that is what `Path.read_bytes()` raises for a directory there). A missing committed file raises `FileNotFoundError`. A path that goes through a regular file (`assets/a.png/x.png`) raises `NotADirectoryError`.
 
 ## Byte stability and regeneration
 
