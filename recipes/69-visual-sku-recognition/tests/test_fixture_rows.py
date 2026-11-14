@@ -81,3 +81,23 @@ def test_build_responses_uses_the_keys_it_is_given():
     module = load_module_at(SCRIPT, "recipe69_build_fixtures_for_test_keys")
     keys = [f"k{index}" for index in range(len(module.ROWS))]
     assert list(module.build_responses(module.ROWS, keys)) == keys
+
+
+def test_main_draws_each_picture_once_for_the_check_and_the_writer(tmp_path, monkeypatch):
+    module = load_module_at(SCRIPT, "recipe69_build_fixtures_for_test_draw_once")
+    (tmp_path / "build_fixtures.py").write_text(
+        SCRIPT.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    monkeypatch.setattr(module, "HERE", tmp_path)
+    monkeypatch.setattr("sys.argv", ["build_fixtures.py"])
+    drawn = []
+    real_draw, real_reference = module.draw, module.draw_reference
+    monkeypatch.setattr(module, "draw", lambda row: drawn.append(row[0]) or real_draw(row))
+    monkeypatch.setattr(
+        module, "draw_reference", lambda sku: drawn.append(sku.name) or real_reference(sku)
+    )
+    monkeypatch.setattr(module, "build_inputs_and_labels", lambda rows: ([], []))
+    monkeypatch.setattr(module, "build_responses", lambda rows, keys=None: {})
+    module.main()
+    assert len(drawn) == len(module.ROWS) + len(module.helpers.CATALOG)
+    assert len(set(drawn)) == len(drawn)

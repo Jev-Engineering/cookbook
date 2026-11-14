@@ -3,11 +3,13 @@
 import hashlib
 import importlib.util
 import json
+import shutil
 from collections import Counter
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from PIL import Image
 
 from jev_cookbook import ChoiceAnswer, Provenance, get_backend, load_helpers, replay_key
 from jev_cookbook import synthetic_images as si
@@ -155,6 +157,25 @@ def test_reference_assets_returns_fresh_copies_each_call():
     again = helpers.reference_assets()
     assert again[name][1]["data_base64"] != "changed"
     assert list(again) == [sku.name for sku in helpers.CATALOG]
+
+
+def test_the_reference_cache_follows_a_rewritten_reference_file(tmp_path, monkeypatch):
+    # A process that rewrites a reference PNG (build_fixtures --overwrite-assets, run in-process)
+    # must see the new bytes and reference at once, not the ones loaded first.
+    shutil.copytree(RECIPE / "assets", tmp_path / "assets")
+    monkeypatch.setattr(helpers, "ROOT", tmp_path)
+    first = helpers.reference_assets()
+    target = tmp_path / helpers.CATALOG[0].reference_path
+    with Image.open(target) as picture:
+        changed = picture.convert("RGB")
+    changed.putpixel((0, 0), (1, 2, 3))
+    changed.save(target)
+    again = helpers.reference_assets()
+    name = helpers.CATALOG[0].name
+    assert again[name][0] != first[name][0]
+    assert again[name][1]["data_base64"] != first[name][1]["data_base64"]
+    assert helpers.reference_assets()[name][0] == again[name][0]
+    assert again[name][0] in helpers.build_questions()["sku"].criteria[name]
 
 
 # --- the gold label ----------------------------------------------------------------------------

@@ -315,16 +315,25 @@ def describe(row):
     )
 
 
-def write_images(rows, overwrite):
-    """Draw and save every image under the byte policy; return the manifest entries by path.
+def render_images(rows):
+    """``(references, queries)``: each reference as ``(sku, canvas)`` and each query as
+    ``(row, canvas)``, drawn once so the collision check and the writer see the same pictures."""
+    references = [(sku, draw_reference(sku)) for sku in helpers.CATALOG]
+    queries = [(row, draw(row)) for row in rows]
+    return references, queries
+
+
+def write_images(rows, overwrite, rendered=None):
+    """Save every image under the byte policy; return the manifest entries by path.
 
     The six reference images come first, then the queries. Raises ``si.RegenerationMismatch``
     (and saves nothing more) for a picture that differs from the committed file, unless
-    ``overwrite`` is true."""
+    ``overwrite`` is true. ``rendered`` is :func:`render_images`'s result when the caller already
+    drew the pictures (``main`` does, once, for the check as well); without it they are drawn here."""
+    references, queries = rendered if rendered is not None else render_images(rows)
     entries = []
-    for sku in helpers.CATALOG:
+    for sku, canvas in references:
         path = sku.reference_path
-        canvas = draw_reference(sku)
         status = canvas.write(HERE, path, overwrite=overwrite)
         print(f"{status}: {path}")
         description = (
@@ -332,9 +341,8 @@ def write_images(rows, overwrite):
             f"{sku.body} body, {sku.lid} lid and {sku.emblem} emblem, centred, in even light."
         )
         entries.append(canvas.manifest_entry(HERE, path, description))
-    for row in rows:
+    for row, canvas in queries:
         path = query_path(row[0])
-        canvas = draw(row)
         status = canvas.write(HERE, path, overwrite=overwrite)
         print(f"{status}: {path}")
         entries.append(canvas.manifest_entry(HERE, path, describe(row)))
@@ -345,15 +353,17 @@ def _fields(row):
     return {"capture": row[2], "image": query_path(row[0]), "condition": row[5]}
 
 
-def check_queries_differ_from_references(rows):
+def check_queries_differ_from_references(rows, rendered=None):
     """Raise ValueError if a query picture has the bytes of a reference image. That would be a
     fixture mistake (the query would be the catalogue's own picture), so it is checked here and
     not in ``helpers.build_request``, which accepts any image a user submits. It compares the
     bytes the images would be saved with, drawn here, so ``main`` can run it before it writes
-    anything."""
-    references = {draw_reference(sku).png(): sku.name for sku in helpers.CATALOG}
-    for row in rows:
-        data = draw(row).png()
+    anything. ``rendered`` is :func:`render_images`'s result, so the pictures checked are the
+    ones written; without it they are drawn here."""
+    refs, queries = rendered if rendered is not None else render_images(rows)
+    references = {canvas.png(): sku.name for sku, canvas in refs}
+    for row, canvas in queries:
+        data = canvas.png()
         if data in references:
             raise ValueError(
                 f"query {row[0]!r} has the bytes of the reference image of {references[data]}"
@@ -473,9 +483,10 @@ def main() -> None:
             "changed picture changes its replay keys (pass --force too to rewrite both); "
             "nothing was written"
         )
-    check_queries_differ_from_references(ROWS)
+    rendered = render_images(ROWS)
+    check_queries_differ_from_references(ROWS, rendered)
     try:
-        entries = write_images(ROWS, args.overwrite_assets)
+        entries = write_images(ROWS, args.overwrite_assets, rendered)
     except si.RegenerationMismatch as error:
         raise SystemExit(
             f"refused: {error}\nnothing else was written; to accept the redrawn picture, run "
