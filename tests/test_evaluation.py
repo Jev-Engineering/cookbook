@@ -2708,6 +2708,7 @@ def _load_private_name_scanner():
     return module
 
 
+@functools.cache
 def _own_private_modules() -> frozenset[str]:
     """The package's own underscore-prefixed modules and subpackages (``_canonical``)."""
     package = Path(ev.__file__).parent
@@ -2719,9 +2720,11 @@ def _own_private_modules() -> frozenset[str]:
 
 def _private_names_imported(source: str) -> list[str]:
     """Private NAMES of another jev_cookbook module that a module's source reaches into: an
-    imported ``_x`` or ``module._x`` through a bound module. The package is flat, so a relative
-    ``from .m import x`` / ``from . import x`` is rewritten to its absolute ``jev_cookbook`` form
-    first and the #209 recipe scanner runs on it. That scanner also bans private module PATHS
+    imported ``_x`` or ``module._x`` through a bound module. The helper resolves relative imports
+    for a module at the package top level (``evaluation.py``) only, so a relative
+    ``from .m import x`` / ``from . import x`` (level 1) is rewritten to its absolute ``jev_cookbook`` form
+    first and the #209 recipe scanner runs on it; a deeper relative import
+    (``level > 1``, ``from .. import x``) raises ``ValueError`` rather than resolve wrongly. That scanner also bans private module PATHS
     (rule a), which is for recipes: importing public names from the package's own underscore
     modules (``from ._canonical import plain_json``) is how the package shares internals, so
     exactly those module-path entries are dropped, and only for modules that exist here, as is
@@ -2731,7 +2734,9 @@ def _private_names_imported(source: str) -> list[str]:
 
     tree = ast.parse(source)
     for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and node.level >= 1:
+        if isinstance(node, ast.ImportFrom) and node.level > 1:
+            raise ValueError(f"nested relative import (level {node.level}) is not supported here")
+        if isinstance(node, ast.ImportFrom) and node.level == 1:
             node.module = ".".join(["jev_cookbook", *([node.module] if node.module else [])])
             node.level = 0
     scanner = _load_private_name_scanner()
@@ -2788,6 +2793,13 @@ def test_the_private_import_guard_catches_every_spelling(source, expected):
     # the guard the test above relies on, run on planted sources so it cannot pass vacuously; the
     # absolute spellings are tests/test_no_private_shared_names.py's own cases
     assert _private_names_imported(source) == expected
+
+
+def test_the_private_import_guard_refuses_nested_relative_imports():
+    # the guard resolves relative imports for a top-level module only; `from .. import x` would
+    # resolve to the wrong package, so it fails loudly
+    with pytest.raises(ValueError, match="nested relative import"):
+        _private_names_imported("from .. import x")
 
 
 @pytest.mark.parametrize(

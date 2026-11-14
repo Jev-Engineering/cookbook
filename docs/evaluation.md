@@ -1042,6 +1042,9 @@ assert metrics.tolerance_accuracy == 1.0  # over the 3 resolved examples
 assert metrics.tolerance_accuracy_all == 0.75  # over all 4 examples
 assert metrics.outcomes == ("within", "exact", "exact", "review")
 assert metrics.mean_signed_error_seconds == 0.25  # (+0.5 and 0.0) over n_timed = 2
+assert metrics.tolerance_correct == metrics.outcomes.count("exact") + metrics.outcomes.count(
+    "within"
+)  # 3 = 2 + 1
 ```
 
 **Review outcomes.** A predicted label in `uncertain_labels` is a review outcome; pass several
