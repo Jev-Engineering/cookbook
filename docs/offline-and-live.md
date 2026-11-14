@@ -315,3 +315,69 @@ A recorded fixture contains the answers and their provenance, never the state
 maintainer with a key. The notebook executor (`tools/execute_notebook.py`) never runs live and removes
 `JEV_COOKBOOK_*` and `TYPESAFE_*` from the kernel it starts, so a committed notebook cannot hold a
 live result by accident ([recipe-template.md](recipe-template.md#executing-a-notebook)).
+
+## Long-context workloads
+
+A long-context study needs inputs of a chosen size, and a text of thousands of characters does not
+belong in `inputs.jsonl`, where a reviewer has to read every line. Keep the recipe for the text in
+the example and generate the text:
+
+- `fields` holds the parameters, for example `{"seed": 7, "target_characters": 2000}`, and
+  whatever else decides the text (the position of an evidence passage, which distractors are
+  included).
+- The recipe's `helpers.build_state(fields)` builds the state from them. The notebook and the
+  recipe's tests call that same function ([fixtures.md](fixtures.md) describes `fields` and
+  `build_state`).
+- The replay key is a hash of the state `build_state` returns, so it follows from `fields` alone.
+  It is stable for a given seed when `build_state` depends on nothing but `fields`: the example
+  below hashes `"<seed>:<index>"` with SHA-256 for each sentence, so no clock, environment
+  variable or interpreter setting enters the text.
+
+The test below pins the replay key for one seed, shows that another seed and another length each
+give a different key, and shows that the row a recipe would commit stays short. In a recipe,
+`build_state` lives in `helpers.py`; replace the pinned key with the one your own `build_state`
+gives for the committed seed, after checking that it is the text you meant.
+
+```python
+import hashlib
+import json
+
+from jev_cookbook import Noul, replay_key
+
+WORDS = ("ledger", "invoice", "shipment", "warranty", "renewal", "audit", "tariff", "carrier")
+QUESTIONS = {"renewal": Noul(instructions="Does the document mention a renewal?")}
+
+
+def build_state(fields):  # in a recipe this lives in helpers.py
+    seed, target = fields["seed"], fields["target_characters"]
+    sentences, size, index = [], 0, 0
+    while size <= target:
+        digest = hashlib.sha256(f"{seed}:{index}".encode()).digest()
+        sentence = " ".join(WORDS[b % len(WORDS)] for b in digest[:8]) + "."
+        sentences.append(sentence)
+        size += len(sentence) + 1
+        index += 1
+    return {"document": " ".join(sentences)[:target]}
+
+
+def test_the_replay_key_is_stable_for_a_seed():
+    fields = {"seed": 7, "target_characters": 2000}
+    state = build_state(fields)
+    key = replay_key(state, QUESTIONS)
+    assert len(state["document"]) == 2000
+    assert build_state(dict(fields)) == state
+    assert key == "e02f7cf95ab3d7f540cfe056b94f9e437a739bc2494a64d86fc694eba4e642c9"
+    assert replay_key(build_state({**fields, "seed": 8}), QUESTIONS) != key
+    assert replay_key(build_state({**fields, "target_characters": 2001}), QUESTIONS) != key
+    row = json.dumps({"id": "e1", "split": "test", "fields": fields, "replay_keys": [key]})
+    assert len(row) < 300 and state["document"][:20] not in row
+```
+
+To report how large a generated text is, use
+[`context_size`](vision.md#context-size-and-the-comparison-table): it returns characters and
+UTF-8 bytes, which are not tokens. The token count of a request is the `usage.input_tokens` of a
+recorded response, and the limits that apply are in [live.md](live.md#context-limits). A character
+count or an offline run does not demonstrate a measured 262k-token inference
+([multimodal-track.md](multimodal-track.md#what-an-evaluation-must-show)). Report latency, input
+tokens and cost only when they were measured and recorded, with the model, the capture date and N,
+as section 2 of [CONTRIBUTING.md](../CONTRIBUTING.md) requires.
