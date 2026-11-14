@@ -577,7 +577,9 @@ it draws with the committed file under that byte policy. That file must stay byt
 scaffold's, so the choice cannot be left to the builder:
 `build_fixtures_test_text(recipe)` returns the text variant and
 `build_fixtures_test_text(recipe, "replay-images")` the image one, which is the file an image
-recipe commits.
+recipe commits. The recipe guard's byte-identity check on this file (G1(a) in
+`tests/test_recipe_guard.py`) holds a recipe that has an `assets/` folder to the image variant and
+every other replay recipe to the text variant.
 
 **What the scaffold passes offline.** `python -m jev_cookbook.fixtures validate`,
 `python tools/check_recipe_assets.py`, `python tools/check_hygiene.py`, `ruff check`,
