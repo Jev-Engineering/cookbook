@@ -5896,24 +5896,52 @@ def _locally_defined_function_names(tree: ast.AST) -> set[str]:
 
 def _extraction_checked(name: str, func: ast.FunctionDef) -> bool:
     """True if ``name`` is checked, anywhere in ``func``, by the ONE narrow idiom the
-    extraction route (below) trusts: ``assert <name> is not None`` (either operand order) --
-    not merely referenced in some assert, which a reviewer showed is satisfied by an unrelated
-    ``not in`` comparison or a wholly disconnected ``assert len(x) > 0``. ``is not None``
-    specifically claims "the extraction for this keyword actually matched something in the
-    real call"; that is the one fact this idiom can honestly stand for, so it is the only one
-    this route accepts. Only an assert that always runs counts (``_unconditional_asserts``)."""
+    extraction route (below) trusts: the bare statement ``assert <name> is not None`` (either
+    operand order). One side must be exactly the Name ``name`` and the other exactly the
+    constant ``None``; a wrapped operand such as ``(a or b) is not None``, ``(a, b) is not
+    None``, ``str(a) is not None`` or ``[a] is not None`` is not the idiom (the last three are
+    always true, the first holds whichever name matched). Not merely referenced in some assert,
+    which an unrelated ``not in`` comparison or a disconnected ``assert len(x) > 0`` would
+    satisfy. ``is not None`` specifically claims "the extraction for this keyword actually
+    matched something in the real call"; that is the one fact this idiom can honestly stand
+    for. Only an assert that always runs counts (``_unconditional_asserts``)."""
     for node in _unconditional_asserts(func.body):
         if not isinstance(node.test, ast.Compare):
             continue
         test = node.test
         if len(test.ops) != 1 or not isinstance(test.ops[0], ast.IsNot):
             continue
-        sides = (test.left, test.comparators[0])
-        if name not in {n for side in sides for n in _ast_names(side)}:
-            continue
-        if any(isinstance(side, ast.Constant) and side.value is None for side in sides):
-            return True
+        left, right = test.left, test.comparators[0]
+        for value, none in ((left, right), (right, left)):
+            if (
+                isinstance(value, ast.Name)
+                and value.id == name
+                and isinstance(none, ast.Constant)
+                and none.value is None
+            ):
+                return True
     return False
+
+
+def _extraction_literals(call: ast.Call) -> list[str] | None:
+    """The string literals an extracting call names, or ``None`` when the call cannot be read
+    as naming a fixed set. The first positional argument is the source (the tainted value);
+    every other argument, positional or keyword value, must be a plain string ``Constant``. A
+    starred argument, ``**kwargs``, a Name, a concatenation, an f-string, a nested call or any
+    other expression could carry a second objective spelling this check cannot see, so the call
+    then names nothing and is credited nothing. Constants are taken from the direct arguments
+    only, never from expressions nested inside them."""
+    if not call.args:
+        return None
+    extras = [*call.args[1:], *(keyword.value for keyword in call.keywords)]
+    if any(keyword.arg is None for keyword in call.keywords):
+        return None
+    literals: list[str] = []
+    for extra in extras:
+        if not (isinstance(extra, ast.Constant) and isinstance(extra.value, str)):
+            return None
+        literals.append(extra.value)
+    return literals
 
 
 def _spellings_pinned_by_assertions(
@@ -5963,25 +5991,29 @@ def _spellings_pinned_by_assertions(
         target = node.targets[0].id
         if not _extraction_checked(target, func):
             continue
-        constants = [
-            const.value
-            for const in ast.walk(node.value)
-            if isinstance(const, ast.Constant) and isinstance(const.value, str)
-        ]
+        constants = _extraction_literals(node.value)
+        if constants is None:
+            continue
         # The extraction ties its result to ONE objective spelling only when the call names one:
         # ``_pull(source, "min_coverage", "target_accuracy")`` followed by ``is not None`` holds
         # whichever of the two the notebook uses, so it pins neither and is credited nothing
-        # (#338). Constants that name no objective (the threshold function's own name) are kept.
-        named = {
+        # (#338). A constant names a spelling only by exact equality (``"f1-gate"`` names none).
+        # Constants that name no objective (the threshold function's own name) are kept.
+        all_spellings = {
             spelling
             for spellings in THRESHOLD_OBJECTIVE_SPELLINGS.values()
             for spelling in spellings
-            for value in constants
-            if _objective_token_present(spelling, value)
         }
-        if len(named) > 1:
+        if len(all_spellings & set(constants)) > 1:
             continue
-        pinned.update(constants)
+        # A constant that merely contains a spelling as a token (a cell id like "f1-gate") is not
+        # one: it is dropped, so the later token match cannot read it as that spelling.
+        pinned.update(
+            value
+            for value in constants
+            if value in all_spellings
+            or not any(_objective_token_present(spelling, value) for spelling in all_spellings)
+        )
 
     return pinned
 
@@ -6251,14 +6283,54 @@ def test_probe():
     assert "min_coverage" in pinned, "the one-spelling extraction is still credited"
 
 
-def _flip_notebook_call(folder: Path, cell_id: str, old: str, new: str) -> None:
-    path = folder / "notebook.ipynb"
-    notebook = json.loads(path.read_text("utf-8"))
-    cell = next(c for c in notebook["cells"] if c.get("id") == cell_id)
-    source = cell_source(cell)
-    assert source.count(old) == 1, f"the flip did not find {old!r} once in cell {cell_id}"
-    cell["source"] = source.replace(old, new).splitlines(keepends=True)
-    path.write_text(json.dumps(notebook), "utf-8")
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        (
+            'a = _pull(source, "min_coverage")\n    b = _pull(source, "target_accuracy")\n'
+            "    assert (a or b) is not None",
+            set(),
+        ),
+        (
+            'a = _pull(source, "min_coverage")\n    b = _pull(source, "target_accuracy")\n'
+            "    assert (a, b) is not None",
+            set(),
+        ),
+        ('a = _pull(source, "min_coverage")\n    assert str(a) is not None', set()),
+        ('a = _pull(source, "min_coverage")\n    assert [a] is not None', set()),
+        ('a = _pull(source, "min_coverage", OTHER)\n    assert a is not None', set()),
+        ('a = _pull(source, "min_coverage", *OTHERS)\n    assert a is not None', set()),
+        (
+            'a = _pull(source, "min_coverage", "target" + "_accuracy")\n    assert a is not None',
+            set(),
+        ),
+        ('a = _pull(source, "min_coverage", fallback=FALLBACK)\n    assert a is not None', set()),
+        ('a = _pull(source, "min_coverage", **OTHERS)\n    assert a is not None', set()),
+        (
+            'a = _pull(source, "min_coverage", cell("precision_at_recall-notes"))\n'
+            "    assert a is not None",
+            set(),
+        ),
+        (
+            'a = _pull(source, "min_coverage", fallback="select_confidence_threshold")\n'
+            "    assert None is not a",
+            {"min_coverage", "select_confidence_threshold"},
+        ),
+        (
+            'a = _pull(source, "f1-gate", "min_coverage")\n    assert a is not None',
+            {"min_coverage"},
+        ),
+    ],
+)
+def test_extraction_route_credits_only_one_literal_spelling(body, expected):
+    """#338: the extraction route credits a call only when every argument after the source is a
+    plain string literal naming at most one objective spelling exactly, checked by the bare
+    ``assert name is not None``."""
+    func = _single_test_function(
+        f"def test_probe():\n    source = read_the_real_notebook()\n    {body}\n"
+    )
+    pinned = _spellings_pinned_by_assertions(func, {"source", "a", "b"}, locally_defined={"_pull"})
+    assert pinned == expected, pinned
 
 
 def test_flipping_recipe_42s_objective_turns_its_extraction_pin_red(tmp_path):
@@ -6268,7 +6340,7 @@ def test_flipping_recipe_42s_objective_turns_its_extraction_pin_red(tmp_path):
     pooled two-spelling shape (the one that used to pass a flipped notebook) it stays red."""
     folder = _copy_recipe(tmp_path, "42-outbound-disclosure-screening")
     assert _objective_pin_violations(folder) == []
-    _flip_notebook_call(folder, "python-rule", "min_coverage=0.75", "target_accuracy=1.0")
+    _edit_notebook_code(folder, "min_coverage=0.75", "target_accuracy=1.0")
     assert _objective_pin_violations(folder), "the flipped objective still passed"
 
     tests_file = folder / "tests" / "test_helpers.py"
@@ -6286,7 +6358,13 @@ def test_flipping_recipe_42s_objective_turns_its_extraction_pin_red(tmp_path):
         "            return value\n"
         "    return None\n"
     )
+    # Precondition: the helper is seen as locally defined, so the same pin with ONE spelling
+    # (the helper appended, the genuine call kept) is still credited.
+    tests_file.write_text(text + helper, "utf-8")
+    assert "min_coverage" in _pinned_objective_spellings(folder)
     tests_file.write_text(text.replace(genuine, pooled) + helper, "utf-8")
+    pinned = _pinned_objective_spellings(folder)
+    assert not {"min_coverage", "target_accuracy"} & pinned, pinned
     assert _objective_pin_violations(folder), "the pooled extraction passed a flipped notebook"
 
 
@@ -6294,12 +6372,7 @@ def test_flipping_recipe_28s_objective_turns_its_production_tie_pin_red(tmp_path
     """#338's flip-mutation test for the production-tie route, on the recipe that uses it (28)."""
     folder = _copy_recipe(tmp_path, "28-skill-selection")
     assert _objective_pin_violations(folder) == []
-    _flip_notebook_call(
-        folder,
-        "confidence-gate",
-        "min_coverage=helpers.MARGIN_MIN_COVERAGE",
-        "target_accuracy=1.0",
-    )
+    _edit_notebook_code(folder, "min_coverage=helpers.MARGIN_MIN_COVERAGE", "target_accuracy=1.0")
     assert _objective_pin_violations(folder), "the flipped objective still passed"
 
 
@@ -6997,8 +7070,11 @@ def _objective_pin_violations(recipe_dir_: Path) -> list[str] | None:
                 "routes: (1) an assert that CLAIMS the spelling is present in a value derived "
                 "from a read of the committed notebook.ipynb / helpers.py (not a tmp_path copy) "
                 "or from inspect.getsource(helpers.<fn>); (2) `name = _your_helper(source, ...)` "
-                "through a function defined in the test file, then `assert name is not None` "
-                "(the only truthiness check credited there); (3) a production call tied by `==` "
+                "through a function defined in the test file, whose every argument after "
+                "`source` is a plain string literal (no names, `*args`, `**kwargs`, "
+                "concatenation or calls) naming at most one objective spelling exactly, then the "
+                "bare `assert name is not None` (the only check credited there; not a wrapped "
+                "operand); (3) a production call tied by `==` "
                 "to a local re-derivation, with a `!=` assert against a sibling objective. "
                 "`is False`, `.count(...) == 0` and a hand-typed copy of the needle in the "
                 "compared value do not count. Only asserts that run count: directly in a "
