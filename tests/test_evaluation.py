@@ -2689,3 +2689,170 @@ def test_accepted_when_and_acts_when_must_return_a_bool_not_a_truthy_value():
             RES, GOLD_BY_ID, accepted_when=lambda r, f=flag: f, **kw
         )
         assert accepted == [True] * len(RES)
+
+
+# ---------------------------------------------------------------- transitions: #340 frames follow-ups
+
+
+def _private_names_imported(source: str) -> list[str]:
+    """Private names of another jev_cookbook module that a top-level module reaches into.
+
+    Reported: a private imported name in ``from .m import _x`` / ``from jev_cookbook.m import _x``,
+    and a private attribute reached on a name bound to a jev_cookbook module (``frames._x``,
+    ``jev_cookbook.frames._x``, ``f._x``). Module paths are never reported, and ``from . import m``
+    binds a module, so ``from . import _canonical`` is allowed. Level > 1 raises ValueError.
+    """
+    import ast
+
+    def private(name: str) -> bool:
+        return name.startswith("_") and not (name.startswith("__") and name.endswith("__"))
+
+    reported: list[str] = []
+    bound: dict[str, str] = {}  # local name -> dotted jev_cookbook module path
+    modules: set[str] = set()  # every dotted module path an import statement names
+    tree = ast.parse(source)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            if node.level > 1:
+                raise ValueError(f"nested relative import (level {node.level}) is not supported")
+            if node.level == 1:
+                path = ".".join(["jev_cookbook", *([node.module] if node.module else [])])
+            else:
+                path = node.module or ""
+            if path.split(".")[0] != "jev_cookbook":
+                continue
+            modules.add(path)
+            for alias in node.names:
+                if path == "jev_cookbook":  # `from . import m`: binds a module
+                    bound[alias.asname or alias.name] = f"{path}.{alias.name}"
+                    modules.add(f"{path}.{alias.name}")
+                elif private(alias.name):
+                    reported.append(f"from {path} import {alias.name}")
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name.split(".")[0] != "jev_cookbook":
+                    continue
+                parts = alias.name.split(".")
+                modules.update(".".join(parts[: i + 1]) for i in range(len(parts)))
+                if alias.asname:
+                    bound[alias.asname] = alias.name
+                else:
+                    bound["jev_cookbook"] = "jev_cookbook"
+    inner = {id(n.value) for n in ast.walk(tree) if isinstance(n, ast.Attribute)}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Attribute) or id(node) in inner:
+            continue
+        attrs: list[str] = []
+        base: ast.expr = node
+        while isinstance(base, ast.Attribute):
+            attrs.insert(0, base.attr)
+            base = base.value
+        if not isinstance(base, ast.Name) or base.id not in bound:
+            continue
+        current = bound[base.id]
+        for attr in attrs:
+            if f"{current}.{attr}" in modules:
+                current = f"{current}.{attr}"
+            elif private(attr):
+                reported.append(f"{current}.{attr}")
+                break
+            else:
+                break
+    return reported
+
+
+def test_evaluation_imports_no_private_name_from_another_module():
+    # #340: evaluation.py imported the private `frames._seconds`. A private name is not an
+    # interface between modules; the seconds rule is now this module's own private check.
+    # The package-wide rule is #532; this is the rule for evaluation.py alone.
+    source = Path(ev.__file__).read_text(encoding="utf-8")
+    assert _private_names_imported(source) == []
+    # and the same source with the old import put back is caught, so this cannot pass vacuously
+    assert _private_names_imported(source + "\nfrom .frames import _seconds\n")
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("from .frames import _seconds", ["from jev_cookbook.frames import _seconds"]),
+        ("from . import frames\nframes._seconds(1, 'x')", ["jev_cookbook.frames._seconds"]),
+        (
+            "import jev_cookbook.frames\njev_cookbook.frames._seconds(1, 'x')",
+            ["jev_cookbook.frames._seconds"],
+        ),
+        ("import jev_cookbook.frames as f\nf._seconds", ["jev_cookbook.frames._seconds"]),
+        ("from jev_cookbook.frames import _seconds", ["from jev_cookbook.frames import _seconds"]),
+        ("from ._canonical import plain_json", []),
+        ("import jev_cookbook._canonical\njev_cookbook._canonical.plain_json(x)", []),
+        ("from .fixtures._scan import scan_text", []),
+        ("from . import _canonical", []),
+        ("from . import _canonical\n_canonical._x", ["jev_cookbook._canonical._x"]),
+        ("from ._canonical import _x", ["from jev_cookbook._canonical import _x"]),
+        ("from .frames import TIME_EPSILON\nTIME_EPSILON._x", []),
+        ("from .frames import __all__", []),
+        ("import math\nmath._private", []),
+        ("import os\nos._exit", []),
+    ],
+)
+def test_the_private_import_guard_catches_every_spelling(source, expected):
+    # the guard the test above relies on, run on planted sources so it cannot pass vacuously
+    assert _private_names_imported(source) == expected
+
+
+def test_the_private_import_guard_refuses_nested_relative_imports():
+    # the guard resolves relative imports for a top-level module only; `from .. import x` would
+    # resolve to the wrong package, so it fails loudly
+    with pytest.raises(ValueError, match="nested relative import"):
+        _private_names_imported("from .. import x")
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        0,
+        0.0,
+        1,
+        2.5,
+        10**6,
+        np.float64(0.25),
+        np.int64(3),
+        -0.0,
+        -1,
+        -1e-12,
+        True,
+        False,
+        float("nan"),
+        float("inf"),
+        -float("inf"),
+        "1.0",
+        None,
+        10**400,
+        [1.0],
+    ],
+)
+def test_the_seconds_rule_in_evaluation_matches_the_one_in_frames(value):
+    from jev_cookbook import frames
+
+    def outcome(check):
+        try:
+            return ("ok", check(value, "t"))
+        except ValueError as exc:
+            return ("error", str(exc))
+
+    assert outcome(ev._seconds) == outcome(frames._seconds)
+
+
+def test_tolerance_correct_is_cumulative_while_the_within_outcome_is_exclusive():
+    gold = [("opened", 2.5), ("closed", 5.0), ("unchanged", None), ("opened", 1.0), ("x", 1.0)]
+    predicted = [
+        ("opened", 3.0),  # within tolerance, not exact
+        ("closed", 5.0),  # exact
+        ("unchanged", None),  # exact
+        ("uncertain", None),  # review
+        ("x", 9.0),  # wrong: too late
+    ]
+    m = ev.transition_metrics(gold, predicted, tolerance_seconds=1.0)
+    assert m.outcomes == ("within", "exact", "exact", "review", "wrong")
+    assert m.exact_correct == m.outcomes.count("exact") == 2
+    assert m.outcomes.count("within") == 1
+    assert m.tolerance_correct == m.outcomes.count("exact") + m.outcomes.count("within") == 3

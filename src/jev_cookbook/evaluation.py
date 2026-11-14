@@ -33,7 +33,7 @@ from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 
-from .frames import TIME_EPSILON, _seconds
+from .frames import TIME_EPSILON
 
 __all__ = [
     "BootstrapResult",
@@ -2324,12 +2324,37 @@ def sum_usage(usages: Iterable[Mapping[str, Any] | None]) -> UsageTotals:
 # --------------------------------------------------------------------------- Transitions
 
 
+def _seconds(value: Any, name: str) -> float:
+    """A finite, non-negative number of seconds, or ``ValueError`` naming ``name``.
+
+    The same rule ``jev_cookbook.frames`` applies to its own timestamps, kept here as this
+    module's own private check rather than imported from the private name in ``frames`` (a
+    private name is not an interface between modules; ``tests/test_evaluation.py`` pins that the
+    two rules agree). Unlike ``frames._seconds`` it has no ``positive=`` option, because no caller
+    here needs a strictly positive time; add it (and extend the parity test) if one does."""
+    if isinstance(value, bool) or not isinstance(value, numbers.Real):
+        raise ValueError(f"{name} must be a finite number of seconds")
+    try:
+        number = float(value)
+    except OverflowError as exc:
+        raise ValueError(f"{name} must be a finite number of seconds") from exc
+    if not math.isfinite(number):
+        raise ValueError(f"{name} must be a finite number of seconds")
+    if number < 0:
+        raise ValueError(f"{name} must be non-negative")
+    return number
+
+
 @dataclass(frozen=True)
 class TransitionMetrics:
     """Event or transition accuracy over labelled frame sequences, denominators explicit.
 
     ``n_examples`` = ``n_uncertain`` + ``n_resolved``. ``exact_correct`` and
-    ``tolerance_correct`` count resolved examples only; ``*_accuracy`` divides by
+    ``tolerance_correct`` count resolved examples only. ``tolerance_correct`` is
+    **cumulative**: it counts every example within tolerance, the exact ones included, so
+    ``tolerance_correct == outcomes.count("exact") + outcomes.count("within")``, while the
+    per-example outcome ``"within"`` is **exclusive** (within tolerance but not exact). A README
+    quoting "within tolerance" says which of the two it means; ``*_accuracy`` divides by
     ``n_resolved`` and ``*_accuracy_all`` by ``n_examples`` (a review outcome counts as not
     correct there). ``uncertain_rate`` is ``n_uncertain / n_examples``.
 
@@ -2418,7 +2443,10 @@ def transition_metrics(
     A resolved prediction is *exactly* correct when its label equals gold's and its time
     equals gold's (both ``None``, or within 1e-9 s); *within tolerance* when the label
     matches and the times are both ``None`` or differ by at most ``tolerance_seconds``
-    (plus the same 1e-9 s of float slack). The headline time error is predicted minus gold,
+    (plus the same 1e-9 s of float slack). ``tolerance_correct`` counts every result within
+    tolerance, the exact ones included, while the per-example outcome ``"within"`` means within
+    tolerance but not exact: ``tolerance_correct == outcomes.count("exact") +
+    outcomes.count("within")``. The headline time error is predicted minus gold,
     only where the labels match and both give a time; ``*_any_label`` fields drop the label
     condition. Accuracies with a zero denominator are NaN. Pass the largest gap between the
     sampled frames as ``max_sampling_interval_seconds`` to have the result record it and flag
@@ -2443,7 +2471,7 @@ def transition_metrics(
     else:
         reviews = list(uncertain_labels)
 
-    uncertain = exact = within = missed = spurious = 0
+    uncertain = exact = tolerance_ok = missed = spurious = 0
     errors: list[float] = []
     errors_any: list[float] = []
     outcomes: list[str] = []
@@ -2481,7 +2509,8 @@ def transition_metrics(
                 elif gap <= tolerance + TIME_EPSILON:
                     outcome = "within"
         exact += outcome == "exact"
-        within += outcome in ("exact", "within")
+        # cumulative: an exact result is also within tolerance (the outcome "within" is not)
+        tolerance_ok += outcome in ("exact", "within")
         outcomes.append(outcome)
     n = len(actual)
     resolved = n - uncertain
@@ -2490,11 +2519,11 @@ def transition_metrics(
         n_uncertain=uncertain,
         n_resolved=resolved,
         exact_correct=exact,
-        tolerance_correct=within,
+        tolerance_correct=tolerance_ok,
         exact_accuracy=_safe_div(exact, resolved),
-        tolerance_accuracy=_safe_div(within, resolved),
+        tolerance_accuracy=_safe_div(tolerance_ok, resolved),
         exact_accuracy_all=exact / n,
-        tolerance_accuracy_all=within / n,
+        tolerance_accuracy_all=tolerance_ok / n,
         uncertain_rate=uncertain / n,
         tolerance_seconds=tolerance,
         n_timed=len(errors),
