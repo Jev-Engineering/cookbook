@@ -57,6 +57,7 @@ __all__ = [
     "load_frames",
     "localization_metrics",
     "localization_report",
+    "model_comparison",
     "normalized_box",
     "normalized_to_pixels",
     "preflight_image_request",
@@ -1514,3 +1515,68 @@ def comparison_table(rows: Iterable[Mapping[str, Any]]) -> str:
         ).rstrip()
 
     return "\n".join([line(columns), line(["-" * width for width in widths]), *map(line, body)])
+
+
+# A pinned model ID names one release; ``jev-latest`` and ``jev-preview`` are moving aliases that
+# can answer from a different release on a later run (docs/live.md, "Models").
+_PINNED_MODEL = re.compile(r"jev-[0-9]+\.[0-9]+\.[0-9]+")
+
+
+def model_comparison(
+    rows: Iterable[Mapping[str, Any]], requested_models: Mapping[str, str]
+) -> list[dict[str, Any]]:
+    """Check rows labelled as a comparison of models and return them as a new list.
+
+    ``rows`` are :func:`run_record` rows with a ``label``, one per arm; ``requested_models``
+    maps each label to the model the arm asked for. The result is meant for
+    :func:`comparison_table`. A comparison of models needs, for every arm:
+
+    - a recorded or live row, because a synthetic or scripted row has no returned model and
+      compares the pipeline, not models;
+    - a pinned requested model (``jev-1.13.0``, never a moving alias such as ``jev-latest`` or
+      ``jev-preview``), so the arm names one release on every run;
+    - a returned model no other arm has: two arms that the API answered with the same model
+      compare a model with itself.
+
+    Raises ``ValueError`` for fewer than two rows, a missing or repeated label, labels that do
+    not match the keys of ``requested_models``, and any arm that breaks a rule above. Rows that
+    compare something other than models (prompts, context strategies) on one model do not go
+    through this check.
+    """
+    table = [dict(row) for row in rows]
+    if len(table) < 2:
+        raise ValueError("a model comparison needs at least two arms")
+    labels = [row.get("label") for row in table]
+    if any(not isinstance(label, str) or not label for label in labels):
+        raise ValueError("every arm needs a non-empty text label")
+    if len(set(labels)) != len(labels):
+        raise ValueError(f"arm labels must be unique, got {labels}")
+    if set(labels) != set(requested_models):
+        raise ValueError(
+            f"requested_models must name exactly the arms {sorted(labels)}, "
+            f"got {sorted(requested_models)}"
+        )
+    returned: dict[str, str] = {}
+    for row in table:
+        label = row["label"]
+        if row.get("mode") not in ("recorded", "live"):
+            raise ValueError(
+                f"arm {label!r} is {row.get('mode')!r}: a model comparison needs recorded or live "
+                "rows, because a synthetic or scripted row has no returned model"
+            )
+        requested = requested_models[label]
+        if not isinstance(requested, str) or not _PINNED_MODEL.fullmatch(requested):
+            raise ValueError(
+                f"arm {label!r} requested {requested!r}: a model comparison needs a pinned model "
+                "such as jev-1.13.0, not a moving alias such as jev-latest or jev-preview"
+            )
+        model = row.get("model")
+        if not isinstance(model, str) or not model:
+            raise ValueError(f"arm {label!r} has no returned model")
+        if model in returned:
+            raise ValueError(
+                f"arms {returned[model]!r} and {label!r} were both answered by {model!r}: "
+                "that compares a model with itself"
+            )
+        returned[model] = label
+    return table
