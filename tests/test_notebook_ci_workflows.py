@@ -732,3 +732,26 @@ def test_the_checkout_is_asserted_untouched_right_after_execution():
     assertion = body[assertion_index:fresh_check_index]
     assert "git status --porcelain" in assertion
     assert "exit 1" in assertion
+
+
+def ml_extra_bound():
+    """The ``ml`` extra's scikit-learn requirement in pyproject.toml, as (lower, upper) tuples."""
+    pyproject = (REPO / "pyproject.toml").read_text(encoding="utf-8")
+    line = re.search(r"^ml = \[\"scikit-learn>=([0-9.]+),<([0-9.]+)\"\]$", pyproject, re.MULTILINE)
+    assert line, "the ml extra must bound scikit-learn as >=LOWER,<UPPER (#358)"
+    return tuple(tuple(int(part) for part in v.split(".")) for v in line.groups())
+
+
+def test_the_ml_extra_is_bounded_around_the_notebook_pin():
+    """#358: unbounded, the Tests legs could resolve a scikit-learn major the notebook job never
+    runs. The notebook pin must sit inside the bound, and the upper bound is the next major."""
+    lower, upper = ml_extra_bound()
+    pinned = tuple(int(part) for part in pins()["scikit-learn"].split("."))
+    assert lower <= pinned < upper, (lower, pinned, upper)
+    assert upper == (pinned[0] + 1,), upper
+
+
+def test_the_docs_state_the_ml_extra_bound():
+    lower, upper = ml_extra_bound()
+    spelled = f"scikit-learn>={'.'.join(map(str, lower))},<{'.'.join(map(str, upper))}"
+    assert f"`{spelled}`" in " ".join(DEVELOPMENT.split())
