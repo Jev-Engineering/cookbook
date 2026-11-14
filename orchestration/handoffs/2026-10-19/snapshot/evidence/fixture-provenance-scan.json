@@ -1,0 +1,427 @@
+{
+  "summary": {
+    "files": 52,
+    "answer_count": 3584,
+    "provenance_counts": {
+      "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 3584
+    }
+  },
+  "rows": [
+    {
+      "slug": "01-sentiment-classification",
+      "file": "responses.json",
+      "answer_count": 40,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 40
+      }
+    },
+    {
+      "slug": "02-refund-intent-detection",
+      "file": "responses.json",
+      "answer_count": 48,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 48
+      }
+    },
+    {
+      "slug": "03-response-clarity-scoring",
+      "file": "responses.json",
+      "answer_count": 40,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 40
+      }
+    },
+    {
+      "slug": "04-support-ticket-routing",
+      "file": "responses.json",
+      "answer_count": 40,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 40
+      }
+    },
+    {
+      "slug": "05-document-classification",
+      "file": "responses.json",
+      "answer_count": 40,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 40
+      }
+    },
+    {
+      "slug": "06-multiple-topic-labels",
+      "file": "responses.json",
+      "answer_count": 200,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 200
+      }
+    },
+    {
+      "slug": "07-word-sense-selection",
+      "file": "responses.json",
+      "answer_count": 42,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 42
+      }
+    },
+    {
+      "slug": "08-faq-selection",
+      "file": "responses.json",
+      "answer_count": 40,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 40
+      }
+    },
+    {
+      "slug": "09-file-organization",
+      "file": "responses.json",
+      "answer_count": 40,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 40
+      }
+    },
+    {
+      "slug": "10-answer-relevance-check",
+      "file": "responses.json",
+      "answer_count": 52,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 52
+      }
+    },
+    {
+      "slug": "11-clarification-selection",
+      "file": "responses.json",
+      "answer_count": 40,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 40
+      }
+    },
+    {
+      "slug": "12-thesaurus-word-selection",
+      "file": "responses.json",
+      "answer_count": 43,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 43
+      }
+    },
+    {
+      "slug": "13-candidate-rewrite-selection",
+      "file": "responses.json",
+      "answer_count": 40,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 40
+      }
+    },
+    {
+      "slug": "14-source-span-selection",
+      "file": "responses.json",
+      "answer_count": 40,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 40
+      }
+    },
+    {
+      "slug": "15-sensitive-text-triage",
+      "file": "responses.json",
+      "answer_count": 52,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 52
+      }
+    },
+    {
+      "slug": "16-discord-moderation-triage",
+      "file": "responses.json",
+      "answer_count": 41,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 41
+      }
+    },
+    {
+      "slug": "17-passage-reranking",
+      "file": "responses.json",
+      "answer_count": 43,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 43
+      }
+    },
+    {
+      "slug": "18-duplicate-incident-matching",
+      "file": "responses.json",
+      "answer_count": 31,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 31
+      }
+    },
+    {
+      "slug": "19-ci-failure-classification",
+      "file": "responses.json",
+      "answer_count": 40,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 40
+      }
+    },
+    {
+      "slug": "20-claim-support-classification",
+      "file": "responses.json",
+      "answer_count": 40,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 40
+      }
+    },
+    {
+      "slug": "21-quiz-answer-adjudication",
+      "file": "responses.json",
+      "answer_count": 17,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 17
+      }
+    },
+    {
+      "slug": "22-cmdb-asset-matching",
+      "file": "responses.json",
+      "answer_count": 38,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 38
+      }
+    },
+    {
+      "slug": "23-pairwise-answer-evaluation",
+      "file": "responses.json",
+      "answer_count": 82,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 82
+      }
+    },
+    {
+      "slug": "24-incident-priority-composition",
+      "file": "responses.json",
+      "answer_count": 80,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 80
+      }
+    },
+    {
+      "slug": "25-change-evidence-review",
+      "file": "responses.json",
+      "answer_count": 120,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 120
+      }
+    },
+    {
+      "slug": "26-prompt-injection-screening",
+      "file": "responses.json",
+      "answer_count": 96,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 96
+      }
+    },
+    {
+      "slug": "27-function-selection",
+      "file": "responses.json",
+      "answer_count": 40,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 40
+      }
+    },
+    {
+      "slug": "28-skill-selection",
+      "file": "responses.json",
+      "answer_count": 150,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 150
+      }
+    },
+    {
+      "slug": "29-tool-outcome-verification",
+      "file": "responses.json",
+      "answer_count": 40,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 40
+      }
+    },
+    {
+      "slug": "30-citation-verification",
+      "file": "responses.json",
+      "answer_count": 33,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 33
+      }
+    },
+    {
+      "slug": "31-patch-risk-triage",
+      "file": "responses.json",
+      "answer_count": 120,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 120
+      }
+    },
+    {
+      "slug": "32-regression-test-selection",
+      "file": "responses.json",
+      "answer_count": 163,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 163
+      }
+    },
+    {
+      "slug": "33-schema-field-mapping",
+      "file": "responses.json",
+      "answer_count": 35,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 35
+      }
+    },
+    {
+      "slug": "34-evidence-relationship-labels",
+      "file": "responses.json",
+      "answer_count": 30,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 30
+      }
+    },
+    {
+      "slug": "35-semantic-feature-extraction",
+      "file": "responses.json",
+      "answer_count": 300,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 300
+      }
+    },
+    {
+      "slug": "37-research-domain-tagging",
+      "file": "responses.json",
+      "answer_count": 111,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 111
+      }
+    },
+    {
+      "slug": "38-abstention-and-review-queues",
+      "file": "responses.json",
+      "answer_count": 42,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 42
+      }
+    },
+    {
+      "slug": "39-document-extraction-cascade",
+      "file": "responses.json",
+      "answer_count": 97,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 97
+      }
+    },
+    {
+      "slug": "40-hierarchical-classification",
+      "file": "responses.json",
+      "answer_count": 124,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 124
+      }
+    },
+    {
+      "slug": "41-approval-scope-review",
+      "file": "responses.json",
+      "answer_count": 70,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 70
+      }
+    },
+    {
+      "slug": "42-outbound-disclosure-screening",
+      "file": "responses.json",
+      "answer_count": 70,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 70
+      }
+    },
+    {
+      "slug": "43-failure-recovery-selection",
+      "file": "responses.json",
+      "answer_count": 44,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 44
+      }
+    },
+    {
+      "slug": "44-plan-constraint-assessment",
+      "file": "responses.json",
+      "answer_count": 140,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 140
+      }
+    },
+    {
+      "slug": "45-memory-reconciliation",
+      "file": "responses.json",
+      "answer_count": 38,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 38
+      }
+    },
+    {
+      "slug": "46-semantic-context-paging",
+      "file": "responses.json",
+      "answer_count": 69,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 69
+      }
+    },
+    {
+      "slug": "47-evidence-conflict-diagnosis",
+      "file": "responses.json",
+      "answer_count": 36,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 36
+      }
+    },
+    {
+      "slug": "48-document-revision-consistency",
+      "file": "responses.json",
+      "answer_count": 50,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 50
+      }
+    },
+    {
+      "slug": "49-multi-agent-task-assignment",
+      "file": "responses.json",
+      "answer_count": 74,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 74
+      }
+    },
+    {
+      "slug": "50-model-comparison-and-calibration",
+      "file": "responses-atlas.json",
+      "answer_count": 87,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 87
+      }
+    },
+    {
+      "slug": "50-model-comparison-and-calibration",
+      "file": "responses-north.json",
+      "answer_count": 87,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 87
+      }
+    },
+    {
+      "slug": "50-model-comparison-and-calibration",
+      "file": "responses.json",
+      "answer_count": 87,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 87
+      }
+    },
+    {
+      "slug": "_template",
+      "file": "responses.json",
+      "answer_count": 22,
+      "provenance_counts": {
+        "{\"date\": null, \"model\": null, \"source\": \"synthetic\"}": 22
+      }
+    }
+  ]
+}
