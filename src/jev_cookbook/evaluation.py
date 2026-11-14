@@ -1164,8 +1164,8 @@ def mean_ndcg(
         k, gain: As in :func:`ndcg`.
 
     Returns:
-        The mean over lists whose nDCG is defined, summed with :func:`math.fsum` like every
-        other mean in this module, so it does not depend on the order of the lists. Lists
+        The mean over lists whose nDCG is defined, summed with :func:`math.fsum` (through the
+        module's ``_mean``), so it does not depend on the order of the lists. Lists
         with IDCG 0 are skipped; if every list is skipped the result is NaN. No lists, a
         query that is not a pair (each query is read once with ``tuple(q)``, as in
         :func:`mean_recall_at_budget`), or any invalid list, raise ``ValueError``.
@@ -1334,7 +1334,7 @@ def mean_recall_at_budget(queries: Iterable[tuple[Any, ...]], budget: int) -> fl
 
     Returns:
         The mean over queries with at least one relevant item, summed with :func:`math.fsum`
-        like every other mean in this module. NaN when none has one (the same
+        (through the module's ``_mean``). NaN when none has one (the same
         undefined-is-NaN convention as :func:`mean_ndcg`, not a raise). Empty ``queries``, a
         query of any length but two or three (each query is read once with ``tuple(q)``, so a
         one-shot iterable of two or three items is a query too), or any one query invalid by
@@ -1780,6 +1780,19 @@ def _results_and_gold(
     return rs, gs
 
 
+def _flag(value: Any, name: str, function: str) -> bool:
+    """A predicate's answer as a ``bool``: ``True``/``False`` (numpy's included) or 0/1.
+
+    Anything else (an outcome string, an Enum, a count) raises ``ValueError``, as
+    :func:`evaluate_outcomes` does for a non-boolean ``accepted``, instead of being read as
+    truthy and silently counted."""
+    if isinstance(value, (bool, np.bool_)):
+        return bool(value)
+    if isinstance(value, numbers.Integral) and value in (0, 1):
+        return bool(value)
+    raise ValueError(f"{function}: {name} must return a bool (or 0/1), got {value!r}")
+
+
 def accepted_and_correct(
     results: Iterable[Any],
     gold: Sequence[Any] | Mapping[Any, Any],
@@ -1807,7 +1820,8 @@ def accepted_and_correct(
         results: The rule's results, one per example, of any type.
         gold: The gold label of each example: a sequence parallel to ``results``, or a mapping
             from ``key_of(result)`` to the gold label.
-        accepted_when: ``result -> bool``, True when the rule answered the example.
+        accepted_when: ``result -> bool``, True when the rule answered the example. It must
+            return a bool (numpy's included) or 0/1; anything else raises ``ValueError``.
         label_of: ``result -> label``, the label the rule answered with, or would have
             answered with for a review result; called for every result, so it must not fail on
             a review result. It and the gold label are compared by ``==`` after a Choice
@@ -1824,7 +1838,7 @@ def accepted_and_correct(
     """
     fn = "accepted_and_correct"
     rs, gs = _results_and_gold(results, gold, key_of, fn)
-    accepted = [bool(accepted_when(r)) for r in rs]
+    accepted = [_flag(accepted_when(r), "accepted_when", fn) for r in rs]
     correct = [
         bool(_choice_value(label_of(r), fn) == _choice_value(g, fn))
         for r, g in zip(rs, gs, strict=True)
@@ -1853,7 +1867,8 @@ def action_error_rate(
     Args:
         results, gold, label_of, key_of: As in :func:`accepted_and_correct`, except that
             ``label_of`` is called only for results that acted.
-        acts_when: ``result -> bool``, True when the result triggered the side effect.
+        acts_when: ``result -> bool``, True when the result triggered the side effect; a bool
+            or 0/1, as for ``accepted_when``.
 
     Returns:
         ``wrong among acting / acting`` in [0, 1], or NaN when no result acted (undefined is
@@ -1862,7 +1877,7 @@ def action_error_rate(
     """
     fn = "action_error_rate"
     rs, gs = _results_and_gold(results, gold, key_of, fn)
-    acting = [(r, g) for r, g in zip(rs, gs, strict=True) if acts_when(r)]
+    acting = [(r, g) for r, g in zip(rs, gs, strict=True) if _flag(acts_when(r), "acts_when", fn)]
     if not acting:
         return float("nan")
     wrong = sum(_choice_value(label_of(r), fn) != _choice_value(g, fn) for r, g in acting)

@@ -240,8 +240,8 @@ still count as an acceptable choice for `set_agreement`): the fallback class her
 Noul/Score answers (`.noul` or `.score` is read), through one shared extraction, so one list of
 answers can go to all five. (`ndcg` used to accept `.score` only and raise `TypeError` on a Noul
 answer while `recall_at_budget` accepted both; that difference is gone.) `mean_ndcg` and
-`mean_recall_at_budget` sum the per-query values with `math.fsum`, like every other mean here, so
-the result does not depend on the order of the queries. A query given to `mean_ndcg`,
+`mean_recall_at_budget` sum the per-query values with `math.fsum`, so the result does not depend
+on the order of the queries. A query given to `mean_ndcg`,
 `mean_recall_at_budget` or `top_k_query_accuracy` is read once with `tuple(q)`, so a one-shot
 iterable works, and a query of the wrong length raises a `ValueError` naming the expected
 shape. `top_k_query_accuracy` takes only `(gold_relevant, scores)` pairs, and a three-tuple (the

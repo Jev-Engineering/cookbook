@@ -2671,3 +2671,21 @@ def test_outcome_curve_rejected_validation():
         ev.outcome_curve([0.9, 0.5], [1, 0], rejected=[2, 0])
     with pytest.raises(TypeError):  # keyword-only
         ev.outcome_curve([0.9, 0.5], [1, 0], None, [True, False])  # type: ignore[misc]
+
+
+def test_accepted_when_and_acts_when_must_return_a_bool_not_a_truthy_value():
+    # An outcome string is truthy: `lambda r: r.outcome` used to count every result as
+    # answered (coverage 1.0) with no error, where evaluate_outcomes refuses such values.
+    kw = {"label_of": lambda r: r.label, "key_of": lambda r: r.ticket_id}
+    with pytest.raises(ValueError, match="accepted_when must return a bool"):
+        ev.accepted_and_correct(RES, GOLD_BY_ID, accepted_when=lambda r: r.outcome, **kw)
+    with pytest.raises(ValueError, match="acts_when must return a bool"):
+        ev.action_error_rate(RES, GOLD_BY_ID, acts_when=lambda r: r.outcome, **kw)
+    with pytest.raises(ValueError, match="accepted_when must return a bool"):
+        ev.accepted_and_correct(RES, GOLD_BY_ID, accepted_when=lambda r: 2, **kw)
+    # bool, numpy bool and 0/1 are accepted as before
+    for flag in (True, np.bool_(True), 1):
+        accepted, _ = ev.accepted_and_correct(
+            RES, GOLD_BY_ID, accepted_when=lambda r, f=flag: f, **kw
+        )
+        assert accepted == [True] * len(RES)
