@@ -19,10 +19,8 @@ No ``from __future__ import annotations`` here: ``load_helpers`` removes this mo
 ``sys.modules``, so ``typing.get_type_hints`` cannot resolve postponed annotations on a dataclass.
 """
 
-import copy
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
-from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -108,45 +106,19 @@ def gold_label(visible: Mapping[str, str | None] | None) -> str:
     return found[0] if len(found) == 1 else UNCERTAIN
 
 
-def _reference_stamp() -> tuple[tuple[str, int, int], ...]:
-    """``(path, mtime_ns, size)`` of each reference file now, the identity the cache is keyed on."""
-    stamp = []
-    for sku in CATALOG:
-        path = resolve_asset_path(sku.reference_path, root=ROOT)
-        status = Path(path).stat()
-        stamp.append((str(path), status.st_mtime_ns, status.st_size))
-    return tuple(stamp)
+def reference_assets() -> dict[str, tuple[str, dict[str, Any]]]:
+    """``{product name: (reference, asset)}`` for every product, in catalogue order.
 
-
-@lru_cache(maxsize=1)
-def _load_reference_assets_for(
-    _stamp: tuple[tuple[str, int, int], ...],
-) -> tuple[tuple[str, str, dict[str, Any]], ...]:
-    """Load, encode, validate and hash the six reference images; ``_stamp`` only keys the cache."""
+    The six files are read and validated on every call, so the result always follows the files
+    on disk and every call returns fresh dictionaries.
+    """
     found = {}
     for sku in CATALOG:
         asset = image_asset(sku.reference_path, root=ROOT)
         found[sku.name] = (image_reference(asset), asset)
     if len({reference for reference, _ in found.values()}) != len(found):
         raise ValueError("two products share one reference image, which cannot tell them apart")
-    return tuple((name, reference, asset) for name, (reference, asset) in found.items())
-
-
-def _load_reference_assets() -> tuple[tuple[str, str, dict[str, Any]], ...]:
-    """The six reference images, read again whenever a file's path, mtime or size changes."""
-    return _load_reference_assets_for(_reference_stamp())
-
-
-def reference_assets() -> dict[str, tuple[str, dict[str, Any]]]:
-    """``{product name: (reference, asset)}`` for every product, in catalogue order.
-
-    The images are read once per state of the files; every call returns fresh dictionaries, so a
-    caller cannot change what a later call sees.
-    """
-    return {
-        name: (reference, copy.deepcopy(asset))
-        for name, reference, asset in _load_reference_assets()
-    }
+    return found
 
 
 def build_request(fields: dict[str, Any]) -> tuple[dict[str, str], dict[str, dict[str, str]]]:
@@ -172,7 +144,7 @@ def build_questions() -> dict[str, Any]:
     references sit in the criteria and not in the state.
     """
     criteria: dict[str, Any] = {}
-    for name, reference, _asset in _load_reference_assets():  # read-only: never mutated
+    for name, (reference, _asset) in reference_assets().items():
         criteria[name] = (
             f"The catalogue product {name}. Its reference image is {reference}. The query shows "
             "this product when its tin has the same body colour, lid colour and label emblem as "

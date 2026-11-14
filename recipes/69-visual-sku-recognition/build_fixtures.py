@@ -331,6 +331,15 @@ def write_images(rows, overwrite, rendered=None):
     ``overwrite`` is true. ``rendered`` is :func:`render_images`'s result when the caller already
     drew the pictures (``main`` does, once, for the check as well); without it they are drawn here."""
     references, queries = rendered if rendered is not None else render_images(rows)
+    if not overwrite:
+        # Compare every file that already exists with the bytes it would be given, before any
+        # file is created: a mismatch anywhere raises here, so "nothing else was written" holds.
+        # ``canvas.write`` never changes an existing file when ``overwrite`` is false.
+        for path, canvas in [(sku.reference_path, canvas) for sku, canvas in references] + [
+            (query_path(row[0]), canvas) for row, canvas in queries
+        ]:
+            if (HERE / path).exists():
+                canvas.write(HERE, path, overwrite=False)
     entries = []
     for sku, canvas in references:
         path = sku.reference_path
@@ -351,6 +360,39 @@ def write_images(rows, overwrite, rendered=None):
 
 def _fields(row):
     return {"capture": row[2], "image": query_path(row[0]), "condition": row[5]}
+
+
+def check_rows_are_distinct(rows, rendered=None):
+    """Raise ValueError naming both rows when two rows share an ident (they would share a file and
+    an id) or draw the same picture (their requests would share one replay key). Checked before
+    ``main`` writes anything. ``rendered`` is :func:`render_images`'s result."""
+    idents = set()
+    for index, row in enumerate(rows):
+        if row[0] in idents:
+            first = next(i for i, other in enumerate(rows) if other[0] == row[0])
+            raise ValueError(
+                f"rows {first} and {index} share the ident {row[0]!r}; each ident names one picture"
+            )
+        idents.add(row[0])
+    _refs, queries = rendered if rendered is not None else render_images(rows)
+    pictures = {}
+    for row, canvas in queries:
+        data = canvas.png()
+        if data in pictures:
+            raise ValueError(
+                f"rows {pictures[data]!r} and {row[0]!r} draw the same picture, so their replay "
+                "keys collide"
+            )
+        pictures[data] = row[0]
+
+
+def _check_distinct_keys(rows, keys):
+    """Raise ValueError naming both rows when two rows have the same replay key."""
+    seen = {}
+    for row, key in zip(rows, keys, strict=True):
+        if key in seen:
+            raise ValueError(f"rows {seen[key]!r} and {row[0]!r} have the same replay key {key}")
+        seen[key] = row[0]
 
 
 def check_queries_differ_from_references(rows, rendered=None):
@@ -384,6 +426,7 @@ def build_inputs_and_labels(rows):
         inputs.append({"id": ident, "split": split, "fields": fields, "replay_keys": [key]})
         if split != "demo":
             labels.append({"id": ident, "label": helpers.gold_label(visible_of(row[3], row[4]))})
+    _check_distinct_keys(rows, [item["replay_keys"][0] for item in inputs])
     return inputs, labels
 
 
@@ -418,6 +461,7 @@ def build_responses(rows, keys=None):
         for row in rows:
             state, assets = helpers.build_request(_fields(row))
             keys.append(replay_key(state, questions, assets=assets))
+    _check_distinct_keys(rows, keys)
     responses = {}
     for row, key in zip(rows, keys, strict=True):
         answers = answers_for(row, Provenance.synthetic())
@@ -485,6 +529,7 @@ def main() -> None:
         )
     rendered = render_images(ROWS)
     check_queries_differ_from_references(ROWS, rendered)
+    check_rows_are_distinct(ROWS, rendered)
     try:
         entries = write_images(ROWS, args.overwrite_assets, rendered)
     except si.RegenerationMismatch as error:

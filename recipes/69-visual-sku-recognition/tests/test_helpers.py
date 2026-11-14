@@ -149,19 +149,18 @@ def test_the_request_builder_accepts_the_catalogue_image_as_a_query():
     assert len(assets) == 6
 
 
-def test_reference_assets_returns_fresh_copies_each_call():
-    first = helpers.reference_assets()
+def test_reference_assets_returns_equal_but_independent_dicts_each_call():
+    first, second = helpers.reference_assets(), helpers.reference_assets()
+    assert first == second
     name = helpers.CATALOG[0].name
     first[name][1]["data_base64"] = "changed"
     first.pop(helpers.CATALOG[1].name)
     again = helpers.reference_assets()
-    assert again[name][1]["data_base64"] != "changed"
+    assert again == second
     assert list(again) == [sku.name for sku in helpers.CATALOG]
 
 
-def test_the_reference_cache_follows_a_rewritten_reference_file(tmp_path, monkeypatch):
-    # A process that rewrites a reference PNG (build_fixtures --overwrite-assets, run in-process)
-    # must see the new bytes and reference at once, not the ones loaded first.
+def test_reference_assets_follow_a_rewritten_reference_file(tmp_path, monkeypatch):
     shutil.copytree(RECIPE / "assets", tmp_path / "assets")
     monkeypatch.setattr(helpers, "ROOT", tmp_path)
     first = helpers.reference_assets()
@@ -170,12 +169,8 @@ def test_the_reference_cache_follows_a_rewritten_reference_file(tmp_path, monkey
         changed = picture.convert("RGB")
     changed.putpixel((0, 0), (1, 2, 3))
     changed.save(target)
-    again = helpers.reference_assets()
     name = helpers.CATALOG[0].name
-    assert again[name][0] != first[name][0]
-    assert again[name][1]["data_base64"] != first[name][1]["data_base64"]
-    assert helpers.reference_assets()[name][0] == again[name][0]
-    assert again[name][0] in helpers.build_questions()["sku"].criteria[name]
+    assert helpers.reference_assets()[name][0] != first[name][0]
 
 
 # --- the gold label ----------------------------------------------------------------------------

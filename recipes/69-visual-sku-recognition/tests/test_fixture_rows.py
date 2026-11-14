@@ -101,3 +101,58 @@ def test_main_draws_each_picture_once_for_the_check_and_the_writer(tmp_path, mon
     module.main()
     assert len(drawn) == len(module.ROWS) + len(module.helpers.CATALOG)
     assert len(set(drawn)) == len(drawn)
+
+
+def _module(name, tmp_path, monkeypatch):
+    module = load_module_at(SCRIPT, name)
+    monkeypatch.setattr(module, "HERE", tmp_path)
+    monkeypatch.setattr("sys.argv", ["build_fixtures.py"])
+    return module
+
+
+def test_a_duplicate_ident_raises_naming_both_rows_before_any_file_is_written(
+    tmp_path, monkeypatch
+):
+    module = _module("recipe69_build_fixtures_for_test_dup_ident", tmp_path, monkeypatch)
+    monkeypatch.setattr(module, "ROWS", [*module.ROWS, module.ROWS[0]])
+    with pytest.raises(ValueError, match=r"rows 0 and \d+ share the ident"):
+        module.main()
+    assert list(tmp_path.rglob("*")) == []
+
+
+def test_two_rows_with_one_replay_key_raise_naming_both_rows(tmp_path, monkeypatch):
+    module = _module("recipe69_build_fixtures_for_test_dup_key", tmp_path, monkeypatch)
+    first = module.ROWS[0]
+    twin = (first[0] + "-twin", *first[1:])  # a new ident that draws the very same picture
+    monkeypatch.setattr(module, "ROWS", [first, twin])
+    with pytest.raises(ValueError, match="draw the same picture") as caught:
+        module.main()
+    assert first[0] in str(caught.value) and twin[0] in str(caught.value)
+    assert list(tmp_path.rglob("*")) == []
+    # The key checks themselves, for callers that never go through main.
+    with pytest.raises(ValueError, match="same replay key"):
+        module.build_responses([first, twin], ["k", "k"])
+    with pytest.raises(ValueError, match="same replay key"):
+        module._check_distinct_keys([first, twin], ["k", "k"])
+
+
+def test_a_mismatching_query_leaves_a_missing_reference_unwritten(tmp_path, monkeypatch):
+    module = _module("recipe69_build_fixtures_for_test_preflight", tmp_path, monkeypatch)
+    (tmp_path / "build_fixtures.py").write_text(
+        SCRIPT.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    rows = module.ROWS[:2]
+    monkeypatch.setattr(module, "ROWS", rows)
+    # Every file present and right except: one reference missing, one query holding other pixels.
+    module.write_images(rows, False)
+    missing = tmp_path / module.helpers.CATALOG[0].reference_path
+    missing.unlink()
+    bad = tmp_path / module.query_path(rows[1][0])
+    other = module.draw_reference(module.helpers.CATALOG[1])
+    other.write(tmp_path, module.query_path(rows[1][0]), overwrite=True)
+    before = {p: p.read_bytes() for p in tmp_path.rglob("*.png")}
+    with pytest.raises(SystemExit, match="nothing else was written"):
+        module.main()
+    assert not missing.exists()
+    assert {p: p.read_bytes() for p in tmp_path.rglob("*.png")} == before
+    assert bad.exists()
