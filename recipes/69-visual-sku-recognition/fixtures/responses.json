@@ -1,0 +1,901 @@
+{
+  "0c9da18fd209c0131093f76521f97c65c5042fae7eb9464b884d03f031068fee": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "BIVEN",
+        "probabilities": {
+          "DEGUM": 0.42857142857142855,
+          "BIVEN": 0.4857142857142857,
+          "NOKER": 0.014285714285714285,
+          "PEBIX": 0.014285714285714285,
+          "VODAR": 0.014285714285714285,
+          "MAFEX": 0.014285714285714285,
+          "no_match": 0.014285714285714285,
+          "uncertain": 0.014285714285714285
+        },
+        "confidence": 0.4122448979591837,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0e0bca9fa78e9b178e1b1f067461aea68cad106f52915876e5ea1b5bae3f2228": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "NOKER",
+        "probabilities": {
+          "DEGUM": 0.010309278350515464,
+          "BIVEN": 0.010309278350515464,
+          "NOKER": 0.8762886597938144,
+          "PEBIX": 0.010309278350515464,
+          "VODAR": 0.010309278350515464,
+          "MAFEX": 0.061855670103092786,
+          "no_match": 0.010309278350515464,
+          "uncertain": 0.010309278350515464
+        },
+        "confidence": 0.8586156111929307,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "13c63599d267640406e65f90fe45a3094fbac2fb6f26f62425c3b393b399dc22": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "no_match",
+        "probabilities": {
+          "DEGUM": 0.23255813953488372,
+          "BIVEN": 0.011627906976744186,
+          "NOKER": 0.011627906976744186,
+          "PEBIX": 0.011627906976744186,
+          "VODAR": 0.011627906976744186,
+          "MAFEX": 0.011627906976744186,
+          "no_match": 0.6976744186046512,
+          "uncertain": 0.011627906976744186
+        },
+        "confidence": 0.6544850498338871,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "19e60851eb5d23d891518a2d40372ca402f9f9b620e0d070b4364047595b15b0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "uncertain",
+        "probabilities": {
+          "DEGUM": 0.16666666666666666,
+          "BIVEN": 0.011904761904761904,
+          "NOKER": 0.011904761904761904,
+          "PEBIX": 0.011904761904761904,
+          "VODAR": 0.011904761904761904,
+          "MAFEX": 0.011904761904761904,
+          "no_match": 0.011904761904761904,
+          "uncertain": 0.7619047619047619
+        },
+        "confidence": 0.727891156462585,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "20d43d647281518b2b5f5810b06a7d61ae76dee247b4114bad21db942417da7a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "MAFEX",
+        "probabilities": {
+          "DEGUM": 0.011627906976744186,
+          "BIVEN": 0.011627906976744186,
+          "NOKER": 0.3023255813953488,
+          "PEBIX": 0.011627906976744186,
+          "VODAR": 0.011627906976744186,
+          "MAFEX": 0.627906976744186,
+          "no_match": 0.011627906976744186,
+          "uncertain": 0.011627906976744186
+        },
+        "confidence": 0.574750830564784,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2b695d41297085630d8b1a925f1d475a92956e55846963bce2536d53d78e98b7": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "PEBIX",
+        "probabilities": {
+          "DEGUM": 0.010638297872340425,
+          "BIVEN": 0.010638297872340425,
+          "NOKER": 0.010638297872340425,
+          "PEBIX": 0.851063829787234,
+          "VODAR": 0.010638297872340425,
+          "MAFEX": 0.010638297872340425,
+          "no_match": 0.0851063829787234,
+          "uncertain": 0.010638297872340425
+        },
+        "confidence": 0.8297872340425532,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2d78c548c1aa7ad4fd5dd4e9031dbc863d77877bcd948bead68b7abfdbdf0db0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "BIVEN",
+        "probabilities": {
+          "DEGUM": 0.4470588235294118,
+          "BIVEN": 0.4823529411764706,
+          "NOKER": 0.011764705882352941,
+          "PEBIX": 0.011764705882352941,
+          "VODAR": 0.011764705882352941,
+          "MAFEX": 0.011764705882352941,
+          "no_match": 0.011764705882352941,
+          "uncertain": 0.011764705882352941
+        },
+        "confidence": 0.4084033613445378,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3586970b977d6473a41d4529df6c53277ec32a8858fd3e25fa53423765272841": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "VODAR",
+        "probabilities": {
+          "DEGUM": 0.01,
+          "BIVEN": 0.01,
+          "NOKER": 0.04,
+          "PEBIX": 0.01,
+          "VODAR": 0.9,
+          "MAFEX": 0.01,
+          "no_match": 0.01,
+          "uncertain": 0.01
+        },
+        "confidence": 0.8857142857142858,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3f000aa81b6d16bbd537e60a3fe15923aa90a343ee7ee112d1c4d1938671af0a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "VODAR",
+        "probabilities": {
+          "DEGUM": 0.01020408163265306,
+          "BIVEN": 0.01020408163265306,
+          "NOKER": 0.04081632653061224,
+          "PEBIX": 0.01020408163265306,
+          "VODAR": 0.8979591836734694,
+          "MAFEX": 0.01020408163265306,
+          "no_match": 0.01020408163265306,
+          "uncertain": 0.01020408163265306
+        },
+        "confidence": 0.8833819241982507,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "538cfddd638760fb5bdc8fd6477b394d9dd27afb224648e45c822f0a7e4c6071": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "PEBIX",
+        "probabilities": {
+          "DEGUM": 0.01,
+          "BIVEN": 0.01,
+          "NOKER": 0.01,
+          "PEBIX": 0.9,
+          "VODAR": 0.04,
+          "MAFEX": 0.01,
+          "no_match": 0.01,
+          "uncertain": 0.01
+        },
+        "confidence": 0.8857142857142858,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "557e7db89f3cf07fa18bba59745e3442fd54cd1c850f84e4f3629b3265ab3c65": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "BIVEN",
+        "probabilities": {
+          "DEGUM": 0.20833333333333334,
+          "BIVEN": 0.7291666666666666,
+          "NOKER": 0.010416666666666666,
+          "PEBIX": 0.010416666666666666,
+          "VODAR": 0.010416666666666666,
+          "MAFEX": 0.010416666666666666,
+          "no_match": 0.010416666666666666,
+          "uncertain": 0.010416666666666666
+        },
+        "confidence": 0.6904761904761905,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "5df833bd7d07f1734defd4007821dcdc24e91c0c936ec0a2c02b3735f6774799": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "DEGUM",
+        "probabilities": {
+          "DEGUM": 0.8297872340425532,
+          "BIVEN": 0.10638297872340426,
+          "NOKER": 0.010638297872340425,
+          "PEBIX": 0.010638297872340425,
+          "VODAR": 0.010638297872340425,
+          "MAFEX": 0.010638297872340425,
+          "no_match": 0.010638297872340425,
+          "uncertain": 0.010638297872340425
+        },
+        "confidence": 0.8054711246200608,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6bfea7ec91c11da4c9f4919108104117835b05389153352cbeb52b71032c9fa5": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "DEGUM",
+        "probabilities": {
+          "DEGUM": 0.6590909090909091,
+          "BIVEN": 0.011363636363636364,
+          "NOKER": 0.011363636363636364,
+          "PEBIX": 0.011363636363636364,
+          "VODAR": 0.011363636363636364,
+          "MAFEX": 0.011363636363636364,
+          "no_match": 0.2727272727272727,
+          "uncertain": 0.011363636363636364
+        },
+        "confidence": 0.6103896103896104,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6fd286c90598c71365efc50e3aa65503e1ff5d6ce8e8673c30d29e2fe10ccaca": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "DEGUM",
+        "probabilities": {
+          "DEGUM": 0.8,
+          "BIVEN": 0.13333333333333333,
+          "NOKER": 0.011111111111111112,
+          "PEBIX": 0.011111111111111112,
+          "VODAR": 0.011111111111111112,
+          "MAFEX": 0.011111111111111112,
+          "no_match": 0.011111111111111112,
+          "uncertain": 0.011111111111111112
+        },
+        "confidence": 0.7714285714285715,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "736ffe20e0b41b5c24cae611981883631d10580179fb6bd821b2377ffab3b258": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "NOKER",
+        "probabilities": {
+          "DEGUM": 0.010638297872340425,
+          "BIVEN": 0.010638297872340425,
+          "NOKER": 0.7021276595744681,
+          "PEBIX": 0.010638297872340425,
+          "VODAR": 0.010638297872340425,
+          "MAFEX": 0.010638297872340425,
+          "no_match": 0.010638297872340425,
+          "uncertain": 0.23404255319148937
+        },
+        "confidence": 0.6595744680851064,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "75567017e4aeb2cde6cfd2e146a897f2393c159686782ed87b1f26d86a3071c1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "MAFEX",
+        "probabilities": {
+          "DEGUM": 0.010638297872340425,
+          "BIVEN": 0.010638297872340425,
+          "NOKER": 0.06382978723404255,
+          "PEBIX": 0.010638297872340425,
+          "VODAR": 0.010638297872340425,
+          "MAFEX": 0.8723404255319149,
+          "no_match": 0.010638297872340425,
+          "uncertain": 0.010638297872340425
+        },
+        "confidence": 0.8541033434650457,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8d5032319d6fd0376950522fd037ccfe583720b98792f7a3899da98301fe6748": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "DEGUM",
+        "probabilities": {
+          "DEGUM": 0.4864864864864865,
+          "BIVEN": 0.013513513513513514,
+          "NOKER": 0.013513513513513514,
+          "PEBIX": 0.013513513513513514,
+          "VODAR": 0.013513513513513514,
+          "MAFEX": 0.013513513513513514,
+          "no_match": 0.013513513513513514,
+          "uncertain": 0.43243243243243246
+        },
+        "confidence": 0.41312741312741313,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "9511e4acfdc5b6fe0d024377d20bb05cc619519cbdf1e58dd842a706fc5b6475": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "MAFEX",
+        "probabilities": {
+          "DEGUM": 0.010638297872340425,
+          "BIVEN": 0.010638297872340425,
+          "NOKER": 0.14893617021276595,
+          "PEBIX": 0.010638297872340425,
+          "VODAR": 0.010638297872340425,
+          "MAFEX": 0.7872340425531915,
+          "no_match": 0.010638297872340425,
+          "uncertain": 0.010638297872340425
+        },
+        "confidence": 0.7568389057750761,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a0f53fe0df3fbd4e8190074ea18977eb969599ada80e5b07570ed2f641a38f23": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "BIVEN",
+        "probabilities": {
+          "DEGUM": 0.08163265306122448,
+          "BIVEN": 0.8571428571428571,
+          "NOKER": 0.01020408163265306,
+          "PEBIX": 0.01020408163265306,
+          "VODAR": 0.01020408163265306,
+          "MAFEX": 0.01020408163265306,
+          "no_match": 0.01020408163265306,
+          "uncertain": 0.01020408163265306
+        },
+        "confidence": 0.836734693877551,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a6a1bc3082ba8a676db4d143f1a11b1501c706b6904d1e582fb3054f6d5bd96f": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "no_match",
+        "probabilities": {
+          "DEGUM": 0.011627906976744186,
+          "BIVEN": 0.011627906976744186,
+          "NOKER": 0.011627906976744186,
+          "PEBIX": 0.011627906976744186,
+          "VODAR": 0.16279069767441862,
+          "MAFEX": 0.011627906976744186,
+          "no_match": 0.7674418604651163,
+          "uncertain": 0.011627906976744186
+        },
+        "confidence": 0.7342192691029901,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "aa33a806549052729673c40e1fce6e9b5f6806a78db3127e17e584c4e0ed9877": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "DEGUM",
+        "probabilities": {
+          "DEGUM": 0.88,
+          "BIVEN": 0.06,
+          "NOKER": 0.01,
+          "PEBIX": 0.01,
+          "VODAR": 0.01,
+          "MAFEX": 0.01,
+          "no_match": 0.01,
+          "uncertain": 0.01
+        },
+        "confidence": 0.8628571428571429,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b15e3636f68e9ddc67ff567910db7c86d810eea10ee220b032870e28cb2b3b4c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "NOKER",
+        "probabilities": {
+          "DEGUM": 0.010869565217391304,
+          "BIVEN": 0.010869565217391304,
+          "NOKER": 0.7608695652173914,
+          "PEBIX": 0.010869565217391304,
+          "VODAR": 0.010869565217391304,
+          "MAFEX": 0.17391304347826086,
+          "no_match": 0.010869565217391304,
+          "uncertain": 0.010869565217391304
+        },
+        "confidence": 0.7267080745341615,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bdbc52e491b8f303a441822bb8ddddcb06ca312254e0014551f89f184182d824": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "PEBIX",
+        "probabilities": {
+          "DEGUM": 0.010869565217391304,
+          "BIVEN": 0.010869565217391304,
+          "NOKER": 0.010869565217391304,
+          "PEBIX": 0.7608695652173914,
+          "VODAR": 0.010869565217391304,
+          "MAFEX": 0.010869565217391304,
+          "no_match": 0.010869565217391304,
+          "uncertain": 0.17391304347826086
+        },
+        "confidence": 0.7267080745341615,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "bec02be481ec2314a8cdac1c1d69e2ff9d448875614cdc9379593abc97623f51": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "no_match",
+        "probabilities": {
+          "DEGUM": 0.01,
+          "BIVEN": 0.01,
+          "NOKER": 0.01,
+          "PEBIX": 0.01,
+          "VODAR": 0.01,
+          "MAFEX": 0.01,
+          "no_match": 0.92,
+          "uncertain": 0.02
+        },
+        "confidence": 0.9085714285714286,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c1fcb3904f3d0c2e9f01b681de7c1e2bad67c740dfec61f0ef9f906d97265509": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "DEGUM",
+        "probabilities": {
+          "DEGUM": 0.5,
+          "BIVEN": 0.43478260869565216,
+          "NOKER": 0.010869565217391304,
+          "PEBIX": 0.010869565217391304,
+          "VODAR": 0.010869565217391304,
+          "MAFEX": 0.010869565217391304,
+          "no_match": 0.010869565217391304,
+          "uncertain": 0.010869565217391304
+        },
+        "confidence": 0.42857142857142855,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c255db3db74f1520c49c17e2bc21c7293d56cfeb90aa74d75e3e6f699fea5dee": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "VODAR",
+        "probabilities": {
+          "DEGUM": 0.011111111111111112,
+          "BIVEN": 0.011111111111111112,
+          "NOKER": 0.011111111111111112,
+          "PEBIX": 0.011111111111111112,
+          "VODAR": 0.5777777777777777,
+          "MAFEX": 0.011111111111111112,
+          "no_match": 0.35555555555555557,
+          "uncertain": 0.011111111111111112
+        },
+        "confidence": 0.5174603174603174,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "ccd666fe78d7e841c4ac12f656fbe6bf56a97e8e92fa0393dbd2301dfcb26318": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "uncertain",
+        "probabilities": {
+          "DEGUM": 0.26506024096385544,
+          "BIVEN": 0.012048192771084338,
+          "NOKER": 0.012048192771084338,
+          "PEBIX": 0.012048192771084338,
+          "VODAR": 0.012048192771084338,
+          "MAFEX": 0.012048192771084338,
+          "no_match": 0.012048192771084338,
+          "uncertain": 0.6626506024096386
+        },
+        "confidence": 0.6144578313253012,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e010cd2b23086acb1994ad676fbf2ddb1f0ee9b76e4401f01e09847b37818015": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "BIVEN",
+        "probabilities": {
+          "DEGUM": 0.011111111111111112,
+          "BIVEN": 0.5333333333333333,
+          "NOKER": 0.011111111111111112,
+          "PEBIX": 0.011111111111111112,
+          "VODAR": 0.011111111111111112,
+          "MAFEX": 0.011111111111111112,
+          "no_match": 0.011111111111111112,
+          "uncertain": 0.4
+        },
+        "confidence": 0.4666666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e89a9d03b09ee4da6fcea6c9afda005ced6b0c45d84965b6beedeacff4e5482c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "PEBIX",
+        "probabilities": {
+          "DEGUM": 0.011111111111111112,
+          "BIVEN": 0.011111111111111112,
+          "NOKER": 0.011111111111111112,
+          "PEBIX": 0.8,
+          "VODAR": 0.011111111111111112,
+          "MAFEX": 0.011111111111111112,
+          "no_match": 0.13333333333333333,
+          "uncertain": 0.011111111111111112
+        },
+        "confidence": 0.7714285714285715,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f8d9c317242b04ae97ef9776542e7c92a19183b9d7797383a52ab083bfc0f0a9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "PEBIX",
+        "probabilities": {
+          "DEGUM": 0.010869565217391304,
+          "BIVEN": 0.010869565217391304,
+          "NOKER": 0.010869565217391304,
+          "PEBIX": 0.8260869565217391,
+          "VODAR": 0.010869565217391304,
+          "MAFEX": 0.010869565217391304,
+          "no_match": 0.10869565217391304,
+          "uncertain": 0.010869565217391304
+        },
+        "confidence": 0.8012422360248447,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "fe1713dca1b4c5ada8eccc2a518b26115fe67fc6627a0d3f05eec1de49446d5c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "sku": {
+        "type": "choice",
+        "choice": "VODAR",
+        "probabilities": {
+          "DEGUM": 0.011627906976744186,
+          "BIVEN": 0.011627906976744186,
+          "NOKER": 0.011627906976744186,
+          "PEBIX": 0.011627906976744186,
+          "VODAR": 0.7209302325581395,
+          "MAFEX": 0.011627906976744186,
+          "no_match": 0.20930232558139536,
+          "uncertain": 0.011627906976744186
+        },
+        "confidence": 0.681063122923588,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}
