@@ -10419,15 +10419,40 @@ def _without_audit_lines(text: str) -> str:
     )
 
 
+def _rendered_output_text(cell: dict) -> str:
+    """One code cell's committed output as a reader sees it: the same parts as ``_output_text``,
+    but two CONSECUTIVE stream outputs of the same name (stdout then stdout, stderr then stderr)
+    are joined with no separator, because Jupyter renders them as one run of text. Any other pair
+    of outputs stays separated by ``"\\n"``."""
+    parts: list[str] = []
+    previous_stream: str | None = None
+    for output in cell.get("outputs", []):
+        if output.get("output_type") == "stream":
+            name = output.get("name")
+            text = "".join(output.get("text", ""))
+            if previous_stream is not None and name == previous_stream:
+                parts[-1] += text
+            else:
+                parts.append(text)
+            previous_stream = name
+        else:
+            previous_stream = None
+            parts.append("".join(output.get("data", {}).get("text/plain", "")))
+            parts.append("".join(output.get("data", {}).get("text/html", "")))
+    return "\n".join(parts)
+
+
 def _scanned_output(recipe_dir_: Path) -> str:
-    """The exact text ``_printed_numbers`` scans: every code cell's committed output
-    (``_output_text``) with its audit lines blanked by ``_without_audit_lines``, the cells joined
-    by one ``"\\n"`` between their texts. Line structure is kept (a blanked audit line is still a
-    line). It is the join's ``"\\n"`` that keeps two cells apart: a cell's committed text may end
-    with a newline of its own, or (``print(..., end="")``) with none. Kept as one function so the
-    tests can pin the join and the blanking directly."""
+    """The exact text ``_printed_numbers`` scans: every code cell's committed output as rendered
+    (``_rendered_output_text``: consecutive same-name stream parts run together with no
+    separator, any other pair of outputs is split by ``"\\n"``) with its audit lines blanked by
+    ``_without_audit_lines``, the cells joined by one ``"\\n"`` between their texts. Line
+    structure is kept (a blanked audit line is still a line). It is the join's ``"\\n"`` that
+    keeps two cells apart: a cell's committed text may end with a newline of its own, or
+    (``print(..., end="")``) with none. Kept as one function so the tests can pin the join and
+    the blanking directly."""
     return "\n".join(
-        _without_audit_lines(_output_text(cell))
+        _without_audit_lines(_rendered_output_text(cell))
         for cell in notebook_cells(recipe_dir_)
         if cell["cell_type"] == "code"
     )
@@ -12007,6 +12032,15 @@ _UNTERMINATED_SHAPES = {
     ),
 }
 
+# The quote the guard reports for each shape's sentence.
+_EXPECTED_QUOTE = {
+    "latency": "'180 ms'",
+    "throughput": "'40 requests per second'",
+    "seconds": "'12 seconds'",
+    "price": "'$0.25 per call'",
+    "fraction-via-percent": "'0.93'",
+}
+
 
 def _append_unterminated_output(
     folder: Path, segments: list[str], cell_id: str, outputs: list[dict] | None = None
@@ -12053,15 +12087,14 @@ def _display_data(text: str) -> dict:
     return {"output_type": "display_data", "metadata": {}, "data": {"text/plain": [text]}}
 
 
-# Shapes for one cell's second output after a stdout stream: a displayed value, a stderr stream,
-# display_data (what Jupyter really saves) and a second stdout stream. Jupyter merges consecutive
-# streams of one name, so the stdout+stdout shape is not one it writes; it is kept because the
-# guard reads the committed JSON as it is, whatever Jupyter would have merged.
+# Shapes for one cell's second output after a stdout stream: a displayed value, a stderr stream
+# and display_data. Each is a separate block in the rendered output, so the number and the unit
+# stay on two lines. A second stdout stream is not here: Jupyter renders consecutive streams of
+# one name as one run of text, so that case is backed (see the same-name test below).
 _SECOND_OUTPUT = {
     "execute-result": _execute_result,
     "stderr": _stderr,
     "display-data": _display_data,
-    "stdout": _stdout,
 }
 
 
@@ -12099,7 +12132,42 @@ def test_an_unterminated_output_segment_does_not_fuse_a_number_to_the_next_unit(
     assert any("\n" in m.group(0) for m in pattern.finditer(fused)), fused
     _append_cell(folder, "markdown", sentence, cell_id="fabricated-quantity")
     unbacked = _unprinted_quantities(folder)
-    assert any("fabricated-quantity" in message for message in unbacked), unbacked
+    quote = _EXPECTED_QUOTE[shape]
+    assert any("fabricated-quantity" in m and quote in m for m in unbacked), unbacked
+
+
+@pytest.mark.parametrize("stream", [_stdout, _stderr])
+@pytest.mark.parametrize("shape", sorted(_UNTERMINATED_SHAPES))
+def test_a_number_and_unit_split_across_consecutive_same_name_streams_are_backed(
+    tmp_path, shape, stream
+):
+    """Jupyter renders consecutive stream outputs of one name (stdout+stdout, stderr+stderr) as
+    one run of text, so ``median latency 180`` followed by ``ms over the sample`` is read as
+    ``180ms`` on one line. The scanned text runs them together with no separator and the sentence
+    is backed, as it was before #380. A same-name part that opens with a newline is still two
+    lines (checked below), so no fusion comes back."""
+    ends_with_number, begins_with_unit, sentence = _UNTERMINATED_SHAPES[shape]
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
+    _append_unterminated_output(
+        folder,
+        [],
+        "split",
+        outputs=[stream(ends_with_number), stream(begins_with_unit + "\n")],
+    )
+    assert ends_with_number + begins_with_unit + "\n" in _scanned_output(folder)
+    _append_cell(folder, "markdown", sentence, cell_id="fabricated-quantity")
+    unbacked = _unprinted_quantities(folder)
+    assert not any("fabricated-quantity" in message for message in unbacked), unbacked
+
+    other = _synthetic_recipe(tmp_path / "newline", ["x = 1\n"])
+    _append_unterminated_output(
+        other,
+        [],
+        "split",
+        outputs=[stream(ends_with_number), stream("\n" + begins_with_unit + "\n")],
+    )
+    _append_cell(other, "markdown", sentence, cell_id="fabricated-quantity")
+    assert any("fabricated-quantity" in m for m in _unprinted_quantities(other))
 
 
 def test_a_quoted_percentage_is_still_backed_by_a_bare_number_on_another_line(tmp_path):
