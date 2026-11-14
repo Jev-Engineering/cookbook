@@ -261,6 +261,24 @@ def test_recipe_100_scaffolds_without_inventing_an_issue(catalog, recipes, capsy
     assert all(not c.outputs for c in nb.cells if c.cell_type == "code")
 
 
+NO_ISSUE_NOTICE = "No assigned recipe issue"
+
+
+def test_an_assigned_rank_scaffolds_without_the_no_assigned_issue_notice(catalog, recipes, capsys):
+    _, recipe = entry(catalog, 100)
+    assert recipe["issue"] == 441  # the real catalog records it
+    assert run(100, catalog, recipes) == 0
+    assert NO_ISSUE_NOTICE not in capsys.readouterr().out
+
+
+def test_an_unassigned_rank_scaffolds_with_the_no_assigned_issue_notice(catalog, recipes, capsys):
+    data, recipe = entry(catalog, 100)
+    recipe["issue"] = None
+    catalog.write_text(json.dumps(data), encoding="utf-8")
+    assert run(100, catalog, recipes) == 0
+    assert NO_ISSUE_NOTICE in capsys.readouterr().out
+
+
 @pytest.mark.parametrize("slug", ["../escape", "0100-test", "101-test", "99-wrong-rank"])
 def test_invalid_catalog_slug_writes_nothing(catalog, recipes, slug, capsys):
     data, recipe = entry(catalog, 100)

@@ -807,6 +807,28 @@ def test_head_catalog_cannot_assign_itself_a_recipe_issue(repo):
     )
 
 
+def test_head_catalog_swapping_two_assigned_issues_cannot_move_one_to_its_recipe(repo):
+    # The real base catalog records 99 -> #440 and 100 -> #441. The head catalog swaps them, so
+    # that #441 would belong to recipe 99. The check reads only the base catalog, so the branch
+    # of recipe 99 is refused for closing recipe 100's issue (were the head catalog read, that
+    # check would pass and only the catalog/ path rejection would remain).
+    moved, moved_issue = recorded_multimodal_recipe(99)
+    owner, owner_issue = recorded_multimodal_recipe(100)
+    assert (moved_issue, owner_issue) == (440, 441)
+    swapped = json.loads(json.dumps(CATALOG))
+    for recipe in swapped["recipes"]:
+        if recipe["rank"] == 99:
+            recipe["issue"] = owner_issue
+        elif recipe["rank"] == 100:
+            recipe["issue"] = moved_issue
+    repo.put("catalog/recipes.json", json.dumps(swapped, indent=2) + "\n")
+    repo.put(f"recipes/{moved}/notebook.ipynb", NOTEBOOK)
+    rejected(
+        run_check(repo, branch=f"recipe/{moved}", body="Closes #441"),
+        f"is not recipe/{owner}, the recipe closed by #441",
+    )
+
+
 @pytest.mark.parametrize("issue", [1, True, 0, -1, "401"])
 def test_ambiguous_or_invalid_base_assignments_fail_closed(repo, issue):
     assign_in_base(repo, 100, issue)
