@@ -2552,3 +2552,107 @@ def test_prepare_image_reports_damaged_exif_as_a_value_error():
     image.info["exif"] = b"Exif\x00\x00II*\x00"  # a header and nothing else
     with pytest.raises(ValueError, match="EXIF data is damaged"):
         vision.prepare_image(image)
+
+
+# --- model_comparison ----------------------------------------------------------------------
+
+
+def _arm(label, model, mode="recorded"):
+    if mode in ("synthetic", "scripted"):
+        return {**vision.run_record(SimpleNamespace(source="synthetic"), mode=mode), "label": label}
+    result = SimpleNamespace(source="recorded", model=model, usage=RECORDED.usage)
+    return {**vision.run_record(result, mode=mode), "label": label}
+
+
+PINNED = {"old": "jev-1.13.0", "new": "jev-1.14.0"}
+
+
+def test_a_model_comparison_of_two_pinned_arms_with_different_models_passes_unchanged():
+    rows = [_arm("old", "jev-1.13.0"), _arm("new", "jev-1.14.0", mode="live")]
+    checked = vision.model_comparison(rows, PINNED)
+    assert checked == rows and checked is not rows
+    assert checked[0] is not rows[0]  # a new list of new rows; the input is not mutated
+    vision.comparison_table(checked)
+
+
+def test_a_model_comparison_refuses_two_arms_answered_by_the_same_model():
+    rows = [_arm("old", "jev-1.14.0"), _arm("new", "jev-1.14.0")]
+    with pytest.raises(ValueError, match="'old' and 'new' were both answered by 'jev-1.14.0'"):
+        vision.model_comparison(rows, PINNED)
+
+
+@pytest.mark.parametrize("alias", ["jev-latest", "jev-preview", "jev-1.14", "Jev-1.14.0", "", None])
+def test_a_model_comparison_refuses_a_moving_or_unpinned_requested_model(alias):
+    rows = [_arm("old", "jev-1.13.0"), _arm("new", "jev-1.14.0")]
+    with pytest.raises(ValueError, match="needs a pinned model"):
+        vision.model_comparison(rows, {**PINNED, "new": alias})
+
+
+@pytest.mark.parametrize("mode", ["synthetic", "scripted"])
+def test_a_model_comparison_refuses_a_synthetic_or_scripted_arm(mode):
+    rows = [_arm("old", "jev-1.13.0"), _arm("new", None, mode=mode)]
+    with pytest.raises(ValueError, match="needs recorded or live rows"):
+        vision.model_comparison(rows, PINNED)
+
+
+@pytest.mark.parametrize(
+    "rows, requested, message",
+    [
+        ([], {}, "at least two arms"),
+        ([{"label": "old", "mode": "recorded", "model": "jev-1.13.0"}], PINNED, "at least two"),
+        (
+            [
+                {"mode": "recorded", "model": "a"},
+                {"label": "new", "mode": "recorded", "model": "b"},
+            ],
+            PINNED,
+            "non-empty text label",
+        ),
+        (
+            [{"label": "old", "mode": "recorded", "model": "a"}] * 2,
+            PINNED,
+            "labels must be unique",
+        ),
+        (
+            [
+                {"label": "old", "mode": "recorded", "model": "a"},
+                {"label": "x", "mode": "recorded"},
+            ],
+            PINNED,
+            "must name exactly the arms",
+        ),
+        (
+            [{"label": "old", "mode": "recorded", "model": "a"}, {"label": "new", "mode": "live"}],
+            PINNED,
+            "'new' has no returned model",
+        ),
+    ],
+)
+def test_a_model_comparison_refuses_malformed_arms(rows, requested, message):
+    with pytest.raises(ValueError, match=message):
+        vision.model_comparison(rows, requested)
+
+
+def test_the_documented_model_comparison_prints_what_the_docs_show_and_refuses_an_alias():
+    text = (_DOCS / "vision.md").read_text("utf-8")
+    text = text[text.index("### Comparing models\n") :]
+    start = text.index("from jev_cookbook.vision import comparison_table, model_comparison")
+    code = text[start : text.index("```", start)]
+    printed = text[text.index("```text\n", start) + len("```text\n") :]
+    printed = printed[: printed.index("```")]
+    usage = SimpleNamespace(input_tokens=61, output_tokens=0)
+    namespace = {
+        "old_result": SimpleNamespace(source="recorded", model="jev-1.13.0", usage=usage),
+        "new_result": SimpleNamespace(source="recorded", model="jev-1.14.0", usage=usage),
+    }
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        exec(compile(code, "docs/vision.md", "exec"), namespace)
+    assert out.getvalue() == printed
+
+    stated = " ".join(text[text.index("raises `ValueError: ") :].split("`")[1].split())
+    aliased = code.replace('"1.14": "jev-1.14.0"', '"1.14": "jev-latest"')
+    assert aliased != code
+    with pytest.raises(ValueError) as caught:
+        exec(compile(aliased, "docs/vision.md", "exec"), namespace)
+    assert f"ValueError: {caught.value}" == stated
