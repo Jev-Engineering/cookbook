@@ -139,10 +139,31 @@ own first use the same way.
      file that does one of those), or `inspect.getsource(helpers.<fn>)`, or a call to a
      `helpers.py` function whose own body makes the selection call. A path under `tmp_path` is a
      copy, not the committed file, so a read of it does not count.
-  2. **An extraction.** `name = _your_helper(source, ...)`, through a function defined in the
-     test file, followed by `assert name is not None`. That is the only truthiness check
-     credited here: a bare `assert name`, or any other check, is not. The strings in the call
-     are what is pinned.
+  2. **An extraction.** `name = _your_helper(source, "<literal>", ...)`, through a function
+     defined in the test file, followed by the bare statement `assert name is not None` (or
+     `assert None is not name`). That is the only check credited here: a bare `assert name`, a
+     wrapped operand such as `(a or b) is not None`, or any other check is not. The route fails
+     closed, and credits an extraction only when all three of these hold:
+     1. `name` is bound exactly once in the test function (every kind of binding counts:
+        assignment, tuple unpacking, `for`, `with`, `except`, `:=`, comprehension, nested
+        `def`, import), by an unconditional top-level statement, and the assert is a later
+        top-level statement. A fallback such as `if name is None: name = _your_helper(...)` or
+        a `try`/`except` that assigns the same name, an assignment under `if False:`, a loop
+        that rebinds the name, or an assert placed before the assignment is not credited.
+     2. The first argument is the source, a name read from the committed file, and every other
+        argument is a plain positional string literal. A call with any keyword argument (even
+        `**kwargs`), a literal first argument, a name, `*args`, a concatenation, an f-string or
+        a nested call credits nothing.
+     3. The literals together name exactly one objective spelling, matched as a whole token (so
+        `"f1-gate"` names `f1`). Only that spelling is credited. A call that names two, as in
+        `_your_helper(source, "min_coverage", "target_accuracy")`, holds whichever the notebook
+        uses, so it pins neither, and the rule refuses it even when the two belong to different
+        functions, such as `"f1"` with `"min_coverage"`, or a literal like `"f1-gate"` (which
+        contains the token `f1`) together with another spelling. A call that names none is not
+        credited either. A direct pin (route 1) is the alternative for any shape refused here.
+
+     The guard does not read the helper's body, so a helper that falls back to another
+     spelling inside its body is not detected (tracked in issue #540).
   3. **A production tie** (recipe 28's shape, which reads no file). A `helpers.py` function
      whose body makes the real selection call is compared with `==` to a local re-derivation
      computed with an explicit keyword, and a separate `!=` assert shows that re-derivation
