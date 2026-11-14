@@ -10,7 +10,7 @@ These things are fixed so that running it twice gives the same file:
   as a copy and passed to the kernel; this process's own environment is never changed, so
   several notebooks can be executed in parallel (on Windows, starting several kernels at the same
   time can fail with a ZMQ "Address in use" error, which the tool absorbs by starting a fresh kernel
-  once more, see below);
+  again, up to a stated number of times, see below);
 * the kernel is the interpreter running this tool (``sys.executable``), not whichever
   ``python3`` kernelspec Jupyter finds first, so a user-level kernelspec cannot swap the
   environment the committed outputs were made in;
@@ -36,8 +36,17 @@ These things are fixed so that running it twice gives the same file:
   is written, if the namespace is not actually active, and otherwise prints "pid namespace:
   active", which the workflow step greps for (#108 fix round 6, B6 M1).
 
+* matplotlib's font cache is built before the kernel starts, in a separate process with the
+  kernel's own environment (``warm_font_cache``), so a cell never builds it: on a slow runner that
+  build logs a "building the font cache" notice to stderr, which used to fail the first code cell
+  of a recipe now and then (#287). A warm-up that fails or times out does not fail the run, but
+  prints one line to this process's stderr saying so (#316).
+
 A run in which any cell wrote to stderr also fails: stderr carries warnings and absolute paths,
-which must not be committed.
+which must not be committed. The failure message shows what was written, redacted (absolute
+POSIX, Windows and UNC paths and long unbroken runs replaced), bounded and with every line
+prefixed so none can be read as a GitHub Actions ``::`` command (``stderr_excerpt``), so a log is
+enough to diagnose it.
 
 Exit status is 0 when the notebook ran to the end, 1 when a cell failed, a cell ran longer than
 the timeout (``--timeout``, default 300 seconds, at least 1), the kernel died or never started, a
@@ -45,13 +54,29 @@ cell wrote to stderr (one line on stderr, the file left unchanged), or
 ``JEV_COOKBOOK_REQUIRE_PID_NAMESPACE`` was set and the PID namespace it demands was not active, and
 2 for a usage error. #69 builds CI (network guard, staleness check) on this.
 
-Starting the kernel is retried once, and only that: when the machine is loaded (several notebooks
-executing at once) a kernel can lose a race for a TCP port ("Address in use"), exit before it
-replies, or take longer than jupyter_client's default 60 seconds to answer. Each of those is a
-``RuntimeError`` raised before any cell has run, so a second attempt with a fresh kernel cannot hide
-a failing cell; a cell that fails, times out or kills the kernel is never retried. The wait for the
-kernel to answer is ``START_WAIT`` seconds (not ``--timeout``, which is per cell), so a kernel that
-never starts fails after at most two such waits (2 x ``START_WAIT``, 360 seconds).
+Starting the kernel is retried, and only that: when the machine is loaded (several notebooks
+executing at once, in this process or in another suite) a kernel can lose a race for a TCP port
+("Address in use"), exit before it replies, or take longer than jupyter_client's default 60 seconds
+to answer. Each of those is a ``RuntimeError`` raised before any cell has run, so another attempt
+with a fresh kernel cannot hide a failing cell; a cell that fails, times out or kills the kernel is
+never retried. How many attempts depends on the failure (``START_ATTEMPTS``), counted separately:
+
+* a kernel that exits before it replies ("Kernel died before replying") is tried up to 4 times. The
+  usual cause is the port race (#328): jupyter_client picks a kernel's five ports by binding and
+  closing a probe socket for each, and the kernel binds them only when it has started, seconds
+  later on a loaded machine, so the ports are unreserved for that long and another process can take
+  one. Each attempt draws five new ports and a failed one costs seconds (the kernel has already
+  exited), so several are affordable; two were not enough in the Windows runs behind #328, where
+  full suites ran at the same time on one machine;
+* a kernel that is alive but silent ("Kernel didn't respond") is tried twice. The wait for it is
+  ``START_WAIT`` seconds (not ``--timeout``, which is per cell), so this is the slow failure: a
+  kernel that never answers fails after at most two such waits (2 x ``START_WAIT``, 360 seconds).
+
+The budgets are counted separately, so a run that sees both kinds can make 5 starts (three quick
+failures and two silent ones). A start that keeps failing still fails, with the kernel's last
+message and the number of attempts, and every retry prints one line to stderr, so a run that
+needed one says so: nothing is retried silently. The budgets live in ``retry_failed_starts``,
+which the tests that start kernels themselves call too, so they cannot drift from the tool's.
 
 Known limitation: "the kernel never started" is recognised by two jupyter_client messages
 ("Kernel didn't respond", "Kernel died before replying"). Any other start-up ``RuntimeError`` is
@@ -63,10 +88,14 @@ from __future__ import annotations
 import argparse
 import atexit
 import os
+import re
 import signal
+import subprocess
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
+from typing import TypeVar
 
 import nbformat
 from ipykernel.kernelspec import get_kernel_dict
@@ -76,11 +105,15 @@ from nbclient import NotebookClient
 from nbclient.exceptions import CellExecutionError, CellTimeoutError, DeadKernelError
 
 NOTEBOOK = "notebook.ipynb"
+T = TypeVar("T")
 KERNEL_NAME = "python3"
 SCRUBBED_PREFIXES = ("JEV_COOKBOOK_", "TYPESAFE_")
 TIMEOUT_SECONDS = 300
 START_WAIT = 180
-START_FAILURES = ("Kernel didn't respond", "Kernel died before replying")
+# jupyter_client's two start-up failures, each with the number of times a start is tried before the
+# run fails (why they differ: see the module docstring).
+START_ATTEMPTS = {"Kernel didn't respond": 2, "Kernel died before replying": 4}
+START_FAILURES = tuple(START_ATTEMPTS)
 METADATA = {
     "kernelspec": {"display_name": "Python 3", "language": "python", "name": KERNEL_NAME},
     "language_info": {"name": "python"},
@@ -110,15 +143,133 @@ class StderrOutput(Exception):
     """A cell wrote to stderr, which can carry absolute paths and so must not be committed."""
 
 
+STDERR_EXCERPT_LINES = 8
+STDERR_EXCERPT_CHARS = 600
+# Every excerpt line starts with this. Indentation alone is not enough: the Actions runner trims
+# leading whitespace before it looks for a workflow command, so "   ::warning::x" is still one. A
+# line that starts with "  | " cannot be read as ``::command::`` however the text continues (#316).
+STDERR_LINE_PREFIX = "  | "
+STDERR_TRUNCATED = "[... truncated]"
+_ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
+# A Windows path: a drive letter (after a non-alphanumeric, so not the end of a word like
+# ``NOTE:/``) with either slash, or a UNC path (``\\server\share``, ``\\?\C:\``). Windows names may hold spaces,
+# commas and brackets, so after the prefix everything up to a character Windows forbids in a name
+# (a quote, ``<>|*?`` or a colon) or the end of the line belongs to the path: that can swallow the
+# words after an unquoted path, which is the safe direction, and never leaves the tail of a
+# folder name such as ``Program Files`` or ``Jane Doe`` behind.
+_WINDOWS_PATH = (
+    r"(?:\\\\(?:[?.]\\(?:[A-Za-z]:\\)?)?|(?<![A-Za-z0-9])[A-Za-z]:[\\/])"
+    r"""[^"'<>|*?:\r\n]*"""
+)
+# A POSIX absolute path, or a home-directory ``~`` path.
+_POSIX_PATH = r"""(?:~/|/)[^\s"'<>()\[\]{},;`]+"""
+# And a long unbroken run that could be a key or a token. Order matters: paths first, so a token
+# inside a path goes with it.
+_PATH_IN_TEXT = re.compile(f"{_WINDOWS_PATH}|{_POSIX_PATH}")
+_TOKEN_IN_TEXT = re.compile(r"[A-Za-z0-9_+=/-]{24,}")
+
+
+def _redact(text: str) -> str:
+    """``text`` with control characters and ANSI escapes dropped, every absolute path replaced by
+    ``<path>`` and every long unbroken run by ``<redacted>``."""
+    text = _ANSI_ESCAPE.sub("", text)
+    text = "".join(ch for ch in text if ch in "\n\t" or ch.isprintable())
+    text = _PATH_IN_TEXT.sub("<path>", text)
+    return _TOKEN_IN_TEXT.sub("<redacted>", text)
+
+
+def stderr_excerpt(text: str) -> str:
+    """A short, safe description of what a cell wrote to stderr, for the failure message.
+
+    The text is what diagnoses a flaky or unexpected stderr write, but it can also carry absolute
+    paths and credentials (that is why stderr is rejected at all), so it is shown only after
+    redaction (``_redact``: POSIX, Windows and UNC paths, long unbroken runs) and bounded: cut to
+    ``STDERR_EXCERPT_LINES`` lines and ``STDERR_EXCERPT_CHARS`` characters. The text is written
+    by a cell and goes into a log the Actions runner scans for ``::`` workflow commands, so every
+    line starts with ``STDERR_LINE_PREFIX``, which no command can survive.
+    """
+    lines = [line.rstrip() for line in _redact(text).splitlines() if line.strip()]
+    cut = len(lines) > STDERR_EXCERPT_LINES
+    out = "\n".join(STDERR_LINE_PREFIX + line for line in lines[:STDERR_EXCERPT_LINES])
+    if len(out) > STDERR_EXCERPT_CHARS:
+        out, cut = out[:STDERR_EXCERPT_CHARS], True
+    return out + (f"\n{STDERR_LINE_PREFIX}{STDERR_TRUNCATED}" if cut else "")
+
+
 def check_no_stderr(nb: nbformat.NotebookNode) -> None:
-    """Raise ``StderrOutput`` naming the first cell that produced stderr output."""
+    """Raise ``StderrOutput`` naming the first cell that produced stderr output, with a redacted,
+    bounded excerpt of what it wrote (``stderr_excerpt``)."""
     for index, cell in enumerate(nb.cells):
-        for output in cell.get("outputs", []):
-            if output.get("output_type") == "stream" and output.get("name") == "stderr":
-                raise StderrOutput(
-                    f"cell {index} ({cell.get('id', 'no id')}) wrote to stderr; "
-                    "fix its cause rather than hiding it"
-                )
+        written = [
+            str(output.get("text", ""))
+            for output in cell.get("outputs", [])
+            if output.get("output_type") == "stream" and output.get("name") == "stderr"
+        ]
+        if written:
+            excerpt = stderr_excerpt("".join(written))
+            raise StderrOutput(
+                f"cell {index} ({cell.get('id', 'no id')}) wrote to stderr; "
+                "fix its cause rather than hiding it. What it wrote "
+                f"(redacted, bounded):\n{excerpt}\n"
+            )
+
+
+WARM_TIMEOUT = 300
+WARM_NOTE_CHARS = 200
+# Matplotlib's one-off, slow-machine-only notice (font_manager.FontManager.__init__): a timer that
+# fires only when building the font cache takes more than 5 seconds.
+FONT_CACHE_WARMUP = "import matplotlib.font_manager"
+
+
+def warm_font_cache(environment: dict[str, str]) -> None:
+    """Build matplotlib's font cache before the kernel starts, in the kernel's own environment.
+
+    #287: ``Notebook (<recipe>)`` failed now and then with "cell 2 (setup) wrote to stderr",
+    on recipes 37, 17 and 46 alike, and on identical inputs. Cell 2 is the first code cell, whose
+    imports load matplotlib. Under CI's sandbox the kernel's ``$HOME`` is a new, empty directory
+    on every job, so matplotlib has no font cache and builds one at its first import, and while it
+    does it arms a 5-second timer that logs "Matplotlib is building the font cache; this may take
+    a moment." to stderr if the build is still running. Whether the build outlasts 5 seconds
+    depends on how loaded the runner is, so the same notebook passed or failed. That notice is
+    true and the stderr rule is right to reject it from a cell, but the cell did nothing wrong:
+    the cache belongs to the environment, not to the notebook. Building it here, in a separate
+    process with exactly the kernel's environment (same ``HOME``, ``XDG_*`` and ``MPLCONFIGDIR``,
+    so the same cache directory), means no cell ever builds it; anything the build prints lands
+    in a pipe this function discards, not in a cell's output. The stderr rule is untouched.
+
+    Best effort by design: if matplotlib is not installed, or the warm-up fails or times out,
+    nothing is hidden, since the cell that needs the cache will still build it (and report) as
+    before. It does not fail the run, but it is not silent either: one line on this process's own
+    stderr says what happened (``font_cache_warmup_note``), so a cache that did not get built is
+    visible the next time a stderr flake appears (#316). The interpreter runs with ``-s``, like
+    the CI sandbox's own (``python -s tools/execute_notebook.py``): no per-user site directory.
+    """
+    try:
+        done = subprocess.run(
+            [sys.executable, "-s", "-c", FONT_CACHE_WARMUP],
+            env=environment,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            timeout=WARM_TIMEOUT,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        note = f"timed out after {WARM_TIMEOUT} s"
+    except (OSError, subprocess.SubprocessError) as error:
+        note = f"could not run ({type(error).__name__})"
+    else:
+        if done.returncode == 0:
+            return
+        note = f"exited with status {done.returncode}"
+        written = _redact(done.stderr.decode("utf-8", "replace")).strip().splitlines()
+        if written:
+            note += f": {written[-1].strip()[:WARM_NOTE_CHARS]}"
+    print(font_cache_warmup_note(note), file=sys.stderr)
+
+
+def font_cache_warmup_note(reason: str) -> str:
+    """The one line ``warm_font_cache`` prints when the warm-up did not finish cleanly."""
+    return f"font-cache warm-up {reason} (continuing: a cell that needs the cache builds it)"
 
 
 def run_in_fresh_kernel(nb: nbformat.NotebookNode, recipe_dir: Path, timeout: int) -> None:
@@ -234,6 +385,12 @@ def require_pid_namespace_if_demanded() -> None:
 
 
 KILL_OTHER_PROCESSES_TIMEOUT = 2.0
+# ``signal.SIGKILL`` does not exist on Windows. The helper below only ever signals anything inside
+# a Linux PID namespace (``in_an_isolated_pid_namespace()`` is false elsewhere), so the fallback is
+# never used to kill a real process; it only lets the helper's unit tests (which mock
+# ``os.kill``) run there.
+# On Linux this is exactly ``signal.SIGKILL``.
+_KILL_SIGNAL = getattr(signal, "SIGKILL", signal.SIGTERM)
 
 
 def kill_everyone_else_in_my_pid_namespace(timeout: float = KILL_OTHER_PROCESSES_TIMEOUT) -> None:
@@ -263,13 +420,54 @@ def kill_everyone_else_in_my_pid_namespace(timeout: float = KILL_OTHER_PROCESSES
             return
         for pid in alive:
             try:
-                os.kill(pid, signal.SIGKILL)
+                os.kill(pid, _KILL_SIGNAL)
             except ProcessLookupError:
                 pass
         time.sleep(0.01)
     raise RuntimeError(
         "a process in the sandbox's PID namespace would not die; refusing to write the result"
     )
+
+
+def start_failure(error: RuntimeError) -> str | None:
+    """Which ``START_ATTEMPTS`` kind of failed start ``error`` is, or ``None`` for anything else
+    (a ``DeadKernelError``, an unknown ``RuntimeError``), which is never retried.
+
+    ``DeadKernelError`` is a ``RuntimeError`` and can carry the same words, but it means a kernel
+    that was running died, and a cell may have run by then."""
+    if isinstance(error, DeadKernelError):
+        return None
+    return next((kind for kind in START_ATTEMPTS if kind in str(error)), None)
+
+
+def retry_failed_starts(attempt: Callable[[], T], name: str) -> T:
+    """Return ``attempt()``, calling it again when it fails to start a kernel, as often as
+    ``START_ATTEMPTS`` allows for that kind of failure; raise ``KernelStartError`` when it does not
+    start in the end, and anything else at once.
+
+    ``attempt`` must build its own kernel each call and run no cell before the start has
+    succeeded, which is what makes a start failure safe to retry. This is the only place that
+    holds the budgets, so every caller (this tool, and the tests that start kernels themselves)
+    gets the same ones. The budgets are counted per kind, so a run that sees both kinds can make
+    ``sum(START_ATTEMPTS.values()) - len(START_ATTEMPTS) + 1`` = 5 starts."""
+    failed_starts = dict.fromkeys(START_ATTEMPTS, 0)
+    while True:
+        try:
+            return attempt()
+        except RuntimeError as error:
+            kind = start_failure(error)
+            if kind is None:
+                raise
+            failed_starts[kind] += 1
+            if failed_starts[kind] >= START_ATTEMPTS[kind]:
+                raise KernelStartError(
+                    f"{error}; {sum(failed_starts.values())} start attempts failed"
+                ) from error
+            next_attempt = f"attempt {failed_starts[kind] + 1} of {START_ATTEMPTS[kind]}"
+            print(
+                f"{name}: the kernel did not start ({error}); starting a fresh one ({next_attempt})",
+                file=sys.stderr,
+            )
 
 
 def execute(recipe_dir: Path, timeout: int = TIMEOUT_SECONDS) -> None:
@@ -282,19 +480,14 @@ def execute(recipe_dir: Path, timeout: int = TIMEOUT_SECONDS) -> None:
     """
     recipe_dir = recipe_dir.resolve()
     path = recipe_dir / NOTEBOOK
-    for attempt in (1, 2):
-        nb = nbformat.read(path, as_version=4)
-        try:
-            run_in_fresh_kernel(nb, recipe_dir, timeout)
-            break
-        except RuntimeError as error:
-            if isinstance(error, DeadKernelError) or not any(
-                message in str(error) for message in START_FAILURES
-            ):
-                raise
-            # No cell has run: the kernel never answered, so a fresh one is tried once.
-            if attempt == 2:
-                raise KernelStartError(str(error)) from error
+    warm_font_cache(offline_environment(dict(os.environ)))
+
+    def attempt() -> nbformat.NotebookNode:
+        nb = nbformat.read(path, as_version=4)  # re-read: a retry starts from the committed file
+        run_in_fresh_kernel(nb, recipe_dir, timeout)
+        return nb
+
+    nb = retry_failed_starts(attempt, recipe_dir.name)
     check_no_stderr(nb)
     nb.metadata = nbformat.from_dict(METADATA)
     nbformat.validate(nb)

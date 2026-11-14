@@ -10,6 +10,14 @@ GitHub Actions. Without ``--base`` and ``--head`` it selects every ``recipes/*/n
 pull request changes (a three-dot diff, from the merge base), and only when every changed path is
 inside a recipe folder or is exactly ``README.md``; any other changed path selects every notebook.
 
+``--merge-ref --pr-head SHA`` is for a pull request's own checkout (``refs/pull/N/merge``, a merge
+commit): the diff is taken against that commit's first parent, not against ``--base``, which is the
+base branch's tip from when the pull request was opened and goes stale (#248). ``--pr-head`` is the
+pull request's head commit (``github.event.pull_request.head.sha``): the first parent is trusted
+only when the second parent is that commit, so a branch whose own tip happens to be a merge cannot
+pass for the merge ref. ``--base`` is the fallback for any ``--head`` that is not that merge
+commit. See ``merge_ref_base``.
+
 ``--push`` is for a push to ``main``, where ``--base`` is the previous tip (``before``). The diff
 is then two-dot (``before..head``, the trees themselves), and the selection falls back to every
 notebook unless ``before`` is a commit that is an ancestor of ``head``: a first push (all zeros),
@@ -101,6 +109,68 @@ def is_ancestor(root: Path, ancestor: str, descendant: str) -> bool:
     return result.returncode == 0
 
 
+def parents(root: Path, ref: str) -> list[str] | None:
+    """The full parent SHAs of the commit ``ref`` names, or ``None`` if it is not a commit."""
+    result = subprocess.run(
+        ["git", "-C", str(root), "rev-list", "--parents", "-n", "1", "--end-of-options", ref],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.split()[1:]
+
+
+def resolve_commit(root: Path, ref: str) -> str | None:
+    """The full SHA of the commit ``ref`` names, or ``None`` if it names none here."""
+    result = subprocess.run(
+        ["git", "-C", str(root), "rev-parse", "--verify", "--end-of-options", f"{ref}^{{commit}}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.stdout.strip() if result.returncode == 0 else None
+
+
+def merge_ref_base(root: Path, base: str, head: str, pr_head: str) -> str:
+    """The base to diff a pull request against when ``head`` is the checked-out merge ref.
+
+    ``actions/checkout`` on ``pull_request`` checks out ``refs/pull/N/merge``: a merge commit
+    whose first parent is the base branch as it was when that commit was made, and whose second is
+    the pull request's head. ``pull_request.base.sha`` is the base branch's tip when the pull
+    request was *opened*, so after any later commit to the base it is an ancestor of the merge
+    commit and the diff ``base.sha...merge`` also reports everything the base branch gained since
+    (#248): unrelated recipes were re-executed, and one commit to ``src/`` or ``tools/`` selected
+    every notebook on every open pull request. The first parent is the base the tree on disk was
+    actually built on, so ``first-parent...merge`` is exactly what the pull request changes.
+
+    Only a commit with exactly two parents *whose second parent is ``pr_head``* is trusted to be
+    that merge commit (#316). Two parents alone are not proof: a pull request branch whose tip
+    merged ``main`` into it also has two, and its first parent is the branch's own previous commit,
+    which would hide most of the change and select too few notebooks. For any other ``head`` the
+    ``base`` given is kept, and the reason is printed: that can select more than needed, never
+    less. Three reasons are told apart, since only the first is a silent degradation in CI:
+    ``pr_head`` is not a commit in this clone, ``head`` is not a two-parent commit, or its second
+    parent is not ``pr_head``.
+    """
+    found = parents(root, head)
+    expected = resolve_commit(root, pr_head)
+    if found is not None and len(found) == 2 and expected is not None and found[1] == expected:
+        return found[0]
+    if expected is None:
+        # The one realistic way this check silently stops applying in CI: the clone does not have
+        # the pull request head (a shallow or partial fetch), so every pull request would quietly
+        # go back to the stale base. Say that, and not that the merge ref has the wrong shape.
+        why = f"cannot be checked: the pull request head {pr_head!r} is not a commit in this clone"
+    elif found is None or len(found) != 2:
+        why = "is not a merge commit"
+    else:
+        why = f"is a merge commit whose second parent is not the pull request head {pr_head!r}"
+    print(f"head {head!r} {why}: diffing against the given base {base!r}", file=sys.stderr)
+    return base
+
+
 def select(root: Path, base: str | None, head: str | None, dots: str = "...") -> list[str]:
     """The recipe folders to execute (see the module docstring)."""
     everything = with_notebooks(root)
@@ -124,6 +194,17 @@ def command_matrix(args: argparse.Namespace) -> int:
         return 2
     base, head = args.base, args.head
     dots = "..."
+    if args.pr_head is not None and not args.pr_head.strip():
+        print("--pr-head must not be empty: an empty value would skip the check", file=sys.stderr)
+        return 2
+    if args.merge_ref != (args.pr_head is not None):
+        print("--merge-ref and --pr-head go together", file=sys.stderr)
+        return 2
+    if args.merge_ref:
+        if args.push or base is None:
+            print("--merge-ref needs --base and --head, and is for a pull request", file=sys.stderr)
+            return 2
+        base = merge_ref_base(args.root, base, head, args.pr_head)
     if args.push:
         if base is None:
             print("--push needs --base and --head", file=sys.stderr)
@@ -200,6 +281,18 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="--base is the previous tip of main: two-dot diff, every notebook unless it is an "
         "ancestor of --head",
+    )
+    matrix.add_argument(
+        "--merge-ref",
+        action="store_true",
+        help="--head is a pull request's merge commit: diff against its first parent (the base "
+        "branch as that merge commit saw it) instead of --base, which may be stale; needs "
+        "--pr-head",
+    )
+    matrix.add_argument(
+        "--pr-head",
+        help="the pull request's head commit; with --merge-ref, --head is trusted to be the merge "
+        "commit only if this is its second parent",
     )
     matrix.add_argument("--github-output", help="append matrix= and count= lines to this file")
     matrix.set_defaults(run=command_matrix)

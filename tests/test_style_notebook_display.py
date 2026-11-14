@@ -9,7 +9,6 @@ import matplotlib
 import nbformat
 import pytest
 from nbclient import NotebookClient
-from nbclient.exceptions import DeadKernelError
 
 from jev_cookbook import style
 
@@ -22,7 +21,7 @@ def _load_executor():
     return module
 
 
-START_FAILURES = _load_executor().START_FAILURES
+executor = _load_executor()
 
 SETUP = "from jev_cookbook.style import apply_style, plot_answer_probabilities\napply_style()"
 WITHOUT_SETUP = "from jev_cookbook.style import plot_answer_probabilities"
@@ -48,9 +47,10 @@ def kernel_name(tmp_path, monkeypatch):
 
 
 def _run(first_cell, second_cell, kernel_name, tmp_path):
-    # Starting the kernel is retried once (never a cell): under load a kernel can lose a TCP
-    # port race or exit before it answers, which nbclient reports as a start-up RuntimeError.
-    for attempt in (1, 2):
+    # Starting the kernel is retried (never a cell) by the executor's own helper, so this file has
+    # the executor's budgets and cannot drift from them: under load a kernel can lose a TCP port
+    # race or exit before it answers, which nbclient reports as a start-up RuntimeError (#328).
+    def attempt():
         nb = nbformat.v4.new_notebook()
         nb.cells = [
             nbformat.v4.new_code_cell(first_cell),
@@ -60,17 +60,43 @@ def _run(first_cell, second_cell, kernel_name, tmp_path):
             nb,
             kernel_name=kernel_name,
             timeout=120,
-            startup_timeout=180,
+            startup_timeout=executor.START_WAIT,
             resources={"metadata": {"path": str(tmp_path)}},
         )
-        try:
-            client.execute()
-        except RuntimeError as error:
-            failed_to_start = any(m in str(error) for m in START_FAILURES)
-            if not failed_to_start or isinstance(error, DeadKernelError) or attempt == 2:
-                raise
-        else:
-            return nb.cells[1].outputs
+        client.execute()
+        return nb.cells[1].outputs
+
+    return executor.retry_failed_starts(attempt, kernel_name)
+
+
+@pytest.mark.parametrize("message", sorted(executor.START_ATTEMPTS))
+def test_the_kernel_start_budgets_are_the_executors(message, kernel_name, tmp_path, monkeypatch):
+    """This file starts its own kernels, so its retries must be the executor's, not a copy: a start
+    that fails with each of the executor's two messages is tried exactly as often as the executor
+    tries it, and then fails."""
+    budget = executor.START_ATTEMPTS[message]
+    failure = f"{message} to kernel_info"
+    starts = []
+
+    def fail(self, *args, **kwargs):
+        starts.append(1)
+        raise RuntimeError(failure)
+
+    monkeypatch.setattr(NotebookClient, "execute", fail)
+    with pytest.raises(executor.KernelStartError, match=f"{budget} start attempts failed"):
+        _run("1", "2", kernel_name, tmp_path)
+    assert len(starts) == budget
+
+    starts.clear()
+
+    def fail_all_but_the_last(self, *args, **kwargs):
+        starts.append(1)
+        if len(starts) < budget:
+            raise RuntimeError(failure)
+
+    monkeypatch.setattr(NotebookClient, "execute", fail_all_but_the_last)
+    assert _run("1", "2", kernel_name, tmp_path) == []  # no kernel ran, so the cell has no output
+    assert len(starts) == budget
 
 
 def test_a_returned_figure_renders_a_png_after_apply_style(kernel_name, tmp_path):
