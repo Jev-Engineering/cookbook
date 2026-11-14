@@ -703,7 +703,6 @@ def test_raw_diff_lists_both_sides_of_a_rename(repo):
 
 def test_the_original_sixty_issue_assignments_are_preserved():
     assert [r["issue"] for r in CATALOG["recipes"][:60]] == list(range(1, 61))
-    assert all(r["issue"] is None for r in CATALOG["recipes"][60:])
 
 
 def test_issue_61_remains_foundation_when_not_assigned_in_base_catalog(repo):
@@ -713,15 +712,18 @@ def test_issue_61_remains_foundation_when_not_assigned_in_base_catalog(repo):
     assert note.startswith("foundation pull request")
 
 
-@pytest.mark.parametrize("body", ["Closes #100", "Closes #401", "Closes #1", "No issue assigned"])
+@pytest.mark.parametrize(
+    "body", ["Closes #100", "Closes #401", "Closes #440", "Closes #1", "No issue assigned"]
+)
 def test_unassigned_recipe_100_fails_closed(repo, body):
-    slug = CATALOG["recipes"][-1]["slug"]
+    slug, _ = assign_in_base(repo, 100, None)
     repo.put(f"recipes/{slug}/notebook.ipynb", NOTEBOOK)
     rejected(run_check(repo, branch=f"recipe/{slug}", body=body), "no assigned issue")
 
 
 def assign_in_base(repo, rank, issue):
-    """Synthetic mapping only; no actual issue creation or guessed production assignment."""
+    """Synthetic mapping only; no actual issue creation or guessed production assignment.
+    ``issue=None`` unassigns the slug in the base catalog."""
     catalog = json.loads(json.dumps(CATALOG))
     recipe = next(r for r in catalog["recipes"] if r["rank"] == rank)
     recipe["issue"] = issue
@@ -738,6 +740,33 @@ def test_recipe_100_closing_an_assigned_issue_above_300_passes_with_rendered_rea
     problems, note = run_check(repo, branch=f"recipe/{slug}", body="Closes #401")
     assert problems == []
     assert note.startswith(f"recipe pull request for #401 ({slug})")
+
+
+def recorded_multimodal_recipe(rank):
+    """A multimodal recipe as the real catalog records it (no synthetic reassignment)."""
+    recipe = next(r for r in CATALOG["recipes"] if r["rank"] == rank)
+    return recipe["slug"], recipe["issue"]
+
+
+def test_a_multimodal_recipe_closing_its_recorded_issue_passes_against_the_real_catalog(repo):
+    slug, issue = recorded_multimodal_recipe(100)
+    assert issue == 441
+    repo.put(f"recipes/{slug}/notebook.ipynb", NOTEBOOK)
+    repo.put("README.md", rendered_readme({SLUG2, slug}))
+    problems, note = run_check(repo, branch=f"recipe/{slug}", body=f"Closes #{issue}")
+    assert problems == []
+    assert note.startswith(f"recipe pull request for #441 ({slug})")
+
+
+def test_a_multimodal_recipe_closing_another_recorded_issue_is_rejected(repo):
+    slug, _ = recorded_multimodal_recipe(100)
+    other, other_issue = recorded_multimodal_recipe(99)
+    assert other_issue == 440
+    repo.put(f"recipes/{slug}/notebook.ipynb", NOTEBOOK)
+    rejected(
+        run_check(repo, branch=f"recipe/{slug}", body="Closes #440"),
+        f"is not recipe/{other}, the recipe closed by #440",
+    )
 
 
 def test_high_assigned_issue_requires_recipe_branch_and_exactly_one_closed_issue(repo):
@@ -767,7 +796,8 @@ def test_high_assigned_issue_preserves_path_and_readme_prose_guards(repo):
 
 
 def test_head_catalog_cannot_assign_itself_a_recipe_issue(repo):
-    catalog = json.loads(json.dumps(CATALOG))
+    _, base = assign_in_base(repo, 100, None)
+    catalog = json.loads(json.dumps(base))
     recipe = catalog["recipes"][-1]
     recipe["issue"] = 401
     repo.put("catalog/recipes.json", json.dumps(catalog))
@@ -782,3 +812,79 @@ def test_ambiguous_or_invalid_base_assignments_fail_closed(repo, issue):
     assign_in_base(repo, 100, issue)
     with pytest.raises(scope.CannotRun, match="base catalog assignments"):
         run_check(repo, branch="foundation/anything", body="Closes #61")
+
+
+# -- image files belong in assets/ (#307) -------------------------------------------------------
+
+PNG_STUB = b"\x89PNG\r\n\x1a\n"  # the scope check reads paths, not contents
+
+
+def test_an_image_under_the_recipes_assets_folder_is_accepted(repo):
+    repo.put(f"recipes/{SLUG1}/assets/photo.png", PNG_STUB)
+    repo.put(f"recipes/{SLUG1}/assets/frames/one.jpg", PNG_STUB)
+    repo.put(f"recipes/{SLUG1}/assets/two.jpeg", PNG_STUB)
+    accepted(run_check(repo))
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "helpers/photo.png",
+        "fixtures/photo.jpg",
+        "photo.jpeg",
+        "tests/photo.png",
+        "helpers/assets/photo.png",  # an assets folder that is not the recipe's own
+        "assetsx/photo.png",
+        "asset/photo.png",
+        "assets.png",
+        "elsewhere/photo.PNG",  # the suffix is matched in any case
+        "photo.gif",
+        "photo.webp",
+        "photo.svg",
+    ],
+)
+def test_an_image_outside_the_assets_folder_is_rejected(repo, path):
+    repo.put(f"recipes/{SLUG1}/{path}", PNG_STUB)
+    rejected(run_check(repo), f"recipes/{SLUG1}/{path}", f"recipes/{SLUG1}/assets/")
+
+
+def test_an_image_in_another_recipes_assets_folder_is_rejected_as_out_of_scope(repo):
+    repo.put(f"recipes/{SLUG2}/assets/photo.png", PNG_STUB)
+    rejected(run_check(repo), f"outside recipes/{SLUG1}/")
+
+
+def test_an_image_renamed_out_of_assets_is_rejected(repo):
+    repo.put(f"recipes/{SLUG1}/assets/photo.png", PNG_STUB)
+    repo.commit("base2")
+    repo.git("branch", "-f", "main", "HEAD")
+    repo.move(f"recipes/{SLUG1}/assets/photo.png", f"recipes/{SLUG1}/helpers/photo.png")
+    rejected(run_check(repo), "an image file must be under")
+
+
+def test_an_image_renamed_into_assets_is_accepted(repo):
+    repo.put(f"recipes/{SLUG1}/photo.png", PNG_STUB)
+    repo.commit("base2")
+    repo.git("branch", "-f", "main", "HEAD")
+    repo.move(f"recipes/{SLUG1}/photo.png", f"recipes/{SLUG1}/assets/photo.png")
+    accepted(run_check(repo))
+
+
+def test_deleting_a_misplaced_image_is_accepted(repo):
+    repo.put(f"recipes/{SLUG1}/helpers/photo.png", PNG_STUB)
+    repo.commit("base2")
+    repo.git("branch", "-f", "main", "HEAD")
+    repo.remove(f"recipes/{SLUG1}/helpers/photo.png")
+    accepted(run_check(repo))
+
+
+def test_a_non_image_in_assets_or_elsewhere_is_not_judged_by_the_scope_check(repo):
+    # Contents and format are check_recipe_assets.py's job; this check only knows suffixes.
+    repo.put(f"recipes/{SLUG1}/assets/notes.txt", "x\n")
+    repo.put(f"recipes/{SLUG1}/helpers/data.json", "{}\n")
+    accepted(run_check(repo))
+
+
+def test_the_scope_check_and_the_asset_checker_agree_on_which_suffixes_are_images():
+    assets = load("check_recipe_assets_for_scope_test", REPO / "tools" / "check_recipe_assets.py")
+    assert scope.IMAGE_SUFFIXES == assets.IMAGE_SUFFIXES
+    assert set(assets.ALLOWED_SUFFIXES) <= set(scope.IMAGE_SUFFIXES)

@@ -1,0 +1,949 @@
+"""Ordered-frame helpers: every expectation below is worked out by hand in a comment."""
+
+from __future__ import annotations
+
+import bisect
+import json
+import math
+import random
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+from jev_cookbook import frames
+from jev_cookbook.evaluation import transition_metrics
+from jev_cookbook.fixtures import validate_recipe
+from jev_cookbook.frames import (
+    earliest_transition,
+    frame_at,
+    frame_intervals,
+    frame_timestamps,
+    frame_windows,
+    relative_frames,
+    sample_frames,
+    select_frames,
+    transition_time,
+    window_timestamps,
+)
+
+
+def rows(*times):
+    return [{"timestamp_seconds": t, "image": f"image:sha256:{i}"} for i, t in enumerate(times)]
+
+
+SIX = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]
+
+
+def test_public_names():
+    assert set(frames.__all__) == {
+        "TIME_EPSILON",
+        "earliest_transition",
+        "frame_at",
+        "frame_intervals",
+        "frame_timestamps",
+        "frame_windows",
+        "relative_frames",
+        "sample_frames",
+        "select_frames",
+        "transition_time",
+        "window_timestamps",
+    }
+
+
+# ------------------------------------------------------------------------------ sample_frames
+
+
+def test_no_rule_keeps_every_frame_in_the_window():
+    assert sample_frames(SIX) == [0, 1, 2, 3, 4, 5]
+    assert sample_frames(SIX, start=1.0, end=3.0) == [1, 2, 3]
+
+
+def test_every_seconds_on_the_grid():
+    # targets 0, 2, 4 land exactly on frames 0, 2, 4
+    assert sample_frames(SIX, every_seconds=2) == [0, 2, 4]
+
+
+def test_every_seconds_tie_goes_to_the_earlier_frame():
+    # targets 0, 2.5, 5; 2.5 is 0.5 from both frame 2 and frame 3 -> frame 2
+    assert sample_frames(SIX, every_seconds=2.5) == [0, 2, 5]
+
+
+def test_every_seconds_nearest_not_floor():
+    # targets 0, .5, 1; .5 is .1 from 0.4 and .5 from 1.0 -> index 1
+    assert sample_frames([0.0, 0.4, 1.0], every_seconds=0.5) == [0, 1, 2]
+
+
+def test_every_seconds_deduplicates_sparse_frames():
+    # frames 0 and 4; targets 0,1,2,3,4: 1 -> 0, 2 is a tie -> 0, 3 -> 4, 4 -> 4
+    assert sample_frames([0.0, 4.0], every_seconds=1) == [0, 1]
+
+
+def test_every_seconds_with_start_and_end():
+    # window [1.5, 5]: eligible frames 2..5; targets 1.5, 2.5, 3.5, 4.5 -> 2, (tie) 2, 3, 4
+    assert sample_frames(SIX, every_seconds=1, start=1.5) == [2, 3, 4]
+    # window [0, 3]: targets 0,1,2,3
+    assert sample_frames(SIX, every_seconds=1, end=3) == [0, 1, 2, 3]
+
+
+def test_every_seconds_float_drift_does_not_lose_the_last_target():
+    tenths = [i / 10 for i in range(11)]  # 0.0 .. 1.0
+    # 0.3 * 3 == 0.8999999999999999 and 0.1 * 3 == 0.30000000000000004; both stay on frames
+    assert sample_frames(tenths, every_seconds=0.3) == [0, 3, 6, 9]
+    assert sample_frames([0.0, 0.1, 0.2, 0.3], every_seconds=0.1) == [0, 1, 2, 3]
+    # 1/3 is not representable: targets 0, 1/3, 2/3, 1 over frames 0, .5, 1 -> 0, 1, (1), 2
+    assert sample_frames([0.0, 0.5, 1.0], every_seconds=1 / 3) == [0, 1, 2]
+
+
+def test_boundaries_are_inclusive_within_float_slack():
+    assert sample_frames(SIX, end=3.0 - 1e-10) == [0, 1, 2, 3]
+    assert sample_frames(SIX, start=2.0 + 1e-10, end=4.0) == [2, 3, 4]
+    assert sample_frames(SIX, start=2.0 + 1e-6, end=4.0) == [3, 4]
+    assert sample_frames(SIX, start=3.0, end=3.0) == [3]
+
+
+def test_a_drifted_timestamp_samples_like_its_exact_value():
+    # 0.1 + 0.2 = 0.30000000000000004; targets 0, 0.3, 0.6 pick frames 0, 1, 2
+    times = [0.0, 0.1 + 0.2, 0.6]
+    assert sample_frames(times, every_seconds=0.3) == [0, 1, 2]
+
+
+def test_count_spreads_by_position_including_both_ends():
+    # n = 6: count 3 -> positions 0, 2.5 (half rounds down to 2), 5
+    assert sample_frames(SIX, count=3) == [0, 2, 5]
+    # count 4 -> 0, 5/3 -> 2, 10/3 -> 3, 5
+    assert sample_frames(SIX, count=4) == [0, 2, 3, 5]
+    assert sample_frames(SIX, count=2) == [0, 5]
+    assert sample_frames(SIX, count=1) == [0]
+
+
+def test_count_at_least_the_frames_returns_all_without_repeats():
+    assert sample_frames(SIX, count=6) == [0, 1, 2, 3, 4, 5]
+    assert sample_frames(SIX, count=99) == [0, 1, 2, 3, 4, 5]
+
+
+@pytest.mark.parametrize("n", range(1, 30))
+def test_count_returns_exactly_count_distinct_ascending_indices(n):
+    times = [float(i) ** 1.5 for i in range(n)]
+    for count in range(1, n + 1):
+        picked = sample_frames(times, count=count)
+        assert len(picked) == count
+        assert picked == sorted(set(picked))
+        assert picked[0] == 0
+        assert count == 1 or picked[-1] == n - 1
+
+
+def test_count_within_a_window_indexes_the_eligible_frames():
+    # window 1..4 holds frames 1,2,3,4; count 3 -> positions 0, 1.5 (down -> 1), 3
+    assert sample_frames(SIX, count=3, start=1, end=4) == [1, 2, 4]
+
+
+def test_single_frame():
+    assert sample_frames([2.5]) == [0]
+    assert sample_frames([2.5], every_seconds=1) == [0]
+    assert sample_frames([2.5], count=4) == [0]
+    assert sample_frames([2.5], start=2.5, end=2.5, count=1) == [0]
+
+
+def test_numpy_numbers_and_generators_are_accepted():
+    assert sample_frames((t for t in np.array(SIX)), every_seconds=np.float64(2)) == [0, 2, 4]
+    assert sample_frames(SIX, count=np.int64(2)) == [0, 5]
+
+
+@pytest.mark.parametrize(
+    "times",
+    [[], [1.0, 1.0], [2.0, 1.0], [0.0, 2.0, 1.0], [-1.0, 0.0], [0.0, math.nan], [0.0, math.inf]],
+)
+def test_bad_timestamps_raise(times):
+    with pytest.raises(ValueError):
+        sample_frames(times)
+
+
+def test_duplicate_and_unsorted_timestamps_say_so():
+    with pytest.raises(ValueError, match="strictly increasing"):
+        sample_frames([0.0, 1.0, 1.0])
+    with pytest.raises(ValueError, match="strictly increasing"):
+        sample_frames([3.0, 1.0, 2.0])
+    with pytest.raises(ValueError, match="empty"):
+        sample_frames([])
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"every_seconds": 0},
+        {"every_seconds": -1},
+        {"every_seconds": math.nan},
+        {"every_seconds": math.inf},
+        {"every_seconds": True},
+        {"every_seconds": "1"},
+        {"count": 0},
+        {"count": -2},
+        {"count": 2.5},
+        {"count": 2.0},
+        {"count": True},
+        {"every_seconds": 1, "count": 2},
+        {"start": -1},
+        {"start": math.nan},
+        {"end": math.inf},
+        {"start": 4, "end": 3},
+        {"start": 10},
+        {"end": -0.5},
+        {"every_seconds": 1e-12},
+    ],
+)
+def test_bad_arguments_raise(kwargs):
+    with pytest.raises(ValueError):
+        sample_frames(SIX, **kwargs)
+
+
+def test_window_without_a_frame_raises_instead_of_returning_nothing():
+    with pytest.raises(ValueError, match="no frame"):
+        sample_frames(SIX, start=1.2, end=1.8)
+
+
+def test_sampling_is_deterministic_and_independent_of_the_input_container():
+    first = sample_frames(SIX, every_seconds=1.5)
+    assert first == sample_frames(tuple(SIX), every_seconds=1.5)
+    assert first == sample_frames(iter(SIX), every_seconds=1.5)
+    # targets 0, 1.5 (tie 1,2 -> 1), 3, 4.5 (tie 4,5 -> 4)
+    assert first == [0, 1, 3, 4]
+
+
+# ------------------------------------------------------------------------------ the rest
+
+
+def test_frame_timestamps_and_validation():
+    assert frame_timestamps(rows(0, 0.5, 2)) == [0.0, 0.5, 2.0]
+    for bad in ([], rows(1, 1), rows(2, 1), [{"image": "x"}], [1.0], rows(-1, 2)):
+        with pytest.raises(ValueError):
+            frame_timestamps(bad)
+
+
+def test_frame_intervals():
+    assert frame_intervals(rows(0, 0.75, 1.5, 4.0)) == [0.75, 0.75, 2.5]
+    assert frame_intervals(rows(3.0)) == []
+    with pytest.raises(ValueError):
+        frame_intervals([])
+    with pytest.raises(ValueError, match="strictly increasing"):
+        frame_intervals(rows(0, 1, 1))
+
+
+def test_relative_frames_default_now_is_the_last_frame():
+    original = rows(0, 2, 5)
+    out = relative_frames(original)
+    assert [r["seconds_ago"] for r in out] == [5.0, 3.0, 0.0]
+    assert [r["image"] for r in out] == ["image:sha256:0", "image:sha256:1", "image:sha256:2"]
+    assert [r["timestamp_seconds"] for r in out] == [0.0, 2.0, 5.0]
+    assert all("seconds_ago" not in r for r in original)  # input untouched
+    assert out[0] is not original[0]
+
+
+def test_relative_frames_explicit_now():
+    out = relative_frames(rows(1.0, 2.5), now=4.0)
+    assert [r["seconds_ago"] for r in out] == [3.0, 1.5]
+    assert relative_frames(rows(1.0, 2.5), now=2.5)[-1]["seconds_ago"] == 0.0
+    assert relative_frames(rows(1.0, 2.5), now=2.5 - 1e-10)[-1]["seconds_ago"] == 0.0
+
+
+def test_relative_frames_single_and_errors():
+    assert relative_frames(rows(7.0))[0]["seconds_ago"] == 0.0
+    for kwargs in ({"now": 2.0}, {"now": math.nan}, {"now": -1}, {"now": True}):
+        with pytest.raises(ValueError):
+            relative_frames(rows(1.0, 3.0), **kwargs)
+    with pytest.raises(ValueError):
+        relative_frames([])
+    with pytest.raises(ValueError):
+        relative_frames(rows(2, 1))
+
+
+def test_window_timestamps():
+    state = rows(0, 0.75, 1.5, 4.0)
+    assert window_timestamps(state, 1, 3) == {
+        "start_seconds": 0.75,
+        "end_seconds": 4.0,
+        "duration_seconds": 3.25,
+    }
+    assert window_timestamps(state, 2, 2) == {
+        "start_seconds": 1.5,
+        "end_seconds": 1.5,
+        "duration_seconds": 0.0,
+    }
+    assert window_timestamps(state, np.int64(0), 3)["duration_seconds"] == 4.0
+
+
+@pytest.mark.parametrize("first,last", [(-1, 2), (0, 4), (2, 1), (0.0, 1), (True, 1), (0, "1")])
+def test_window_timestamps_rejects_bad_indices(first, last):
+    with pytest.raises(ValueError):
+        window_timestamps(rows(0, 1, 2, 3), first, last)
+
+
+def test_window_timestamps_empty_and_unordered():
+    with pytest.raises(ValueError):
+        window_timestamps([], 0, 0)
+    with pytest.raises(ValueError):
+        window_timestamps(rows(1, 0), 0, 1)
+
+
+def test_select_frames_pairs_with_sample_frames():
+    state = rows(*SIX)
+    chosen = select_frames(state, sample_frames(frame_timestamps(state), every_seconds=2))
+    assert [r["timestamp_seconds"] for r in chosen] == [0.0, 2.0, 4.0]
+    assert chosen[0] == {**state[0], "frame_index": 0}
+    assert chosen[0] is not state[0]
+    assert select_frames(state, []) == []
+    for bad in ([6], [-1], [2, 1], [1, 1], [True], [1.0]):
+        with pytest.raises(ValueError):
+            select_frames(state, bad)
+    with pytest.raises(ValueError):
+        select_frames([], [])
+
+
+# ------------------------------------------------------------------------------ round 2
+
+
+def test_tie_rule_holds_when_frames_are_closer_than_the_slack():
+    # frame 1 is exactly on the target, frame 2 is 5e-10 s later: still the earlier frame
+    assert sample_frames([0.0, 1.0, 1.0 + 5e-10, 2.0], every_seconds=1) == [0, 1, 3]
+    # the earlier frame sits just before the target and the later one just after
+    assert sample_frames([0.0, 1.0 - 5e-10, 1.0 + 5e-10, 2.0], every_seconds=1) == [0, 1, 3]
+
+
+@pytest.mark.parametrize(
+    ("times", "expected"),
+    [
+        # three frames: index 1 is exactly on the target (1.0), indices 2 and 3 are just after it
+        ([0.0, 1.0, 1.0 + 3e-10, 1.0 + 6e-10, 2.0], [0, 1, 4]),
+        # three frames around the target: the earliest of the tied frames wins
+        ([0.0, 1.0 - 4e-10, 1.0, 1.0 + 4e-10, 2.0], [0, 1, 4]),
+        # three frames, all after the target; the first of them is the closest
+        ([0.0, 1.0 + 1e-10, 1.0 + 2e-10, 1.0 + 3e-10, 2.0], [0, 1, 4]),
+        # four frames after the target
+        ([0.0, 1.0, 1.0 + 2e-10, 1.0 + 4e-10, 1.0 + 6e-10, 2.0], [0, 1, 5]),
+        # three frames up to the target: index 3 is exactly on it, indices 1 and 2 are just before
+        # it, so the earliest tied frame is two frames before the closest one
+        ([0.0, 1.0 - 6e-10, 1.0 - 3e-10, 1.0, 2.0], [0, 1, 4]),
+        # the closest frame is index 2 (1e-10 after the target); index 1 is 5e-10 before it, so
+        # its distance is within 1e-9 of the smallest one and the two are tied
+        ([0.0, 1.0 - 5e-10, 1.0 + 1e-10, 1.0 + 2e-10, 2.0], [0, 1, 4]),
+        # index 1 is 3e-9 before the target, outside the slack of the closest frame (index 2,
+        # exactly on the target), so it is not tied
+        ([0.0, 1.0 - 3e-9, 1.0, 1.0 + 3e-10, 2.0], [0, 2, 4]),
+    ],
+)
+def test_every_seconds_picks_the_earliest_frame_within_the_slack_of_the_closest(times, expected):
+    assert sample_frames(times, every_seconds=1) == expected
+
+
+def test_a_cluster_inside_the_window_edge_slack_is_tied_too():
+    # index 1 is 3e-10 before start=1.0, inside the window's own slack, so it is eligible and
+    # tied with index 2 (exactly on the target) and index 3: the earliest of the three wins
+    times = [0.0, 1.0 - 3e-10, 1.0, 1.0 + 3e-10, 2.0]
+    assert sample_frames(times, every_seconds=1, start=1.0) == [1, 4]
+
+
+def _earliest_tied(times, target):
+    """The earliest frame whose distance from ``target`` is within TIME_EPSILON of the smallest."""
+    distance = [abs(t - target) for t in times]
+    smallest = min(distance)
+    return next(i for i, d in enumerate(distance) if d <= smallest + frames.TIME_EPSILON)
+
+
+def _targets_by_the_rule(times, every_seconds):
+    """The per-target rule written out literally: one pick for each target, no cursor."""
+    n_targets = math.floor(
+        (times[-1] - times[0]) / every_seconds + frames.TIME_EPSILON / every_seconds
+    )
+    return [_earliest_tied(times, times[0] + k * every_seconds) for k in range(n_targets + 1)]
+
+
+def _nearest_by_the_rule(times, every_seconds):
+    """The documented result: the picks, where a pick not after the last selection adds nothing."""
+    chosen = []
+    for pick in _targets_by_the_rule(times, every_seconds):
+        if not chosen or pick > chosen[-1]:
+            chosen.append(pick)
+    return chosen
+
+
+def _assert_ascending_and_accepted_by_select_frames(times, got):
+    assert all(a < b for a, b in zip(got, got[1:], strict=False)), (times, got)
+    assert [row["frame_index"] for row in select_frames(rows(*times), got)] == got
+
+
+def test_every_seconds_matches_the_rule_written_out_literally_including_clusters():
+    rng = random.Random(340)
+    gaps = [1e-10, 2e-10, 3e-10, 5e-10, 9e-10, 0.1, 0.25, 0.5, 1.0]
+    stepped_back = 0
+    for _ in range(2000):
+        times, now = [], 0.0
+        for _ in range(rng.randint(1, 12)):
+            now += rng.choice(gaps)
+            times.append(now)
+        every = rng.choice([0.1, 0.25, 0.3, 0.5, 1.0])
+        got = sample_frames(times, every_seconds=every)
+        # checked without the reference: ascending, no repeats, and select_frames accepts it
+        _assert_ascending_and_accepted_by_select_frames(times, got)
+        assert got == _nearest_by_the_rule(times, every), (times, every)
+        picks = _targets_by_the_rule(times, every)
+        stepped_back += any(b < a for a, b in zip(picks, picks[1:], strict=False))
+    assert stepped_back > 0, "the generator must reach the case the rule's last step is for"
+
+
+def test_every_seconds_is_ascending_for_clusters_midway_between_targets():
+    rng = random.Random(393)
+    stepped_back = 0
+    for _ in range(2000):
+        step = rng.choice([0.05, 0.1, 0.2, 0.25, 0.3])
+        points = {0.0}
+        for _ in range(rng.randint(1, 6)):
+            centre = (rng.randint(0, 14) + rng.choice([0.0, 0.25, 0.5])) * step
+            for j in range(rng.randint(1, 5)):
+                points.add(
+                    centre + j * rng.choice([1e-10, 2e-10, 3e-10, 5e-10, 9e-10, 1e-9, 1.1e-9])
+                )
+        times = sorted(points)
+        every = step * rng.choice([0.5, 1, 1, 2])
+        got = sample_frames(times, every_seconds=every)
+        _assert_ascending_and_accepted_by_select_frames(times, got)
+        assert got == _nearest_by_the_rule(times, every), (times, every)
+        picks = _targets_by_the_rule(times, every)
+        stepped_back += any(b < a for a, b in zip(picks, picks[1:], strict=False))
+    assert stepped_back > 0, "the generator must reach the case the rule's last step is for"
+
+
+@pytest.mark.parametrize(
+    ("times", "every", "expected"),
+    [
+        (
+            [0.3, 0.3000000009, 0.300000001, 2.000000001, 2.0000000021, 2.0000000022],
+            0.1,
+            [0, 1, 3],
+        ),
+        (
+            [
+                5e-10,
+                1e-09,
+                0.250000001,
+                0.2500000015,
+                0.25000000170000003,
+                0.25000000200000005,
+                1.2500000020000002,
+                1.2500000025000002,
+                1.2500000026000002,
+            ],
+            0.1,
+            [0, 2, 3, 6],
+        ),
+        (
+            [
+                3e-10,
+                0.2500000003,
+                0.2500000008,
+                0.250000001,
+                0.25000000110000004,
+                0.25000000200000005,
+                1.2500000020000002,
+                1.2500000023000002,
+                1.2500000032000003,
+                1.3500000032000004,
+                1.3500000033000004,
+            ],
+            0.1,
+            [0, 1, 4, 6, 7],
+        ),
+        (
+            [
+                0.1,
+                0.1000000003,
+                0.3500000003,
+                0.35000000130000003,
+                1.3500000013,
+                1.3500000016,
+                1.4500000016,
+                1.4500000027000002,
+            ],
+            0.25,
+            [0, 2, 3, 4],
+        ),
+    ],
+)
+def test_every_seconds_is_ascending_and_repeat_free_when_rounding_moves_a_tie(
+    times, every, expected
+):
+    got = sample_frames(times, every_seconds=every)
+    assert got == expected
+    _assert_ascending_and_accepted_by_select_frames(times, got)
+
+
+def test_a_distance_exactly_epsilon_beyond_the_closest_is_still_tied():
+    times = [0.0, 1.500021943435706e-09, 2.905970529987242e-09]
+    got = sample_frames(times, every_seconds=2.702996236711474e-09)
+    assert got == [0, 1]
+
+
+def test_three_frames_before_the_closest_are_tied_and_the_earliest_wins():
+    times = [0.0, 1.0 - 9e-10, 1.0 - 6e-10, 1.0 - 3e-10, 1.0, 2.0]
+    assert sample_frames(times, every_seconds=1) == [0, 1, 5]
+
+
+def test_frame_windows_cover_the_frames_in_start_to_end_when_the_stride_is_at_most_the_width():
+    times = [float(i) for i in range(11)]
+    bounded = frame_windows(times, width_seconds=1.0, stride_seconds=1.0, start=2.0, end=8.0)
+    assert set(range(2, 9)) <= _covered(bounded)
+    assert set(range(11)) - _covered(bounded) == {0, 1, 9, 10}
+
+
+def test_frame_at_nearest_uses_the_sample_frames_tie_rule_for_clusters():
+    """Three or more frames within the slack: the earliest tied frame, as in sample_frames."""
+    first = [0.0, 1.0, 1.0 + 3e-10, 2.0]
+    second = [0.0, 1.0 - 4e-10, 1.0, 1.0 + 4e-10, 2.0]
+    assert frame_at(first, 1.0 + 2e-9, side="nearest") == 1 == _earliest_tied(first, 1.0 + 2e-9)
+    assert frame_at(second, 1.0 + 1.5e-9, side="nearest") == 1
+    assert _earliest_tied(second, 1.0 + 1.5e-9) == 1
+    # the same frame sample_frames picks for a target at that time (the window starts at 0)
+    assert sample_frames(first, every_seconds=1.0 + 2e-9)[1] == 1
+
+
+def test_frame_at_nearest_can_be_earlier_than_before_and_beat_a_frame_at_the_time():
+    """The documented consequences of the tie rule when frames are closer than the slack."""
+    times = [0.0, 1.0, 1.0 + 3e-10, 2.0]
+    assert frame_at(times, 1.0 + 2e-9, side="before") == 2
+    assert frame_at(times, 1.0 + 2e-9, side="nearest") == 1
+    exact = [0.0, 1.0, 1.0 + 5e-10, 2.0]
+    assert frame_at(exact, 1.0 + 5e-10, side="nearest") == 1
+
+
+def test_frame_at_nearest_matches_the_rule_written_out_literally_including_clusters():
+    rng = random.Random(395)
+    gaps = [1e-10, 2e-10, 3e-10, 5e-10, 9e-10, 1e-9, 1.1e-9, 0.1, 0.25, 0.5, 1.0]
+    clustered = 0
+    for _ in range(3000):
+        times, now = [], rng.choice([0.0, 0.5, 3.0])
+        for _ in range(rng.randint(1, 12)):
+            times.append(now)
+            now += rng.choice(gaps)
+        when = rng.choice(times) + rng.choice([-2e-9, -1e-9, -5e-10, 0.0, 5e-10, 1.5e-9, 0.05])
+        when = max(0.0, when)
+        got = frame_at(times, when, side="nearest")
+        assert got == _earliest_tied(times, when), (times, when)
+        closest = min(abs(t - when) for t in times)
+        clustered += sum(abs(t - when) <= closest + frames.TIME_EPSILON for t in times) >= 3
+    assert clustered > 0, "the generator must reach ties of three or more frames"
+
+
+def _old_frame_at_nearest(times, when):
+    """frame_at(side="nearest") before this rule: the closer of the before and after frames."""
+    eps = frames.TIME_EPSILON
+    before = bisect.bisect_right(times, when + eps) - 1
+    after = bisect.bisect_left(times, when - eps)
+    candidates = [i for i in (before, after) if 0 <= i < len(times)]
+    gap = {i: abs(times[i] - when) for i in candidates}
+    closest = min(gap.values())
+    return min(i for i in candidates if gap[i] <= closest + eps)
+
+
+def test_frame_at_nearest_changed_only_for_gaps_within_three_times_the_slack():
+    """The one kind of change with no cluster: a frame at the time (within the slack) and a
+    neighbour 2.5e-9 s away, which the old rule never compared and the tie rule ties."""
+    times = [0.0, 1.0, 1.0 + 2.5e-9, 2.0]
+    when = 1.0 + 3.5e-9  # 1e-9 from frame 2, 3.5e-9 from frame 1: not tied
+    assert frame_at(times, when, side="nearest") == _old_frame_at_nearest(times, when) == 2
+    when = 1.0 + 1.6e-9  # 1.6e-9 from frame 1, 0.9e-9 from frame 2: tied within the slack
+    assert _old_frame_at_nearest(times, when) == 2
+    assert frame_at(times, when, side="nearest") == 1 == _earliest_tied(times, when)
+
+
+def test_frame_at_nearest_is_unchanged_when_every_gap_is_larger_than_three_times_the_slack():
+    """Seeded comparison with the previous two-frame rule: identical when every gap exceeds
+    3 * TIME_EPSILON (a tie needs the other frame within 2 * TIME_EPSILON of the time)."""
+    rng = random.Random(3950)
+    ties = 0
+    for _ in range(5000):
+        times, now = [], rng.uniform(0.0, 5.0)
+        for _ in range(rng.randint(1, 15)):
+            times.append(now)
+            now += rng.choice([3.5e-9, 1e-6, 0.001, 0.04, 0.1, 0.5, 1.0, rng.uniform(1e-8, 2.0)])
+        i = rng.randrange(len(times))
+        midpoint = (times[i] + times[min(i + 1, len(times) - 1)]) / 2
+        when = rng.choice(
+            [
+                times[i],
+                midpoint,
+                midpoint + 4e-10,
+                midpoint - 4e-10,
+                times[i] + 1e-9,
+                times[i] - 1e-9,
+                rng.uniform(times[0] - 1.0, times[-1] + 1.0),
+            ]
+        )
+        when = max(0.0, when)
+        new, old = frame_at(times, when, side="nearest"), _old_frame_at_nearest(times, when)
+        assert new == old, (times, when, new, old)
+        if i + 1 < len(times) and times[i] <= when <= times[i + 1]:
+            # a real tie: the two neighbours' distances are within the slack of each other
+            ties += abs((when - times[i]) - (times[i + 1] - when)) <= frames.TIME_EPSILON
+    assert ties > 0, "the generator must reach two-frame ties"
+
+
+def test_the_three_slack_bound_is_exact_arithmetic_not_float_rounding_at_large_times():
+    """Documented limit: the slack comparisons round, so at timestamps of thousands of seconds
+    a gap within rounding distance of 3 * TIME_EPSILON can still change the answer."""
+    times = [1000000.0155812273, 1000000.0155812303, 1000000.0155812353, 1000000.0155812385]
+    when = 1000000.0155812292
+    assert all(b - a > 3 * frames.TIME_EPSILON for a, b in zip(times[:-1], times[1:], strict=True))
+    assert frame_at(times, when, side="nearest") == 0
+    assert _old_frame_at_nearest(times, when) == 1
+    pair = [6944.357042662554, 6944.357042665554]
+    assert pair[1] - pair[0] > 3 * frames.TIME_EPSILON
+    assert frame_at(pair, 6944.357042664554, side="nearest") == 0
+    assert frame_at(pair, 6944.357042664554, side="before") == 1
+
+
+def test_count_spreading_is_by_position_not_by_time():
+    # the 9.7 s gap is not sampled evenly: positions 0, 2, 4 keep 0.0, 0.2 and 10.0
+    assert sample_frames([0.0, 0.1, 0.2, 0.3, 10.0], count=3) == [0, 2, 4]
+
+
+def test_select_frames_records_the_original_index():
+    state = rows(*SIX)
+    first = select_frames(state, [1, 3, 5])
+    assert [r["frame_index"] for r in first] == [1, 3, 5]
+    assert "frame_index" not in state[1]
+    second = select_frames(first, [0, 2])
+    assert [r["frame_index"] for r in second] == [1, 5]  # still the original positions
+    assert [r["timestamp_seconds"] for r in second] == [1.0, 5.0]
+
+
+def test_frame_at():
+    times = [0.0, 1.0, 2.0, 4.0]
+    assert frame_at(times, 2.0) == 2
+    assert frame_at(times, 3.0) == 2
+    assert frame_at(times, 3.0, side="after") == 3
+    assert frame_at(times, 2.0, side="after") == 2
+    assert frame_at(times, 1.5, side="nearest") == 1  # tie goes to the earlier frame
+    assert frame_at(times, 3.1, side="nearest") == 3
+    assert frame_at(times, 100.0, side="nearest") == 3
+    assert frame_at(times, 100.0) == 3
+    assert frame_at(times, 2.0 - 1e-10, side="after") == 2
+    assert frame_at(times, 2.0 + 1e-10) == 2
+    assert frame_at([5.0], 0.0, side="nearest") == 0
+    with pytest.raises(ValueError, match="at or before"):
+        frame_at([1.0, 2.0], 0.5)
+    with pytest.raises(ValueError, match="at or after"):
+        frame_at([1.0, 2.0], 2.5, side="after")
+    for bad in ({"side": "left"}, {"side": None}):
+        with pytest.raises(ValueError):
+            frame_at(times, 1.0, **bad)
+    for bad_time in (-1.0, math.nan, True):
+        with pytest.raises(ValueError):
+            frame_at(times, bad_time)
+    with pytest.raises(ValueError):
+        frame_at([], 1.0)
+
+
+def test_frame_windows_keeps_empty_windows_visible():
+    times = [0.0, 0.5, 1.0, 1.5, 2.0, 6.0, 6.5, 7.0, 7.5, 8.0]
+    windows = frame_windows(times, width_seconds=2.0, stride_seconds=2.0)
+    # windows start at 0, 2, 4, 6 and span [0,2], [2,4], [4,6], [6,8]
+    assert [(w["window_start_seconds"], w["window_end_seconds"]) for w in windows] == [
+        (0.0, 2.0),
+        (2.0, 4.0),
+        (4.0, 6.0),
+        (6.0, 8.0),
+    ]
+    assert [w["indices"] for w in windows] == [
+        [0, 1, 2, 3, 4],
+        [4],  # shared edge frame at 2.0
+        [5],  # shared edge frame at 6.0
+        [5, 6, 7, 8, 9],
+    ]
+    gap = frame_windows(times, width_seconds=1.0, stride_seconds=1.0, start=3.0, end=5.0)
+    assert [w["indices"] for w in gap] == [[], []]
+    assert frame_windows([0.0, 1.0], width_seconds=1.0, stride_seconds=5.0)[0]["indices"] == [0, 1]
+
+
+def test_frame_windows_float_drift_and_errors():
+    times = [i / 10 for i in range(11)]
+    # width 0.3, stride 0.1: windows at 0.0 .. 0.7 -> 8 windows despite 0.1 * 7 drifting
+    windows = frame_windows(times, width_seconds=0.3, stride_seconds=0.1)
+    assert len(windows) == 8
+    assert windows[7]["indices"] == [7, 8, 9, 10]
+    assert frame_windows([2.5], width_seconds=1e-12, stride_seconds=1.0)[0]["indices"] == [0]
+    for kwargs in (
+        {"width_seconds": 2.0, "stride_seconds": 1.0},  # wider than the 1.0 s range
+        {"width_seconds": 0, "stride_seconds": 1.0},
+        {"width_seconds": 1.0, "stride_seconds": 0},
+        {"width_seconds": 1.0, "stride_seconds": math.nan},
+        {"width_seconds": 1.0, "stride_seconds": True},
+        {"width_seconds": 0.5, "stride_seconds": 1e-9},
+        {"width_seconds": 0.5, "stride_seconds": 1.0, "start": 2.0, "end": 1.0},
+    ):
+        with pytest.raises(ValueError):
+            frame_windows([0.0, 1.0], **kwargs)
+    with pytest.raises(ValueError):
+        frame_windows([], width_seconds=1.0, stride_seconds=1.0)
+
+
+def test_transition_time_is_the_first_frame_showing_the_new_state():
+    state = rows(0.0, 0.5, 1.0, 1.5)
+    assert transition_time(state, 2) == 1.0
+    assert transition_time(state, 3) == 1.5
+    for bad in (0, -1, 4, True, 1.0):
+        with pytest.raises(ValueError):
+            transition_time(state, bad)
+    with pytest.raises(ValueError):
+        transition_time([], 1)
+
+
+def test_earliest_transition_from_per_pair_flags():
+    state = rows(0.0, 1.0, 2.5, 4.0)
+    found = earliest_transition(state, [False, True, True])
+    # pair (1, 2) is the first flagged: the new state is first visible in frame 2, at 2.5 s
+    assert found == {
+        "review": False,
+        "first_new_index": 2,
+        "transition_seconds": 2.5,
+        "window_start_seconds": 1.0,
+        "window_end_seconds": 2.5,
+    }
+    assert found["transition_seconds"] == transition_time(state, found["first_new_index"])
+    assert earliest_transition(state, [False, False, False]) is None
+    assert earliest_transition(rows(3.0), []) is None
+    for bad in ([True], [True, False, False, False], [1, 0, 0], [0.0, False, False], "ab"):
+        with pytest.raises(ValueError):
+            earliest_transition(state, bad)
+    with pytest.raises(ValueError):
+        earliest_transition([], [])
+
+
+def test_earliest_transition_undetermined_pair_is_review_not_a_later_transition():
+    state = rows(0.0, 1.0, 2.5, 4.0)
+    # pair (1, 2) is undetermined and pair (2, 3) says changed: the earliest is not established
+    review = earliest_transition(state, [False, None, True])
+    assert review == {
+        "review": True,
+        "first_undetermined_index": 1,
+        "window_start_seconds": 1.0,
+        "window_end_seconds": 2.5,
+    }
+    assert "transition_seconds" not in review
+    # a confident True before the undetermined pair still wins
+    assert earliest_transition(state, [True, None, None])["transition_seconds"] == 1.0
+    # no True at all but an undetermined pair: review, not "unchanged"
+    assert earliest_transition(state, [False, False, None])["first_undetermined_index"] == 2
+    assert earliest_transition(state, [None, True, True])["first_undetermined_index"] == 0
+    assert earliest_transition(state, [False, False, False]) is None
+
+
+def test_earliest_transition_accepts_numpy_booleans():
+    state = rows(0.0, 1.0, 2.0)
+    flags = np.array([0.2, 0.9]) >= 0.5
+    found = earliest_transition(state, flags)
+    assert found["first_new_index"] == 2 and found["transition_seconds"] == 2.0
+    assert earliest_transition(state, [np.bool_(False), np.bool_(False)]) is None
+
+
+def test_frame_windows_cover_the_end_of_the_sequence():
+    times = [i / 2 for i in range(17)]  # 0.0 .. 8.0 every 0.5 s
+    windows = frame_windows(times, width_seconds=3.0, stride_seconds=2.0)
+    # stride-spaced windows start at 0, 2, 4 and end at 3, 5, 7; a final one is [5, 8]
+    assert [(w["window_start_seconds"], w["window_end_seconds"]) for w in windows] == [
+        (0.0, 3.0),
+        (2.0, 5.0),
+        (4.0, 7.0),
+        (5.0, 8.0),
+    ]
+    assert windows[-1]["indices"] == list(range(10, 17))
+    covered = {i for w in windows for i in w["indices"]}
+    assert covered == set(range(17))
+    # frames 0..4, width 2, stride 1.5: windows [0,2], [1.5,3.5] and the final [2,4]
+    small = frame_windows([0.0, 1.0, 2.0, 3.0, 4.0], width_seconds=2.0, stride_seconds=1.5)
+    assert [(w["window_start_seconds"], w["window_end_seconds"]) for w in small] == [
+        (0.0, 2.0),
+        (1.5, 3.5),
+        (2.0, 4.0),
+    ]
+    assert {i for w in small for i in w["indices"]} == {0, 1, 2, 3, 4}
+    # an exactly dividing stride adds nothing
+    assert len(frame_windows(times, width_seconds=4.0, stride_seconds=2.0)) == 3
+
+
+def _covered(windows):
+    return {i for w in windows for i in w["indices"]}
+
+
+def test_frame_windows_cover_every_frame_when_stride_is_at_most_width():
+    # stride == width is the boundary: neighbouring windows share an edge, nothing falls between
+    times = [i / 2 for i in range(19)]  # 0.0 .. 9.0 every 0.5 s
+    exact = frame_windows(times, width_seconds=2.0, stride_seconds=2.0)
+    # windows [0,2] [2,4] [4,6] [6,8], then the end-aligned [7,9]
+    assert [(w["window_start_seconds"], w["window_end_seconds"]) for w in exact] == [
+        (0.0, 2.0),
+        (2.0, 4.0),
+        (4.0, 6.0),
+        (6.0, 8.0),
+        (7.0, 9.0),
+    ]
+    assert _covered(exact) == set(range(19))
+    # every width/stride pair on a grid with stride <= width, with and without start/end
+    for width in (0.5, 1.0, 1.5, 2.0, 3.0):
+        for stride in (0.5, 0.7, 1.0, 1.5, 2.0, 3.0):
+            if stride > width:
+                continue
+            windows = frame_windows(times, width_seconds=width, stride_seconds=stride)
+            assert _covered(windows) == set(range(19)), (width, stride)
+            inner = frame_windows(
+                times, width_seconds=width, stride_seconds=stride, start=1.0, end=8.5
+            )
+            assert _covered(inner) == set(range(2, 18)), (width, stride, "start/end")
+
+
+def test_frame_windows_with_a_stride_wider_than_the_width_leave_frames_out():
+    times = [float(i) for i in range(11)]  # 0 .. 10 s, one frame per second
+    windows = frame_windows(times, width_seconds=1.0, stride_seconds=5.0)
+    # sparse by construction: [0,1] and [5,6], plus the end-aligned [9,10]
+    assert [(w["window_start_seconds"], w["window_end_seconds"]) for w in windows] == [
+        (0.0, 1.0),
+        (5.0, 6.0),
+        (9.0, 10.0),
+    ]
+    assert [w["indices"] for w in windows] == [[0, 1], [5, 6], [9, 10]]
+    assert set(range(11)) - _covered(windows) == {2, 3, 4, 7, 8}
+    # the smallest overshoot: width 0.5, stride 1.5 over a half-second grid drops two of every three
+    half = [i / 2 for i in range(21)]  # 0.0 .. 10.0
+    narrow = frame_windows(half, width_seconds=0.5, stride_seconds=1.5)
+    assert sorted(set(range(21)) - _covered(narrow)) == [2, 5, 8, 11, 14, 17]
+
+
+def test_frame_windows_stride_wider_than_the_width_is_accepted_and_may_leave_no_frame_out():
+    times = [float(i) for i in range(11)]  # 0 .. 10 s, one frame per second
+    # width 1, stride 1.5: the windows [0, 1] [1.5, 2.5] [3, 4] [4.5, 5.5] [6, 7] [7.5, 8.5]
+    # [9, 10] hold every frame although the stride is wider than the width: no error, no gap
+    aligned = frame_windows(times, width_seconds=1.0, stride_seconds=1.5)
+    assert [w["window_start_seconds"] for w in aligned] == [0.0, 1.5, 3.0, 4.5, 6.0, 7.5, 9.0]
+    assert set(range(11)) - _covered(aligned) == set()
+    # width 1, stride 5: the frames in no window are what the documented expression gives
+    sparse = frame_windows(times, width_seconds=1.0, stride_seconds=5.0)
+    n = len(times)
+    uncovered = set(range(n)) - {i for w in sparse for i in w["indices"]}
+    assert uncovered == {2, 3, 4, 7, 8}
+
+
+def test_select_frames_validates_an_existing_frame_index():
+    state = rows(0.0, 1.0)
+    state[1]["frame_index"] = 7
+    assert select_frames(state, [1])[0]["frame_index"] == 7
+    for bad in ("x", -1, 1.5, True, None):
+        broken = rows(0.0, 1.0)
+        broken[1]["frame_index"] = bad
+        with pytest.raises(ValueError, match="frame_index"):
+            select_frames(broken, [1])
+
+
+DOCS = Path(__file__).resolve().parent.parent / "docs"
+
+
+def _transition_label_section():
+    """The "Transition labels" section of docs/fixtures.md and its JSON example rows."""
+    text = (DOCS / "fixtures.md").read_text("utf-8")
+    start = text.index("### Transition labels\n")
+    section = text[start : text.index("\n## ", start)]
+    lines = [
+        line
+        for block in section.split("```json\n")[1:]
+        for line in block[: block.index("```")].splitlines()
+        if line.strip()
+    ]
+    return section, [json.loads(line) for line in lines]
+
+
+def _validator_problems(root, labels, *, raw=None):
+    """What the fixture validator reports for a recipe whose test split carries ``labels``.
+
+    ``raw`` is an ``(old, new)`` text replacement applied to the labels file, for JSON that
+    ``json.dumps`` cannot write (``1e400``).
+    """
+    folder = root / "01-demo" / "fixtures"
+    folder.mkdir(parents=True)
+    ids = ["v00"] + [f"s{i:02d}" for i in range(len(labels))]
+    splits = ["validation"] + ["test"] * len(labels)
+    inputs = [
+        {"id": ident, "split": split, "fields": {"n": n}, "replay_keys": []}
+        for n, (ident, split) in enumerate(zip(ids, splits, strict=True))
+    ]
+    gold = [{"transition": "opened", "seconds": 1.0}, *labels]
+    gold_rows = [{"id": ident, "label": label} for ident, label in zip(ids, gold, strict=True)]
+    for name, content in (("inputs", inputs), ("labels", gold_rows)):
+        text = "".join(json.dumps(row) + "\n" for row in content)
+        if name == "labels" and raw is not None:
+            text = text.replace(*raw)
+        (folder / f"{name}.jsonl").write_text(text, encoding="utf-8", newline="\n")
+    return [str(problem) for problem in validate_recipe(folder.parent)]
+
+
+def test_transition_label_examples_follow_the_stated_format_and_decode_for_the_metric():
+    _, examples = _transition_label_section()
+    assert len(examples) >= 2
+    pairs = []
+    for row in examples:
+        label = row["label"]
+        assert "transition" in label and set(label) <= {"transition", "seconds"}, label
+        assert isinstance(label["transition"], str) and label["transition"], label
+        if "seconds" in label:
+            seconds = label["seconds"]
+            assert isinstance(seconds, int | float) and not isinstance(seconds, bool), label
+            assert math.isfinite(seconds) and seconds >= 0, label
+        pairs.append((label["transition"], label.get("seconds")))
+    assert any(s is None for _, s in pairs) and any(s is not None for _, s in pairs), (
+        "the section must show a label with a time and one without"
+    )
+    scored = transition_metrics(pairs, pairs, tolerance_seconds=0.5)
+    assert scored.exact_correct == len(pairs)
+
+
+def test_the_validator_checks_nothing_specific_to_transition_labels(tmp_path):
+    _, examples = _transition_label_section()
+    shown = [row["label"] for row in examples]
+    assert _validator_problems(tmp_path / "ok", shown) == []
+    malformed = [
+        {"transition": "opened", "seconds": -1.0},
+        {"transition": "opened", "seconds": "2.5"},
+        {"transition": "opened", "seconds": True},
+        {"transition": "opened", "seconds": None},
+        {"seconds": 2.5},
+        {"transition": "", "seconds": 1.0},
+        {"transition": "opened", "seconds": 2.5, "note": "x"},
+        {"transition": "uncertain"},
+    ]
+    for n, label in enumerate(malformed):
+        assert _validator_problems(tmp_path / f"bad{n}", [label]) == [], label
+    # JSON reads 1e400 as inf, which json.dumps cannot write, so the text is replaced
+    huge = [{"transition": "opened", "seconds": "huge"}]
+    assert _validator_problems(tmp_path / "huge", huge, raw=('"huge"', "1e400")) == []
+    # `present` is the Box format's marker: the validator reads the object as a Box label
+    marked = {"transition": "opened", "seconds": 2.5, "present": True}
+    problems = _validator_problems(tmp_path / "present", [marked])
+    assert any("Box label" in problem for problem in problems), problems
+    # and a file that mixes Box labels with transition labels fails
+    mixed = _validator_problems(tmp_path / "mixed", [{"present": False}])
+    assert any("Box label" in problem for problem in mixed), mixed
+
+
+def test_the_metric_rejects_a_malformed_gold_time_and_a_review_label():
+    for pair in [
+        ("opened", -1.0),
+        ("opened", float("inf")),
+        ("opened", float("-inf")),
+        ("opened", "2.5"),
+        ("opened", True),
+        ("uncertain", None),
+    ]:
+        with pytest.raises(ValueError):
+            transition_metrics([pair], [pair], tolerance_seconds=0.5)
+
+
+def test_vision_links_to_the_transition_label_format():
+    vision = (DOCS / "vision.md").read_text("utf-8")
+    assert "(fixtures.md#transition-labels)" in vision
+    assert "### Transition labels\n" in (DOCS / "fixtures.md").read_text("utf-8")

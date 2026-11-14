@@ -304,6 +304,241 @@ def test_push_needs_a_base(tree):
     assert result.returncode == 2
 
 
+# -- a pull request's merge ref with a stale base.sha (#248) -------------------------------------
+
+
+def commit_on(root, branch, change, message):
+    git(root, "checkout", "-q", branch)
+    change(root)
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "--allow-empty", "-m", message)
+
+
+def pull_request_matrix(root, branch_change, main_change=None, *, merge_ref=True):
+    """The matrix CI computes for a pull request that was opened at ``main``'s tip and whose base
+    branch then moved on: ``work`` carries ``branch_change`` (made at the stale base), ``main``
+    gains ``main_change`` afterwards, and the checkout is the merge commit GitHub builds
+    (``refs/pull/N/merge``: a merge of the current ``main`` and ``work``, here a detached HEAD).
+    ``stale`` is what ``pull_request.base.sha`` holds. Returns the selected recipe folders."""
+    stale = git(root, "rev-parse", "main")
+    commit_on(root, "work", branch_change, "the pull request")
+    pr_head = git(root, "rev-parse", "work")
+    if main_change:
+        commit_on(root, "main", main_change, "merged meanwhile")
+    git(root, "checkout", "-q", "--detach", "main")
+    git(root, "merge", "-q", "--no-ff", "-m", "refs/pull/1/merge", "work")
+    flags = ["--merge-ref", "--pr-head", pr_head] if merge_ref else []
+    result, names = push_matrix(root, stale, "HEAD", *flags)
+    assert result.returncode == 0, result.stderr
+    return names
+
+
+def add_recipe(number_and_slug):
+    return writer(f"recipes/{number_and_slug}/notebook.ipynb", NB)
+
+
+def writer(path, text="x = 1\n"):
+    def change(root):
+        write(root, path, text)
+
+    return change
+
+
+def shared_code(root):
+    """A commit to the shared code: the three places #304 says its test covers."""
+    write(root, "src/jev_cookbook/x.py", "y = 2\n")
+    write(root, "tools/new_tool.py", "z = 3\n")
+    write(root, "docs/guide.md", "changed\n")
+
+
+def test_control_without_merge_ref_the_stale_base_selects_a_recipe_merged_since(tree):
+    """The reported bug (#248), kept as a control: recipe 04-late merged to main after the pull
+    request opened, and against the stale base the merge checkout reports it as changed."""
+    own = writer("recipes/01-first/helpers.py")
+    late = add_recipe("04-late")
+    assert pull_request_matrix(tree, own, late, merge_ref=False) == ["01-first", "04-late"]
+
+
+def test_merge_ref_ignores_a_recipe_merged_after_the_pull_request_opened(tree):
+    own = writer("recipes/01-first/helpers.py")
+    assert pull_request_matrix(tree, own, add_recipe("04-late"), merge_ref=True) == ["01-first"]
+
+
+def test_control_without_merge_ref_shared_code_merged_meanwhile_selects_everything(tree):
+    """The expensive case from the issue's second comment, kept as a control: one commit to src/,
+    tools/ and docs/ on main after the pull request opened, against the stale base, widens the
+    matrix of every open recipe pull request to every notebook."""
+    own = writer("recipes/01-first/helpers.py")
+    assert pull_request_matrix(tree, own, shared_code, merge_ref=False) == [
+        "01-first",
+        "02-second",
+        "_template",
+    ]
+
+
+def test_merge_ref_ignores_shared_code_merged_after_the_pull_request_opened(tree):
+    """The same commit to src/, tools/ and docs/, with --merge-ref: only the own recipe."""
+    own = writer("recipes/01-first/helpers.py")
+    assert pull_request_matrix(tree, own, shared_code) == ["01-first"]
+
+
+def test_merge_ref_still_selects_the_pull_requests_own_new_recipe(tree):
+    assert pull_request_matrix(tree, add_recipe("05-mine"), add_recipe("04-late")) == ["05-mine"]
+
+
+def test_merge_ref_still_selects_everything_when_the_pull_request_changes_shared_code(tree):
+    def own(root):
+        write(root, "recipes/01-first/a.py", "x\n")
+        write(root, "tools/execute_notebook.py", "changed\n")
+
+    assert pull_request_matrix(tree, own, add_recipe("04-late")) == [
+        "01-first",
+        "02-second",
+        "04-late",
+        "_template",
+    ]
+
+
+def test_merge_ref_still_selects_two_recipes_the_pull_request_touches(tree):
+    def own(root):
+        write(root, "recipes/01-first/a.py", "x\n")
+        write(root, "recipes/02-second/a.py", "x\n")
+
+    assert pull_request_matrix(tree, own, add_recipe("04-late")) == ["01-first", "02-second"]
+
+
+def test_merge_ref_deleting_a_notebook_still_selects_nothing_to_run(tree):
+
+    def delete(root):
+        (root / "recipes/01-first/notebook.ipynb").unlink()
+
+    assert pull_request_matrix(tree, delete, add_recipe("04-late")) == []
+
+
+def test_merge_ref_readme_only_pull_request_selects_nothing_even_if_main_changed_a_recipe(tree):
+    readme = writer("README.md", "from the pull request\n")
+    other = writer("recipes/02-second/helpers.py", "later\n")
+    assert pull_request_matrix(tree, readme, other) == []
+
+
+def test_merge_ref_regenerated_readme_does_not_widen_a_recipe_pull_request(tree):
+    def own(root):
+        write(root, "recipes/01-first/helpers.py", "x = 1\n")
+        write(root, "README.md", "regenerated\n")
+
+    def meanwhile(root):
+        write(root, "docs/guide.md", "changed\n")
+        write(root, "recipes/_template/x.py", "x\n")
+
+    assert pull_request_matrix(tree, own, meanwhile) == ["01-first"]
+
+
+def test_merge_ref_with_nothing_new_on_main_matches_the_old_selection(tree):
+    own = writer("recipes/02-second/helpers.py")
+    assert pull_request_matrix(tree, own, None) == ["02-second"]
+
+
+def test_merge_ref_head_that_is_not_a_merge_commit_falls_back_to_the_given_base(tree):
+    """A checkout of the branch itself has one parent. Its first parent is only its previous
+    commit and would hide most of the change, so the given base is kept (over-selecting at worst)."""
+    stale = git(tree, "rev-parse", "main")
+    write(tree, "recipes/01-first/a.py", "x\n")
+    git(tree, "add", "-A")
+    git(tree, "commit", "-q", "-m", "one")
+    write(tree, "recipes/02-second/a.py", "x\n")
+    git(tree, "add", "-A")
+    git(tree, "commit", "-q", "-m", "two")
+    result, names = push_matrix(tree, stale, "HEAD", "--merge-ref", "--pr-head", "HEAD")
+    assert result.returncode == 0, result.stderr
+    assert names == ["01-first", "02-second"]
+    assert "not a merge commit" in result.stderr
+
+
+def test_merge_ref_with_an_unreadable_head_is_still_an_error(tree):
+    result, _ = push_matrix(tree, "main", "no-such-ref", "--merge-ref", "--pr-head", "main")
+    assert result.returncode != 0
+
+
+def test_merge_ref_is_refused_for_a_push(tree):
+    result, _ = push_matrix(tree, "main", "work", "--merge-ref", "--pr-head", "work", "--push")
+    assert result.returncode == 2
+
+
+def test_merge_ref_and_pr_head_go_together(tree):
+    """A merge-ref selection that cannot check its head must not run, and a --pr-head that nothing
+    uses would pass for a check (#316)."""
+    for flags in (["--merge-ref"], ["--pr-head", "work"]):
+        result, _ = push_matrix(tree, "main", "work", *flags)
+        assert result.returncode == 2, flags
+        assert "go together" in result.stderr, flags
+
+
+@pytest.mark.parametrize("empty", ["", " ", "\t"])
+@pytest.mark.parametrize("flags", [["--merge-ref"], []])
+def test_an_empty_pr_head_is_a_usage_error_not_a_skipped_check(tree, flags, empty):
+    """#316 review: ``--pr-head ""`` is not ``None``, so the pairing guard let it through and the
+    check then quietly fell back to the given base. Empty means missing."""
+    result, _ = push_matrix(tree, "main", "work", *flags, "--pr-head", empty)
+    assert result.returncode == 2, result.stderr
+    assert "--pr-head" in result.stderr and "empty" in result.stderr
+
+
+def branch_that_merged_main(root):
+    """What CI would check out if it checked out the pull request's branch instead of its merge
+    ref, for a branch that merged ``main`` into itself: a two-parent head whose first parent is the
+    branch's own previous commit. Returns (the stale base.sha, the branch tip = the PR head)."""
+    stale = git(root, "rev-parse", "main")
+    commit_on(root, "work", writer("tools/execute_notebook.py", "changed\n"), "shared code")
+    commit_on(root, "work", writer("recipes/01-first/helpers.py"), "own recipe")
+    commit_on(root, "main", add_recipe("04-late"), "merged meanwhile")
+    git(root, "checkout", "-q", "work")
+    git(root, "merge", "-q", "--no-ff", "-m", "merge main into the branch", "main")
+    return stale, git(root, "rev-parse", "work")
+
+
+def test_merge_ref_head_that_is_a_merge_of_main_into_the_branch_is_not_trusted(tree):
+    """#316: two parents are not proof of the merge ref. Trusting the first parent here would diff
+    only what main gained ("04-late") and miss the branch's own change, which touches shared code
+    and so must select every notebook."""
+    stale, pr_head = branch_that_merged_main(tree)
+    result, names = push_matrix(tree, stale, "HEAD", "--merge-ref", "--pr-head", pr_head)
+    assert result.returncode == 0, result.stderr
+    assert names == ["01-first", "02-second", "04-late", "_template"]
+    assert "second parent is not the pull request head" in result.stderr
+    assert "is not a commit in this clone" not in result.stderr
+
+
+def test_merge_ref_head_whose_second_parent_is_the_pull_request_head_is_trusted(tree):
+    """The counterpart, same shape: an actual merge ref (main's tip first, the branch second)."""
+    stale = git(tree, "rev-parse", "main")
+    commit_on(tree, "work", writer("recipes/01-first/helpers.py"), "own recipe")
+    pr_head = git(tree, "rev-parse", "work")
+    commit_on(tree, "main", add_recipe("04-late"), "merged meanwhile")
+    git(tree, "checkout", "-q", "--detach", "main")
+    git(tree, "merge", "-q", "--no-ff", "-m", "refs/pull/1/merge", "work")
+    result, names = push_matrix(tree, stale, "HEAD", "--merge-ref", "--pr-head", pr_head)
+    assert result.returncode == 0, result.stderr
+    assert names == ["01-first"]
+    assert "diffing against the given base" not in result.stderr
+
+
+@pytest.mark.parametrize("pr_head", ["0" * 40, "f" * 40, "no-such-ref"])
+def test_merge_ref_with_an_unknown_pull_request_head_keeps_the_given_base(tree, pr_head):
+    """A --pr-head this clone does not have cannot confirm anything: over-select, never less."""
+    stale = git(tree, "rev-parse", "main")
+    commit_on(tree, "work", writer("recipes/01-first/helpers.py"), "own recipe")
+    commit_on(tree, "main", add_recipe("04-late"), "merged meanwhile")
+    git(tree, "checkout", "-q", "--detach", "main")
+    git(tree, "merge", "-q", "--no-ff", "-m", "refs/pull/1/merge", "work")
+    result, names = push_matrix(tree, stale, "HEAD", "--merge-ref", "--pr-head", pr_head)
+    assert result.returncode == 0, result.stderr
+    assert names == ["01-first", "04-late"]
+    # The realistic way the check silently stops applying in CI (a head this clone cannot see) must
+    # not read like a real mismatch of the merge ref's shape.
+    assert "is not a commit in this clone" in result.stderr
+    assert "second parent is not" not in result.stderr
+
+
 def test_the_real_repository_matrix_has_the_template():
     assert "_template" in notebook_ci.with_notebooks(REPO)
 

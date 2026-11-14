@@ -19,7 +19,7 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
-from ._canonical import MAX_DEPTH, canonical_json, check_depth, plain_json
+from ._canonical import MAX_DEPTH, canonical_image_format, canonical_json, check_depth, plain_json
 from .answers import (
     RECORDED_SOURCE,
     SYNTHETIC_MODEL,
@@ -136,9 +136,18 @@ def _check_assets(
             raise ValueError("an asset reference must be at most 1024 UTF-8 bytes")
         reference_bytes += size
         if not any(ref in value for value in values):
-            raise ValueError(f"asset {ref!r} is not referenced in a state/instructions/criteria value")
-        validate_image_asset(asset)
-        checked[ref] = dict(asset)
+            raise ValueError(
+                f"asset {ref!r} is not referenced in a state/instructions/criteria value"
+            )
+        data = validate_image_asset(asset)
+        # Canonical format ("jpg" -> "jpeg", lower case) so the replay key and every consumer
+        # see one spelling per set of bytes. The digest is of the decoded file bytes, so
+        # non-canonical base64 of the same bytes ("QQ==" and "QR==") keys identically.
+        checked[ref] = {
+            **asset,
+            "format": canonical_image_format(asset["format"]),
+            "sha256": hashlib.sha256(data).hexdigest(),
+        }
     if reference_bytes > 65536:
         raise ValueError("all asset references together must be at most 65536 UTF-8 bytes")
     return checked
@@ -153,7 +162,9 @@ def replay_key(
     question.to_dict()}}``: question names sorted; every other object key (state keys,
     Choice options) and every array in the order written; no whitespace, ASCII escapes,
     shortest-repr floats. Non-empty ``assets`` adds a sorted map of reference to asset type,
-    format and SHA-256 of its base64 text. Text-only requests retain their original keys.
+    canonical format (``png`` or ``jpeg``; ``jpg`` and case variants are the same key) and
+    SHA-256 of its decoded file bytes (the digest inside ``vision.image_reference``).
+    Text-only requests retain their original keys.
     """
     plain_state, checked = _check_request(state, questions)
     questions_json = {}
@@ -176,7 +187,7 @@ def replay_key(
             ref: {
                 "type": asset["type"],
                 "format": asset["format"],
-                "sha256": hashlib.sha256(asset["data_base64"].encode("ascii")).hexdigest(),
+                "sha256": asset["sha256"],
             }
             for ref, asset in sorted(checked_assets.items())
         }
@@ -203,7 +214,9 @@ class Backend(Protocol):
 
 
 def _check_fits(name: str, question: Question, answer: Answer) -> None:
-    ok = {Noul: NoulAnswer, Choice: ChoiceAnswer, Score: ScoreAnswer, Box: BoxAnswer}[type(question)]
+    ok = {Noul: NoulAnswer, Choice: ChoiceAnswer, Score: ScoreAnswer, Box: BoxAnswer}[
+        type(question)
+    ]
     if not isinstance(answer, ok):
         raise FixtureError(
             f"question {name!r} is {question.type} but the stored answer is {answer.type}"
@@ -416,14 +429,25 @@ def get_backend(
     other value than unset, empty, ``0`` or ``1`` is an error. The variable is read when
     this function is called, never at import. ``images`` and ``long_context`` enable their
     experimental headers in live mode; offline backends ignore these live options.
+
+    ``fixtures`` and ``script`` are ignored under ``JEV_COOKBOOK_LIVE=1``, so this is the
+    constructor for the one backend that should switch with live mode. A backend that must stay
+    offline whatever the environment says (a fabricated comparison lane, say) is built directly
+    with ``ReplayBackend(...)`` or ``ReplayBackend.from_json(...)`` (``ScriptedBackend(...)`` for a
+    script), never through ``get_backend``: under live mode it would return a live backend that
+    uses the configured live model, not the model named in its fixtures.
     """
     live = os.environ.get(LIVE_ENV, "")
     if live not in ("", "0", "1"):
         raise ValueError(f"{LIVE_ENV} must be 1 (live) or unset/0 (offline), got {live!r}")
     if live == "1":
         return _make_live_backend(
-            fixtures=fixtures, script=script, seed=seed,
-            model=model, images=images, long_context=long_context,
+            fixtures=fixtures,
+            script=script,
+            seed=seed,
+            model=model,
+            images=images,
+            long_context=long_context,
         )
     if (fixtures is None) == (script is None):
         raise ValueError("pass exactly one of fixtures=... (replay) or script=... (scripted)")

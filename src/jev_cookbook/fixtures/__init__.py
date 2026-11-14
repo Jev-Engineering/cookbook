@@ -43,11 +43,14 @@ from typing import Any
 
 from .._canonical import MAX_DEPTH
 from ..answers import RECORDED_SOURCE, SYNTHETIC_SOURCE, DecisionResult
+from ._assets import ASSETS_DIR, ASSETS_MANIFEST_FILE, check_assets
 from ._scan import scan_text
 from ._schema import check, load_schema
 from .permutation import stable_permutation, stable_shuffle
 
 __all__ = [
+    "ASSETS_DIR",
+    "ASSETS_MANIFEST_FILE",
     "FIXTURES_DIR",
     "INPUTS_FILE",
     "LABELED_SPLITS",
@@ -553,6 +556,91 @@ def _check_examples(
     return problems
 
 
+_LabelPath = tuple[str | int, ...]
+
+
+def _label_path(path: _LabelPath) -> str:
+    """``label.target.boxes[1]``: the dotted form the schema messages use, keys as written."""
+    out = "label"
+    for part in path:
+        out += f"[{part}]" if isinstance(part, int) else f".{part}"
+    return out
+
+
+_BOX_KEYS = frozenset({"present", "box"})
+
+
+def _box_label_places(label: Any) -> list[tuple[_LabelPath, Any]]:
+    """``(path, object)`` for every Box label in ``label``, in document order.
+
+    The label itself is one when it is an object with a ``present`` key. Below the top, an
+    object is one when it has a ``present`` key and no key other than ``present`` and ``box``,
+    so an object that merely has a ``present`` field among others (a per-class count, an
+    answer named ``present``) is searched, not decoded. The search does not look inside a Box
+    label. Iterative; each node keeps a link to its parent, so a path is built only for a Box
+    label found.
+    """
+    if isinstance(label, Mapping) and "present" in label:
+        return [((), label)]
+    found: list[tuple[_LabelPath, Any]] = []
+    pending: list[tuple[Any, Any]] = [(label, None)]  # (node, (parent link, key) or None)
+    while pending:
+        node, link = pending.pop()
+        if isinstance(node, Mapping):
+            if link is not None and "present" in node and _BOX_KEYS.issuperset(node):
+                parts: list[str | int] = []
+                while link is not None:
+                    link, key = link
+                    parts.append(key)
+                found.append((tuple(reversed(parts)), node))
+                continue
+            children = list(node.items())
+        elif isinstance(node, list):
+            children = list(enumerate(node))
+        else:
+            continue
+        pending.extend((child, (link, key)) for key, child in reversed(children))
+    return found
+
+
+def _check_box_labels(
+    labels: dict[str, Any], label_lines: dict[str, int], name: str
+) -> list[Problem]:
+    """Box labels, at the top of a label or nested inside one, must use the gold Box format.
+
+    A label that is an object with a ``present`` key is a Box label, and so is a nested object
+    with a ``present`` key and no key but ``present`` and ``box`` (``docs/fixtures.md``, "Box
+    labels"); each must decode with ``vision.gold_box``. A top-level Box label also declares
+    the format for the file: once one label is a Box label, a label that is not one is an
+    error, reported once for that label. Where a recipe nests its Box labels is not compared
+    across labels; the recipe's own test decodes the key it reads.
+    """
+    places = {ident: _box_label_places(label) for ident, label in labels.items()}
+    if not any(places.values()):
+        return []
+    from ..vision import gold_box  # deferred: a recipe without Box labels does not import it
+
+    top = {i for i, found in places.items() if found and not found[0][0]}
+    declared = next((i for i in labels if i in top), None)  # the first, in file order
+    problems: list[Problem] = []
+    for ident in labels:
+        line = label_lines[ident]
+        if declared is not None and ident not in top:
+            msg = (
+                "label is not a Box label ({'present': ...}) but other labels in this file "
+                f"are (for example id {declared!r})"
+            )
+            problems.append(Problem(name, msg, line, ident))
+            continue
+        for path, box_label in places[ident]:
+            try:
+                gold_box(box_label)
+            except ValueError as exc:
+                where = f" at {_label_path(path)}" if path else ""
+                problems.append(Problem(name, f"malformed Box label{where}: {exc}", line, ident))
+    return problems
+
+
 def _check_responses(
     examples: list[Example], responses: Mapping[str, Any], name: str
 ) -> list[Problem]:
@@ -672,6 +760,24 @@ def _layout(folder: Path) -> tuple[dict[str | None, Path], list[Problem]]:
     return responses, problems
 
 
+def _read_manifest(path: Path) -> tuple[Any, str | None]:
+    """The manifest as strict JSON (no duplicate key, no NaN), or ``(None, why not)``."""
+    text, problems = _read(path)
+    if text is None:
+        return None, problems[0].message
+    try:
+        return _loads(text), None
+    except ValueError as exc:
+        return None, f"invalid JSON: {exc}"
+
+
+def _asset_problems(recipe_dir: PathLike | None, examples: list[Example]) -> list[Problem]:
+    """Image provenance (``docs/fixtures.md``): none for a recipe without an ``assets/`` folder."""
+    recipe = Path(recipe_dir if recipe_dir is not None else ".")
+    found = check_assets(recipe, examples, read_json=_read_manifest, leak_splits=LABELED_SPLITS)
+    return [Problem(file, message, ident=ident) for file, message, ident in found]
+
+
 def validate_recipe(recipe_dir: PathLike | None = None) -> Report:
     """Every problem in a recipe's ``fixtures/`` folder, and the recipe's mode.
 
@@ -680,7 +786,8 @@ def validate_recipe(recipe_dir: PathLike | None = None) -> Report:
     """
     folder = fixtures_dir(recipe_dir)
     if not folder.is_dir():
-        return Report([Problem(_display(folder), "fixtures folder is missing")])
+        missing = [Problem(_display(folder), "fixtures folder is missing")]
+        return Report(missing + _asset_problems(recipe_dir, []))
     responses_files, problems = _layout(folder)
     inputs_path, labels_path = folder / INPUTS_FILE, folder / LABELS_FILE
     examples, more, inputs_ok = _read_inputs(inputs_path)
@@ -692,6 +799,8 @@ def validate_recipe(recipe_dir: PathLike | None = None) -> Report:
     if inputs_ok:
         names = (_display(inputs_path), _display(labels_path))
         problems += _check_examples(examples, labels if labels_ok else None, label_lines, names)
+        if labels_ok:
+            problems += _check_box_labels(labels, label_lines, names[1])
     if replays and None not in responses_files:
         # Listed keys need the default file; with no key listed it is simply not needed.
         problems.append(Problem(_display(folder / RESPONSES_FILE), "file is missing"))
@@ -705,6 +814,7 @@ def validate_recipe(recipe_dir: PathLike | None = None) -> Report:
                 problems += _check_responses(examples, raw, _display(path))
     for path in scanned:
         problems += _scan_file(path)
+    problems += _asset_problems(recipe_dir, examples)
     return Report(problems, mode)
 
 

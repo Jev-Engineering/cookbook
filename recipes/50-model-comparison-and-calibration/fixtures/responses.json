@@ -1,0 +1,1549 @@
+{
+  "00b72ae8d1e9b0f2f97b05ae09ee1337aa8e2cdf9d27ae7c3c3e9969016de779": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "business_continuity",
+        "probabilities": {
+          "data_handling": 0.05000000000000001,
+          "security_controls": 0.05000000000000001,
+          "business_continuity": 0.85,
+          "other": 0.05000000000000001
+        },
+        "confidence": 0.7999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "verifiable": {
+        "type": "noul",
+        "noul": 0.15,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "names_control": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "0509d477955935638bc1545328c3e28a4a5648fa07f2c4d09a446249f5bfed50": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "specificity": {
+        "type": "score",
+        "score": 0.6000000000000001,
+        "probabilities": {
+          "0": 0.7,
+          "1": 0.10000000000000002,
+          "2": 0.10000000000000002,
+          "3": 0.10000000000000002
+        },
+        "confidence": 0.3999999999999999,
+        "legend": {
+          "0": "No concrete detail: a general claim with nothing a reviewer could check.",
+          "1": "Names a general policy area, but no specific control or standard.",
+          "2": "Names a specific control or standard, with no detail on how it is verified.",
+          "3": "Names a specific control or standard and says how it is verified or audited."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "088b14afff2e837ea9cfde0d81e313941c4fe397c91526d5eb27d14011db2e2b": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "specificity": {
+        "type": "score",
+        "score": 1.8,
+        "probabilities": {
+          "0": 0.10000000000000002,
+          "1": 0.10000000000000002,
+          "2": 0.7,
+          "3": 0.10000000000000002
+        },
+        "confidence": 0.5999999999999999,
+        "legend": {
+          "0": "No concrete detail: a general claim with nothing a reviewer could check.",
+          "1": "Names a general policy area, but no specific control or standard.",
+          "2": "Names a specific control or standard, with no detail on how it is verified.",
+          "3": "Names a specific control or standard and says how it is verified or audited."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "15c74af518cbdfa157b7955d31b2fbb58300334d88c39bd357a14cd7b3b92ada": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "other",
+        "probabilities": {
+          "data_handling": 0.033333333333333326,
+          "security_controls": 0.033333333333333326,
+          "business_continuity": 0.033333333333333326,
+          "other": 0.9
+        },
+        "confidence": 0.8666666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "verifiable": {
+        "type": "noul",
+        "noul": 0.05,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "names_control": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "219a79bfaaca7ac8c1d70d05cf5c9aad39d444c583f115bcf9696c47e3d81ed5": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "specificity": {
+        "type": "score",
+        "score": 2.64,
+        "probabilities": {
+          "0": 0.06000000000000002,
+          "1": 0.06000000000000002,
+          "2": 0.06000000000000002,
+          "3": 0.82
+        },
+        "confidence": 0.6399999999999999,
+        "legend": {
+          "0": "No concrete detail: a general claim with nothing a reviewer could check.",
+          "1": "Names a general policy area, but no specific control or standard.",
+          "2": "Names a specific control or standard, with no detail on how it is verified.",
+          "3": "Names a specific control or standard and says how it is verified or audited."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "23cdc23ddfdd391cc5f334beaaeeadd7d517ee408e5cfbf16e5877b982cf95da": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "other",
+        "probabilities": {
+          "data_handling": 0.026666666666666655,
+          "security_controls": 0.026666666666666655,
+          "business_continuity": 0.026666666666666655,
+          "other": 0.92
+        },
+        "confidence": 0.8933333333333334,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "verifiable": {
+        "type": "noul",
+        "noul": 0.06,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "names_control": {
+        "type": "noul",
+        "noul": 0.05,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2804b20f4a4e358205ea86f6d3f82aec83a7b11f9bb417f39db33cc85dc8da11": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "data_handling",
+        "probabilities": {
+          "data_handling": 0.88,
+          "security_controls": 0.04,
+          "business_continuity": 0.04,
+          "other": 0.04
+        },
+        "confidence": 0.84,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "verifiable": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "names_control": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "2a2fe26c68034517cb3838f16d9473be9cd71db5a529dc72876f15e065be8268": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "data_handling",
+        "probabilities": {
+          "data_handling": 0.86,
+          "security_controls": 0.04666666666666667,
+          "business_continuity": 0.04666666666666667,
+          "other": 0.04666666666666667
+        },
+        "confidence": 0.8133333333333334,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "verifiable": {
+        "type": "noul",
+        "noul": 0.8,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "names_control": {
+        "type": "noul",
+        "noul": 0.76,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "392f07d255b8923bab71c26d94cee3ed0e9e2a80227114d9138274c2126067bd": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "specificity": {
+        "type": "score",
+        "score": 1.2666666666666666,
+        "probabilities": {
+          "0": 0.13333333333333333,
+          "1": 0.6,
+          "2": 0.13333333333333333,
+          "3": 0.13333333333333333
+        },
+        "confidence": 0.4666666666666667,
+        "legend": {
+          "0": "No concrete detail: a general claim with nothing a reviewer could check.",
+          "1": "Names a general policy area, but no specific control or standard.",
+          "2": "Names a specific control or standard, with no detail on how it is verified.",
+          "3": "Names a specific control or standard and says how it is verified or audited."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "3d049af31802f9b18b6155206b72cf9806db085ebab307a5c4b57baf0ad059f5": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "security_controls",
+        "probabilities": {
+          "data_handling": 0.06000000000000002,
+          "security_controls": 0.82,
+          "business_continuity": 0.06000000000000002,
+          "other": 0.06000000000000002
+        },
+        "confidence": 0.7599999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "verifiable": {
+        "type": "noul",
+        "noul": 0.25,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "names_control": {
+        "type": "noul",
+        "noul": 0.82,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4028e8026e3e11529a918066a8631e4e0e42aa04884fa3929aca60fd8ca86229": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "specificity": {
+        "type": "score",
+        "score": 1.8133333333333332,
+        "probabilities": {
+          "0": 0.09333333333333334,
+          "1": 0.09333333333333334,
+          "2": 0.72,
+          "3": 0.09333333333333334
+        },
+        "confidence": 0.6266666666666667,
+        "legend": {
+          "0": "No concrete detail: a general claim with nothing a reviewer could check.",
+          "1": "Names a general policy area, but no specific control or standard.",
+          "2": "Names a specific control or standard, with no detail on how it is verified.",
+          "3": "Names a specific control or standard and says how it is verified or audited."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "4048c0b8bb7d554e43823524f2efc68c60b41aa85527a9f2688fefbb36a3d5ec": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "specificity": {
+        "type": "score",
+        "score": 0.6000000000000001,
+        "probabilities": {
+          "0": 0.7,
+          "1": 0.10000000000000002,
+          "2": 0.10000000000000002,
+          "3": 0.10000000000000002
+        },
+        "confidence": 0.3999999999999999,
+        "legend": {
+          "0": "No concrete detail: a general claim with nothing a reviewer could check.",
+          "1": "Names a general policy area, but no specific control or standard.",
+          "2": "Names a specific control or standard, with no detail on how it is verified.",
+          "3": "Names a specific control or standard and says how it is verified or audited."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "57adc503e1f3cd006f08273c5977fa44daec5e21cf8005ec631101a5cceffc02": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "other",
+        "probabilities": {
+          "data_handling": 0.033333333333333326,
+          "security_controls": 0.033333333333333326,
+          "business_continuity": 0.033333333333333326,
+          "other": 0.9
+        },
+        "confidence": 0.8666666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "verifiable": {
+        "type": "noul",
+        "noul": 0.06,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "names_control": {
+        "type": "noul",
+        "noul": 0.05,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "674a8f44a06e3a3b3456c418bcef6bd240a74aeeeb2eeb15312e624ac9ccea18": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "other",
+        "probabilities": {
+          "data_handling": 0.04,
+          "security_controls": 0.04,
+          "business_continuity": 0.04,
+          "other": 0.88
+        },
+        "confidence": 0.84,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "verifiable": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "names_control": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6c34b7487c84084085aed7b899565788f923cf42c72f3863a0b25200fe5f99d8": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "data_handling",
+        "probabilities": {
+          "data_handling": 0.85,
+          "security_controls": 0.05000000000000001,
+          "business_continuity": 0.05000000000000001,
+          "other": 0.05000000000000001
+        },
+        "confidence": 0.7999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "verifiable": {
+        "type": "noul",
+        "noul": 0.8,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "names_control": {
+        "type": "noul",
+        "noul": 0.84,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6e48ba8fca385e8e85a8b6fa65bb3d73ffc8bb259e1f2bbbbdfecd8bde8de9e9": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "security_controls",
+        "probabilities": {
+          "data_handling": 0.053333333333333344,
+          "security_controls": 0.84,
+          "business_continuity": 0.053333333333333344,
+          "other": 0.053333333333333344
+        },
+        "confidence": 0.7866666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "verifiable": {
+        "type": "noul",
+        "noul": 0.1,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "names_control": {
+        "type": "noul",
+        "noul": 0.08,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "6f728f4ae7ac097dca7c44cf09fb52825e8d00ee106db061c3730e45557dabda": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "specificity": {
+        "type": "score",
+        "score": 1.2666666666666666,
+        "probabilities": {
+          "0": 0.13333333333333333,
+          "1": 0.6,
+          "2": 0.13333333333333333,
+          "3": 0.13333333333333333
+        },
+        "confidence": 0.4666666666666667,
+        "legend": {
+          "0": "No concrete detail: a general claim with nothing a reviewer could check.",
+          "1": "Names a general policy area, but no specific control or standard.",
+          "2": "Names a specific control or standard, with no detail on how it is verified.",
+          "3": "Names a specific control or standard and says how it is verified or audited."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "778cc9697686055bb6003a17539dd586e9f8841f350b7a1e4cc7ec9525dd951a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "specificity": {
+        "type": "score",
+        "score": 2.64,
+        "probabilities": {
+          "0": 0.06000000000000002,
+          "1": 0.06000000000000002,
+          "2": 0.06000000000000002,
+          "3": 0.82
+        },
+        "confidence": 0.6399999999999999,
+        "legend": {
+          "0": "No concrete detail: a general claim with nothing a reviewer could check.",
+          "1": "Names a general policy area, but no specific control or standard.",
+          "2": "Names a specific control or standard, with no detail on how it is verified.",
+          "3": "Names a specific control or standard and says how it is verified or audited."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7b10c6c7930513fba0750706d74bf8d552d3d9af8d4e4b825053ac4cf400ed40": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "data_handling",
+        "probabilities": {
+          "data_handling": 0.83,
+          "security_controls": 0.05666666666666668,
+          "business_continuity": 0.05666666666666668,
+          "other": 0.05666666666666668
+        },
+        "confidence": 0.7733333333333333,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "verifiable": {
+        "type": "noul",
+        "noul": 0.3,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "names_control": {
+        "type": "noul",
+        "noul": 0.78,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "7cc2e7ec9a6b3fa2c46f42ef44ec05d7219f11d18cca8e3162e1a832fe6d9612": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "data_handling",
+        "probabilities": {
+          "data_handling": 0.4,
+          "security_controls": 0.19999999999999998,
+          "business_continuity": 0.19999999999999998,
+          "other": 0.19999999999999998
+        },
+        "confidence": 0.20000000000000004,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "verifiable": {
+        "type": "noul",
+        "noul": 0.3,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "names_control": {
+        "type": "noul",
+        "noul": 0.28,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "8b98653d81a8750c421f224f09cd5c524c38bdc8dcb31ad0511d777daeec3194": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "specificity": {
+        "type": "score",
+        "score": 1.2666666666666666,
+        "probabilities": {
+          "0": 0.13333333333333333,
+          "1": 0.6,
+          "2": 0.13333333333333333,
+          "3": 0.13333333333333333
+        },
+        "confidence": 0.4666666666666667,
+        "legend": {
+          "0": "No concrete detail: a general claim with nothing a reviewer could check.",
+          "1": "Names a general policy area, but no specific control or standard.",
+          "2": "Names a specific control or standard, with no detail on how it is verified.",
+          "3": "Names a specific control or standard and says how it is verified or audited."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "900ddee459fbaa4819210b3a3422e073991cc1a46ee141654f29b8633014d724": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "business_continuity",
+        "probabilities": {
+          "data_handling": 0.053333333333333344,
+          "security_controls": 0.053333333333333344,
+          "business_continuity": 0.84,
+          "other": 0.053333333333333344
+        },
+        "confidence": 0.7866666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "verifiable": {
+        "type": "noul",
+        "noul": 0.8,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "names_control": {
+        "type": "noul",
+        "noul": 0.78,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "90d2a59b3927182814385dcd390913b314eb95701bd43ba089062c63ec159649": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "security_controls",
+        "probabilities": {
+          "data_handling": 0.04,
+          "security_controls": 0.88,
+          "business_continuity": 0.04,
+          "other": 0.04
+        },
+        "confidence": 0.84,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "verifiable": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "names_control": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "90d319cf3bd717dd301f8c562f915eb143961c1a71800c1f47b91c201891ee14": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "specificity": {
+        "type": "score",
+        "score": 1.28,
+        "probabilities": {
+          "0": 0.14,
+          "1": 0.58,
+          "2": 0.14,
+          "3": 0.14
+        },
+        "confidence": 0.43999999999999995,
+        "legend": {
+          "0": "No concrete detail: a general claim with nothing a reviewer could check.",
+          "1": "Names a general policy area, but no specific control or standard.",
+          "2": "Names a specific control or standard, with no detail on how it is verified.",
+          "3": "Names a specific control or standard and says how it is verified or audited."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "966c40c83b2ee2135f139a83b5cf4164b283cdd8ccdf52818f3128ba1cd88fa6": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "business_continuity",
+        "probabilities": {
+          "data_handling": 0.02999999999999999,
+          "security_controls": 0.02999999999999999,
+          "business_continuity": 0.91,
+          "other": 0.02999999999999999
+        },
+        "confidence": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "verifiable": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "names_control": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "99ff6a921d0912bde1fd3202ff65abf95b1b960f7fefe83a38266f3880a941db": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "other",
+        "probabilities": {
+          "data_handling": 0.026666666666666655,
+          "security_controls": 0.026666666666666655,
+          "business_continuity": 0.026666666666666655,
+          "other": 0.92
+        },
+        "confidence": 0.8933333333333334,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "verifiable": {
+        "type": "noul",
+        "noul": 0.05,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "names_control": {
+        "type": "noul",
+        "noul": 0.04,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a4a0d251d2ca75e36206ca1947d31e207b9f45d3bad614cf624d317bb7132184": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "data_handling",
+        "probabilities": {
+          "data_handling": 0.8,
+          "security_controls": 0.06666666666666665,
+          "business_continuity": 0.06666666666666665,
+          "other": 0.06666666666666665
+        },
+        "confidence": 0.7333333333333334,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "verifiable": {
+        "type": "noul",
+        "noul": 0.25,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "names_control": {
+        "type": "noul",
+        "noul": 0.2,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a5beed1fe64dcb1a82fe975f6d966a698574c81ca96390f00183aa546131a6fe": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "specificity": {
+        "type": "score",
+        "score": 0.5,
+        "probabilities": {
+          "0": 0.75,
+          "1": 0.08333333333333333,
+          "2": 0.08333333333333333,
+          "3": 0.08333333333333333
+        },
+        "confidence": 0.5,
+        "legend": {
+          "0": "No concrete detail: a general claim with nothing a reviewer could check.",
+          "1": "Names a general policy area, but no specific control or standard.",
+          "2": "Names a specific control or standard, with no detail on how it is verified.",
+          "3": "Names a specific control or standard and says how it is verified or audited."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "a74e732053c7009ef0379088695c77ddf9b343c01744d46c875dcecb23b2a355": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "security_controls",
+        "probabilities": {
+          "data_handling": 0.033333333333333326,
+          "security_controls": 0.9,
+          "business_continuity": 0.033333333333333326,
+          "other": 0.033333333333333326
+        },
+        "confidence": 0.8666666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "verifiable": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "names_control": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "add31c7439127f42afc65bf2d07e2426989b3392fc53f527369227f14253685a": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "security_controls",
+        "probabilities": {
+          "data_handling": 0.053333333333333344,
+          "security_controls": 0.84,
+          "business_continuity": 0.053333333333333344,
+          "other": 0.053333333333333344
+        },
+        "confidence": 0.7866666666666666,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "verifiable": {
+        "type": "noul",
+        "noul": 0.78,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "names_control": {
+        "type": "noul",
+        "noul": 0.8,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b3462e0e43dbdbf423107750da753779a218f7a812511aecf4cd8a6c7778d867": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "specificity": {
+        "type": "score",
+        "score": 0.6000000000000001,
+        "probabilities": {
+          "0": 0.7,
+          "1": 0.10000000000000002,
+          "2": 0.10000000000000002,
+          "3": 0.10000000000000002
+        },
+        "confidence": 0.3999999999999999,
+        "legend": {
+          "0": "No concrete detail: a general claim with nothing a reviewer could check.",
+          "1": "Names a general policy area, but no specific control or standard.",
+          "2": "Names a specific control or standard, with no detail on how it is verified.",
+          "3": "Names a specific control or standard and says how it is verified or audited."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b3d8b3ab437b30b90a3c21bd712c6ef45f713f2dfb339bffdf724e6253da1b44": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "specificity": {
+        "type": "score",
+        "score": 1.7866666666666666,
+        "probabilities": {
+          "0": 0.10666666666666665,
+          "1": 0.10666666666666665,
+          "2": 0.68,
+          "3": 0.10666666666666665
+        },
+        "confidence": 0.5733333333333335,
+        "legend": {
+          "0": "No concrete detail: a general claim with nothing a reviewer could check.",
+          "1": "Names a general policy area, but no specific control or standard.",
+          "2": "Names a specific control or standard, with no detail on how it is verified.",
+          "3": "Names a specific control or standard and says how it is verified or audited."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b83ec34bb7c1683ff7dac48c8b4b92065dbef7c004dfc34f6f8e4e1c1d2448ef": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "data_handling",
+        "probabilities": {
+          "data_handling": 0.78,
+          "security_controls": 0.07333333333333332,
+          "business_continuity": 0.07333333333333332,
+          "other": 0.07333333333333332
+        },
+        "confidence": 0.7066666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "verifiable": {
+        "type": "noul",
+        "noul": 0.74,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "names_control": {
+        "type": "noul",
+        "noul": 0.2,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b8c1dadd8c19f4bd14d7c0143c94ea92619ba34ea8a43f44982d67722c4309fb": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "specificity": {
+        "type": "score",
+        "score": 2.6999999999999997,
+        "probabilities": {
+          "0": 0.05000000000000001,
+          "1": 0.05000000000000001,
+          "2": 0.05000000000000001,
+          "3": 0.85
+        },
+        "confidence": 0.7,
+        "legend": {
+          "0": "No concrete detail: a general claim with nothing a reviewer could check.",
+          "1": "Names a general policy area, but no specific control or standard.",
+          "2": "Names a specific control or standard, with no detail on how it is verified.",
+          "3": "Names a specific control or standard and says how it is verified or audited."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b93bbaa41ab4d7c2897bf4c6c88b6a8e18b96e03f7480beed45e4f3403661023": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "specificity": {
+        "type": "score",
+        "score": 2.6000000000000005,
+        "probabilities": {
+          "0": 0.06666666666666665,
+          "1": 0.06666666666666665,
+          "2": 0.06666666666666665,
+          "3": 0.8
+        },
+        "confidence": 0.6000000000000001,
+        "legend": {
+          "0": "No concrete detail: a general claim with nothing a reviewer could check.",
+          "1": "Names a general policy area, but no specific control or standard.",
+          "2": "Names a specific control or standard, with no detail on how it is verified.",
+          "3": "Names a specific control or standard and says how it is verified or audited."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "b943c455f73140bcc5841275bb9c3e3e3b0d2c09017b321c79a539c3a0ee5509": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "specificity": {
+        "type": "score",
+        "score": 1.7733333333333334,
+        "probabilities": {
+          "0": 0.11333333333333333,
+          "1": 0.11333333333333333,
+          "2": 0.66,
+          "3": 0.11333333333333333
+        },
+        "confidence": 0.5466666666666666,
+        "legend": {
+          "0": "No concrete detail: a general claim with nothing a reviewer could check.",
+          "1": "Names a general policy area, but no specific control or standard.",
+          "2": "Names a specific control or standard, with no detail on how it is verified.",
+          "3": "Names a specific control or standard and says how it is verified or audited."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "c1494443d5c653c8f07ae64401f40eb8a4327b5b01713d961a0f523c118b287c": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "specificity": {
+        "type": "score",
+        "score": 0.52,
+        "probabilities": {
+          "0": 0.74,
+          "1": 0.08666666666666667,
+          "2": 0.08666666666666667,
+          "3": 0.08666666666666667
+        },
+        "confidence": 0.48,
+        "legend": {
+          "0": "No concrete detail: a general claim with nothing a reviewer could check.",
+          "1": "Names a general policy area, but no specific control or standard.",
+          "2": "Names a specific control or standard, with no detail on how it is verified.",
+          "3": "Names a specific control or standard and says how it is verified or audited."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "dd47f69adbe18ae2616751a74c3c751afe7b3506f732def1aa31bc5f67a52180": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "data_handling",
+        "probabilities": {
+          "data_handling": 0.85,
+          "security_controls": 0.05000000000000001,
+          "business_continuity": 0.05000000000000001,
+          "other": 0.05000000000000001
+        },
+        "confidence": 0.7999999999999999,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "verifiable": {
+        "type": "noul",
+        "noul": 0.8,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "names_control": {
+        "type": "noul",
+        "noul": 0.76,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "e39c12025af5762679b2cb8b961a0e5ca1a9cb25d4559e150502639161ad8cc1": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "business_continuity",
+        "probabilities": {
+          "data_handling": 0.06666666666666665,
+          "security_controls": 0.06666666666666665,
+          "business_continuity": 0.8,
+          "other": 0.06666666666666665
+        },
+        "confidence": 0.7333333333333334,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "verifiable": {
+        "type": "noul",
+        "noul": 0.74,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "names_control": {
+        "type": "noul",
+        "noul": 0.22,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f612f3e2263d567c441331c8ab4e241a2ed7ad9d35d5b22f54b3a232622b7878": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "category": {
+        "type": "choice",
+        "choice": "security_controls",
+        "probabilities": {
+          "data_handling": 0.033333333333333326,
+          "security_controls": 0.9,
+          "business_continuity": 0.033333333333333326,
+          "other": 0.033333333333333326
+        },
+        "confidence": 0.8666666666666667,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "verifiable": {
+        "type": "noul",
+        "noul": 0.88,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      },
+      "names_control": {
+        "type": "noul",
+        "noul": 0.9,
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  },
+  "f61ce57d49ab8fb8c2e10a2269764d73a99772a26b6519ca595c08eaf5b540e0": {
+    "model": "synthetic",
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null
+    },
+    "answers": {
+      "specificity": {
+        "type": "score",
+        "score": 1.28,
+        "probabilities": {
+          "0": 0.14,
+          "1": 0.58,
+          "2": 0.14,
+          "3": 0.14
+        },
+        "confidence": 0.43999999999999995,
+        "legend": {
+          "0": "No concrete detail: a general claim with nothing a reviewer could check.",
+          "1": "Names a general policy area, but no specific control or standard.",
+          "2": "Names a specific control or standard, with no detail on how it is verified.",
+          "3": "Names a specific control or standard and says how it is verified or audited."
+        },
+        "provenance": {
+          "source": "synthetic",
+          "model": null,
+          "date": null
+        }
+      }
+    }
+  }
+}

@@ -52,6 +52,7 @@ __all__ = [
     "LiveResponseError",
     "RecordConflict",
     "RecordReport",
+    "dump_responses",
     "live_backend_from_env",
     "merge_responses",
     "record",
@@ -147,6 +148,8 @@ class CallRecord:
     request_id: str | None
     usage: Usage
     date: str
+    images: int = 0
+    distinct_images: int = 0
 
 
 def _secret_variants(*raw: str | None) -> tuple[str, ...]:
@@ -640,7 +643,7 @@ class LiveBackend:
 
     def ledger(self) -> dict[str, Any]:
         """Plain-data summary for an orchestrator's ledger (no key, state or answers)."""
-        return {
+        out: dict[str, Any] = {
             "requested_model": self.requested_model,
             "model": self.model,
             "max_requests": self.max_requests,
@@ -652,6 +655,14 @@ class LiveBackend:
             "calls_without_usage": self._calls_without_usage,
             "request_ids": [r.request_id for r in self._records],
         }
+        # Image counts are added only when a request carried images, so a text-only ledger is
+        # byte-for-byte what it was. Counts come from the request; the tokens they cost appear
+        # only inside ``input_tokens`` (the API reports no separate image figure).
+        images = sum(r.images for r in self._records)
+        if images:
+            out["images"] = images
+            out["distinct_images"] = sum(r.distinct_images for r in self._records)
+        return out
 
     def _spend(self) -> None:
         with self._lock:
@@ -681,6 +692,10 @@ class LiveBackend:
     def decide(
         self, state: Any, questions: Mapping[str, Question], *, assets: Assets | None = None
     ) -> DecisionResult:
+        # First of all, so nothing below that raises can leave the previous call's retried
+        # attempts on a refused request's ledger line (see ``last_retried``).
+        with self._lock:
+            self._retried = []
         plain_state, checked = _check_request(state, questions)
         key = replay_key(plain_state, checked, assets=assets)
         checked_assets = _check_assets(plain_state, checked, assets)
@@ -693,7 +708,15 @@ class LiveBackend:
                 f"got {self.requested_model!r}"
             )
         asset_kwargs = {}
+        images = distinct_images = 0
         if checked_assets:
+            from .vision import image_request_profile, preflight_image_request
+
+            # Before the SDK is imported and before anything is spent: an over-cap request is
+            # otherwise found out only as a paid 413.
+            profile = image_request_profile(plain_state, checked, checked_assets)
+            preflight_image_request(profile)
+            images, distinct_images = profile.copies, profile.distinct_assets
             sdk = _import_sdk()
             if not hasattr(sdk, "Image"):
                 raise LiveConfigError("image assets require typesafe-sdk>=0.7.5,<0.8")
@@ -705,8 +728,6 @@ class LiveBackend:
             }
         payload = {name: _question_payload(q) for name, q in checked.items()}
         attempt = 0
-        with self._lock:
-            self._retried = []
         # Errors are raised after their `except` block has ended, so neither `__cause__` nor
         # `__context__` carries the SDK exception (its message may echo the key).
         while True:
@@ -769,7 +790,9 @@ class LiveBackend:
                 response=_redact_data(problem[1], self._secrets),
                 request_id=_redact(rid, self._secrets) if rid else None,
             )
-        self._note_success(CallRecord(key, result.model, rid, result.usage, date))
+        self._note_success(
+            CallRecord(key, result.model, rid, result.usage, date, images, distinct_images)
+        )
         return result
 
     @staticmethod
@@ -819,9 +842,26 @@ def _load_responses(path: Path) -> dict[str, Any]:
     return data
 
 
-def _dump(data: Mapping[str, Any]) -> str:
-    """Deterministic fixture text: keys sorted, 2-space indent, UTF-8, LF, final newline."""
+def dump_responses(data: Mapping[str, Any]) -> str:
+    """Return the exact text a ``responses.json`` is stored as, for a replay-key -> response map.
+
+    This is the one serialization the recorder (:func:`record`, :func:`merge_responses`) writes
+    with, so a recipe's ``build_fixtures.py`` output can be compared byte for byte against it.
+    Only the top-level keys are sorted; each response keeps the field order
+    ``DecisionResult.to_dict()`` emits (``json.dumps(..., sort_keys=True)`` would also sort every
+    nested dict and so disagree). Indent is 2 spaces, non-ASCII stays UTF-8, and the text ends
+    with one LF. Write it with LF line endings (``newline="\\n"``) so Windows adds no carriage returns.
+
+    It returns text and writes nothing. Recipes use it in ``tests/test_build_fixtures.py`` to
+    assert the committed file is what the recorder would write.
+    """
     return json.dumps(dict(sorted(data.items())), indent=2, ensure_ascii=False) + "\n"
+
+
+# Transitional alias for the old private name, for code outside recipes/ (tests/test_live.py
+# pins it as the same object). No recipe may use it: tests/test_no_private_shared_names.py
+# fails one that does. Remove it once nothing outside this file's own tests imports it.
+_dump = dump_responses
 
 
 def _write_atomic(path: Path, text: str) -> None:
@@ -872,7 +912,7 @@ def merge_responses(
     except FixtureError as exc:
         raise RecordConflict(f"the merged responses would not load for replay: {exc}") from None
     if written:
-        _write_atomic(target, _dump(merged))
+        _write_atomic(target, dump_responses(merged))
     return written, unchanged
 
 
@@ -932,15 +972,22 @@ def record(
     answer validation raises ``LiveResponseError`` naming the question and field; nothing
     is loosened.
 
-    ``ledger_path`` optionally writes a sidecar with one line per paid call made here
-    (``request_id`` is not part of the stored-response format, so it lives there): a success is
-    ``{replay_key: {status: "recorded", request_id, model, date, input_tokens, output_tokens}}``
-    and a call that produced nothing to record (``invalid_response``, ``error``, ``timeout``,
-    ``budget_stopped``) is ``{replay_key + "!failed-N": {status, error_type, http_status,
-    request_id, model, date, attempts, retried}}``, written before the error is re-raised.
-    ``attempts`` is the HTTP attempts that call spent (a budget stop with nothing sent is 0) and
-    ``retried`` lists ``{error_type, http_status, request_id}`` for each failed attempt it retried
-    past, on both kinds of line. Re-recording a key with ``overwrite=True`` keeps the earlier
+    ``ledger_path`` optionally writes a sidecar with one line per call made to ``decide`` here:
+    a call that produced a response, and a call that raised, including one refused before
+    anything was sent, which spends nothing (``request_id`` is not part of the stored-response
+    format, so it lives there). A request that fails validation never becomes a ``decide`` call:
+    ``record`` raises before any call and writes no line for it. A success is
+    ``{replay_key: {status: "recorded", request_id, model, date, input_tokens, output_tokens,
+    attempts, retried}}``, plus ``images`` and ``distinct_images`` (counts only) when the call
+    carried image assets. A call that produced nothing to record (``invalid_response``, ``error``,
+    ``timeout``, ``budget_stopped``) is ``{replay_key + "!failed-N": {status, error_type,
+    http_status, request_id, model, date, attempts, retried}}`` with no image counts, written
+    before the error is re-raised. A ``decide`` call refused before anything was sent
+    (``ImageRequestTooLarge``, ``LiveConfigError``) is ``status: "error"`` with ``error_type``
+    the exception's class name and ``attempts`` 0.
+    ``attempts`` is the HTTP attempts that call spent (0 when nothing was sent) and ``retried``
+    lists ``{error_type, http_status, request_id}`` for each failed attempt it retried past, on
+    both kinds of line. Re-recording a key with ``overwrite=True`` keeps the earlier
     ``recorded`` entry under ``superseded``. A ``ledger_path`` inside a ``fixtures/`` directory,
     or the same file as ``responses_path``, is refused with ``ValueError`` before any call.
     """
@@ -963,7 +1010,9 @@ def record(
         elif len(request) == 3:
             state, questions, assets = request
         else:
-            raise ValueError("record requests must be (state, questions) or (state, questions, assets)")
+            raise ValueError(
+                "record requests must be (state, questions) or (state, questions, assets)"
+            )
         key = replay_key(state, questions, assets=assets)
         if key in seen:
             continue
@@ -979,7 +1028,8 @@ def record(
                 else backend.decide(state, questions, assets=assets)
             )
         except Exception as exc:
-            # Every paid attempt gets a ledger line, even when it produced nothing to record.
+            # Any Exception from decide gets a ledger line (when ledger_path is set), even when it
+            # produced nothing to record and even when nothing was sent.
             if out_ledger is not None:
                 _ledger_failure(
                     out_ledger, key, exc, backend, backend.requests_made - attempts_before
@@ -1000,6 +1050,10 @@ def record(
                 "attempts": backend.requests_made - attempts_before,
                 "retried": list(backend.last_retried),
             }
+            if rec.images:
+                # Beside the token fields; omitted for a text-only call so its line is unchanged.
+                line["images"] = rec.images
+                line["distinct_images"] = rec.distinct_images
             previous = old.get(key)
             if isinstance(previous, dict):
                 # A paid call is never forgotten: an earlier entry for this key moves to history.
@@ -1007,7 +1061,7 @@ def record(
                 history.append({k: v for k, v in previous.items() if k != "superseded"})
                 line["superseded"] = history
             old[key] = line
-            _write_atomic(out_ledger, _dump(old))
+            _write_atomic(out_ledger, dump_responses(old))
             wrote_ledger = True
         try:
             w, u = merge_responses(target, {key: result.to_dict()}, overwrite=overwrite)
@@ -1079,7 +1133,7 @@ def _ledger_failure(
         "attempts": attempts,
         "retried": list(backend.last_retried),
     }
-    _write_atomic(ledger, _dump(old))
+    _write_atomic(ledger, dump_responses(old))
 
 
 def live_backend_from_env(

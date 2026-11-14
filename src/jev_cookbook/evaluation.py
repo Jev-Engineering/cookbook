@@ -26,11 +26,13 @@ Conventions that hold for every public function (see also ``docs/evaluation.md``
 from __future__ import annotations
 
 import math
-from collections.abc import Hashable, Iterable, Mapping, Sequence
+from collections.abc import Collection, Hashable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
+
+from .frames import TIME_EPSILON, _seconds
 
 __all__ = [
     "BootstrapResult",
@@ -43,6 +45,7 @@ __all__ = [
     "SelectiveCurve",
     "SelectiveResult",
     "ThresholdPoint",
+    "TransitionMetrics",
     "UsageTotals",
     "accuracy",
     "brier_score",
@@ -81,6 +84,7 @@ __all__ = [
     "top_k_accuracy",
     "top_k_query_accuracy",
     "top_probabilities",
+    "transition_metrics",
 ]
 
 
@@ -1226,22 +1230,53 @@ def top_k_accuracy(gold: Iterable[Any], probabilities: Iterable[Any], k: int) ->
     return total / len(g)
 
 
-def recall_at_budget(gold_relevant: Iterable[Any], scores: Iterable[Any], budget: int) -> float:
-    """Share of all relevant items found when reviewing only the ``budget`` top-scored items.
+def recall_at_budget(
+    gold_relevant: Iterable[Any],
+    scores: Iterable[Any],
+    budget: int,
+    *,
+    eligible: Iterable[Any] | None = None,
+) -> float:
+    """Share of ALL relevant items found when reviewing only the ``budget`` top-scored items.
 
     ``recall = (relevant items among the top budget by score) / (all relevant items)``.
     Tied scores across the cut-off are credited in expectation (the average over tie
-    orders). A ``budget`` larger than the list is treated as the whole list.
+    orders). A ``budget`` larger than the list (or, with ``eligible``, larger than the
+    number of eligible items) is treated as the whole list.
+
+    This is a property of a **ranking**: it fills the budget purely from the list it is
+    given. It is not "was the top-scored item relevant": with ``budget=1`` and two relevant
+    items among three, it is ``0.5`` even when the single top-scored item is relevant. For
+    that question use :func:`top_k_query_accuracy`.
+
+    **A rule that excludes candidates before ranking** (a confidence gate, a foreign-option
+    check, a type or permission filter) must pass ``eligible``. Without it the helper credits
+    an excluded candidate for any slot the eligible ones do not fill: with one eligible
+    candidate and ``budget=2``, the second slot goes to whichever excluded candidate has the
+    next-highest stand-in score, so the number reported is one the rule's own pick never
+    produces (``0.6667`` where the rule gives ``0.5`` in the case that surfaced this, #231).
+    Padding the scores of excluded candidates with a stand-in is not a substitute, and
+    neither is capping ``budget`` by hand. Whatever you pass, also check on every committed
+    example that the metric equals what the rule's own composition produces.
 
     Args:
         gold_relevant: Gold relevance per item (bool or 0/1).
         scores: Score per item; higher is reviewed first. Numbers, or Noul/Score answers
-            (``.noul`` or ``.score``).
+            (``.noul`` or ``.score``). With ``eligible``, the scores of ineligible items
+            must still be finite numbers (they are validated) but are never used to rank.
         budget: Number of items that can be reviewed, at least 1.
+        eligible: Optional keyword-only. Whether each item may occupy a budget slot (bool or
+            0/1), one per item. ``None`` (the default) means every item is eligible, which
+            is the behaviour before this argument existed. An ineligible item never
+            occupies a slot, however high its score, so at most ``min(budget, number
+            eligible)`` items are reviewed. The denominator is unchanged: a relevant item
+            that is ineligible still counts as relevant and is simply never found, so
+            recall falls rather than the item being dropped from the question.
 
     Returns:
-        A float in [0, 1], or NaN when no item is relevant. Empty input, unequal lengths
-        or ``budget < 1`` raise ``ValueError``.
+        A float in [0, 1], or NaN when no item is relevant (whether or not it is eligible).
+        When items are relevant but none is eligible the result is ``0.0``. Empty input,
+        unequal lengths (including ``eligible``) or ``budget < 1`` raise ``ValueError``.
     """
     if budget < 1:
         raise ValueError("budget must be at least 1")
@@ -1249,32 +1284,58 @@ def recall_at_budget(gold_relevant: Iterable[Any], scores: Iterable[Any], budget
     sc = _floats((_score_value(x) for x in _as_list(scores, "scores")), "scores")
     _same_length(rel, sc, "gold_relevant and scores")
     total = float(rel.sum())
-    if total == 0:
-        return float("nan")
-    return float(_tie_averaged(sc, rel)[: min(budget, len(rel))].sum() / total)
+    if eligible is not None:
+        ok = _binary(_as_list(eligible, "eligible"), "eligible")
+        _same_length(rel, ok, "gold_relevant and eligible")
+        if total == 0:
+            return float("nan")
+        if not ok.any():
+            return 0.0
+        rel_pool, sc_pool = rel[ok], sc[ok]
+    else:
+        if total == 0:
+            return float("nan")
+        rel_pool, sc_pool = rel, sc
+    return float(_tie_averaged(sc_pool, rel_pool)[: min(budget, len(rel_pool))].sum() / total)
 
 
-def mean_recall_at_budget(queries: Iterable[tuple[Any, Any]], budget: int) -> float:
+def mean_recall_at_budget(queries: Iterable[tuple[Any, ...]], budget: int) -> float:
     """Mean :func:`recall_at_budget` over several queries.
 
     Args:
-        queries: Pairs ``(gold_relevant, scores)``, one per query, exactly as
-            :func:`recall_at_budget` takes them.
+        queries: One tuple per query: ``(gold_relevant, scores)`` exactly as
+            :func:`recall_at_budget` takes them, or ``(gold_relevant, scores, eligible)``
+            to pass that query's ``eligible`` mask (a rule that excludes candidates before
+            ranking must; see :func:`recall_at_budget`). The two forms may be mixed.
         budget: As in :func:`recall_at_budget`.
 
     Returns:
         The mean over queries with at least one relevant item. NaN when none has one (the same
-        undefined-is-NaN convention as :func:`mean_ndcg`, not a raise). Empty ``queries``, or
-        any one query invalid by :func:`recall_at_budget`'s own rules, raise ``ValueError``.
+        undefined-is-NaN convention as :func:`mean_ndcg`, not a raise). Empty ``queries``, a
+        tuple of any other length, or any one query invalid by :func:`recall_at_budget`'s own
+        rules, raise ``ValueError``.
     """
-    vals = [recall_at_budget(rel, sc, budget) for rel, sc in _as_list(queries, "queries")]
+    vals = []
+    for q in _as_list(queries, "queries"):
+        if len(q) == 2:
+            vals.append(recall_at_budget(q[0], q[1], budget))
+        elif len(q) == 3:
+            vals.append(recall_at_budget(q[0], q[1], budget, eligible=q[2]))
+        else:
+            raise ValueError("each query must be (gold_relevant, scores[, eligible])")
     defined = [v for v in vals if not math.isnan(v)]
     return float(np.mean(defined)) if defined else float("nan")
 
 
 def _hit_probability(relevant: np.ndarray, scores: np.ndarray, k: int) -> float:
     """P(at least one relevant item lands in the top ``k`` under a uniformly random tie-break
-    among items sharing a score), or NaN when ``relevant`` has no True at all."""
+    among items sharing a score), or NaN when ``relevant`` has no True at all.
+
+    Items are taken in descending score order, one group of equal scores at a time. A group
+    that fits entirely inside the cut-off either contains a relevant item (certain hit) or
+    uses up part of ``k``. The group that straddles the cut-off contributes the hypergeometric
+    probability of drawing at least one relevant item in the ``remaining`` open slots; the
+    probability is one exact integer ratio, so a hand-computed fraction compares equal."""
     if not bool(relevant.any()):
         return float("nan")
     order = np.argsort(-scores, kind="stable")
@@ -1300,10 +1361,8 @@ def _hit_probability(relevant: np.ndarray, scores: np.ndarray, k: int) -> float:
         if group_relevant == 0:
             return 0.0
         # Hypergeometric "at least one relevant among `remaining` drawn without replacement".
-        p_none = math.comb(group_size - group_relevant, remaining) / math.comb(
-            group_size, remaining
-        )
-        return 1.0 - p_none
+        draws = math.comb(group_size, remaining)
+        return (draws - math.comb(group_size - group_relevant, remaining)) / draws
     return 0.0  # unreachable while relevant.any() is True: some group above must have scored
 
 
@@ -1316,27 +1375,57 @@ def top_k_query_accuracy(queries: Iterable[tuple[Any, Any]], k: int = 1) -> floa
     whenever a query has more than one relevant item: with two relevant items among three and
     the top-scored item one of them, this is 1.0 (the top item *is* relevant) while
     ``recall_at_budget(..., budget=k)`` at ``k=1`` is 0.5 (only one of the two relevant items
-    was found). A tie at the cut-off is credited by the probability that a uniformly random
-    tie-break among the tied items lands at least one relevant item in the top ``k`` (the same
-    expectation-over-tie-orders convention as :func:`recall_at_budget` and :func:`ndcg`, here a
-    hit probability rather than an expected share). At ``k=1`` with no tie this is simply "is
-    the top-scored item relevant".
+    was found). At ``k=1`` with no tie this is simply "is the top-scored item relevant".
+
+    Rules, each pinned by a test:
+
+    * **Ties.** Items are ranked by score, descending, and the result never depends on the
+      order the items are listed in. A tie that lies wholly inside the top ``k`` costs
+      nothing. A tie that straddles the cut-off is credited by the probability that a
+      uniformly random tie-break among the tied items puts at least one relevant item in the
+      slots left open (the expectation over tie orders, the same convention as
+      :func:`recall_at_budget` and :func:`ndcg`, but a hit probability rather than an
+      expected share). With ``g`` tied items of which ``r`` are relevant and ``s`` open
+      slots, that is ``1 - C(g - r, s) / C(g, s)``; at ``k=1`` it is ``r / g``.
+    * **k larger than a query's list** is the same as the whole list: a query with any
+      relevant item then scores 1.0.
+    * **Several relevant items (multi-gold)** are interchangeable: the query is a hit if any
+      one of them is in the top ``k``, and a hit is worth 1 however many relevant items
+      are there (three relevant items in the top ``k`` score 1.0, not 3 and not 1/3).
+      Unlike :func:`recall_at_budget`, relevant items outside the top ``k`` are not a
+      penalty. A relevant item is a ``1`` in ``gold_relevant``, so there is no separate
+      notion of a duplicate gold answer: two items that both carry ``1`` are two relevant
+      items, each its own entry in the list.
+    * **A query with no relevant item** has no defined hit rate and is left out of the
+      mean (not counted as a miss, not counted in the denominator).
+    * **Empty input** raises: no queries, a query with no items, or ``k < 1``.
+    * **No ``eligible`` argument.** Unlike :func:`recall_at_budget`, this ranks every item it
+      is given, so it cannot score a rule that excludes candidates before ranking (a
+      confidence gate, a type or permission filter; the #231 trap in binary form): a
+      relevant item the rule excluded would count as a hit the rule's own pick never
+      produces, and dropping excluded items beforehand turns a query whose only relevant
+      item was excluded into an undefined one that silently leaves the denominator. With
+      exactly one relevant item per query, ``mean_recall_at_budget(queries, k)`` with each
+      query's ``eligible`` mask is this metric for a gated rule; otherwise compute it from
+      the rule's own pick.
 
     Args:
         queries: Pairs ``(gold_relevant, scores)``, one per query, exactly as
-            :func:`recall_at_budget` takes them: ``gold_relevant`` is binary per item and
-            ``scores`` is each item's ranking score (higher ranks first) -- a number, or a
-            Noul/Score answer (``.noul`` or ``.score``) -- the same length. (:func:`ndcg` takes
-            ``scores`` as Score answers or numbers only, not Noul; that is a pre-existing
-            inconsistency in this module, not one this function repeats.)
-        k: Cut-off, at least 1. Larger than a query's list is the same as the whole list.
+            :func:`recall_at_budget` takes them: ``gold_relevant`` is binary per item
+            (booleans or 0/1; anything else raises) and ``scores`` is each item's ranking
+            score (higher ranks first) -- a finite number, or a Noul/Score answer (``.noul``
+            or ``.score``) -- the same length. (:func:`ndcg` takes ``scores`` as Score
+            answers or numbers only, not Noul; that is a pre-existing inconsistency in this
+            module, not one this function repeats.)
+        k: Cut-off, at least 1.
 
     Returns:
         The mean, over queries with at least one relevant item, of that query's hit
-        probability. NaN when no query has a relevant item (the same undefined-is-NaN
-        convention as :func:`mean_ndcg` and :func:`mean_recall_at_budget`, not a raise). Empty
-        ``queries``, a query whose ``gold_relevant`` and ``scores`` lengths differ, or ``k < 1``
-        raise ``ValueError``.
+        probability, in [0, 1]. NaN when no query has a relevant item (the same
+        undefined-is-NaN convention as :func:`mean_ndcg` and :func:`mean_recall_at_budget`,
+        not a raise). Empty ``queries``, an empty query, a query whose ``gold_relevant`` and
+        ``scores`` lengths differ, a non-binary ``gold_relevant``, a non-finite score or
+        ``k < 1`` raise ``ValueError``.
     """
     if k < 1:
         raise ValueError("k must be at least 1")
@@ -1347,7 +1436,7 @@ def top_k_query_accuracy(queries: Iterable[tuple[Any, Any]], k: int = 1) -> floa
         _same_length(relevant, scores, "gold_relevant and scores")
         per_query.append(_hit_probability(relevant, scores, k))
     defined = [v for v in per_query if not math.isnan(v)]
-    return float(np.mean(defined)) if defined else float("nan")
+    return _mean(defined)
 
 
 # --------------------------------------------------------------------------- Selective prediction
@@ -1432,9 +1521,41 @@ def select_confidence_threshold(
     Give exactly one of:
 
     * ``target_accuracy``: the lowest threshold (so the highest coverage) whose answered
-      subset has accuracy ``>= target_accuracy``.
+      subset has accuracy ``>= target_accuracy``. Raising this target can only raise the
+      returned threshold or leave it unchanged.
     * ``min_coverage``: among thresholds with coverage ``>= min_coverage``, the one with
-      the highest accuracy (ties go to the lower threshold, i.e. more coverage).
+      the highest accuracy (ties go to the lower threshold, i.e. more coverage). Raising
+      this floor can only lower the returned threshold or leave it unchanged.
+
+    **Both objectives are about the answered subset, not the whole split.**
+    ``target_accuracy`` constrains accuracy over the answered examples only (the denominator
+    is the examples at or above the threshold); ``min_coverage`` maximises that same
+    answered-subset accuracy subject to a floor on the share answered. Neither constrains
+    whole-split per-question accuracy. Use ``target_accuracy`` to say how right the answers
+    you give must be, ``min_coverage`` to say how many you must give.
+
+    **Direction: the two parameters move the threshold in opposite directions.**
+    ``min_coverage`` is a floor on how many answers must be kept, and a lower threshold
+    keeps more, so *raising* ``min_coverage`` can only leave the returned threshold
+    unchanged or *lower* it (never raise it), and lowering ``min_coverage`` can only leave
+    it unchanged or raise it. ``target_accuracy`` is the reverse: *raising* the accuracy
+    target can only leave the threshold unchanged or *raise* it (or make the call raise,
+    when no threshold reaches the target). Neither is "stricter means a higher threshold":
+    a stricter coverage floor means a more permissive gate. Both directions are pinned by
+    ``tests/test_evaluation.py``.
+
+    **The response is piecewise constant, usually with wide flat regions.** The result is
+    always one of the observed confidences, so sweeping a parameter across its range returns
+    only as many distinct thresholds as the pool has distinct points that can win, and a
+    gap in the confidence distribution (a bimodal pool: a cluster of low confidences, a
+    cluster of high ones, nothing between) makes every parameter value whose answer falls in
+    the gap return the same threshold, however far the parameter moves. A parameter can
+    therefore move a long way and change nothing, and then jump. If errors sit at the top
+    of the confidence ordering (accuracy rises as the threshold falls), the minimum observed
+    confidence is always feasible and always the most accurate, so ``min_coverage`` returns
+    it for every value: the call selects nothing. Before writing that a parameter value
+    "moves" the threshold, or sending a reader to one, run the sweep on the pool and read
+    the distinct values it returns; see "Selective prediction" in ``docs/evaluation.md``.
 
     Candidates are the distinct observed confidence values (via :func:`selective_curve`'s
     own :func:`_candidate_thresholds`, so a few-ULP-apart nominal-twin pair is one
@@ -1888,4 +2009,197 @@ def sum_usage(usages: Iterable[Mapping[str, Any] | None]) -> UsageTotals:
         totals["input_tokens"] + totals["output_tokens"],
         missing["input_tokens"],
         missing["output_tokens"],
+    )
+
+
+# --------------------------------------------------------------------------- Transitions
+
+
+@dataclass(frozen=True)
+class TransitionMetrics:
+    """Event or transition accuracy over labelled frame sequences, denominators explicit.
+
+    ``n_examples`` = ``n_uncertain`` + ``n_resolved``. ``exact_correct`` and
+    ``tolerance_correct`` count resolved examples only; ``*_accuracy`` divides by
+    ``n_resolved`` and ``*_accuracy_all`` by ``n_examples`` (a review outcome counts as not
+    correct there). ``uncertain_rate`` is ``n_uncertain / n_examples``.
+
+    The headline timing error, ``mean_absolute_error_seconds`` and
+    ``mean_signed_error_seconds`` (predicted minus gold; positive means late), covers only
+    the ``n_timed`` resolved examples whose predicted **label equals gold's** and where both
+    sides give a time. A prediction of a different transition at the right second is not a
+    good timing result and is excluded. The separately named ``*_any_label`` fields
+    (``n_timed_any_label`` and the two means) include every resolved example with times on
+    both sides, whatever the label. All means are NaN when their count is 0.
+    ``n_missed_time`` (gold has a time, the resolved prediction none) and ``n_spurious_time``
+    (the reverse) describe the shape of the answer and do not depend on the label.
+
+    ``outcomes`` is one of ``"exact"``, ``"within"`` (within tolerance but not exact),
+    ``"wrong"`` or ``"review"`` per example, in input order; ``timing_errors_seconds`` is the
+    per-example headline error (``None`` where it is not defined). ``max_sampling_interval_seconds``
+    echoes the largest gap between sampled frames when the caller passed it (NaN otherwise),
+    and ``tolerance_below_sampling_interval`` is True when that gap exceeds the tolerance, in
+    which case the score mostly measures the sampling grid.
+    """
+
+    n_examples: int
+    n_uncertain: int
+    n_resolved: int
+    exact_correct: int
+    tolerance_correct: int
+    exact_accuracy: float
+    tolerance_accuracy: float
+    exact_accuracy_all: float
+    tolerance_accuracy_all: float
+    uncertain_rate: float
+    tolerance_seconds: float
+    n_timed: int
+    mean_absolute_error_seconds: float
+    mean_signed_error_seconds: float
+    n_timed_any_label: int
+    mean_absolute_error_any_label_seconds: float
+    mean_signed_error_any_label_seconds: float
+    n_missed_time: int
+    n_spurious_time: int
+    max_sampling_interval_seconds: float
+    tolerance_below_sampling_interval: bool
+    outcomes: tuple[str, ...]
+    timing_errors_seconds: tuple[float | None, ...]
+
+
+def _transition(item: Any, name: str, position: int) -> tuple[Any, float | None]:
+    if isinstance(item, (str, bytes)) or not isinstance(item, Sequence) or len(item) != 2:
+        raise ValueError(f"{name}[{position}] must be a (label, seconds_or_None) pair")
+    label, seconds = item
+    if seconds is None:
+        return label, None
+    return label, _seconds(seconds, f"{name}[{position}] seconds")
+
+
+def _mean(values: list[float], absolute: bool = False) -> float:
+    if not values:
+        return float("nan")
+    return math.fsum(abs(v) if absolute else v for v in values) / len(values)
+
+
+def transition_metrics(
+    gold: Iterable[Sequence[Any]],
+    predicted: Iterable[Sequence[Any]],
+    *,
+    tolerance_seconds: float,
+    uncertain_labels: Collection[Any] | str = ("uncertain",),
+    max_sampling_interval_seconds: float | None = None,
+) -> TransitionMetrics:
+    """Score transition labels and times against labelled sequences.
+
+    Each example is one sequence (or one transition of a longer one), written
+    ``(label, seconds)`` as a tuple or a two-element list (as JSON loads): the transition
+    label (``"opened"``, ``"unchanged"``, ...) and its time in elapsed seconds since the
+    start of the sequence, or ``None`` when the label has no time (such as ``"unchanged"``).
+    **The time is the** ``timestamp_seconds`` **of the first frame in which the new state is
+    visible** (see :func:`jev_cookbook.frames.transition_time`), for gold and predictions
+    alike. ``gold`` and ``predicted`` are equal-length and nonempty, in the same order.
+
+    A predicted label in ``uncertain_labels`` (any number of review outcomes, such as
+    ``"uncertain"``, ``"unknown"`` and ``"inconsistent"``; map the model's uncertain option
+    and Python's confidence gate to these before calling) is a review outcome. It is counted
+    in ``n_uncertain`` and is neither correct nor wrong in the ``*_accuracy`` fields. Gold may
+    not be a review label.
+
+    A resolved prediction is *exactly* correct when its label equals gold's and its time
+    equals gold's (both ``None``, or within 1e-9 s); *within tolerance* when the label
+    matches and the times are both ``None`` or differ by at most ``tolerance_seconds``
+    (plus the same 1e-9 s of float slack). The headline time error is predicted minus gold,
+    only where the labels match and both give a time; ``*_any_label`` fields drop the label
+    condition. Accuracies with a zero denominator are NaN. Pass the largest gap between the
+    sampled frames as ``max_sampling_interval_seconds`` to have the result record it and flag
+    a tolerance smaller than it.
+
+    Raises ``ValueError`` for empty or unequal inputs, a malformed pair, a negative or
+    non-finite time, tolerance or interval, or a review label in gold.
+    """
+    actual = _as_list(gold, "gold")
+    guesses = _as_list(predicted, "predicted")
+    _same_length(actual, guesses, "gold and predicted")
+    tolerance = _seconds(tolerance_seconds, "tolerance_seconds")
+    interval = (
+        float("nan")
+        if max_sampling_interval_seconds is None
+        else _seconds(max_sampling_interval_seconds, "max_sampling_interval_seconds")
+    )
+    if isinstance(uncertain_labels, str):
+        reviews = [uncertain_labels]
+    elif uncertain_labels is None or not isinstance(uncertain_labels, Collection):
+        raise ValueError("uncertain_labels must be a label or a collection of labels")
+    else:
+        reviews = list(uncertain_labels)
+
+    uncertain = exact = within = missed = spurious = 0
+    errors: list[float] = []
+    errors_any: list[float] = []
+    outcomes: list[str] = []
+    per_example: list[float | None] = []
+    for i, (g_item, p_item) in enumerate(zip(actual, guesses, strict=True)):
+        g_label, g_time = _transition(g_item, "gold", i)
+        p_label, p_time = _transition(p_item, "predicted", i)
+        if any(g_label == r for r in reviews):
+            raise ValueError(f"gold[{i}] is a review label; gold must be resolved")
+        if any(p_label == r for r in reviews):
+            uncertain += 1
+            outcomes.append("review")
+            per_example.append(None)
+            continue
+        label_ok = p_label == g_label
+        if g_time is not None and p_time is None:
+            missed += 1
+        elif g_time is None and p_time is not None:
+            spurious += 1
+        error = None
+        if g_time is not None and p_time is not None:
+            errors_any.append(p_time - g_time)
+            if label_ok:
+                error = p_time - g_time
+                errors.append(error)
+        per_example.append(error)
+        outcome = "wrong"
+        if label_ok:
+            if g_time is None and p_time is None:
+                outcome = "exact"
+            elif g_time is not None and p_time is not None:
+                gap = abs(p_time - g_time)
+                if gap <= TIME_EPSILON:
+                    outcome = "exact"
+                elif gap <= tolerance + TIME_EPSILON:
+                    outcome = "within"
+        exact += outcome == "exact"
+        within += outcome in ("exact", "within")
+        outcomes.append(outcome)
+    n = len(actual)
+    resolved = n - uncertain
+    return TransitionMetrics(
+        n_examples=n,
+        n_uncertain=uncertain,
+        n_resolved=resolved,
+        exact_correct=exact,
+        tolerance_correct=within,
+        exact_accuracy=_safe_div(exact, resolved),
+        tolerance_accuracy=_safe_div(within, resolved),
+        exact_accuracy_all=exact / n,
+        tolerance_accuracy_all=within / n,
+        uncertain_rate=uncertain / n,
+        tolerance_seconds=tolerance,
+        n_timed=len(errors),
+        mean_absolute_error_seconds=_mean(errors, absolute=True),
+        mean_signed_error_seconds=_mean(errors),
+        n_timed_any_label=len(errors_any),
+        mean_absolute_error_any_label_seconds=_mean(errors_any, absolute=True),
+        mean_signed_error_any_label_seconds=_mean(errors_any),
+        n_missed_time=missed,
+        n_spurious_time=spurious,
+        max_sampling_interval_seconds=interval,
+        tolerance_below_sampling_interval=bool(
+            not math.isnan(interval) and interval > tolerance + TIME_EPSILON
+        ),
+        outcomes=tuple(outcomes),
+        timing_errors_seconds=tuple(per_example),
     )

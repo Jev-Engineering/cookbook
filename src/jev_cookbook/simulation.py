@@ -6,6 +6,8 @@ simulated: they are recorded, never executed. See ``docs/simulation.md``.
 * ``Simulator``: a seeded environment with ``reset / observe / legal_actions / step`` and a
   replayable trajectory log; ``ToyGrid`` is the small concrete example.
 * ``ReviewQueue`` and ``ActionLog``: where "send to review" and "simulated action" land.
+* ``fill_review_queue``, ``record_actions`` and ``route_outcomes``: the one code path that fills
+  them from a recipe's outcomes, shared by a notebook and its test.
 * ``Store``: a versioned key-value store with provenance that never deletes.
 * ``Transactor``: ``validate -> apply -> commit`` over a ``Store``, with rollback and a replayable log.
 * ``Budget``: retry limits, call budgets and stop conditions enforced in code.
@@ -25,6 +27,10 @@ from typing import Any
 from ._canonical import plain_json
 
 __all__ = [
+    "ACTION",
+    "EXCLUDED",
+    "REVIEW",
+    "SKIPPED",
     "ActionLog",
     "Budget",
     "BudgetExceeded",
@@ -32,18 +38,25 @@ __all__ = [
     "ReplayMismatch",
     "ReviewItem",
     "ReviewQueue",
+    "Routed",
+    "RoutedEntry",
     "SimulationError",
     "Simulator",
     "StepRecord",
     "StopConditionMet",
     "Store",
     "StoreError",
+    "ToAction",
+    "ToReview",
     "ToyGrid",
     "TransactionFailed",
     "TransactionRecord",
     "Transactor",
     "WriteRecord",
+    "fill_review_queue",
+    "record_actions",
     "replay_transactions",
+    "route_outcomes",
 ]
 
 
@@ -460,6 +473,14 @@ class ReviewQueue:
         """Return the number of items ever submitted."""
         return len(self._items)
 
+    def _truncate(self, size: int) -> None:
+        """Drop the items submitted after the queue had ``size`` items (ids are positions).
+
+        Used by ``route_outcomes`` to undo a failed pass; a queue that stopped numbering ids by
+        position would have to change this with it.
+        """
+        del self._items[size:]
+
     def to_dicts(self) -> list[dict[str, Any]]:
         """Return every item as a plain dict, oldest first."""
         return [i.to_dict() for i in self._items]
@@ -505,9 +526,320 @@ class ActionLog:
         """Return the number of recorded actions."""
         return len(self._entries)
 
+    def _truncate(self, size: int) -> None:
+        """Drop the entries recorded after the log had ``size`` entries (``seq`` is the position)."""
+        del self._entries[size:]
+
     def to_dicts(self) -> list[dict[str, Any]]:
         """Return every entry as a plain dict, oldest first."""
         return [plain_json(e) for e in self._entries]
+
+
+# --------------------------------------------------------------------------------------
+# Routing outcomes into the queue and the log
+# --------------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ToReview:
+    """Route decision: send this outcome to the review queue (the arguments of ``submit``)."""
+
+    item: Any
+    reason: str
+    answer: Any = None
+    step: int | None = None
+
+
+@dataclass(frozen=True)
+class ToAction:
+    """Route decision: record this outcome as a simulated action (the arguments of ``record``)."""
+
+    kind: str
+    payload: Any = None
+    answer: Any = None
+    rule: str | None = None
+    step: int | None = None
+
+
+#: Destinations a ``RoutedEntry`` can carry.
+REVIEW = "review"
+ACTION = "action"
+SKIPPED = "skipped"
+EXCLUDED = "excluded"
+
+
+@dataclass(frozen=True)
+class RoutedEntry:
+    """What happened to one outcome: its key, where it went, and the id it got there.
+
+    ``id`` is the review item id for ``"review"``, the ``ActionLog`` ``seq`` for ``"action"``,
+    and ``None`` for ``"skipped"`` (the route function returned ``None``) and ``"excluded"``
+    (the ``exclude`` predicate matched, so the route function was never called).
+    """
+
+    key: Any
+    destination: str
+    id: int | None
+
+
+@dataclass(frozen=True)
+class Routed:
+    """The result of one routing pass: one ``RoutedEntry`` per outcome, in the outcomes' order.
+
+    A recipe test pins the pass as literals, for example ``routed.review_keys == ("t3", "t5")``,
+    ``routed.review_ids == (0, 1)`` and ``routed.excluded_keys == ("demo-1",)``, and then
+    compares ``queue.to_dicts()`` (ids, reasons, items) to literals too. Nothing here is
+    computed from the route function, so those literals are an independent statement of what
+    the notebook is supposed to have done.
+    """
+
+    entries: tuple[RoutedEntry, ...]
+
+    def _keys(self, destination: str) -> tuple[Any, ...]:
+        return tuple(e.key for e in self.entries if e.destination == destination)
+
+    def _ids(self, destination: str) -> tuple[int, ...]:
+        return tuple(
+            e.id for e in self.entries if e.destination == destination and e.id is not None
+        )
+
+    @property
+    def review_keys(self) -> tuple[Any, ...]:
+        """Keys of the outcomes submitted to the queue, in submission order."""
+        return self._keys(REVIEW)
+
+    @property
+    def review_ids(self) -> tuple[int, ...]:
+        """Queue ids of those submissions, in the same order as ``review_keys``."""
+        return self._ids(REVIEW)
+
+    @property
+    def action_keys(self) -> tuple[Any, ...]:
+        """Keys of the outcomes recorded in the action log, in recording order."""
+        return self._keys(ACTION)
+
+    @property
+    def action_seqs(self) -> tuple[int, ...]:
+        """Action log ``seq`` values of those records, in the same order as ``action_keys``."""
+        return self._ids(ACTION)
+
+    @property
+    def skipped_keys(self) -> tuple[Any, ...]:
+        """Keys of the outcomes the route function chose to do nothing with."""
+        return self._keys(SKIPPED)
+
+    @property
+    def excluded_keys(self) -> tuple[Any, ...]:
+        """Keys of the outcomes the ``exclude`` predicate removed before routing."""
+        return self._keys(EXCLUDED)
+
+    def __len__(self) -> int:
+        """Return the number of outcomes seen (routed, skipped and excluded)."""
+        return len(self.entries)
+
+    def __add__(self, other: Routed) -> Routed:
+        """Concatenate two passes (for example one per split, or one per step of a loop)."""
+        if not isinstance(other, Routed):
+            return NotImplemented
+        return Routed(self.entries + other.entries)
+
+    def to_dicts(self) -> list[dict[str, Any]]:
+        """Return every entry as a plain dict, in the outcomes' order."""
+        return [
+            {"key": plain_json(e.key), "destination": e.destination, "id": e.id}
+            for e in self.entries
+        ]
+
+
+def route_outcomes(
+    outcomes: Iterable[Any],
+    route: Callable[[Any], ToReview | ToAction | None],
+    *,
+    queue: ReviewQueue | None = None,
+    actions: ActionLog | None = None,
+    key: Callable[[Any], Any] | None = None,
+    exclude: Callable[[Any], bool] | None = None,
+) -> Routed:
+    """Send each outcome to the review queue, the action log, or nowhere, in one pass.
+
+    This is the one code path for the loop every recipe writes: for each outcome, in order,
+    ``route(outcome)`` returns ``ToReview(...)`` (queue it), ``ToAction(...)`` (record it) or
+    ``None`` (do nothing). A notebook and its test both call this function, so the test states
+    the expected ids, order and membership as literals and compares them to the returned
+    ``Routed`` and to ``queue.to_dicts()`` / ``actions.to_dicts()`` instead of re-typing the loop.
+
+    - Order: queue ids and action ``seq`` values follow the iteration order of ``outcomes``, and
+      only that. To queue "highest first", sort before calling; to queue two splits into one
+      queue, call once per split, in the order the ids should run.
+    - ``key(outcome)`` names an outcome in the result (default: its position in ``outcomes``).
+      With an explicit ``key`` the keys must be unique within the call, because a repeated key is
+      almost always a double submission.
+    - ``exclude(outcome)`` returning ``True`` removes the outcome before ``route`` sees it: the
+      way a recipe keeps a demo or held-out example out of a queue it is filling for a split.
+      It is reported in ``Routed.excluded_keys``, never silently dropped.
+    - A ``ToReview`` needs ``queue`` and a ``ToAction`` needs ``actions``; routing to a
+      destination that was not supplied raises ``SimulationError``.
+    - ``route``, ``key`` and ``exclude`` must be pure: they run for every outcome before anything
+      is written, so they see the queue and log as they were before the call (a rule such as
+      "queue at most three" or "skip what is already queued" that reads them is wrong in a
+      batch), and anything else they do (spending a ``Budget``, writing a ``Store``) is not
+      undone if the pass fails. For a decision that depends on earlier writes, use a
+      decide-and-apply function instead (``docs/simulation.md``).
+    - All-or-nothing: every ``route``/``key``/``exclude`` call and every validation runs before
+      anything is written, and a write that still fails (for example an item that is not plain
+      JSON) removes the entries this call had added. The queue and log are never left half
+      filled.
+    """
+    if queue is not None and not isinstance(queue, ReviewQueue):
+        raise SimulationError(f"queue must be a ReviewQueue, got {type(queue).__name__}")
+    if actions is not None and not isinstance(actions, ActionLog):
+        raise SimulationError(f"actions must be an ActionLog, got {type(actions).__name__}")
+    for name, fn in (("route", route), ("key", key), ("exclude", exclude)):
+        if fn is not None and not callable(fn):
+            raise SimulationError(f"{name} must be callable, got {type(fn).__name__}")
+    if route is None:
+        raise SimulationError("route must be callable, got NoneType")
+    plans: list[tuple[Any, ToReview | ToAction | None, bool]] = []
+    seen: set[str] = set()
+    for position, outcome in enumerate(list(outcomes)):
+        k = position if key is None else key(outcome)
+        if key is not None:
+            try:
+                marker = repr(plain_json(k, "key"))
+            except (TypeError, ValueError) as error:
+                raise SimulationError(f"key {k!r} is not plain JSON ({error})") from error
+            if marker in seen:
+                raise SimulationError(f"key {k!r} appears more than once in one routing pass")
+            seen.add(marker)
+        if exclude is not None:
+            excluded = exclude(outcome)
+            if type(excluded) is not bool:
+                raise SimulationError(f"exclude must return a bool, got {excluded!r}")
+            if excluded:
+                plans.append((k, None, True))
+                continue
+        plan = route(outcome)
+        if plan is not None and not isinstance(plan, ToReview | ToAction):
+            raise SimulationError(f"route must return ToReview, ToAction or None, got {plan!r}")
+        if isinstance(plan, ToReview) and queue is None:
+            raise SimulationError("route returned ToReview but no queue was supplied")
+        if isinstance(plan, ToAction) and actions is None:
+            raise SimulationError("route returned ToAction but no actions log was supplied")
+        plans.append((k, plan, False))
+    queue_size = 0 if queue is None else len(queue)
+    log_size = 0 if actions is None else len(actions)
+    entries: list[RoutedEntry] = []
+    try:
+        for k, plan, excluded in plans:
+            if excluded:
+                entries.append(RoutedEntry(k, EXCLUDED, None))
+            elif plan is None:
+                entries.append(RoutedEntry(k, SKIPPED, None))
+            elif isinstance(plan, ToReview):
+                assert queue is not None
+                item_id = queue.submit(plan.item, plan.reason, answer=plan.answer, step=plan.step)
+                entries.append(RoutedEntry(k, REVIEW, item_id))
+            else:
+                assert actions is not None
+                entry = actions.record(
+                    plan.kind,
+                    plan.payload,
+                    step=plan.step,
+                    answer=plan.answer,
+                    rule=plan.rule,
+                )
+                entries.append(RoutedEntry(k, ACTION, entry["seq"]))
+    except BaseException:
+        if queue is not None:
+            queue._truncate(queue_size)
+        if actions is not None:
+            actions._truncate(log_size)
+        raise
+    return Routed(tuple(entries))
+
+
+def _value(spec: Any, outcome: Any) -> Any:
+    """Return ``spec(outcome)`` for a callable ``spec`` and ``spec`` itself otherwise."""
+    return spec(outcome) if callable(spec) else spec
+
+
+def fill_review_queue(
+    queue: ReviewQueue,
+    outcomes: Iterable[Any],
+    *,
+    needs_review: Callable[[Any], bool],
+    item: Callable[[Any], Any],
+    reason: Callable[[Any], str] | str,
+    answer: Callable[[Any], Any] | None = None,
+    step: Callable[[Any], int | None] | None = None,
+    key: Callable[[Any], Any] | None = None,
+    exclude: Callable[[Any], bool] | None = None,
+) -> Routed:
+    """Submit every outcome that ``needs_review`` to ``queue``, in order, and report what happened.
+
+    The common case of ``route_outcomes``: ``needs_review(outcome)`` must return a real ``bool``;
+    ``item``, ``answer`` and ``step`` are called with the outcome (``answer`` and ``step`` may be
+    left out), and ``reason`` is either a constant string or a callable. ``key`` and ``exclude``
+    mean what they mean in ``route_outcomes``. Returns the ``Routed`` result: a test compares
+    ``result.review_keys`` and ``result.review_ids`` to literals.
+    """
+    if not callable(needs_review) or not callable(item):
+        raise SimulationError("needs_review and item must be callable")
+
+    def route(outcome: Any) -> ToReview | None:
+        wanted = needs_review(outcome)
+        if type(wanted) is not bool:
+            raise SimulationError(f"needs_review must return a bool, got {wanted!r}")
+        if not wanted:
+            return None
+        return ToReview(
+            item(outcome),
+            _value(reason, outcome),
+            None if answer is None else answer(outcome),
+            None if step is None else step(outcome),
+        )
+
+    return route_outcomes(outcomes, route, queue=queue, key=key, exclude=exclude)
+
+
+def record_actions(
+    actions: ActionLog,
+    outcomes: Iterable[Any],
+    *,
+    selects: Callable[[Any], bool],
+    kind: Callable[[Any], str] | str,
+    payload: Callable[[Any], Any] | None = None,
+    answer: Callable[[Any], Any] | None = None,
+    rule: Callable[[Any], str | None] | str | None = None,
+    step: Callable[[Any], int | None] | None = None,
+    key: Callable[[Any], Any] | None = None,
+    exclude: Callable[[Any], bool] | None = None,
+) -> Routed:
+    """Record every outcome that ``selects`` returns ``True`` for as a simulated action, in order.
+
+    The action-log twin of ``fill_review_queue``. ``kind`` and ``rule`` may be constants or
+    callables; ``payload``, ``answer`` and ``step`` are callables or left out. An outcome that
+    both queues and acts (recipes 16, 38 and 42 split their outcomes between the two) uses
+    ``route_outcomes`` directly so queue ids and action ``seq`` values come from one pass.
+    """
+    if not callable(selects):
+        raise SimulationError("selects must be callable")
+
+    def route(outcome: Any) -> ToAction | None:
+        wanted = selects(outcome)
+        if type(wanted) is not bool:
+            raise SimulationError(f"selects must return a bool, got {wanted!r}")
+        if not wanted:
+            return None
+        return ToAction(
+            _value(kind, outcome),
+            None if payload is None else payload(outcome),
+            None if answer is None else answer(outcome),
+            _value(rule, outcome),
+            None if step is None else step(outcome),
+        )
+
+    return route_outcomes(outcomes, route, actions=actions, key=key, exclude=exclude)
 
 
 # --------------------------------------------------------------------------------------

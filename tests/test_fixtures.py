@@ -335,6 +335,191 @@ def test_label_without_label_field(recipe):
     expect(recipe, "labels.jsonl:1 (id 't0'): missing required field 'label'")
 
 
+# ------------------------------------------------------------------------- Box labels
+
+BOX_LABEL = {"present": True, "box": {"top": 0.25, "bottom": 0.75, "left": 0.125, "right": 0.625}}
+
+
+def box_set(*labels) -> dict:
+    data = good_set()
+    for row, label in zip(data["labels"], labels, strict=True):
+        row["label"] = label
+    return data
+
+
+def test_well_formed_box_labels_present_and_absent_are_valid(recipe):
+    write(recipe, box_set(BOX_LABEL, {"present": False}, BOX_LABEL, {"present": False}))
+    assert messages(recipe) == []
+    assert load_labels(recipe)["t1"] == {"present": False}
+
+
+@pytest.mark.parametrize(
+    ("bad", "fragment"),
+    [
+        ({"present": "yes"}, "'present' to be true or false"),
+        ({"present": 1}, "'present' to be true or false"),
+        ({"present": None}, "'present' to be true or false"),
+        ({"present": False, "box": BOX_LABEL["box"]}, "exactly {'present': false}"),
+        ({"present": False, "box": None}, "exactly {'present': false}"),
+        ({"present": True}, "exactly 'present' and 'box'"),
+        ({"present": True, "box": None}, "exactly top, bottom, left and right"),
+        ({**BOX_LABEL, "extra": 1}, "exactly 'present' and 'box'"),
+        ({"present": True, "box": {"top": 0.1, "bottom": 0.5, "left": 0.1}}, "exactly top"),
+        (
+            {"present": True, "box": {"top": 0.1, "bottom": 0.5, "left": 0.1, "right": 1.5}},
+            "right must be in [0, 1]",
+        ),
+        (
+            {"present": True, "box": {"top": 0.5, "bottom": 0.5, "left": 0.1, "right": 0.9}},
+            "positive width and height",
+        ),
+        (
+            {"present": True, "box": {"top": 0, "bottom": 1e-200, "left": 0, "right": 1e-200}},
+            "underflows to zero",
+        ),
+    ],
+)
+def test_malformed_box_labels_are_rejected(recipe, bad, fragment):
+    write(recipe, box_set(BOX_LABEL, bad, BOX_LABEL, {"present": False}))
+    expect(recipe, "labels.jsonl:2 (id 't1'): malformed Box label", fragment)
+
+
+def test_a_non_box_label_among_box_labels_is_rejected(recipe):
+    write(recipe, box_set(BOX_LABEL, "billing", BOX_LABEL, BOX_LABEL["box"]))
+    expect(
+        recipe,
+        "labels.jsonl:2 (id 't1'): label is not a Box label",
+        "labels.jsonl:4 (id 't3'): label is not a Box label",
+    )
+
+
+def test_labels_without_a_present_key_are_not_treated_as_box_labels(recipe):
+    data = box_set({"box": BOX_LABEL["box"]}, "x", ["y"], {"tags": []})
+    write(recipe, data)
+    assert messages(recipe) == []
+
+
+def test_well_formed_nested_box_labels_are_valid(recipe):
+    """Box labels nested under a key or in a list (ranks 80, 83, 84, 98 nest them) validate."""
+    data = box_set(
+        {"target": BOX_LABEL, "rubric": 3},
+        {"target": {"present": False}, "rubric": 1},
+        {"boxes": [BOX_LABEL, {"present": False}], "rubric": 2},
+        {"step": {"after": {"target": BOX_LABEL}}},
+    )
+    write(recipe, data)
+    assert messages(recipe) == []
+
+
+@pytest.mark.parametrize(
+    ("label", "where"),
+    [
+        ({"target": {"present": "yes"}, "rubric": 3}, "label.target"),
+        ({"target": {"present": False, "box": BOX_LABEL["box"]}}, "label.target"),
+        ({"boxes": [BOX_LABEL, {"present": True}]}, "label.boxes[1]"),
+        ([{"present": None}], "label[0]"),
+        ({"a": {"b": [{"c": {"present": True, "box": [0, 1]}}]}}, "label.a.b[0].c"),
+    ],
+)
+def test_malformed_nested_box_labels_are_rejected_with_their_path(recipe, label, where):
+    write(recipe, box_set({"target": BOX_LABEL}, label, "plain", {"present_count": 2}))
+    expect(recipe, f"labels.jsonl:2 (id 't1'): malformed Box label at {where}: ")
+    assert len(messages(recipe)) == 1
+
+
+def test_every_malformed_nested_box_label_in_one_label_is_reported(recipe):
+    bad = {"present": True}
+    write(recipe, box_set({"before": bad, "after": [bad]}, "x", "y", "z"))
+    expect(
+        recipe,
+        "labels.jsonl:1 (id 't0'): malformed Box label at label.before:",
+        "labels.jsonl:1 (id 't0'): malformed Box label at label.after[0]:",
+    )
+
+
+def test_nested_box_labels_do_not_require_every_label_to_nest_one(recipe):
+    write(recipe, box_set({"target": BOX_LABEL}, "billing", ["y"], {"tags": []}))
+    assert messages(recipe) == []
+
+
+def test_top_level_box_label_rules_are_unchanged_when_labels_also_nest_one(recipe):
+    """With a top-level Box label in the file, a label that only nests one is still not one."""
+    write(recipe, box_set(BOX_LABEL, {"target": BOX_LABEL}, BOX_LABEL, {"present": False}))
+    expect(recipe, "labels.jsonl:2 (id 't1'): label is not a Box label")
+    assert len(messages(recipe)) == 1
+
+
+def test_where_labels_nest_their_box_labels_is_not_compared_across_labels(recipe):
+    """Recorded limit (docs/fixtures.md "Box labels"): a bare box under the key another label
+    uses for a Box label is not reported; the recipe's own test decodes the key it reads."""
+    bare = BOX_LABEL["box"]
+    write(recipe, box_set({"target": BOX_LABEL}, {"target": bare}, {"boxes": "none"}, "plain"))
+    assert messages(recipe) == []
+
+
+def test_one_stray_top_level_box_label_names_a_label_that_is_one(recipe):
+    """The message names the label that made Box labels the file's top-level format, so the
+    stray line can be found; a label that is not a Box label gets that one message only."""
+    bad = {"target": {"present": True}, "rubric": 1}
+    write(recipe, box_set({"target": BOX_LABEL}, bad, {"present": False}, {"target": BOX_LABEL}))
+    assert messages(recipe) == [
+        str(recipe / "fixtures" / "labels.jsonl") + f":{n} (id 't{n - 1}'): label is not a Box "
+        "label ({'present': ...}) but other labels in this file are (for example id 't2')"
+        for n in (1, 2, 4)
+    ]
+
+
+@pytest.mark.parametrize(
+    "label",
+    [
+        {"expected": {"billing": {"tp": 3, "fp": 1, "fn": 0, "present": True}}},  # class counts
+        {"answers": {"present": True, "button": BOX_LABEL}},  # a question named `present`
+        {"counts": {"present": 12, "absent": 3}},
+    ],
+)
+def test_a_nested_object_with_other_keys_beside_present_is_not_a_box_label(recipe, label):
+    """Below the top, only an object whose keys are `present` and `box` is read as a Box label;
+    the search goes on inside any other object (and finds the Box label under `button`)."""
+    write(recipe, box_set(label, "x", "y", "z"))
+    assert messages(recipe) == []
+
+
+def test_a_nested_object_with_only_present_or_box_keys_is_a_box_label(recipe):
+    write(recipe, box_set({"counts": {"present": 12}}, {"t": {"present": True}}, "y", "z"))
+    expect(
+        recipe,
+        "labels.jsonl:1 (id 't0'): malformed Box label at label.counts: ",
+        "labels.jsonl:2 (id 't1'): malformed Box label at label.t: ",
+    )
+
+
+@pytest.mark.parametrize(
+    ("key", "where"),
+    [("zielé", "label.zielé"), ("two words", "label.two words"), ("1st", "label.1st")],
+)
+def test_box_label_paths_keep_keys_as_written(recipe, key, where):
+    write(recipe, box_set({key: {"present": "yes"}}, "x", "y", "z"))
+    expect(recipe, f"labels.jsonl:1 (id 't0'): malformed Box label at {where}: ")
+
+
+def test_transition_labels_beside_nested_box_labels_are_valid(recipe):
+    transition = {"transition": "opened", "seconds": 2.5}
+    write(recipe, box_set({"target": BOX_LABEL}, transition, {"transition": "unchanged"}, "z"))
+    assert messages(recipe) == []
+
+
+def test_the_box_label_search_is_iterative():
+    """Labels read from a file nest at most MAX_DEPTH levels, but the walk does not rely on it."""
+    from jev_cookbook.fixtures import _box_label_places
+
+    deep: object = {"present": False}
+    for _ in range(5000):
+        deep = [deep]
+    [(path, found)] = _box_label_places(deep)
+    assert path == (0,) * 5000
+    assert found == {"present": False}
+
+
 # --------------------------------------------------------------- responses and linking
 
 
@@ -1379,10 +1564,11 @@ SCANNER_FUNCTIONS = (
     "_is_placeholder",
     "_entropy",
     "_letters_and_digits",
+    "_is_secret_name",
 )
 SCANNER_PATTERNS = (
     "_AUTH_HEADER", "_BEARER", "_ASSIGNMENT", "_WORD", "_TOKEN", "_TOKEN_SLASH",
-    "_PATH_SHAPED", "_DATA_URI", "_ANSI", "_IDENT_ASSIGNMENT", "_SECRET_NAME",
+    "_PATH_SHAPED", "_DATA_URI", "_ANSI", "_IDENT_ASSIGNMENT", "_NAME_GLUE", "_SECRET_WORD", "_LETTER_RUN",
 )  # fmt: skip
 
 
@@ -1403,6 +1589,7 @@ def test_the_packaged_scanner_has_the_same_rules_as_the_repository_scanner():
         )
     assert scan_module._PLACEHOLDER_MARKERS == hygiene._PLACEHOLDER_MARKERS
     assert scan_module._ENTROPY_THRESHOLD == hygiene._ENTROPY_THRESHOLD
+    assert scan_module._KEY_PREFIXES == hygiene._KEY_PREFIXES
     for name in SCANNER_FUNCTIONS:
         ours_source = inspect.getsource(getattr(scan_module, name))
         assert ours_source == inspect.getsource(getattr(hygiene, name)), name
@@ -1563,7 +1750,7 @@ def test_schema_is_packaged_and_has_the_two_row_definitions():
 
 def test_schema_checker_rejects_keywords_it_does_not_implement():
     with pytest.raises(ValueError, match="not supported"):
-        check(1, {"minimum": 3}, {})
+        check(1, {"maximum": 3}, {})
 
 
 def test_importing_the_module_does_not_import_tools_or_sdk():

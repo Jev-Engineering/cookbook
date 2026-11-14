@@ -100,19 +100,43 @@ _DATA_URI = re.compile(r"data:[\w./+-]+;base64,[A-Za-z0-9+/=]+")
 _ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 _ENTROPY_THRESHOLD = 4.2
 # A name assigned a bare name, such as a ruff-style keyword argument
-# ``startup_timeout=KERNEL_START_TIMEOUT``, is code, not a secret. Both sides are runs of
-# letters or of digits joined by "_" (the right side also by "."), where no run mixes letters
-# with digits and no run mixes cases (SCREAMING_SNAKE or lower_snake, no quotes); the left side
-# starts with a letter run. A left side that names a secret (api key, secret, token, password,
-# access key, credential) is never exempt, because a one-case value such as ``token=`` plus
-# 36 lowercase letters is a real secret shape. A mixed-case or letter-and-digit run on either
-# side is still scored, so ``token=a1B2c3...``, a key followed by ``=1`` and a quoted
-# string are all still scored.
-_RUN = r"(?:[A-Z]+|[a-z]+|[0-9]+)"
-_IDENT_ASSIGNMENT = re.compile(rf"_*(?:[A-Z]+|[a-z]+)(?:_+{_RUN})*_*=_*{_RUN}(?:[_.]+{_RUN})*_*")
-_SECRET_NAME = re.compile(
-    r"api[_-]?key|secret|token|passw(?:or)?d|access[_-]?key|credential", re.IGNORECASE
-)
+# ``startup_timeout=KERNEL_START_TIMEOUT``, is code, not a secret. Both sides are runs joined
+# by "_" (the right side also by "."). A run is a block of letters of ONE case with optional
+# digits AFTER it (``STAGE1``, ``SHA256``, ``utf8``, ``V2``), or a block of digits alone; the
+# left side starts with a letter run. Digits never sit between letters inside a run, so a run
+# that alternates letters and digits, as random text does, is not exempt. A left side that
+# names a secret (api key, secret, token, password, access key, credential) is never exempt,
+# because a one-case value such as ``token=`` plus 36 lowercase letters is a real secret
+# shape. A mixed-case run, or a run with a digit before a letter, on either side is still
+# scored, so ``token=a1B2c3...``, a key followed by ``=1`` and a quoted string are all still
+# scored, as is ``name=`` plus random lowercase letters and digits.
+_NAME_RUN = r"(?:[A-Z]+|[a-z]+)[0-9]*"
+_RUN = rf"(?:{_NAME_RUN}|[0-9]+)"
+_IDENT_ASSIGNMENT = re.compile(rf"_*{_NAME_RUN}(?:_+{_RUN})*_*=_*{_RUN}(?:[_.]+{_RUN})*_*")
+# The left side is read with every digit and "_" removed first, so a digit run, extra
+# underscores or a word split apart (``api1_key``, ``api__key``, ``pass_word``) still names a
+# secret, and ``api`` or ``access`` with any letters between it and a later ``key``
+# (``api_v2_key``, ``stripe_api_live_key``, ``access_aws_key``) does too.
+_NAME_GLUE = re.compile(r"[0-9_]+")
+_SECRET_WORD = re.compile(r"secret|token|passw(?:or)?d|credential", re.IGNORECASE)
+_KEY_PREFIXES = ("api", "access")
+_LETTER_RUN = re.compile(r"[a-z]+")
+
+
+def _is_secret_name(name: str) -> bool:
+    # True for a secret word, or for "api" or "access" with only letters between it and a
+    # later "key". That second test is str.find inside each run of letters, not a regex such
+    # as ``api[a-z]*key``: the regex retries the letter run from every "api" in a name with
+    # no later "key", which is quadratic in the name's length; this is linear.
+    lowered = name.lower()
+    if _SECRET_WORD.search(lowered):
+        return True
+    for run in _LETTER_RUN.findall(lowered):
+        for prefix in _KEY_PREFIXES:
+            start = run.find(prefix)
+            if start >= 0 and run.find("key", start + len(prefix)) >= 0:
+                return True
+    return False
 
 
 def _scan_secrets_line(line: str) -> Iterator[tuple[str, str]]:
@@ -133,7 +157,8 @@ def _scan_secrets_line(line: str) -> Iterator[tuple[str, str]]:
         if _letters_and_digits(v) and not _is_placeholder(v):
             yield "secret-assignment", _mask(v)
     for word in _WORD.findall(line):
-        if _IDENT_ASSIGNMENT.fullmatch(word) and not _SECRET_NAME.search(word.partition("=")[0]):
+        name = _NAME_GLUE.sub("", word.partition("=")[0])
+        if _IDENT_ASSIGNMENT.fullmatch(word) and not _is_secret_name(name):
             continue
         pattern = _TOKEN if _PATH_SHAPED.search(word) else _TOKEN_SLASH
         for t in pattern.findall(word):

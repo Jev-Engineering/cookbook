@@ -14,6 +14,8 @@ WORKFLOWS = REPO / ".github" / "workflows"
 NOTEBOOKS = (WORKFLOWS / "notebooks.yml").read_text(encoding="utf-8")
 SCOPE = (WORKFLOWS / "scope.yml").read_text(encoding="utf-8")
 CONSTRAINTS = (REPO / ".github" / "constraints-notebooks.txt").read_text(encoding="utf-8")
+CI = (WORKFLOWS / "ci.yml").read_text(encoding="utf-8")
+DEVELOPMENT = (REPO / "docs" / "development.md").read_text(encoding="utf-8")
 
 
 def code(text):
@@ -148,6 +150,95 @@ def test_notebook_job_installs_the_ml_extra_under_the_constraints():
     assert 'pip install -e ".[ml]" -c .github/constraints-notebooks.txt' in code(NOTEBOOKS)
 
 
+def ci_test_job():
+    """The ``test`` job of ci.yml without comment lines (the one the ``Tests (py...)`` checks are)."""
+    job = re.search(r"^  test:\n(.*?)(?=^  \S|\Z)", code(CI), re.DOTALL | re.MULTILINE)
+    assert job, "ci.yml has no `test` job"
+    return job.group(1)
+
+
+def ci_test_extras(version):
+    """The extras the ``Tests`` job installs on ``version``, the matrix expression evaluated.
+
+    The only expression allowed is the SDK on 3.14 (``${{ matrix.python-version == '3.14' && ',live'
+    || '' }}``); anything else fails here rather than being guessed at."""
+    install = re.search(r'pip install -e "\.\[([^\]]*)\]"([^\n]*)', ci_test_job())
+    assert install, 'the Tests job has no `pip install -e ".[...]"` step'
+    extras, rest = install.groups()
+    conditional = "${{ matrix.python-version == '3.14' && ',live' || '' }}"
+    plain = extras.replace(conditional, "")
+    assert "${{" not in plain, extras
+    names = plain.split(",")
+    if conditional in extras and version == "3.14":
+        names.append("live")
+    assert not rest.strip(), rest  # nothing after the quoted spec: no `-c constraints` either
+    return names
+
+
+def test_tests_jobs_install_the_ml_extra_on_both_legs():
+    """#238: docs/notebook-ci.md tells an author scikit-learn is available, the notebook job
+    installs it, and the Tests jobs import every recipe's helpers.py and tests. A recipe that used
+    it in helpers.py passed `Notebook (<recipe>)` and failed both `Tests` legs."""
+    for version in ("3.10", "3.14"):
+        assert {"dev", "ml"} <= set(ci_test_extras(version)), version
+
+
+def test_the_sdk_stays_on_the_3_14_leg_only():
+    """The 3.10 leg proves the package and every offline test work with the SDK absent
+    (docs/development.md); adding `ml` must not have widened that."""
+    assert "live" not in ci_test_extras("3.10")
+    assert "live" in ci_test_extras("3.14")
+
+
+def test_tests_jobs_do_not_install_under_the_notebook_constraints():
+    """numpy==2.5.3 needs Python 3.12 or newer, so the constraints file cannot be installed on
+    the 3.10 floor (`uv pip compile --python-version 3.10 -c .github/constraints-notebooks.txt`
+    finds no solution): the Tests legs install the newest release each interpreter supports."""
+    assert "constraints-notebooks" not in ci_test_job()
+    assert "numpy==2.5.3" in CONSTRAINTS  # the pin that makes it impossible; revisit if bumped
+    assert re.search(r"python-version: \[\"3\.10\", \"3\.14\"\]", ci_test_job())
+
+
+def test_the_tests_check_names_are_unchanged():
+    """Job names are the required checks' names (the header of ci.yml): #238 changes the install
+    step, not these."""
+    for name in (
+        "Lint (ruff)",
+        "Catalog (README is current)",
+        "Tests (py${{ matrix.python-version }})",
+    ):
+        assert f"    name: {name}\n" in CI, name
+
+
+def test_development_docs_state_what_each_tests_job_installs():
+    for version in ("3.10", "3.14"):
+        extras = ",".join(ci_test_extras(version))
+        assert f"`Tests (py{version})` installs `.[{extras}]`" in DEVELOPMENT.replace("\n", " "), (
+            version
+        )
+
+
+def test_the_three_commands_install_what_the_tests_jobs_install():
+    """The block a contributor copies (docs/development.md, "The three commands") must install the
+    extras the 3.10 leg does: with `.[dev]` alone, a recipe whose helpers import scikit-learn aborts
+    the whole `pytest` run with a collection error that CI never shows (#238 review)."""
+    block = DEVELOPMENT.split("## The three commands")[1].split("\n## ")[0]
+    install = re.search(r'pip install -e "\.\[([^\]]*)\]"', block)
+    assert install, "no install command in The three commands"
+    assert set(ci_test_extras("3.10")) <= set(install.group(1).split(","))
+
+
+def test_the_docs_say_how_the_3_14_leg_relates_to_the_notebook_pin():
+    """The 3.14 leg takes the newest release, which today is the very release the notebook
+    constraints pin, so a doc that says it differs from the pin is false; and the claim that it
+    is the pin has to be revisited when the pin moves."""
+    flat = " ".join(DEVELOPMENT.split())
+    pinned = pins()["scikit-learn"]
+    assert f"the 3.14 leg gets scikit-learn {pinned}, the release the notebook job pins" in flat
+    assert "neither the notebook job's pin" not in flat
+    assert "differ from each other and from the notebook job's pin" not in CI
+
+
 def pins():
     return {
         line.split("==")[0]: line.split("==")[1]
@@ -210,6 +301,34 @@ def test_a_weekly_schedule_runs_every_notebook():
     # `else`, which selects everything.
     assert '"$EVENT" = "schedule"' not in body
     assert re.search(r"else\n\s+python tools/notebook_ci.py matrix --github-output", body)
+
+
+def test_a_pull_request_is_diffed_against_its_merge_commits_first_parent_not_a_stale_base():
+    """#248: pull_request.base.sha is the base branch's tip when the pull request was opened. The
+    discover step must pass --merge-ref (with --pr-head, so the tool checks that HEAD really is
+    the pull request's merge commit) so the tool diffs against the merge commit's first parent,
+    and must fetch the history that needs (fetch-depth: 0). The push, forced-push, manual and
+    scheduled branches never use it."""
+    body = code(NOTEBOOKS)
+    pull_request = re.search(
+        r'if \[ "\$EVENT" = "pull_request" \]; then\n(.*?)\n\s+elif', body, re.DOTALL
+    )
+    assert pull_request, "the discover step must have a pull_request branch"
+    assert re.fullmatch(
+        r'\s*python tools/notebook_ci\.py matrix --base "\$BASE_SHA" --head HEAD --merge-ref '
+        r'--pr-head "\$PR_HEAD_SHA" --github-output "\$GITHUB_OUTPUT"',
+        pull_request.group(1),
+    )
+    assert body.count("--merge-ref") == 1
+    # #316: the tool trusts HEAD as the merge commit only if its second parent is the pull
+    # request's head, and the head it is told is the event's, not anything the checkout produced.
+    assert body.count("--pr-head") == 1
+    assert "PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}" in body
+    discover = body.split("  execute:")[0]
+    assert "fetch-depth: 0" in discover
+    # HEAD is the merge ref only because the checkout names no ref: `ref:` set to the head sha
+    # would check out the branch tip instead (#316).
+    assert not re.search(r"^\s+ref:", discover, re.MULTILINE)
 
 
 def test_execute_job_caps_its_own_concurrency():

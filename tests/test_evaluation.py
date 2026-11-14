@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 import math
 import subprocess
 import sys
@@ -684,6 +685,63 @@ def test_mean_recall_at_budget_is_the_thin_mean():
     assert ev.mean_recall_at_budget(queries, 2) == pytest.approx(expected)
 
 
+def test_recall_at_budget_eligible_none_is_the_default_behaviour():
+    rel, sc = [1, 0, 1, 0, 1], [0.9, 0.8, 0.7, 0.6, 0.5]
+    assert ev.recall_at_budget(rel, sc, 3, eligible=None) == ev.recall_at_budget(rel, sc, 3)
+    assert ev.recall_at_budget(rel, sc, 3, eligible=[1] * 5) == ev.recall_at_budget(rel, sc, 3)
+
+
+def test_recall_at_budget_ineligible_items_never_occupy_a_slot():
+    # #231: one eligible item and a budget of 2. Items: relevance 1,1,0 ; scores 0.9,0.8,0.7 ;
+    # only the LAST is eligible (and irrelevant). Without eligibility the budget of 2 takes the
+    # two relevant items (recall 1.0); with it only item 3 can be reviewed -> 0 of 2 found.
+    rel, sc = [1, 1, 0], [0.9, 0.8, 0.7]
+    assert ev.recall_at_budget(rel, sc, 2) == pytest.approx(1.0)
+    assert ev.recall_at_budget(rel, sc, 2, eligible=[0, 0, 1]) == 0.0
+    # the slot-credit bug itself: relevant A (0.9, eligible), relevant B (0.8, ineligible),
+    # irrelevant C (0.1, eligible), budget 2. Eligible are A and C only, so the budget fills with
+    # both, finds A, and B is never found: 1 of 2 = 0.5 -- and B's higher stand-in score must not
+    # buy it the second slot.
+    assert ev.recall_at_budget([1, 1, 0], [0.9, 0.8, 0.1], 2, eligible=[1, 0, 1]) == 0.5
+    # a single eligible slot goes to the best eligible item, not the best item
+    assert ev.recall_at_budget([1, 0, 1], [0.1, 0.9, 0.5], 1, eligible=[1, 0, 1]) == 0.5
+
+
+def test_recall_at_budget_denominator_keeps_ineligible_relevant_items():
+    # relevant ineligible items are missed, they are not removed from the question
+    assert ev.recall_at_budget([1, 1], [0.9, 0.8], 5, eligible=[1, 0]) == 0.5
+
+
+def test_recall_at_budget_with_no_eligible_item_is_zero_not_nan():
+    assert ev.recall_at_budget([1, 0], [0.9, 0.1], 1, eligible=[0, 0]) == 0.0
+    # but no relevant item at all is still undefined, eligible or not
+    assert nan(ev.recall_at_budget([0, 0], [0.9, 0.1], 1, eligible=[0, 0]))
+    assert nan(ev.recall_at_budget([0, 0], [0.9, 0.1], 1, eligible=[1, 1]))
+
+
+def test_recall_at_budget_ties_among_eligible_items_are_credited_in_expectation():
+    # two eligible items tied at 0.5, one of them relevant, budget 1: a half chance of the one
+    # slot finding it, over 2 relevant items in all (the ineligible 0.99 one is never found)
+    assert ev.recall_at_budget([1, 0, 1], [0.5, 0.5, 0.99], 1, eligible=[1, 1, 0]) == 0.25
+
+
+def test_recall_at_budget_eligible_validation():
+    with pytest.raises(ValueError):
+        ev.recall_at_budget([1, 0], [0.9, 0.1], 1, eligible=[1])
+    with pytest.raises(ValueError):
+        ev.recall_at_budget([1, 0], [0.9, 0.1], 1, eligible=[1, 2])
+    with pytest.raises(ValueError):
+        ev.recall_at_budget([1, 0], [0.9, 0.1], 1, eligible=[])
+
+
+def test_mean_recall_at_budget_accepts_an_eligible_mask_per_query():
+    q_plain = ([1, 0], [0.9, 0.1])  # recall 1.0
+    q_gated = ([1, 1, 0], [0.9, 0.8, 0.1], [1, 0, 1])  # recall 0.5
+    assert ev.mean_recall_at_budget([q_plain, q_gated], 2) == pytest.approx(0.75)
+    with pytest.raises(ValueError):
+        ev.mean_recall_at_budget([([1], [0.5], [1], [1])], 1)
+
+
 def test_mean_recall_at_budget_skips_undefined_queries():
     q_zero = ([0, 0], [0.1, 0.2])  # no relevant item: undefined, skipped
     q_one = ([1, 0], [0.9, 0.1])  # recall@1 = 1.0
@@ -773,6 +831,173 @@ def test_top_k_query_accuracy_errors():
         ev.top_k_query_accuracy([([1], [0.1, 0.2])])  # length mismatch within one query
     with pytest.raises(ValueError):
         ev.top_k_query_accuracy([([1, 0], [0.1, 0.9])], k=0)
+
+
+def test_top_k_query_accuracy_a_tie_wholly_inside_the_cut_off_costs_nothing():
+    # Scores 0.9, 0.9, 0.1 with only item 0 relevant. k=2 holds both tied items: hit, 1.0.
+    # k=1 holds one of the two: P(it is the relevant one) = 1 / 2.
+    q = ([1, 0, 0], [0.9, 0.9, 0.1])
+    assert ev.top_k_query_accuracy([q], k=2) == 1.0
+    assert ev.top_k_query_accuracy([q], k=1) == 0.5
+    # the relevant item below the tie is out of reach until the cut-off passes the tie:
+    # k=2 -> 0.0, k=3 -> 1.0.
+    below = ([0, 0, 1], [0.9, 0.9, 0.1])
+    assert ev.top_k_query_accuracy([below], k=2) == 0.0
+    assert ev.top_k_query_accuracy([below], k=3) == 1.0
+
+
+def test_top_k_query_accuracy_a_tie_that_straddles_the_cut_off_is_a_hypergeometric_hit():
+    # Scores 0.9, 0.5, 0.5, 0.5; only item 1 (inside the three-way tie) is relevant.
+    # k=1: the 0.9 item (not relevant) fills the slot -> 0.
+    # k=2: one open slot among 3 tied, 1 relevant -> 1 - C(2,1)/C(3,1) = 1/3.
+    # k=3: two open slots -> 1 - C(2,2)/C(3,2) = 1 - 1/3 = 2/3.
+    # k=4: the whole tie fits -> 1.
+    q = ([0, 1, 0, 0], [0.9, 0.5, 0.5, 0.5])
+    got = [ev.top_k_query_accuracy([q], k=k) for k in (1, 2, 3, 4)]
+    assert got == [0.0, 1 / 3, 2 / 3, 1.0]
+
+
+def test_top_k_query_accuracy_a_tie_with_two_relevant_items_by_hand():
+    # Four items tied, two relevant. 4 choose s orderings of the open slots:
+    # k=1: 1 - C(2,1)/C(4,1) = 1/2.   k=2: 1 - C(2,2)/C(4,2) = 1 - 1/6 = 5/6.
+    # k=3: the two non-relevant items cannot fill three slots -> 1.
+    q = ([1, 1, 0, 0], [0.5, 0.5, 0.5, 0.5])
+    got = [ev.top_k_query_accuracy([q], k=k) for k in (1, 2, 3)]
+    assert got == [0.5, 5 / 6, 1.0]
+
+
+def test_top_k_query_accuracy_k_larger_than_the_list_is_the_whole_list():
+    # Three items, k=99: every item is in the cut-off, so any query with a relevant item is
+    # a hit, including when the relevant item has the lowest score.
+    assert ev.top_k_query_accuracy([([0, 0, 1], [0.9, 0.8, 0.1])], k=99) == 1.0
+    assert ev.top_k_query_accuracy([([0, 0, 1], [0.9, 0.8, 0.1])], k=3) == 1.0
+    assert ev.top_k_query_accuracy([([0, 0, 1], [0.9, 0.8, 0.1])], k=2) == 0.0
+    # a one-item query, k=1 and k larger
+    assert ev.top_k_query_accuracy([([1], [0.3])], k=1) == 1.0
+    assert ev.top_k_query_accuracy([([1], [0.3])], k=5) == 1.0
+
+
+def test_top_k_query_accuracy_multi_gold_is_any_hit_not_a_share():
+    # Relevant: items 1 and 2 (scores 0.5 and 0.4); the top item 0 (0.9) is not.
+    # k=1 -> top item irrelevant -> 0.   k=2 -> item 1 is in -> 1.0 (one of two found).
+    # recall_at_budget at budget 2 is 1/2: this is the second place the two questions differ.
+    rel, sc = [0, 1, 1], [0.9, 0.5, 0.4]
+    assert ev.top_k_query_accuracy([(rel, sc)], k=1) == 0.0
+    assert ev.top_k_query_accuracy([(rel, sc)], k=2) == 1.0
+    assert ev.recall_at_budget(rel, sc, 2) == 0.5
+    # Several relevant items in the top k still score 1.0 (not 2 and not 1/2).
+    assert ev.top_k_query_accuracy([([1, 1, 1], [0.3, 0.2, 0.1])], k=3) == 1.0
+
+
+def test_top_k_query_accuracy_matches_the_documented_recipe_17_case_at_every_k():
+    # The case that hid the original defect: one query with two relevant items, the top
+    # one among them. recall_at_budget(.., 1) is 0.5; the ranking accuracy is 1.0 at every k.
+    rel, sc = [1, 1, 0], [0.9, 0.1, 0.2]
+    for k in (1, 2, 3, 4):
+        assert ev.top_k_query_accuracy([(rel, sc)], k=k) == 1.0
+    assert ev.recall_at_budget(rel, sc, 1) == 0.5
+
+
+def test_top_k_query_accuracy_does_not_depend_on_the_order_items_are_listed():
+    rel = [1, 0, 1, 0, 0]
+    sc = [0.5, 0.5, 0.2, 0.5, 0.9]
+    base = [ev.top_k_query_accuracy([(rel, sc)], k=k) for k in (1, 2, 3, 4, 5)]
+    # by hand: top 0.9 (not relevant); then a three-way tie at 0.5 holding one relevant;
+    # then 0.2 (relevant). k=1 -> 0. k=2: 1 slot of 3, 1 relevant -> 1/3. k=3: 2 of 3 -> 2/3.
+    # k=4: the whole tie -> 1.  k=5 -> 1.
+    assert base == [0.0, 1 / 3, 2 / 3, 1.0, 1.0]
+    for order in ([4, 3, 2, 1, 0], [2, 0, 4, 1, 3], [1, 3, 0, 4, 2]):
+        rel_p = [rel[i] for i in order]
+        sc_p = [sc[i] for i in order]
+        got = [ev.top_k_query_accuracy([(rel_p, sc_p)], k=k) for k in (1, 2, 3, 4, 5)]
+        assert got == base
+
+
+def test_top_k_query_accuracy_equals_brute_force_enumeration_of_tie_orders():
+    # The definition, taken literally: average, over every ordering of the items that is
+    # consistent with the scores (ties in any order), of "a relevant item is in the first k".
+    # Every tie order is equally frequent among the consistent orderings, so the plain mean
+    # over them is the expectation over tie orders. Small integer scores force many ties.
+    rng = np.random.default_rng(20240607)
+    checked = 0
+    for _ in range(60):
+        n = int(rng.integers(1, 7))
+        scores = [int(v) for v in rng.integers(0, 3, size=n)]
+        relevant = [int(v) for v in rng.integers(0, 2, size=n)]
+        if not any(relevant):
+            continue
+        consistent = [
+            perm
+            for perm in itertools.permutations(range(n))
+            if all(scores[perm[i]] >= scores[perm[i + 1]] for i in range(n - 1))
+        ]
+        for k in range(1, n + 2):
+            hits = sum(any(relevant[i] for i in perm[:k]) for perm in consistent)
+            expected = hits / len(consistent)
+            got = ev.top_k_query_accuracy([(relevant, scores)], k=k)
+            assert got == pytest.approx(expected, abs=1e-12), (scores, relevant, k)
+            checked += 1
+    assert checked > 100  # the loop really compared something
+
+
+def test_top_k_query_accuracy_mean_is_over_queries_with_a_relevant_item_only():
+    # q_tie: tied pair, one relevant -> 1/2.  q_hit: clear winner relevant -> 1.
+    # q_none: no relevant item -> undefined, left out. Mean of the two defined = 3/4.
+    q_tie = ([1, 0], [0.5, 0.5])
+    q_hit = ([0, 1], [0.1, 0.9])
+    q_none = ([0, 0, 0], [0.9, 0.5, 0.1])
+    assert ev.top_k_query_accuracy([q_tie, q_hit, q_none]) == 0.75
+    assert ev.top_k_query_accuracy([q_tie, q_hit]) == 0.75
+    # a query that is a clear miss is NOT left out: (0 + 1) / 2
+    assert ev.top_k_query_accuracy([([1, 0], [0.1, 0.9]), q_hit]) == 0.5
+
+
+def test_top_k_query_accuracy_duplicate_gold_is_two_relevant_items():
+    # Two items identical but for position, both marked relevant, are two relevant items:
+    # relevance is a mask, so there is no gold id to repeat. Tied at 0.5 with a third,
+    # irrelevant, item: k=1 -> 2/3; k=2 -> 1 - C(1,2)/C(3,2) = 1.
+    q = ([1, 1, 0], [0.5, 0.5, 0.5])
+    assert ev.top_k_query_accuracy([q], k=1) == 2 / 3
+    assert ev.top_k_query_accuracy([q], k=2) == 1.0
+
+
+def test_top_k_query_accuracy_cannot_score_a_gated_rule_and_prefiltering_changes_the_denominator():
+    # The #231 trap in binary form. Query 1: the relevant item (index 0, score 0.9) is
+    # excluded by a gate, so the rule's own pick is index 1 (score 0.5), which is not
+    # relevant: the rule scores 0.0. Query 2 is an ordinary hit: 1.0.
+    gated = ([1, 0, 0], [0.9, 0.5, 0.1], [0, 1, 1])  # eligible mask: item 0 excluded
+    plain = ([0, 1], [0.1, 0.9], [1, 1])
+    rule_own = (0.0 + 1.0) / 2  # hand-computed from the rule's own picks = 0.5
+    # a) the helper on the full lists sees the excluded relevant item as the top hit:
+    #    (1.0 + 1.0) / 2 = 1.0, a number the rule's pick never produces.
+    full = [(g[0], g[1]) for g in (gated, plain)]
+    assert ev.top_k_query_accuracy(full, k=1) == 1.0
+    # b) dropping the excluded item beforehand leaves query 1 with no relevant item: it is
+    #    undefined and leaves the denominator, so the mean is over ONE query and is also 1.0.
+    pre_filtered = [([0, 0], [0.5, 0.1]), ([0, 1], [0.1, 0.9])]
+    assert ev.top_k_query_accuracy(pre_filtered, k=1) == 1.0
+    # the gated query alone is undefined (NaN), which is how it silently left the mean:
+    assert nan(ev.top_k_query_accuracy(pre_filtered[:1], k=1))
+    # c) with one relevant item per query, recall_at_budget's eligible mask is the metric:
+    assert ev.mean_recall_at_budget([gated, plain], 1) == rule_own == 0.5
+    assert ev.recall_at_budget(gated[0], gated[1], 1, eligible=gated[2]) == 0.0
+
+
+def test_top_k_query_accuracy_accepts_booleans_and_rejects_non_binary_relevance():
+    assert ev.top_k_query_accuracy([([False, True], [0.1, 0.9])]) == 1.0
+    with pytest.raises(ValueError):
+        ev.top_k_query_accuracy([([2, 0], [0.9, 0.1])])  # graded relevance is not binary
+    with pytest.raises(ValueError):
+        ev.top_k_query_accuracy([([1, 0], [float("nan"), 0.1])])  # non-finite score
+
+
+def test_top_k_query_accuracy_an_empty_query_raises_even_among_valid_ones():
+    with pytest.raises(ValueError):
+        ev.top_k_query_accuracy([([1, 0], [0.9, 0.1]), ([], [])])
+    with pytest.raises(ValueError):
+        ev.top_k_query_accuracy([([], [])])
+    with pytest.raises(ValueError):
+        ev.top_k_query_accuracy([([1, 0], [])])  # items without scores
 
 
 # ---------------------------------------------------------------- Selective prediction
@@ -924,6 +1149,245 @@ def test_select_confidence_threshold_coverage_tie_goes_to_lower_threshold():
     assert (
         ev.select_confidence_threshold([1, 0, 0, 1], [0.9, 0.8, 0.7, 0.6], min_coverage=0.5) == 0.6
     )
+
+
+# A bimodal pool: four low confidences (0.04-0.20), then a gap, then six high ones (0.79-0.96).
+# Accuracy of the answered subset at each threshold, high to low: 1.0 through 0.80, 5/6 at 0.79,
+# 5/7 at 0.20, 6/8 at 0.15, 6/9 at 0.11, 6/10 at 0.04. Coverage rises 0.1 per step.
+_BIMODAL_CONF = [0.04, 0.11, 0.15, 0.20, 0.79, 0.80, 0.84, 0.88, 0.92, 0.96]
+_BIMODAL_CORRECT = [0, 0, 1, 0, 0, 1, 1, 1, 1, 1]
+
+
+def _sweep_min_coverage(correct, conf, values):
+    return [ev.select_confidence_threshold(correct, conf, min_coverage=v) for v in values]
+
+
+def test_raising_min_coverage_can_only_select_a_lower_or_equal_threshold():
+    # min_coverage is a FLOOR ON COVERAGE and a lower threshold keeps more answers, so the
+    # direction is: higher min_coverage -> same or LOWER threshold (never higher).
+    values = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    got = _sweep_min_coverage(_BIMODAL_CORRECT, _BIMODAL_CONF, values)
+    assert got == [0.8, 0.8, 0.8, 0.8, 0.8, 0.79, 0.15, 0.15, 0.11, 0.04]
+    assert all(b <= a for a, b in zip(got, got[1:], strict=False))
+    assert got[0] > got[-1]  # and it does move overall, so the check is not vacuous
+
+
+def test_raising_target_accuracy_can_only_select_a_higher_or_equal_threshold():
+    # the reverse of min_coverage: a stricter accuracy target moves the gate UP
+    got = [
+        ev.select_confidence_threshold(_BIMODAL_CORRECT, _BIMODAL_CONF, target_accuracy=v)
+        for v in (0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
+    ]
+    assert got == [0.04, 0.04, 0.15, 0.79, 0.8, 0.8]
+    assert all(b >= a for a, b in zip(got, got[1:], strict=False))
+
+
+def test_min_coverage_response_is_flat_across_a_wide_range():
+    # Five parameter values (0.1 to 0.5, a fivefold change) select the same threshold, because
+    # every confidence between 0.20 and 0.80 is absent from the pool: the answer cannot land in
+    # the gap. A reader told to "lower min_coverage and watch the threshold move" would see
+    # nothing here; the stated direction is about movement, not a promise of it.
+    flat = _sweep_min_coverage(_BIMODAL_CORRECT, _BIMODAL_CONF, [0.1, 0.2, 0.3, 0.4, 0.5])
+    assert len(set(flat)) == 1
+    # the threshold then moves a long way between neighbouring parameter values
+    assert ev.select_confidence_threshold(_BIMODAL_CORRECT, _BIMODAL_CONF, min_coverage=0.7) == 0.15
+
+
+def test_min_coverage_selects_nothing_when_errors_sit_at_the_top_of_the_confidence_order():
+    # accuracy rises as the threshold falls (the one error is the most confident answer), so the
+    # lowest observed confidence is always feasible and always the most accurate: every
+    # min_coverage returns it, and a frozen number is not a choice.
+    conf, correct = [0.9, 0.8, 0.7, 0.6, 0.5], [0, 1, 1, 1, 1]
+    sweep = _sweep_min_coverage(correct, conf, [0.2, 0.4, 0.6, 0.8, 1.0])
+    assert set(sweep) == {0.5}
+
+
+def test_noul_confidence_gate_is_a_two_sided_band_and_its_effect_depends_on_the_wiring():
+    # confidence = |2n - 1| is symmetric about 0.5, so a gate g passes exactly when
+    # n >= (1 + g)/2 (confidently true) or n <= (1 - g)/2 (confidently false); the open interval
+    # between them is the review band. This is the universal fact. Whether a gate is INERT, or
+    # equivalent to a stricter threshold, is a fact about one composition, not about (t, g):
+    # the same t and g below change 0 outcomes in one wiring and 199 in another.
+    g, t = 0.5, 0.8
+    # 0.0025 steps; the edges 0.25 and 0.75 are grid points, and |2n - 1| = 0.5 is exact there in
+    # binary, so the exact comparison below is safe (arbitrary edges are not: see the next tests)
+    grid = [i / 400 for i in range(401)]
+    for n in grid:
+        in_band = (1 - g) / 2 < n < (1 + g) / 2
+        assert (ev.noul_confidence([n])[0] >= g) == (not in_band), n
+
+    def threshold_only(n):
+        return "accept" if n >= t else "deny"
+
+    def gate_both_branches(n):
+        if ev.noul_confidence([n])[0] < g:
+            return "review"
+        return threshold_only(n)
+
+    def gate_accept_branch_only(n):
+        if n >= t and ev.noul_confidence([n])[0] < g:
+            return "review"
+        return threshold_only(n)
+
+    both = [n for n in grid if gate_both_branches(n) != threshold_only(n)]
+    accept_only = [n for n in grid if gate_accept_branch_only(n) != threshold_only(n)]
+    # t = 0.8 >= (1 + g)/2 = 0.75: on the accept side the gate is inert in both wirings ...
+    assert not [n for n in both if n >= t]
+    # ... but on the reject side the band is real in the wiring that gates it (every n strictly
+    # between 0.25 and 0.75 becomes a review, 199 grid points) and absent in the one that does not
+    assert len(both) == 199 and all((1 - g) / 2 < n < (1 + g) / 2 for n in both)
+    assert accept_only == []
+
+
+def test_accept_side_gate_inertness_needs_t_above_one_half():
+    # for t > 0.5, p >= t gives |2p - 1| >= 2t - 1, so a gate g <= 2t - 1 withholds no admitted p
+    t, g = 0.8, 0.6
+    for p in (i / 400 for i in range(401)):
+        if p >= t:
+            assert ev.noul_confidence([p])[0] >= g
+    # for t < 0.5 it is false even at g == |2t - 1|: t = 0.3, g = 0.4, p = 0.5 is admitted by the
+    # threshold (0.5 >= 0.3) and has confidence 0.0 < 0.4, so the gate withholds it
+    t, g = 0.3, 0.4
+    assert g == pytest.approx(abs(2 * t - 1))
+    assert 0.5 >= t and ev.noul_confidence([0.5])[0] == 0.0 < g
+    # and the withheld admitted values are an interval around 0.5, not a lower tail
+    grid = [i / 400 for i in range(401)]
+    withheld = [p for p in grid if p >= t and ev.noul_confidence([p])[0] < g]
+    assert min(withheld) < 0.5 < max(withheld)
+    assert all(t <= p <= (1 + g) / 2 for p in withheld)
+
+
+def _ulps_below(value, target):
+    """How many representable doubles lie between ``value`` and ``target`` (``value < target``)."""
+    steps = 0
+    while value < target:
+        value = math.nextafter(value, math.inf)
+        steps += 1
+    return steps
+
+
+# Two-decimal thresholds t in 0.51 ... 0.99 whose confidence sits below the typed gate
+# round(2t - 1, 2), with the gap in ULPs. Hand-checked, e.g. t = 0.6: noul_confidence is
+# 0.19999999999999996, and two steps of math.nextafter reach 0.2 (0.19999999999999996 ->
+# 0.19999999999999998 -> 0.2); the double 0.6 is slightly below 0.6, and 2 * 0.6 - 1 is exact
+# for p >= 0.5 (Sterbenz), so the shortfall is the decimal's, not the arithmetic's.
+_TYPED_GATE_MISSES = {
+    0.57: 4,
+    0.58: 3,
+    0.59: 2,
+    0.60: 2,
+    0.61: 1,
+    0.69: 2,
+    0.70: 2,
+    0.71: 1,
+    0.72: 1,
+    0.73: 1,
+    0.82: 1,
+    0.83: 1,
+    0.84: 1,
+    0.94: 1,
+    0.95: 1,
+    0.96: 1,
+}
+
+
+def test_accept_side_floor_at_exactly_two_t_minus_one_holds_only_in_real_arithmetic():
+    # The floor g <= 2t - 1 is exact in real arithmetic. A gate typed as the decimal 2t - 1 sits ON
+    # the edge, where binary floating point can put the admitted value p = t a few ULPs below it.
+    c = ev.noul_confidence([0.6])[0]
+    assert c == 0.19999999999999996
+    assert c < 0.2
+    assert math.nextafter(math.nextafter(c, 1.0), 1.0) == 0.2  # two ULPs, not one
+    assert _ulps_below(c, 0.2) == 2
+    # Recipe 39's frozen pair (t = 0.85, g = 0.70): the confidence is exactly the gate.
+    assert ev.noul_confidence([0.85])[0] == 0.7
+    # Exhaustive over the two-decimal thresholds 0.51 ... 0.99 with g = round(2t - 1, 2).
+    ts = [i / 100 for i in range(51, 100)]
+    misses = {
+        t: _ulps_below(ev.noul_confidence([t])[0], round(2 * t - 1, 2))
+        for t in ts
+        if ev.noul_confidence([t])[0] < round(2 * t - 1, 2)
+    }
+    assert misses == _TYPED_GATE_MISSES
+    assert len(misses) == 16
+    assert 0.6 in misses
+    assert 0.85 not in misses
+    # Clear of the edge the floor holds with no exception.
+    grid = [i / 400 for i in range(401)]
+    for t in ts:
+        g = 2 * t - 1 - 1e-9
+        assert all(ev.noul_confidence([p])[0] >= g for p in grid if p >= t), t
+        # ... and so does the gate the contract mandates, frozen at an observed confidence of an
+        # item at or below t (here the item at t itself): noul_confidence is monotone on [0.5, 1].
+        g = ev.noul_confidence([t])[0]
+        assert all(ev.noul_confidence([p])[0] >= g for p in grid if p >= t), t
+
+
+def test_typed_gate_at_two_t_minus_one_withholds_the_admitted_value_at_t_in_a_composition():
+    # Compose the real helpers: an accept-only gate, applied with evaluate_selective to every
+    # admitted p (p >= t) on a 0.00025-step grid. The typed gate round(2t - 1, 2) withholds
+    # exactly the one value p = t for each of the 16 thresholds that miss by an ULP or more; the
+    # gate frozen by select_confidence_threshold on a validation pool containing that item (the
+    # contract's construction) withholds nothing.
+    grid = [i / 4000 for i in range(4001)]
+    for t in _TYPED_GATE_MISSES:
+        admitted = [p for p in grid if p >= t]
+        assert t in admitted  # i / 4000 and t = j / 100 are the same correctly rounded double
+        conf = ev.noul_confidence(admitted)
+        everything_right = [1] * len(admitted)
+        typed = ev.evaluate_selective(everything_right, conf, round(2 * t - 1, 2))
+        assert typed.n_answered == len(admitted) - 1, t
+        withheld = [p for p, c in zip(admitted, conf, strict=True) if c < round(2 * t - 1, 2)]
+        assert withheld == [t], t
+        clear = ev.evaluate_selective(everything_right, conf, 2 * t - 1 - 1e-9)
+        assert clear.n_answered == len(admitted), t
+    # The frozen construction at t = 0.6: a validation pool whose lowest-confidence item is 0.6.
+    val = [0.6, 0.62, 0.7, 0.95, 0.05]
+    frozen = ev.select_confidence_threshold([1] * 5, ev.noul_confidence(val), min_coverage=0.5)
+    assert frozen == ev.noul_confidence([0.6])[0] == 0.19999999999999996
+    admitted = [p for p in grid if p >= 0.6]
+    conf = ev.noul_confidence(admitted)
+    assert ev.evaluate_selective([1] * len(admitted), conf, frozen).n_answered == len(admitted)
+    assert ev.evaluate_selective([1] * len(admitted), conf, 0.2).n_answered == len(admitted) - 1
+
+
+def test_reject_side_band_edge_disagrees_with_the_real_comparison_for_a_frozen_gate():
+    # A gate frozen by select_confidence_threshold is an observed confidence g = |2p_i - 1|, so
+    # p_i sits exactly on its own band edge in real arithmetic. Below 0.5 the computed edge
+    # (1 - g)/2 can land above p_i. Hand-computed: p = 0.1, g = 2 * (1 - 0.1) - 1 = 0.8, and
+    # (1 - 0.8)/2 = 0.09999999999999998 (< 0.1), so the band statement puts p = 0.1 in review.
+    g = ev.noul_confidence([0.1])[0]
+    assert g == 0.8
+    assert (1 - g) / 2 == 0.09999999999999998 < 0.1
+    # The real comparison passes it, and so does evaluate_selective on a pool frozen at it.
+    val = [0.1, 0.02, 0.97]
+    frozen = ev.select_confidence_threshold([1] * 3, ev.noul_confidence(val), min_coverage=1.0)
+    assert frozen == g
+    assert ev.evaluate_selective([1], ev.noul_confidence([0.1]), frozen).n_answered == 1
+    assert (1 - frozen) / 2 < 0.1 < (1 + frozen) / 2  # band statement: review
+    # Exhaustive over the 50 two-decimal p in 0.00 ... 0.49: the band disagrees for exactly 16.
+    below = [i / 100 for i in range(0, 50)]
+    disagree = [
+        p
+        for p in below
+        if (1 - ev.noul_confidence([p])[0]) / 2 < p < (1 + ev.noul_confidence([p])[0]) / 2
+    ]
+    assert disagree == [
+        0.08, 0.09, 0.10, 0.11,
+        0.18, 0.19, 0.20, 0.21, 0.22, 0.23,
+        0.41, 0.42, 0.43, 0.44, 0.45, 0.46,
+    ]  # fmt: skip
+    assert len(disagree) == 16
+    # ... and for none of the two-decimal p above 0.5 (0.5 itself has g = 0 and an empty band).
+    above = [i / 100 for i in range(51, 101)]
+    assert [
+        p
+        for p in above
+        if (1 - ev.noul_confidence([p])[0]) / 2 < p < (1 + ev.noul_confidence([p])[0]) / 2
+    ] == []
+    # The accept side stays clean on a fine grid too: p >= (1 + g)/2 whenever g = |2p - 1|.
+    fine = [0.5 + i / 200000 for i in range(1, 100001)]
+    assert all(p >= (1 + ev.noul_confidence([p])[0]) / 2 for p in fine)
 
 
 def test_select_confidence_threshold_errors():
@@ -1487,6 +1951,7 @@ EMPTY_CALLS = {
     "expected_calibration_error": lambda: ev.expected_calibration_error([], []),
     "paired_bootstrap_difference": lambda: ev.paired_bootstrap_difference([], [], seed=0),
     "sum_usage": lambda: ev.sum_usage([]),
+    "transition_metrics": lambda: ev.transition_metrics([], [], tolerance_seconds=0.5),
 }
 
 
@@ -1556,3 +2021,234 @@ def test_import_does_not_pull_in_sdk():
         [sys.executable, "-c", code], capture_output=True, text=True, check=False
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+# ----------------------------------------------------------------------- transition_metrics
+
+
+def test_transition_metrics_hand_computed():
+    gold = [
+        ("opened", 2.0),
+        ("closed", 5.0),
+        ("unchanged", None),
+        ("opened", 1.0),
+        ("closed", 4.0),
+    ]
+    pred = [
+        ("opened", 2.0),  # exact
+        ("closed", 5.4),  # right label, 0.4 s late: within 0.5 but not exact
+        ("unchanged", None),  # exact (no time on either side)
+        ("uncertain", None),  # review
+        ("opened", 4.0),  # wrong label at the right second: wrong, and not a timing success
+    ]
+    m = ev.transition_metrics(gold, pred, tolerance_seconds=0.5)
+    # 5 examples, 1 uncertain, 4 resolved; exact = ex0 + ex2 = 2; within = 3
+    assert (m.n_examples, m.n_uncertain, m.n_resolved) == (5, 1, 4)
+    assert (m.exact_correct, m.tolerance_correct) == (2, 3)
+    assert m.exact_accuracy == 0.5
+    assert m.tolerance_accuracy == 0.75
+    assert m.exact_accuracy_all == 0.4
+    assert m.tolerance_accuracy_all == 0.6
+    assert m.uncertain_rate == 0.2
+    assert m.tolerance_seconds == 0.5
+    # headline timing: label-matched examples with times on both sides = ex0, ex1
+    # errors 0.0 and +0.4: mean absolute 0.2, mean signed 0.2
+    assert m.n_timed == 2
+    assert m.mean_absolute_error_seconds == pytest.approx(0.2)
+    assert m.mean_signed_error_seconds == pytest.approx(0.2)
+    # any-label view adds ex4 (error 0.0): 3 examples, mean 0.4 / 3
+    assert m.n_timed_any_label == 3
+    assert m.mean_absolute_error_any_label_seconds == pytest.approx(0.4 / 3)
+    assert m.mean_signed_error_any_label_seconds == pytest.approx(0.4 / 3)
+    assert (m.n_missed_time, m.n_spurious_time) == (0, 0)
+    assert m.outcomes == ("exact", "within", "exact", "review", "wrong")
+    assert m.timing_errors_seconds[0] == 0.0
+    assert m.timing_errors_seconds[1] == pytest.approx(0.4)
+    assert m.timing_errors_seconds[2:] == (None, None, None)
+    assert math.isnan(m.max_sampling_interval_seconds)
+    assert m.tolerance_below_sampling_interval is False
+
+
+def test_transition_metrics_wrong_label_at_the_right_second_is_not_good_timing():
+    m = ev.transition_metrics([("opened", 2.0)], [("closed", 2.0)], tolerance_seconds=0.5)
+    assert (m.exact_correct, m.tolerance_correct) == (0, 0)
+    assert m.n_timed == 0
+    assert math.isnan(m.mean_absolute_error_seconds)
+    assert m.n_timed_any_label == 1
+    assert m.mean_absolute_error_any_label_seconds == 0.0
+    assert m.outcomes == ("wrong",)
+
+
+def test_transition_metrics_signed_error_shows_early_and_late():
+    gold = [("opened", 5.0), ("opened", 5.0)]
+    pred = [("opened", 4.0), ("opened", 5.5)]
+    m = ev.transition_metrics(gold, pred, tolerance_seconds=1.0)
+    # errors -1.0 and +0.5: mean absolute 0.75, mean signed -0.25
+    assert m.mean_absolute_error_seconds == 0.75
+    assert m.mean_signed_error_seconds == -0.25
+    assert (m.exact_correct, m.tolerance_correct) == (0, 2)
+    assert m.outcomes == ("within", "within")
+
+
+def test_transition_metrics_missing_and_spurious_times():
+    gold = [("opened", 1.0), ("unchanged", None)]
+    pred = [("opened", None), ("opened", 3.0)]
+    m = ev.transition_metrics(gold, pred, tolerance_seconds=10.0)
+    # ex0 right label but no time; ex1 wrong label with an invented time
+    assert (m.n_missed_time, m.n_spurious_time) == (1, 1)
+    assert (m.exact_correct, m.tolerance_correct) == (0, 0)
+    assert m.n_timed == 0 and m.n_timed_any_label == 0
+    assert math.isnan(m.mean_absolute_error_seconds)
+    assert math.isnan(m.mean_signed_error_seconds)
+    assert math.isnan(m.mean_absolute_error_any_label_seconds)
+    assert m.outcomes == ("wrong", "wrong")
+
+
+def test_transition_metrics_all_uncertain_has_nan_resolved_accuracy():
+    m = ev.transition_metrics(
+        [("opened", 1.0), ("closed", 2.0)],
+        [("uncertain", None), ("uncertain", 2.0)],
+        tolerance_seconds=0.0,
+    )
+    assert (m.n_uncertain, m.n_resolved) == (2, 0)
+    assert math.isnan(m.exact_accuracy) and math.isnan(m.tolerance_accuracy)
+    assert m.exact_accuracy_all == 0.0 and m.uncertain_rate == 1.0
+    assert m.n_timed == 0
+    assert m.outcomes == ("review", "review")
+
+
+def test_transition_metrics_single_example():
+    m = ev.transition_metrics([("opened", 0.0)], [("opened", 0.0)], tolerance_seconds=0)
+    assert (m.n_examples, m.exact_accuracy, m.tolerance_accuracy) == (1, 1.0, 1.0)
+    assert m.mean_absolute_error_seconds == 0.0
+
+
+def test_transition_metrics_tolerance_is_inclusive_and_float_safe():
+    gold = [("opened", 1.0), ("opened", 0.3), ("opened", 1.0)]
+    pred = [("opened", 1.5), ("opened", 0.1 + 0.2), ("opened", 1.5000001)]
+    m = ev.transition_metrics(gold, pred, tolerance_seconds=0.5)
+    # gap 0.5 is inside; 0.3 vs 0.30000000000000004 is exact; 0.5000001 is outside
+    assert m.tolerance_correct == 2
+    assert m.exact_correct == 1
+    assert m.outcomes == ("within", "exact", "wrong")
+    zero = ev.transition_metrics(gold[:1], gold[:1], tolerance_seconds=0)
+    assert zero.tolerance_correct == 1
+
+
+def test_transition_metrics_accepts_json_lists_and_numpy_numbers():
+    m = ev.transition_metrics(
+        [["a", np.float64(1.0)], ["b", None]],
+        [["a", np.float64(1.0)], ["b", None]],
+        tolerance_seconds=np.float64(0.1),
+    )
+    assert (m.exact_correct, m.n_examples) == (2, 2)
+
+
+def test_transition_metrics_several_review_labels():
+    m = ev.transition_metrics(
+        [("s1", 1.0), ("s2", 2.0), ("s3", 3.0), ("s1", 1.0)],
+        [("unknown", None), ("inconsistent", 2.0), ("s3", 3.0), ("uncertain", None)],
+        tolerance_seconds=0.5,
+        uncertain_labels=("unknown", "inconsistent"),
+    )
+    # "uncertain" is an ordinary label here, so ex3 is simply wrong
+    assert (m.n_uncertain, m.n_resolved, m.exact_correct) == (2, 2, 1)
+    assert m.outcomes == ("review", "review", "exact", "wrong")
+    # a bare string is one label, not a set of characters
+    single = ev.transition_metrics(
+        [("a", None)], [("review", None)], tolerance_seconds=0, uncertain_labels="review"
+    )
+    assert single.n_uncertain == 1
+    none = ev.transition_metrics(
+        [("a", None)], [("uncertain", None)], tolerance_seconds=0, uncertain_labels=()
+    )
+    assert none.n_uncertain == 0 and none.outcomes == ("wrong",)
+
+
+def test_transition_metrics_rejects_missing_or_bad_review_labels():
+    for bad in (None, 3, 2.5):
+        with pytest.raises(ValueError, match="uncertain_labels"):
+            ev.transition_metrics(
+                [("a", None)], [("a", None)], tolerance_seconds=0, uncertain_labels=bad
+            )
+
+
+def test_transition_metrics_sampling_interval_warning():
+    gold = [("opened", 2.5)]
+    pred = [("opened", 3.0)]
+    narrow = ev.transition_metrics(
+        gold, pred, tolerance_seconds=0.5, max_sampling_interval_seconds=1.0
+    )
+    assert narrow.max_sampling_interval_seconds == 1.0
+    assert narrow.tolerance_below_sampling_interval is True
+    wide = ev.transition_metrics(
+        gold, pred, tolerance_seconds=1.0, max_sampling_interval_seconds=1.0
+    )
+    assert wide.tolerance_below_sampling_interval is False
+
+
+def test_transition_convention_end_to_end():
+    from jev_cookbook import frames as fr
+
+    # full-rate frames every 0.5 s; the door is first visibly open in the frame at 2.5 s
+    full = [{"timestamp_seconds": t / 2, "image": f"i{t}"} for t in range(7)]
+    gold_time = fr.transition_time(full, 5)
+    assert gold_time == 2.5
+    # Python samples every 1.0 s -> frames at 0, 1, 2, 3; the per-pair question fires for 2 -> 3
+    sampled = fr.select_frames(full, fr.sample_frames(fr.frame_timestamps(full), every_seconds=1))
+    assert [r["timestamp_seconds"] for r in sampled] == [0.0, 1.0, 2.0, 3.0]
+    found = fr.earliest_transition(sampled, [False, False, True])
+    assert found["transition_seconds"] == 3.0  # first sampled frame showing the new state
+    interval = max(fr.frame_intervals(sampled))
+    assert interval == 1.0
+    # detection on sampled frames is late by 0.5 s (less than the 1.0 s gap), never early
+    m = ev.transition_metrics(
+        [("opened", gold_time)],
+        [("opened", found["transition_seconds"])],
+        tolerance_seconds=interval,
+        max_sampling_interval_seconds=interval,
+    )
+    assert m.outcomes == ("within",)
+    assert m.mean_signed_error_seconds == 0.5
+    assert m.tolerance_below_sampling_interval is False
+
+
+@pytest.mark.parametrize(
+    "gold,pred,tolerance",
+    [
+        ([("a", 1.0)], [("a", 1.0), ("a", 2.0)], 0.5),
+        ([], [("a", 1.0)], 0.5),
+        ([("a", 1.0)], [], 0.5),
+        (["a"], [("a", 1.0)], 0.5),
+        ([("a", 1.0)], [("a",)], 0.5),
+        ([("a", 1.0)], [("a", 1.0, 2.0)], 0.5),
+        ([("a", -1.0)], [("a", 1.0)], 0.5),
+        ([("a", 1.0)], [("a", math.nan)], 0.5),
+        ([("a", 1.0)], [("a", math.inf)], 0.5),
+        ([("a", 1.0)], [("a", 10**400)], 0.5),
+        ([("a", True)], [("a", 1.0)], 0.5),
+        ([("a", "1")], [("a", 1.0)], 0.5),
+        ([("uncertain", None)], [("a", 1.0)], 0.5),
+        ([("a", 1.0)], [("a", 1.0)], -0.1),
+        ([("a", 1.0)], [("a", 1.0)], math.nan),
+        ([("a", 1.0)], [("a", 1.0)], 10**400),
+        ([("a", 1.0)], [("a", 1.0)], True),
+        ([("a", 1.0)], [("a", 1.0)], None),
+    ],
+)
+def test_transition_metrics_rejects_bad_input(gold, pred, tolerance):
+    with pytest.raises(ValueError):
+        ev.transition_metrics(gold, pred, tolerance_seconds=tolerance)
+
+
+def test_transition_metrics_rejects_bad_interval():
+    for bad in (-1.0, math.nan, True, 10**400):
+        with pytest.raises(ValueError):
+            ev.transition_metrics(
+                [("a", 1.0)], [("a", 1.0)], tolerance_seconds=0.5, max_sampling_interval_seconds=bad
+            )
+
+
+def test_transition_metrics_requires_a_keyword_tolerance():
+    with pytest.raises(TypeError):
+        ev.transition_metrics([("a", 1.0)], [("a", 1.0)])  # type: ignore[call-arg]

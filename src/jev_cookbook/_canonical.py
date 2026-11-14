@@ -9,6 +9,22 @@ from typing import Any
 MAX_DEPTH = 64  # the fixture nesting limit (docs/fixtures.md): containers nested at most this deep
 
 
+_IMAGE_FORMATS = {"png": "png", "jpeg": "jpeg", "jpg": "jpeg"}
+
+
+def canonical_image_format(declared: Any) -> str:
+    """Return the one canonical spelling (``"png"`` or ``"jpeg"``) of a declared image format.
+
+    Case-insensitive; ``jpg`` is an alias of ``jpeg``. This is the only place the aliases are
+    defined: asset validation and the replay-key envelope both use it, so identical image bytes
+    key identically however the format was spelled. Raises ``ValueError`` for anything else.
+    """
+    canonical = _IMAGE_FORMATS.get(declared.lower()) if isinstance(declared, str) else None
+    if canonical is None:
+        raise ValueError("image asset format must be png or jpeg (jpg is an alias of jpeg)")
+    return canonical
+
+
 def check_depth(value: Any, where: str = "value", limit: int = MAX_DEPTH) -> None:
     """Raise ``ValueError`` if lists/tuples/dicts in ``value`` nest deeper than ``limit``.
 

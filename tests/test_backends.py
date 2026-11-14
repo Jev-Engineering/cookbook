@@ -462,6 +462,80 @@ def test_live_flag_never_falls_back_to_replay(monkeypatch):
         get_backend(fixtures=ok_fixtures())
 
 
+def _forbid_live_and_network(monkeypatch):
+    """Make any live construction or socket use fail loudly; no real client or call is possible."""
+    import socket
+
+    from jev_cookbook import live
+
+    def no_live(*args, **kwargs):
+        raise AssertionError("a live backend was constructed")
+
+    def no_network(*args, **kwargs):
+        raise AssertionError("a network connection was attempted")
+
+    monkeypatch.setattr(live, "LiveBackend", no_live)
+    monkeypatch.setattr(live, "live_backend_from_env", no_live)
+    monkeypatch.setattr("jev_cookbook.backends._make_live_backend", no_live)
+    monkeypatch.setattr(socket.socket, "connect", no_network)
+    monkeypatch.setattr(socket, "create_connection", no_network)
+
+
+def test_get_backend_ignores_fixtures_under_live_mode(monkeypatch):
+    # The documented sharp edge (#290): under JEV_COOKBOOK_LIVE=1, get_backend hands the live
+    # constructor the call and the fixtures never decide the result. The constructor is replaced
+    # by a recorder, so nothing live is built and nothing can reach the network.
+    seen = {}
+
+    def fake_live(**kwargs):
+        seen.update(kwargs)
+        return "live-sentinel"
+
+    monkeypatch.setenv("JEV_COOKBOOK_LIVE", "1")
+    monkeypatch.setattr("jev_cookbook.backends._make_live_backend", fake_live)
+    fixtures = ok_fixtures()
+    assert get_backend(fixtures=fixtures) == "live-sentinel"
+    assert get_backend(script=script) == "live-sentinel"
+    assert seen["fixtures"] is None and seen["script"] is script
+
+
+def test_deliberately_offline_backends_never_go_live(monkeypatch):
+    # The documented alternative (#290): constructed directly, a backend stays offline whatever
+    # the environment says. Live construction and sockets are forbidden for the whole test.
+    _forbid_live_and_network(monkeypatch)
+    monkeypatch.setenv("JEV_COOKBOOK_LIVE", "1")
+    monkeypatch.setenv("JEV_COOKBOOK_LIVE_MODEL", "not-a-model")
+    qs = questions()
+    replay = ReplayBackend({replay_key(STATE, qs): recorded_result().to_dict()})
+    assert replay.mode == "recorded" and replay.model == "model-string-from-api"
+    assert replay.decide(STATE, qs) == recorded_result()
+    assert ScriptedBackend(script).decide(STATE, qs).model == SYNTHETIC_MODEL
+
+
+def test_offline_probe_trips_when_get_backend_goes_live(monkeypatch):
+    # Shows the guard in the test above can fail: through get_backend the same environment does
+    # reach the (forbidden) live constructor.
+    _forbid_live_and_network(monkeypatch)
+    monkeypatch.setenv("JEV_COOKBOOK_LIVE", "1")
+    with pytest.raises(AssertionError, match="live backend was constructed"):
+        get_backend(fixtures=ok_fixtures())
+
+
+def test_from_json_stays_offline_under_live_mode(monkeypatch, tmp_path):
+    _forbid_live_and_network(monkeypatch)
+    monkeypatch.setenv("JEV_COOKBOOK_LIVE", "1")
+    path = tmp_path / "responses.json"
+    qs = questions()
+    path.write_text(json.dumps({replay_key(STATE, qs): recorded_result().to_dict()}))
+    assert ReplayBackend.from_json(path).decide(STATE, qs) == recorded_result()
+
+
+def test_get_backend_docstring_names_the_offline_alternative():
+    doc = get_backend.__doc__
+    assert "ignored under ``JEV_COOKBOOK_LIVE=1``" in doc
+    assert "ReplayBackend(...)" in doc and "ReplayBackend.from_json(...)" in doc
+
+
 def test_offline_backends_work_without_the_sdk():
     probe = r"""
 import importlib.abc, sys
@@ -621,6 +695,60 @@ def test_decision_result_validation():
     with pytest.raises(ValueError, match="synthetic"):
         Provenance.recorded(SYNTHETIC_MODEL, "2026-01-01")
     assert DecisionResult({"a": syn}, SYNTHETIC_MODEL).source == "synthetic"
+
+
+def test_decision_result_membership_and_iteration_by_question_name():
+    result = recorded_result()
+    names = list(result.answers)
+    assert names  # the loop below must not be vacuous
+    for name in names:
+        assert (name in result) is True
+        assert (name not in result) is False
+    # An absent name answers False; it does not fall back to result[0], result[1], ...
+    # and raise KeyError(0).
+    assert ("not_a_question" in result) is False
+    assert ("not_a_question" not in result) is True
+    # Names are non-empty str, so anything else is absent rather than an error.
+    for other in (0, 1, None, b"billing", ("billing",), [], {}):
+        assert (other in result) is False
+    # Iteration yields the names, in answer order, instead of raising KeyError(0).
+    assert list(result) == names
+    assert [result[name] for name in result] == list(result.answers.values())
+    with pytest.raises(KeyError):
+        result[0]
+
+
+def test_decision_result_keys_let_dict_and_unpacking_read_name_to_answer():
+    result = recorded_result()
+    names = list(result.answers)
+    assert names  # the checks below must not be vacuous
+    assert list(result.keys()) == names
+    assert dict(result) == dict(result.answers)
+    assert list(dict(result)) == names
+    assert {**result} == dict(result.answers)
+    # Names of 1, 2 and 3 characters (and mixed lengths) all read as names: dict(result) must
+    # never split a name into characters or raise for a name that is not two characters long.
+    for question_names in (
+        ["a"],
+        ["a", "b"],
+        ["ok"],
+        ["ok", "id"],
+        ["ok", "abc"],
+        ["faq"],
+        ["faq", "tag"],
+    ):
+        short = DecisionResult(
+            {name: NoulAnswer(0.5, PROV) for name in question_names}, SYNTHETIC_MODEL
+        )
+        assert list(short.keys()) == question_names
+        assert dict(short) == {name: short[name] for name in question_names}
+        assert {**short} == dict(short)
+    # A decided limit: keys() is the only mapping method added. The rest of the mapping surface
+    # stays on result.answers.
+    for missing in ("items", "values", "get"):
+        assert not hasattr(result, missing)
+    with pytest.raises(TypeError):
+        len(result)
 
 
 def test_provenance_is_required_and_recorded_needs_a_date():
