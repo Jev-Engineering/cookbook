@@ -865,14 +865,18 @@ class Canvas:
         _shape_box(x, y, w, h)
         bounds = None
         inner = (x, y, w, h)
-        # Resolve every argument before the first pixel is drawn, so a refusal draws nothing.
-        paint = _colour(fill)
+        # Resolve every colour that will be used before the first pixel is drawn, so a bound,
+        # type or colour refusal draws nothing (a duplicate ``name`` is still checked after
+        # drawing, in ``_record``; #537). The fill is resolved only when there is an interior.
+        ring = None
         if outline is not None:
             ow = _int(outline_width, "outline_width", minimum=1)
             ring = _colour(outline)
-            bounds = self._spans(x, y, _ellipse_spans(w, h), ring)
             inner = (x + ow, y + ow, w - 2 * ow, h - 2 * ow)
-        if inner[2] >= 1 and inner[3] >= 1:
+        paint = _colour(fill) if inner[2] >= 1 and inner[3] >= 1 else None
+        if ring is not None:
+            bounds = self._spans(x, y, _ellipse_spans(w, h), ring)
+        if paint is not None:
             ix, iy, iw, ih = inner
             got = self._spans(ix, iy, _ellipse_spans(iw, ih), paint)
             if got:
@@ -894,9 +898,11 @@ class Canvas:
     ) -> Drawn:
         """An isosceles triangle in the ``w`` x ``h`` rectangle, apex up, down, left or right."""
         _shape_box(x, y, w, h)
+        # The direction is checked before the colour (as on main), and both before any drawing.
+        if direction not in ("up", "down", "left", "right"):
+            raise ValueError("direction must be 'up', 'down', 'left' or 'right'")
         paint = _colour(fill)
-        # Streamed, not listed; an invalid direction raises before the generator's first span.
-        spans = _triangle_spans(w, h, direction)
+        spans = _triangle_spans(w, h, direction)  # streamed, not listed
         return self._record(
             name, kind, self._spans(x, y, spans, paint), direction=direction, **attrs
         )

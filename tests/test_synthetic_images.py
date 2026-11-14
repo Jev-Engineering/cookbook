@@ -2472,14 +2472,16 @@ def test_the_shape_bound_checks_types_first(shape, extra, position):
     c = si.Canvas(640, 400)
     before = c.image.copy()
     with pytest.raises(ValueError, match="w must be at least 1"):
-        _draw(si.Canvas(640, 400), shape, 0, 0, 0, 10, extra)
+        _draw(c, shape, 0, 0, 0, 10, extra, name="probe")
+    assert changed(before, c.image) is None
+    assert c.objects == {}
 
 
 def test_an_ellipse_with_an_invalid_fill_and_an_outline_draws_nothing():
     for kwargs in ({"outline": "ink"}, {"outline": "ink", "outline_width": 2}):
         c = si.Canvas(640, 400)
         before = c.image.copy()
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="unknown colour name"):
             c.ellipse(10, 10, 80, 60, "no-such-colour", name="probe", **kwargs)
         assert changed(before, c.image) is None
         assert c.objects == {}
@@ -2489,7 +2491,7 @@ def test_an_ellipse_with_an_invalid_fill_and_an_outline_draws_nothing():
 def test_a_triangle_with_an_invalid_fill_draws_nothing(direction):
     c = si.Canvas(640, 400)
     before = c.image.copy()
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="unknown colour name"):
         c.triangle(10, 10, 80, 60, "no-such-colour", direction=direction, name="probe")
     assert changed(before, c.image) is None
     assert c.objects == {}
@@ -2513,7 +2515,31 @@ def test_a_composite_whose_inner_shape_is_out_of_bound_draws_nothing():
     for case in cases:
         c = si.Canvas(640, 400)
         before = c.image.copy()
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="a shape side must be from 1 to 1568"):
             case(c)
         assert changed(before, c.image) is None
         assert c.objects == {}
+
+
+def test_an_outline_only_small_ring_needs_no_fill_colour():
+    # main resolved the fill only when there is an interior to paint; a ring with none has no fill
+    c = si.Canvas(300, 300)
+    drawn = c.ellipse(10, 10, 4, 4, None, outline="ink", outline_width=2, name="ring")
+    assert drawn.pixels is not None and c.objects["ring"] is drawn
+    assert (
+        si.Canvas(300, 300)
+        .ellipse(10, 10, 4, 4, "no-such-colour", outline="ink", outline_width=2)
+        .pixels
+        == drawn.pixels
+    )
+    with pytest.raises(ValueError, match="unknown colour name"):
+        si.Canvas(300, 300).ellipse(10, 10, 8, 8, "no-such-colour", outline="ink", outline_width=2)
+
+
+def test_a_triangle_checks_its_direction_before_its_colour():
+    c = si.Canvas(640, 400)
+    before = c.image.copy()
+    with pytest.raises(ValueError, match="direction must be"):
+        c.triangle(10, 10, 40, 40, "nocolour", direction="sideways", name="probe")
+    assert changed(before, c.image) is None
+    assert c.objects == {}
