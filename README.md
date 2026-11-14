@@ -9,7 +9,7 @@
 **100 notebook recipes for typed decisions with Jev, covering text and images, starting from a first `Choice` question.**
 
 <!-- catalog:progress:start -->
-![Recipes: 50 of 100 published](https://img.shields.io/badge/Recipes-50%20of%20100%20published-F386A1?style=flat-square&labelColor=1E1E1E) ![Status: in progress](https://img.shields.io/badge/Status-in%20progress-E551BA?style=flat-square&labelColor=1E1E1E) ![Categories: 15](https://img.shields.io/badge/Categories-15-F386A1?style=flat-square&labelColor=1E1E1E) ![Levels: 5](https://img.shields.io/badge/Levels-5-F386A1?style=flat-square&labelColor=1E1E1E)
+![Recipes: 51 of 100 published](https://img.shields.io/badge/Recipes-51%20of%20100%20published-F386A1?style=flat-square&labelColor=1E1E1E) ![Status: in progress](https://img.shields.io/badge/Status-in%20progress-E551BA?style=flat-square&labelColor=1E1E1E) ![Categories: 15](https://img.shields.io/badge/Categories-15-F386A1?style=flat-square&labelColor=1E1E1E) ![Levels: 5](https://img.shields.io/badge/Levels-5-F386A1?style=flat-square&labelColor=1E1E1E)
 <!-- catalog:progress:end -->
 ![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-F386A1?style=flat-square&labelColor=1E1E1E) [![License: MIT](https://img.shields.io/badge/License-MIT-DEDEDE?style=flat-square&labelColor=1E1E1E)](LICENSE)
 
@@ -266,7 +266,7 @@ Context-sensitive matching, scoring, or verification with candidate sets and exp
 | # | Recipe | Category | Decision | Status |
 | :---: | --- | --- | --- | --- |
 | 66 | **Technical schematic recognition**<br>Identify a predefined circuit, wiring, or infrastructure symbol from a cropped schematic image, retaining an unknown outcome for ambiguous or unlisted symbols. | Image understanding & visual judgments | `Choice` | Coming soon · [#415](https://github.com/Jev-Engineering/cookbook/issues/415) |
-| 69 | **Visual SKU recognition**<br>Select a product variant from a fixed SKU catalog whose choice criteria contain reference photographs, with no-match and uncertain outcomes. | Visual criteria & reference matching | `Choice` | Coming soon · [#402](https://github.com/Jev-Engineering/cookbook/issues/402) |
+| 69 | **Visual SKU recognition**<br>Select a product variant from a fixed SKU catalog whose choice criteria contain reference photographs, with no-match and uncertain outcomes. | Visual criteria & reference matching | `Choice` | [Open notebook](recipes/69-visual-sku-recognition/notebook.ipynb) |
 | 70 | **Brand identity verification**<br>Compare a displayed logo or marketing asset with an approved reference image using bounded visual conformity checks and route uncertain results to review. | Visual criteria & reference matching | `Noul` | Coming soon · [#418](https://github.com/Jev-Engineering/cookbook/issues/418) |
 | 71 | **Golden-sample assembly checks**<br>Score an assembly photograph against rubric levels illustrated by good and defective reference examples so Python can identify candidates for inspection. | Visual criteria & reference matching | `Score` | Coming soon · [#419](https://github.com/Jev-Engineering/cookbook/issues/419) |
 | 72 | **Board-game piece recognition**<br>Identify a token, tile, figurine, or card from fixed categories defined by reference images, including an unknown outcome for unseen or ambiguous pieces. | Visual criteria & reference matching | `Choice` | Coming soon · [#420](https://github.com/Jev-Engineering/cookbook/issues/420) |
