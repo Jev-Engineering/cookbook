@@ -516,8 +516,8 @@ confidence* (the model naming `needs_review` outright, two orderings of a pair t
 Then the selected subset at `t` is `~rejected & (exempt | (confidence >= t))`: a rejected example
 is selected at no threshold however confident it is, and an example marked both `exempt` and
 `rejected` is contradictory and raises. A rejected example that was asked a question is passed in
-like any other (its confidence enters the threshold grid, it is in the coverage denominator, its
-`correct` is read but never reaches `accuracy`), so `coverage` is the share of *all passed*
+like any other (it is in the coverage denominator, and its `correct` is read but never reaches
+`accuracy`; its confidence is not a threshold candidate, see below), so `coverage` is the share of *all passed*
 examples the rule answered, which is what `evaluate_outcomes` reports at the same gate when
 `accepted = ~rejected & (exempt | (confidence >= t))`; the test
 `test_outcome_curve_rejected_combines_with_exempt_and_matches_evaluate_outcomes_per_row` checks
