@@ -4,7 +4,8 @@ These tests need the optional SDK (``pip install -e ".[live]"``); without it eve
 module is reported as skipped individually (marker ``live_sdk``, registered and summarised in
 ``tests/conftest.py``, issue #264). The offline contract (no SDK needed) is covered in
 ``test_live.py``. No request leaves the process: the SDK's transport is replaced by
-``httpx2.MockTransport``. Only a missing live-extra module skips; a broken install still fails
+``httpx2.MockTransport``. Only a missing live-extra module skips (``typesafe_sdk`` or ``httpx2``
+itself not found); a broken install, including a missing submodule of either, still fails
 collection.
 """
 
@@ -20,10 +21,12 @@ try:
     import httpx2
     import typesafe_sdk as sdk
 except ModuleNotFoundError as exc:
-    # Skip only when a module of the optional `live` extra itself is missing. Any other import
-    # failure (an installed SDK that cannot import, or a missing transitive dependency) must stay
-    # a loud collection error rather than become 62 quiet skips.
-    if (exc.name or "").partition(".")[0] not in LIVE_EXTRA_MODULES:
+    # Skip only when a module of the optional `live` extra itself is missing: the exact
+    # top-level name, never a submodule of it. Any other import failure (an installed SDK that
+    # cannot import, a missing transitive dependency, or an installed SDK that has lost one of
+    # its own submodules, such as ``typesafe_sdk._core``) must stay a loud collection error
+    # rather than become a quiet skip of every test here.
+    if exc.name not in LIVE_EXTRA_MODULES:
         raise
     httpx2 = sdk = None
 
