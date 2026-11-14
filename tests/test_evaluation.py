@@ -2694,20 +2694,59 @@ def test_accepted_when_and_acts_when_must_return_a_bool_not_a_truthy_value():
 # ---------------------------------------------------------------- transitions: #340 frames follow-ups
 
 
+def _private_names_imported(source: str) -> list[str]:
+    """Private names a module's source takes from another jev_cookbook module: by a relative
+    or absolute ``from ... import _x``, or as ``module._x`` after importing that module."""
+    import ast
+
+    tree = ast.parse(source)
+    modules = set()
+    private = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and (
+            node.level >= 1 or (node.module or "").startswith("jev_cookbook")
+        ):
+            for alias in node.names:
+                if alias.name.startswith("_"):
+                    private.append(f"{node.module}.{alias.name}")
+                else:
+                    modules.add(alias.asname or alias.name)
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name.startswith("jev_cookbook"):
+                    modules.add(alias.asname or alias.name.split(".")[0])
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Attribute)
+            and node.attr.startswith("_")
+            and not node.attr.startswith("__")
+            and isinstance(node.value, ast.Name)
+            and node.value.id in modules
+        ):
+            private.append(f"{node.value.id}.{node.attr}")
+    return private
+
+
 def test_evaluation_imports_no_private_name_from_another_module():
     # #340: evaluation.py imported the private `frames._seconds`. A private name is not an
     # interface between modules; the seconds rule is now this module's own private check.
-    import ast
+    assert _private_names_imported(Path(ev.__file__).read_text(encoding="utf-8")) == []
 
-    tree = ast.parse(Path(ev.__file__).read_text(encoding="utf-8"))
-    private = [
-        f"{node.module}.{alias.name}"
-        for node in ast.walk(tree)
-        if isinstance(node, ast.ImportFrom) and node.level >= 1
-        for alias in node.names
-        if alias.name.startswith("_")
-    ]
-    assert private == []
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("from .frames import _seconds", ["frames._seconds"]),
+        ("from jev_cookbook.frames import _seconds", ["jev_cookbook.frames._seconds"]),
+        ("from . import frames\nframes._seconds(1, 'x')", ["frames._seconds"]),
+        ("import jev_cookbook\njev_cookbook._x", ["jev_cookbook._x"]),
+        ("from .frames import TIME_EPSILON", []),
+        ("import math\nmath._private", []),
+    ],
+)
+def test_the_private_import_guard_catches_every_spelling(source, expected):
+    # the guard the test above relies on, run on planted sources so it cannot pass vacuously
+    assert _private_names_imported(source) == expected
 
 
 @pytest.mark.parametrize(

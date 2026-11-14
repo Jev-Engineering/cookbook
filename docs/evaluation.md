@@ -1054,8 +1054,9 @@ by `n_resolved` (NaN if every example is a review), and `exact_accuracy_all` /
 be a review label.
 
 **Scoring.** A resolved example is *exact* when the label matches and the times are equal
-(both `None`, or within 1e-9 s of float slack); *within tolerance* when the label matches and
-the times are both `None` or differ by at most `tolerance_seconds` (inclusive, same slack).
+(both `None`, or within 1e-9 s of float slack); *within tolerance* (cumulative: exact results
+included, which is what `tolerance_correct` counts) when the label matches and the times are both
+`None` or differ by at most `tolerance_seconds` (inclusive, same slack).
 `outcomes` lists `"exact"`, `"within"`, `"wrong"` or `"review"` for every example in input
 order, so a README can name the sequences that went to review or missed.
 
