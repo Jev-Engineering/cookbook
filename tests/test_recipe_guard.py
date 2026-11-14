@@ -10423,9 +10423,9 @@ def _scanned_output(recipe_dir_: Path) -> str:
     """The exact text ``_printed_numbers`` scans: every code cell's committed output
     (``_output_text``) with its audit lines blanked by ``_without_audit_lines``, the cells joined
     by one ``"\\n"`` between their texts. Line structure is kept (a blanked audit line is still a
-    line), and a cell's own trailing newline is kept, so two cells are separated by a newline and
-    never run together. Kept as one function so the tests can pin the join and the blanking
-    directly."""
+    line). It is the join's ``"\\n"`` that keeps two cells apart: a cell's committed text may end
+    with a newline of its own, or (``print(..., end="")``) with none. Kept as one function so the
+    tests can pin the join and the blanking directly."""
     return "\n".join(
         _without_audit_lines(_output_text(cell))
         for cell in notebook_cells(recipe_dir_)
@@ -10453,8 +10453,9 @@ def _printed_numbers(recipe_dir_: Path) -> dict[str, list[Decimal]]:
     ledger, not a printed quantity: its 64-character hex replay keys are excluded here, per line,
     before any digit scan sees them, so they cannot back a fabricated prose figure --
     ``_without_audit_lines`` blanks a matched line's content rather than deleting it, so the line
-    stays a line (``_scanned_output`` keeps that structure, pinned directly by a test). This is symmetric across
-    both sources of the ``metric`` pool: the same blanking is applied to the committed output and
+    stays a line (``_scanned_output`` keeps that structure, pinned directly by a test). This is
+    symmetric across both sources of the ``metric`` pool: the same blanking is applied to the
+    committed output and
     to the recipe's own ``tests/*.py`` text, matching ``line.startswith(AUDIT_PREFIX)`` on each
     physical line of either source. That match requires the prefix at the very first character of
     the line, so it only reaches the ledger reproduced alone on its own line (e.g. a triple-quoted
@@ -11948,8 +11949,9 @@ def test_a_number_and_its_unit_split_across_two_cells_still_catches_a_fabricatio
     pinned that repair as a regression test: a mutant that keeps this round's per-line blanking
     exactly as shipped and only collapses the inter-cell gap (``.rstrip("\\n")`` on each filtered
     cell's text before the outer join) is caught by the direct assertion on ``_scanned_output``
-    below (the per-line scan of #380 no longer notices it end to end). This does not pin the *unterminated* shape (a cell whose committed stdout carries no trailing
-    newline at all, e.g. ``print(..., end="")``): that one was pre-existing, and #380's own test,
+    below (the per-line scan of #380 no longer notices it end to end). This does not pin the
+    *unterminated* shape (a cell whose committed stdout carries no trailing newline at all, e.g.
+    ``print(..., end="")``): that one was pre-existing, and #380's own test,
     ``test_an_unterminated_output_segment_does_not_fuse_a_number_to_the_next_unit``, pins it."""
     folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
     _append_cell(folder, "code", "median latency 180", cell_id="ends-with-number")
@@ -11967,7 +11969,9 @@ def test_a_number_and_its_unit_split_across_two_cells_still_catches_a_fabricatio
     assert any("180" in message for message in unbacked), unbacked
 
 
-# #380: committed output whose number-ending segment carries no trailing newline. Each shape is
+# #380: committed output whose number-ending segment carries no trailing newline. The last shape is
+# a quoted *fraction* backed through a printed percentage (a quoted percentage is backed by the bare
+# number anywhere, see below). Each shape is
 # (the segment that ends with the number, the segment that opens with the unit, a prose sentence
 # that quotes the fused quantity as a claim about Jev). The four unit patterns and ``_PERCENT``
 # bind a number to its unit with ``\s?``, so before #380 the one newline the output joins put
@@ -11993,7 +11997,7 @@ _UNTERMINATED_SHAPES = {
         "0.25 per call, from the fixture invoice",
         "Each Jev call costs $0.25 per call.",
     ),
-    "percent": (
+    "fraction-via-percent": (
         "rows checked: 93",
         "% of the fixture file was read",
         # A printed percentage also backs its fraction, so the fused "93\n%" backed "0.93".
@@ -12047,9 +12051,10 @@ def _display_data(text: str) -> dict:
     return {"output_type": "display_data", "metadata": {}, "data": {"text/plain": [text]}}
 
 
-# Shapes Jupyter really saves for one cell (it merges consecutive streams of one name, so two
-# stdout streams alone are not realistic): a stdout stream then a displayed value, a stdout then a
-# stderr stream, a stdout stream then display_data.
+# Shapes for one cell's second output after a stdout stream: a displayed value, a stderr stream,
+# display_data (what Jupyter really saves) and a second stdout stream. Jupyter merges consecutive
+# streams of one name, so the stdout+stdout shape is not one it writes; it is kept because the
+# guard reads the committed JSON as it is, whatever Jupyter would have merged.
 _SECOND_OUTPUT = {
     "execute-result": _execute_result,
     "stderr": _stderr,
@@ -12087,12 +12092,23 @@ def test_an_unterminated_output_segment_does_not_fuse_a_number_to_the_next_unit(
         "throughput": _THROUGHPUT,
         "seconds": _SECONDS,
         "price": re.compile(_PRICE_AMOUNT, re.IGNORECASE),
-        "percent": _PERCENT,
+        "fraction-via-percent": _PERCENT,
     }[shape]
     assert any("\n" in m.group(0) for m in pattern.finditer(fused)), fused
     _append_cell(folder, "markdown", sentence, cell_id="fabricated-quantity")
     unbacked = _unprinted_quantities(folder)
     assert any("fabricated-quantity" in message for message in unbacked), unbacked
+
+
+def test_a_quoted_percentage_is_still_backed_by_a_bare_number_on_another_line(tmp_path):
+    """The documented exception to #380's per-line reading: a quoted percentage is backed by the
+    bare printed number anywhere in the output (the metric pool), so ``93%`` quoted is backed by
+    a ``93`` printed on one line with its ``%`` on none. Intended, not a loophole."""
+    folder = _synthetic_recipe(tmp_path, ["x = 1\n"])
+    _append_unterminated_output(folder, ["rows checked: 93"], "number")
+    _append_unterminated_output(folder, ["% of the fixture file was read\n"], "unit")
+    _append_cell(folder, "markdown", "Jev reaches an accuracy of 93% on this task.", cell_id="q")
+    assert [m for m in _unprinted_quantities(folder) if "'93%'" in m or "93%" in m] == []
 
 
 def test_a_number_and_its_unit_printed_on_one_line_is_still_backed(tmp_path):
