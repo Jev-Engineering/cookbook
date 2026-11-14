@@ -1097,7 +1097,8 @@ class LocalizationReport:
     empty denominator is NaN. ``ious`` has one entry per example: the IoU of a located present
     target, otherwise ``None``. Absent gold never contributes an IoU, and a review is never
     counted as an absent prediction. ``n_review`` is every example sent to review, present and
-    absent gold together, and ``review_rate`` is ``n_review / n_total``. ``str(report)`` names
+    absent gold together, and ``review_rate`` is ``n_review / n_total`` (NaN only for a hand-built report with
+    ``n_total == 0``: ``localization_report`` never returns zero examples). ``str(report)`` names
     every denominator.
     """
 
@@ -1154,7 +1155,9 @@ class LocalizationReport:
     @property
     def review_rate(self) -> float:
         """``n_review / n_total``: the share of all examples sent to review, one number for the
-        cost of the review branch (NaN when there are no examples)."""
+        cost of the review branch. ``localization_report`` never returns a report with zero examples
+        (it raises ``ValueError`` on empty input), so NaN applies only to a report built by hand
+        with ``n_total == 0``."""
         return _rate(self.n_review, self.n_total)
 
     @property

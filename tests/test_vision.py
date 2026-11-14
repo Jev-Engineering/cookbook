@@ -1347,6 +1347,12 @@ def test_review_rate_counts_both_sides_and_is_nan_only_without_examples():
         ious=(),
     )
     assert math.isnan(empty.review_rate)
+    # Reviews with no examples (possible only for a hand-built report): NaN, not ZeroDivisionError.
+    reviewed = vision.localization_report([PRESENT], [("review", None)])
+    assert reviewed.n_review == 1
+    inconsistent = dataclasses.replace(reviewed, n_total=0)
+    assert inconsistent.n_review == 1 and inconsistent.n_total == 0
+    assert math.isnan(inconsistent.review_rate)
 
 
 def test_report_all_absent_has_no_iou_and_no_invented_zero():

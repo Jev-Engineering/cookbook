@@ -39,15 +39,20 @@ absolute path, a URL, a `..` that leaves the folder or a symlink that points out
 `AssetPathError` (a `ValueError`) before anything is opened. This check is about containment
 only: `image_asset("assets/../assets/a.png", root=...)` stays inside the folder and loads, but
 that spelling is not allowed in a fixture. The fixture validator requires every image path in
-`fields` to be written exactly `assets/<name>.png` (or `.jpg`, `.jpeg`) and to equal a path in the
-recipe's `assets-manifest.json`, so `assets/../assets/a.png` and `./assets/a.png` fail validation
-as `asset-path` ([fixtures.md](fixtures.md#image-provenance-manifest)).
+`fields` to be written as `assets/` followed by file names joined with forward slashes
+(subfolders are allowed), ending in `.png`, `.jpg` or `.jpeg` in lower case, with each name
+starting with a letter or digit and using only letters, digits, `_`, `.` and `-`. A path spelled
+any other way, such as `assets/../assets/a.png` or `./assets/a.png`, fails validation as
+`asset-path`. A well-formed path that the recipe's `assets-manifest.json` does not list fails as
+`unlisted-asset` ([fixtures.md](fixtures.md#image-provenance-manifest)).
 `image_assets(paths, root=...)` and `load_frames(frames, root=...)` apply the same check to every
 path, and `resolve_asset_path(path, root=...)` returns the contained real path for code that opens
 files itself.
 
-Every image under a recipe's `assets/` has an entry in `assets-manifest.json`, beside `assets/`
-(not inside it): its provenance, licence and attestations, and its SHA-256, format and pixel size,
+Every file under a recipe's `assets/` (not only images) needs an entry in `assets-manifest.json`,
+and an entry's path must be a well-formed image path as above, so a non-image file there cannot
+pass validation. The manifest sits beside `assets/` (not inside it) and records each file's
+provenance, licence and attestations, and its SHA-256, format and pixel size,
 which `python -m jev_cookbook.fixtures validate` compares against the file.
 [fixtures.md](fixtures.md#image-provenance-manifest) gives the format and every failure code, and
 [synthetic-images.md](synthetic-images.md#saving-and-the-manifest) shows a generator writing the
@@ -241,8 +246,9 @@ def localization_outcome(answer, presence, threshold):
 
 Choose the presence and confidence thresholds on validation examples and freeze
 them before evaluating the test split. Keep reviews in the recipe's review queue
-and account for them in `localization_report` (and, for the overall review rate,
-`evaluation.evaluate_outcomes`); a review is not a claim that the target is absent.
+and account for them in `localization_report`: `report.review_rate` (`n_review` over `n_total`)
+is the overall review rate, counting presence reviews and rectangle-gate reviews over all
+examples. `evaluation.evaluate_outcomes` covers only the presence question's reviews; a review is not a claim that the target is absent.
 
 ### Gold labels
 
