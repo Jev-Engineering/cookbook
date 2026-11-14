@@ -87,7 +87,8 @@ the package and every offline test work with the SDK absent. There the SDK-backe
 skipped one by one: each test and each parametrized case counts as its own skip, not one skip
 for the module. The `-rs` short summary folds skips that share a location and reason into one
 line, so count the skips from the totals or the `skipped=` figure, not from that list. One more
-test, in `tests/test_notebook_ci_netguard.py`, skips inside its body when the SDK is absent. The
+SDK-backed test, in `tests/test_notebook_ci_netguard.py`, carries the same `live_sdk` marker and
+is skipped the same way. The
 two `Tests` legs also differ by interpreter and by the resolved package versions, because other
 tests skip depending on those, so their totals are not a like-for-like pair; compare runs on the
 same interpreter.
@@ -153,22 +154,26 @@ counted once. The counts move with every test
 added and with the SDK version, so none of them is frozen in the repository.
 
 The skip is per test. The `live_sdk` marker is applied by `pytestmark` in
-`tests/test_live_sdk.py` and registered in `tests/conftest.py`, so each skip is one test, and
-the skip count equals the number of SDK-gated tests not run.
+`tests/test_live_sdk.py` and on the one SDK-backed test in `tests/test_notebook_ci_netguard.py`,
+and registered in `tests/conftest.py`. Both skip before the test body runs, so each skip is one
+test, and the skip count equals the number of SDK-gated tests not run. Only a missing
+`typesafe_sdk` or `httpx2` skips (the netguard test reads that condition from
+`tests/conftest.py`'s module list; `tests/test_live_sdk.py` names the same two modules in its
+own `LIVE_EXTRA_MODULES`): an installed SDK that cannot import, including one missing a submodule of its own,
+fails collection of `tests/test_live_sdk.py` instead of skipping, and fails the netguard test,
+which imports both modules first, with the same import error.
 
 To compare two runs, run the same command, with the same paths and the same `-k` or `-m`, once
 with `pip install -e ".[dev,ml]"` and once with `pip install -e ".[dev,ml,live]"`. In a
-like-for-like pair, `skipped` in the run without the extra equals `ran` in the run with it,
-and pytest's own totals differ by that amount: `passed` is higher with the extra and `skipped`
-is lower. There is one honest exception. A test that skips inside its body, through an
-in-test `pytest.importorskip` such as the one in `tests/test_notebook_ci_netguard.py`, carries
-no marker, so it is counted only when it skips. Such a test makes `skipped` without the extra
-exceed `ran` with the extra by the number of such tests. A difference beyond that is a real
-difference, not the extra. CI's two `Tests` legs also differ by interpreter and by the resolved
-package versions, because other tests skip depending on those, so their totals are not a
-like-for-like pair; compare runs on the same interpreter. For example, measured at commit 16bfda5
-the two legs reported 7843 passed and 7791 passed, a difference of 52 rather than the 63 the extra
-accounts for. That is one measurement, not an expected baseline.
+like-for-like pair, `skipped` in the run without the extra equals `ran` in the run with it.
+pytest's own `passed` and `skipped` totals then differ by that same number, in opposite
+directions, as long as every SDK-gated test that runs passes: `passed` is higher with the extra
+and `skipped` is lower. A difference beyond that is a real difference, not the extra. CI's two
+`Tests` legs also differ by interpreter and by the resolved package versions, because other tests
+skip depending on those, so their totals are not a like-for-like pair; compare runs on the same
+interpreter. For example, measured on the CI of pull request #385, the two legs reported 7843
+passed and 7791 passed, a difference of 52 rather than the 63 the extra accounted for then. That
+is one measurement, not an expected baseline.
 
 To run only the SDK-backed tests, use `pytest -m live_sdk`. To leave them out, use
 `pytest -m "not live_sdk and not catalog_audit"`. A command-line `-m` replaces the
