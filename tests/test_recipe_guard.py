@@ -249,11 +249,10 @@ Scope decisions (see the pull request body for the full reasoning):
   published slug (``SIDE_EFFECT_INVENTORY``, ``SIMULATOR_REQUIRED``), and the template declares
   no side effect, has none detected and needs no simulator, so there it would only skip today.
   The template already has its own dedicated pins in ``tests/test_template.py``, and including
-  it here gives
-  this module's own detection logic a sanity check -- the template is the thing every one of these
-  rules is written to match. ``readme_budget_note_matches_request_audit`` runs on the template
-  (#381): the template is on the audited route, so its declaration, ledger and README paragraph
-  are held against each other here as well as by ``tests/test_template.py``.
+  it here gives this module's own detection logic a sanity check -- the template is the thing
+  every one of these rules is written to match. ``readme_budget_note_matches_request_audit``
+  runs on the template (#381): the template is on the audited route, so its declaration, ledger
+  and README paragraph are held against each other here as well as by ``tests/test_template.py``.
 * ``next_steps_inbound_links`` is still a per-recipe, per-check case (the fix round that added it
   found the distinction drawn in an earlier revision of this docstring -- that inbound coverage is
   "a property of the whole set, not of one recipe" -- did not actually hold: the check below reads
@@ -4154,11 +4153,39 @@ _CHECKS_THAT_SKIP_THE_TEMPLATE = {
 
 
 def test_only_the_documented_checks_skip_the_template():
-    source = Path(__file__).read_text("utf-8")
-    used = set(re.findall(r"\bguarded\(\s*\"([a-z0-9_]+)\"\s*\)", source))
+    """Every call of ``guarded(`` in this module names its check id as a string literal, the set
+    of those ids is exactly ``_CHECKS_THAT_SKIP_THE_TEMPLATE``, and each is named in the module
+    docstring's "Scope decisions" bullet that gives the reasons -- not merely anywhere in the
+    docstring, whose check-id table names nearly every check."""
+    tree = ast.parse(Path(__file__).read_text("utf-8"))
+    # ``guarded_with_template`` builds on ``guarded(check_id)``; that call passes its own
+    # parameter through and is not a check's parametrisation.
+    tree.body = [
+        n
+        for n in tree.body
+        if not (isinstance(n, ast.FunctionDef) and n.name == "guarded_with_template")
+    ]
+    calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "guarded"
+    ]
+    literal = [
+        call.args[0].value
+        for call in calls
+        if len(call.args) == 1
+        and isinstance(call.args[0], ast.Constant)
+        and isinstance(call.args[0].value, str)
+    ]
+    assert len(literal) == len(calls), "a guarded(...) call whose check id is not a literal"
+    used = set(literal)
     assert used == _CHECKS_THAT_SKIP_THE_TEMPLATE, used ^ _CHECKS_THAT_SKIP_THE_TEMPLATE
     docstring = __doc__ or ""
-    assert all(f"``{check}``" in docstring for check in _CHECKS_THAT_SKIP_THE_TEMPLATE)
+    scope = docstring.split("Scope decisions", 1)[1].split("\n* ", 2)[1]
+    missing = [c for c in _CHECKS_THAT_SKIP_THE_TEMPLATE if f"``{c}``" not in scope]
+    assert not missing, f"no reason given in the Scope decisions bullet for {missing}"
 
 
 def _audited_mini_recipe(tmp_path: Path, n: int = 3) -> tuple[Path, str]:
