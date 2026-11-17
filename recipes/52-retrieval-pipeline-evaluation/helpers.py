@@ -6,7 +6,7 @@ The fixture generator, the notebook and the tests all load this file with
 """
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from jev_cookbook import Choice, Score
@@ -68,6 +68,8 @@ VERDICT_OPTIONS = {
 ANSWERED = "answered"
 REVIEW = "review"
 REASON_CONFIDENCE = "confidence below the threshold"
+REASON_UNCALIBRATED = "no validation threshold met the accuracy target"
+REASON_UNVERIFIED = "claim verification was skipped"
 REASON_NO_EVIDENCE = "no passage was kept as evidence"
 REASON_CONFIDENT = "confidence reaches the threshold"
 
@@ -275,15 +277,28 @@ class PipelineRun:
     evidence: tuple[Candidate, ...]
     keep: dict[str, Any]
     relevance: dict[str, Any]
-    verdict: Any | None  # the verdict ChoiceAnswer, or None when no evidence was kept
+    verdict: Any | None  # the verdict ChoiceAnswer, or None before or without verification
+
+
+def prepare_pipeline(
+    backend: Any, example_id: str, fields: dict[str, Any], config: str
+) -> PipelineRun:
+    """Run request A and Python's cut, stopping before the verifier."""
+    cands, keep, relevance = ask_stage_one(backend, fields, config)
+    evidence = select_evidence(cands, config, keep, relevance)
+    return PipelineRun(example_id, config, tuple(cands), evidence, keep, relevance, None)
+
+
+def verify_run(backend: Any, claim: str, run: PipelineRun) -> PipelineRun:
+    """Run request B on the selected evidence, leaving the prepared run unchanged."""
+    return replace(run, verdict=ask_verdict(backend, claim, run.evidence))
 
 
 def run_pipeline(backend: Any, example_id: str, fields: dict[str, Any], config: str) -> PipelineRun:
     """Run ``config`` on one example: request A, Python's cut, then request B."""
-    cands, keep, relevance = ask_stage_one(backend, fields, config)
-    evidence = select_evidence(cands, config, keep, relevance)
-    verdict = ask_verdict(backend, fields["claim"], evidence)
-    return PipelineRun(example_id, config, tuple(cands), evidence, keep, relevance, verdict)
+    return verify_run(
+        backend, fields["claim"], prepare_pipeline(backend, example_id, fields, config)
+    )
 
 
 # ---------------------------------------------------------------------------------- The gate rule
@@ -308,20 +323,24 @@ class Outcome:
             raise ValueError("a review outcome reports no verdict")
 
 
-def finalize(run: PipelineRun, min_confidence: float) -> Outcome:
+def finalize(run: PipelineRun, min_confidence: float | None) -> Outcome:
     """Turn a run into the reported outcome.
 
-    No evidence kept: ``review``, with no verdict (the decision never reached Jev). A verdict
-    below ``min_confidence``: ``review``, whatever it says, ``not_enough_evidence`` included.
+    No evidence kept or verification skipped: ``review`` with no proposed verdict. If calibration
+    produced no threshold (``min_confidence`` is ``None``), every proposal goes to review.
+    A verdict below ``min_confidence`` also goes to review, ``not_enough_evidence`` included.
     Otherwise the verdict is answered and cites exactly the evidence the verifier read. Nothing
     the model answers can produce a verdict without cited evidence, or a verdict outside
     ``VERDICTS``, because both are checked here.
     """
-    if not 0.0 <= min_confidence <= 1.0:
+    if min_confidence is not None and not 0.0 <= min_confidence <= 1.0:
         raise ValueError(f"min_confidence must be between 0 and 1, got {min_confidence!r}")
     ids = tuple(c.passage_id for c in run.evidence)
     if run.verdict is None:
-        return Outcome(run.example_id, REVIEW, None, ids, REASON_NO_EVIDENCE, None)
+        reason = REASON_UNVERIFIED if ids else REASON_NO_EVIDENCE
+        return Outcome(run.example_id, REVIEW, None, ids, reason, None)
+    if min_confidence is None:
+        return Outcome(run.example_id, REVIEW, None, ids, REASON_UNCALIBRATED, run.verdict.choice)
     if run.verdict.confidence < min_confidence:
         return Outcome(run.example_id, REVIEW, None, ids, REASON_CONFIDENCE, run.verdict.choice)
     return Outcome(

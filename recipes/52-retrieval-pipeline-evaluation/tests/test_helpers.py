@@ -4,6 +4,7 @@ import json
 import random
 import re
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -77,6 +78,38 @@ def test_the_notebook_selects_the_threshold_by_target_accuracy_not_min_coverage(
     source = "".join(cell["source"])
     assert "target_accuracy=1.0" in source
     assert "min_coverage" not in source
+
+
+@pytest.mark.parametrize("empty_validation", [False, True])
+def test_unattainable_calibration_reviews_a_verdict_at_confidence_one(
+    empty_validation, monkeypatch, capsys
+):
+    certain_wrong = _run_with(["a-p1"], _verdict([1.0, 0.0, 0.0]))
+    assert certain_wrong.verdict.confidence == 1.0
+    validation_run = _run_with([], None) if empty_validation else certain_wrong
+    monkeypatch.setattr(helpers, "run_pipeline", lambda *args: validation_run)
+    notebook = json.loads((RECIPE / "notebook.ipynb").read_text("utf-8"))
+    gate = next(cell for cell in notebook["cells"] if cell["id"] == "gate")
+    scope = {
+        "helpers": helpers,
+        "select_confidence_threshold": select_confidence_threshold,
+        "val_examples": [SimpleNamespace(id="v01", fields={})],
+        "labels": {"v01": {"verdict": helpers.CONTRADICTED}},
+        "backend": None,
+        "calls_so_far": lambda: 0,
+        "selection": "",
+        "check": "",
+    }
+    exec("".join(gate["source"]), scope)
+    assert scope["threshold"] is None
+    assert "accepted validation verdicts" not in capsys.readouterr().out
+    outcome = helpers.finalize(certain_wrong, scope["threshold"])
+    assert (outcome.outcome, outcome.verdict, outcome.proposed, outcome.reason) == (
+        helpers.REVIEW,
+        None,
+        helpers.SUPPORTED,
+        helpers.REASON_UNCALIBRATED,
+    )
 
 
 # --------------------------------------------------------------------------------------------
@@ -411,6 +444,31 @@ def test_the_audit_names_the_verdict_request_last_and_after_every_stage_one_requ
     stage_one_keys = [c["replay_key"] for c in audit["calls"][:4]]
     assert len(set(stage_one_keys)) == 4
     assert audit["calls"][4]["replay_key"] not in stage_one_keys
+
+
+def test_verifier_ablation_reuses_the_evidence_and_stops_before_the_verdict_request():
+    example = next(e for e in load_inputs(RECIPE) if e.id == "t10")
+    gold = load_labels(RECIPE)[example.id]["verdict"]
+    backend = AuditedBackend(get_backend(fixtures=responses_path(RECIPE)))
+    prepared = helpers.prepare_pipeline(backend, example.id, example.fields, "full")
+    outcome = helpers.finalize(prepared, 0.0)
+    assert outcome.evidence_ids
+    assert (outcome.outcome, outcome.verdict, outcome.reason) == (
+        helpers.REVIEW,
+        None,
+        helpers.REASON_UNVERIFIED,
+    )
+    assert not helpers.answer_supported(outcome, gold)
+    stage_one = backend.audit()
+    assert stage_one["decide_calls"] == len(prepared.candidates) == 4
+
+    verified = helpers.verify_run(backend, example.fields["claim"], prepared)
+    assert prepared.verdict is None
+    assert verified.evidence == prepared.evidence
+    assert verified.verdict is not None
+    with_verification = backend.audit()
+    assert with_verification["decide_calls"] == stage_one["decide_calls"] + 1
+    assert with_verification["calls"][:-1] == stage_one["calls"]
 
 
 # --------------------------------------------------------------------------------------------
