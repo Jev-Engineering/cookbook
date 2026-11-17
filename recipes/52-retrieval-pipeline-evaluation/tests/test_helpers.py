@@ -13,6 +13,7 @@ from jev_cookbook import (
     ChoiceAnswer,
     Provenance,
     ScoreAnswer,
+    ScriptedBackend,
     get_backend,
     load_helpers,
 )
@@ -295,6 +296,44 @@ def test_a_filter_that_drops_everything_leaves_no_evidence_and_no_verdict_reques
             raise AssertionError("no request may be made without evidence")
 
     assert helpers.ask_verdict(Refuses(), example.fields["claim"], ()) is None
+
+
+def test_notebook_hard_case_shows_review_when_every_passage_is_dropped(capsys):
+    def drop_passage(state, questions, rng):
+        assert set(questions) == {"keep", "relevance"}
+        return {"keep": helpers.DROP, "relevance": [1, 0, 0, 0]}
+
+    def unexpected_answer(answer):
+        pytest.fail("there is no verdict answer to display")
+
+    hard = next(e for e in load_inputs(RECIPE) if e.id == "d01")
+    backend = AuditedBackend(ScriptedBackend(drop_passage))
+    cands, keep, relevance = helpers.ask_stage_one(backend, hard.fields, "full")
+
+    def calls_so_far():
+        return backend.audit()["decide_calls"]
+
+    before = calls_so_far()
+    notebook = json.loads((RECIPE / "notebook.ipynb").read_text("utf-8"))
+    boundary = next(cell for cell in notebook["cells"] if cell["id"] == "boundary")
+    scope = {
+        "helpers": helpers,
+        "hard": hard,
+        "backend": backend,
+        "cands": cands,
+        "keep": keep,
+        "relevance": relevance,
+        "calls_so_far": calls_so_far,
+        "show_answer": unexpected_answer,
+    }
+    exec("".join(boundary["source"]), scope)
+    assert calls_so_far() == before
+    assert scope["run_d01_full"].verdict is None
+    assert scope["run_d01_full"].evidence == ()
+    assert (
+        "request B: 0 requests. Outcome is review (no passage was kept as evidence)."
+        in capsys.readouterr().out
+    )
 
 
 def test_the_ties_in_expected_relevance_go_to_the_earlier_retrieval_position():
