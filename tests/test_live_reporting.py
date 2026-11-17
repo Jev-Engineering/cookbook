@@ -415,8 +415,22 @@ def test_teardown_error_after_a_pass_is_one_test(tmp_path):
             ("httpx2",),
         ),
         ({"httpx2": 'raise ImportError("broken httpx2")'}, ("typesafe_sdk",)),
+        (
+            {
+                "typesafe_sdk": (
+                    "raise ModuleNotFoundError("
+                    '"No module named \'typesafe_sdk._core\'", name="typesafe_sdk._core")'
+                )
+            },
+            ("httpx2",),
+        ),
     ],
-    ids=["sdk-import-error", "sdk-transitive-missing", "httpx2-import-error"],
+    ids=[
+        "sdk-import-error",
+        "sdk-transitive-missing",
+        "httpx2-import-error",
+        "sdk-own-submodule-missing",
+    ],
 )
 def test_a_present_but_broken_sdk_fails_collection_loudly(tmp_path, stub_sources, stubs):
     rc, out, counts = run_pytest(tmp_path, REAL_SDK_FILES, stubs=stubs, stub_sources=stub_sources)

@@ -13,7 +13,7 @@ import io
 import math
 import re
 import struct
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from fractions import Fraction
 from numbers import Integral, Real
@@ -23,10 +23,10 @@ from typing import Any
 
 from PIL import Image, ImageDraw, UnidentifiedImageError
 
-from ._canonical import canonical_image_format
-from .backends import _string_values
+from ._canonical import MAX_DEPTH, canonical_image_format, check_depth
+from .backends import _check_request, _string_values
 from .evaluation import sum_usage
-from .style import INK, PAPER, PINK
+from .style import INK, PAPER, PINK, _is_iso_date
 
 __all__ = [
     "DEFAULT_MAX_TILES",
@@ -41,6 +41,8 @@ __all__ = [
     "LocalizationReport",
     "box_confidence",
     "box_iou",
+    "comparison_table",
+    "context_size",
     "crop_bounds",
     "crop_box",
     "draw_boxes",
@@ -1279,22 +1281,59 @@ def load_frames(
     return state, assets
 
 
+# The four modes of a run_record row.
+_MODES = ("synthetic", "scripted", "recorded", "live")
+
+
+def _recorded_dates(result: Any) -> set[str]:
+    """The provenance dates on a result's answers (empty for a result without dated answers)."""
+    return {
+        answer.provenance.date
+        for answer in getattr(result, "answers", {}).values()
+        if answer.provenance.date
+    }
+
+
+def _capture_date(value: Any) -> str:
+    # The same rule as ``run_header``'s date: a real calendar date written exactly YYYY-MM-DD.
+    if not _is_iso_date(value):
+        raise ValueError("capture_date must be a real calendar date written YYYY-MM-DD")
+    return value
+
+
 def run_record(
     result: Any,
     *,
     mode: str,
     measured_latency_seconds: float | None = None,
     measured_cost_usd: float | None = None,
+    capture_date: str | None = None,
+    n: int | None = None,
 ) -> dict[str, Any]:
     """Make one accounting row without estimating tokens, latency or cost.
 
     ``result`` has the ``source``, ``model`` and ``usage`` attributes of DecisionResult.
     Synthetic/scripted records always contain null usage, latency, cost and model.
     Recorded/live rows take reported tokens and only explicitly supplied measurements.
-    Recorded latency must come from capture, never the elapsed time of replay.
+    Recorded latency must come from capture, never the elapsed time of replay: read it from
+    the recorder's ledger with ``jev_cookbook.live.load_ledger_latency``.
+
+    ``capture_date`` (a ``YYYY-MM-DD`` calendar date) and ``n`` (a positive integer: how many
+    examples the row's numbers cover) become keys of the row only when they are given, so a row
+    built without them has exactly the keys it had before they existed. A synthetic or scripted
+    row refuses ``capture_date``, because no capture happened, and accepts ``n``. A recorded or
+    live row refuses a ``capture_date`` that differs from the date on the result's recorded
+    answers.
     """
-    if mode not in ("synthetic", "scripted", "recorded", "live"):
+    if mode not in _MODES:
         raise ValueError("mode must be synthetic, scripted, recorded or live")
+    extra: dict[str, Any] = {}
+    if capture_date is not None:
+        if mode in ("synthetic", "scripted"):
+            raise ValueError("synthetic/scripted runs have no capture, so no capture_date")
+        extra["capture_date"] = _capture_date(capture_date)
+    if n is not None:
+        extra["n"] = _positive_int(n, "n")
     row: dict[str, Any] = dict.fromkeys(
         ("model", "input_tokens", "output_tokens", "latency_seconds", "cost_usd")
     )
@@ -1304,6 +1343,7 @@ def run_record(
             raise ValueError("synthetic/scripted mode requires a synthetic result")
         if measured_latency_seconds is not None or measured_cost_usd is not None:
             raise ValueError("synthetic/scripted runs cannot report measured API latency or cost")
+        row.update(extra)
         return row
     model = getattr(result, "model", None)
     if (
@@ -1313,6 +1353,13 @@ def run_record(
         or model == "synthetic"
     ):
         raise ValueError("recorded/live mode requires a recorded result with its returned model")
+    if "capture_date" in extra:
+        dates = _recorded_dates(result)
+        if dates and dates != {extra["capture_date"]}:
+            raise ValueError(
+                f"capture_date {extra['capture_date']} contradicts the result's recorded answers, "
+                f"dated {sorted(dates)}"
+            )
     usage = sum_usage([getattr(result, "usage", None)])
     row.update(
         model=model,
@@ -1327,4 +1374,143 @@ def run_record(
             None if measured_cost_usd is None else _number(measured_cost_usd, "measured_cost_usd")
         ),
     )
+    row.update(extra)
     return row
+
+
+def _strings(value: Any) -> Iterator[str]:
+    """Every ``str`` in ``value`` at any depth: a bare string, list items, object keys and values."""
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, Mapping):
+        for key, part in value.items():
+            yield from _strings(key)
+            yield from _strings(part)
+    elif isinstance(value, (list, tuple)):
+        for part in value:
+            yield from _strings(part)
+
+
+def context_size(state: Any, questions: Mapping[str, Any]) -> dict[str, int]:
+    """Count the text of a request in characters and in UTF-8 bytes. These are not tokens.
+
+    The count is local and exact for the strings it covers, and it is not an estimate of
+    anything the API reports: the API's own count is ``usage.input_tokens`` of a recorded
+    response, which this module never derives.
+
+    The strings counted are those in ``state`` (a string, the items of a list, or the keys and
+    string values of an object, at any depth) and, for every question, its name and every string
+    in its ``instructions`` and ``criteria`` (object keys included, so a ``Choice``'s option
+    names count). Each string is counted once where it appears, so an instruction shared by
+    two questions is counted twice. JSON punctuation, numbers, booleans and the question type
+    are not counted, and an image reference is counted as the text it is while the image behind
+    it is not. Pass a single question to count the state plus that question alone. ``state`` and
+    ``questions`` get the same checks as a request (``TypeError``/``ValueError``), so input that
+    ``decide`` would refuse is never counted short.
+
+    Returns ``{"characters": ..., "utf8_bytes": ...}``: the sum of ``len(s)`` and of
+    ``len(s.encode("utf-8"))``. A string that cannot be encoded as UTF-8 (a lone surrogate)
+    raises ``ValueError``.
+    """
+    # The same checks as a request: a state or question that ``decide`` would refuse is refused
+    # here too, rather than counted as fewer characters than it has.
+    state, questions = _check_request(state, questions)
+    for name, question in questions.items():
+        # The per-part depth limit replay_key applies, so an over-deep part raises here too.
+        content = question.to_dict()
+        check_depth(content.get("instructions"), f"question {name!r} instructions", MAX_DEPTH)
+        criteria = content.get("criteria")
+        parts = criteria.items() if isinstance(criteria, dict) else enumerate(criteria or ())
+        for label, part in parts:
+            check_depth(part, f"question {name!r} criteria[{label!r}]", MAX_DEPTH)
+    parts = list(_strings(state))
+    for name, question in questions.items():
+        parts.extend(_strings(name))
+        parts.extend(_strings(getattr(question, "instructions", None)))
+        parts.extend(_strings(getattr(question, "criteria", None)))
+    try:
+        utf8_bytes = sum(len(part.encode("utf-8")) for part in parts)
+    except UnicodeEncodeError:
+        raise ValueError("a string in the request cannot be encoded as UTF-8") from None
+    return {"characters": sum(len(part) for part in parts), "utf8_bytes": utf8_bytes}
+
+
+_TABLE_COLUMNS = (
+    "label",
+    "mode",
+    "model",
+    "characters",
+    "utf8_bytes",
+    "input_tokens",
+    "output_tokens",
+    "latency_seconds",
+    "cost_usd",
+    "capture_date",
+    "n",
+)
+_MEASUREMENT_FIELDS = ("model", "input_tokens", "output_tokens", "latency_seconds", "cost_usd")
+_NOT_MEASURED = "not measured"
+# Columns that hold no measurement: "not measured" would be the wrong word for a missing value.
+_COMPUTED_COLUMNS = ("label", "characters", "utf8_bytes", "n")
+
+
+def comparison_table(rows: Iterable[Mapping[str, Any]]) -> str:
+    """Format accounting rows as an aligned text table; a value that is ``None`` reads ``not measured``.
+
+    Each row is a mapping with keys from ``label``, ``mode``, ``model``, ``characters``,
+    ``utf8_bytes``, ``input_tokens``, ``output_tokens``, ``latency_seconds``, ``cost_usd``,
+    ``capture_date`` and ``n``: the keys of a :func:`run_record` row, plus a ``label`` and the
+    two keys of :func:`context_size` that the caller adds. A column appears when at least one
+    row has that key. A row without the key shows ``-``; a key whose value is ``None`` shows
+    ``not measured``, so a synthetic or scripted row, or a recorded row whose response reported
+    no ``input_tokens``, never shows a number it does not have. Other values are shown as
+    ``str`` of the value, unrounded.
+
+    Raises ``ValueError`` for no rows, for a key outside the list above, for a row whose ``mode``
+    is not ``synthetic``, ``scripted``, ``recorded`` or ``live``, for a row whose ``mode`` is
+    ``synthetic`` or ``scripted`` but whose model, tokens, latency, cost or capture date is not
+    ``None`` (such a row did not come from :func:`run_record`), and for a ``None`` in a column
+    computed locally (label, mode, characters, utf8_bytes, n), where "not measured" would be wrong.
+    """
+    table = [dict(row) for row in rows]
+    if not table:
+        raise ValueError("comparison_table needs at least one row")
+    for row in table:
+        unknown = [key for key in row if key not in _TABLE_COLUMNS]
+        if unknown:
+            raise ValueError(f"unknown comparison column(s) {unknown!r}; allowed: {_TABLE_COLUMNS}")
+        if row.get("mode") not in _MODES:
+            raise ValueError(
+                f"every row needs a mode, one of {_MODES}, got {row.get('mode')!r}; "
+                "build rows with run_record"
+            )
+        if row["mode"] in ("synthetic", "scripted") and any(
+            row.get(field) is not None for field in (*_MEASUREMENT_FIELDS, "capture_date")
+        ):
+            raise ValueError(
+                "a synthetic or scripted row cannot hold a model, tokens, latency, cost or capture "
+                "date; build rows with run_record"
+            )
+        computed = [key for key in _COMPUTED_COLUMNS if key in row and row[key] is None]
+        if computed:
+            raise ValueError(
+                f"{computed} are computed locally, never measured, so they cannot be None"
+            )
+    columns = [column for column in _TABLE_COLUMNS if any(column in row for row in table)]
+
+    def cell(row: Mapping[str, Any], column: str) -> str:
+        if column not in row:
+            return "-"
+        return _NOT_MEASURED if row[column] is None else str(row[column])
+
+    body = [[cell(row, column) for column in columns] for row in table]
+    widths = [
+        max(len(column), *(len(line[i]) for line in body)) for i, column in enumerate(columns)
+    ]
+
+    def line(cells: list[str]) -> str:
+        return "  ".join(
+            text.ljust(width) for text, width in zip(cells, widths, strict=True)
+        ).rstrip()
+
+    return "\n".join([line(columns), line(["-" * width for width in widths]), *map(line, body)])
