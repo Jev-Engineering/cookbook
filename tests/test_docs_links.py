@@ -229,6 +229,8 @@ def test_an_escaped_bracket_starts_no_link(tmp_path):
         "Text\n    ```\nmore\n\n[real](real.md)",
         "<!--\n```\n-->\n[real](real.md)",
         "Paragraph\n* * *\n    [sample](sample.md)\n\n[real](real.md)",
+        "- <!--\n  ~~~\n  -->\n  [real](real.md)",
+        "- <!--\n  --> [sample](sample.md)\n  [real](real.md)",
     ],
 )
 def test_only_fences_valid_in_their_block_hide_links(tmp_path, sample):
