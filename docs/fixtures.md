@@ -174,7 +174,7 @@ A recipe that scores a transition over an ordered frame sequence ([vision](visio
 
 `(label["transition"], label.get("seconds"))` is the `(label, seconds_or_None)` pair that `evaluation.transition_metrics` takes for gold ([evaluation](evaluation.md#transitions)).
 
-**What the validator checks.** A label object with a top-level `transition` key and no `present` key declares the transition format. Once a label declares this format, `python -m jev_cookbook.fixtures validate` checks every label in the file and reports these problems.
+**What the validator checks.** A label object with a top-level `transition` key and no `present` key declares the transition format. When both `inputs.jsonl` and `labels.jsonl` are readable and a loaded label declares the format, `python -m jev_cookbook.fixtures validate` checks each loaded label and reports these problems.
 
 - a label that is not a transition label (a string, a list, or an object without `transition`, such as `{"seconds": 2.5}`), naming the first label that declares the format;
 - a key other than `transition` and `seconds`;
