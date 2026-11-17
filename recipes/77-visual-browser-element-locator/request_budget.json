@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "backends": {
+    "main": {
+      "requests": 39,
+      "at_most": 48,
+      "fixtures": "fixtures/responses.json",
+      "profile": {"images": 39, "distinct_images": 39}
+    }
+  }
+}
