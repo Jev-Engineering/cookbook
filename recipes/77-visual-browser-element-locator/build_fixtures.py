@@ -236,9 +236,9 @@ def requests(rows, parts, root):
         items = [(replay_key(state, first, assets=assets), observation.judgments)]
         threshold = helpers.COLLECTION_THRESHOLD if split == "validation" else policy.presence
         if helpers.first_gate(observation.judgments, threshold) is None:
-            second = helpers.box_questions()
+            box_state, second = helpers.box_request(state)
             items.append(
-                (replay_key(state, second, assets=assets), {"target_box": observation.location})
+                (replay_key(box_state, second, assets=assets), {"target_box": observation.location})
             )
         yield ident, split, fields, gold, items
 

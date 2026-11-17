@@ -2,7 +2,6 @@
 
 import math
 from dataclasses import dataclass
-from pathlib import Path
 
 from PIL import Image
 
@@ -25,6 +24,7 @@ from jev_cookbook.vision import (
     normalized_box,
     normalized_to_pixels,
     preflight_image_request,
+    resolve_asset_path,
 )
 
 COLLECTION_THRESHOLD = 0.5
@@ -63,7 +63,7 @@ class Outcome:
 
 def request_data(fields, recipe_dir):
     """Use only the target description and an opaque, content-derived image reference."""
-    asset = image_asset(Path(recipe_dir) / fields["image"])
+    asset = image_asset(fields["image"], root=recipe_dir)
     ref = image_reference(asset)
     state = {"screenshot": ref, "target": fields["target"], "kind": fields["kind"]}
     return state, {ref: asset}
@@ -88,16 +88,18 @@ def build_questions():
     }
 
 
-def box_questions():
-    return {
+def box_request(state):
+    """Describe the concrete target in the Box instructions and keep only the image in state."""
+    questions = {
         "target_box": Box(
             instructions=(
-                "Locate the single named target control in the screenshot. "
+                f"Locate the single {state['kind']} labelled {state['target']!r} in the screenshot. "
                 "Return the visible part of its outer rectangle, excluding its surrounding card "
                 "and excluding any separate text label above an input."
             )
         )
     }
+    return {"screenshot": state["screenshot"]}, questions
 
 
 def classify_noul(answer, gate):
@@ -149,7 +151,8 @@ def observe(backend, fields, recipe_dir, presence_threshold):
     judgments = dict(image_decide(backend, state, build_questions(), assets).answers)
     if first_gate(judgments, presence_threshold) is not None:
         return Observation(judgments, None)
-    location = image_decide(backend, state, box_questions(), assets)["target_box"]
+    box_state, questions = box_request(state)
+    location = image_decide(backend, box_state, questions, assets)["target_box"]
     return Observation(judgments, location)
 
 
@@ -199,7 +202,7 @@ def route(observation, policy, dimensions):
 
 def dimensions(fields, recipe_dir):
     """Read actual image dimensions; do not trust a field supplied by a model."""
-    with Image.open(Path(recipe_dir) / fields["image"]) as image:
+    with Image.open(resolve_asset_path(fields["image"], root=recipe_dir)) as image:
         return image.size
 
 
@@ -286,17 +289,21 @@ def select_noul_gate(examples, observations, labels):
     return select_confidence_threshold(correct, noul_confidence(probabilities), min_coverage=0.7)
 
 
-def select_policy(examples, observations, labels):
-    """Freeze presence before selecting the Box gate from eligible validation proposals."""
-    presence = (1 + select_noul_gate(examples, observations, labels)) / 2
-    confidences, correct = [], []
+def box_selection_rows(examples, observations, presence):
+    """Yield only proposals eligible for confidence calibration."""
     for example in examples:
         seen = observations[example.id]
         if first_gate(seen.judgments, presence) is not None:
             continue
-        box = seen.location
-        if box is None or box.confidence is None:
-            continue
+        if seen.location is not None and seen.location.confidence is not None:
+            yield example, seen.location
+
+
+def select_policy(examples, observations, labels):
+    """Freeze presence before selecting the Box gate from eligible validation proposals."""
+    presence = (1 + select_noul_gate(examples, observations, labels)) / 2
+    confidences, correct = [], []
+    for example, box in box_selection_rows(examples, observations, presence):
         gold = labels[example.id]
         confidences.append(box.confidence)
         correct.append(
@@ -308,30 +315,26 @@ def select_policy(examples, observations, labels):
     return Policy(presence, threshold)
 
 
-def measure_noul_gates(policy):
-    """Compare first-stage outcomes over a grid with one Noul confidence gate removed."""
-    from types import SimpleNamespace
+def measure_noul_gates(examples, observations, policy):
+    """Remove each gate in turn and count changes on the original validation judgments."""
+    if not examples or any(example.split != "validation" for example in examples):
+        raise ValueError("gate ablation requires only validation examples")
 
     def disposition(outcome):
-        return outcome.status if outcome else "request_box"
+        return outcome.status if outcome is not None else "request_box"
 
-    counts = {}
+    rows = [observations[example.id].judgments for example in examples]
+    full = [disposition(first_gate(judgments, policy.presence)) for judgments in rows]
+    results = {}
     for name in build_questions():
-        changed = [0, 0]
-        for step in range(101):
-            probability = step / 100
-            held = 0.0 if name == "present" and probability <= 0.5 else 1.0
-            held_probabilities = dict.fromkeys(build_questions(), held)
-            held_probabilities[name] = probability
-            judgments = {
-                question: SimpleNamespace(noul=value)
-                for question, value in held_probabilities.items()
-            }
-            with_gate = first_gate(judgments, policy.presence)
+        changed, total = [0, 0], [0, 0]
+        for judgments, original in zip(rows, full, strict=True):
+            side = judgments[name].noul > 0.5
             without = first_gate(judgments, policy.presence, ungated=name)
-            changed[probability > 0.5] += disposition(with_gate) != disposition(without)
-        counts[name] = tuple(changed)
-    return counts
+            total[side] += 1
+            changed[side] += disposition(without) != original
+        results[name] = tuple(zip(changed, total, strict=True))
+    return results
 
 
 def baseline(fields, size):
@@ -353,7 +356,7 @@ def show_location(fields, recipe_dir, outcome):
     """Annotated screenshot and actual crop, displayed with the cookbook's figure style."""
     from matplotlib.figure import Figure
 
-    with Image.open(Path(recipe_dir) / fields["image"]) as source:
+    with Image.open(resolve_asset_path(fields["image"], root=recipe_dir)) as source:
         image = source.convert("RGB")
     fig = Figure(figsize=(10, 4), layout="constrained")
     full, close = fig.subplots(1, 2, gridspec_kw={"width_ratios": [2, 1]})

@@ -10,7 +10,7 @@ from PIL import Image
 from jev_cookbook import BoxAnswer, NoulAnswer, Provenance, ReplayBackend, load_helpers, replay_key
 from jev_cookbook.evaluation import noul_confidence
 from jev_cookbook.fixtures import load_inputs, load_labels, responses_path, select_split
-from jev_cookbook.vision import box_iou, gold_box
+from jev_cookbook.vision import AssetPathError, box_iou, gold_box, resolve_asset_path
 
 RECIPE = Path(__file__).resolve().parent.parent
 helpers = load_helpers(RECIPE)
@@ -31,7 +31,7 @@ def observation(present=0.98, unique=0.98, enabled=0.98, confidence=0.99, box=No
     return helpers.Observation(judgments, location)
 
 
-def validation_policy():
+def validation_data():
     examples = load_inputs(RECIPE)
     labels = load_labels(RECIPE)
     backend = ReplayBackend.from_json(responses_path(RECIPE))
@@ -40,7 +40,11 @@ def validation_policy():
         e.id: helpers.observe(backend, e.fields, RECIPE, helpers.COLLECTION_THRESHOLD)
         for e in validation
     }
-    return helpers.select_policy(validation, observations, labels)
+    return validation, observations, labels
+
+
+def validation_policy():
+    return helpers.select_policy(*validation_data())
 
 
 @pytest.mark.parametrize(
@@ -178,10 +182,12 @@ class TrackingBackend:
         self.backend = backend
         self.keys = []
         self.question_sets = []
+        self.requests = []
 
     def decide(self, state, questions, *, assets):
         self.keys.append(replay_key(state, questions, assets=assets))
         self.question_sets.append(set(questions))
+        self.requests.append((state, questions))
         return self.backend.decide(state, questions, assets=assets)
 
 
@@ -297,12 +303,46 @@ def test_stored_answers_are_not_all_right():
     assert wrong_and_confident == ["t07"]
 
 
-def test_actual_noul_gate_changes_dispositions_on_the_expected_sides():
-    assert helpers.measure_noul_gates(validation_policy()) == {
-        "present": (40, 39),
-        "unique": (0, 39),
-        "enabled": (0, 39),
+def test_actual_noul_gate_ablation_uses_the_committed_validation_judgments():
+    validation, observations, labels = validation_data()
+    policy = helpers.select_policy(validation, observations, labels)
+    assert helpers.measure_noul_gates(validation, observations, policy) == {
+        "present": ((0, 1), (2, 9)),
+        "unique": ((0, 2), (0, 8)),
+        "enabled": ((0, 2), (0, 8)),
     }
+    [held_out, *_] = select_split(load_inputs(RECIPE), "test")
+    with pytest.raises(ValueError, match="only validation"):
+        helpers.measure_noul_gates([*validation, held_out], observations, policy)
+
+
+def test_asset_paths_reject_absolute_paths_and_parent_traversal(tmp_path):
+    root = tmp_path / "recipe"
+    root.mkdir()
+    external = tmp_path / "synthetic.png"
+    Image.new("RGB", (512, 384), "white").save(external)
+    absent = helpers.Outcome("absent", "target judged absent")
+    for path in (external, "../synthetic.png"):
+        fields = {"image": path, "target": "Save changes", "kind": "button"}
+        with pytest.raises(AssetPathError):
+            helpers.request_data(fields, root)
+        with pytest.raises(AssetPathError):
+            helpers.dimensions(fields, root)
+        with pytest.raises(AssetPathError):
+            helpers.show_location(fields, root, absent)
+
+
+def test_actual_box_request_puts_the_target_description_in_instructions_only():
+    demo = select_split(load_inputs(RECIPE), "demo")[0]
+    backend = TrackingBackend(ReplayBackend.from_json(responses_path(RECIPE)))
+    helpers.observe(backend, demo.fields, RECIPE, POLICY.presence)
+    [(noul_state, _), (box_state, questions)] = backend.requests
+    assert noul_state["target"] == demo.fields["target"]
+    assert box_state == {"screenshot": noul_state["screenshot"]}
+    box = questions["target_box"].to_dict()
+    assert demo.fields["target"] in box["instructions"]
+    assert demo.fields["kind"] in box["instructions"]
+    assert "criteria" not in box
 
 
 def test_state_contains_no_gold_or_coordinate_leaks_and_images_meet_limits():
@@ -314,7 +354,7 @@ def test_state_contains_no_gold_or_coordinate_leaks_and_images_meet_limits():
         assert set(state) == {"screenshot", "target", "kind"}
         assert list(assets) == [state["screenshot"]]
         assert example.fields["image"].split("/")[-1].endswith(".png")
-        with Image.open(RECIPE / example.fields["image"]) as image:
+        with Image.open(resolve_asset_path(example.fields["image"], root=RECIPE)) as image:
             width, height = image.size
             assert width >= 384 and height >= 320 and width * height >= 78400
         changed = dict(example.fields, boxes=[BOX], present=False, layout="secret", label="secret")
